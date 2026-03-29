@@ -3,7 +3,7 @@
 // Responsible for layout structure only (Header + Body)
 
 import Header from "./header/Header";
-import Body from "./body/Body"; // You’ll connect later
+import Body from "./Body/Body"; // You’ll connect later
 
 export default function Transport() {
   return (
