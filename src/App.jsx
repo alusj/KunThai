@@ -1,25 +1,31 @@
+// =======================
 // src/App.jsx
+// Root application component
+// =======================
+
 import { useEffect, useState } from "react";
-import supabase from "./supabaseClient";
+import supabase from "./Backend/lib/supabaseClient.js";
 
 // Screens
 import BottomTabs from "./components/BottomTabs.jsx";
 import Login from "./Login.jsx";
-import Explore from "./Explore.jsx";
-import Marketplace from "./Marketplace.jsx";
-import Navigation from "./Navigation.jsx";
-import Transportation from "./Transportation.jsx";
-import UrBank from "./UrBank.jsx";
+import Explore from "./components/Explore/Explore.jsx";
+import Marketplace from "./components/Marketplace/Marketplace.jsx";
+// ❌ Removed UrBank
+import Transport from "./components/transport/Transport";
 
 export default function App() {
-  // -------- Auth state --------
+
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
-  // Which page is visible
-  const [page, setPage] = useState("explore");
+  const [nav, setNav] = useState(() => {
+    const saved = localStorage.getItem("appNavigation");
+    return saved
+      ? JSON.parse(saved)
+      : { root: "explore", sub: null };
+  });
 
-  // -------- Load auth session --------
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session ?? null);
@@ -35,7 +41,10 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // UI Guard
+  useEffect(() => {
+    localStorage.setItem("appNavigation", JSON.stringify(nav));
+  }, [nav]);
+
   if (!authReady) {
     return (
       <div className="min-h-screen grid place-items-center text-gray-600">
@@ -44,41 +53,35 @@ export default function App() {
     );
   }
 
-  // Not logged in → Login screen
   if (!session) {
     return <Login />;
   }
 
-  // ---------- MAIN UI ----------
+  const showBottomTabs = nav.sub === null;
+
   return (
     <div className="min-h-screen bg-slate-100 pb-20">
-      {/* --- Top Header --- */}
-      <header className="bg-white shadow p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-blue-600">UrSalone</h1>
 
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            setSession(null);
-            setPage("explore");
-          }}
-          className="px-3 py-1 bg-red-500 text-white rounded"
-        >
-          Logout
-        </button>
-      </header>
+      {nav.root === "explore" && (
+        <Explore setNav={setNav} />
+      )}
 
-      {/* --- Page Content --- */}
-      <main className="p-4">
-        {page === "explore" && <Explore />}
-        {page === "marketplace" && <Marketplace />}
-        {page === "urbank" && <UrBank />}
-        {page === "navigation" && <Navigation />}
-        {page === "transportation" && <Transportation />}
-      </main>
+      {nav.root === "marketplace" && (
+        <Marketplace nav={nav} setNav={setNav} />
+      )}
 
-      {/* --- Bottom Navigation Tabs --- */}
-      <BottomTabs page={page} setPage={setPage} />
+      {nav.root === "transport" && (
+        <Transport nav={nav} setNav={setNav} />
+      )}
+
+      {showBottomTabs && (
+        <BottomTabs
+          page={nav.root}
+          setPage={(root) =>
+            setNav({ root, sub: null })
+          }
+        />
+      )}
     </div>
   );
 }

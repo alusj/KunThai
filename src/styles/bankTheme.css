@@ -1,0 +1,42 @@
+/* styles/bankTheme.css – FIXED TOKENS */
+
+:root {
+  --bank-bg: #0b0b0b;
+  --bank-surface: #ffffff;
+  --bank-border: #1f1f1f;
+  --bank-primary: #16a34a;
+  --bank-accent: #1e3a8a;
+  --bank-text: #ffffff;
+  --bank-muted: #9ca3af;
+}
+
+.bg-bank-card { background: var(--bank-bg); }
+.bg-bank-surface { background: var(--bank-surface); }
+.border-bank-border { border-color: var(--bank-border); }
+.text-bank-text-primary { color: var(--bank-text); }
+.text-bank-text-muted { color: var(--bank-muted); }
+.bg-bank-primary { background: var(--bank-primary); }
+.bg-bank-accent { background: var(--bank-accent); }
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .bank-card {
+    @apply bg-bank-card rounded-xl shadow-card border border-bank-border;
+  }
+
+  .bank-section {
+    @apply bg-bank-card rounded-xl p-4 shadow-soft;
+  }
+
+  .bank-btn-primary {
+    @apply bg-bank-primary text-white rounded-lg px-4 py-2;
+  }
+
+  .bank-btn-accent {
+    @apply bg-bank-accent text-white rounded-lg px-4 py-2;
+  }
+}
