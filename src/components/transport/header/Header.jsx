@@ -3,7 +3,7 @@
 // Responsible for layout and positioning of header elements
 
 import OperatorButton from "./Operator/OperatorButton";
-import SearchButton from "./SearchButton";
+import SearchButton from "./searchButton";
 import NotificationButton from "./NotificationButton";
 import MenuButton from "./MenuButton";
 import Radar from "./Radar";

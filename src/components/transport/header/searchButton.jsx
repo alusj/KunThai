@@ -1,4 +1,4 @@
-// SearchButton.jsx
+ // SearchButton.jsx
 // Opens transport search modal (ride, driver, delivery etc.)
 
 import { FiSearch } from "react-icons/fi";
