@@ -4,13 +4,7 @@ import { useState } from "react";
 // Category tabs
 import SwipCategories from "./SwipCategories/SwipCategories";
 
-// Content tabs
 import All from "./tabs/All";
-import Entertainment from "./tabs/Entertainment";
-import Connections from "./tabs/Connections";
-import Religious from "./tabs/Religious";
-import Health from "./tabs/Health";
-import Education from "./tabs/Education";
 
 /*
   Swip.jsx
@@ -20,11 +14,11 @@ import Education from "./tabs/Education";
   - Vertical scroll content
 */
 
-export default function Swip() {
+export default function Swip({ currentUserId = "", onViewProfile }) {
   const [tab, setTab] = useState("all");
 
   return (
-    <div className="flex flex-col h-[calc(100vh-112px)] bg-slate-100">
+    <div className="flex min-h-[calc(100vh-112px)] flex-col bg-slate-100">
       {/* =============================
           CATEGORY BAR (HORIZONTAL)
       ============================== */}
@@ -34,12 +28,7 @@ export default function Swip() {
           CONTENT AREA (VERTICAL)
       ============================== */}
       <div className="flex-1 overflow-y-auto">
-        {tab === "all" && <All />}
-        {tab === "entertainment" && <Entertainment />}
-        {tab === "connections" && <Connections />}
-        {tab === "religious" && <Religious />}
-        {tab === "health" && <Health />}
-        {tab === "education" && <Education />}
+        <All category={tab} currentUserId={currentUserId} onViewProfile={onViewProfile} />
       </div>
     </div>
   );

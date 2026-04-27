@@ -1,63 +1,96 @@
-// src/Explore/ExploreTabs/urfeed/components/FeedPost.jsx
-// ------------------------------------------------------
-// Single Feed Post component
-// Represents ONE post in the feed
-// ------------------------------------------------------
+import { useState } from "react";
+
+import CommentsDrawer from "../comments/CommentsDrawer";
+import PostActions from "../post/PostActions";
+import PostHeader from "../post/PostHeader";
+import PostMedia from "../post/PostMedia";
+import PostOptionsMenu from "../post/PostOptionsMenu";
+import { copyPostLink, sharePost } from "../post/postUtils";
 
 export default function FeedPost({
-  author = "Anonymous",
-  time = "Just now",
-  content = "This is a post",
+  post,
+  currentUserId = "",
+  liked = false,
+  saved = false,
+  isOwner = false,
+  onLike,
+  onSave,
+  onComment,
+  onEdit,
+  onDelete,
+  onHide,
+  onReport,
+  onViewActivity,
+  onViewProfile,
+  followed = false,
+  onFollow,
 }) {
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [menuMessage, setMenuMessage] = useState("");
+
+  async function runAction(action) {
+    setOptionsOpen(false);
+
+    try {
+      const message = await action?.();
+      if (message) {
+        setMenuMessage(message);
+      }
+    } catch {
+      setMenuMessage("Action could not be completed");
+    }
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border mb-3">
+    <article id={`post-${post.id}`} className="relative overflow-visible rounded-[24px] border border-slate-200 bg-white shadow-sm">
+      <PostHeader
+        post={post}
+        isOwner={isOwner}
+        followed={followed}
+        onFollow={() => runAction(onFollow)}
+        onOptions={() => setOptionsOpen((current) => !current)}
+        onViewProfile={onViewProfile}
+      />
 
-      {/* =========================
-          POST HEADER
-      ========================= */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
-          {/* Avatar */}
-          <div className="w-10 h-10 rounded-full bg-slate-300 flex items-center justify-center">
-            👤
-          </div>
+      {optionsOpen ? (
+        <PostOptionsMenu
+          isOwner={isOwner}
+          saved={saved}
+          onCopy={() => runAction(() => copyPostLink(post.id))}
+          onDelete={() => runAction(onDelete)}
+          onEdit={() => runAction(onEdit)}
+          onHide={() => runAction(onHide)}
+          onReport={() => runAction(onReport)}
+          onSave={() => runAction(onSave)}
+          onShare={() => runAction(() => sharePost(post))}
+          onViewActivity={() => runAction(onViewActivity)}
+        />
+      ) : null}
 
-          {/* Author info */}
-          <div>
-            <p className="text-sm font-semibold">{author}</p>
-            <p className="text-xs text-gray-500">{time}</p>
-          </div>
-        </div>
+      {post.body ? <div className="whitespace-pre-wrap px-4 pb-4 text-[15px] leading-7 text-slate-800">{post.body}</div> : null}
 
-        {/* More actions */}
-        <button className="text-gray-500 text-xl">⋯</button>
-      </div>
+      <PostMedia post={post} />
 
-      {/* =========================
-          POST CONTENT
-      ========================= */}
-      <div className="px-4 pb-3 text-sm text-gray-800">
-        {content}
-      </div>
+      <PostActions
+        post={post}
+        liked={liked}
+        saved={saved}
+        onLike={onLike}
+        onComment={() => setCommentsOpen((current) => !current)}
+        onSave={onSave}
+        onShare={() => runAction(() => sharePost(post))}
+      />
 
-      {/* =========================
-          POST ACTIONS
-      ========================= */}
-      <div className="flex items-center justify-around border-t py-2 text-sm text-gray-600">
+      <CommentsDrawer
+        currentUserId={currentUserId}
+        open={commentsOpen}
+        post={post}
+        onClose={() => setCommentsOpen(false)}
+        onCreated={onComment}
+      />
 
-        <button className="flex items-center gap-1">
-          👍 <span>Like</span>
-        </button>
-
-        <button className="flex items-center gap-1">
-          💬 <span>Comment</span>
-        </button>
-
-        <button className="flex items-center gap-1">
-          💾 <span>Save</span>
-        </button>
-
-      </div>
-    </div>
+      {menuMessage ? <p className="px-4 pb-3 text-xs font-bold text-sky-700">{menuMessage}</p> : null}
+    </article>
   );
 }

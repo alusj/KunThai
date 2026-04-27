@@ -1,0 +1,45 @@
+import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
+import EmptyState from "../../shared/EmptyState";
+import ErrorState from "../../shared/ErrorState";
+import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
+import FeedSkeleton from "../../ExploreTabs/urfeed/feed/skeletons/FeedSkeleton";
+import SocialScreenHeader from "../shared/SocialScreenHeader";
+
+export default function MyPostsScreen({ currentUserId, hideHeader = false }) {
+  const feed = useExploreFeed("feed");
+  const myPosts = feed.posts.filter((post) => post.user_id === currentUserId);
+
+  if (feed.loading) {
+    return <FeedSkeleton />;
+  }
+
+  return (
+    <div>
+      {!hideHeader ? <SocialScreenHeader title="My Posts" subtitle="Posts you have shared on Explore." /> : null}
+
+      <div className="w-full space-y-4 px-4 py-4 sm:px-5">
+        {feed.error ? <ErrorState message={feed.error} onRetry={feed.reload} /> : null}
+
+        {!myPosts.length ? (
+          <EmptyState title="No posts yet" message="When you share something, it will appear here." />
+        ) : (
+          myPosts.map((post) => (
+            <FeedPost
+              key={post.id}
+              post={post}
+              liked={feed.likedPosts.has(post.id)}
+              saved={feed.savedPosts.has(post.id)}
+              isOwner
+              onLike={() => feed.toggleLike(post.id)}
+              onSave={() => feed.toggleSave(post.id)}
+              onComment={() => feed.addComment(post.id)}
+              onEdit={() => feed.editPost(post.id)}
+              onDelete={() => feed.deletePost(post.id)}
+              onViewActivity={() => feed.viewActivity(post.id)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

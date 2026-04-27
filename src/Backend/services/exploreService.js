@@ -1,0 +1,396 @@
+import supabase from "../lib/supabaseClient";
+import { NOTIFICATION_EVENT, NOTIFICATION_STORAGE_KEY } from "./explore/constants";
+import { isMissingColumn, isMissingTable } from "./explore/errors";
+import { buildExploreProfileFromUser } from "./explore/profileStorage";
+import { formatRelativeTime } from "./explore/time";
+export {
+  createExplorePost,
+  deleteExplorePost,
+  fetchExplorePosts,
+  reportExplorePost,
+  updateExplorePost,
+  updateExplorePostCounts,
+} from "./explore/postService";
+export {
+  createExploreComment,
+  deleteExploreComment,
+  fetchExploreComments,
+  reportExploreComment,
+  syncExploreCommentLike,
+  updateExploreCommentCounts,
+} from "./explore/commentService";
+export { fetchExploreProfile, getCurrentUserProfile, updateExploreProfile } from "./explore/profileService";
+export { fetchExploreFollowing, syncExploreFollow } from "./explore/followService";
+
+function readStoredNotifications() {
+  try {
+    const value = JSON.parse(localStorage.getItem(NOTIFICATION_STORAGE_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredNotifications(items) {
+  localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(items));
+}
+
+function normalizeNotification(item) {
+  return {
+    ...item,
+    actor_name: item.actor_name || item.user || "KunThai",
+    media_type: item.media_type || "post",
+    time_label: item.time_label || formatRelativeTime(item.created_at),
+  };
+}
+
+function getNotificationMessage(type, actorName, mediaType = "post") {
+  const name = actorName || "Someone";
+
+  switch (type) {
+    case "like":
+      return `${name} liked your ${mediaType}`;
+    case "comment":
+      return `${name} commented on your ${mediaType}`;
+    case "save":
+      return `${name} saved your ${mediaType}`;
+    case "mention":
+      return `${name} mentioned you in a comment`;
+    case "follow":
+      return `${name} started following you`;
+    default:
+      return `${name} interacted with your account`;
+  }
+}
+
+function mergeNotifications(remoteItems, localItems) {
+  const merged = new Map();
+
+  [...localItems, ...remoteItems].forEach((item) => {
+    if (!item?.id) {
+      return;
+    }
+
+    const normalized = normalizeNotification(item);
+    const existing = merged.get(normalized.id);
+    merged.set(normalized.id, existing ? { ...existing, ...normalized } : normalized);
+  });
+
+  return Array.from(merged.values()).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+}
+
+async function getCurrentUserId() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return user?.id ?? null;
+}
+
+export async function fetchCurrentUserReactions() {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return { likes: [], saves: [] };
+  }
+
+  const [likesResult, savesResult] = await Promise.all([
+    supabase.from("explore_post_likes").select("post_id").eq("user_id", userId),
+    supabase.from("explore_post_saves").select("post_id").eq("user_id", userId),
+  ]);
+
+  if (likesResult.error && !isMissingTable(likesResult.error)) {
+    throw likesResult.error;
+  }
+
+  if (savesResult.error && !isMissingTable(savesResult.error)) {
+    throw savesResult.error;
+  }
+
+  return {
+    likes: (likesResult.data || []).map((item) => item.post_id).filter(Boolean),
+    saves: (savesResult.data || []).map((item) => item.post_id).filter(Boolean),
+  };
+}
+
+export async function createExploreNotification(input) {
+  const targetUserId = input?.user_id;
+
+  if (!targetUserId) {
+    return null;
+  }
+
+  const actor = (await getCurrentUserProfile()) || {
+    id: null,
+    name: "Someone",
+    username: "someone",
+    avatar_url: "",
+  };
+
+  if (actor.id && actor.id === targetUserId) {
+    return null;
+  }
+
+  const draft = normalizeNotification({
+    id: `local-notification-${Date.now()}`,
+    user_id: targetUserId,
+    actor_name: actor.name,
+    actor_avatar_url: actor.avatar_url,
+    type: input.type || "system",
+    media_type: input.media_type || "post",
+    message: getNotificationMessage(input.type || "system", actor.name, input.media_type || "post"),
+    read: false,
+    post_id: input.post_id || null,
+    post_preview: input.post_preview || "",
+    created_at: new Date().toISOString(),
+  });
+
+  const payload = {
+    user_id: draft.user_id,
+    actor_name: draft.actor_name,
+    actor_avatar_url: draft.actor_avatar_url,
+    type: draft.type,
+    media_type: draft.media_type,
+    message: draft.message,
+    read: draft.read,
+    post_id: draft.post_id,
+    post_preview: draft.post_preview,
+  };
+
+  const { data, error } = await supabase.from("explore_notifications").insert(payload).select().maybeSingle();
+
+  if (error) {
+    if (
+      !isMissingTable(error) &&
+      !isMissingColumn(error, "post_id") &&
+      !isMissingColumn(error, "post_preview") &&
+      !isMissingColumn(error, "actor_avatar_url") &&
+      !isMissingColumn(error, "media_type") &&
+      !isMissingColumn(error, "message")
+    ) {
+      console.warn("Explore notification could not be synced.", error);
+      return null;
+    }
+
+    const fallbackPayload = {
+      user_id: draft.user_id,
+      actor_name: draft.actor_name,
+      type: draft.type,
+      read: draft.read,
+    };
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("explore_notifications")
+      .insert(fallbackPayload)
+      .select()
+      .maybeSingle();
+
+    if (!fallbackError && fallbackData) {
+      const fallbackCreated = normalizeNotification({
+        ...fallbackData,
+        media_type: draft.media_type,
+        message: draft.message,
+        post_preview: draft.post_preview,
+      });
+      window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, { detail: fallbackCreated }));
+      return fallbackCreated;
+    }
+
+    return null;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const created = normalizeNotification(data);
+  window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, { detail: created }));
+  return created;
+}
+
+export async function markExploreNotificationRead(notificationId, read = true) {
+  if (!notificationId) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("explore_notifications")
+    .update({ read })
+    .eq("id", notificationId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return null;
+    }
+    throw error;
+  }
+
+  return data ? normalizeNotification(data) : null;
+}
+
+export async function markAllExploreNotificationsRead() {
+  const currentUserId = await getCurrentUserId();
+
+  if (!currentUserId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("explore_notifications")
+    .update({ read: true })
+    .eq("user_id", currentUserId)
+    .eq("read", false)
+    .select();
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return [];
+    }
+    throw error;
+  }
+
+  return (data || []).map(normalizeNotification);
+}
+
+export async function syncExploreReaction(postId, reactionType, active) {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return;
+  }
+
+  const tableName = reactionType === "like" ? "explore_post_likes" : "explore_post_saves";
+
+  const query = supabase.from(tableName);
+
+  if (active) {
+    const { error } = await query.upsert(
+      { post_id: postId, user_id: userId },
+      { onConflict: "post_id,user_id", ignoreDuplicates: true },
+    );
+
+    if (error && !isMissingTable(error)) {
+      throw error;
+    }
+    return;
+  }
+
+  const { error } = await query.delete().eq("post_id", postId).eq("user_id", userId);
+
+  if (error && !isMissingTable(error)) {
+    throw error;
+  }
+}
+
+export async function fetchExploreNotifications() {
+  const currentUserId = await getCurrentUserId();
+  const storedNotifications = readStoredNotifications()
+    .map(normalizeNotification)
+    .filter((item) => !currentUserId || item.user_id === currentUserId);
+
+  const { data, error } = await supabase
+    .from("explore_notifications")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return storedNotifications;
+    }
+    throw error;
+  }
+
+  const userNotifications = (data || []).filter((item) => !currentUserId || item.user_id === currentUserId);
+  const merged = mergeNotifications(userNotifications, storedNotifications);
+  writeStoredNotifications(merged);
+  return merged;
+}
+
+export async function fetchExploreConnections(kind = "discover") {
+  const currentUserId = await getCurrentUserId();
+
+  if (currentUserId) {
+    const liveItems = await fetchProfileConnections(kind, currentUserId);
+    if (liveItems) {
+      return liveItems;
+    }
+  }
+
+  const { data, error } = await supabase.from("explore_connections").select("*").eq("kind", kind).limit(20);
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return [];
+    }
+    throw error;
+  }
+
+  return data || [];
+}
+
+async function fetchProfileConnections(kind, currentUserId) {
+  const followsResult = await supabase.from("explore_follows").select("follower_id, following_id");
+
+  if (followsResult.error) {
+    if (isMissingTable(followsResult.error)) {
+      return null;
+    }
+    throw followsResult.error;
+  }
+
+  const follows = followsResult.data || [];
+  const followingIds = follows.filter((item) => item.follower_id === currentUserId).map((item) => item.following_id);
+  const followerIds = follows.filter((item) => item.following_id === currentUserId).map((item) => item.follower_id);
+
+  let targetIds = [];
+  if (kind === "mycircle" || kind === "following") {
+    targetIds = followingIds;
+  } else if (kind === "followers") {
+    targetIds = followerIds;
+  }
+
+  const profilesQuery = supabase
+    .from("explore_profiles")
+    .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
+    .limit(60);
+
+  const { data, error } = targetIds.length
+    ? await profilesQuery.in("user_id", targetIds)
+    : kind === "discover"
+      ? await profilesQuery.neq("user_id", currentUserId)
+      : { data: [], error: null };
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return null;
+    }
+    throw error;
+  }
+
+  return (data || [])
+    .filter((profile) => profile.user_id !== currentUserId)
+    .map((profile) => {
+      const isFollowing = followingIds.includes(profile.user_id);
+      const followsYou = followerIds.includes(profile.user_id);
+      return {
+        id: profile.user_id,
+        user_id: profile.user_id,
+        name: profile.display_name || "KunThai User",
+        username: profile.username || "user",
+        avatar_url: profile.avatar_url || "",
+        bio: profile.bio || "",
+        account_type: profile.account_type || "personal",
+        verified: Boolean(profile.verified),
+        status: followsYou ? "Follows you" : isFollowing ? "In your circle" : "Suggested for you",
+        isFollowing,
+        followsYou,
+        mutual_count: followsYou && isFollowing ? 1 : 0,
+      };
+    });
+}
+
+export { formatRelativeTime };
+export { NOTIFICATION_EVENT };
+export { buildExploreProfileFromUser };

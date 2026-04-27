@@ -1,55 +1,92 @@
-// src/explore/notifications/Notifications.jsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { HiOutlineCheckCircle, HiOutlineCog6Tooth } from "react-icons/hi2";
+
+import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
+import EmptyState from "../../shared/EmptyState";
+import ErrorState from "../../shared/ErrorState";
+import NotificationSettings from "./components/NotificationSettings";
 import NotificationsList from "./list/NotificationsList";
-import NotificationsEmpty from "./list/NotificationsEmpty";
 import NotificationsSkeleton from "./skeletons/NotificationsSkeleton";
 
-/*
-  Notifications.jsx
-  ------------------
-  Main notification screen
-  - Handles loading
-  - Handles empty state
-  - Handles list rendering
-*/
+const SETTINGS_KEY = "explore-notification-settings";
 
-export default function Notifications() {
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState([]);
+function readSettings() {
+  try {
+    const value = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+}
 
-  useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-      setNotifications([
-        {
-          id: 1,
-          type: "follow",
-          user: "John Doe",
-          time: "2 mins ago",
-          read: false,
-        },
-        {
-          id: 2,
-          type: "like",
-          user: "Mary Johnson",
-          time: "1 hour ago",
-          read: true,
-        },
-        {
-          id: 3,
-          type: "system",
-          user: "UrSalone Team",
-          time: "Yesterday",
-          read: false,
-        },
-      ]);
-      setLoading(false);
-    }, 1000);
-  }, []);
+function writeSettings(value) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(value));
+}
 
-  if (loading) return <NotificationsSkeleton />;
+export default function Notifications({ onOpenNotification }) {
+  const { notifications, unreadCount, loading, error, markRead, markAllRead } = useExploreNotifications();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState(readSettings);
 
-  if (!notifications.length) return <NotificationsEmpty />;
+  function toggleSetting(key) {
+    setSettings((current) => {
+      const next = { ...current, [key]: current[key] === false };
+      writeSettings(next);
+      return next;
+    });
+  }
 
-  return <NotificationsList data={notifications} />;
+  async function openNotification(item) {
+    await markRead(item.id);
+    onOpenNotification?.(item);
+  }
+
+  if (loading) {
+    return <NotificationsSkeleton />;
+  }
+
+  return (
+    <div className="w-full space-y-4 px-4 pt-4 sm:px-5">
+      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Notifications</p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">{unreadCount ? `${unreadCount} unread` : "You're caught up"}</h3>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={markAllRead}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-lg text-sky-700"
+              aria-label="Mark all as read"
+            >
+              <HiOutlineCheckCircle />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen((current) => !current)}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-lg text-slate-700"
+              aria-label="Notification settings"
+            >
+              <HiOutlineCog6Tooth />
+            </button>
+          </div>
+        </div>
+
+        {settingsOpen ? (
+          <div className="mt-4">
+            <NotificationSettings values={settings} onToggle={toggleSetting} />
+          </div>
+        ) : null}
+      </div>
+
+      {error ? <ErrorState message={error} /> : null}
+
+      {!notifications.length ? (
+        <EmptyState title="No notifications yet" message="When people interact with you, you'll see it here." />
+      ) : (
+        <NotificationsList data={notifications} onOpen={openNotification} />
+      )}
+    </div>
+  );
 }

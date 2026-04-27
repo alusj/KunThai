@@ -1,0 +1,51 @@
+import { HiOutlineEllipsisHorizontal } from "react-icons/hi2";
+
+import { formatRelativeTime } from "../../../../../../Backend/services/exploreService";
+import Avatar from "../../../../shared/Avatar";
+
+export default function PostHeader({ post, isOwner, followed, onFollow, onOptions, onViewProfile }) {
+  return (
+    <div className="flex items-start justify-between gap-3 px-4 py-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <button type="button" onClick={onViewProfile} className="flex-none" aria-label={`View ${post.author_name}'s profile`}>
+          <Avatar name={post.author_name} src={post.author_avatar_url} />
+        </button>
+
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onViewProfile}
+              className="min-w-0 truncate text-left text-sm font-black text-slate-950 hover:text-sky-700"
+            >
+              {post.author_name || "KunThai User"}
+            </button>
+            {!isOwner && post.user_id ? (
+              <button
+                type="button"
+                onClick={onFollow}
+                className={`h-7 flex-none rounded-full px-3 text-xs font-bold transition ${
+                  followed ? "bg-sky-50 text-sky-700" : "bg-slate-950 text-white hover:bg-slate-800"
+                }`}
+              >
+                {followed ? "Following" : "Follow"}
+              </button>
+            ) : null}
+          </div>
+          <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+            @{post.author_username || "user"} · {formatRelativeTime(post.created_at)}
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onOptions}
+        className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+        aria-label="Post options"
+      >
+        <HiOutlineEllipsisHorizontal />
+      </button>
+    </div>
+  );
+}

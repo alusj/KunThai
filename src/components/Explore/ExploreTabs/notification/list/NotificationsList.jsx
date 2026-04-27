@@ -1,17 +1,10 @@
-// src/explore/notifications/list/NotificationsList.jsx
 import NotificationItem from "../components/NotificationItem";
 
-/*
-  NotificationsList.jsx
-  ---------------------
-  Renders list of notifications
-*/
-
-export default function NotificationsList({ data }) {
+export default function NotificationsList({ data, onOpen }) {
   return (
-    <div style={{ padding: "12px" }}>
+    <div className="w-full space-y-3">
       {data.map((item) => (
-        <NotificationItem key={item.id} item={item} />
+        <NotificationItem key={item.id} item={item} onOpen={onOpen} />
       ))}
     </div>
   );

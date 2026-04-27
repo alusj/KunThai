@@ -5,31 +5,41 @@
   Strong visual weight.
 */
 
-const TABS = ["UrFeed", "Swip", "Connections", "Notifications"];
+import { HiOutlineSparkles, HiOutlineUserGroup, HiOutlineVideoCamera } from "react-icons/hi2";
+
+const TABS = [
+  { id: "UrFeed", label: "UrFeed", icon: HiOutlineSparkles },
+  { id: "Swip", label: "Swip", icon: HiOutlineVideoCamera },
+  { id: "Connections", label: "Connections", icon: HiOutlineUserGroup },
+];
 
 export default function ExploreTabs({ activeTab, setActiveTab }) {
   return (
-    <div className="flex gap-2 px-3 py-2 bg-white border-b">
-      {TABS.map(tab => {
-        const isActive = activeTab === tab;
+    <div className="border-b border-slate-200 bg-white">
+      <div className="grid w-full grid-cols-3 gap-1.5 px-2 py-3 sm:gap-2 sm:px-3">
+      {TABS.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = activeTab === tab.id;
 
         return (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
             className={`
-              flex-1 py-2 rounded-full text-sm font-medium transition
+              inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-2 text-[12px] font-medium transition sm:gap-2 sm:px-3 sm:text-sm
               ${
                 isActive
-                  ? "bg-blue-600 text-white shadow"
+                  ? "bg-slate-950 text-white shadow"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }
             `}
           >
-            {tab}
+            <Icon className="flex-none text-sm sm:text-base" />
+            <span className="whitespace-nowrap">{tab.label}</span>
           </button>
         );
       })}
+      </div>
     </div>
   );
 }

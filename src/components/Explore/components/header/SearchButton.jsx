@@ -1,15 +1,18 @@
 // =====================================
 // SearchButton.jsx
-// Center search trigger (placeholder)
+// Explore search trigger
 // =====================================
 
-export default function SearchButton() {
+import { HiOutlineMagnifyingGlass } from "react-icons/hi2";
+
+export default function SearchButton({ onClick }) {
   return (
     <button
-      className="px-3 py-1 rounded bg-gray-100 text-sm"
+      onClick={onClick}
+      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-xl text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
       aria-label="Search"
     >
-      🔍
+      <HiOutlineMagnifyingGlass />
     </button>
   );
 }

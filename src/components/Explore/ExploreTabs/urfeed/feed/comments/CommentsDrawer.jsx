@@ -1,0 +1,75 @@
+import { useState } from "react";
+import { HiOutlineChatBubbleLeftRight, HiOutlineXMark } from "react-icons/hi2";
+
+import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
+import ErrorState from "../../../../shared/ErrorState";
+import CommentDrawerComposer from "./CommentDrawerComposer";
+import CommentItem from "./CommentItem";
+
+export default function CommentsDrawer({ currentUserId, onClose, onCreated, open, post }) {
+  const [replyingTo, setReplyingTo] = useState(null);
+  const comments = useExploreComments(post?.id, currentUserId);
+
+  if (!open) {
+    return null;
+  }
+
+  async function addComment(payload) {
+    await onCreated?.(payload);
+    await comments.reload();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[65] flex items-end bg-slate-950/35 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+      <section className="flex h-[86vh] w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:max-w-2xl sm:rounded-[28px]">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Comments</p>
+            <h3 className="text-lg font-black text-slate-950">{post?.comments_count || comments.comments.length || 0} responses</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
+            aria-label="Close comments"
+          >
+            <HiOutlineXMark />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
+
+          {comments.loading ? (
+            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">Loading comments...</p>
+          ) : null}
+
+          {!comments.loading && !comments.thread.length ? (
+            <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <HiOutlineChatBubbleLeftRight className="mx-auto text-3xl text-slate-400" />
+              <p className="mt-3 text-sm font-black text-slate-950">Start the conversation</p>
+              <p className="mt-1 text-sm text-slate-500">Text and voice comments will appear here.</p>
+            </div>
+          ) : null}
+
+          {comments.thread.map((comment) => (
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              currentUserId={currentUserId}
+              replies={comment.replies}
+              isOwner={comments.isOwner(comment)}
+              liked={comments.likedComments.has(comment.id)}
+              onDelete={comments.removeComment}
+              onLike={comments.toggleCommentLike}
+              onReply={setReplyingTo}
+              onReport={comments.reportComment}
+            />
+          ))}
+        </div>
+
+        <CommentDrawerComposer replyingTo={replyingTo} onCancelReply={() => setReplyingTo(null)} onSubmit={addComment} />
+      </section>
+    </div>
+  );
+}

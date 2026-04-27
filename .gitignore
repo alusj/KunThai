@@ -13,6 +13,9 @@ dist-ssr
 *.local
 #local environment files
 .env
+supabase/.temp
+supabase/hardening/
+supabase/.branches
 
 # Editor directories and files
 .vscode/*
