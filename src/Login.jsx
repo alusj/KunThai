@@ -9,13 +9,19 @@ function AuthMessage({ tone = "info", children }) {
     danger: "border-rose-200 bg-rose-50 text-rose-700",
   };
 
-  return <div className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>{children}</div>;
+  return (
+    <div className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>
+      {children}
+    </div>
+  );
 }
 
 function AuthInput({ label, ...props }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-slate-700">{label}</span>
+      <span className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
+      </span>
       <input
         {...props}
         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -26,17 +32,19 @@ function AuthInput({ label, ...props }) {
 
 export default function Login() {
   const [mode, setMode] = useState("signin");
+  const [signupStep, setSignupStep] = useState("options");
+  const [signupMethod, setSignupMethod] = useState("");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const [providerLoading, setProviderLoading] = useState("");
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const redirectTo = window.location.origin;
+  const redirectTo = "https://kunthai-alpha.vercel.app";
 
   function resetMessages() {
     setError("");
@@ -45,7 +53,8 @@ export default function Login() {
 
   function switchMode(nextMode) {
     setMode(nextMode);
-    setOtpSent(false);
+    setSignupStep("options");
+    setSignupMethod("");
     resetMessages();
   }
 
@@ -63,36 +72,25 @@ export default function Login() {
         throw authError;
       }
     } catch (err) {
-      setError(err.message || `Failed to sign in with ${provider}.`);
+      setError(err.message || `Failed to continue with ${provider}.`);
     } finally {
       setProviderLoading("");
     }
   }
 
-  async function handleEmailSignIn(event) {
-    event.preventDefault();
-
-    try {
-      resetMessages();
-      setLoading(true);
-
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        throw authError;
-      }
-    } catch (err) {
-      setError(err.message || "Unable to sign in.");
-    } finally {
-      setLoading(false);
-    }
+  function openSignupDetails(method) {
+    resetMessages();
+    setSignupMethod(method);
+    setSignupStep("details");
   }
 
-  async function handleEmailSignUp(event) {
+  async function handleCreateAccount(event) {
     event.preventDefault();
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
     try {
       resetMessages();
@@ -101,13 +99,14 @@ export default function Login() {
       const { error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: { emailRedirectTo: redirectTo },
       });
 
       if (authError) {
         throw authError;
       }
 
-      setMessage("Account created successfully.");
+      setMessage("Verification sent. Please check your email.");
     } catch (err) {
       setError(err.message || "Unable to create your account.");
     } finally {
@@ -115,214 +114,159 @@ export default function Login() {
     }
   }
 
-  async function handleSendPhoneOtp(event) {
-    event.preventDefault();
-
-    try {
-      resetMessages();
-      setLoading(true);
-
-      const { error: authError } = await supabase.auth.signInWithOtp({
-        phone,
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      setOtpSent(true);
-      setMessage("OTP sent successfully.");
-    } catch (err) {
-      setError(err.message || "Unable to send OTP.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleVerifyPhoneOtp(event) {
-    event.preventDefault();
-
-    try {
-      resetMessages();
-      setLoading(true);
-
-      const { error: authError } = await supabase.auth.verifyOtp({
-        phone,
-        token: otp,
-        type: "sms",
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      setMessage("Phone verified successfully.");
-    } catch (err) {
-      setError(err.message || "Invalid OTP.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const isLoading = providerLoading !== "" || loading;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-center text-2xl font-semibold text-slate-900">Welcome to KunTai</h1>
+        <h1 className="text-center text-3xl font-bold text-slate-900">
+          Welcome to KunTai
+        </h1>
 
-        <div className="mt-8 space-y-3">
-          <button
-            type="button"
-            onClick={() => handleOAuth("google")}
-            disabled={providerLoading !== ""}
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-          >
-            {providerLoading === "google" ? "Connecting Google..." : "Sign in with Google"}
-          </button>
+        {mode === "signin" && (
+          <div className="mt-8 space-y-3">
+            <button
+              type="button"
+              onClick={() => handleOAuth("google")}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              {providerLoading === "google"
+                ? "Connecting Google..."
+                : "Sign in with Google"}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => handleOAuth("facebook")}
-            disabled={providerLoading !== ""}
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-          >
-            {providerLoading === "facebook" ? "Connecting Facebook..." : "Sign in with Facebook"}
-          </button>
+            <button
+              type="button"
+              onClick={() => handleOAuth("facebook")}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              {providerLoading === "facebook"
+                ? "Connecting Facebook..."
+                : "Sign in with Facebook"}
+            </button>
 
-          <button
-            type="button"
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            Sign in with KunTaiMoney
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setMessage("KunTaiMoney sign in will be connected next.")}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              Sign in with KunTaiMoney
+            </button>
+          </div>
+        )}
 
-        <div className="my-6 grid grid-cols-3 gap-2 rounded-xl bg-slate-100 p-1">
+        {mode === "signup" && signupStep === "options" && (
+          <div className="mt-8 space-y-3">
+            <button
+              type="button"
+              onClick={() => openSignupDetails("Google")}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              Sign up with Google
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openSignupDetails("Phone")}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              Sign up with Phone
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openSignupDetails("iCloud")}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              Sign up with iCloud
+            </button>
+          </div>
+        )}
+
+        {mode === "signup" && signupStep === "details" && (
+          <form onSubmit={handleCreateAccount} className="mt-8 space-y-4">
+            <button
+              type="button"
+              onClick={() => setSignupStep("options")}
+              className="text-sm font-semibold text-slate-500"
+            >
+              ← Back
+            </button>
+
+            <h2 className="text-center text-xl font-bold text-slate-900">
+              Sign up with {signupMethod}
+            </h2>
+
+            <AuthInput
+              label="Email Account"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Enter email account"
+              required
+            />
+
+            <AuthInput
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter password"
+              required
+            />
+
+            <AuthInput
+              label="Confirm Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="Confirm password"
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+            >
+              {loading ? "Creating Account..." : "Create Account / Verify"}
+            </button>
+          </form>
+        )}
+
+        <div className="my-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
           <button
             type="button"
             onClick={() => switchMode("signin")}
-            className={`rounded-lg py-2 text-sm font-medium transition ${
-              mode === "signin" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
+            className={`rounded-lg py-3 text-sm font-semibold transition ${
+              mode === "signin"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500"
             }`}
           >
             Sign In
           </button>
+
           <button
             type="button"
             onClick={() => switchMode("signup")}
-            className={`rounded-lg py-2 text-sm font-medium transition ${
-              mode === "signup" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
+            className={`rounded-lg py-3 text-sm font-semibold transition ${
+              mode === "signup"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500"
             }`}
           >
             Sign Up
           </button>
-          <button
-            type="button"
-            onClick={() => switchMode("phone")}
-            className={`rounded-lg py-2 text-sm font-medium transition ${
-              mode === "phone" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
-            }`}
-          >
-            Phone
-          </button>
         </div>
 
-        {mode === "signin" && (
-          <form onSubmit={handleEmailSignIn} className="space-y-4">
-            <AuthInput
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="Enter your email"
-              required
-            />
-            <AuthInput
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter your password"
-              required
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
-        )}
-
-        {mode === "signup" && (
-          <form onSubmit={handleEmailSignUp} className="space-y-4">
-            <AuthInput
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="Enter your email"
-              required
-            />
-            <AuthInput
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Create a password"
-              required
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "Creating account..." : "Create Account"}
-            </button>
-          </form>
-        )}
-
-        {mode === "phone" && !otpSent && (
-          <form onSubmit={handleSendPhoneOtp} className="space-y-4">
-            <AuthInput
-              label="Phone"
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="+232XXXXXXXX"
-              required
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "Sending OTP..." : "Send OTP"}
-            </button>
-          </form>
-        )}
-
-        {mode === "phone" && otpSent && (
-          <form onSubmit={handleVerifyPhoneOtp} className="space-y-4">
-            <AuthInput
-              label="OTP"
-              type="text"
-              value={otp}
-              onChange={(event) => setOtp(event.target.value)}
-              placeholder="Enter 6-digit code"
-              required
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "Verifying..." : "Verify OTP"}
-            </button>
-          </form>
-        )}
-
-        <div className="mt-4 space-y-3">
+        <div className="space-y-3">
           {message && <AuthMessage tone="success">{message}</AuthMessage>}
           {error && <AuthMessage tone="danger">{error}</AuthMessage>}
         </div>
