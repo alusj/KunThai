@@ -55,11 +55,11 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-slate-200 bg-white p-3">
+    <form onSubmit={handleSubmit} className="kuntai-safe-bottom border-t border-slate-200 bg-white p-3">
       {replyingTo ? (
-        <div className="mb-2 flex items-center justify-between rounded-2xl bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
-          Replying to {replyingTo.author_name || "comment"}
-          <button type="button" onClick={onCancelReply} aria-label="Cancel reply">
+        <div className="mb-2 flex min-w-0 items-center justify-between gap-2 rounded-2xl bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
+          <span className="truncate">Replying to {replyingTo.author_name || "comment"}</span>
+          <button type="button" onClick={onCancelReply} className="flex-none" aria-label="Cancel reply">
             <HiOutlineXMark />
           </button>
         </div>
@@ -74,7 +74,7 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
         </div>
       ) : null}
 
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <input
           value={value}
           onChange={(event) => setValue(event.target.value)}

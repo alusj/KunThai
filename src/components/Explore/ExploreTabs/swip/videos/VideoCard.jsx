@@ -45,7 +45,7 @@ export default function VideoCard({
       className={`relative overflow-hidden bg-slate-950 shadow-sm ${
         fullscreen
           ? "fixed inset-0 z-[70] h-screen w-screen rounded-none"
-          : "min-h-[calc(100vh-176px)] snap-start rounded-[28px] border border-slate-800/20 sm:min-h-[720px]"
+          : "w-full min-w-0 min-h-[calc(100vh-176px)] snap-start rounded-[28px] border border-slate-800/20 sm:min-h-[720px]"
       }`}
     >
       <video

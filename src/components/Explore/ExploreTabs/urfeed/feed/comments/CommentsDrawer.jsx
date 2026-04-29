@@ -20,12 +20,12 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, open
   }
 
   return (
-    <div className="fixed inset-0 z-[65] flex items-end bg-slate-950/35 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
-      <section className="flex h-[86vh] w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:max-w-2xl sm:rounded-[28px]">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
-          <div>
+    <div className="fixed inset-0 z-[65] flex min-w-0 items-end bg-slate-950/35 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+      <section className="flex h-[86vh] max-h-[calc(100vh-0.75rem)] w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:max-w-2xl sm:rounded-[28px]">
+        <div className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Comments</p>
-            <h3 className="text-lg font-black text-slate-950">{post?.comments_count || comments.comments.length || 0} responses</h3>
+            <h3 className="truncate text-lg font-black text-slate-950">{post?.comments_count || comments.comments.length || 0} responses</h3>
           </div>
           <button
             type="button"
@@ -37,7 +37,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, open
           </button>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 kuntai-scrollbar-none">
           {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
 
           {comments.loading ? (

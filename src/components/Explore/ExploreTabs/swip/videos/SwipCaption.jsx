@@ -6,7 +6,7 @@ import Avatar from "../../../shared/Avatar";
 export default function SwipCaption({ post, onFullscreen, onViewProfile }) {
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent px-4 pb-5 pt-24 text-white sm:px-5">
-      <div className="max-w-[calc(100%-72px)] space-y-3">
+      <div className="min-w-0 max-w-[calc(100%-72px)] space-y-3">
         <button type="button" onClick={onViewProfile} className="flex min-w-0 items-center gap-3 text-left">
           <Avatar name={post.author_name} src={post.author_avatar_url} size="sm" />
           <span className="min-w-0">
@@ -20,9 +20,9 @@ export default function SwipCaption({ post, onFullscreen, onViewProfile }) {
           </span>
         </button>
 
-        {post.body ? <p className="line-clamp-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-white/95">{post.body}</p> : null}
+        {post.body ? <p className="kuntai-break line-clamp-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-white/95">{post.body}</p> : null}
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">Swip</span>
           <button
             type="button"

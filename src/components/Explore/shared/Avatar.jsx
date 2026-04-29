@@ -14,14 +14,14 @@ export default function Avatar({ name = "KunThai", src = "", size = "md" }) {
         src={src}
         alt={name}
         onError={() => setFailed(true)}
-        className={`rounded-full object-cover ${sizes[size] ?? sizes.md}`}
+        className={`flex-none rounded-full object-cover ring-2 ring-white ${sizes[size] ?? sizes.md}`}
       />
     );
   }
 
   return (
     <div
-      className={`flex items-center justify-center rounded-full bg-sky-100 font-semibold text-sky-700 ${sizes[size] ?? sizes.md}`}
+      className={`flex flex-none items-center justify-center rounded-full bg-sky-100 font-black text-sky-700 ring-2 ring-white ${sizes[size] ?? sizes.md}`}
     >
       {(name || "K").slice(0, 1).toUpperCase()}
     </div>

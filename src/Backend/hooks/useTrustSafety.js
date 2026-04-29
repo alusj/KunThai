@@ -7,6 +7,7 @@ import {
   unblockExploreUser,
   writePrivacySettings,
 } from "../services/explore/safetyService";
+import { showToast } from "../services/toastService";
 
 export function useTrustSafety() {
   const [blockedUsers, setBlockedUsers] = useState(readBlockedUsers);
@@ -18,6 +19,7 @@ export function useTrustSafety() {
       const next = await blockExploreUser(userId, reason);
       setBlockedUsers(new Set(next));
       setFeedback("User blocked.");
+      showToast("User blocked.", "success");
     } catch (error) {
       setFeedback(error.message || "Unable to block user.");
     }
@@ -28,6 +30,7 @@ export function useTrustSafety() {
       const next = await unblockExploreUser(userId);
       setBlockedUsers(new Set(next));
       setFeedback("User unblocked.");
+      showToast("User unblocked.", "success");
     } catch (error) {
       setFeedback(error.message || "Unable to unblock user.");
     }
@@ -37,6 +40,7 @@ export function useTrustSafety() {
     const next = writePrivacySettings({ ...privacySettings, ...patch });
     setPrivacySettings(next);
     setFeedback("Privacy settings updated.");
+    showToast("Privacy settings updated.", "success");
   }
 
   return {

@@ -47,6 +47,10 @@ export const MENU_SCREENS = {
     emptyTitle: "Help Center is coming soon",
     emptyMessage: "Guides, contact support, and safety resources will live here.",
   },
+  FutureFeatures: {
+    title: "Future Features",
+    subtitle: "The advanced Explore roadmap for features we will build after the core experience is strong.",
+  },
   ViewedProfile: {
     title: "Profile",
     subtitle: "Explore account profile.",

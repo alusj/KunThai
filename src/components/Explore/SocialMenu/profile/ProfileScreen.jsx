@@ -5,6 +5,7 @@ import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
 import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
 import { useTrustSafety } from "../../../../Backend/hooks/useTrustSafety";
 import { updateExploreProfile } from "../../../../Backend/services/exploreService";
+import { showToast } from "../../../../Backend/services/toastService";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
 import EmptyState from "../../shared/EmptyState";
@@ -94,6 +95,7 @@ export default function ProfileScreen({
       onProfileUpdate?.(updated);
       setEditing(false);
       setFeedback(updated.avatarWarning || "Profile updated.");
+      showToast("Profile updated.", "success");
     } catch (error) {
       setFeedback(error.message || "Unable to update profile.");
     } finally {
@@ -109,6 +111,7 @@ export default function ProfileScreen({
     try {
       await shareProfile(values);
       setFeedback("Profile link ready.");
+      showToast("Profile link ready.", "success");
     } catch {
       setFeedback("Unable to share profile.");
     }
@@ -121,6 +124,7 @@ export default function ProfileScreen({
 
   function reportProfile() {
     setFeedback("Profile report received.");
+    showToast("Profile report received.", "success");
   }
 
   function renderFeedPosts() {

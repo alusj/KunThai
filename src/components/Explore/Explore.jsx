@@ -11,6 +11,7 @@ import Swip from "./ExploreTabs/swip/Swip";
 import Connections from "./ExploreTabs/connections/Connections"
 import Notifications from "./ExploreTabs/notification/Notifications";
 import ActivityScreen from "./SocialMenu/activity/ActivityScreen";
+import FutureFeaturesScreen from "./SocialMenu/future/FutureFeaturesScreen";
 import MessagesScreen from "./SocialMenu/messages/MessagesScreen";
 import MyPostsScreen from "./SocialMenu/myPosts/MyPostsScreen";
 import PrivacyScreen from "./SocialMenu/privacy/PrivacyScreen";
@@ -25,8 +26,8 @@ import ExploreTabs from "./ExploreTabs/ExploreTabs";
 
 function PlaceholderMenuScreen({ screen }) {
   return (
-    <div className="px-4 py-4 sm:px-5">
-      <div className="rounded-[24px] border border-slate-200 bg-white p-6 text-center shadow-sm">
+      <div className="px-4 py-4 sm:px-5">
+      <div className="kuntai-card p-6 text-center">
         <h3 className="text-lg font-semibold text-slate-950">{screen.emptyTitle}</h3>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">{screen.emptyMessage}</p>
       </div>
@@ -202,12 +203,16 @@ export default function Explore({ onScreenModeChange }) {
       return <PrivacyScreen hideHeader />;
     }
 
+    if (activeMenuScreen === "FutureFeatures") {
+      return <FutureFeaturesScreen />;
+    }
+
     return <PlaceholderMenuScreen screen={menuScreen} />;
   }
 
   if (exploreNav.isFullScreen) {
     return (
-      <div className="min-h-screen w-full overflow-x-hidden bg-slate-100">
+      <div className="min-h-screen w-full overflow-x-hidden bg-slate-100 kuntai-safe-bottom">
         <SocialScreenHeader
           title={menuScreen.title}
           subtitle={menuScreen.subtitle}
@@ -219,7 +224,7 @@ export default function Explore({ onScreenModeChange }) {
   }
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-slate-100">
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-100 kuntai-safe-bottom">
 
       {/* =========================
           HEADER (always visible)

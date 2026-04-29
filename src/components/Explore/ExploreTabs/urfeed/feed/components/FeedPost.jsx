@@ -43,7 +43,7 @@ export default function FeedPost({
   }
 
   return (
-    <article id={`post-${post.id}`} className="relative overflow-visible rounded-[24px] border border-slate-200 bg-white shadow-sm">
+    <article id={`post-${post.id}`} className="relative w-full min-w-0 overflow-visible rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
       <PostHeader
         post={post}
         isOwner={isOwner}
@@ -68,7 +68,7 @@ export default function FeedPost({
         />
       ) : null}
 
-      {post.body ? <div className="whitespace-pre-wrap px-4 pb-4 text-[15px] leading-7 text-slate-800">{post.body}</div> : null}
+      {post.body ? <div className="kuntai-break whitespace-pre-wrap px-4 pb-4 text-[15px] leading-7 text-slate-800">{post.body}</div> : null}
 
       <PostMedia post={post} />
 

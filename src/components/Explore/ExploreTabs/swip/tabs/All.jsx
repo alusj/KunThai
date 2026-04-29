@@ -33,7 +33,7 @@ export default function All({ category = "all", currentUserId = "", onlyUserId =
   }
 
   return (
-    <div className="h-[calc(100vh-176px)] snap-y snap-mandatory space-y-4 overflow-y-auto px-3 py-4 sm:h-[calc(100vh-188px)] sm:px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="h-[calc(100vh-176px)] w-full min-w-0 snap-y snap-mandatory space-y-4 overflow-y-auto px-3 py-4 sm:h-[calc(100vh-188px)] sm:px-5 kuntai-scrollbar-none">
       {videos.map((post) => (
         <VideoCard
           key={post.id}

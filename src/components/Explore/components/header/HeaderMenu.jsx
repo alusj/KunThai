@@ -5,6 +5,7 @@ import { signOutSocialSession, switchSocialAccount } from "../../../../Backend/s
 import MenuSection from "./menu/MenuSection";
 import ActivityMenuItem from "./menu/items/ActivityMenuItem";
 import ConnectionsMenuItem from "./menu/items/ConnectionsMenuItem";
+import FutureFeaturesMenuItem from "./menu/items/FutureFeaturesMenuItem";
 import HelpCenterMenuItem from "./menu/items/HelpCenterMenuItem";
 import MessagesMenuItem from "./menu/items/MessagesMenuItem";
 import MyPostsMenuItem from "./menu/items/MyPostsMenuItem";
@@ -31,6 +32,7 @@ export default function HeaderMenu({ open, onClose, onNavigate }) {
       privacy: "Privacy",
       settings: "Settings",
       "help-center": "HelpCenter",
+      "future-features": "FutureFeatures",
     };
 
     if (navigationMap[target]) {
@@ -78,6 +80,10 @@ export default function HeaderMenu({ open, onClose, onNavigate }) {
 
           <MenuSection title="Support">
             <HelpCenterMenuItem onSelect={handleSelect} />
+          </MenuSection>
+
+          <MenuSection title="Roadmap">
+            <FutureFeaturesMenuItem onSelect={handleSelect} />
           </MenuSection>
         </div>
 

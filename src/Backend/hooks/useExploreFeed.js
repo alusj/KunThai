@@ -15,6 +15,7 @@ import {
 } from "../services/explore/cacheService";
 import { subscribeToCurrentUserReactions, subscribeToExplorePosts } from "../services/explore/realtimeService";
 import { canRunSafetyAction, contentHasModerationFlags, readBlockedUsers } from "../services/explore/safetyService";
+import { showToast } from "../services/toastService";
 import {
   createExploreNotification,
   createExploreComment,
@@ -346,6 +347,7 @@ export function useExploreFeed(scope = "feed") {
     try {
       await syncExploreReaction(postId, type, !currentlyActive);
       await updateExplorePostCounts(postId, { [countKey]: nextCount });
+      showToast(type === "save" ? (currentlyActive ? "Removed from saved." : "Saved privately.") : (currentlyActive ? "Reaction removed." : "Reaction added."), "success");
       if (!currentlyActive && targetPost?.user_id) {
         await createExploreNotification({
           user_id: targetPost.user_id,
@@ -387,6 +389,7 @@ export function useExploreFeed(scope = "feed") {
     try {
       await createExploreComment(typeof content === "string" ? { post_id: postId, body: content } : { post_id: postId, ...content });
       await updateExplorePostCounts(postId, { comments_count: nextCount });
+      showToast("Comment posted.", "success");
       if (targetPost?.user_id) {
         await createExploreNotification({
           user_id: targetPost.user_id,
@@ -440,6 +443,7 @@ export function useExploreFeed(scope = "feed") {
     try {
       await deleteExplorePost(postId);
       removePostFromAllCaches(postId);
+      showToast("Post deleted.", "success");
     } catch (err) {
       setPosts(previousPosts);
       setError(err.message || "Unable to delete post.");
@@ -451,6 +455,7 @@ export function useExploreFeed(scope = "feed") {
       const next = new Set(current);
       next.add(postId);
       writeStoredSet(HIDE_STORAGE_KEY, next);
+      showToast("Post hidden.", "info");
       return next;
     });
   }
@@ -472,6 +477,7 @@ export function useExploreFeed(scope = "feed") {
       const flags = contentHasModerationFlags(`${post?.body || ""} ${reason}`);
       await reportExplorePost(postId, flags.length ? `${reason.trim()} | flags: ${flags.join(", ")}` : reason.trim());
       hidePost(postId);
+      showToast("Report received. The post was hidden.", "success");
     } catch (err) {
       setError(err.message || "Unable to report post.");
     }

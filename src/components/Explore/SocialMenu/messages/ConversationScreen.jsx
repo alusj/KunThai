@@ -13,8 +13,8 @@ export default function ConversationScreen({ conversation, currentUserId, messag
   const user = getOtherParticipant(conversation, currentUserId);
 
   return (
-    <section className="flex h-[calc(100vh-112px)] flex-col overflow-hidden bg-white">
-      <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-3">
+    <section className="flex h-[calc(100vh-112px)] min-w-0 flex-col overflow-hidden bg-white">
+      <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
         <button
           type="button"
           onClick={onBack}
@@ -30,7 +30,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
         </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4">
+      <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
         {!messages.length ? (
           <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center">
             <p className="text-sm font-black text-slate-950">Start the conversation</p>

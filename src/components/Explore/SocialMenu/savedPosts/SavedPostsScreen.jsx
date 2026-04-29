@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { useSavedCollections } from "../../../../Backend/hooks/useSavedCollections";
+import { showToast } from "../../../../Backend/services/toastService";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
@@ -49,6 +50,7 @@ export default function SavedPostsScreen({ currentUserId, hideHeader = false }) 
     const name = window.prompt("Collection name");
     if (name?.trim()) {
       collections.createCollection(name);
+      showToast("Collection created.", "success");
     }
   }
 

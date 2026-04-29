@@ -2,8 +2,6 @@ import { useState } from "react";
 
 import supabase from "./Backend/lib/supabaseClient";
 
-const PRODUCTION_URL = "https://kunthai-alpha.vercel.app";
-
 function AuthMessage({ tone = "info", children }) {
   const tones = {
     info: "border-sky-200 bg-sky-50 text-sky-700",
@@ -46,10 +44,7 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const redirectTo =
-    window.location.hostname === "localhost"
-      ? PRODUCTION_URL
-      : window.location.origin;
+  const redirectTo = window.location.origin;
 
   function resetMessages() {
     setError("");

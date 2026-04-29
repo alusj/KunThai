@@ -44,7 +44,7 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const redirectTo = "https://kunthai-alpha.vercel.app";
+  const redirectTo = window.location.origin;
 
   function resetMessages() {
     setError("");
@@ -65,7 +65,9 @@ export default function Login() {
 
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo },
+        options: {
+          redirectTo,
+        },
       });
 
       if (authError) {
@@ -99,7 +101,9 @@ export default function Login() {
       const { error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: redirectTo },
+        options: {
+          emailRedirectTo: redirectTo,
+        },
       });
 
       if (authError) {
@@ -149,7 +153,9 @@ export default function Login() {
 
             <button
               type="button"
-              onClick={() => setMessage("KunTaiMoney sign in will be connected next.")}
+              onClick={() =>
+                setMessage("KunTaiMoney sign in will be connected next.")
+              }
               disabled={isLoading}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
