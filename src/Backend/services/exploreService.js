@@ -20,7 +20,7 @@ export {
   updateExploreCommentCounts,
 } from "./explore/commentService";
 export { fetchExploreProfile, getCurrentUserProfile, updateExploreProfile } from "./explore/profileService";
-export { fetchExploreFollowing, syncExploreFollow } from "./explore/followService";
+export { fetchExploreFollowing, fetchExploreFollowStats, syncExploreFollow } from "./explore/followService";
 
 function readStoredNotifications() {
   try {
@@ -134,6 +134,7 @@ export async function createExploreNotification(input) {
   const draft = normalizeNotification({
     id: `local-notification-${Date.now()}`,
     user_id: targetUserId,
+    actor_user_id: actor.id || null,
     actor_name: actor.name,
     actor_avatar_url: actor.avatar_url,
     type: input.type || "system",
@@ -147,6 +148,7 @@ export async function createExploreNotification(input) {
 
   const payload = {
     user_id: draft.user_id,
+    actor_user_id: draft.actor_user_id,
     actor_name: draft.actor_name,
     actor_avatar_url: draft.actor_avatar_url,
     type: draft.type,
@@ -165,6 +167,7 @@ export async function createExploreNotification(input) {
       !isMissingColumn(error, "post_id") &&
       !isMissingColumn(error, "post_preview") &&
       !isMissingColumn(error, "actor_avatar_url") &&
+      !isMissingColumn(error, "actor_user_id") &&
       !isMissingColumn(error, "media_type") &&
       !isMissingColumn(error, "message")
     ) {
@@ -174,6 +177,7 @@ export async function createExploreNotification(input) {
 
     const fallbackPayload = {
       user_id: draft.user_id,
+      actor_user_id: draft.actor_user_id,
       actor_name: draft.actor_name,
       type: draft.type,
       read: draft.read,

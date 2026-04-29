@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
+import supabase from "../lib/supabaseClient";
+import { subscribeToCurrentUserCommentLikes, subscribeToExploreComments } from "../services/explore/realtimeService";
 import {
   createExploreComment,
   deleteExploreComment,
@@ -37,6 +39,62 @@ export function useExploreComments(postId, currentUserId = "") {
   useEffect(() => {
     load();
   }, [postId]);
+
+  useEffect(() => {
+    return subscribeToExploreComments(postId, {
+      onInsert(payload) {
+        if (!payload.new) return;
+        setComments((current) => {
+          if (current.some((comment) => comment.id === payload.new.id)) {
+            return current;
+          }
+          return [...current, payload.new];
+        });
+      },
+      onUpdate(payload) {
+        if (!payload.new) return;
+        setComments((current) => current.map((comment) => (comment.id === payload.new.id ? { ...comment, ...payload.new } : comment)));
+      },
+      onDelete(payload) {
+        const deletedId = payload.old?.id;
+        if (!deletedId) return;
+        setComments((current) => current.filter((comment) => comment.id !== deletedId && comment.parent_comment_id !== deletedId));
+      },
+    });
+  }, [postId]);
+
+  useEffect(() => {
+    let active = true;
+    let unsubscribe = () => {};
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!active || !data?.user?.id) {
+        return;
+      }
+
+      unsubscribe = subscribeToCurrentUserCommentLikes(data.user.id, {
+        onChange(payload) {
+          const nextCommentId = payload.new?.comment_id || payload.old?.comment_id;
+          if (!nextCommentId) return;
+
+          setLikedComments((current) => {
+            const next = new Set(current);
+            if (payload.eventType === "DELETE") {
+              next.delete(nextCommentId);
+            } else {
+              next.add(nextCommentId);
+            }
+            return next;
+          });
+        },
+      });
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   const thread = useMemo(() => {
     const roots = [];

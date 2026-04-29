@@ -27,6 +27,7 @@ export default function MyPostsScreen({ currentUserId, hideHeader = false }) {
             <FeedPost
               key={post.id}
               post={post}
+              currentUserId={currentUserId}
               liked={feed.likedPosts.has(post.id)}
               saved={feed.savedPosts.has(post.id)}
               isOwner

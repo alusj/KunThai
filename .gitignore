@@ -16,6 +16,7 @@ dist-ssr
 supabase/.temp
 supabase/hardening/
 supabase/.branches
+supabase/explore_foundation_hardening.sql
 
 # Editor directories and files
 .vscode/*

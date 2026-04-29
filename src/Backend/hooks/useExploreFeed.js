@@ -2,6 +2,20 @@ import { useEffect, useState } from "react";
 
 import supabase from "../lib/supabaseClient";
 import {
+  EXPLORE_CACHE_EVENT,
+  getPostsStorageKey,
+  HIDE_STORAGE_KEY,
+  LIKE_STORAGE_KEY,
+  readStoredPosts,
+  readStoredSet,
+  removePostFromAllCaches,
+  SAVE_STORAGE_KEY,
+  writeStoredPosts,
+  writeStoredSet,
+} from "../services/explore/cacheService";
+import { subscribeToCurrentUserReactions, subscribeToExplorePosts } from "../services/explore/realtimeService";
+import { canRunSafetyAction, contentHasModerationFlags, readBlockedUsers } from "../services/explore/safetyService";
+import {
   createExploreNotification,
   createExploreComment,
   createExplorePost,
@@ -14,41 +28,6 @@ import {
   updateExplorePost,
   updateExplorePostCounts,
 } from "../services/exploreService";
-
-const LIKE_STORAGE_KEY = "explore-liked-posts";
-const SAVE_STORAGE_KEY = "explore-saved-posts";
-const HIDE_STORAGE_KEY = "explore-hidden-posts";
-const POSTS_STORAGE_PREFIX = "explore-posts";
-
-function readStoredSet(key) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key) || "[]");
-    return new Set(Array.isArray(value) ? value : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeStoredSet(key, setValue) {
-  localStorage.setItem(key, JSON.stringify(Array.from(setValue)));
-}
-
-function getPostsStorageKey(scope) {
-  return `${POSTS_STORAGE_PREFIX}-${scope}`;
-}
-
-function readStoredPosts(scope) {
-  try {
-    const value = JSON.parse(localStorage.getItem(getPostsStorageKey(scope)) || "[]");
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredPosts(scope, posts) {
-  localStorage.setItem(getPostsStorageKey(scope), JSON.stringify(posts));
-}
 
 function isLocalPost(post) {
   return String(post?.id || "").startsWith("local-");
@@ -162,16 +141,8 @@ export function useExploreFeed(scope = "feed") {
   }, [scope]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`explore-posts-${scope}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "explore_posts",
-        },
-        (payload) => {
+    return subscribeToExplorePosts(scope, {
+      onDelete(payload) {
           const deletedId = payload.old?.id;
           if (!deletedId) {
             return;
@@ -182,16 +153,8 @@ export function useExploreFeed(scope = "feed") {
             writeStoredPosts(scope, nextPosts);
             return nextPosts;
           });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "explore_posts",
-        },
-        (payload) => {
+      },
+      onInsert(payload) {
           const nextPost = payload.new;
           if (!nextPost || (nextPost.feed_scope ?? "feed") !== scope) {
             return;
@@ -202,16 +165,8 @@ export function useExploreFeed(scope = "feed") {
             writeStoredPosts(scope, nextPosts);
             return nextPosts;
           });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "explore_posts",
-        },
-        (payload) => {
+      },
+      onUpdate(payload) {
           const nextPost = payload.new;
           if (!nextPost) {
             return;
@@ -225,14 +180,41 @@ export function useExploreFeed(scope = "feed") {
             writeStoredPosts(scope, nextPosts);
             return nextPosts;
           });
+      },
+    });
+  }, [scope]);
+
+  useEffect(() => {
+    let active = true;
+    let unsubscribe = () => {};
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!active || !data?.user?.id) {
+        return;
+      }
+
+      unsubscribe = subscribeToCurrentUserReactions(data.user.id, {
+        async onChange() {
+          try {
+            const reactions = await fetchCurrentUserReactions();
+            const nextLikedPosts = new Set(reactions.likes);
+            const nextSavedPosts = new Set(reactions.saves);
+            setLikedPosts(nextLikedPosts);
+            setSavedPosts(nextSavedPosts);
+            writeStoredSet(LIKE_STORAGE_KEY, nextLikedPosts);
+            writeStoredSet(SAVE_STORAGE_KEY, nextSavedPosts);
+          } catch {
+            // Keep optimistic state if a realtime refresh fails.
+          }
         },
-      )
-      .subscribe();
+      });
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
+      unsubscribe();
     };
-  }, [scope]);
+  }, []);
 
   useEffect(() => {
     function handleProfileUpdated(event) {
@@ -263,6 +245,31 @@ export function useExploreFeed(scope = "feed") {
   useEffect(() => {
     writeStoredPosts(scope, posts);
   }, [posts, scope]);
+
+  useEffect(() => {
+    function handleStorage(event) {
+      if (event.key === getPostsStorageKey(scope)) {
+        setPosts(readStoredPosts(scope));
+      }
+      if (event.key === LIKE_STORAGE_KEY) setLikedPosts(readStoredSet(LIKE_STORAGE_KEY));
+      if (event.key === SAVE_STORAGE_KEY) setSavedPosts(readStoredSet(SAVE_STORAGE_KEY));
+      if (event.key === HIDE_STORAGE_KEY) setHiddenPosts(readStoredSet(HIDE_STORAGE_KEY));
+    }
+
+    function handleCacheEvent(event) {
+      const detail = event.detail || {};
+      if (detail.key === getPostsStorageKey(scope) || detail.scope === scope) {
+        setPosts(readStoredPosts(scope));
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(EXPLORE_CACHE_EVENT, handleCacheEvent);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(EXPLORE_CACHE_EVENT, handleCacheEvent);
+    };
+  }, [scope]);
 
   async function submitPost(postInput) {
     try {
@@ -432,16 +439,7 @@ export function useExploreFeed(scope = "feed") {
 
     try {
       await deleteExplorePost(postId);
-      [getPostsStorageKey("feed"), getPostsStorageKey("connections"), getPostsStorageKey("swip")].forEach((key) => {
-        try {
-          const items = JSON.parse(localStorage.getItem(key) || "[]");
-          if (Array.isArray(items)) {
-            localStorage.setItem(key, JSON.stringify(items.filter((post) => post.id !== postId)));
-          }
-        } catch {
-          // Ignore invalid local caches.
-        }
-      });
+      removePostFromAllCaches(postId);
     } catch (err) {
       setPosts(previousPosts);
       setError(err.message || "Unable to delete post.");
@@ -458,6 +456,11 @@ export function useExploreFeed(scope = "feed") {
   }
 
   async function reportPost(postId) {
+    if (!canRunSafetyAction("report-post")) {
+      setError("You are reporting too quickly. Please slow down for a moment.");
+      return;
+    }
+
     const reason = window.prompt("Why are you reporting this post?", "Inappropriate content");
 
     if (!reason?.trim()) {
@@ -465,7 +468,9 @@ export function useExploreFeed(scope = "feed") {
     }
 
     try {
-      await reportExplorePost(postId, reason.trim());
+      const post = posts.find((item) => item.id === postId);
+      const flags = contentHasModerationFlags(`${post?.body || ""} ${reason}`);
+      await reportExplorePost(postId, flags.length ? `${reason.trim()} | flags: ${flags.join(", ")}` : reason.trim());
       hidePost(postId);
     } catch (err) {
       setError(err.message || "Unable to report post.");
@@ -485,7 +490,7 @@ export function useExploreFeed(scope = "feed") {
   }
 
   return {
-    posts: posts.filter((post) => !hiddenPosts.has(post.id)),
+    posts: posts.filter((post) => !hiddenPosts.has(post.id) && !readBlockedUsers().has(post.user_id)),
     loading,
     error,
     creating,

@@ -119,6 +119,7 @@ async function notifyMentionedUsers(comment, draft) {
   await supabase.from("explore_notifications").insert(
     targets.map((profile) => ({
       user_id: profile.user_id,
+      actor_user_id: draft.user_id,
       actor_name: draft.author_name,
       actor_avatar_url: draft.author_avatar_url,
       type: "mention",

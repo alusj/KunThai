@@ -142,6 +142,49 @@ create table if not exists public.explore_post_saves (
   unique (post_id, user_id)
 );
 
+create table if not exists public.explore_saved_collections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.explore_saved_collection_items (
+  id uuid primary key default gen_random_uuid(),
+  collection_id uuid not null references public.explore_saved_collections(id) on delete cascade,
+  post_id uuid not null references public.explore_posts(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (collection_id, post_id)
+);
+
+create table if not exists public.explore_conversations (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references auth.users(id) on delete set null,
+  request boolean not null default false,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists public.explore_conversation_members (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.explore_conversations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (conversation_id, user_id)
+);
+
+create table if not exists public.explore_messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.explore_conversations(id) on delete cascade,
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  body text not null default '',
+  media_url text,
+  media_type text not null default 'text' check (media_type in ('text', 'image', 'audio', 'video')),
+  read boolean not null default false,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
 create table if not exists public.explore_follows (
   id uuid primary key default gen_random_uuid(),
   follower_id uuid not null references auth.users(id) on delete cascade,
@@ -161,6 +204,26 @@ create table if not exists public.explore_post_reports (
   unique (post_id, user_id)
 );
 
+create table if not exists public.explore_user_blocks (
+  id uuid primary key default gen_random_uuid(),
+  blocker_id uuid not null references auth.users(id) on delete cascade,
+  blocked_id uuid not null references auth.users(id) on delete cascade,
+  reason text,
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (blocker_id, blocked_id),
+  check (blocker_id <> blocked_id)
+);
+
+create table if not exists public.explore_profile_reports (
+  id uuid primary key default gen_random_uuid(),
+  reported_user_id uuid not null references auth.users(id) on delete cascade,
+  reporter_id uuid not null references auth.users(id) on delete cascade,
+  reason text not null,
+  status text not null default 'open' check (status in ('open', 'reviewed', 'dismissed')),
+  created_at timestamptz not null default timezone('utc', now()),
+  unique (reported_user_id, reporter_id)
+);
+
 insert into storage.buckets (id, name, public)
 values ('explore-media', 'explore-media', true)
 on conflict (id) do nothing;
@@ -174,8 +237,15 @@ alter table public.explore_comment_likes enable row level security;
 alter table public.explore_comment_reports enable row level security;
 alter table public.explore_post_likes enable row level security;
 alter table public.explore_post_saves enable row level security;
+alter table public.explore_saved_collections enable row level security;
+alter table public.explore_saved_collection_items enable row level security;
+alter table public.explore_conversations enable row level security;
+alter table public.explore_conversation_members enable row level security;
+alter table public.explore_messages enable row level security;
 alter table public.explore_follows enable row level security;
 alter table public.explore_post_reports enable row level security;
+alter table public.explore_user_blocks enable row level security;
+alter table public.explore_profile_reports enable row level security;
 
 drop policy if exists "authenticated_users_can_read_posts" on public.explore_posts;
 create policy "authenticated_users_can_read_posts"
@@ -317,6 +387,93 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+drop policy if exists "users_manage_saved_collections" on public.explore_saved_collections;
+create policy "users_manage_saved_collections"
+on public.explore_saved_collections
+for all
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "users_manage_saved_collection_items" on public.explore_saved_collection_items;
+create policy "users_manage_saved_collection_items"
+on public.explore_saved_collection_items
+for all
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "members_read_conversations" on public.explore_conversations;
+create policy "members_read_conversations"
+on public.explore_conversations
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.explore_conversation_members
+    where conversation_id = id
+    and user_id = auth.uid()
+  )
+);
+
+drop policy if exists "authenticated_users_create_conversations" on public.explore_conversations;
+create policy "authenticated_users_create_conversations"
+on public.explore_conversations
+for insert
+to authenticated
+with check (auth.uid() = created_by);
+
+drop policy if exists "members_read_conversation_members" on public.explore_conversation_members;
+create policy "members_read_conversation_members"
+on public.explore_conversation_members
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.explore_conversation_members member_check
+    where member_check.conversation_id = conversation_id
+    and member_check.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "authenticated_users_create_conversation_members" on public.explore_conversation_members;
+create policy "authenticated_users_create_conversation_members"
+on public.explore_conversation_members
+for insert
+to authenticated
+with check (auth.uid() is not null);
+
+drop policy if exists "members_read_messages" on public.explore_messages;
+create policy "members_read_messages"
+on public.explore_messages
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.explore_conversation_members
+    where conversation_id = explore_messages.conversation_id
+    and user_id = auth.uid()
+  )
+);
+
+drop policy if exists "members_create_messages" on public.explore_messages;
+create policy "members_create_messages"
+on public.explore_messages
+for insert
+to authenticated
+with check (
+  auth.uid() = sender_id
+  and exists (
+    select 1
+    from public.explore_conversation_members
+    where conversation_id = explore_messages.conversation_id
+    and user_id = auth.uid()
+  )
+);
+
 drop policy if exists "authenticated_users_read_follows" on public.explore_follows;
 create policy "authenticated_users_read_follows"
 on public.explore_follows
@@ -353,6 +510,28 @@ for update
 to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+drop policy if exists "users_manage_own_blocks" on public.explore_user_blocks;
+create policy "users_manage_own_blocks"
+on public.explore_user_blocks
+for all
+to authenticated
+using (auth.uid() = blocker_id)
+with check (auth.uid() = blocker_id);
+
+drop policy if exists "users_create_profile_reports" on public.explore_profile_reports;
+create policy "users_create_profile_reports"
+on public.explore_profile_reports
+for insert
+to authenticated
+with check (auth.uid() = reporter_id);
+
+drop policy if exists "users_read_own_profile_reports" on public.explore_profile_reports;
+create policy "users_read_own_profile_reports"
+on public.explore_profile_reports
+for select
+to authenticated
+using (auth.uid() = reporter_id);
 
 drop policy if exists "public_can_view_explore_media" on storage.objects;
 create policy "public_can_view_explore_media"

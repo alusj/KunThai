@@ -11,7 +11,9 @@ import Swip from "./ExploreTabs/swip/Swip";
 import Connections from "./ExploreTabs/connections/Connections"
 import Notifications from "./ExploreTabs/notification/Notifications";
 import ActivityScreen from "./SocialMenu/activity/ActivityScreen";
+import MessagesScreen from "./SocialMenu/messages/MessagesScreen";
 import MyPostsScreen from "./SocialMenu/myPosts/MyPostsScreen";
+import PrivacyScreen from "./SocialMenu/privacy/PrivacyScreen";
 import ProfileScreen from "./SocialMenu/profile/ProfileScreen";
 import SavedPostsScreen from "./SocialMenu/savedPosts/SavedPostsScreen";
 import SocialScreenHeader from "./SocialMenu/shared/SocialScreenHeader";
@@ -46,6 +48,7 @@ function PlaceholderMenuScreen({ screen }) {
 export default function Explore({ onScreenModeChange }) {
   const [profileOverride, setProfileOverride] = useState(null);
   const [viewedProfile, setViewedProfile] = useState(null);
+  const [messageRecipient, setMessageRecipient] = useState(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
   const { user } = useAuth();
@@ -97,17 +100,78 @@ export default function Explore({ onScreenModeChange }) {
     }
   }
 
+  function openSearchResult(result) {
+    if (!result) {
+      return;
+    }
+
+    if (result.type === "people") {
+      openViewedProfile({
+        userId: result.userId || "",
+        displayName: result.title || "KunThai User",
+        username: result.username || "",
+        avatarUrl: result.avatarUrl || "",
+        accountType: result.accountType || "personal",
+      });
+      return;
+    }
+
+    if (result.type === "hashtag") {
+      exploreNav.setActiveTab("UrFeed");
+      return;
+    }
+
+    if (result.postId) {
+      exploreNav.setActiveTab(result.type === "swip" ? "Swip" : "UrFeed");
+      setTimeout(() => {
+        document.getElementById(`post-${result.postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 250);
+    }
+  }
+
+  function startChat(recipient) {
+    setMessageRecipient(recipient);
+    exploreNav.openMenuScreen("Messages");
+  }
+
+  function openMenuScreen(screen) {
+    if (screen === "Messages") {
+      setMessageRecipient(null);
+    }
+    exploreNav.openMenuScreen(screen);
+  }
+
   function renderMenuScreen() {
     if (!activeMenuScreen) {
       return null;
     }
 
     if (activeMenuScreen === "Profile") {
-      return <ProfileScreen profile={profile} hideHeader editable onProfileUpdate={setProfileOverride} />;
+      return (
+        <ProfileScreen
+          profile={profile}
+          currentUserId={profile.userId}
+          hideHeader
+          editable
+          onOpenNotification={openNotificationTarget}
+          onProfileUpdate={setProfileOverride}
+          onStartChat={startChat}
+        />
+      );
     }
 
     if (activeMenuScreen === "ViewedProfile") {
-      return <ProfileScreen profile={viewedProfile || profile} hideHeader editable={viewedProfile?.userId === profile.userId} onProfileUpdate={setProfileOverride} />;
+      return (
+        <ProfileScreen
+          profile={viewedProfile || profile}
+          currentUserId={profile.userId}
+          hideHeader
+          editable={viewedProfile?.userId === profile.userId}
+          onOpenNotification={openNotificationTarget}
+          onProfileUpdate={setProfileOverride}
+          onStartChat={startChat}
+        />
+      );
     }
 
     if (activeMenuScreen === "MyPosts") {
@@ -126,8 +190,16 @@ export default function Explore({ onScreenModeChange }) {
       return <Notifications onOpenNotification={openNotificationTarget} />;
     }
 
+    if (activeMenuScreen === "Messages") {
+      return <MessagesScreen currentProfile={profile} hideHeader initialRecipient={messageRecipient} />;
+    }
+
     if (activeMenuScreen === "Connections") {
       return <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />;
+    }
+
+    if (activeMenuScreen === "Privacy") {
+      return <PrivacyScreen hideHeader />;
     }
 
     return <PlaceholderMenuScreen screen={menuScreen} />;
@@ -159,8 +231,9 @@ export default function Explore({ onScreenModeChange }) {
       >
         <ExploreHeader
           onAlertsClick={() => exploreNav.openMenuScreen("Notifications")}
-          onNavigate={exploreNav.openMenuScreen}
+          onNavigate={openMenuScreen}
           onCreateSelect={exploreNav.openComposer}
+          onSearchResult={openSearchResult}
         />
 
         {/* =========================
