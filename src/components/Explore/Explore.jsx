@@ -215,7 +215,7 @@ export default function Explore({ onScreenModeChange }) {
 
   if (exploreNav.isFullScreen) {
     return (
-      <div className="min-h-screen w-full overflow-x-hidden bg-slate-100 kuntai-safe-bottom">
+      <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 kuntai-safe-bottom">
         <SocialScreenHeader
           title={menuScreen.title}
           subtitle={menuScreen.subtitle}
@@ -227,7 +227,7 @@ export default function Explore({ onScreenModeChange }) {
   }
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-slate-100 kuntai-safe-bottom">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 kuntai-safe-bottom">
 
       {/* =========================
           HEADER (always visible)
@@ -256,7 +256,7 @@ export default function Explore({ onScreenModeChange }) {
       {/* =========================
           ACTIVE PAGE
       ========================= */}
-      <div className="pt-2">
+      <div className="w-full max-w-full overflow-x-clip pt-2">
         {activeTab === "UrFeed" && <UrFeed profile={profile} onViewProfile={openViewedProfile} />}
         {activeTab === "Swip" && <Swip currentUserId={profile.userId} onViewProfile={openViewedProfile} />}
         {activeTab === "Connections" && <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />}

@@ -34,7 +34,7 @@ export default function App() {
   const bottomTabsHidden = exploreFullScreen || marketplaceNav.sub;
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100">
       {page === "explore" && <Explore onScreenModeChange={setExploreFullScreen} />}
       {page === "marketplace" && <Marketplace nav={marketplaceNav} setNav={setMarketplaceNav} />}
       {page === "transport" && <Transport />}

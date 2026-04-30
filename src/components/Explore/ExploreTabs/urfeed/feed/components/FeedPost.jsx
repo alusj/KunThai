@@ -46,7 +46,7 @@ export default function FeedPost({
   }
 
   return (
-    <article id={`post-${post.id}`} className="relative w-full min-w-0 overflow-visible rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+    <article id={`post-${post.id}`} className="relative w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
       <PostHeader
         post={post}
         isOwner={isOwner}

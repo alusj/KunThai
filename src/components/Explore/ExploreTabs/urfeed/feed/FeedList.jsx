@@ -116,7 +116,7 @@ export default function FeedList({
 
   if (error) {
     return (
-      <div className="mt-4 w-full px-4 sm:px-5">
+      <div className="mt-4 w-full max-w-full overflow-x-clip px-4 sm:px-5">
         <ErrorState message={error} onRetry={onRetry} />
       </div>
     );
@@ -124,14 +124,14 @@ export default function FeedList({
 
   if (!posts?.length) {
     return (
-      <div className="mt-4 w-full px-4 sm:px-5">
+      <div className="mt-4 w-full max-w-full overflow-x-clip px-4 sm:px-5">
         <EmptyState title={emptyTitle} message={emptyMessage} />
       </div>
     );
   }
 
   return (
-    <div className="mt-4 w-full px-4 pb-8 sm:px-5" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div className="mt-4 w-full max-w-full overflow-x-clip px-4 pb-8 sm:px-5" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
         <span className="font-bold text-slate-800">{refreshing ? "Refreshing..." : `${posts.length} posts`}</span>
         <button type="button" onClick={refresh} className="font-bold text-sky-700">
@@ -139,7 +139,7 @@ export default function FeedList({
         </button>
       </div>
 
-      <div className="space-y-4">
+      <div className="w-full max-w-full space-y-4 overflow-x-clip">
         {visiblePosts.map((post) => (
           <FeedPost
             key={post.id}

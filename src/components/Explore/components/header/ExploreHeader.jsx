@@ -29,9 +29,9 @@ export default function ExploreHeader({ onAlertsClick, onNavigate, onCreateSelec
 
   return (
     <>
-      <header className="border-b border-slate-200 bg-white/95 backdrop-blur">
+      <header className="w-full max-w-full overflow-x-clip border-b border-slate-200 bg-white/95 backdrop-blur">
         <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onOpenResult={onSearchResult} />
-        <div className="grid h-16 w-full grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:px-5">
+        <div className="grid h-16 w-full max-w-full grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
             <MenuButton onClick={() => setMenuOpen(true)} />
             <MessageButton onClick={() => onNavigate?.("Messages")} />
