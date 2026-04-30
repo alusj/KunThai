@@ -5,7 +5,9 @@ import Avatar from "../../../../shared/Avatar";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
 import MediaPreview from "../composer/MediaPreview";
+import PostingProgress from "../composer/PostingProgress";
 import { clearDraft, fileToDataUrl, parseTags, readDraft, writeDraft } from "../composer/composerUtils";
+import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 
 export default function FeedComposer({ profile, creating, onSubmit }) {
   const draft = readDraft();
@@ -19,6 +21,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [privacy, setPrivacy] = useState(draft.post_privacy || "public");
   const [isRecording, setIsRecording] = useState(false);
   const [mediaMode, setMediaMode] = useState("image");
+  const [mediaMeta, setMediaMeta] = useState(draft.media_meta || {});
+  const [postingStage, setPostingStage] = useState("");
+  const [postingProgress, setPostingProgress] = useState(0);
   const fileInputRef = useRef(null);
   const composerRef = useRef(null);
   const recorderRef = useRef(null);
@@ -42,8 +47,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       audio_url: audioPreview,
       audio_duration_seconds: audioDuration,
       post_privacy: privacy,
+      media_meta: mediaMeta,
     });
-  }, [audioDuration, audioPreview, imagePreview, privacy, value, videoPreview]);
+  }, [audioDuration, audioPreview, imagePreview, mediaMeta, privacy, value, videoPreview]);
 
   useEffect(() => {
     function handleCreatePost(event) {
@@ -81,9 +87,25 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       if (file.type.startsWith("video/") || mediaMode === "video") {
         setVideoPreview(nextPreview);
         setImagePreview("");
+        setMediaMeta((current) => ({
+          ...current,
+          videoName: file.name,
+          videoType: file.type,
+          videoSize: file.size,
+          imageName: "",
+          imageType: "",
+        }));
       } else {
         setImagePreview(nextPreview);
         setVideoPreview("");
+        setMediaMeta((current) => ({
+          ...current,
+          imageName: file.name,
+          imageType: file.type,
+          imageSize: file.size,
+          videoName: "",
+          videoType: "",
+        }));
       }
       setOpen(true);
       setFeedback("");
@@ -126,6 +148,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           const seconds = Math.max(1, Math.round(blob.size / 16000));
           setAudioPreview(nextPreview);
           setAudioDuration(seconds);
+          setMediaMeta((current) => ({
+            ...current,
+            audioName: "voice-note.webm",
+            audioType: blob.type,
+            audioSize: blob.size,
+          }));
           setFeedback("");
         } catch (error) {
           setFeedback(error.message || "Unable to save voice note.");
@@ -171,6 +199,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setVideoPreview("");
     setAudioPreview("");
     setAudioDuration(null);
+    setMediaMeta({});
+    setPostingStage("");
+    setPostingProgress(0);
     setPrivacy("public");
     clearDraft();
   }
@@ -181,6 +212,29 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (!hasContent) {
       setOpen(true);
       setFeedback("Add text, an image, a video, or a voice note.");
+      return;
+    }
+
+    setFeedback("");
+    setPostingStage("preparing");
+    setPostingProgress(5);
+
+    const review = await runPostReviewPipeline({
+      body: value,
+      media: {
+        ...mediaMeta,
+        hasMedia: Boolean(imagePreview || videoPreview || audioPreview),
+      },
+      onStage: (stage, progress) => {
+        setPostingStage(stage);
+        setPostingProgress(progress);
+      },
+    });
+
+    if (!review.ok) {
+      setPostingStage("");
+      setPostingProgress(0);
+      setFeedback(review.reason);
       return;
     }
 
@@ -201,11 +255,16 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     });
 
     if (result?.ok) {
+      setPostingStage("complete");
+      setPostingProgress(100);
+      await new Promise((resolve) => setTimeout(resolve, 450));
       resetComposer();
       setOpen(false);
       return;
     }
 
+    setPostingStage("");
+    setPostingProgress(0);
     setFeedback(result?.error || "Unable to publish post.");
   }
 
@@ -241,11 +300,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
               </div>
               <button
                 type="submit"
-                disabled={creating || !hasContent}
+                disabled={creating || Boolean(postingStage) || !hasContent}
                 className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
               >
                 <HiOutlinePaperAirplane />
-                Post
+                {postingStage ? "Posting" : "Post"}
               </button>
             </div>
 
@@ -279,14 +338,23 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 imagePreview={imagePreview}
                 videoPreview={videoPreview}
                 audioPreview={audioPreview}
-                onRemoveImage={() => setImagePreview("")}
-                onRemoveVideo={() => setVideoPreview("")}
+                onRemoveImage={() => {
+                  setImagePreview("");
+                  setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
+                }}
+                onRemoveVideo={() => {
+                  setVideoPreview("");
+                  setMediaMeta((current) => ({ ...current, videoName: "", videoType: "", videoSize: 0 }));
+                }}
                 onRemoveAudio={() => {
                   setAudioPreview("");
                   setAudioDuration(null);
+                  setMediaMeta((current) => ({ ...current, audioName: "", audioType: "", audioSize: 0 }));
                   setFeedback("");
                 }}
               />
+
+              {postingStage ? <PostingProgress progress={postingProgress} stage={postingStage} /> : null}
 
               {feedback ? (
                 <p className={`text-sm font-semibold ${feedback === "Recording voice note..." ? "text-sky-700" : "text-rose-600"}`}>

@@ -130,6 +130,14 @@ export function canRunSafetyAction(action, limit = 8) {
 
 export function contentHasModerationFlags(value) {
   const text = String(value || "").toLowerCase();
-  const patterns = ["scam", "kill yourself", "terror", "child abuse"];
+  const patterns = [
+    "child abuse",
+    "explicit nude",
+    "kill yourself",
+    "nude",
+    "porn",
+    "scam",
+    "terror",
+  ];
   return patterns.filter((pattern) => text.includes(pattern));
 }

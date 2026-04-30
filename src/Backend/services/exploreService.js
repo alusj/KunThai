@@ -1,6 +1,7 @@
 import supabase from "../lib/supabaseClient";
 import { NOTIFICATION_EVENT, NOTIFICATION_STORAGE_KEY } from "./explore/constants";
 import { isMissingColumn, isMissingTable } from "./explore/errors";
+import { getCurrentUserProfile } from "./explore/profileService";
 import { buildExploreProfileFromUser } from "./explore/profileStorage";
 import { formatRelativeTime } from "./explore/time";
 export {
