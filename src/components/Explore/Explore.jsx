@@ -1,6 +1,7 @@
 // src/Explore/Explore.jsx
 import { useEffect, useState } from "react";
 import { useAuth } from "../../Backend/hooks/useAuth";
+import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
 import { useScrollHidden } from "../../Backend/hooks/useScrollHidden";
 import { buildExploreProfileFromUser, fetchExploreProfile } from "../../Backend/services/exploreService";
@@ -55,6 +56,8 @@ export default function Explore({ onScreenModeChange }) {
   const { user } = useAuth();
   const profile = profileOverride || buildExploreProfileFromUser(user);
   const { activeTab, activeMenuScreen, menuScreen } = exploreNav;
+
+  useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
 
   useEffect(() => {
     onScreenModeChange?.(exploreNav.isFullScreen);

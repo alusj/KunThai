@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import CommentsDrawer from "../comments/CommentsDrawer";
 import PostActions from "../post/PostActions";
 import PostHeader from "../post/PostHeader";
@@ -28,6 +29,8 @@ export default function FeedPost({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [menuMessage, setMenuMessage] = useState("");
+
+  useBrowserBack(commentsOpen, () => setCommentsOpen(false), `comments-${post.id}`);
 
   async function runAction(action) {
     setOptionsOpen(false);
@@ -88,6 +91,7 @@ export default function FeedPost({
         post={post}
         onClose={() => setCommentsOpen(false)}
         onCreated={onComment}
+        onViewProfile={onViewProfile}
       />
 
       {menuMessage ? <p className="px-4 pb-3 text-xs font-bold text-sky-700">{menuMessage}</p> : null}

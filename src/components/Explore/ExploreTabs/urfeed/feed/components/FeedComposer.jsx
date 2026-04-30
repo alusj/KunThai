@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HiOutlinePaperAirplane, HiOutlineSparkles, HiOutlineXMark } from "react-icons/hi2";
 
+import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import Avatar from "../../../../shared/Avatar";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
@@ -30,6 +31,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const chunksRef = useRef([]);
 
   const hasContent = Boolean(value.trim() || imagePreview || audioPreview || videoPreview);
+
+  useBrowserBack(open, () => setOpen(false), "explore-composer");
 
   useEffect(() => {
     return () => {

@@ -6,7 +6,7 @@ import ErrorState from "../../../../shared/ErrorState";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
 
-export default function CommentsDrawer({ currentUserId, onClose, onCreated, open, post }) {
+export default function CommentsDrawer({ currentUserId, onClose, onCreated, onViewProfile, open, post }) {
   const [replyingTo, setReplyingTo] = useState(null);
   const comments = useExploreComments(post?.id, currentUserId);
 
@@ -17,6 +17,11 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, open
   async function addComment(payload) {
     await onCreated?.(payload);
     await comments.reload();
+  }
+
+  function viewProfile(profile) {
+    onClose?.();
+    onViewProfile?.(profile);
   }
 
   return (
@@ -62,6 +67,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, open
               liked={comments.likedComments.has(comment.id)}
               onDelete={comments.removeComment}
               onLike={comments.toggleCommentLike}
+              onViewProfile={viewProfile}
               onReply={setReplyingTo}
               onReport={comments.reportComment}
             />

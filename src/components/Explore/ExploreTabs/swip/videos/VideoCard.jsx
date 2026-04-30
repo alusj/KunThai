@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { HiOutlineSpeakerWave, HiOutlineSpeakerXMark, HiOutlineXMark } from "react-icons/hi2";
 
+import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { sharePost } from "../../urfeed/feed/post/postUtils";
 import SwipActionRail from "./SwipActionRail";
@@ -23,6 +24,9 @@ export default function VideoCard({
   const [muted, setMuted] = useState(true);
   const [message, setMessage] = useState("");
   const videoRef = useRef(null);
+
+  useBrowserBack(commentOpen, () => setCommentOpen(false), `swip-comments-${post.id}`);
+  useBrowserBack(fullscreen, () => setFullscreen(false), `swip-fullscreen-${post.id}`);
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
@@ -100,6 +104,7 @@ export default function VideoCard({
         post={post}
         onClose={() => setCommentOpen(false)}
         onCreated={onComment}
+        onViewProfile={onViewProfile}
       />
       {message ? <p className="absolute left-4 top-16 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-sky-700">{message}</p> : null}
     </article>

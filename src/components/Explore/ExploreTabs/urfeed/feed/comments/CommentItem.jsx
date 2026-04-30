@@ -15,21 +15,36 @@ export default function CommentItem({
   liked,
   onDelete,
   onLike,
+  onViewProfile,
   onReply,
   onReport,
   replies = [],
 }) {
+  function viewCommentProfile() {
+    onViewProfile?.({
+      userId: comment.user_id || "",
+      displayName: comment.author_name || "KunThai User",
+      username: comment.author_username || "",
+      avatarUrl: comment.author_avatar_url || "",
+      accountType: "personal",
+    });
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex min-w-0 gap-3">
-        <Avatar name={comment.author_name || "KunThai User"} src={comment.author_avatar_url} size="sm" />
+        <button type="button" onClick={viewCommentProfile} className="flex-none self-start" aria-label={`View ${comment.author_name || "user"} profile`}>
+          <Avatar name={comment.author_name || "KunThai User"} src={comment.author_avatar_url} size="sm" />
+        </button>
         <div className="min-w-0 flex-1 rounded-[20px] bg-slate-50 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-black text-slate-950">{comment.author_name || "KunThai User"}</p>
-              <p className="truncate text-xs font-semibold text-slate-400">
+              <button type="button" onClick={viewCommentProfile} className="block max-w-full truncate text-left text-sm font-black text-slate-950 hover:text-sky-700">
+                {comment.author_name || "KunThai User"}
+              </button>
+              <button type="button" onClick={viewCommentProfile} className="block max-w-full truncate text-left text-xs font-semibold text-slate-400 hover:text-sky-700">
                 @{comment.author_username || "user"} - {formatRelativeTime(comment.created_at)}
-              </p>
+              </button>
             </div>
           </div>
 
@@ -71,6 +86,7 @@ export default function CommentItem({
               liked={liked}
               onDelete={() => onDelete(reply.id)}
               onLike={() => onLike(reply.id)}
+              onViewProfile={onViewProfile}
               onReply={() => onReply(reply)}
               onReport={() => onReport(reply.id)}
             />
