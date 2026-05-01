@@ -1,27 +1,30 @@
-// src/components/Marketplace/Business/MyBizDashboardHeader/MyBizDashboardHeader.jsx
-
-import Logo from "./Logo";
-import BusinessName from "./BusinessName";
-import Rating from "./Rating";
-import EditBusinessButton from "./EditBusinessButton";
+import { useSellerOverview } from "../../../../../Backend/hooks/useSellerOverview";
+import BusinessProfileCard from "./BusinessProfileCard";
+import HealthScoreCard from "./HealthScoreCard";
+import StoreStatusPills from "./StoreStatusPills";
+import TodaySummaryCard from "./TodaySummaryCard";
 
 export default function MyBizDashboardHeader() {
-  return (
-    <div className="bg-white rounded-xl p-4 shadow-sm">
-      <div className="flex items-center gap-4">
+  const { business, storeStatus, health, today, loading } = useSellerOverview();
 
-        {/* Business Logo */}
-        <Logo />
-
-        {/* Business Info */}
-        <div className="flex-1">
-          <BusinessName />
-          <Rating />
-          <EditBusinessButton />
-          
-        </div>
-
+  if (loading || !business || !storeStatus || !health || !today) {
+    return (
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="h-36 rounded-xl bg-white shadow-sm" />
+        <div className="h-36 rounded-xl bg-white shadow-sm" />
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <BusinessProfileCard business={business} />
+        <HealthScoreCard health={health} />
+      </div>
+
+      <StoreStatusPills status={storeStatus} />
+      <TodaySummaryCard today={today} />
     </div>
   );
 }

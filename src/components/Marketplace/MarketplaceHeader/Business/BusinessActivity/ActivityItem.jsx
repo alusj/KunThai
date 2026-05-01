@@ -1,31 +1,44 @@
-// ActivityItem.jsx
-// ----------------
-// Single activity row.
-// Small, reusable, and focused on UI only.
+import ActivityIcon from "./ActivityIcon";
+import ActivityStatusBadge from "./ActivityStatusBadge";
 
-export default function ActivityItem({ icon, message, time }) {
+export default function ActivityItem({ activity }) {
   return (
-    <div className="flex items-start gap-3">
+    <article className="relative flex gap-3 border-t border-gray-100 py-4 first:border-t-0 first:pt-0 last:pb-0">
+      <ActivityIcon type={activity.type} status={activity.status} />
 
-      {/* =========================
-          Activity icon
-      ========================= */}
-      <div className="h-8 w-8 flex items-center justify-center rounded-full bg-slate-100 text-sm">
-        {icon}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-black text-gray-950">{activity.title}</p>
+            <p className="mt-1 text-sm font-medium leading-5 text-gray-500">
+              {activity.description}
+            </p>
+          </div>
+          <ActivityStatusBadge status={activity.status} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-black text-gray-400">
+            <span>{activity.time}</span>
+            {activity.meta ? (
+              <>
+                <span className="h-1 w-1 rounded-full bg-gray-300" />
+                <span>{activity.meta}</span>
+              </>
+            ) : null}
+          </div>
+
+          {activity.actionLabel ? (
+            <button
+              type="button"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-black text-gray-800 hover:bg-gray-50"
+              onClick={() => console.log(activity.actionLabel, activity.id)}
+            >
+              {activity.actionLabel}
+            </button>
+          ) : null}
+        </div>
       </div>
-
-      {/* =========================
-          Activity content
-      ========================= */}
-      <div className="flex-1">
-        <p className="text-sm text-gray-800">
-          {message}
-        </p>
-        <span className="text-xs text-gray-500">
-          {time}
-        </span>
-      </div>
-
-    </div>
+    </article>
   );
 }

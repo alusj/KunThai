@@ -1,43 +1,41 @@
 import { useState } from "react";
-import BackTab from "./BackTab";
+
+import { useSellerHeader } from "../../../../../Backend/hooks/useSellerHeader";
 import MyBizMenu from "./MyBizMenu/MyBizMenu";
+import SellerHeaderActions from "./SellerHeaderActions";
+import SellerHeaderTitle from "./SellerHeaderTitle";
+import SellerSearch from "./SellerSearch";
 
 export default function MyBizHeader({ onBack }) {
-  /* =========================
-     Menu open state
-  ========================= */
   const [menuOpen, setMenuOpen] = useState(false);
+  const sellerHeader = useSellerHeader();
 
   return (
     <>
-      {/* =========================
-          Header bar
-      ========================= */}
-      <header className="sticky top-0 z-30 bg-white border-b">
-        <div className="flex items-center justify-between h-14 px-4">
+      <header className="sticky top-0 z-30 border-b bg-white">
+        <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+          <SellerHeaderTitle onBack={onBack} />
 
-          {/* Left: Back */}
-          <BackTab onBack={onBack} />
+          <SellerSearch
+            query={sellerHeader.query}
+            onQueryChange={sellerHeader.setQuery}
+            results={sellerHeader.searchResults}
+          />
 
-          {/* Right: Menu button */}
-          <button
-            onClick={() => setMenuOpen(true)}
-            className="text-2xl text-gray-700"
-            aria-label="Open menu"
-          >
-            ☰
-          </button>
-
+          <SellerHeaderActions
+            messageCount={sellerHeader.messageCount}
+            notificationCount={sellerHeader.notificationCount}
+            orderCount={sellerHeader.orderCount}
+            onAddProduct={() => console.log("Add product")}
+            onMessages={() => console.log("Messages")}
+            onNotifications={() => console.log("Alerts")}
+            onOrders={() => console.log("View orders")}
+            onMenu={() => setMenuOpen(true)}
+          />
         </div>
       </header>
 
-      {/* =========================
-          Drawer Menu
-      ========================= */}
-      <MyBizMenu
-        isOpen={menuOpen}
-        onClose={() => setMenuOpen(false)}
-      />
+      <MyBizMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 }

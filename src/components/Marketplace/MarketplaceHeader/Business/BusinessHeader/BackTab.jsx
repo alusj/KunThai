@@ -1,10 +1,11 @@
 export default function BackTab({ onBack }) {
   return (
     <button
+      type="button"
       onClick={onBack}
-      className="text-sm font-medium text-gray-700 hover:text-gray-900 transition"
+      className="whitespace-nowrap text-sm font-semibold text-gray-700 transition hover:text-gray-900"
     >
-      ← Back
+      Back
     </button>
   );
 }

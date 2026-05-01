@@ -52,7 +52,7 @@ export default function Marketplace({ nav, setNav }) {
      NORMAL MARKETPLACE VIEW
   ========================= */
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       {/* Header */}
       <MarketplaceHeader
         onMyBizClick={() =>
@@ -70,7 +70,7 @@ export default function Marketplace({ nav, setNav }) {
       />
 
       {/* Buyer Content Area */}
-      <div className="px-4 pt-4 pb-28">
+      <div className="px-4 pt-4 pb-28 sm:px-6 lg:px-8">
         {activeTab === "browse" && <Browse />}
         {activeTab === "orders" && <Orders />}
         {activeTab === "messages" && <Messages />}

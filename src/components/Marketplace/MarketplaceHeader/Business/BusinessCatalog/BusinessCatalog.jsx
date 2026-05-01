@@ -1,23 +1,35 @@
-// Shows a preview of the seller's products inside the dashboard
-
-import ProductGrid from "./ProductGrid";
+import { useSellerProducts } from "../../../../../Backend/hooks/useSellerProducts";
 import EmptyCatalogState from "./EmptyCatalogState";
+import ProductManagementList from "./ProductManagementList";
+import ProductSummaryGrid from "./ProductSummaryGrid";
+import TopSellingProducts from "./TopSellingProducts";
 
 export default function BusinessCatalog() {
-  // Mock product data (later from backend)
-  const products = [
-    { id: 1, name: "Headphones", price: 120, stock: 5 },
-    { id: 2, name: "Speaker", price: 80, stock: 0 },
-  ];
+  const { summary, products, topSellingProducts, loading } = useSellerProducts();
+
+  if (loading || !summary) {
+    return <div className="h-64 rounded-xl bg-white shadow-sm" />;
+  }
 
   return (
-    <section className="space-y-3">
-      <h3 className="text-lg font-semibold">Product Catalog</h3>
+    <section className="space-y-4">
+      <div>
+        <h3 className="text-xl font-black text-gray-950">Products & Inventory</h3>
+        <p className="mt-1 text-sm font-medium text-gray-500">
+          Manage product status, stock health, performance, and quick actions.
+        </p>
+      </div>
+
+      <ProductSummaryGrid summary={summary} />
+
+      {topSellingProducts.length > 0 ? (
+        <TopSellingProducts products={topSellingProducts} />
+      ) : null}
 
       {products.length === 0 ? (
         <EmptyCatalogState />
       ) : (
-        <ProductGrid products={products} />
+        <ProductManagementList products={products} />
       )}
     </section>
   );

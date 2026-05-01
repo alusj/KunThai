@@ -1,63 +1,31 @@
-// BusinessActivity.jsx
-// --------------------
-// Container for recent business activities.
-// Responsible ONLY for layout and data mapping.
-
+import { useSellerActivities } from "../../../../../Backend/hooks/useSellerActivities";
 import ActivityItem from "./ActivityItem";
+import ActivitySummary from "./ActivitySummary";
 
 export default function BusinessActivity() {
-  // =========================
-  // TEMP mock activity data
-  // (Later this will come from Supabase)
-  // =========================
-  const activities = [
-    {
-      id: 1,
-      type: "order",
-      message: "New order received",
-      time: "2 mins ago",
-      icon: "🧾",
-    },
-    {
-      id: 2,
-      type: "message",
-      message: "New message from a buyer",
-      time: "10 mins ago",
-      icon: "💬",
-    },
-    {
-      id: 3,
-      type: "product",
-      message: "Product stock updated",
-      time: "1 hour ago",
-      icon: "📦",
-    },
-  ];
+  const { activities, summary, loading } = useSellerActivities();
+
+  if (loading) {
+    return <div className="h-80 rounded-xl bg-white shadow-sm" />;
+  }
 
   return (
-    <section className="bg-white rounded-xl p-4 shadow-sm space-y-4">
-
-      {/* =========================
-          Section title
-      ========================= */}
-      <h3 className="text-sm font-semibold text-gray-800">
-        Recent Activity
-      </h3>
-
-      {/* =========================
-          Activity list
-      ========================= */}
-      <div className="space-y-3">
-        {activities.map(activity => (
-          <ActivityItem
-            key={activity.id}
-            icon={activity.icon}
-            message={activity.message}
-            time={activity.time}
-          />
-        ))}
+    <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div>
+        <p className="text-sm font-black uppercase text-gray-700">Recent Activity</p>
+        <h3 className="mt-1 text-xl font-black text-gray-950">Store timeline</h3>
+        <p className="mt-1 text-sm font-medium text-gray-500">
+          Orders, messages, payments, stock changes, reviews, and campaign updates.
+        </p>
       </div>
 
+      <ActivitySummary summary={summary} />
+
+      <div>
+        {activities.map((activity) => (
+          <ActivityItem key={activity.id} activity={activity} />
+        ))}
+      </div>
     </section>
   );
 }
