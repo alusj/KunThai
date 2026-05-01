@@ -75,6 +75,11 @@ export default function BusinessRegistration({ onComplete }) {
                 </button>
               )}
             </div>
+            {registration.errors.submit ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+                {registration.errors.submit}
+              </div>
+            ) : null}
           </main>
 
           <LiveBusinessPreview form={registration.form} readinessScore={registration.readinessScore} />

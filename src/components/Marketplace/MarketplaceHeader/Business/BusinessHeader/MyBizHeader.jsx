@@ -6,7 +6,7 @@ import SellerHeaderActions from "./SellerHeaderActions";
 import SellerHeaderTitle from "./SellerHeaderTitle";
 import SellerSearch from "./SellerSearch";
 
-export default function MyBizHeader({ onBack }) {
+export default function MyBizHeader({ onBack, onAddProduct }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const sellerHeader = useSellerHeader();
 
@@ -26,7 +26,7 @@ export default function MyBizHeader({ onBack }) {
             messageCount={sellerHeader.messageCount}
             notificationCount={sellerHeader.notificationCount}
             orderCount={sellerHeader.orderCount}
-            onAddProduct={() => console.log("Add product")}
+            onAddProduct={onAddProduct}
             onMessages={() => console.log("Messages")}
             onNotifications={() => console.log("Alerts")}
             onOrders={() => console.log("View orders")}

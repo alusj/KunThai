@@ -18,14 +18,19 @@ import BusinessReputation from "./BusinessReputation/BusinessReputation";
 import CustomerCare from "./CustomerCare/CustomerCare";
 import MyBizDashboardHeader from "./MyBizDashboardHeader/MyBizDashboardHeader";
 import BusinessStats from "./BusinessStats/BusinessStats";
+import AddProductForm from "./ProductForm/AddProductForm";
+import SellerWorkspaceTabs from "./SellerWorkspaceTabs";
 //import RecentOrders from "./RecentOrders";
 //import RecentMessages from "./RecentMessages";
 import BusinessSkeleton from "./BusinessSkeleton";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
+import { useState } from "react";
 
 export default function Business({ onBack }) {
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
+  const [activeScreen, setActiveScreen] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("overview");
 
   if (loading) return <BusinessSkeleton />;
 
@@ -35,10 +40,17 @@ export default function Business({ onBack }) {
       {/* =========================
           MyBiz Header (ONLY PLACE)
       ========================= */}
-      <MyBizHeader onBack={onBack} />
+      {hasBusiness && activeScreen !== "addProduct" ? (
+        <MyBizHeader onBack={onBack} onAddProduct={() => setActiveScreen("addProduct")} />
+      ) : null}
 
       {!hasBusiness ? (
         <BusinessRegistration onComplete={() => setHasBusiness(true)} />
+      ) : activeScreen === "addProduct" ? (
+        <AddProductForm
+          onCancel={() => setActiveScreen("dashboard")}
+          onComplete={() => setActiveScreen("dashboard")}
+        />
       ) : (
         <>
 
@@ -49,10 +61,16 @@ export default function Business({ onBack }) {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_432px]">
           <main className="space-y-6">
             <MyBizDashboardHeader />
-            <BusinessAttention />
-            <BusinessStats />
-            <BusinessCatalog />
-            <BusinessPromotions />
+            <SellerWorkspaceTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            {activeTab === "overview" ? (
+              <>
+                <BusinessAttention />
+                <BusinessStats />
+                <BusinessPromotions />
+              </>
+            ) : null}
+            {activeTab === "store" ? <BusinessCatalog mode="store" /> : null}
+            {activeTab === "catalog" ? <BusinessCatalog mode="catalog" /> : null}
           </main>
 
           <aside className="space-y-6">

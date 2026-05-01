@@ -34,6 +34,7 @@ export function useSellerProducts() {
 
   return {
     ...productState,
+    availableProducts: productState.products.filter((product) => product.status === "active" && product.stock > 0),
     loading,
   };
 }

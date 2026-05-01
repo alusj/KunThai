@@ -162,10 +162,19 @@ export function useSellerRegistration({ onComplete } = {}) {
       return;
     }
 
+    setErrors((current) => ({ ...current, submit: "" }));
     setSubmitting(true);
-    const business = await submitSellerRegistration(form);
-    setSubmitting(false);
-    onComplete?.(business);
+    try {
+      const business = await submitSellerRegistration(form);
+      onComplete?.(business);
+    } catch (error) {
+      setErrors((current) => ({
+        ...current,
+        submit: error.message || "Unable to submit business. Please try again.",
+      }));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return {
