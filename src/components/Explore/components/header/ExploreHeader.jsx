@@ -44,45 +44,7 @@ export default function ExploreHeader({ onAlertsClick, onNavigate, onCreateSelec
 
           <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2">
             <SearchButton onClick={() => setSearchOpen(true)} />
-            <div className="relative">
-              <CreateButton onClick={() => setCreateOpen((current) => !current)} />
-              {createOpen ? (
-                <div className="absolute right-0 top-12 z-40 w-44 rounded-[18px] border border-slate-200 bg-white p-2 text-left shadow-xl">
-                  <button
-                    type="button"
-                    onClick={() => selectCreateType("text")}
-                    className="flex w-full items-center gap-2 rounded-[14px] px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    <HiOutlinePencilSquare className="text-lg" />
-                    Text post
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selectCreateType("image")}
-                    className="flex w-full items-center gap-2 rounded-[14px] px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    <HiOutlinePhoto className="text-lg" />
-                    Image
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selectCreateType("voice")}
-                    className="flex w-full items-center gap-2 rounded-[14px] px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    <HiOutlineMicrophone className="text-lg" />
-                    Voice post
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selectCreateType("video")}
-                    className="flex w-full items-center gap-2 rounded-[14px] px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    <HiOutlinePlayCircle className="text-lg" />
-                    Video
-                  </button>
-                </div>
-              ) : null}
-            </div>
+            <CreateButton onClick={() => setCreateOpen((current) => !current)} />
             <AlertButton onClick={onAlertsClick} count={unreadCount} latestMessage={latestMessage} />
           </div>
         </div>
@@ -93,7 +55,37 @@ export default function ExploreHeader({ onAlertsClick, onNavigate, onCreateSelec
         ) : null}
       </header>
 
+      {createOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close create menu"
+            className="fixed inset-0 z-[80] cursor-default bg-transparent"
+            onClick={() => setCreateOpen(false)}
+          />
+          <div className="fixed right-3 top-16 z-[90] w-48 rounded-[18px] border border-slate-200 bg-white p-2 text-left shadow-xl sm:right-5">
+            <CreateMenuItem icon={HiOutlinePencilSquare} label="Text post" onClick={() => selectCreateType("text")} />
+            <CreateMenuItem icon={HiOutlinePhoto} label="Image" onClick={() => selectCreateType("image")} />
+            <CreateMenuItem icon={HiOutlineMicrophone} label="Voice post" onClick={() => selectCreateType("voice")} />
+            <CreateMenuItem icon={HiOutlinePlayCircle} label="Video" onClick={() => selectCreateType("video")} />
+          </div>
+        </>
+      ) : null}
+
       <HeaderMenu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} />
     </>
+  );
+}
+
+function CreateMenuItem({ icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-[14px] px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+    >
+      <Icon className="text-lg" />
+      {label}
+    </button>
   );
 }

@@ -2,20 +2,16 @@
    MyBiz Header
 ========================= */
 import MyBizHeader from "./BusinessHeader/MyBizHeader";
+import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
 
 
 /* =========================
    Business UI blocks
 ========================= */
-import BusinessActivity from "./BusinessActivity/BusinessActivity"
 //import BusinessIdentity from "./BusinessIdentity/BusinessIdentity"
 import BusinessAttention from "./BusinessAttention/BusinessAttention";
 import BusinessCatalog from "./BusinessCatalog/BusinessCatalog";
-import BusinessInsights from "./BusinessInsights/BusinessInsights";
-import BusinessPayouts from "./BusinessPayouts/BusinessPayouts";
 import BusinessPromotions from "./BusinessPromotions/BusinessPromotions";
-import BusinessReputation from "./BusinessReputation/BusinessReputation";
-import CustomerCare from "./CustomerCare/CustomerCare";
 import MyBizDashboardHeader from "./MyBizDashboardHeader/MyBizDashboardHeader";
 import BusinessStats from "./BusinessStats/BusinessStats";
 import AddProductForm from "./ProductForm/AddProductForm";
@@ -33,6 +29,22 @@ export default function Business({ onBack }) {
   const [activeScreen, setActiveScreen] = useState("dashboard");
   const [activeTab, setActiveTab] = useState("overview");
   const [toastMessage, setToastMessage] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuInitialScreen, setMenuInitialScreen] = useState(null);
+  const [profileInitialView, setProfileInitialView] = useState("menu");
+  const [editingProduct, setEditingProduct] = useState(null);
+
+  function openProfileEditor() {
+    setMenuInitialScreen("profile");
+    setProfileInitialView("edit");
+    setMenuOpen(true);
+  }
+
+  function openSellerMenu() {
+    setMenuInitialScreen(null);
+    setProfileInitialView("menu");
+    setMenuOpen(true);
+  }
 
   if (loading) return <BusinessSkeleton />;
 
@@ -44,18 +56,38 @@ export default function Business({ onBack }) {
           MyBiz Header (ONLY PLACE)
       ========================= */}
       {hasBusiness && activeScreen !== "addProduct" ? (
-        <MyBizHeader onBack={onBack} onAddProduct={() => setActiveScreen("addProduct")} />
+        <MyBizHeader
+          onBack={onBack}
+          onAddProduct={() => {
+            setEditingProduct(null);
+            setActiveScreen("addProduct");
+          }}
+          onMenu={openSellerMenu}
+        />
+      ) : null}
+
+      {hasBusiness ? (
+        <MyBizMenu
+          isOpen={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          initialScreenKey={menuInitialScreen}
+          profileInitialView={profileInitialView}
+        />
       ) : null}
 
       {!hasBusiness ? (
         <BusinessRegistration onComplete={() => setHasBusiness(true)} />
       ) : activeScreen === "addProduct" ? (
         <AddProductForm
+          mode={editingProduct ? "edit" : "create"}
+          product={editingProduct}
           onCancel={() => setActiveScreen("dashboard")}
           onComplete={() => {
+            const wasEditing = Boolean(editingProduct);
             setActiveScreen("dashboard");
             setActiveTab("store");
-            setToastMessage("Product added successfully");
+            setEditingProduct(null);
+            setToastMessage(wasEditing ? "Product listing updated successfully" : "Product added successfully");
             setTimeout(() => setToastMessage(""), 4500);
           }}
         />
@@ -66,9 +98,9 @@ export default function Business({ onBack }) {
           Business content
       ========================= */}
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_432px]">
+        <div>
           <main className="space-y-6">
-            <MyBizDashboardHeader />
+            <MyBizDashboardHeader onEditProfile={openProfileEditor} />
             <SellerWorkspaceTabs activeTab={activeTab} onTabChange={setActiveTab} />
             {activeTab === "overview" ? (
               <>
@@ -83,17 +115,25 @@ export default function Business({ onBack }) {
               </>
             ) : null}
             {activeTab === "sales" ? <BusinessStats /> : null}
-            {activeTab === "store" ? <BusinessCatalog mode="store" /> : null}
-            {activeTab === "catalog" ? <BusinessCatalog mode="catalog" /> : null}
+            {activeTab === "store" ? (
+              <BusinessCatalog
+                mode="store"
+                onEditProduct={(product) => {
+                  setEditingProduct(product);
+                  setActiveScreen("addProduct");
+                }}
+              />
+            ) : null}
+            {activeTab === "catalog" ? (
+              <BusinessCatalog
+                mode="catalog"
+                onEditProduct={(product) => {
+                  setEditingProduct(product);
+                  setActiveScreen("addProduct");
+                }}
+              />
+            ) : null}
           </main>
-
-          <aside className="space-y-6">
-            <BusinessInsights />
-            <BusinessPayouts />
-            <CustomerCare />
-            <BusinessReputation />
-            <BusinessActivity />
-          </aside>
         </div>
       </div>
         </>

@@ -1,79 +1,46 @@
+import { CircleHelp, Headphones, LifeBuoy } from "lucide-react";
 import { useState } from "react";
 
-/* =========================
-   Sub pages
-========================= */
+import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import ContactSupport from "./ContactSupport/ContactSupport";
-import HelpHome from "./HelpHome/HelpHome";
 import FAQ from "./FAQ/FAQ";
+import HelpHome from "./HelpHome/HelpHome";
 
 export default function HelpSupport() {
   const [currentView, setCurrentView] = useState("menu");
 
-  /* =========================
-     FULL SCREEN VIEWS
-  ========================= */
-
-  if (currentView === "edit") {
-    return (
-      <ContactSupport
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+  if (currentView === "contact") {
+    return <ContactSupport onBack={() => setCurrentView("menu")} />;
   }
 
   if (currentView === "help") {
-    return (
-      <HelpHome
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <HelpHome onBack={() => setCurrentView("menu")} />;
   }
 
   if (currentView === "faq") {
-    return (
-      <FAQ
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <FAQ onBack={() => setCurrentView("menu")} />;
   }
 
-  /* =========================
-     MENU (DEFAULT)
-  ========================= */
   return (
-    <div className="mx-4 bg-white rounded-xl border divide-y overflow-hidden">
-
-      <MenuItem
-        label="Contact Support"
-        onClick={() => setCurrentView("edit")}
+    <div className="space-y-3 px-4">
+      <SettingsSubMenuItem
+        icon={Headphones}
+        title="Contact Support"
+        description="Send a support request for seller account or order issues."
+        onClick={() => setCurrentView("contact")}
       />
-
-      <MenuItem
-        label="Help Home"
+      <SettingsSubMenuItem
+        icon={LifeBuoy}
+        title="Help Home"
+        description="Find seller guides, dashboard help, and setup answers."
         onClick={() => setCurrentView("help")}
       />
-
-      <MenuItem
-        label="FAQs"
+      <SettingsSubMenuItem
+        icon={CircleHelp}
+        title="FAQs"
+        description="Quick answers to common seller questions."
         onClick={() => setCurrentView("faq")}
       />
-
     </div>
-  );
-}
-
-/* =========================
-   Menu Row
-========================= */
-function MenuItem({ label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left px-4 py-3 text-sm
-                 hover:bg-gray-50 active:bg-gray-100"
-    >
-      {label}
-    </button>
   );
 }

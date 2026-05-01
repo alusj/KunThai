@@ -4,9 +4,64 @@ import {
   INITIAL_PRODUCT_FORM,
   fetchProductFormOptions,
   submitSellerProduct,
+  updateSellerProductListing,
 } from "../services/marketplace/sellerProductService";
 
-export function useSellerProductForm({ onComplete } = {}) {
+function buildProductForm(product, options) {
+  if (!product) {
+    return {
+      ...INITIAL_PRODUCT_FORM,
+      basics: {
+        ...INITIAL_PRODUCT_FORM.basics,
+        category: options.categories[0] || "",
+      },
+      delivery: {
+        ...INITIAL_PRODUCT_FORM.delivery,
+        deliveryAvailable: options.deliveryAvailable,
+        pickupAvailable: options.pickupAvailable,
+        location: options.defaultLocation,
+      },
+    };
+  }
+
+  return {
+    basics: {
+      name: product.name || "",
+      category: product.category || options.categories[0] || "",
+      description: product.description || "",
+      condition: product.condition || "new",
+      brand: product.brand || "",
+      model: product.model || "",
+    },
+    media: {
+      coverImageFile: null,
+      coverImageName: product.mainImageUrl ? "Current cover image" : "",
+      coverImageUrl: product.mainImageUrl || "",
+      extraImageFiles: [],
+      extraImageUrls: product.imageUrls || [],
+      videoFile: null,
+      videoName: product.videoUrl ? "Current product video" : "",
+      videoUrl: product.videoUrl || "",
+    },
+    pricing: {
+      price: product.price === undefined ? "" : String(product.price),
+      discountPrice: product.discountPrice ? String(product.discountPrice) : "",
+      stock: product.stock === undefined ? "" : String(product.stock),
+      sku: product.sku || "",
+      lowStockAlert: product.lowStockAlert === undefined ? "3" : String(product.lowStockAlert),
+      allowNegotiation: Boolean(product.allowNegotiation),
+      publishStatus: product.status || "active",
+    },
+    delivery: {
+      deliveryAvailable: product.deliveryAvailable ?? options.deliveryAvailable,
+      pickupAvailable: product.pickupAvailable ?? options.pickupAvailable,
+      deliveryTime: product.deliveryTime || "",
+      location: product.location || options.defaultLocation,
+    },
+  };
+}
+
+export function useSellerProductForm({ onComplete, mode = "create", product = null } = {}) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(INITIAL_PRODUCT_FORM);
   const [options, setOptions] = useState({ categories: [], defaultLocation: "" });
@@ -20,25 +75,13 @@ export function useSellerProductForm({ onComplete } = {}) {
     fetchProductFormOptions().then((nextOptions) => {
       if (!active) return;
       setOptions(nextOptions);
-      setForm((current) => ({
-        ...current,
-        basics: {
-          ...current.basics,
-          category: nextOptions.categories[0] || "",
-        },
-        delivery: {
-          ...current.delivery,
-          deliveryAvailable: nextOptions.deliveryAvailable,
-          pickupAvailable: nextOptions.pickupAvailable,
-          location: nextOptions.defaultLocation,
-        },
-      }));
+      setForm(buildProductForm(product, nextOptions));
     });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [product]);
 
   const preview = useMemo(
     () => ({
@@ -46,7 +89,7 @@ export function useSellerProductForm({ onComplete } = {}) {
       category: form.basics.category || "Category",
       description: form.basics.description || "Product description preview.",
       price: form.pricing.price || "0",
-      coverName: form.media.coverImageName,
+      coverName: form.media.coverImageName || (form.media.coverImageUrl ? "Current cover image" : ""),
       status: form.pricing.publishStatus,
     }),
     [form],
@@ -71,7 +114,7 @@ export function useSellerProductForm({ onComplete } = {}) {
       if (!form.basics.description.trim()) nextErrors.description = "Description is required.";
     }
 
-    if (nextStep === 1 && !form.media.coverImageFile) {
+    if (nextStep === 1 && !form.media.coverImageFile && !form.media.coverImageUrl) {
       nextErrors.coverImage = "Cover image is required.";
     }
 
@@ -106,12 +149,15 @@ export function useSellerProductForm({ onComplete } = {}) {
     setSaveStatus("Starting save...");
     setSubmitting(true);
     try {
-      const product = await submitSellerProduct(form, setSaveStatus);
-      if (product.videoWarning) {
-        setWarnings({ video: product.videoWarning });
+      const savedProduct =
+        mode === "edit"
+          ? await updateSellerProductListing(product, form, setSaveStatus)
+          : await submitSellerProduct(form, setSaveStatus);
+      if (savedProduct.videoWarning) {
+        setWarnings({ video: savedProduct.videoWarning });
       }
-      setSaveStatus("Product saved.");
-      onComplete?.(product);
+      setSaveStatus(mode === "edit" ? "Product listing updated." : "Product saved.");
+      onComplete?.(savedProduct);
     } catch (error) {
       setErrors((current) => ({
         ...current,

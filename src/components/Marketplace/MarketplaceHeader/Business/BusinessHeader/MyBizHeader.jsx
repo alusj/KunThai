@@ -1,13 +1,9 @@
-import { useState } from "react";
-
 import { useSellerHeader } from "../../../../../Backend/hooks/useSellerHeader";
-import MyBizMenu from "./MyBizMenu/MyBizMenu";
 import SellerHeaderActions from "./SellerHeaderActions";
 import SellerHeaderTitle from "./SellerHeaderTitle";
 import SellerSearch from "./SellerSearch";
 
-export default function MyBizHeader({ onBack, onAddProduct }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+export default function MyBizHeader({ onBack, onAddProduct, onMenu }) {
   const sellerHeader = useSellerHeader();
 
   return (
@@ -23,13 +19,15 @@ export default function MyBizHeader({ onBack, onAddProduct }) {
           />
 
           <SellerHeaderActions
+            messageCount={sellerHeader.messageCount}
+            notificationCount={sellerHeader.notificationCount}
             onAddProduct={onAddProduct}
-            onMenu={() => setMenuOpen(true)}
+            onMessages={() => console.log("Messages")}
+            onAlerts={() => console.log("Alerts")}
+            onMenu={onMenu}
           />
         </div>
       </header>
-
-      <MyBizMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 }

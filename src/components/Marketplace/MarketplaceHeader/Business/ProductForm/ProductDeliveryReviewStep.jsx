@@ -45,7 +45,7 @@ export default function ProductDeliveryReviewStep({ productForm }) {
           <p>Category: {form.basics.category || "Missing"}</p>
           <p>Price: {form.pricing.price || "Missing"}</p>
           <p>Stock: {form.pricing.stock || "Missing"}</p>
-          <p>Cover image: {form.media.coverImageName || "Missing"}</p>
+          <p>Cover image: {form.media.coverImageName || (form.media.coverImageUrl ? "Current cover image" : "Missing")}</p>
           <p>Status: {form.pricing.publishStatus === "active" ? "Publish now" : "Save as draft"}</p>
         </div>
       </section>

@@ -12,8 +12,8 @@ export default function ProductInlineActions({ product, onAction }) {
         />
       ) : null}
       <ProductActionButton
-        label="Edit price"
-        onClick={() => onAction?.(product, "edit-price")}
+        label="Edit listing"
+        onClick={() => onAction?.(product, "edit-listing")}
       />
       <ProductActionButton
         label="Promote"

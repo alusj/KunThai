@@ -68,9 +68,22 @@ export async function fetchSellerProducts() {
     description: product.description,
     price: Number(product.price || 0),
     discountPrice: product.discount_price === null ? null : Number(product.discount_price || 0),
+    condition: product.condition,
+    brand: product.brand,
+    model: product.model,
     status: product.status,
     stock: product.stock,
+    sku: product.sku,
+    lowStockAlert: product.low_stock_alert,
+    allowNegotiation: product.allow_negotiation,
+    deliveryAvailable: product.delivery_available,
+    pickupAvailable: product.pickup_available,
+    deliveryTime: product.delivery_time,
+    location: product.location,
     mainImageUrl: product.main_image_url,
+    imageUrls: Array.isArray(product.image_urls) ? product.image_urls : [],
+    videoUrl: product.video_url,
+    publishedAt: product.published_at,
     views: product.views,
     sales: product.sales,
     revenue: Number(product.revenue || 0),
@@ -209,6 +222,94 @@ export async function submitSellerProduct(form, onProgress) {
       title: status === "draft" ? "Product saved as draft" : "Product added",
       description: `${form.basics.name.trim()} was ${status === "draft" ? "saved as a draft" : "added to your catalog"}.`,
       status: status === "draft" ? "active" : "completed",
+      meta: form.basics.category,
+      action_label: "View product",
+    }),
+    "Activity logging timed out.",
+    8000,
+  ).catch(() => {});
+
+  return { ...data, videoWarning };
+}
+
+export async function updateSellerProductListing(product, form, onProgress) {
+  onProgress?.("Checking your seller business...");
+  const [business, userId] = await Promise.all([readRegisteredBusiness(), getCurrentUserId()]);
+  if (!business) throw new Error("Register a business before editing products.");
+  if (!product?.id) throw new Error("Choose a product listing to edit.");
+
+  let coverUrl = product.mainImageUrl || null;
+  let extraImageUrls = product.imageUrls || [];
+  let videoUrl = product.videoUrl || null;
+  let videoWarning = "";
+
+  if (form.media.coverImageFile) {
+    onProgress?.("Uploading replacement cover image...");
+    coverUrl = await uploadProductFile(userId, form.media.coverImageFile, "covers");
+  }
+
+  if (form.media.extraImageFiles.length > 0) {
+    onProgress?.("Uploading replacement gallery images...");
+    extraImageUrls = await Promise.all(
+      form.media.extraImageFiles.map((file) => uploadProductFile(userId, file, "gallery")),
+    );
+  }
+
+  if (form.media.videoFile) {
+    onProgress?.("Uploading replacement product video...");
+    try {
+      videoUrl = await uploadProductFile(userId, form.media.videoFile, "videos");
+    } catch (error) {
+      videoWarning = error.message || "Video upload failed. Product was saved without a new video.";
+    }
+  }
+
+  const status = form.pricing.publishStatus;
+  onProgress?.("Updating product listing...");
+  const { data, error } = await withTimeout(
+    supabase
+      .from("marketplace_products")
+      .update({
+        name: form.basics.name.trim(),
+        description: form.basics.description.trim(),
+        category: form.basics.category,
+        condition: form.basics.condition,
+        brand: form.basics.brand.trim(),
+        model: form.basics.model.trim(),
+        price: Number(form.pricing.price || 0),
+        discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
+        status,
+        stock: Number(form.pricing.stock || 0),
+        sku: form.pricing.sku.trim(),
+        low_stock_alert: Number(form.pricing.lowStockAlert || 0),
+        allow_negotiation: form.pricing.allowNegotiation,
+        delivery_available: form.delivery.deliveryAvailable,
+        pickup_available: form.delivery.pickupAvailable,
+        delivery_time: form.delivery.deliveryTime.trim(),
+        location: form.delivery.location.trim(),
+        main_image_url: coverUrl,
+        image_urls: extraImageUrls,
+        video_url: videoUrl,
+        published_at: status === "active" ? product.publishedAt || new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", product.id)
+      .eq("business_id", business.id)
+      .select()
+      .maybeSingle(),
+    "Product update timed out. Check that the marketplace_products table and policies exist.",
+  );
+
+  if (error) throw new Error(error.message);
+
+  onProgress?.("Updating activity timeline...");
+  withTimeout(
+    supabase.from("marketplace_activities").insert({
+      business_id: business.id,
+      activity_type: "product",
+      title: "Product listing updated",
+      description: `${form.basics.name.trim()} listing details were updated.`,
+      status: "completed",
       meta: form.basics.category,
       action_label: "View product",
     }),

@@ -1,35 +1,34 @@
-export default function MenuHeader({
-  title,
-  showBack,
-  onBack,
-  onClose
-}) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3 border-b">
+import { ArrowLeft, X } from "lucide-react";
 
-      {/* Back */}
+export default function MenuHeader({ title, showBack, onBack, onClose }) {
+  return (
+    <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4">
       {showBack ? (
         <button
+          type="button"
           onClick={onBack}
-          className="text-sm font-medium text-gray-700"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-700 transition hover:bg-gray-50"
+          aria-label="Back to menu"
+          title="Back"
         >
-          ← Back
+          <ArrowLeft size={19} strokeWidth={2.3} />
         </button>
       ) : (
-        <div />
+        <div className="h-10 w-10" />
       )}
 
-      {/* Dynamic Title */}
-      <h2 className="text-sm font-semibold truncate">
+      <h2 className="min-w-0 flex-1 truncate px-3 text-center text-base font-bold text-gray-950">
         {title}
       </h2>
 
-      {/* Close */}
       <button
+        type="button"
         onClick={onClose}
-        className="text-lg font-bold"
+        className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-700 transition hover:bg-gray-50"
+        aria-label="Close menu"
+        title="Close"
       >
-        ×
+        <X size={20} strokeWidth={2.3} />
       </button>
     </div>
   );

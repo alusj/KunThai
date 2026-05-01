@@ -1,8 +1,7 @@
+import { Activity, KeyRound, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
-/* =========================
-   Sub pages
-========================= */
+import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import ChangePassword from "./ChangePassword/ChangePassword";
 import LoginActivity from "./LoginActivity/LoginActivity";
 import TwoFactorAuth from "./TwoFactorsAuth/TwoFactorAuth";
@@ -10,70 +9,38 @@ import TwoFactorAuth from "./TwoFactorsAuth/TwoFactorAuth";
 export default function Security() {
   const [currentView, setCurrentView] = useState("menu");
 
-   /* =========================
-     FULL SCREEN VIEWS
-  ========================= */
-
-  if (currentView === "edit") {
-    return (
-      <ChangePassword
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+  if (currentView === "password") {
+    return <ChangePassword onBack={() => setCurrentView("menu")} />;
   }
 
   if (currentView === "login") {
-    return (
-      <LoginActivity
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <LoginActivity onBack={() => setCurrentView("menu")} />;
   }
 
   if (currentView === "2fa") {
-    return (
-      <TwoFactorAuth
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <TwoFactorAuth onBack={() => setCurrentView("menu")} />;
   }
 
-  /* =========================
-     MENU (DEFAULT)
-  ========================= */
   return (
-    <div className="mx-4 bg-white rounded-xl border divide-y overflow-hidden">
-
-      <MenuItem
-        label="Change Password"
-        onClick={() => setCurrentView("edit")}
+    <div className="space-y-3 px-4">
+      <SettingsSubMenuItem
+        icon={KeyRound}
+        title="Change Password"
+        description="Update the password used to protect seller access."
+        onClick={() => setCurrentView("password")}
       />
-
-      <MenuItem
-        label="Login Activity"
+      <SettingsSubMenuItem
+        icon={Activity}
+        title="Login Activity"
+        description="Review where and when this seller account was accessed."
         onClick={() => setCurrentView("login")}
       />
-
-      <MenuItem
-        label="Two Factors Auth"
+      <SettingsSubMenuItem
+        icon={ShieldCheck}
+        title="Two-Factor Auth"
+        description="Add a second verification step for sensitive actions."
         onClick={() => setCurrentView("2fa")}
       />
-
     </div>
-  );
-}
-
-/* =========================
-   Menu Row
-========================= */
-function MenuItem({ label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left px-4 py-3 text-sm
-                 hover:bg-gray-50 active:bg-gray-100"
-    >
-      {label}
-    </button>
   );
 }

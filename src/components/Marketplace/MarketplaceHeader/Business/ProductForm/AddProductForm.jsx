@@ -13,9 +13,10 @@ const STEPS = [
   { title: "Delivery, review & publish", component: ProductDeliveryReviewStep },
 ];
 
-export default function AddProductForm({ onCancel, onComplete }) {
-  const productForm = useSellerProductForm({ onComplete });
+export default function AddProductForm({ mode = "create", product = null, onCancel, onComplete }) {
+  const productForm = useSellerProductForm({ mode, product, onComplete });
   const StepComponent = STEPS[productForm.step].component;
+  const editing = mode === "edit";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -31,10 +32,16 @@ export default function AddProductForm({ onCancel, onComplete }) {
             >
               {"<"}
             </button>
-            <p className="text-sm font-black uppercase text-blue-700">Add Product</p>
-            <h1 className="mt-1 text-2xl font-black text-gray-950">Create a product listing</h1>
+            <p className="text-sm font-black uppercase text-blue-700">
+              {editing ? "Edit Listing" : "Add Product"}
+            </p>
+            <h1 className="mt-1 text-2xl font-black text-gray-950">
+              {editing ? "Edit product listing" : "Create a product listing"}
+            </h1>
             <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-gray-600">
-              Add product details, media, pricing, inventory, delivery options, and publish status.
+              {editing
+                ? "Update product details, media, pricing, inventory, delivery options, and publish status."
+                : "Add product details, media, pricing, inventory, delivery options, and publish status."}
             </p>
           </div>
         </div>
@@ -74,7 +81,13 @@ export default function AddProductForm({ onCancel, onComplete }) {
                   disabled={productForm.submitting}
                   className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
-                  {productForm.submitting ? "Saving..." : productForm.form.pricing.publishStatus === "draft" ? "Save Draft" : "Publish Product"}
+                  {productForm.submitting
+                    ? "Saving..."
+                    : editing
+                      ? "Update Listing"
+                      : productForm.form.pricing.publishStatus === "draft"
+                        ? "Save Draft"
+                        : "Publish Product"}
                 </button>
               )}
             </div>

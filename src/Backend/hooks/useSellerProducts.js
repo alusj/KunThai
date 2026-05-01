@@ -19,17 +19,16 @@ export function useSellerProducts() {
   const [actionError, setActionError] = useState("");
 
   async function loadProducts(active = true) {
-    fetchSellerProducts()
-      .then((nextProductState) => {
-        if (active) {
-          setProductState({ ...DEFAULT_PRODUCTS, ...nextProductState });
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+    try {
+      const nextProductState = await fetchSellerProducts();
+      if (active) {
+        setProductState({ ...DEFAULT_PRODUCTS, ...nextProductState });
+      }
+    } finally {
+      if (active) {
+        setLoading(false);
+      }
+    }
   }
 
   useEffect(() => {

@@ -1,79 +1,50 @@
-import { useState } from "react";
+import { Building2, KeyRound, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
 
-/* =========================
-   Sub pages
-========================= */
-import EditProfile from "./EditProfile/EditProfile";
+import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import BusinessInfo from "./BusinessInfo/BusinessInfo";
 import ChangePassword from "./ChangePassword/ChangePassword";
+import EditProfile from "./EditProfile/EditProfile";
 
-export default function ProfileSettings() {
-  const [currentView, setCurrentView] = useState("menu");
+export default function ProfileSettings({ initialView = "menu" }) {
+  const [currentView, setCurrentView] = useState(initialView);
 
-  /* =========================
-     FULL SCREEN VIEWS
-  ========================= */
+  useEffect(() => {
+    setCurrentView(initialView);
+  }, [initialView]);
 
   if (currentView === "edit") {
-    return (
-      <EditProfile
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <EditProfile onBack={() => setCurrentView("menu")} />;
   }
 
   if (currentView === "business") {
-    return (
-      <BusinessInfo
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <BusinessInfo onBack={() => setCurrentView("menu")} />;
   }
 
   if (currentView === "password") {
-    return (
-      <ChangePassword
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <ChangePassword onBack={() => setCurrentView("menu")} />;
   }
 
-  /* =========================
-     MENU (DEFAULT)
-  ========================= */
   return (
-    <div className="mx-4 bg-white rounded-xl border divide-y overflow-hidden">
-
-      <MenuItem
-        label="Edit Profile"
+    <div className="space-y-3 px-4">
+      <SettingsSubMenuItem
+        icon={UserRound}
+        title="Edit Profile"
+        description="Update seller name, contact details, and account profile."
         onClick={() => setCurrentView("edit")}
       />
-
-      <MenuItem
-        label="Business Information"
+      <SettingsSubMenuItem
+        icon={Building2}
+        title="Business Information"
+        description="Review the public business details buyers see."
         onClick={() => setCurrentView("business")}
       />
-
-      <MenuItem
-        label="Change Password"
+      <SettingsSubMenuItem
+        icon={KeyRound}
+        title="Change Password"
+        description="Keep the seller account secure with a fresh password."
         onClick={() => setCurrentView("password")}
       />
-
     </div>
-  );
-}
-
-/* =========================
-   Menu Row
-========================= */
-function MenuItem({ label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left px-4 py-3 text-sm
-                 hover:bg-gray-50 active:bg-gray-100"
-    >
-      {label}
-    </button>
   );
 }

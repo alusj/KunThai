@@ -1,79 +1,46 @@
+import { Clock3, Layers3, Store } from "lucide-react";
 import { useState } from "react";
 
-/* =========================
-   Sub pages
-========================= */
-import StoreDetails from "./StoreDetails/StoreDetails";
+import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import Categories from "./Categories/Categories";
 import OperatingHours from "./OperatingHours/OperatingHours";
+import StoreDetails from "./StoreDetails/StoreDetails";
 
-export default function ProfileSettings() {
+export default function BusinessSettings() {
   const [currentView, setCurrentView] = useState("menu");
 
-  /* =========================
-     FULL SCREEN VIEWS
-  ========================= */
-
-  if (currentView === "edit") {
-    return (
-      <StoreDetails
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+  if (currentView === "details") {
+    return <StoreDetails onBack={() => setCurrentView("menu")} />;
   }
 
   if (currentView === "categories") {
-    return (
-      <Categories
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <Categories onBack={() => setCurrentView("menu")} />;
   }
 
   if (currentView === "hours") {
-    return (
-      <OperatingHours
-        onBack={() => setCurrentView("menu")}
-      />
-    );
+    return <OperatingHours onBack={() => setCurrentView("menu")} />;
   }
 
-  /* =========================
-     MENU (DEFAULT)
-  ========================= */
   return (
-    <div className="mx-4 bg-white rounded-xl border divide-y overflow-hidden">
-
-      <MenuItem
-        label="Operating Hours"
-        onClick={() => setCurrentView("edit")}
+    <div className="space-y-3 px-4">
+      <SettingsSubMenuItem
+        icon={Store}
+        title="Store Details"
+        description="Edit address, contacts, delivery, pickup, and public store info."
+        onClick={() => setCurrentView("details")}
       />
-
-      <MenuItem
-        label="Product Categories"
+      <SettingsSubMenuItem
+        icon={Layers3}
+        title="Product Categories"
+        description="Manage the categories that define what your business sells."
         onClick={() => setCurrentView("categories")}
       />
-
-      <MenuItem
-        label="Operating Hours"
+      <SettingsSubMenuItem
+        icon={Clock3}
+        title="Operating Hours"
+        description="Set business opening days and customer service hours."
         onClick={() => setCurrentView("hours")}
       />
-
     </div>
-  );
-}
-
-/* =========================
-   Menu Row
-========================= */
-function MenuItem({ label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left px-4 py-3 text-sm
-                 hover:bg-gray-50 active:bg-gray-100"
-    >
-      {label}
-    </button>
   );
 }
