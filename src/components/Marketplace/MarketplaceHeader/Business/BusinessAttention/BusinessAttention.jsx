@@ -1,40 +1,43 @@
 import { useSellerAttention } from "../../../../../Backend/hooks/useSellerAttention";
 import AttentionEmptyState from "./AttentionEmptyState";
 import AttentionItem from "./AttentionItem";
-import AttentionSummary from "./AttentionSummary";
 
-export default function BusinessAttention() {
+export default function BusinessAttention({ onAction }) {
   const { items, summary, loading } = useSellerAttention();
+  const urgentItems = items.filter((item) => item.priority === "high");
 
   if (loading) {
     return <div className="h-56 rounded-xl bg-white shadow-sm" />;
+  }
+
+  if (urgentItems.length === 0) {
+    return null;
   }
 
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-sm font-black uppercase text-red-600">Attention Center</p>
+          <p className="text-sm font-black uppercase text-red-600">Urgent Attention</p>
           <h3 className="mt-1 text-xl font-black text-gray-950">
-            {summary.total} seller task{summary.total === 1 ? "" : "s"} need review
+            {urgentItems.length} urgent task{urgentItems.length === 1 ? "" : "s"} need review
           </h3>
           <p className="mt-1 text-sm font-medium text-gray-500">
-            Handle urgent work before it affects sales, payouts, or buyer trust.
+            Only time-sensitive seller work appears here. Everything else lives in its source section.
           </p>
         </div>
 
-        <AttentionSummary summary={summary} />
+        <div className="rounded-lg bg-red-50 px-4 py-3 text-red-700">
+          <p className="text-xs font-black uppercase">Urgent</p>
+          <p className="text-2xl font-black">{summary.high}</p>
+        </div>
       </div>
 
-      {items.length === 0 ? (
-        <AttentionEmptyState />
-      ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {items.map((item) => (
-            <AttentionItem key={item.id} item={item} />
-          ))}
-        </div>
-      )}
+      <div className="grid gap-3 lg:grid-cols-2">
+        {urgentItems.map((item) => (
+          <AttentionItem key={item.id} item={item} onAction={onAction} />
+        ))}
+      </div>
     </section>
   );
 }

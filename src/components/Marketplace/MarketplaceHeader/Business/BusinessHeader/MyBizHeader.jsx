@@ -23,13 +23,7 @@ export default function MyBizHeader({ onBack, onAddProduct }) {
           />
 
           <SellerHeaderActions
-            messageCount={sellerHeader.messageCount}
-            notificationCount={sellerHeader.notificationCount}
-            orderCount={sellerHeader.orderCount}
             onAddProduct={onAddProduct}
-            onMessages={() => console.log("Messages")}
-            onNotifications={() => console.log("Alerts")}
-            onOrders={() => console.log("View orders")}
             onMenu={() => setMenuOpen(true)}
           />
         </div>

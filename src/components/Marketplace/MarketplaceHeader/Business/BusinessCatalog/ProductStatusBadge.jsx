@@ -4,6 +4,7 @@ const STATUS_LABELS = {
   "low-stock": "Low stock",
   "out-of-stock": "Out of stock",
   "pending-review": "Pending review",
+  paused: "Paused",
 };
 
 const STATUS_STYLES = {
@@ -12,6 +13,7 @@ const STATUS_STYLES = {
   "low-stock": "bg-amber-50 text-amber-700",
   "out-of-stock": "bg-red-50 text-red-700",
   "pending-review": "bg-blue-50 text-blue-700",
+  paused: "bg-gray-100 text-gray-600",
 };
 
 export default function ProductStatusBadge({ status }) {

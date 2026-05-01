@@ -2,7 +2,7 @@ import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import ProductInlineActions from "./ProductInlineActions";
 import ProductStatusBadge from "./ProductStatusBadge";
 
-export default function ProductManagementRow({ product }) {
+export default function ProductManagementRow({ product, onAction }) {
   return (
     <article className="grid gap-4 border-t border-gray-100 px-4 py-4 lg:grid-cols-[minmax(220px,1.4fr)_110px_110px_110px_minmax(260px,1fr)] lg:items-center">
       <div className="min-w-0">
@@ -17,7 +17,7 @@ export default function ProductManagementRow({ product }) {
       <Metric label="Stock" value={product.stock} />
       <Metric label="Sales" value={product.sales} />
 
-      <ProductInlineActions product={product} />
+      <ProductInlineActions product={product} onAction={onAction} />
     </article>
   );
 }

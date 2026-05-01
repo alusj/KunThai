@@ -1,13 +1,14 @@
 export default function SellerWorkspaceTabs({ activeTab, onTabChange }) {
   const tabs = [
     { id: "overview", label: "Overview" },
+    { id: "sales", label: "Sales & Orders" },
     { id: "store", label: "Store" },
     { id: "catalog", label: "Catalog" },
   ];
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-4">
         {tabs.map((tab) => (
           <button
             key={tab.id}

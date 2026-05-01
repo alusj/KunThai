@@ -20,6 +20,7 @@ import MyBizDashboardHeader from "./MyBizDashboardHeader/MyBizDashboardHeader";
 import BusinessStats from "./BusinessStats/BusinessStats";
 import AddProductForm from "./ProductForm/AddProductForm";
 import SellerWorkspaceTabs from "./SellerWorkspaceTabs";
+import ProductSuccessToast from "./ProductSuccessToast";
 //import RecentOrders from "./RecentOrders";
 //import RecentMessages from "./RecentMessages";
 import BusinessSkeleton from "./BusinessSkeleton";
@@ -31,11 +32,13 @@ export default function Business({ onBack }) {
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
   const [activeScreen, setActiveScreen] = useState("dashboard");
   const [activeTab, setActiveTab] = useState("overview");
+  const [toastMessage, setToastMessage] = useState("");
 
   if (loading) return <BusinessSkeleton />;
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ProductSuccessToast message={toastMessage} onClose={() => setToastMessage("")} />
 
       {/* =========================
           MyBiz Header (ONLY PLACE)
@@ -49,7 +52,12 @@ export default function Business({ onBack }) {
       ) : activeScreen === "addProduct" ? (
         <AddProductForm
           onCancel={() => setActiveScreen("dashboard")}
-          onComplete={() => setActiveScreen("dashboard")}
+          onComplete={() => {
+            setActiveScreen("dashboard");
+            setActiveTab("store");
+            setToastMessage("Product added successfully");
+            setTimeout(() => setToastMessage(""), 4500);
+          }}
         />
       ) : (
         <>
@@ -64,11 +72,17 @@ export default function Business({ onBack }) {
             <SellerWorkspaceTabs activeTab={activeTab} onTabChange={setActiveTab} />
             {activeTab === "overview" ? (
               <>
-                <BusinessAttention />
-                <BusinessStats />
+                <BusinessAttention
+                  onAction={(item) => {
+                    if (item.id === "add-first-product") setActiveScreen("addProduct");
+                    if (item.type === "payout") setActiveTab("overview");
+                    if (item.type === "profile") setActiveTab("overview");
+                  }}
+                />
                 <BusinessPromotions />
               </>
             ) : null}
+            {activeTab === "sales" ? <BusinessStats /> : null}
             {activeTab === "store" ? <BusinessCatalog mode="store" /> : null}
             {activeTab === "catalog" ? <BusinessCatalog mode="catalog" /> : null}
           </main>

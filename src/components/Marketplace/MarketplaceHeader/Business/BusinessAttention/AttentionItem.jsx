@@ -1,7 +1,7 @@
 import AttentionIcon from "./AttentionIcon";
 import AttentionPriorityBadge from "./AttentionPriorityBadge";
 
-export default function AttentionItem({ item }) {
+export default function AttentionItem({ item, onAction }) {
   return (
     <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex gap-3">
@@ -28,7 +28,7 @@ export default function AttentionItem({ item }) {
             <button
               type="button"
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-black text-gray-800 transition hover:bg-gray-50"
-              onClick={() => console.log(item.actionLabel)}
+              onClick={() => onAction?.(item)}
             >
               {item.actionLabel}
             </button>

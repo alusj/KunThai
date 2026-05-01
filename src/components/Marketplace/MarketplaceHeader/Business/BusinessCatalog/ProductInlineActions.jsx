@@ -1,27 +1,27 @@
 import ProductActionButton from "./ProductActionButton";
 
-export default function ProductInlineActions({ product }) {
+export default function ProductInlineActions({ product, onAction }) {
   const needsRestock = product.status === "out-of-stock" || product.status === "low-stock";
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid gap-2 sm:flex sm:flex-wrap">
       {needsRestock ? (
         <ProductActionButton
           label="Restock"
-          onClick={() => console.log("Restock", product.id)}
+          onClick={() => onAction?.(product, "restock")}
         />
       ) : null}
       <ProductActionButton
         label="Edit price"
-        onClick={() => console.log("Edit price", product.id)}
+        onClick={() => onAction?.(product, "edit-price")}
       />
       <ProductActionButton
         label="Promote"
-        onClick={() => console.log("Promote", product.id)}
+        onClick={() => onAction?.(product, "promote")}
       />
       <ProductActionButton
-        label="Pause"
-        onClick={() => console.log("Pause", product.id)}
+        label={product.status === "paused" ? "Resume" : "Pause"}
+        onClick={() => onAction?.(product, "pause")}
       />
     </div>
   );

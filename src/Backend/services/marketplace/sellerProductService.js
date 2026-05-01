@@ -154,7 +154,16 @@ export async function submitSellerProduct(form, onProgress) {
   );
 
   onProgress?.("Uploading product video...");
-  const videoUrl = await uploadProductFile(userId, form.media.videoFile, "videos");
+  let videoUrl = "";
+  let videoWarning = "";
+
+  if (form.media.videoFile) {
+    try {
+      videoUrl = await uploadProductFile(userId, form.media.videoFile, "videos");
+    } catch (error) {
+      videoWarning = error.message || "Video upload failed. Product was saved without video.";
+    }
+  }
 
   const status = form.pricing.publishStatus;
   onProgress?.("Saving product details...");
@@ -207,5 +216,43 @@ export async function submitSellerProduct(form, onProgress) {
     8000,
   ).catch(() => {});
 
+  return { ...data, videoWarning };
+}
+
+export async function updateSellerProduct(productId, patch) {
+  const business = await readRegisteredBusiness();
+  if (!business) throw new Error("Register a business before managing products.");
+
+  const { data, error } = await supabase
+    .from("marketplace_products")
+    .update({
+      ...patch,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", productId)
+    .eq("business_id", business.id)
+    .select()
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
   return data;
+}
+
+export async function promoteSellerProduct(product) {
+  const business = await readRegisteredBusiness();
+  if (!business) throw new Error("Register a business before promoting products.");
+
+  const { error } = await supabase.from("marketplace_promotions").insert({
+    business_id: business.id,
+    name: `${product.name} boost`,
+    product_name: product.name,
+    discount_label: "Visibility boost",
+    budget_spent: 0,
+    budget_limit: 0,
+    views: 0,
+    orders: 0,
+    revenue: 0,
+  });
+
+  if (error) throw new Error(error.message);
 }

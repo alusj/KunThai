@@ -5,7 +5,16 @@ import ProductSummaryGrid from "./ProductSummaryGrid";
 import TopSellingProducts from "./TopSellingProducts";
 
 export default function BusinessCatalog({ mode = "store" }) {
-  const { summary, products, availableProducts, topSellingProducts, loading } = useSellerProducts();
+  const {
+    summary,
+    products,
+    availableProducts,
+    topSellingProducts,
+    actionMessage,
+    actionError,
+    handleProductAction,
+    loading,
+  } = useSellerProducts();
 
   if (loading || !summary) {
     return <div className="h-64 rounded-xl bg-white shadow-sm" />;
@@ -29,6 +38,17 @@ export default function BusinessCatalog({ mode = "store" }) {
 
       {mode === "store" ? <ProductSummaryGrid summary={summary} /> : null}
 
+      {actionMessage ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-700">
+          {actionMessage}
+        </div>
+      ) : null}
+      {actionError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+          {actionError}
+        </div>
+      ) : null}
+
       {mode === "store" && topSellingProducts.length > 0 ? (
         <TopSellingProducts products={topSellingProducts} />
       ) : null}
@@ -36,7 +56,7 @@ export default function BusinessCatalog({ mode = "store" }) {
       {visibleProducts.length === 0 ? (
         <EmptyCatalogState />
       ) : (
-        <ProductManagementList products={visibleProducts} />
+        <ProductManagementList products={visibleProducts} onAction={handleProductAction} />
       )}
     </section>
   );

@@ -13,6 +13,7 @@ export function useSellerProductForm({ onComplete } = {}) {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
+  const [warnings, setWarnings] = useState({});
 
   useEffect(() => {
     let active = true;
@@ -101,10 +102,14 @@ export function useSellerProductForm({ onComplete } = {}) {
   async function submit() {
     if (!validateStep(0) || !validateStep(1) || !validateStep(2) || !validateStep(3)) return;
     setErrors((current) => ({ ...current, submit: "" }));
+    setWarnings({});
     setSaveStatus("Starting save...");
     setSubmitting(true);
     try {
       const product = await submitSellerProduct(form, setSaveStatus);
+      if (product.videoWarning) {
+        setWarnings({ video: product.videoWarning });
+      }
       setSaveStatus("Product saved.");
       onComplete?.(product);
     } catch (error) {
@@ -123,6 +128,7 @@ export function useSellerProductForm({ onComplete } = {}) {
     form,
     options,
     errors,
+    warnings,
     preview,
     submitting,
     saveStatus,

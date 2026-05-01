@@ -83,6 +83,11 @@ export default function AddProductForm({ onCancel, onComplete }) {
                 {productForm.errors.submit}
               </div>
             ) : null}
+            {productForm.warnings.video ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-700">
+                {productForm.warnings.video}
+              </div>
+            ) : null}
             {productForm.submitting && productForm.saveStatus ? (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-700">
                 {productForm.saveStatus}
