@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MessageCircle, PackageSearch, Star, Store, X } from "lucide-react";
+import { ArrowLeft, MessageCircle, PackageSearch, Star, Store } from "lucide-react";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerReviews,
@@ -96,24 +96,24 @@ export default function SellerProfileDrawer({ seller, open, onClose, onNotice })
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col bg-white shadow-2xl">
-        <header className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
+      <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
+      <aside className="fixed inset-0 z-[60] flex w-full flex-col bg-white">
+        <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+            aria-label="Back to product"
+          >
+            <ArrowLeft size={18} />
+          </button>
           <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">Seller Marketplace</p>
             <h2 className="truncate text-lg font-black text-gray-950">{seller.name}</h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-            aria-label="Close seller profile"
-          >
-            <X size={18} />
-          </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="mx-auto min-h-0 w-full max-w-5xl flex-1 overflow-y-auto p-4">
           <section className="rounded-lg border border-gray-200 p-4">
             <div className="flex items-start gap-3">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gray-950 text-sm font-black text-white">
@@ -134,11 +134,11 @@ export default function SellerProfileDrawer({ seller, open, onClose, onNotice })
             </div>
           </section>
 
-          <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="sticky top-0 z-10 mt-4 flex gap-2 overflow-x-auto border-y border-gray-100 bg-white py-3">
             <button
               type="button"
               onClick={() => setActiveView("review")}
-              className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-black ${
+              className={`inline-flex h-11 min-w-[130px] flex-1 items-center justify-center gap-2 rounded-lg text-sm font-black ${
                 activeView === "review" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
@@ -148,7 +148,7 @@ export default function SellerProfileDrawer({ seller, open, onClose, onNotice })
             <button
               type="button"
               onClick={() => setActiveView("catalog")}
-              className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-black ${
+              className={`inline-flex h-11 min-w-[130px] flex-1 items-center justify-center gap-2 rounded-lg text-sm font-black ${
                 activeView === "catalog" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
@@ -158,7 +158,7 @@ export default function SellerProfileDrawer({ seller, open, onClose, onNotice })
             <button
               type="button"
               onClick={() => setActiveView("message")}
-              className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-black ${
+              className={`inline-flex h-11 min-w-[130px] flex-1 items-center justify-center gap-2 rounded-lg text-sm font-black ${
                 activeView === "message" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
@@ -197,7 +197,20 @@ export default function SellerProfileDrawer({ seller, open, onClose, onNotice })
           )}
 
           {activeView === "review" && (
-            <section className="mt-4 rounded-lg border border-gray-200 p-4">
+            <section className="mt-4 space-y-4">
+              <div className="rounded-lg border border-gray-200 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-black text-gray-950">Marketplace Reviews</h3>
+                    <p className="mt-1 text-sm font-bold text-gray-500">
+                      {reviews.reviewCount
+                        ? `${reviews.rating.toFixed(1)} from ${reviews.reviewCount} review${reviews.reviewCount === 1 ? "" : "s"}`
+                        : "No marketplace reviews yet"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <form onSubmit={submitReview} className="space-y-3">
                 <StarRatingInput value={rating} onChange={setRating} />
                 <textarea
@@ -210,6 +223,20 @@ export default function SellerProfileDrawer({ seller, open, onClose, onNotice })
                   Submit Marketplace Review
                 </button>
               </form>
+
+              {!!reviews.reviews.length && (
+                <div className="space-y-3">
+                  {reviews.reviews.map((review) => (
+                    <div key={review.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-black text-gray-950">{review.buyerName}</p>
+                        <p className="text-sm font-black text-amber-600">{review.rating}/5</p>
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-gray-600">{review.comment || "No comment added."}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 

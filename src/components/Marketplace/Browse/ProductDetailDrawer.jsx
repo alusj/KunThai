@@ -1,9 +1,96 @@
 import { useEffect, useState } from "react";
-import { Heart, MapPin, MessageCircle, ShieldCheck, ShoppingCart, Star, Truck, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  MapPin,
+  MessageCircle,
+  ShieldCheck,
+  ShoppingCart,
+  Star,
+  Truck,
+  X,
+} from "lucide-react";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 
-function Gallery({ product }) {
+function ImageViewer({ images, activeIndex, onChange, onClose }) {
+  if (activeIndex < 0) return null;
+
+  const activeImage = images[activeIndex];
+  const hasMultiple = images.length > 1;
+
+  function move(direction) {
+    const nextIndex = (activeIndex + direction + images.length) % images.length;
+    onChange(nextIndex);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col bg-black/95">
+      <header className="flex h-16 items-center justify-between px-4 text-white">
+        <p className="text-sm font-black">
+          Image {activeIndex + 1} of {images.length}
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20"
+          aria-label="Close image viewer"
+        >
+          <X size={20} />
+        </button>
+      </header>
+
+      <div className="relative min-h-0 flex-1 overflow-auto p-4">
+        <img src={activeImage} alt="" className="mx-auto max-h-none max-w-full rounded-lg object-contain md:max-h-full" />
+
+        {hasMultiple && (
+          <>
+            <button
+              type="button"
+              onClick={() => move(-1)}
+              className="fixed left-3 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+              aria-label="Previous image"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <button
+              type="button"
+              onClick={() => move(1)}
+              className="fixed right-3 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+              aria-label="Next image"
+            >
+              <ChevronRight size={24} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {hasMultiple && (
+        <div className="border-t border-white/10 p-3">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {images.map((image, index) => (
+              <button
+                key={`${image}-${index}`}
+                type="button"
+                onClick={() => onChange(index)}
+                className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border ${
+                  index === activeIndex ? "border-emerald-400" : "border-white/20"
+                }`}
+                aria-label={`Open image ${index + 1}`}
+              >
+                <img src={image} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Gallery({ product, onOpenImage }) {
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
 
   if (!images.length) {
@@ -16,11 +103,26 @@ function Gallery({ product }) {
 
   return (
     <div className="space-y-2">
-      <img src={images[0]} alt={product.name} className="aspect-square w-full rounded-lg bg-gray-100 object-cover" />
+      <button
+        type="button"
+        onClick={() => onOpenImage(0)}
+        className="block w-full overflow-hidden rounded-lg bg-gray-100 text-left"
+        aria-label={`View ${product.name} image full screen`}
+      >
+        <img src={images[0]} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
+      </button>
       {images.length > 1 && (
-        <div className="grid grid-cols-4 gap-2">
-          {images.slice(1, 5).map((image) => (
-            <img key={image} src={image} alt="" className="aspect-square rounded-lg bg-gray-100 object-cover" />
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {images.map((image, index) => (
+            <button
+              key={`${image}-${index}`}
+              type="button"
+              onClick={() => onOpenImage(index)}
+              className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-gray-100"
+              aria-label={`View product image ${index + 1}`}
+            >
+              <img src={image} alt="" className="h-full w-full object-cover transition hover:scale-105" />
+            </button>
           ))}
         </div>
       )}
@@ -61,6 +163,7 @@ export default function ProductDetailDrawer({
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
+  const [activeImageIndex, setActiveImageIndex] = useState(-1);
 
   useEffect(() => {
     let alive = true;
@@ -87,6 +190,7 @@ export default function ProductDetailDrawer({
 
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
+  const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
 
   async function handleProductReviewSubmit(event) {
     event.preventDefault();
@@ -105,26 +209,26 @@ export default function ProductDetailDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-3xl flex-col bg-white shadow-2xl">
-        <header className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
+      <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
+      <aside className="fixed inset-0 z-[60] flex w-full flex-col bg-white">
+        <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+            aria-label="Back to marketplace listings"
+          >
+            <ArrowLeft size={18} />
+          </button>
           <div className="min-w-0">
             <p className="truncate text-sm font-black uppercase text-emerald-700">{product.category}</p>
             <h2 className="truncate text-lg font-black text-gray-950">{product.name}</h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-            aria-label="Close product details"
-          >
-            <X size={18} />
-          </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr]">
-            <Gallery product={product} />
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-28 sm:p-6">
+          <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-[0.9fr_1.1fr]">
+            <Gallery product={product} onOpenImage={setActiveImageIndex} />
 
             <section className="space-y-4">
               <div>
@@ -251,11 +355,11 @@ export default function ProductDetailDrawer({
           </div>
         </div>
 
-        <footer className="grid grid-cols-2 gap-2 border-t border-gray-200 p-4 sm:grid-cols-[auto_1fr_1fr_1fr]">
+        <footer className="fixed inset-x-0 bottom-0 z-10 flex gap-2 overflow-x-auto border-t border-gray-200 bg-white p-4">
           <button
             type="button"
             onClick={() => onToggleSaved?.(product)}
-            className={`inline-flex h-12 w-12 items-center justify-center rounded-lg border ${
+            className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border ${
               saved ? "border-red-600 bg-red-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             }`}
             aria-label={saved ? `Unsave ${product.name}` : `Save ${product.name}`}
@@ -265,7 +369,7 @@ export default function ProductDetailDrawer({
           <button
             type="button"
             onClick={() => onMessageSeller?.(product)}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-black text-gray-900 hover:bg-gray-50"
+            className="inline-flex h-12 min-w-[150px] flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-black text-gray-900 hover:bg-gray-50"
           >
             <MessageCircle size={17} />
             Message Seller
@@ -273,7 +377,7 @@ export default function ProductDetailDrawer({
           <button
             type="button"
             onClick={() => onAddToCart?.(product)}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+            className="inline-flex h-12 min-w-[140px] flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
           >
             <ShoppingCart size={17} />
             Add to Cart
@@ -281,13 +385,20 @@ export default function ProductDetailDrawer({
           <button
             type="button"
             onClick={() => setReviewOpen(true)}
-            className="col-span-2 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-gray-950 px-4 text-sm font-black text-white hover:bg-emerald-700 sm:col-span-1"
+            className="inline-flex h-12 min-w-[150px] flex-1 items-center justify-center gap-2 rounded-lg bg-gray-950 px-4 text-sm font-black text-white hover:bg-emerald-700"
           >
             <Star size={17} />
             Product Review
           </button>
         </footer>
       </aside>
+
+      <ImageViewer
+        images={images}
+        activeIndex={activeImageIndex}
+        onChange={setActiveImageIndex}
+        onClose={() => setActiveImageIndex(-1)}
+      />
     </>
   );
 }

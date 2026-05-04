@@ -81,7 +81,7 @@ export default function Messages({ onBack }) {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-4 p-4 md:grid-cols-[320px_1fr]">
+      <section className="mx-auto grid max-w-6xl gap-4 p-4 lg:grid-cols-[320px_1fr]">
         <aside className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
           <h2 className="mb-3 font-black text-gray-950">Conversations</h2>
           {loading && <p className="text-sm font-bold text-gray-500">Loading messages...</p>}
@@ -125,12 +125,22 @@ export default function Messages({ onBack }) {
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                <div className="max-w-[80%] rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white">
-                  {activeMessage.preview || "Message sent to seller."}
-                </div>
-                <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-sm font-medium text-gray-600">
-                  Seller replies will appear here when the seller responds.
-                </div>
+                {activeMessage.messages.map((message) => {
+                  const fromBuyer = message.from === "buyer";
+
+                  return (
+                    <div
+                      key={message.id}
+                      className={`max-w-[84%] rounded-2xl px-4 py-3 text-sm font-medium ${
+                        fromBuyer
+                          ? "ml-auto bg-emerald-600 text-white"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {message.text}
+                    </div>
+                  );
+                })}
               </div>
 
               {notice && <p className="mx-4 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{notice}</p>}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { fetchSellerCustomerCare } from "../services/marketplace/sellerCustomerCareService";
 
@@ -12,9 +12,20 @@ export function useSellerCustomerCare() {
   const [customerCare, setCustomerCare] = useState(DEFAULT_CUSTOMER_CARE);
   const [loading, setLoading] = useState(true);
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const nextCustomerCare = await fetchSellerCustomerCare();
+      setCustomerCare({ ...DEFAULT_CUSTOMER_CARE, ...nextCustomerCare });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
 
+    setLoading(true);
     fetchSellerCustomerCare()
       .then((nextCustomerCare) => {
         if (active) {
@@ -35,5 +46,6 @@ export function useSellerCustomerCare() {
   return {
     ...customerCare,
     loading,
+    reload: load,
   };
 }

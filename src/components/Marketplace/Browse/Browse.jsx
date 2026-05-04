@@ -33,7 +33,22 @@ const DEFAULT_FILTERS = {
   maxPrice: "",
 };
 
-export default function Browse({ activeTab = "new" }) {
+const RECENT_PRODUCTS_KEY = "marketplace-recent-products";
+
+function rememberRecentProduct(product) {
+  try {
+    const current = JSON.parse(localStorage.getItem(RECENT_PRODUCTS_KEY) || "[]");
+    const next = [
+      product,
+      ...current.filter((item) => item.id !== product.id),
+    ].slice(0, 12);
+    localStorage.setItem(RECENT_PRODUCTS_KEY, JSON.stringify(next));
+  } catch {
+    // Recent views are a convenience only.
+  }
+}
+
+export default function Browse({ activeTab = "new", onProductModeChange }) {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [options, setOptions] = useState({ categories: [], locations: [] });
   const [catalog, setCatalog] = useState({
@@ -50,6 +65,14 @@ export default function Browse({ activeTab = "new" }) {
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [sellerOpen, setSellerOpen] = useState(false);
+
+  useEffect(() => {
+    onProductModeChange?.(detailOpen || sellerOpen);
+
+    return () => {
+      onProductModeChange?.(false);
+    };
+  }, [detailOpen, sellerOpen, onProductModeChange]);
 
   useEffect(() => {
     let alive = true;
@@ -109,10 +132,12 @@ export default function Browse({ activeTab = "new" }) {
   async function openProduct(product) {
     setSelectedProduct(product);
     setDetailOpen(true);
+    rememberRecentProduct(product);
 
     try {
       const detail = await fetchBuyerProductDetail(product.id);
       setSelectedProduct(detail);
+      rememberRecentProduct(detail);
     } catch (err) {
       showNotice(err.message || "Unable to open product details.");
     }

@@ -1,11 +1,13 @@
 import ConversationTypeBadge from "./ConversationTypeBadge";
 
-export default function ConversationItem({ conversation }) {
+export default function ConversationItem({ conversation, onOpen, active }) {
   return (
     <button
       type="button"
-      onClick={() => console.log("Open conversation", conversation.id)}
-      className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left transition hover:bg-gray-50"
+      onClick={() => onOpen?.(conversation)}
+      className={`w-full rounded-lg border p-4 text-left transition ${
+        active ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white hover:bg-gray-50"
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

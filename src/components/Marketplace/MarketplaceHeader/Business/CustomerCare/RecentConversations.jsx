@@ -1,6 +1,6 @@
 import ConversationItem from "./ConversationItem";
 
-export default function RecentConversations({ conversations }) {
+export default function RecentConversations({ conversations, onOpen, activeId }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -16,7 +16,12 @@ export default function RecentConversations({ conversations }) {
 
       <div className="space-y-3">
         {conversations.map((conversation) => (
-          <ConversationItem key={conversation.id} conversation={conversation} />
+          <ConversationItem
+            key={conversation.id}
+            conversation={conversation}
+            onOpen={onOpen}
+            active={activeId === conversation.id}
+          />
         ))}
       </div>
     </section>

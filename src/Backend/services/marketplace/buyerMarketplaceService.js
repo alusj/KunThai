@@ -176,6 +176,10 @@ function mapCartItem(item) {
   };
 }
 
+function buildConversationKey(businessId, productId, topic = "") {
+  return [businessId, productId || "marketplace", topic || "general"].join(":");
+}
+
 export async function fetchBuyerCart() {
   const buyerId = await getCurrentUserId("Sign in to view your cart.");
   const { data, error } = await supabase
@@ -279,6 +283,20 @@ export async function toggleSavedBuyerProduct(productId, currentlySaved) {
   return true;
 }
 
+export async function fetchSavedBuyerProducts() {
+  const buyerId = await getCurrentUserId("Sign in to view saved products.");
+  const { data, error } = await supabase
+    .from("marketplace_saved_products")
+    .select(`id,created_at,marketplace_products (${PRODUCT_SELECT})`)
+    .eq("buyer_id", buyerId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || [])
+    .map((item) => (item.marketplace_products ? mapBuyerProduct(item.marketplace_products) : null))
+    .filter(Boolean);
+}
+
 export async function checkoutBuyerCart(deliveryLocation = "") {
   const buyerId = await getCurrentUserId("Sign in to checkout.");
   const items = await fetchBuyerCart();
@@ -356,6 +374,7 @@ export async function fetchBuyerMessages() {
     .select(
       `
         id,business_id,product_id,buyer_name,topic,preview,product_name,message_type,unread,support_dispute,created_at,
+        conversation_key,sender_role,
         marketplace_businesses (id,business_name,city,country,logo_url)
       `,
     )
@@ -364,30 +383,59 @@ export async function fetchBuyerMessages() {
 
   if (error) throw new Error(error.message);
 
-  return (data || []).map((message) => {
+  const grouped = (data || []).reduce((acc, message) => {
     const business = message.marketplace_businesses || {};
-    return {
+    const key = message.conversation_key || buildConversationKey(message.business_id, message.product_id, message.topic);
+    if (!acc[key]) {
+      acc[key] = {
+        id: key,
+        conversationKey: key,
+        businessId: message.business_id,
+        productId: message.product_id,
+        sellerName: business.business_name || "Marketplace seller",
+        sellerLocation: [business.city, business.country].filter(Boolean).join(", "),
+        sellerLogoUrl: business.logo_url || "",
+        topic: message.topic || message.product_name || "Marketplace message",
+        productName: message.product_name || "",
+        type: message.message_type || "message",
+        unread: false,
+        supportDispute: false,
+        createdAt: message.created_at,
+        preview: "",
+        messages: [],
+      };
+    }
+
+    acc[key].messages.push({
       id: message.id,
-      businessId: message.business_id,
-      productId: message.product_id,
-      sellerName: business.business_name || "Marketplace seller",
-      sellerLocation: [business.city, business.country].filter(Boolean).join(", "),
-      sellerLogoUrl: business.logo_url || "",
-      topic: message.topic || message.product_name || "Marketplace message",
-      preview: message.preview || "",
-      productName: message.product_name || "",
-      type: message.message_type || "message",
-      unread: Boolean(message.unread),
-      supportDispute: Boolean(message.support_dispute),
+      from: message.sender_role || "buyer",
+      text: message.preview || "",
       createdAt: message.created_at,
-    };
-  });
+    });
+    acc[key].unread = acc[key].unread || Boolean(message.unread && message.sender_role === "seller");
+    acc[key].supportDispute = acc[key].supportDispute || Boolean(message.support_dispute);
+    if (new Date(message.created_at).getTime() >= new Date(acc[key].createdAt).getTime()) {
+      acc[key].createdAt = message.created_at;
+      acc[key].preview = message.preview || "";
+    }
+
+    return acc;
+  }, {});
+
+  return Object.values(grouped)
+    .map((conversation) => ({
+      ...conversation,
+      messages: conversation.messages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+    }))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 export async function sendBuyerMarketplaceMessage({ seller, product, topic, message, messageType = "message" }) {
   const buyerId = await getCurrentUserId("Sign in to message this seller.");
   const businessId = seller?.id || product?.businessId;
   if (!businessId) throw new Error("Choose a seller to message.");
+  const conversationTopic = topic?.trim() || product?.name || "Marketplace message";
+  const conversationKey = buildConversationKey(businessId, product?.id, conversationTopic);
 
   const { error } = await supabase.from("marketplace_customer_messages").insert({
     buyer_id: buyerId,
@@ -395,9 +443,11 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
     product_id: product?.id || null,
     product_name: product?.name || "",
     buyer_name: "Buyer",
-    topic: topic?.trim() || product?.name || "Marketplace message",
+    topic: conversationTopic,
     preview: message.trim(),
     message_type: messageType,
+    conversation_key: conversationKey,
+    sender_role: "buyer",
     unread: true,
   });
 
