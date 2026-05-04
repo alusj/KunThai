@@ -20,6 +20,13 @@ export default function Marketplace({ nav, setNav }) {
     });
   }, [setNav]);
 
+  function openProductFromUtility(product) {
+    setActiveUtility(null);
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product } }));
+    }, 0);
+  }
+
   if (nav.sub === "business") {
     return (
       <Business
@@ -38,7 +45,7 @@ export default function Marketplace({ nav, setNav }) {
   }
 
   if (activeUtility === "messages") {
-    return <Messages onBack={() => setActiveUtility(null)} />;
+    return <Messages onBack={() => setActiveUtility(null)} onProductOpen={openProductFromUtility} />;
   }
 
   return (

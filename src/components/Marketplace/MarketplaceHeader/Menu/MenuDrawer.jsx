@@ -49,7 +49,7 @@ function readRecentProducts() {
   }
 }
 
-function ProductMiniList({ products, emptyText }) {
+function ProductMiniList({ products, emptyText, onProductSelect }) {
   if (!products.length) {
     return <p className="rounded-lg bg-gray-50 p-4 text-center text-sm font-bold text-gray-500">{emptyText}</p>;
   }
@@ -60,7 +60,12 @@ function ProductMiniList({ products, emptyText }) {
         const price = product.discountPrice && product.discountPrice < product.price ? product.discountPrice : product.price;
 
         return (
-          <div key={product.id} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2">
+          <button
+            key={product.id}
+            type="button"
+            onClick={() => onProductSelect?.(product)}
+            className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
+          >
             {product.imageUrl ? (
               <img src={product.imageUrl} alt="" className="h-12 w-12 rounded-lg bg-gray-100 object-cover" />
             ) : (
@@ -72,7 +77,7 @@ function ProductMiniList({ products, emptyText }) {
               <p className="truncate text-sm font-black text-gray-950">{product.name}</p>
               <p className="text-xs font-bold text-gray-500">{formatCurrency(price || 0)}</p>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -111,6 +116,11 @@ export default function MenuDrawer({ open, onClose }) {
   async function signOut() {
     await signOutUser();
     window.location.reload();
+  }
+
+  function openProduct(product) {
+    onClose?.();
+    window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product } }));
   }
 
   return (
@@ -176,11 +186,19 @@ export default function MenuDrawer({ open, onClose }) {
             {message && <p className="mb-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p>}
 
             {active === "saved" && (
-              <ProductMiniList products={savedProducts} emptyText="Saved products will appear here when you tap the heart on a listing." />
+              <ProductMiniList
+                products={savedProducts}
+                emptyText="Saved products will appear here when you tap the heart on a listing."
+                onProductSelect={openProduct}
+              />
             )}
 
             {active === "recent" && (
-              <ProductMiniList products={recentProducts} emptyText="Recently viewed products will appear here after opening product details." />
+              <ProductMiniList
+                products={recentProducts}
+                emptyText="Recently viewed products will appear here after opening product details."
+                onProductSelect={openProduct}
+              />
             )}
 
             {active === "address" && (

@@ -18,24 +18,33 @@ export function useSellerHeader() {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  async function loadHeaderState(active = true) {
+    const nextState = await fetchSellerHeaderState();
+    if (active) {
+      setHeaderState({ ...DEFAULT_HEADER_STATE, ...nextState });
+    }
+    if (active) {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
 
-    fetchSellerHeaderState()
-      .then((nextState) => {
-        if (active) {
-          setHeaderState({ ...DEFAULT_HEADER_STATE, ...nextState });
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+    loadHeaderState(active);
 
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    function handleMessageSent() {
+      loadHeaderState(true);
+    }
+
+    window.addEventListener("marketplace-message-sent", handleMessageSent);
+    return () => window.removeEventListener("marketplace-message-sent", handleMessageSent);
   }, []);
 
   useEffect(() => {

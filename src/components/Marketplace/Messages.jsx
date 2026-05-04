@@ -10,7 +10,7 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export default function Messages({ onBack }) {
+export default function Messages({ onBack, onProductOpen }) {
   const [messages, setMessages] = useState([]);
   const [activeId, setActiveId] = useState("");
   const [draft, setDraft] = useState("");
@@ -120,7 +120,22 @@ export default function Messages({ onBack }) {
                 <h2 className="font-black text-gray-950">{activeMessage.topic}</h2>
                 <p className="mt-1 text-sm font-bold text-gray-500">
                   {activeMessage.sellerName}
-                  {activeMessage.productName ? ` • ${activeMessage.productName}` : ""}
+                  {activeMessage.productName ? " - " : ""}
+                  {activeMessage.productName ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onProductOpen?.({
+                          id: activeMessage.productId,
+                          businessId: activeMessage.businessId,
+                          name: activeMessage.productName,
+                        })
+                      }
+                      className="font-black text-emerald-700 hover:text-emerald-800 hover:underline"
+                    >
+                      {activeMessage.productName}
+                    </button>
+                  ) : null}
                 </p>
               </div>
 

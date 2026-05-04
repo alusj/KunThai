@@ -12,6 +12,7 @@ import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
 import BusinessAttention from "./BusinessAttention/BusinessAttention";
 import BusinessCatalog from "./BusinessCatalog/BusinessCatalog";
 import BusinessPromotions from "./BusinessPromotions/BusinessPromotions";
+import CustomerCare from "./CustomerCare/CustomerCare";
 import MyBizDashboardHeader from "./MyBizDashboardHeader/MyBizDashboardHeader";
 import BusinessStats from "./BusinessStats/BusinessStats";
 import AddProductForm from "./ProductForm/AddProductForm";
@@ -61,6 +62,10 @@ export default function Business({ onBack }) {
           onAddProduct={() => {
             setEditingProduct(null);
             setActiveScreen("addProduct");
+          }}
+          onMessages={() => {
+            setActiveScreen("dashboard");
+            setActiveTab("messages");
           }}
           onMenu={openSellerMenu}
         />
@@ -115,6 +120,7 @@ export default function Business({ onBack }) {
               </>
             ) : null}
             {activeTab === "sales" ? <BusinessStats /> : null}
+            {activeTab === "messages" ? <CustomerCare /> : null}
             {activeTab === "store" ? (
               <BusinessCatalog
                 mode="store"

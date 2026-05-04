@@ -1,13 +1,72 @@
 import supabase from "../../lib/supabaseClient";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 
-function withTimeout(promise, message, timeoutMs = 15000) {
+function withTimeout(promise, message, timeoutMs = 60000) {
   return Promise.race([
     promise,
     new Promise((_, reject) => {
       setTimeout(() => reject(new Error(message)), timeoutMs);
     }),
   ]);
+}
+
+const IMAGE_UPLOAD_MAX_WIDTH = 1600;
+const IMAGE_UPLOAD_MAX_HEIGHT = 1600;
+const IMAGE_UPLOAD_QUALITY = 0.82;
+
+function isCompressibleImage(file) {
+  return file?.type?.startsWith("image/") && !["image/gif", "image/svg+xml"].includes(file.type);
+}
+
+function getCanvasBlob(canvas, type = "image/jpeg", quality = IMAGE_UPLOAD_QUALITY) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Unable to prepare image for upload."));
+      },
+      type,
+      quality,
+    );
+  });
+}
+
+async function loadImageElement(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = url;
+    await image.decode();
+    return image;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function optimizeImageFile(file) {
+  if (!isCompressibleImage(file)) return file;
+
+  try {
+    const image = await loadImageElement(file);
+    const scale = Math.min(1, IMAGE_UPLOAD_MAX_WIDTH / image.naturalWidth, IMAGE_UPLOAD_MAX_HEIGHT / image.naturalHeight);
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await getCanvasBlob(canvas);
+    if (blob.size >= file.size) return file;
+
+    const optimizedName = file.name.replace(/\.[^.]+$/, "") || "product-image";
+    return new File([blob], `${optimizedName}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
 }
 
 export const INITIAL_PRODUCT_FORM = {
@@ -118,14 +177,16 @@ async function getCurrentUserId() {
 async function uploadProductFile(userId, file, folder) {
   if (!file) return "";
 
-  const extension = file.name.split(".").pop() || "bin";
+  const uploadFile = await optimizeImageFile(file);
+  const extension = uploadFile.name.split(".").pop() || "bin";
   const path = `${userId}/products/${folder}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const { error } = await withTimeout(
-    supabase.storage.from("marketplace-business-media").upload(path, file, {
+    supabase.storage.from("marketplace-business-media").upload(path, uploadFile, {
       cacheControl: "3600",
       upsert: true,
     }),
-    `Upload timed out for ${file.name}. Check the storage bucket policy or try a smaller file.`,
+    `Upload timed out for ${file.name}. Your connection may be slow, or the image may still be too large. Try again or choose a smaller image.`,
+    folder === "videos" ? 120000 : 60000,
   );
 
   if (error) throw new Error(error.message || "Unable to upload product file.");

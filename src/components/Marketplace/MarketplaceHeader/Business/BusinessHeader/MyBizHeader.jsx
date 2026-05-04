@@ -3,7 +3,7 @@ import SellerHeaderActions from "./SellerHeaderActions";
 import SellerHeaderTitle from "./SellerHeaderTitle";
 import SellerSearch from "./SellerSearch";
 
-export default function MyBizHeader({ onBack, onAddProduct, onMenu }) {
+export default function MyBizHeader({ onBack, onAddProduct, onMessages, onMenu }) {
   const sellerHeader = useSellerHeader();
 
   return (
@@ -22,7 +22,7 @@ export default function MyBizHeader({ onBack, onAddProduct, onMenu }) {
             messageCount={sellerHeader.messageCount}
             notificationCount={sellerHeader.notificationCount}
             onAddProduct={onAddProduct}
-            onMessages={() => console.log("Messages")}
+            onMessages={onMessages}
             onAlerts={() => console.log("Alerts")}
             onMenu={onMenu}
           />

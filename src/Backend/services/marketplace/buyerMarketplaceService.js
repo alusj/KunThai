@@ -452,6 +452,7 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
   });
 
   if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-message-sent"));
 }
 
 export async function fetchSellerCatalog(businessId) {

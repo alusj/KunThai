@@ -10,6 +10,7 @@ import {
   sendBuyerMarketplaceMessage,
   toggleSavedBuyerProduct,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { showToast } from "../../../Backend/services/toastService";
 
 import BuyerDiscoveryBar from "./BuyerDiscoveryBar";
 import ProductDetailDrawer from "./ProductDetailDrawer";
@@ -123,7 +124,20 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
     };
   }, []);
 
-  function showNotice(message) {
+  useEffect(() => {
+    function handleExternalProductOpen(event) {
+      const product = event.detail?.product;
+      if (!product) return;
+      setSellerOpen(false);
+      openProduct(product);
+    }
+
+    window.addEventListener("marketplace-open-product", handleExternalProductOpen);
+    return () => window.removeEventListener("marketplace-open-product", handleExternalProductOpen);
+  }, []);
+
+  function showNotice(message, tone = "success") {
+    showToast(message, tone);
     setNotice(message);
     window.clearTimeout(showNotice.timeoutId);
     showNotice.timeoutId = window.setTimeout(() => setNotice(""), 2500);
@@ -139,16 +153,16 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
       setSelectedProduct(detail);
       rememberRecentProduct(detail);
     } catch (err) {
-      showNotice(err.message || "Unable to open product details.");
+      showNotice(err.message || "Unable to open product details.", "danger");
     }
   }
 
   async function addToCart(product) {
     try {
       await addBuyerCartItem(product);
-      showNotice(`${product.name} added to cart.`);
+      showNotice("Product Added to Cart");
     } catch (err) {
-      showNotice(err.message || "Unable to add product to cart.");
+      showNotice(err.message || "Unable to add product to cart.", "danger");
     }
   }
 
@@ -163,7 +177,7 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
 
     try {
       await toggleSavedBuyerProduct(product.id, currentlySaved);
-      showNotice(currentlySaved ? "Removed from saved products." : "Saved product.");
+      showNotice(currentlySaved ? "Product removed from saved" : "Product saved");
     } catch (err) {
       setSavedIds((current) => {
         const next = new Set(current);
@@ -171,22 +185,23 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
         else next.delete(product.id);
         return next;
       });
-      showNotice(err.message || "Unable to update saved product.");
+      showNotice(err.message || "Unable to update saved product.", "danger");
     }
   }
 
-  async function messageSeller(product) {
+  async function messageSeller(product, options = {}) {
     try {
       await sendBuyerMarketplaceMessage({
         seller: product.seller,
         product,
         topic: product.name,
-        message: `Hello, I am interested in ${product.name}.`,
-        messageType: product.allowNegotiation ? "negotiation" : "question",
+        message: options.message || `Hello, I am interested in ${product.name}.`,
+        messageType: options.messageType || (product.allowNegotiation ? "negotiation" : "question"),
       });
-      showNotice("Message sent to seller.");
+      showNotice("Message sent to seller. You can continue in Messages.");
     } catch (err) {
-      showNotice(err.message || "Unable to message seller.");
+      showNotice(err.message || "Unable to message seller.", "danger");
+      throw err;
     }
   }
 
@@ -246,7 +261,14 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
         seller={selectedSeller}
         open={sellerOpen}
         onClose={() => setSellerOpen(false)}
+        onProductSelect={(product) => {
+          setSellerOpen(false);
+          openProduct(product);
+        }}
+        onAddToCart={addToCart}
+        onToggleSaved={toggleSaved}
         onNotice={showNotice}
+        savedIds={savedIds}
       />
 
     </div>

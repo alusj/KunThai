@@ -6,7 +6,17 @@ import { X } from "lucide-react";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import CartItem from "./CartItem";
 
-export default function CartDrawer({ open, onClose, items, loading, error, onUpdateQty, onRemoveItem, onCheckout }) {
+export default function CartDrawer({
+  open,
+  onClose,
+  items,
+  loading,
+  error,
+  onUpdateQty,
+  onRemoveItem,
+  onViewProduct,
+  onCheckout,
+}) {
   const [deliveryLocation, setDeliveryLocation] = useState("");
   const [checkoutStatus, setCheckoutStatus] = useState("");
   const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -53,7 +63,13 @@ export default function CartDrawer({ open, onClose, items, loading, error, onUpd
             <p className="text-center text-sm font-bold text-gray-500">Loading cart...</p>
           ) : items.length ? (
             items.map((item) => (
-              <CartItem key={item.id} item={item} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} />
+              <CartItem
+                key={item.id}
+                item={item}
+                onUpdateQty={onUpdateQty}
+                onRemoveItem={onRemoveItem}
+                onViewProduct={onViewProduct}
+              />
             ))
           ) : (
             <p className="mt-10 text-center font-bold text-gray-500">Your cart is empty</p>

@@ -13,6 +13,8 @@ function groupMessages(messages) {
         id: key,
         conversationKey: key,
         buyerId: message.buyer_id,
+        businessId: message.business_id,
+        productId: message.product_id,
         buyerName: message.buyer_name || "Buyer",
         topic: message.topic || message.product_name || "Marketplace message",
         productName: message.product_name || "",

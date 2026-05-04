@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -162,6 +163,9 @@ export default function ProductDetailDrawer({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [messageSending, setMessageSending] = useState(false);
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
 
@@ -186,6 +190,17 @@ export default function ProductDetailDrawer({
     };
   }, [open, product?.id]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open || !product) return null;
 
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
@@ -203,14 +218,31 @@ export default function ProductDetailDrawer({
       const reviews = await fetchBuyerReviews({ productId: product.id, reviewType: "product" });
       setReviewSummary(reviews);
     } catch (err) {
-      onNotice?.(err.message || "Unable to submit product review.");
+      onNotice?.(err.message || "Unable to submit product review.", "danger");
     }
   }
 
-  return (
+  async function handleMessageSubmit(event) {
+    event.preventDefault();
+    if (!messageText.trim()) return;
+
+    setMessageSending(true);
+    try {
+      await onMessageSeller?.(product, {
+        message: messageText,
+        messageType: product.allowNegotiation ? "negotiation" : "question",
+      });
+      setMessageText("");
+      setMessageOpen(false);
+    } finally {
+      setMessageSending(false);
+    }
+  }
+
+  return createPortal(
     <>
       <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
-      <aside className="fixed inset-0 z-[60] flex w-full flex-col bg-white">
+      <aside className="fixed inset-0 z-[999] flex h-dvh w-screen flex-col bg-white">
         <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
           <button
             type="button"
@@ -227,7 +259,7 @@ export default function ProductDetailDrawer({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-28 sm:p-6">
-          <div className="mx-auto grid max-w-6xl gap-5 md:grid-cols-[0.9fr_1.1fr]">
+          <div className="grid w-full gap-5 md:grid-cols-[0.9fr_1.1fr]">
             <Gallery product={product} onOpenImage={setActiveImageIndex} />
 
             <section className="space-y-4">
@@ -368,7 +400,7 @@ export default function ProductDetailDrawer({
           </button>
           <button
             type="button"
-            onClick={() => onMessageSeller?.(product)}
+            onClick={() => setMessageOpen(true)}
             className="inline-flex h-12 min-w-[150px] flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-black text-gray-900 hover:bg-gray-50"
           >
             <MessageCircle size={17} />
@@ -391,6 +423,54 @@ export default function ProductDetailDrawer({
             Product Review
           </button>
         </footer>
+
+        {messageOpen && (
+          <div className="fixed inset-0 z-[1001] flex items-end bg-black/35 p-3 sm:items-center sm:justify-center">
+            <form
+              onSubmit={handleMessageSubmit}
+              className="w-full rounded-xl border border-gray-200 bg-white p-4 shadow-2xl sm:max-w-lg"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase text-emerald-700">Message seller</p>
+                  <h3 className="mt-1 text-lg font-black text-gray-950">{product.seller?.name || "Marketplace seller"}</h3>
+                  <p className="mt-1 text-sm font-bold text-gray-500">Product inquiry: {product.name}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMessageOpen(false)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  aria-label="Close message form"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <textarea
+                value={messageText}
+                onChange={(event) => setMessageText(event.target.value)}
+                placeholder="Ask about availability, delivery, pickup, negotiation, or product details"
+                className="mt-4 min-h-32 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
+                autoFocus
+              />
+              <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMessageOpen(false)}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-black text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!messageText.trim() || messageSending}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {messageSending ? "Sending..." : "Send Message"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </aside>
 
       <ImageViewer
@@ -399,6 +479,7 @@ export default function ProductDetailDrawer({
         onChange={setActiveImageIndex}
         onClose={() => setActiveImageIndex(-1)}
       />
-    </>
+    </>,
+    document.body,
   );
 }

@@ -43,6 +43,11 @@ export function useSellerCustomerCare() {
     };
   }, []);
 
+  useEffect(() => {
+    window.addEventListener("marketplace-message-sent", load);
+    return () => window.removeEventListener("marketplace-message-sent", load);
+  }, [load]);
+
   return {
     ...customerCare,
     loading,

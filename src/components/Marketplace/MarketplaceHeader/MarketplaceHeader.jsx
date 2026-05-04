@@ -1,14 +1,26 @@
 import { MessageCircle, PackageCheck, Store } from "lucide-react";
+import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
 export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessagesClick, activeUtility }) {
+  const { loading, hasBusiness } = useSellerBusinessStatus();
+  const businessLabel = loading ? "..." : hasBusiness ? "MyBiz" : "REGISTER";
+
   return (
     <header className="sticky top-0 z-20 border-b bg-white">
       <div className="flex h-14 items-center justify-between px-4">
-        <button onClick={onMyBizClick} className="flex items-center gap-2 text-sm font-semibold">
+        <button
+          type="button"
+          onClick={onMyBizClick}
+          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-black shadow-sm transition ${
+            hasBusiness
+              ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+              : "border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700"
+          }`}
+        >
           <Store size={17} />
-          MyBiz
+          {businessLabel}
         </button>
 
         <span className="text-sm font-bold text-gray-500">Marketplace</span>
