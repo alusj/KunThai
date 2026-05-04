@@ -3,10 +3,28 @@
    Popular & fast-selling products
 ========================= */
 
-export default function HighDemand() {
+import BuyerProductGrid from "../BuyerProductGrid";
+
+export default function HighDemand({
+  products = [],
+  loading = false,
+  error = "",
+  savedIds,
+  onProductSelect,
+  onAddToCart,
+  onToggleSaved,
+}) {
   return (
-    <div className="border rounded-lg p-4 bg-white text-gray-500 text-center">
-      High-demand products will appear here.
-    </div>
+    <BuyerProductGrid
+      products={products}
+      loading={loading}
+      error={error}
+      savedIds={savedIds}
+      onProductSelect={onProductSelect}
+      onAddToCart={onAddToCart}
+      onToggleSaved={onToggleSaved}
+      emptyTitle="No high-demand products yet"
+      emptyBody="Products with buyer views or sales will be ranked here."
+    />
   );
 }

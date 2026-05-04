@@ -3,10 +3,28 @@
    Shows newly added products
 ========================= */
 
-export default function New() {
+import BuyerProductGrid from "../BuyerProductGrid";
+
+export default function New({
+  products = [],
+  loading = false,
+  error = "",
+  savedIds,
+  onProductSelect,
+  onAddToCart,
+  onToggleSaved,
+}) {
   return (
-    <div className="border rounded-lg p-4 bg-white text-gray-500 text-center">
-      New products will appear here.
-    </div>
+    <BuyerProductGrid
+      products={products}
+      loading={loading}
+      error={error}
+      savedIds={savedIds}
+      onProductSelect={onProductSelect}
+      onAddToCart={onAddToCart}
+      onToggleSaved={onToggleSaved}
+      emptyTitle="No products yet"
+      emptyBody="Active seller products with stock will appear here for buyers."
+    />
   );
 }

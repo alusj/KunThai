@@ -1,40 +1,15 @@
 import { useState } from "react";
-
-/* =========================
-   Header (MyBiz, Cart, Menu)
-========================= */
+import Browse from "./Browse/Browse";
 import MarketplaceHeader from "./MarketplaceHeader/MarketplaceHeader";
-
-/* =========================
-   Buyer Parent Tabs
-========================= */
+import Business from "./MarketplaceHeader/Business/Business";
+import Messages from "./Messages";
+import Orders from "./Orders";
 import ParentTabs from "./ParentTabs";
 
-/* =========================
-   Buyer Screens
-========================= */
-import Browse from "./Browse/Browse";
-import Orders from "./Orders";
-import Messages from "./Messages";
-
-/* =========================
-   Seller Full-Screen
-========================= */
-import Business from "./MarketplaceHeader/Business/Business";
-
 export default function Marketplace({ nav, setNav }) {
-  /**
-   * Buyer tab state
-   * (LOCAL to Marketplace – this is fine)
-   */
-  const [activeTab, setActiveTab] = useState("browse");
+  const [activeTab, setActiveTab] = useState("new");
+  const [activeUtility, setActiveUtility] = useState(null);
 
-  /* =========================
-     FULL-SCREEN BUSINESS VIEW
-     - No header
-     - No parent tabs
-     - Bottom tabs hidden by App.jsx
-  ========================= */
   if (nav.sub === "business") {
     return (
       <Business
@@ -48,13 +23,20 @@ export default function Marketplace({ nav, setNav }) {
     );
   }
 
-  /* =========================
-     NORMAL MARKETPLACE VIEW
-  ========================= */
+  if (activeUtility === "orders") {
+    return <Orders onBack={() => setActiveUtility(null)} />;
+  }
+
+  if (activeUtility === "messages") {
+    return <Messages onBack={() => setActiveUtility(null)} />;
+  }
+
   return (
     <div className="w-full">
-      {/* Header */}
       <MarketplaceHeader
+        activeUtility={activeUtility}
+        onOrdersClick={() => setActiveUtility((current) => (current === "orders" ? null : "orders"))}
+        onMessagesClick={() => setActiveUtility((current) => (current === "messages" ? null : "messages"))}
         onMyBizClick={() =>
           setNav({
             root: "marketplace",
@@ -63,17 +45,16 @@ export default function Marketplace({ nav, setNav }) {
         }
       />
 
-      {/* Buyer Parent Tabs */}
       <ParentTabs
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          setActiveUtility(null);
+        }}
       />
 
-      {/* Buyer Content Area */}
-      <div className="px-4 pt-4 pb-28 sm:px-6 lg:px-8">
-        {activeTab === "browse" && <Browse />}
-        {activeTab === "orders" && <Orders />}
-        {activeTab === "messages" && <Messages />}
+      <div className="px-4 pb-28 pt-4 sm:px-6 lg:px-8">
+        <Browse activeTab={activeTab} />
       </div>
     </div>
   );

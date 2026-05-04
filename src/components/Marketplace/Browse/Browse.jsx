@@ -1,11 +1,19 @@
 // src/components/Marketplace/Browse/Browse.jsx
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  addBuyerCartItem,
+  fetchBuyerDiscoveryOptions,
+  fetchBuyerMarketplaceProducts,
+  fetchBuyerProductDetail,
+  fetchSavedBuyerProductIds,
+  sendBuyerMarketplaceMessage,
+  toggleSavedBuyerProduct,
+} from "../../../Backend/services/marketplace/buyerMarketplaceService";
 
-/* =========================
-   Child tabs navigation
-========================= */
-import BrowseTabs from "./BrowseTabs";
+import BuyerDiscoveryBar from "./BuyerDiscoveryBar";
+import ProductDetailDrawer from "./ProductDetailDrawer";
+import SellerProfileDrawer from "./SellerProfileDrawer";
 
 /* =========================
    Child tab screens
@@ -15,30 +23,206 @@ import Discounted from "./tabs/Discounted";
 import HighDemand from "./tabs/HighDemand";
 import TopRated from "./tabs/TopRated";
 
-export default function Browse() {
-  /* =========================
-     Browse-only tab state
-  ========================= */
-  const [activeTab, setActiveTab] = useState("new");
+const DEFAULT_FILTERS = {
+  search: "",
+  category: "all",
+  location: "",
+  delivery: "all",
+  sort: "newest",
+  minPrice: "",
+  maxPrice: "",
+};
+
+export default function Browse({ activeTab = "new" }) {
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [options, setOptions] = useState({ categories: [], locations: [] });
+  const [catalog, setCatalog] = useState({
+    newProducts: [],
+    discountedProducts: [],
+    highDemandProducts: [],
+    topRatedProducts: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [savedIds, setSavedIds] = useState(new Set());
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedSeller, setSelectedSeller] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [sellerOpen, setSellerOpen] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadProducts() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const products = await fetchBuyerMarketplaceProducts(filters);
+        if (alive) setCatalog(products);
+      } catch (err) {
+        if (alive) setError(err.message || "Unable to load marketplace products.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    loadProducts();
+
+    return () => {
+      alive = false;
+    };
+  }, [filters]);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadOptions() {
+      try {
+        const [discoveryOptions, saved] = await Promise.all([
+          fetchBuyerDiscoveryOptions(),
+          fetchSavedBuyerProductIds().catch(() => new Set()),
+        ]);
+        if (alive) {
+          setOptions(discoveryOptions);
+          setSavedIds(saved);
+        }
+      } catch {
+        if (alive) setOptions({ categories: [], locations: [] });
+      }
+    }
+
+    loadOptions();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  function showNotice(message) {
+    setNotice(message);
+    window.clearTimeout(showNotice.timeoutId);
+    showNotice.timeoutId = window.setTimeout(() => setNotice(""), 2500);
+  }
+
+  async function openProduct(product) {
+    setSelectedProduct(product);
+    setDetailOpen(true);
+
+    try {
+      const detail = await fetchBuyerProductDetail(product.id);
+      setSelectedProduct(detail);
+    } catch (err) {
+      showNotice(err.message || "Unable to open product details.");
+    }
+  }
+
+  async function addToCart(product) {
+    try {
+      await addBuyerCartItem(product);
+      showNotice(`${product.name} added to cart.`);
+    } catch (err) {
+      showNotice(err.message || "Unable to add product to cart.");
+    }
+  }
+
+  async function toggleSaved(product) {
+    const currentlySaved = savedIds.has(product.id);
+    setSavedIds((current) => {
+      const next = new Set(current);
+      if (currentlySaved) next.delete(product.id);
+      else next.add(product.id);
+      return next;
+    });
+
+    try {
+      await toggleSavedBuyerProduct(product.id, currentlySaved);
+      showNotice(currentlySaved ? "Removed from saved products." : "Saved product.");
+    } catch (err) {
+      setSavedIds((current) => {
+        const next = new Set(current);
+        if (currentlySaved) next.add(product.id);
+        else next.delete(product.id);
+        return next;
+      });
+      showNotice(err.message || "Unable to update saved product.");
+    }
+  }
+
+  async function messageSeller(product) {
+    try {
+      await sendBuyerMarketplaceMessage({
+        seller: product.seller,
+        product,
+        topic: product.name,
+        message: `Hello, I am interested in ${product.name}.`,
+        messageType: product.allowNegotiation ? "negotiation" : "question",
+      });
+      showNotice("Message sent to seller.");
+    } catch (err) {
+      showNotice(err.message || "Unable to message seller.");
+    }
+  }
+
+  const tabProps = {
+    loading,
+    error,
+    savedIds,
+    onProductSelect: openProduct,
+    onAddToCart: addToCart,
+    onToggleSaved: toggleSaved,
+  };
 
   return (
     <div className="space-y-4">
-
-      {/* =========================
-          Browse child tabs
-      ========================= */}
-      <BrowseTabs
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+      <BuyerDiscoveryBar
+        filters={filters}
+        setFilters={setFilters}
+        categories={options.categories}
+        locations={options.locations}
+        onClear={() => setFilters(DEFAULT_FILTERS)}
       />
+
+      {notice && (
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">
+          {notice}
+        </div>
+      )}
 
       {/* =========================
           Browse content
       ========================= */}
-      {activeTab === "new" && <New />}
-      {activeTab === "discounted" && <Discounted />}
-      {activeTab === "high-demand" && <HighDemand />}
-      {activeTab === "top-rated" && <TopRated />}
+      {activeTab === "new" && <New products={catalog.newProducts} {...tabProps} />}
+      {activeTab === "discounted" && (
+        <Discounted products={catalog.discountedProducts} {...tabProps} />
+      )}
+      {activeTab === "high-demand" && (
+        <HighDemand products={catalog.highDemandProducts} {...tabProps} />
+      )}
+      {activeTab === "top-rated" && <TopRated products={catalog.topRatedProducts} {...tabProps} />}
+
+      <ProductDetailDrawer
+        product={selectedProduct}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        onAddToCart={addToCart}
+        onToggleSaved={toggleSaved}
+        onMessageSeller={messageSeller}
+        onOpenSeller={(seller) => {
+          setSelectedSeller(seller);
+          setSellerOpen(true);
+        }}
+        onNotice={showNotice}
+        saved={selectedProduct ? savedIds.has(selectedProduct.id) : false}
+      />
+
+      <SellerProfileDrawer
+        seller={selectedSeller}
+        open={sellerOpen}
+        onClose={() => setSellerOpen(false)}
+        onNotice={showNotice}
+      />
 
     </div>
   );

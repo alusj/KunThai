@@ -1,18 +1,18 @@
 // CartButton.jsx
 // Header cart icon with badge
 
+import { ShoppingCart } from "lucide-react";
+
 export default function CartButton({ count, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="relative text-xl"
+      className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-800 transition hover:bg-gray-200"
+      aria-label="Open cart"
     >
-      🛒
-
-      {/* Badge showing number of cart items */}
+      <ShoppingCart size={19} />
       {count > 0 && (
-        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs
-                         rounded-full min-w-[18px] h-[18px] grid place-items-center">
+        <span className="absolute -right-2 -top-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-red-500 px-1 text-xs font-black text-white">
           {count}
         </span>
       )}

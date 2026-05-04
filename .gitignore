@@ -18,6 +18,7 @@ supabase/hardening/
 supabase/.branches
 supabase/explore_foundation_hardening.sql
 supabase/marketplace_seller_schema.sql
+supabase/marketplace_buyer_schema.sql
 
 # Editor directories and files
 .vscode/*

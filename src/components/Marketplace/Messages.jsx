@@ -1,107 +1,167 @@
-// =======================
-// Messages.jsx
-// Buyer ↔ Seller negotiation UI
-// Mobile-first & responsive
-// =======================
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, MessageCircle, Send } from "lucide-react";
+import {
+  fetchBuyerMessages,
+  sendBuyerMarketplaceMessage,
+} from "../../Backend/services/marketplace/buyerMarketplaceService";
 
-import { useState } from "react";
+function formatDate(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
-export default function Messages() {
-  // =======================
-  // Mock conversations (temporary)
-  // Later: Supabase real data
-  // =======================
-  const conversations = [
-    {
-      id: 1,
-      name: "John Doe",
-      product: "Wireless Headphones",
-      messages: [
-        { from: "buyer", text: "Is the price negotiable?" },
-        { from: "seller", text: "Yes, what is your offer?" },
-      ],
-    },
-  ];
+export default function Messages({ onBack }) {
+  const [messages, setMessages] = useState([]);
+  const [activeId, setActiveId] = useState("");
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-  // =======================
-  // Active chat state
-  // =======================
-  const [activeChat, setActiveChat] = useState(conversations[0]);
+  const activeMessage = useMemo(
+    () => messages.find((message) => message.id === activeId) || messages[0] || null,
+    [activeId, messages],
+  );
+
+  async function loadMessages() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const rows = await fetchBuyerMessages();
+      setMessages(rows);
+      setActiveId((current) => current || rows[0]?.id || "");
+    } catch (err) {
+      setError(err.message || "Unable to load messages.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadMessages();
+  }, []);
+
+  async function sendReply(event) {
+    event.preventDefault();
+    if (!draft.trim() || !activeMessage) return;
+
+    try {
+      await sendBuyerMarketplaceMessage({
+        seller: { id: activeMessage.businessId },
+        product: activeMessage.productId
+          ? { id: activeMessage.productId, name: activeMessage.productName, businessId: activeMessage.businessId }
+          : null,
+        topic: activeMessage.topic,
+        message: draft,
+        messageType: activeMessage.type,
+      });
+      setDraft("");
+      setNotice("Message sent.");
+      await loadMessages();
+    } catch (err) {
+      setNotice(err.message || "Unable to send message.");
+    }
+  }
 
   return (
-    <div className="h-full">
-      {/* =======================
-          Responsive layout
-          Mobile: 1 column
-          Desktop: 3 columns
-          ======================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
-
-        {/* =======================
-            LEFT: Conversation list
-            ======================= */}
-        <div className="md:col-span-1 border rounded-lg bg-white p-3">
-          <h3 className="font-semibold text-gray-800 mb-3">Messages</h3>
-
-          {conversations.map(chat => (
-            <button
-              key={chat.id}
-              onClick={() => setActiveChat(chat)}
-              className="w-full text-left p-2 rounded hover:bg-slate-100"
-            >
-              <p className="font-medium text-gray-800">{chat.name}</p>
-              <p className="text-sm text-gray-500 truncate">
-                {chat.product}
-              </p>
-            </button>
-          ))}
+    <main className="min-h-screen bg-gray-50">
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-white px-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+          aria-label="Back to marketplace"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div>
+          <h1 className="text-lg font-black text-gray-950">Messages</h1>
+          <p className="text-xs font-bold text-gray-500">Buyer conversations with marketplace sellers</p>
         </div>
+      </header>
 
-        {/* =======================
-            RIGHT: Chat window
-            ======================= */}
-        <div className="md:col-span-2 border rounded-lg bg-white flex flex-col">
-
-          {/* Chat header */}
-          <div className="border-b p-3">
-            <h4 className="font-semibold text-gray-800">
-              {activeChat.product}
-            </h4>
-            <p className="text-sm text-gray-500">
-              Chat with {activeChat.name}
-            </p>
-          </div>
-
-          {/* Messages area */}
-          <div className="flex-1 p-3 space-y-3 overflow-y-auto">
-            {activeChat.messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm
-                  ${msg.from === "buyer"
-                    ? "bg-slate-200 text-gray-800"
-                    : "bg-emerald-600 text-white ml-auto"
-                  }`}
+      <section className="mx-auto grid max-w-6xl gap-4 p-4 md:grid-cols-[320px_1fr]">
+        <aside className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+          <h2 className="mb-3 font-black text-gray-950">Conversations</h2>
+          {loading && <p className="text-sm font-bold text-gray-500">Loading messages...</p>}
+          {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
+          {!loading && !error && !messages.length && (
+            <div className="rounded-lg bg-gray-50 p-5 text-center">
+              <MessageCircle className="mx-auto text-gray-400" size={32} />
+              <p className="mt-2 text-sm font-black text-gray-950">No messages yet</p>
+              <p className="mt-1 text-xs font-medium text-gray-500">Messages you send to sellers will appear here.</p>
+            </div>
+          )}
+          <div className="space-y-2">
+            {messages.map((message) => (
+              <button
+                key={message.id}
+                onClick={() => setActiveId(message.id)}
+                className={`w-full rounded-lg p-3 text-left transition ${
+                  activeMessage?.id === message.id ? "bg-emerald-50 ring-1 ring-emerald-200" : "hover:bg-gray-50"
+                }`}
               >
-                {msg.text}
-              </div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate font-black text-gray-950">{message.sellerName}</p>
+                  <span className="text-xs font-bold text-gray-400">{formatDate(message.createdAt)}</span>
+                </div>
+                <p className="mt-1 truncate text-xs font-bold text-gray-500">{message.topic}</p>
+                <p className="mt-1 line-clamp-2 text-xs font-medium text-gray-500">{message.preview}</p>
+              </button>
             ))}
           </div>
+        </aside>
 
-          {/* Message input */}
-          <div className="sticky bottom-0 border-t bg-white p-3 flex gap-2">
-            <input
-              type="text"
-              placeholder="Type your message..."
-              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-600"
-            />
-            <button className="bg-emerald-600 text-white px-4 rounded-lg text-sm">
-              Send
-            </button>
-          </div>
-        </div>
+        <section className="flex min-h-[70vh] flex-col rounded-lg border border-gray-200 bg-white shadow-sm">
+          {activeMessage ? (
+            <>
+              <div className="border-b p-4">
+                <h2 className="font-black text-gray-950">{activeMessage.topic}</h2>
+                <p className="mt-1 text-sm font-bold text-gray-500">
+                  {activeMessage.sellerName}
+                  {activeMessage.productName ? ` • ${activeMessage.productName}` : ""}
+                </p>
+              </div>
 
-      </div>
-    </div>
+              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                <div className="max-w-[80%] rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white">
+                  {activeMessage.preview || "Message sent to seller."}
+                </div>
+                <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-sm font-medium text-gray-600">
+                  Seller replies will appear here when the seller responds.
+                </div>
+              </div>
+
+              {notice && <p className="mx-4 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{notice}</p>}
+
+              <form onSubmit={sendReply} className="flex gap-2 border-t p-3">
+                <input
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder="Type your message..."
+                  className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+                >
+                  <Send size={16} />
+                  Send
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-8 text-center">
+              <div>
+                <MessageCircle className="mx-auto text-gray-400" size={36} />
+                <p className="mt-3 font-black text-gray-950">Choose a conversation</p>
+                <p className="mt-1 text-sm font-medium text-gray-500">Your buyer-seller messages will open here.</p>
+              </div>
+            </div>
+          )}
+        </section>
+      </section>
+    </main>
   );
 }

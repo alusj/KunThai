@@ -3,10 +3,28 @@
    Products with discounts
 ========================= */
 
-export default function Discounted() {
+import BuyerProductGrid from "../BuyerProductGrid";
+
+export default function Discounted({
+  products = [],
+  loading = false,
+  error = "",
+  savedIds,
+  onProductSelect,
+  onAddToCart,
+  onToggleSaved,
+}) {
   return (
-    <div className="border rounded-lg p-4 bg-white text-gray-500 text-center">
-      Discounted products will appear here.
-    </div>
+    <BuyerProductGrid
+      products={products}
+      loading={loading}
+      error={error}
+      savedIds={savedIds}
+      onProductSelect={onProductSelect}
+      onAddToCart={onAddToCart}
+      onToggleSaved={onToggleSaved}
+      emptyTitle="No discounted products"
+      emptyBody="Products with a seller discount price will show up in this section."
+    />
   );
 }

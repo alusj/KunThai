@@ -1,57 +1,31 @@
-/**
- * ParentTabs.jsx
- * ----------------
- * Buyer tabs: Browse, Orders, Messages
- * - Full-width on desktop
- * - Scrollable on small screens
- * - Soft rounded edges (no sharp corners)
- * - Consistent colors across devices
- */
+const MARKETPLACE_TABS = [
+  { id: "new", label: "New" },
+  { id: "discounted", label: "Discounted" },
+  { id: "high-demand", label: "High Demand" },
+  { id: "top-rated", label: "Top Rated" },
+];
 
 export default function ParentTabs({ activeTab, setActiveTab }) {
-  const tabs = [
-    { id: "browse", label: "Browse" },
-    { id: "orders", label: "Orders" },
-    { id: "messages", label: "Messages" },
-  ];
-
   return (
-    <div className="bg-white border-b px-2">
-
-      {/* Wrapper */}
-      <div className="flex flex-nowrap overflow-x-auto no-scrollbar gap-2 py-2">
-
-        {tabs.map(tab => {
+    <div className="sticky top-14 z-10 border-b bg-white px-2">
+      <div className="flex flex-nowrap gap-2 overflow-x-auto py-2 no-scrollbar">
+        {MARKETPLACE_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
 
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-
-              className={`
-                appearance-none
-                focus:outline-none
-                flex-1 min-w-[120px]
-
-                px-4 py-2
-                text-sm font-medium
-                transition-all duration-200
-
-                rounded-xl
-
-                ${
-                  isActive
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }
-              `}
+              className={`min-w-[140px] flex-1 rounded-lg px-4 py-2 text-sm font-black transition ${
+                isActive
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"
+              }`}
             >
               {tab.label}
             </button>
           );
         })}
-
       </div>
     </div>
   );
