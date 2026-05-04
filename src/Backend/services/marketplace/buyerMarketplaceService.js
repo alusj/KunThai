@@ -139,7 +139,11 @@ export async function fetchBuyerProductDetail(productId) {
   if (error) throw new Error(error.message);
   if (!data) throw new Error("This product is no longer available.");
 
-  supabase.rpc("increment_marketplace_product_view", { product_id: productId }).catch(() => {});
+  try {
+    await supabase.rpc("increment_marketplace_product_view", { product_id: productId });
+  } catch {
+    // View counts are nice to have; product details should still open.
+  }
 
   return mapBuyerProduct(data);
 }

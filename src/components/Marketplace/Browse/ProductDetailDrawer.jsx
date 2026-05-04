@@ -17,6 +17,7 @@ import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 
 function ImageViewer({ images, activeIndex, onChange, onClose }) {
+  const [touchStartX, setTouchStartX] = useState(null);
   if (activeIndex < 0) return null;
 
   const activeImage = images[activeIndex];
@@ -25,6 +26,15 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
   function move(direction) {
     const nextIndex = (activeIndex + direction + images.length) % images.length;
     onChange(nextIndex);
+  }
+
+  function handleTouchEnd(event) {
+    if (touchStartX === null || !hasMultiple) return;
+
+    const deltaX = event.changedTouches[0].clientX - touchStartX;
+    setTouchStartX(null);
+    if (Math.abs(deltaX) < 45) return;
+    move(deltaX > 0 ? -1 : 1);
   }
 
   return (
@@ -43,7 +53,11 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
         </button>
       </header>
 
-      <div className="relative min-h-0 flex-1 overflow-auto p-4">
+      <div
+        className="relative min-h-0 flex-1 overflow-auto p-4"
+        onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
+        onTouchEnd={handleTouchEnd}
+      >
         <img src={activeImage} alt="" className="mx-auto max-h-none max-w-full rounded-lg object-contain md:max-h-full" />
 
         {hasMultiple && (
@@ -92,6 +106,8 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
 }
 
 function Gallery({ product, onOpenImage }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(null);
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
 
   if (!images.length) {
@@ -102,25 +118,49 @@ function Gallery({ product, onOpenImage }) {
     );
   }
 
+  const activeImage = images[activeIndex] || images[0];
+  const hasMultiple = images.length > 1;
+
+  function showImage(index) {
+    setActiveIndex(index);
+  }
+
+  function move(direction) {
+    setActiveIndex((current) => (current + direction + images.length) % images.length);
+  }
+
+  function handleTouchEnd(event) {
+    if (touchStartX === null || !hasMultiple) return;
+
+    const deltaX = event.changedTouches[0].clientX - touchStartX;
+    setTouchStartX(null);
+    if (Math.abs(deltaX) < 40) return;
+    move(deltaX > 0 ? -1 : 1);
+  }
+
   return (
     <div className="space-y-2">
       <button
         type="button"
-        onClick={() => onOpenImage(0)}
-        className="block w-full overflow-hidden rounded-lg bg-gray-100 text-left"
+        onClick={() => onOpenImage(activeIndex)}
+        onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
+        onTouchEnd={handleTouchEnd}
+        className="block w-full touch-pan-y overflow-hidden rounded-lg bg-gray-100 text-left"
         aria-label={`View ${product.name} image full screen`}
       >
-        <img src={images[0]} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
+        <img src={activeImage} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
       </button>
-      {images.length > 1 && (
+      {hasMultiple && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {images.map((image, index) => (
             <button
               key={`${image}-${index}`}
               type="button"
-              onClick={() => onOpenImage(index)}
-              className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-gray-100"
-              aria-label={`View product image ${index + 1}`}
+              onClick={() => showImage(index)}
+              className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border bg-gray-100 ${
+                index === activeIndex ? "border-emerald-600" : "border-transparent"
+              }`}
+              aria-label={`Show product image ${index + 1}`}
             >
               <img src={image} alt="" className="h-full w-full object-cover transition hover:scale-105" />
             </button>

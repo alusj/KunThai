@@ -10,6 +10,7 @@ import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
 ========================= */
 //import BusinessIdentity from "./BusinessIdentity/BusinessIdentity"
 import BusinessAttention from "./BusinessAttention/BusinessAttention";
+import BusinessActivity from "./BusinessActivity/BusinessActivity";
 import BusinessCatalog from "./BusinessCatalog/BusinessCatalog";
 import BusinessPromotions from "./BusinessPromotions/BusinessPromotions";
 import CustomerCare from "./CustomerCare/CustomerCare";
@@ -67,6 +68,10 @@ export default function Business({ onBack }) {
             setActiveScreen("dashboard");
             setActiveTab("messages");
           }}
+          onAlerts={() => {
+            setActiveScreen("dashboard");
+            setActiveTab("notifications");
+          }}
           onMenu={openSellerMenu}
         />
       ) : null}
@@ -121,6 +126,18 @@ export default function Business({ onBack }) {
             ) : null}
             {activeTab === "sales" ? <BusinessStats /> : null}
             {activeTab === "messages" ? <CustomerCare /> : null}
+            {activeTab === "notifications" ? (
+              <>
+                <BusinessAttention
+                  onAction={(item) => {
+                    if (item.id === "add-first-product") setActiveScreen("addProduct");
+                    if (item.type === "payout") setActiveTab("overview");
+                    if (item.type === "profile") setActiveTab("overview");
+                  }}
+                />
+                <BusinessActivity />
+              </>
+            ) : null}
             {activeTab === "store" ? (
               <BusinessCatalog
                 mode="store"
