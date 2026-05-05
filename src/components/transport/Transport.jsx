@@ -1,18 +1,20 @@
-// TransportHome.jsx
-// Main wrapper for the Transport module
-// Responsible for layout structure only (Header + Body)
+import { useState } from "react";
 
+import Body from "./Body/Body";
 import Header from "./header/Header";
-import Body from "./Body/Body"; // You’ll connect later
+import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 
 export default function Transport() {
+  const [registrationOpen, setRegistrationOpen] = useState(false);
+
+  if (registrationOpen) {
+    return <FleetRegistrationDrawer onClose={() => setRegistrationOpen(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 relative">
-      {/* Transport Header */}
-      <Header />
-
-      {/* Transport Body */}
-       <Body />
+      <Header onRegisterFleet={() => setRegistrationOpen(true)} />
+      <Body />
     </div>
   );
 }

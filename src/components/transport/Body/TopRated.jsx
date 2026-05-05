@@ -19,7 +19,7 @@ justify-between
 ">
       <FiStar size={26} className="text-yellow-500" />
       <span className="font-bold text-gray-700">
-        Top Rated
+        Verified Top Rated
       </span>
     </button>
   );

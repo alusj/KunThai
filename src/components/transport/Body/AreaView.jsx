@@ -19,7 +19,7 @@ justify-between
 ">
       <FiNavigation size={24} className="text-purple-600" />
       <span className="font-semibold text-gray-700">
-        View Area
+        Nearby Area
       </span>
     </button>
   );

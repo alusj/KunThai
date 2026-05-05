@@ -2,8 +2,6 @@ export default function SellerWorkspaceTabs({ activeTab, onTabChange }) {
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "sales", label: "Sales & Orders" },
-    { id: "messages", label: "Messages" },
-    { id: "notifications", label: "Notifications" },
     { id: "store", label: "Store" },
     { id: "catalog", label: "Catalog" },
   ];

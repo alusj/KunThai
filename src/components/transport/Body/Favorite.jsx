@@ -18,7 +18,7 @@ flex-col
 justify-between
 ">
       <span className="font-semibold text-gray-700">
-        Favorites
+        Saved Operators
       </span>
       <FiHeart size={24} className="text-gray-600" />
     </button>

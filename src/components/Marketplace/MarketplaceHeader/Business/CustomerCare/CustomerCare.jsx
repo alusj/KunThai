@@ -1,17 +1,23 @@
 import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCustomerCare";
-import CareMetricsGrid from "./CareMetricsGrid";
 import RecentConversations from "./RecentConversations";
-import SupportThreads from "./SupportThreads";
 import { useState } from "react";
 import { sendSellerMarketplaceMessage } from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
 
+function conversationTitle(conversation) {
+  if (conversation?.productName) {
+    return `${conversation.buyerName} sent a message about ${conversation.productName}`;
+  }
+
+  return `${conversation?.buyerName || "Buyer"} sent you a message`;
+}
+
 export default function CustomerCare() {
-  const { metrics, conversations, supportThreads, loading, reload } = useSellerCustomerCare();
+  const { conversations, loading, reload } = useSellerCustomerCare();
   const [activeConversation, setActiveConversation] = useState(null);
   const [reply, setReply] = useState("");
   const [feedback, setFeedback] = useState("");
 
-  if (loading || !metrics) {
+  if (loading) {
     return <div className="h-80 rounded-xl bg-white shadow-sm" />;
   }
 
@@ -30,44 +36,39 @@ export default function CustomerCare() {
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div>
-        <p className="text-sm font-black uppercase text-blue-700">Customer Care</p>
-        <h3 className="mt-1 text-xl font-black text-gray-950">
-          Messages & buyer support
-        </h3>
-        <p className="mt-1 text-sm font-medium text-gray-500">
-          Keep replies fast, negotiations clear, and disputes under control.
-        </p>
-      </div>
-
-      <CareMetricsGrid metrics={metrics} />
-      <RecentConversations conversations={conversations} onOpen={setActiveConversation} activeId={activeConversation?.id} />
-
-      {activeConversation && (
-        <section className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="font-black text-gray-950">{activeConversation.buyerName}</h3>
-              <p className="mt-1 text-sm font-bold text-gray-500">{activeConversation.topic}</p>
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+      {!activeConversation ? (
+        <RecentConversations conversations={conversations} onOpen={(conversation) => {
+          setFeedback("");
+          setActiveConversation(conversation);
+        }} activeId={activeConversation?.id} />
+      ) : (
+        <section className="flex min-h-[70vh] flex-col">
+          <div className="flex items-start justify-between gap-3 border-b border-gray-200 pb-4">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase text-emerald-700">
+                {activeConversation.productName ? "Product message" : "Marketplace message"}
+              </p>
+              <h3 className="mt-1 text-lg font-black text-gray-950">{conversationTitle(activeConversation)}</h3>
+              <p className="mt-1 text-sm font-bold text-gray-500">{activeConversation.preview}</p>
             </div>
             <button
               type="button"
               onClick={() => setActiveConversation(null)}
-              className="rounded-lg bg-white px-3 py-2 text-xs font-black text-gray-600 hover:bg-gray-100"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black text-gray-600 hover:bg-gray-100"
             >
-              Close
+              Back
             </button>
           </div>
 
-          <div className="mt-4 max-h-72 space-y-3 overflow-y-auto">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-gray-50 px-3 py-4">
             {activeConversation.messages.map((message) => (
               <div
                 key={message.id}
                 className={`max-w-[82%] rounded-2xl px-4 py-2 text-sm font-medium ${
                   message.from === "seller"
                     ? "ml-auto bg-emerald-600 text-white"
-                    : "bg-white text-gray-700"
+                    : "bg-white text-gray-700 shadow-sm"
                 }`}
               >
                 {message.text}
@@ -77,7 +78,7 @@ export default function CustomerCare() {
 
           {feedback && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{feedback}</p>}
 
-          <form onSubmit={sendReply} className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <form onSubmit={sendReply} className="mt-3 flex gap-2 border-t border-gray-200 pt-3">
             <input
               value={reply}
               onChange={(event) => setReply(event.target.value)}
@@ -86,15 +87,14 @@ export default function CustomerCare() {
             />
             <button
               type="submit"
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700"
+              disabled={!reply.trim()}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Send Reply
+              Reply
             </button>
           </form>
         </section>
       )}
-
-      <SupportThreads threads={supportThreads} />
     </section>
   );
 }

@@ -1,5 +1,4 @@
-// TourHistory.jsx
-// Displays user's ride and delivery history
+// Displays current ride and delivery activity for this transport area.
 
 import { FiClock } from "react-icons/fi";
 
@@ -19,7 +18,7 @@ justify-between
 ">
     
       <span className="font-semibold text-gray-700">
-        Tour History
+        Active Trips
       </span>
         <FiClock size={24} className="text-gray-600" />
     </button>

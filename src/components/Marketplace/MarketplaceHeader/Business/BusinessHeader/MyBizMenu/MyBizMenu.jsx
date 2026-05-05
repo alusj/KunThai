@@ -85,7 +85,7 @@ export default function MyBizMenu({
         aria-label="Close seller menu"
       />
 
-      <aside className="absolute right-0 top-0 flex h-full w-full max-w-[460px] flex-col bg-gray-50 shadow-2xl sm:w-[460px]">
+      <aside className="absolute inset-0 flex h-full w-full flex-col bg-gray-50 shadow-2xl">
         <MenuHeader
           title={activeScreen ? activeScreen.title : "Seller Menu"}
           showBack={!!activeScreen}

@@ -64,6 +64,17 @@ async function getCurrentUserId(message = "Sign in to continue.") {
   return data.user.id;
 }
 
+async function getCurrentBuyer(message = "Sign in to continue.") {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user?.id) throw new Error(message);
+
+  const meta = data.user.user_metadata || {};
+  return {
+    id: data.user.id,
+    name: meta.full_name || meta.name || meta.username || data.user.email?.split("@")[0] || "Buyer",
+  };
+}
+
 function applyProductFilters(query, filters = {}) {
   let nextQuery = query;
 
@@ -435,18 +446,18 @@ export async function fetchBuyerMessages() {
 }
 
 export async function sendBuyerMarketplaceMessage({ seller, product, topic, message, messageType = "message" }) {
-  const buyerId = await getCurrentUserId("Sign in to message this seller.");
+  const buyer = await getCurrentBuyer("Sign in to message this seller.");
   const businessId = seller?.id || product?.businessId;
   if (!businessId) throw new Error("Choose a seller to message.");
   const conversationTopic = topic?.trim() || product?.name || "Marketplace message";
   const conversationKey = buildConversationKey(businessId, product?.id, conversationTopic);
 
   const { error } = await supabase.from("marketplace_customer_messages").insert({
-    buyer_id: buyerId,
+    buyer_id: buyer.id,
     business_id: businessId,
     product_id: product?.id || null,
     product_name: product?.name || "",
-    buyer_name: "Buyer",
+    buyer_name: buyer.name,
     topic: conversationTopic,
     preview: message.trim(),
     message_type: messageType,

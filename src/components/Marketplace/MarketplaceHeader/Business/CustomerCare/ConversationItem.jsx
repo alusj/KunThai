@@ -1,4 +1,10 @@
-import ConversationTypeBadge from "./ConversationTypeBadge";
+function conversationTitle(conversation) {
+  if (conversation.productName) {
+    return `${conversation.buyerName} sent a message about ${conversation.productName}`;
+  }
+
+  return `${conversation.buyerName} sent you a message`;
+}
 
 export default function ConversationItem({ conversation, onOpen, active }) {
   return (
@@ -11,15 +17,13 @@ export default function ConversationItem({ conversation, onOpen, active }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-black text-gray-950">{conversation.buyerName}</p>
+          <div className="flex items-center gap-2">
+            <p className="line-clamp-2 font-black text-gray-950">{conversationTitle(conversation)}</p>
             {conversation.unread ? (
-              <span className="h-2 w-2 rounded-full bg-red-500" aria-label="Unread" />
+              <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-label="Unread" />
             ) : null}
           </div>
-          <p className="mt-1 text-xs font-bold uppercase text-gray-400">
-            {conversation.topic}
-          </p>
+          <p className="mt-1 text-xs font-bold uppercase text-gray-400">{conversation.productName ? "Product message" : "Marketplace message"}</p>
         </div>
         <span className="text-xs font-bold text-gray-400">{conversation.time}</span>
       </div>
@@ -28,9 +32,7 @@ export default function ConversationItem({ conversation, onOpen, active }) {
         {conversation.preview}
       </p>
 
-      <div className="mt-3">
-        <ConversationTypeBadge type={conversation.type} />
-      </div>
+      <p className="mt-3 text-xs font-black text-emerald-700">Open conversation</p>
     </button>
   );
 }
