@@ -1,11 +1,11 @@
 // BookRide.jsx
 // Enhanced Ride Selection Card
 
-import Okada from "./Okada";
-import Keke from "./Keke";
-import Taxi from "./Taxi";
+import FleetOptionButton from "../FleetOptionButton";
+import { FaCarSide, FaMotorcycle } from "react-icons/fa";
+import { MdElectricRickshaw } from "react-icons/md";
 
-export default function BookRide() {
+export default function BookRide({ onSelectFleetType }) {
   return (
     <div
       className="
@@ -34,9 +34,21 @@ export default function BookRide() {
 
         {/* Fleet Options */}
         <div className="grid grid-cols-3 gap-3">
-          <Okada />
-          <Keke />
-          <Taxi />
+          <FleetOptionButton
+            icon={<FaMotorcycle />}
+            label="Motorbike"
+            onClick={() => onSelectFleetType("ride", "Motorcycle", "Motorbike")}
+          />
+          <FleetOptionButton
+            icon={<MdElectricRickshaw />}
+            label="Tricycle"
+            onClick={() => onSelectFleetType("ride", "Tricycle", "Tricycle")}
+          />
+          <FleetOptionButton
+            icon={<FaCarSide />}
+            label="Taxi"
+            onClick={() => onSelectFleetType("ride", "Car", "Taxi")}
+          />
         </div>
 
       </div>

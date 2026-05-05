@@ -1,11 +1,11 @@
 // SendDelivery.jsx
 
-import Bike from "./Bike";
-import Keke from "./Keke";
-import Van from "./Van";
+import FleetOptionButton from "../FleetOptionButton";
+import { FaMotorcycle, FaTruck } from "react-icons/fa";
+import { MdElectricRickshaw } from "react-icons/md";
 //import PublicTransport from "./PublicTransport";
 
-export default function SendDelivery() {
+export default function SendDelivery({ onSelectFleetType }) {
   return (
     <div className="bg-white rounded-2xl shadow-md p-1">
       <h3 className="text-lg font-semibold text-gray-800 mb-2">
@@ -13,9 +13,21 @@ export default function SendDelivery() {
       </h3>
 
       <div className="grid grid-cols-3 gap-3">
-        <Bike />
-        <Keke />
-        <Van />
+        <FleetOptionButton
+          icon={<FaMotorcycle />}
+          label="Bike"
+          onClick={() => onSelectFleetType("delivery", "Motorcycle", "Delivery Bike")}
+        />
+        <FleetOptionButton
+          icon={<MdElectricRickshaw />}
+          label="Tricycle"
+          onClick={() => onSelectFleetType("delivery", "Tricycle", "Delivery Tricycle")}
+        />
+        <FleetOptionButton
+          icon={<FaTruck />}
+          label="Van"
+          onClick={() => onSelectFleetType("delivery", "Car", "Van")}
+        />
        {/* <PublicTransport />*/}
       </div>
     </div>

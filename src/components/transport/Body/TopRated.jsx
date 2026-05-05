@@ -3,9 +3,12 @@
 
 import { FiStar } from "react-icons/fi";
 
-export default function TopRated() {
+export default function TopRated({ onClick }) {
   return (
-    <button className="
+    <button
+      type="button"
+      onClick={onClick}
+      className="
 bg-white 
 rounded-3xl 
 shadow-md 
@@ -16,10 +19,11 @@ h-32
 flex 
 flex-col 
 justify-between
-">
+"
+    >
       <FiStar size={26} className="text-yellow-500" />
       <span className="font-bold text-gray-700">
-        Verified Top Rated
+        Top Rated
       </span>
     </button>
   );

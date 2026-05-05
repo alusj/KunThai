@@ -106,6 +106,10 @@ export default function FleetRegistrationDrawer({ onClose }) {
     fuelType: "",
     carBodyType: "",
     maxLoad: "",
+    baseFare: "",
+    priceHint: "",
+    homeBaseLocation: "",
+    deliveryBodyType: "",
   });
 
   const documents = useMemo(() => {
@@ -213,6 +217,9 @@ export default function FleetRegistrationDrawer({ onClose }) {
               <FormInput label="Year" value={form.year} onChange={(value) => update("year", value)} />
               <FormInput label="Color" value={form.color} onChange={(value) => update("color", value)} />
               <FormInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} />
+              <FormInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} />
+              <FormInput label="Base fare" value={form.baseFare} onChange={(value) => update("baseFare", value)} />
+              <FormInput label="Passenger price hint" value={form.priceHint} onChange={(value) => update("priceHint", value)} />
               <ChoiceGroup
                 label="Availability"
                 options={["Full-time", "Part-time", "Scheduled"]}
@@ -227,6 +234,9 @@ export default function FleetRegistrationDrawer({ onClose }) {
               )}
               {(form.category === "Delivery" || form.category === "Both") && (
                 <FormInput label="Estimated max load" value={form.maxLoad} onChange={(value) => update("maxLoad", value)} />
+              )}
+              {(form.category === "Delivery" || form.category === "Both") && form.fleetType === "Tricycle" && (
+                <FormInput label="Delivery booth type" value={form.deliveryBodyType} onChange={(value) => update("deliveryBodyType", value)} />
               )}
             </div>
           )}
@@ -327,6 +337,8 @@ export default function FleetRegistrationDrawer({ onClose }) {
                 <ReviewRow label="Category" value={form.category} />
                 <ReviewRow label="Fleet type" value={form.fleetType} />
                 <ReviewRow label="Plate number" value={form.plateNumber || "Not filled"} />
+                <ReviewRow label="Home base" value={form.homeBaseLocation || "Not filled"} />
+                <ReviewRow label="Price hint" value={form.priceHint || "Not filled"} />
                 <ReviewRow label="Fleet images" value={`${fleetImageCount}/4 uploaded`} />
                 <ReviewRow label="Current status" value="Verification Pending" />
               </div>

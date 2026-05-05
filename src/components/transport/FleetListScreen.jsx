@@ -1,0 +1,162 @@
+import { FiArrowLeft, FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
+import { getTransportFleets } from "../services/transportFleetService";
+import VerificationBadge from "./verification/VerificationBadge";
+import { verificationStatuses } from "./verification/verificationStatus";
+
+export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification }) {
+  const fleets = getTransportFleets(selection);
+  const modeLabel =
+    selection.mode === "topRated" ? "All Fleets" : selection.mode === "ride" ? "Ride" : "Delivery";
+  const helperText =
+    selection.mode === "topRated"
+      ? "Highest rated fleets are shown first across all categories."
+      : "Closest active fleets are shown first.";
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
+        <div className="flex w-full items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to transport dashboard"
+            className="h-10 w-10 shrink-0 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition"
+          >
+            <FiArrowLeft size={20} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg font-bold text-gray-950">
+              {selection.label}
+            </h1>
+            <p className="truncate text-xs text-gray-500">
+              {helperText}
+            </p>
+          </div>
+          <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+            {fleets.length} found
+          </span>
+        </div>
+      </header>
+
+      <main className="w-full px-3 py-4 sm:px-5 sm:py-5 xl:px-8">
+        <div className="mb-4 grid gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-3">
+          <SummaryItem
+            label="Sort"
+            value={selection.mode === "topRated" ? "Rating, trips, active status" : "Active and closest first"}
+          />
+          <SummaryItem label="Type" value={selection.mode === "topRated" ? "All fleet types" : selection.label} />
+          <SummaryItem label="Mode" value={modeLabel} />
+        </div>
+
+        <div className="grid gap-3 2xl:grid-cols-2">
+          {fleets.map((fleet) => (
+            <FleetListCard
+              key={fleet.id}
+              fleet={fleet}
+              onViewFleet={() => onViewFleet(fleet.id)}
+              onShowVerification={() => onShowVerification(fleet)}
+            />
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function FleetListCard({ fleet, onViewFleet, onShowVerification }) {
+  const status = verificationStatuses[fleet.verificationStatus];
+  const isActive = fleet.activeStatus === "active";
+
+  return (
+    <article className="grid gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-[minmax(260px,1fr)_minmax(260px,1fr)_auto] lg:items-center">
+      <div className="min-w-0">
+        <div className="flex items-start justify-between gap-3 lg:block">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-bold text-gray-950">{fleet.fleetName}</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-gray-600">
+              {fleet.serviceCategory} - {fleet.fleetType}
+            </p>
+          </div>
+          <div className="lg:mt-3">
+            <StatusPill active={isActive} />
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <VerificationBadge status={fleet.verificationStatus} onClick={onShowVerification} />
+          <button
+            type="button"
+            onClick={onShowVerification}
+            className="mt-2 block text-left text-xs font-medium text-gray-500 hover:text-green-700"
+          >
+            {status.shortText} - Read more
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-2 text-sm text-gray-600">
+        {isActive ? (
+          <>
+            <InfoLine icon={FiNavigation} text={`${fleet.distanceKm} km away - ETA ${fleet.etaMinutes} min`} />
+            <InfoLine icon={FiMapPin} text={fleet.currentLocation} />
+          </>
+        ) : (
+          <>
+            <InfoLine icon={FiClock} text={fleet.lastActive} />
+            <InfoLine icon={FiMapPin} text={`Last seen at ${fleet.lastKnownLocation}`} />
+          </>
+        )}
+        <InfoLine
+          icon={FiStar}
+          text={`${fleet.rating || "New"} rating - ${fleet.trips} completed trips`}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2 lg:items-end">
+        <span className="text-sm font-bold text-gray-950 lg:text-right">{fleet.priceHint}</span>
+        <button
+          type="button"
+          onClick={onViewFleet}
+          className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 transition"
+        >
+          View fleet profile
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function StatusPill({ active }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
+        active
+          ? "border-green-200 bg-green-100 text-green-700"
+          : "border-gray-200 bg-gray-100 text-gray-600"
+      }`}
+    >
+      {active ? "Active" : "Offline"}
+    </span>
+  );
+}
+
+function InfoLine({ icon: Icon, text }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <Icon size={15} className="shrink-0 text-gray-500" />
+      <span className="truncate">{text}</span>
+    </div>
+  );
+}
+
+function SummaryItem({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="mt-1 text-sm font-bold text-gray-900">{value}</p>
+    </div>
+  );
+}

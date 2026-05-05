@@ -12,7 +12,7 @@ import Favorite from "./Favorite";
 import NearbyOperators from "./NearbyOperators";
 //import Radar from "./Radar";
 
-export default function Body() {
+export default function Body({ onSelectFleetType, onOpenTopRated }) {
   return (
     <div className="relative px-3 pt-5 pb-24">
       <LocationSearch />
@@ -21,12 +21,12 @@ export default function Body() {
       <div className="grid grid-cols-2 gap-5">
 
         {/* Row 1 */}
-        <BookRide />
-        <SendDelivery />
+        <BookRide onSelectFleetType={onSelectFleetType} />
+        <SendDelivery onSelectFleetType={onSelectFleetType} />
 
         {/* Row 2 */}
         <AreaView />
-        <TopRated />
+        <TopRated onClick={onOpenTopRated} />
 
         {/* Row 3 */}
         <TourHistory />
