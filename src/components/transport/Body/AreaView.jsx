@@ -3,9 +3,12 @@
 
 import { FiNavigation } from "react-icons/fi";
 
-export default function AreaView() {
+export default function AreaView({ onClick }) {
   return (
-    <button className="
+    <button
+      type="button"
+      onClick={onClick}
+      className="
 bg-white 
 rounded-3xl 
 shadow-md 
@@ -16,7 +19,8 @@ h-32
 flex 
 flex-col 
 justify-between
-">
+"
+    >
       <FiNavigation size={24} className="text-purple-600" />
       <span className="font-semibold text-gray-700">
         Nearby Area

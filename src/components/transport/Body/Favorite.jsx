@@ -3,9 +3,12 @@
 
 import { FiHeart } from "react-icons/fi";
 
-export default function Favorite() {
+export default function Favorite({ onClick }) {
   return (
-    <button className="
+    <button
+      type="button"
+      onClick={onClick}
+      className="
 bg-white 
 rounded-3xl 
 shadow-md 
@@ -16,7 +19,8 @@ h-32
 flex 
 flex-col 
 justify-between
-">
+"
+    >
       <span className="font-semibold text-gray-700">
         Saved Operators
       </span>

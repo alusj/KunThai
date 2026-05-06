@@ -12,6 +12,11 @@ import {
   FiTruck,
   FiUser,
 } from "react-icons/fi";
+import {
+  getOperatorDraft,
+  saveOperatorAccount,
+  saveOperatorDraft,
+} from "../../services/transportOperatorAccountService";
 
 const categories = ["Transport", "Delivery", "Both"];
 const fleetTypes = ["Car", "Motorcycle", "Tricycle"];
@@ -83,33 +88,42 @@ function generateOperatorId() {
   return String(Math.floor(10000 + Math.random() * 90000));
 }
 
-export default function FleetRegistrationDrawer({ onClose }) {
-  const [step, setStep] = useState(0);
-  const [operatorId] = useState(generateOperatorId);
-  const [answers, setAnswers] = useState({});
-  const [uploads, setUploads] = useState({});
+const defaultForm = {
+  name: "",
+  phone: "",
+  city: "",
+  emergencyContact: "",
+  category: "Transport",
+  fleetType: "Car",
+  plateNumber: "",
+  fleetName: "",
+  make: "",
+  model: "",
+  year: "",
+  color: "",
+  operatingArea: "",
+  availability: "Full-time",
+  fuelType: "",
+  carBodyType: "",
+  maxLoad: "",
+  baseFare: "",
+  priceHint: "",
+  homeBaseLocation: "",
+  deliveryBodyType: "",
+};
+
+export default function FleetRegistrationDrawer({ onClose, onComplete }) {
+  const draft = getOperatorDraft();
+  const [step, setStep] = useState(draft?.step || 0);
+  const [operatorId] = useState(draft?.operatorId || generateOperatorId);
+  const [answers, setAnswers] = useState(draft?.answers || {});
+  const [uploads, setUploads] = useState(draft?.uploads || {});
+  const [documentsSkipped, setDocumentsSkipped] = useState(Boolean(draft?.documentsSkipped));
+  const [showSkipWarning, setShowSkipWarning] = useState(false);
+  const [savedMessage, setSavedMessage] = useState("");
   const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    city: "",
-    emergencyContact: "",
-    category: "Transport",
-    fleetType: "Car",
-    plateNumber: "",
-    fleetName: "",
-    make: "",
-    model: "",
-    year: "",
-    color: "",
-    operatingArea: "",
-    availability: "Full-time",
-    fuelType: "",
-    carBodyType: "",
-    maxLoad: "",
-    baseFare: "",
-    priceHint: "",
-    homeBaseLocation: "",
-    deliveryBodyType: "",
+    ...defaultForm,
+    ...(draft?.form || {}),
   });
 
   const documents = useMemo(() => {
@@ -129,6 +143,37 @@ export default function FleetRegistrationDrawer({ onClose }) {
 
   const markUpload = (field, file) => {
     setUploads((current) => ({ ...current, [field]: file?.name || "Selected" }));
+    setDocumentsSkipped(false);
+  };
+
+  const buildPayload = (status = "draft") => ({
+    operatorId,
+    displayCode: `KT-${operatorId}`,
+    step,
+    form,
+    answers,
+    uploads,
+    documentsSkipped,
+    verificationStatus: documentsSkipped ? "notVerified" : "pending",
+    status,
+    savedAt: new Date().toISOString(),
+  });
+
+  const handleSave = () => {
+    saveOperatorDraft(buildPayload("draft"));
+    setSavedMessage("Saved");
+    window.setTimeout(() => setSavedMessage(""), 1600);
+  };
+
+  const handleSubmit = () => {
+    const account = saveOperatorAccount(buildPayload("submitted"));
+    onComplete?.(account);
+  };
+
+  const handleSkipDocuments = () => {
+    setDocumentsSkipped(true);
+    setShowSkipWarning(false);
+    setStep(5);
   };
 
   const nextStep = () => setStep((current) => Math.min(current + 1, steps.length - 1));
@@ -152,6 +197,11 @@ export default function FleetRegistrationDrawer({ onClose }) {
               Operator ID KT-{operatorId} will be searchable after submission.
             </p>
           </div>
+          {savedMessage && (
+            <span className="hidden rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700 sm:inline-flex">
+              {savedMessage}
+            </span>
+          )}
           <div className="shrink-0 rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700 sm:px-3">
             Step {step + 1} of {steps.length}
           </div>
@@ -193,13 +243,13 @@ export default function FleetRegistrationDrawer({ onClose }) {
 
           {step === 1 && (
             <div className="space-y-5">
-              <ChoiceGroup
+              <SelectField
                 label="Service category"
                 options={categories}
                 value={form.category}
                 onChange={(value) => update("category", value)}
               />
-              <ChoiceGroup
+              <SelectField
                 label="Fleet type"
                 options={fleetTypes}
                 value={form.fleetType}
@@ -308,7 +358,24 @@ export default function FleetRegistrationDrawer({ onClose }) {
               </section>
 
               <section>
-                <h2 className="mb-3 font-bold text-gray-950">Documents</h2>
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="font-bold text-gray-950">Documents</h2>
+                    <p className="text-xs text-gray-500">Upload PDF or image files for review.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSkipWarning(true)}
+                    className="h-10 rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-bold text-amber-800 hover:bg-amber-100"
+                  >
+                    Skip for now
+                  </button>
+                </div>
+                {documentsSkipped && (
+                  <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
+                    Documents skipped. You can access the dashboard, but your account will be marked unverified.
+                  </div>
+                )}
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {documents.map((document) => (
                     <UploadField
@@ -340,7 +407,10 @@ export default function FleetRegistrationDrawer({ onClose }) {
                 <ReviewRow label="Home base" value={form.homeBaseLocation || "Not filled"} />
                 <ReviewRow label="Price hint" value={form.priceHint || "Not filled"} />
                 <ReviewRow label="Fleet images" value={`${fleetImageCount}/4 uploaded`} />
-                <ReviewRow label="Current status" value="Verification Pending" />
+                <ReviewRow
+                  label="Current status"
+                  value={documentsSkipped ? "Unverified - documents skipped" : "Verification Pending"}
+                />
               </div>
             </div>
           )}
@@ -358,7 +428,15 @@ export default function FleetRegistrationDrawer({ onClose }) {
               </span>
             </button>
 
-            {step < steps.length - 1 ? (
+            <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
+              <button
+                type="button"
+                onClick={handleSave}
+                className="h-11 w-full rounded-2xl border border-green-200 bg-green-50 px-5 text-sm font-semibold text-green-700 hover:bg-green-100 transition sm:w-auto"
+              >
+                Save
+              </button>
+              {step < steps.length - 1 ? (
               <button
                 type="button"
                 onClick={nextStep}
@@ -372,15 +450,48 @@ export default function FleetRegistrationDrawer({ onClose }) {
             ) : (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleSubmit}
                 className="h-11 w-full rounded-2xl bg-green-600 px-5 text-sm font-semibold text-white hover:bg-green-700 transition sm:w-auto"
               >
                 Submit Registration
               </button>
             )}
+            </div>
           </div>
         </section>
       </main>
+
+      {showSkipWarning && (
+        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 px-3 py-3 sm:items-center sm:justify-center">
+          <section className="w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-md">
+            <div className="flex items-start gap-3">
+              <FiAlertTriangle className="mt-1 shrink-0 text-amber-600" size={22} />
+              <div>
+                <h2 className="text-lg font-black text-gray-950">Skip documents?</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  You can access the dashboard, but your account will be marked unverified until your documents are uploaded and approved.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setShowSkipWarning(false)}
+                className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
+              >
+                Go back
+              </button>
+              <button
+                type="button"
+                onClick={handleSkipDocuments}
+                className="h-11 rounded-2xl bg-amber-600 text-sm font-bold text-white"
+              >
+                Skip and continue
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -419,6 +530,25 @@ function ChoiceGroup({ label, options, value, onChange }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function SelectField({ label, options, value, onChange }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

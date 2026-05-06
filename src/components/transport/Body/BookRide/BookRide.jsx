@@ -33,11 +33,11 @@ export default function BookRide({ onSelectFleetType }) {
         </div>
 
         {/* Fleet Options */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <FleetOptionButton
             icon={<FaMotorcycle />}
-            label="Motorbike"
-            onClick={() => onSelectFleetType("ride", "Motorcycle", "Motorbike")}
+            label="Bike"
+            onClick={() => onSelectFleetType("ride", "Motorcycle", "Bike")}
           />
           <FleetOptionButton
             icon={<MdElectricRickshaw />}

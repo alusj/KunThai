@@ -12,7 +12,7 @@ export default function SendDelivery({ onSelectFleetType }) {
         Send Delivery
       </h3>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <FleetOptionButton
           icon={<FaMotorcycle />}
           label="Bike"
