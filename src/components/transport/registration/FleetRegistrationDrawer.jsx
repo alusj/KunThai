@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   FiAlertTriangle,
-  FiArrowLeft,
   FiCamera,
   FiCheckCircle,
   FiChevronLeft,
@@ -12,6 +11,7 @@ import {
   FiTruck,
   FiUser,
 } from "react-icons/fi";
+import AppBackButton from "../../shared/AppBackButton";
 import {
   getOperatorDraft,
   saveOperatorAccount,
@@ -183,14 +183,12 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="mx-auto flex max-w-7xl items-center gap-3 sm:gap-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-10 w-10 shrink-0 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition"
-            aria-label="Back to transport"
-          >
-            <FiArrowLeft size={20} />
-          </button>
+          <AppBackButton
+            onBack={onClose}
+            label="Back to transport"
+            historyKey="transport-registration"
+            className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+          />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold text-gray-950">Fleet Registration</h1>
             <p className="hidden truncate text-xs text-gray-500 sm:block">

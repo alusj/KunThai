@@ -1,5 +1,7 @@
-import { FiArrowLeft, FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
+import { createElement } from "react";
+import { FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
 import { getTransportFleets } from "../services/transportFleetService";
+import AppBackButton from "../shared/AppBackButton";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
@@ -16,14 +18,12 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="Back to transport dashboard"
-            className="h-10 w-10 shrink-0 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition"
-          >
-            <FiArrowLeft size={20} />
-          </button>
+          <AppBackButton
+            onBack={onBack}
+            label="Back to transport dashboard"
+            historyKey="transport-fleet-list"
+            className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+          />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold text-gray-950">
               {selection.label}
@@ -143,10 +143,10 @@ function StatusPill({ active }) {
   );
 }
 
-function InfoLine({ icon: Icon, text }) {
+function InfoLine({ icon, text }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Icon size={15} className="shrink-0 text-gray-500" />
+      {createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}
       <span className="truncate">{text}</span>
     </div>
   );

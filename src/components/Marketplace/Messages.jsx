@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Send } from "lucide-react";
 import {
   fetchBuyerMessages,
   sendBuyerMarketplaceMessage,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
+import AppBackButton from "../shared/AppBackButton";
 
 function formatDate(value) {
   if (!value) return "";
@@ -67,14 +68,7 @@ export default function Messages({ onBack, onProductOpen }) {
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-white px-4">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-          aria-label="Back to marketplace"
-        >
-          <ArrowLeft size={18} />
-        </button>
+        <AppBackButton onBack={onBack} label="Back to marketplace" historyKey="marketplace-messages" />
         <div>
           <h1 className="text-lg font-black text-gray-950">Messages</h1>
           <p className="text-xs font-bold text-gray-500">Buyer conversations with marketplace sellers</p>

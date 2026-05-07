@@ -1,5 +1,7 @@
-import { FiArrowLeft, FiClock, FiMapPin, FiMessageCircle, FiPhone, FiShield, FiStar } from "react-icons/fi";
+import { createElement } from "react";
+import { FiClock, FiMapPin, FiMessageCircle, FiPhone, FiShield, FiStar } from "react-icons/fi";
 import { getTransportFleetById } from "../services/transportFleetService";
+import AppBackButton from "../shared/AppBackButton";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
@@ -9,9 +11,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
   if (!fleet) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
-        <button type="button" onClick={onBack} className="text-sm font-semibold text-green-700">
-          Back
-        </button>
+        <AppBackButton onBack={onBack} label="Back to fleet list" historyKey="transport-missing-fleet" />
         <p className="mt-4 text-gray-700">Fleet not found.</p>
       </div>
     );
@@ -24,14 +24,12 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="mx-auto flex max-w-7xl items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="Back to fleet list"
-            className="h-10 w-10 shrink-0 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition"
-          >
-            <FiArrowLeft size={20} />
-          </button>
+          <AppBackButton
+            onBack={onBack}
+            label="Back to fleet list"
+            historyKey="transport-fleet-profile"
+            className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+          />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold text-gray-950">{fleet.fleetName}</h1>
             <p className="truncate text-xs text-gray-500">
@@ -149,10 +147,10 @@ function ProfileMetric({ label, value }) {
   );
 }
 
-function InfoLine({ icon: Icon, text }) {
+function InfoLine({ icon, text }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Icon size={16} className="shrink-0 text-gray-500" />
+      {createElement(icon, { size: 16, className: "shrink-0 text-gray-500" })}
       <span className="break-words">{text}</span>
     </div>
   );

@@ -25,22 +25,19 @@ import BusinessSkeleton from "./BusinessSkeleton";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import AppBackButton from "../../../shared/AppBackButton";
 
 function SellerFullScreen({ eyebrow, title, subtitle, onBack, children }) {
   return (
     <section className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-            aria-label="Back to seller dashboard"
-            title="Back"
-          >
-            <ArrowLeft size={20} />
-          </button>
+          <AppBackButton
+            onBack={onBack}
+            label="Back to seller dashboard"
+            historyKey={`marketplace-seller-${title}`}
+            className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+          />
           <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">{eyebrow}</p>
             <h1 className="truncate text-lg font-black text-gray-950">{title}</h1>

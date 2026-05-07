@@ -202,7 +202,7 @@ export default function Login() {
               onClick={() => setSignupStep("options")}
               className="text-sm font-semibold text-slate-500"
             >
-              ← Back
+              Back
             </button>
 
             <h2 className="text-center text-xl font-bold text-slate-900">
@@ -280,3 +280,4 @@ export default function Login() {
     </div>
   );
 }
+

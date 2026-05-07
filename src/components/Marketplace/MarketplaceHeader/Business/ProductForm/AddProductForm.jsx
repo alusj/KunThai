@@ -5,7 +5,7 @@ import ProductFormProgress from "./ProductFormProgress";
 import ProductMediaStep from "./ProductMediaStep";
 import ProductPreview from "./ProductPreview";
 import ProductPricingStep from "./ProductPricingStep";
-import { ArrowLeft } from "lucide-react";
+import AppBackButton from "../../../../shared/AppBackButton";
 
 const STEPS = [
   { title: "Product basics", component: ProductBasicsStep },
@@ -23,15 +23,12 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-              aria-label="Back"
-              title="Back"
-            >
-              <ArrowLeft size={20} />
-            </button>
+            <AppBackButton
+              onBack={onCancel}
+              label="Back"
+              historyKey="marketplace-product-form"
+              className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+            />
             <div className="min-w-0">
             <p className="text-xs font-black uppercase text-blue-700">{editing ? "Edit Listing" : "Add Product"}</p>
             <h1 className="truncate text-lg font-black text-gray-950">

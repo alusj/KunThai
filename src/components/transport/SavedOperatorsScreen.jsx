@@ -1,5 +1,7 @@
-import { FiArrowLeft, FiClock, FiMapPin, FiStar, FiTrash2 } from "react-icons/fi";
+import { createElement } from "react";
+import { FiClock, FiMapPin, FiStar, FiTrash2 } from "react-icons/fi";
 import { getSavedOperators } from "../services/passengerTransportService";
+import AppBackButton from "../shared/AppBackButton";
 import VerificationBadge from "./verification/VerificationBadge";
 
 export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification }) {
@@ -9,14 +11,12 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="Back to dashboard"
-            className="h-10 w-10 shrink-0 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"
-          >
-            <FiArrowLeft size={20} />
-          </button>
+          <AppBackButton
+            onBack={onBack}
+            label="Back to dashboard"
+            historyKey="transport-saved-operators"
+            className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+          />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-black text-gray-950">Saved Operators</h1>
             <p className="truncate text-xs text-gray-500">Your trusted fleets and operators.</p>
@@ -82,10 +82,10 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
   );
 }
 
-function InfoLine({ icon: Icon, text }) {
+function InfoLine({ icon, text }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Icon size={15} className="shrink-0 text-gray-500" />
+      {createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}
       <span className="truncate">{text}</span>
     </div>
   );

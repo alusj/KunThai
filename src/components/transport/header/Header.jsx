@@ -7,8 +7,9 @@ import MenuButton from "./MenuButton";
 import Radar from "./Radar";
 import TransportMenuDrawer from "./TransportMenuDrawer";
 
-export default function Header({ hasOperatorAccount, onRegisterFleet }) {
+export default function Header({ operatorAccount, onRegisterFleet }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const hasOperatorAccount = Boolean(operatorAccount);
 
   return (
     <>
@@ -29,7 +30,10 @@ export default function Header({ hasOperatorAccount, onRegisterFleet }) {
 
       </header>
 
-      <TransportMenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <TransportMenuDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+      />
     </>
   );
 }

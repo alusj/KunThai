@@ -16,6 +16,7 @@ export default function Transport() {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [operatorAccount, setOperatorAccount] = useState(() => getOperatorAccount());
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
+  const [operatorDashboardView, setOperatorDashboardView] = useState("dashboard");
   const [fleetSelection, setFleetSelection] = useState(null);
   const [activeFleetId, setActiveFleetId] = useState(null);
   const [activeTripsOpen, setActiveTripsOpen] = useState(false);
@@ -40,6 +41,7 @@ export default function Transport() {
     return (
       <OperatorDashboardScreen
         account={operatorAccount}
+        initialView={operatorDashboardView}
         onBack={() => setOperatorDashboardOpen(false)}
         onEditRegistration={() => {
           setOperatorDashboardOpen(false);
@@ -125,11 +127,12 @@ export default function Transport() {
   return (
     <div className="min-h-screen bg-gray-50 relative">
       <Header
-        hasOperatorAccount={Boolean(operatorAccount)}
+        operatorAccount={operatorAccount}
         onRegisterFleet={() => {
           const currentAccount = getOperatorAccount();
           if (currentAccount) {
             setOperatorAccount(currentAccount);
+            setOperatorDashboardView("dashboard");
             setOperatorDashboardOpen(true);
             return;
           }

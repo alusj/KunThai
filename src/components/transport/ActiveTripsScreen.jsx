@@ -1,5 +1,6 @@
-import { FiAlertTriangle, FiArrowLeft, FiMapPin, FiMessageCircle, FiPhone } from "react-icons/fi";
+import { FiAlertTriangle, FiMapPin, FiMessageCircle, FiPhone } from "react-icons/fi";
 import { getActiveTrips } from "../services/passengerTransportService";
+import AppBackButton from "../shared/AppBackButton";
 import VerificationBadge from "./verification/VerificationBadge";
 
 export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification }) {
@@ -69,14 +70,12 @@ function ScreenHeader({ title, subtitle, onBack }) {
   return (
     <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
       <div className="flex w-full items-center gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back to dashboard"
-          className="h-10 w-10 shrink-0 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"
-        >
-          <FiArrowLeft size={20} />
-        </button>
+        <AppBackButton
+          onBack={onBack}
+          label="Back to dashboard"
+          historyKey="transport-active-trips"
+          className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+        />
         <div className="min-w-0">
           <h1 className="truncate text-lg font-black text-gray-950">{title}</h1>
           <p className="truncate text-xs text-gray-500">{subtitle}</p>

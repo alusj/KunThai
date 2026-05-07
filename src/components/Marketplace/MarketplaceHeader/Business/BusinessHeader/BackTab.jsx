@@ -1,11 +1,12 @@
+import AppBackButton from "../../../../shared/AppBackButton";
+
 export default function BackTab({ onBack }) {
   return (
-    <button
-      type="button"
-      onClick={onBack}
-      className="whitespace-nowrap text-sm font-semibold text-gray-700 transition hover:text-gray-900"
-    >
-      Back
-    </button>
+    <AppBackButton
+      onBack={onBack}
+      label="Back"
+      historyKey="marketplace-business-header"
+      className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+    />
   );
 }

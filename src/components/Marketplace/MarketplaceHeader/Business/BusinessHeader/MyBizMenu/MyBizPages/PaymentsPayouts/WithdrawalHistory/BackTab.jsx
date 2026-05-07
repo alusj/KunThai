@@ -1,13 +1,12 @@
-// BackTab.jsx
-// Back button only (no layout, no title)
+import AppBackButton from "../../../../../../../../shared/AppBackButton.jsx";
 
 export default function BackTab({ onBack }) {
   return (
-    <button
-      onClick={onBack}
-      className="text-sm font-medium text-gray-700 hover:text-gray-900"
-    >
-      ← Back
-    </button>
+    <AppBackButton
+      onBack={onBack}
+      label="Back"
+      historyKey="marketplace-menu-back"
+      className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+    />
   );
 }

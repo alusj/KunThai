@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   FiAlertTriangle,
-  FiArrowLeft,
   FiBookmark,
   FiCrosshair,
   FiMapPin,
@@ -10,6 +9,7 @@ import {
   FiSearch,
   FiShield,
 } from "react-icons/fi";
+import AppBackButton from "../shared/AppBackButton";
 import {
   emergencyContacts,
   locationCategories,
@@ -48,14 +48,13 @@ export default function NearbyAreaScreen({ onBack }) {
 
         <header className="absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onBack}
-              aria-label="Back to transport"
-              className="h-11 w-11 shrink-0 rounded-full bg-white/95 text-slate-900 shadow-lg flex items-center justify-center"
-            >
-              <FiArrowLeft size={21} />
-            </button>
+            <AppBackButton
+              onBack={onBack}
+              label="Back to transport"
+              historyKey="transport-nearby-area"
+              className="h-11 w-11 rounded-full bg-white/95 text-slate-900 shadow-lg hover:bg-white"
+              iconSize={21}
+            />
             <label className="relative min-w-0 flex-1">
               <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={19} />
               <input

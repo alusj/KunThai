@@ -1,5 +1,4 @@
-import { HiOutlineArrowLeft } from "react-icons/hi2";
-
+import AppBackButton from "../../../shared/AppBackButton";
 import Avatar from "../../shared/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
@@ -15,14 +14,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
   return (
     <section className="flex h-[calc(100vh-112px)] min-w-0 flex-col overflow-hidden bg-white">
       <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
-          aria-label="Back to inbox"
-        >
-          <HiOutlineArrowLeft />
-        </button>
+        <AppBackButton onBack={onBack} label="Back to inbox" historyKey="explore-conversation" className="rounded-2xl" />
         <Avatar name={user.displayName} src={user.avatarUrl} size="sm" />
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-slate-950">{user.displayName || "KunThai User"}</p>
