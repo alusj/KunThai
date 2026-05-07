@@ -1,0 +1,14 @@
+<svg width="104" height="64" viewBox="0 0 104 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Delivery tricycle with carrier">
+  <path d="M12 46H92" stroke="#000" stroke-width="4" stroke-linecap="round"/>
+  <path d="M24 19H43L54 34V46H18V30C18 23 21 19 24 19Z" fill="#000"/>
+  <path d="M29 24H39L46 33H27V28C27 25.5 27.8 24 29 24Z" fill="#fff"/>
+  <path d="M54 18H90V45H54V18Z" fill="#000"/>
+  <path d="M59 25H85M59 33H85" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M90 25H96V45H90M43 44H56" stroke="#000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="29" cy="50" r="8" fill="#fff" stroke="#000" stroke-width="5"/>
+  <circle cx="64" cy="50" r="8" fill="#fff" stroke="#000" stroke-width="5"/>
+  <circle cx="87" cy="50" r="8" fill="#fff" stroke="#000" stroke-width="5"/>
+  <circle cx="29" cy="50" r="2.5" fill="#000"/>
+  <circle cx="64" cy="50" r="2.5" fill="#000"/>
+  <circle cx="87" cy="50" r="2.5" fill="#000"/>
+</svg>

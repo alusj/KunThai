@@ -1,7 +1,8 @@
 // SendDelivery.jsx
 
 import FleetOptionButton from "../FleetOptionButton";
-import { FaMotorcycle, FaTruck } from "react-icons/fa";
+import { FaMotorcycle } from "react-icons/fa";
+import { FaTruck } from "react-icons/fa";
 import { MdElectricRickshaw } from "react-icons/md";
 //import PublicTransport from "./PublicTransport";
 

@@ -1,0 +1,12 @@
+<svg width="96" height="64" viewBox="0 0 96 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Delivery bike with rear box">
+  <path d="M18 45H78" stroke="#000" stroke-width="4" stroke-linecap="round"/>
+  <path d="M42 31H57L67 43H47L39 36L30 48" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60 14H82V34H60V14Z" fill="#000"/>
+  <path d="M65 14V9H77V14" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M31 29H43M57 31H66M26 25L36 34M25 24H17" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M38 26C40 21 46 21 49 26" stroke="#000" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="29" cy="49" r="9" fill="#fff" stroke="#000" stroke-width="5"/>
+  <circle cx="72" cy="49" r="9" fill="#fff" stroke="#000" stroke-width="5"/>
+  <circle cx="29" cy="49" r="3" fill="#000"/>
+  <circle cx="72" cy="49" r="3" fill="#000"/>
+</svg>
