@@ -125,6 +125,7 @@ export default function Transport() {
   return (
     <div className="min-h-screen bg-gray-50 relative">
       <Header
+        hasOperatorAccount={Boolean(operatorAccount)}
         onRegisterFleet={() => {
           const currentAccount = getOperatorAccount();
           if (currentAccount) {

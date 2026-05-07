@@ -7,7 +7,7 @@ import MenuButton from "./MenuButton";
 import Radar from "./Radar";
 import TransportMenuDrawer from "./TransportMenuDrawer";
 
-export default function Header({ onRegisterFleet }) {
+export default function Header({ hasOperatorAccount, onRegisterFleet }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -16,7 +16,7 @@ export default function Header({ onRegisterFleet }) {
 
         {/* Left Section */}
         <div className="flex items-center gap-3">
-          <OperatorButton onClick={onRegisterFleet} />
+          <OperatorButton hasOperatorAccount={hasOperatorAccount} onClick={onRegisterFleet} />
           <Radar />
         </div>
 

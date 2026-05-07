@@ -25,25 +25,26 @@ import BusinessSkeleton from "./BusinessSkeleton";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
 import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 
 function SellerFullScreen({ eyebrow, title, subtitle, onBack, children }) {
   return (
     <section className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
-        <div className="flex min-h-16 items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
+        <div className="flex w-full items-center gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl font-black text-gray-800 hover:bg-gray-50"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             aria-label="Back to seller dashboard"
             title="Back"
           >
-            {"<"}
+            <ArrowLeft size={20} />
           </button>
           <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">{eyebrow}</p>
-            <h1 className="truncate text-xl font-black text-gray-950">{title}</h1>
-            {subtitle ? <p className="mt-1 text-sm font-bold text-gray-500">{subtitle}</p> : null}
+            <h1 className="truncate text-lg font-black text-gray-950">{title}</h1>
+            {subtitle ? <p className="truncate text-xs text-gray-500">{subtitle}</p> : null}
           </div>
         </div>
       </header>

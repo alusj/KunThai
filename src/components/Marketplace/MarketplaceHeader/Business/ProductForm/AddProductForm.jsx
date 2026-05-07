@@ -5,6 +5,7 @@ import ProductFormProgress from "./ProductFormProgress";
 import ProductMediaStep from "./ProductMediaStep";
 import ProductPreview from "./ProductPreview";
 import ProductPricingStep from "./ProductPricingStep";
+import { ArrowLeft } from "lucide-react";
 
 const STEPS = [
   { title: "Product basics", component: ProductBasicsStep },
@@ -20,32 +21,32 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
+        <div className="flex w-full items-center gap-3">
             <button
               type="button"
               onClick={onCancel}
-              className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl font-black text-gray-800 hover:bg-gray-50"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50"
               aria-label="Back"
               title="Back"
             >
-              {"<"}
+              <ArrowLeft size={20} />
             </button>
-            <p className="text-sm font-black uppercase text-blue-700">
-              {editing ? "Edit Listing" : "Add Product"}
-            </p>
-            <h1 className="mt-1 text-2xl font-black text-gray-950">
+            <div className="min-w-0">
+            <p className="text-xs font-black uppercase text-blue-700">{editing ? "Edit Listing" : "Add Product"}</p>
+            <h1 className="truncate text-lg font-black text-gray-950">
               {editing ? "Edit product listing" : "Create a product listing"}
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-gray-600">
+            <p className="truncate text-xs text-gray-500">
               {editing
                 ? "Update product details, media, pricing, inventory, delivery options, and publish status."
                 : "Add product details, media, pricing, inventory, delivery options, and publish status."}
             </p>
           </div>
         </div>
+      </header>
 
+      <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <main className="space-y-4">
             <ProductFormProgress step={productForm.step} />

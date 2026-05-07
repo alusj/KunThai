@@ -2,16 +2,16 @@ import { ArrowLeft, X } from "lucide-react";
 
 export default function MenuHeader({ title, showBack, onBack, onClose }) {
   return (
-    <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4">
+    <div className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
       {showBack ? (
         <button
           type="button"
           onClick={onBack}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-700 transition hover:bg-gray-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
           aria-label="Back to menu"
           title="Back"
         >
-          <ArrowLeft size={19} strokeWidth={2.3} />
+          <ArrowLeft size={20} />
         </button>
       ) : (
         <div className="h-10 w-10" />
@@ -24,7 +24,7 @@ export default function MenuHeader({ title, showBack, onBack, onClose }) {
       <button
         type="button"
         onClick={onClose}
-        className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-700 transition hover:bg-gray-50"
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
         aria-label="Close menu"
         title="Close"
       >
