@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HiOutlineSpeakerWave, HiOutlineSpeakerXMark, HiOutlineXMark } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
@@ -43,6 +43,29 @@ export default function VideoCard({
     });
   }
 
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video || fullscreen) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+          return;
+        }
+
+        video.pause();
+      },
+      { threshold: 0.6 },
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [fullscreen, post.video_url]);
+
   const content = (
     <article
       id={`post-${post.id}`}
@@ -55,6 +78,7 @@ export default function VideoCard({
       <video
         ref={videoRef}
         src={post.video_url}
+        autoPlay
         controls={fullscreen}
         muted={muted}
         playsInline

@@ -12,11 +12,28 @@ async function getCurrentUserId() {
 }
 
 export async function fetchExplorePosts(scope = "feed") {
-  const { data, error } = await supabase
+  let query = supabase
     .from("explore_posts")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(25);
+    .limit(scope === "swip" ? 50 : 25);
+
+  if (scope !== "swip") {
+    query = query.eq("feed_scope", scope);
+  }
+
+  let { data, error } = await query;
+
+  if (error && isMissingColumn(error, "feed_scope")) {
+    const fallback = await supabase
+      .from("explore_posts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(25);
+
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     if (isMissingTable(error)) {
@@ -25,7 +42,13 @@ export async function fetchExplorePosts(scope = "feed") {
     throw error;
   }
 
-  return (data || []).filter((post) => (post.feed_scope ?? "feed") === scope);
+  return (data || []).filter((post) => {
+    if (scope === "swip") {
+      return (post.feed_scope ?? "") === "swip" || Boolean(post.video_url);
+    }
+
+    return (post.feed_scope ?? "feed") === scope && !post.video_url;
+  });
 }
 
 export async function createExplorePost(input, scope = "feed") {

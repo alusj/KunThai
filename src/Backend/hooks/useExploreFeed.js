@@ -157,7 +157,12 @@ export function useExploreFeed(scope = "feed") {
       },
       onInsert(payload) {
           const nextPost = payload.new;
-          if (!nextPost || (nextPost.feed_scope ?? "feed") !== scope) {
+          const belongsInScope =
+            scope === "swip"
+              ? (nextPost?.feed_scope ?? "") === "swip" || Boolean(nextPost?.video_url)
+              : (nextPost?.feed_scope ?? "feed") === scope && !nextPost?.video_url;
+
+          if (!nextPost || !belongsInScope) {
             return;
           }
 
@@ -174,7 +179,10 @@ export function useExploreFeed(scope = "feed") {
           }
 
           setPosts((current) => {
-            const belongsInScope = (nextPost.feed_scope ?? "feed") === scope;
+            const belongsInScope =
+              scope === "swip"
+                ? (nextPost.feed_scope ?? "") === "swip" || Boolean(nextPost.video_url)
+                : (nextPost.feed_scope ?? "feed") === scope && !nextPost.video_url;
             const nextPosts = belongsInScope
               ? mergePosts([nextPost], current)
               : current.filter((post) => post.id !== nextPost.id);
