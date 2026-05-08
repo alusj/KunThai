@@ -15,7 +15,11 @@ export function useBrowserBack(active, onBack, key = "kuntai-layer") {
     const stateKey = `${key}-${Date.now()}`;
     window.history.pushState({ kuntaiBackLayer: stateKey }, "", window.location.href);
 
-    function handlePopState() {
+    function handlePopState(event) {
+      if (event.state?.kuntaiBackLayer === stateKey) {
+        return;
+      }
+
       onBackRef.current?.();
     }
 

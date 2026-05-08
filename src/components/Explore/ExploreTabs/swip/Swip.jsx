@@ -18,7 +18,7 @@ export default function Swip({ currentUserId = "", onViewProfile }) {
   const [tab, setTab] = useState("all");
 
   return (
-    <div className="flex min-h-[calc(100vh-112px)] flex-col bg-slate-100">
+    <div className="flex min-h-[calc(100vh-112px)] flex-col bg-transparent">
       {/* =============================
           CATEGORY BAR (HORIZONTAL)
       ============================== */}
@@ -27,7 +27,7 @@ export default function Swip({ currentUserId = "", onViewProfile }) {
       {/* =============================
           CONTENT AREA (VERTICAL)
       ============================== */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         <All category={tab} currentUserId={currentUserId} onViewProfile={onViewProfile} />
       </div>
     </div>

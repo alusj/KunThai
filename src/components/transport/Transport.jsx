@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Body from "./Body/Body";
 import ActiveTripsScreen from "./ActiveTripsScreen";
@@ -10,11 +10,13 @@ import SavedOperatorsScreen from "./SavedOperatorsScreen";
 import Header from "./header/Header";
 import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
-import { getOperatorAccount } from "../services/transportOperatorAccountService";
+import { getLegacyOperatorAccount, getOperatorAccount } from "../services/transportOperatorAccountService";
 
 export default function Transport() {
   const [registrationOpen, setRegistrationOpen] = useState(false);
-  const [operatorAccount, setOperatorAccount] = useState(() => getOperatorAccount());
+  const [operatorAccount, setOperatorAccount] = useState(() => getLegacyOperatorAccount());
+  const [operatorLoading, setOperatorLoading] = useState(true);
+  const [operatorError, setOperatorError] = useState("");
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
   const [operatorDashboardView, setOperatorDashboardView] = useState("dashboard");
   const [fleetSelection, setFleetSelection] = useState(null);
@@ -23,6 +25,28 @@ export default function Transport() {
   const [nearbyAreaOpen, setNearbyAreaOpen] = useState(false);
   const [savedOperatorsOpen, setSavedOperatorsOpen] = useState(false);
   const [verificationFleet, setVerificationFleet] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadOperatorAccount() {
+      try {
+        setOperatorError("");
+        const account = await getOperatorAccount();
+        if (alive) setOperatorAccount(account);
+      } catch (error) {
+        if (alive) setOperatorError(error.message || "Unable to load fleet account.");
+      } finally {
+        if (alive) setOperatorLoading(false);
+      }
+    }
+
+    loadOperatorAccount();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   if (registrationOpen) {
     return (
@@ -129,9 +153,7 @@ export default function Transport() {
       <Header
         operatorAccount={operatorAccount}
         onRegisterFleet={() => {
-          const currentAccount = getOperatorAccount();
-          if (currentAccount) {
-            setOperatorAccount(currentAccount);
+          if (operatorAccount) {
             setOperatorDashboardView("dashboard");
             setOperatorDashboardOpen(true);
             return;
@@ -140,6 +162,16 @@ export default function Transport() {
           setRegistrationOpen(true);
         }}
       />
+      {operatorLoading && (
+        <div className="mx-4 mt-3 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+          Loading fleet account...
+        </div>
+      )}
+      {operatorError && (
+        <div className="mx-4 mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+          {operatorError}
+        </div>
+      )}
       <Body
         onSelectFleetType={(mode, fleetType, label) => {
           setFleetSelection({ mode, fleetType, label });

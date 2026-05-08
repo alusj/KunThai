@@ -56,6 +56,7 @@ export default function Explore({ onScreenModeChange }) {
   const { user } = useAuth();
   const profile = profileOverride || buildExploreProfileFromUser(user);
   const { activeTab, activeMenuScreen, menuScreen } = exploreNav;
+  const isSwipTab = activeTab === "Swip";
 
   useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
 
@@ -230,19 +231,33 @@ export default function Explore({ onScreenModeChange }) {
     <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 kuntai-safe-bottom">
 
       {/* =========================
-          HEADER (always visible)
+          HEADER + PARENT TABS
       ========================= */}
       <div
-        className={`sticky top-0 z-30 transition-transform duration-300 ${
-          navHidden ? "-translate-y-full" : "translate-y-0"
+        className={`sticky top-0 z-30 ${
+          isSwipTab
+            ? "bg-slate-100/95 backdrop-blur"
+            : `transition-transform duration-300 ${navHidden ? "-translate-y-full" : "translate-y-0"}`
         }`}
       >
-        <ExploreHeader
-          onAlertsClick={() => exploreNav.openMenuScreen("Notifications")}
-          onNavigate={openMenuScreen}
-          onCreateSelect={exploreNav.openComposer}
-          onSearchResult={openSearchResult}
-        />
+        <div
+          className={
+            isSwipTab
+              ? `overflow-hidden transition-[max-height,opacity,transform] duration-300 ${
+                  navHidden
+                    ? "max-h-0 -translate-y-2 opacity-0 pointer-events-none"
+                    : "max-h-40 translate-y-0 opacity-100"
+                }`
+              : ""
+          }
+        >
+          <ExploreHeader
+            onAlertsClick={() => exploreNav.openMenuScreen("Notifications")}
+            onNavigate={openMenuScreen}
+            onCreateSelect={exploreNav.openComposer}
+            onSearchResult={openSearchResult}
+          />
+        </div>
 
         {/* =========================
             PARENT TABS

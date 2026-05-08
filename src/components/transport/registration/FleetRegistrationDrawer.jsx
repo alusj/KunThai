@@ -115,12 +115,16 @@ const defaultForm = {
 export default function FleetRegistrationDrawer({ onClose, onComplete }) {
   const draft = getOperatorDraft();
   const [step, setStep] = useState(draft?.step || 0);
+  const [maxStepReached, setMaxStepReached] = useState(draft?.maxStepReached || draft?.step || 0);
   const [operatorId] = useState(draft?.operatorId || generateOperatorId);
   const [answers, setAnswers] = useState(draft?.answers || {});
   const [uploads, setUploads] = useState(draft?.uploads || {});
   const [documentsSkipped, setDocumentsSkipped] = useState(Boolean(draft?.documentsSkipped));
   const [showSkipWarning, setShowSkipWarning] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
+  const [stepError, setStepError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     ...defaultForm,
     ...(draft?.form || {}),
@@ -135,21 +139,91 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
 
   const update = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+    setStepError("");
   };
 
   const updateAnswer = (field, value) => {
     setAnswers((current) => ({ ...current, [field]: value }));
+    setStepError("");
   };
 
   const markUpload = (field, file) => {
     setUploads((current) => ({ ...current, [field]: file?.name || "Selected" }));
     setDocumentsSkipped(false);
+    setStepError("");
+  };
+
+  const validateStep = (targetStep = step) => {
+    if (targetStep === 0) {
+      const missing = [];
+      if (!form.name.trim()) missing.push("operator name");
+      if (!form.phone.trim()) missing.push("phone number");
+      if (!form.city.trim()) missing.push("city or district");
+      if (!form.emergencyContact.trim()) missing.push("emergency contact");
+      return missing;
+    }
+
+    if (targetStep === 1) {
+      const missing = [];
+      if (!form.category) missing.push("service category");
+      if (!form.fleetType) missing.push("fleet type");
+      return missing;
+    }
+
+    if (targetStep === 2) {
+      const missing = [];
+      if (!form.fleetName.trim()) missing.push("fleet name");
+      if (!form.plateNumber.trim()) missing.push("plate number");
+      if (!form.make.trim()) missing.push("make / brand");
+      if (!form.model.trim()) missing.push("model");
+      if (!form.year.trim()) missing.push("year");
+      if (!form.color.trim()) missing.push("color");
+      if (!form.operatingArea.trim()) missing.push("operating area");
+      if (!form.homeBaseLocation.trim()) missing.push("home base");
+      if (!form.baseFare.trim()) missing.push("base fare");
+      if (!form.priceHint.trim()) missing.push("passenger price hint");
+      return missing;
+    }
+
+    if (targetStep === 3) {
+      return questions
+        .filter((question) => !String(answers[question.key] || "").trim())
+        .map((question) => question.label.toLowerCase());
+    }
+
+    if (targetStep === 4) {
+      if (documentsSkipped) return [];
+      const missing = [];
+      requiredFleetImages.forEach((image) => {
+        if (!uploads[`fleet-${image}`]) missing.push(image.toLowerCase());
+      });
+      documents.forEach((document) => {
+        if (!uploads[`doc-${document}`]) missing.push(document.toLowerCase());
+      });
+      return missing;
+    }
+
+    return [];
+  };
+
+  const requireCurrentStep = () => {
+    const missing = validateStep();
+    if (!missing.length) {
+      setStepError("");
+      return true;
+    }
+
+    const preview = missing.slice(0, 4).join(", ");
+    const extra = missing.length > 4 ? ` and ${missing.length - 4} more` : "";
+    setStepError(`Complete this stage first: ${preview}${extra}. Save keeps your progress, but Continue unlocks only after this stage is complete.`);
+    return false;
   };
 
   const buildPayload = (status = "draft") => ({
     operatorId,
     displayCode: `KT-${operatorId}`,
     step,
+    maxStepReached,
     form,
     answers,
     uploads,
@@ -161,23 +235,47 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
 
   const handleSave = () => {
     saveOperatorDraft(buildPayload("draft"));
-    setSavedMessage("Saved");
-    window.setTimeout(() => setSavedMessage(""), 1600);
+    setSavedMessage("Checkpoint secured. You can return later and continue from this exact point.");
+    window.setTimeout(() => setSavedMessage(""), 4200);
   };
 
-  const handleSubmit = () => {
-    const account = saveOperatorAccount(buildPayload("submitted"));
-    onComplete?.(account);
+  const handleSubmit = async () => {
+    if (!requireCurrentStep()) return;
+
+    try {
+      setSubmitting(true);
+      setSubmitError("");
+      const account = await saveOperatorAccount(buildPayload("submitted"));
+      onComplete?.(account);
+    } catch (error) {
+      setSubmitError(error.message || "Unable to submit fleet registration.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSkipDocuments = () => {
     setDocumentsSkipped(true);
     setShowSkipWarning(false);
+    setMaxStepReached(5);
     setStep(5);
   };
 
-  const nextStep = () => setStep((current) => Math.min(current + 1, steps.length - 1));
+  const nextStep = () => {
+    if (!requireCurrentStep()) return;
+
+    setStep((current) => {
+      const next = Math.min(current + 1, steps.length - 1);
+      setMaxStepReached((reached) => Math.max(reached, next));
+      return next;
+    });
+  };
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
+  const goToStep = (index) => {
+    if (index <= maxStepReached) {
+      setStep(index);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -196,7 +294,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
             </p>
           </div>
           {savedMessage && (
-            <span className="hidden rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700 sm:inline-flex">
+            <span className="hidden max-w-sm rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 sm:inline-flex">
               {savedMessage}
             </span>
           )}
@@ -209,27 +307,44 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
       <main className="mx-auto grid max-w-7xl gap-4 px-3 py-4 sm:px-4 sm:py-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="min-w-0 lg:sticky lg:top-20 lg:h-fit">
           <div className="grid grid-cols-2 gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm sm:grid-cols-3 sm:p-3 lg:grid-cols-1">
-            {steps.map((item, index) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => setStep(index)}
-                className={`min-h-12 rounded-2xl border px-2 py-2 text-xs font-semibold transition sm:px-3 sm:py-3 lg:text-left ${
-                  step === index
-                    ? "border-green-500 bg-green-50 text-green-700"
-                    : "border-gray-100 bg-white text-gray-500 hover:bg-gray-50"
-                }`}
-              >
-                <span className="flex min-w-0 items-center justify-center gap-2 lg:justify-start">
-                  <item.icon size={16} />
-                  <span className="truncate">{item.label}</span>
-                </span>
-              </button>
-            ))}
+            {steps.map((item, index) => {
+              const locked = index > maxStepReached;
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => goToStep(index)}
+                  disabled={locked}
+                  title={locked ? "Complete the previous steps first" : item.label}
+                  className={`min-h-12 rounded-2xl border px-2 py-2 text-xs font-semibold transition sm:px-3 sm:py-3 lg:text-left ${
+                    step === index
+                      ? "border-green-500 bg-green-50 text-green-700"
+                      : locked
+                        ? "border-gray-100 bg-gray-50 text-gray-300"
+                        : "border-gray-100 bg-white text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center justify-center gap-2 lg:justify-start">
+                    <item.icon size={16} />
+                    <span className="truncate">{item.label}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </aside>
 
         <section className="min-w-0 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
+          {savedMessage && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900 sm:hidden">
+              {savedMessage}
+            </div>
+          )}
+          {stepError && (
+            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
+              {stepError}
+            </div>
+          )}
           {step === 0 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <FormInput label="Operator name" value={form.name} onChange={(value) => update("name", value)} />
@@ -413,20 +528,26 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
             </div>
           )}
 
-          <div className="mt-6 flex flex-col-reverse gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={prevStep}
-              disabled={step === 0}
-              className="h-11 w-full rounded-2xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 disabled:opacity-40 sm:w-auto"
-            >
-              <span className="flex items-center gap-2">
-                <FiChevronLeft size={17} />
-                Back
-              </span>
-            </button>
+          <div className="mt-6 border-t border-gray-100 pt-4">
+            {submitError && (
+              <p className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {submitError}
+              </p>
+            )}
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={prevStep}
+                disabled={step === 0}
+                className="h-11 w-full rounded-2xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 disabled:opacity-40 sm:w-auto"
+              >
+                <span className="flex items-center gap-2">
+                  <FiChevronLeft size={17} />
+                  Back
+                </span>
+              </button>
 
-            <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
+              <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={handleSave}
@@ -449,11 +570,13 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="h-11 w-full rounded-2xl bg-green-600 px-5 text-sm font-semibold text-white hover:bg-green-700 transition sm:w-auto"
+                disabled={submitting}
+                className="h-11 w-full rounded-2xl bg-green-600 px-5 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-60 sm:w-auto"
               >
-                Submit Registration
+                {submitting ? "Submitting..." : "Submit Registration"}
               </button>
             )}
+              </div>
             </div>
           </div>
         </section>
