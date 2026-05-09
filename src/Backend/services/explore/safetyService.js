@@ -3,6 +3,7 @@ import { isMissingTable } from "./errors";
 
 const BLOCKED_USERS_KEY = "explore-blocked-users";
 const PRIVACY_SETTINGS_KEY = "explore-privacy-settings";
+const PRIVACY_TABLE = "explore_user_privacy_settings";
 const ACTION_LIMIT_KEY = "explore-safety-actions";
 
 const DEFAULT_PRIVACY_SETTINGS = {
@@ -110,6 +111,54 @@ export function readPrivacySettings() {
 export function writePrivacySettings(settings) {
   const next = { ...DEFAULT_PRIVACY_SETTINGS, ...settings };
   localStorage.setItem(PRIVACY_SETTINGS_KEY, JSON.stringify(next));
+  return next;
+}
+
+export async function fetchPrivacySettings() {
+  const localSettings = readPrivacySettings();
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return localSettings;
+  }
+
+  const { data, error } = await supabase
+    .from(PRIVACY_TABLE)
+    .select("settings")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return localSettings;
+    }
+    throw error;
+  }
+
+  return data?.settings ? writePrivacySettings(data.settings) : localSettings;
+}
+
+export async function updatePrivacySettings(settings) {
+  const next = writePrivacySettings(settings);
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return next;
+  }
+
+  const { error } = await supabase.from(PRIVACY_TABLE).upsert(
+    {
+      user_id: userId,
+      settings: next,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error && !isMissingTable(error)) {
+    throw error;
+  }
+
   return next;
 }
 

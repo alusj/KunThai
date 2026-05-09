@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlinePaperAirplane, HiOutlineSparkles, HiOutlineXMark } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
+import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
 import Avatar from "../../../../shared/Avatar";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
@@ -12,6 +13,7 @@ import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 
 export default function FeedComposer({ profile, creating, onSubmit }) {
   const draft = readDraft();
+  const privacySettings = readPrivacySettings();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(draft.body || "");
   const [feedback, setFeedback] = useState("");
@@ -19,7 +21,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [videoPreview, setVideoPreview] = useState(draft.video_url || "");
   const [audioPreview, setAudioPreview] = useState(draft.audio_url || "");
   const [audioDuration, setAudioDuration] = useState(draft.audio_duration_seconds || null);
-  const [privacy, setPrivacy] = useState(draft.post_privacy || "public");
+  const [privacy, setPrivacy] = useState(draft.post_privacy || privacySettings.defaultPostPrivacy || "public");
   const [isRecording, setIsRecording] = useState(false);
   const [mediaMode, setMediaMode] = useState("image");
   const [mediaMeta, setMediaMeta] = useState(draft.media_meta || {});
@@ -205,7 +207,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setMediaMeta({});
     setPostingStage("");
     setPostingProgress(0);
-    setPrivacy("public");
+    setPrivacy(privacySettings.defaultPostPrivacy || "public");
     clearDraft();
   }
 
@@ -224,7 +226,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     const postDraft = {
       body: value,
-      author_name: profile?.displayName || "KunThai User",
+      author_name: profile?.displayName || "Profile",
       author_username: profile?.username || "user",
       author_avatar_url: profile?.avatarUrl || "",
       user_id: profile?.userId || "",
@@ -352,7 +354,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
               <div className="flex items-center gap-3">
                 <Avatar name={profile?.displayName || "KunThai"} src={profile?.avatarUrl} size="md" />
                 <div className="min-w-0">
-                  <p className="truncate text-base font-black text-slate-950">{profile?.displayName || "KunThai User"}</p>
+                  <p className="truncate text-base font-black text-slate-950">{profile?.displayName || "Profile"}</p>
                   <p className="truncate text-sm font-semibold text-slate-500">@{profile?.username || "user"}</p>
                 </div>
               </div>

@@ -7,9 +7,10 @@ import {
   HiOutlinePencilSquare,
   HiOutlineShare,
   HiOutlineTrash,
+  HiOutlineUserMinus,
 } from "react-icons/hi2";
 
-export default function PostOptionsMenu({ isOwner, saved, onCopy, onDelete, onEdit, onHide, onReport, onSave, onShare, onViewActivity }) {
+export default function PostOptionsMenu({ followed, isOwner, saved, onCopy, onDelete, onEdit, onFollow, onHide, onReport, onSave, onShare, onViewActivity }) {
   const ownerActions = [
     { label: "Edit post", icon: HiOutlinePencilSquare, action: onEdit },
     { label: "Delete post", icon: HiOutlineTrash, action: onDelete, danger: true },
@@ -20,6 +21,7 @@ export default function PostOptionsMenu({ isOwner, saved, onCopy, onDelete, onEd
     { label: saved ? "Remove saved" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
     { label: "Share", icon: HiOutlineShare, action: onShare },
     { label: "Copy link", icon: HiOutlineLink, action: onCopy },
+    ...(followed ? [{ label: "Unfollow account", icon: HiOutlineUserMinus, action: onFollow }] : []),
     { label: "Hide post", icon: HiOutlineEyeSlash, action: onHide },
     { label: "Report post", icon: HiOutlineFlag, action: onReport, danger: true },
   ];

@@ -76,7 +76,7 @@ export function startExploreConversation(currentProfile, recipient) {
       },
       [recipientId]: {
         userId: recipientId,
-        displayName: recipient?.displayName || recipient?.name || "KunThai User",
+        displayName: recipient?.displayName || recipient?.name || "Profile",
         username: recipient?.username || "user",
         avatarUrl: recipient?.avatarUrl || recipient?.avatar_url || "",
       },

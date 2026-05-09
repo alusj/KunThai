@@ -1,17 +1,12 @@
 import { useExploreFeed } from "../../../../../Backend/hooks/useExploreFeed";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
-import Loader from "../../../shared/Loader";
 import VideoCard from "../videos/VideoCard";
 import { filterSwipVideos } from "../videos/swipUtils";
 
 export default function All({ category = "all", currentUserId = "", onlyUserId = "", onViewProfile }) {
   const feed = useExploreFeed("swip");
   const videos = filterSwipVideos(feed.posts, category, onlyUserId);
-
-  if (feed.loading) {
-    return <Loader label="Loading Swip videos..." />;
-  }
 
   if (feed.error) {
     return (
@@ -49,7 +44,7 @@ export default function All({ category = "all", currentUserId = "", onlyUserId =
           onViewProfile={() =>
             onViewProfile?.({
               userId: post.user_id || "",
-              displayName: post.author_name || "KunThai User",
+              displayName: post.author_name || "Profile",
               username: post.author_username || "",
               avatarUrl: post.author_avatar_url || "",
               accountType: "personal",

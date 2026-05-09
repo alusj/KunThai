@@ -41,8 +41,8 @@ export function getMetadataAvatar(metadata = {}) {
 export function buildExploreProfileFromUser(user) {
   const metadata = user?.user_metadata || {};
   const cached = readStoredProfile(user?.id);
-  const displayName = metadata.display_name || metadata.full_name || metadata.name || cached.displayName || user?.email || "KunThai User";
-  const username = metadata.username || cached.username || user?.email?.split("@")[0] || "";
+  const displayName = cached.displayName || metadata.display_name || metadata.full_name || metadata.name || user?.email || "Profile";
+  const username = cached.username || metadata.username || user?.email?.split("@")[0] || "";
   const avatarUrl = getMetadataAvatar(metadata) || cached.avatarUrl || "";
 
   return {

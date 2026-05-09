@@ -2,19 +2,14 @@ import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNot
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import NotificationsList from "../../ExploreTabs/notification/list/NotificationsList";
-import NotificationsSkeleton from "../../ExploreTabs/notification/skeletons/NotificationsSkeleton";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
 export default function ActivityScreen({ hideHeader = false, onOpenNotification }) {
-  const { notifications, loading, error, markRead } = useExploreNotifications();
+  const { notifications, error, markRead } = useExploreNotifications();
 
   async function openNotification(item) {
     await markRead(item.id);
     onOpenNotification?.(item);
-  }
-
-  if (loading) {
-    return <NotificationsSkeleton />;
   }
 
   return (

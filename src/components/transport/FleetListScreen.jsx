@@ -7,7 +7,6 @@ import { verificationStatuses } from "./verification/verificationStatus";
 
 export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification }) {
   const [fleets, setFleets] = useState(() => getTransportFleets(selection));
-  const [loading, setLoading] = useState(true);
   const modeLabel =
     selection.mode === "topRated" ? "All Fleets" : selection.mode === "ride" ? "Ride" : "Delivery";
   const helperText =
@@ -18,13 +17,9 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
   useEffect(() => {
     let alive = true;
 
-    setLoading(true);
     fetchTransportFleets(selection)
       .then((items) => {
         if (alive) setFleets(items);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
       });
 
     return () => {
@@ -51,7 +46,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
             </p>
           </div>
           <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-            {loading ? "Refreshing" : `${fleets.length} found`}
+            {fleets.length} found
           </span>
         </div>
       </header>

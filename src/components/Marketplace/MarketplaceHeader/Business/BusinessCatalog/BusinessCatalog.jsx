@@ -16,9 +16,7 @@ export default function BusinessCatalog({ mode = "store", onEditProduct }) {
     loading,
   } = useSellerProducts();
 
-  if (loading || !summary) {
-    return <div className="h-64 rounded-xl bg-white shadow-sm" />;
-  }
+  if (loading || !summary) return null;
 
   const visibleProducts = mode === "catalog" ? availableProducts : products;
   const title = mode === "catalog" ? "Catalog" : "Store";

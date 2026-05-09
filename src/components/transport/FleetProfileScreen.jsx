@@ -7,19 +7,14 @@ import { verificationStatuses } from "./verification/verificationStatus";
 
 export default function FleetProfileScreen({ fleetId, onBack, onShowVerification }) {
   const [fleet, setFleet] = useState(() => getTransportFleetById(fleetId));
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
 
-    setLoading(true);
     fetchTransportFleetById(fleetId)
       .then((item) => {
         if (alive) setFleet(item);
       })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
 
     return () => {
       alive = false;
@@ -54,7 +49,6 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
               {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
             </p>
           </div>
-          {loading ? <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">Refreshing</span> : null}
         </div>
       </header>
 

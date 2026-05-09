@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { HiOutlineArrowLeft } from "react-icons/hi2";
 
 import { signOutSocialSession, switchSocialAccount } from "../../../../Backend/services/sessionService";
 
@@ -15,6 +16,7 @@ import SavedPostsMenuItem from "./menu/items/SavedPostsMenuItem";
 import SettingsMenuItem from "./menu/items/SettingsMenuItem";
 import SignOutMenuItem from "./menu/items/SignOutMenuItem";
 import SwitchAccountMenuItem from "./menu/items/SwitchAccountMenuItem";
+import TermsPoliciesMenuItem from "./menu/items/TermsPoliciesMenuItem";
 
 export function SocialMenuContent({ onClose, onNavigate }) {
   const handleSelect = (target) => {
@@ -30,6 +32,7 @@ export function SocialMenuContent({ onClose, onNavigate }) {
       privacy: "Privacy",
       settings: "Settings",
       "help-center": "HelpCenter",
+      "terms-policies": "TermsPolicies",
       "future-features": "FutureFeatures",
     };
 
@@ -50,7 +53,7 @@ export function SocialMenuContent({ onClose, onNavigate }) {
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="grid flex-1 content-start gap-3 overflow-y-auto p-4 sm:p-6 lg:grid-cols-2 xl:grid-cols-3">
         <MenuSection title="You">
           <ProfileMenuItem onSelect={handleSelect} />
           <MyPostsMenuItem onSelect={handleSelect} />
@@ -70,6 +73,7 @@ export function SocialMenuContent({ onClose, onNavigate }) {
 
         <MenuSection title="Support">
           <HelpCenterMenuItem onSelect={handleSelect} />
+          <TermsPoliciesMenuItem onSelect={handleSelect} />
         </MenuSection>
 
         <MenuSection title="Roadmap">
@@ -77,7 +81,7 @@ export function SocialMenuContent({ onClose, onNavigate }) {
         </MenuSection>
       </div>
 
-      <div className="border-t border-slate-200 p-3">
+      <div className="grid gap-2 border-t border-slate-200 p-4 sm:p-6 lg:grid-cols-2">
         <SwitchAccountMenuItem onSwitchAccount={handleSwitchAccount} />
         <SignOutMenuItem onSignOut={handleSignOut} />
       </div>
@@ -89,18 +93,27 @@ export default function HeaderMenu({ open, onClose, onNavigate }) {
   if (!open) return null;
 
   return createPortal(
-    <>
-      <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40" />
-
-      <aside className="fixed inset-y-0 left-0 z-50 flex h-screen w-80 max-w-[88vw] flex-col border-r border-slate-200 bg-white shadow-xl">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">KunThai</p>
-          <h2 className="mt-2 text-lg font-semibold text-slate-900">Social Menu</h2>
+    <section className="fixed inset-0 z-50 flex h-screen flex-col bg-slate-100">
+      <header className="border-b border-slate-200 bg-white px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-xl text-slate-800 shadow-sm"
+            aria-label="Back to Explore"
+          >
+            <HiOutlineArrowLeft />
+          </button>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-700">KunThai</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">Social Menu</h2>
+          </div>
         </div>
-
+      </header>
+      <aside className="flex min-h-0 w-full flex-1 flex-col bg-white shadow-sm">
         <SocialMenuContent onClose={onClose} onNavigate={onNavigate} />
       </aside>
-    </>,
+    </section>,
     document.body,
   );
 }

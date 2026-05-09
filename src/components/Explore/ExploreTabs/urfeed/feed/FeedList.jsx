@@ -5,7 +5,6 @@ import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollow
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import FeedPost from "./components/FeedPost";
-import FeedSkeleton from "./skeletons/FeedSkeleton";
 
 const PAGE_SIZE = 8;
 
@@ -110,10 +109,6 @@ export default function FeedList({
     return active === false ? "Unfollowed" : "";
   }
 
-  if (loading) {
-    return <FeedSkeleton />;
-  }
-
   if (error) {
     return (
       <div className="mt-4 w-full max-w-full overflow-x-clip px-4 sm:px-5">
@@ -133,7 +128,7 @@ export default function FeedList({
   return (
     <div className="mt-4 w-full max-w-full overflow-x-clip px-4 pb-8 sm:px-5" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-        <span className="font-bold text-slate-800">{refreshing ? "Refreshing..." : `${posts.length} posts`}</span>
+        <span className="font-bold text-slate-800">{posts.length} posts</span>
         <button type="button" onClick={refresh} className="font-bold text-sky-700">
           Refresh
         </button>
@@ -158,7 +153,7 @@ export default function FeedList({
             onViewProfile={() =>
               onViewProfile?.({
                 userId: post.user_id || "",
-                displayName: post.author_name || "KunThai User",
+                displayName: post.author_name || "Profile",
                 username: post.author_username || "",
                 avatarUrl: post.author_avatar_url || "",
                 accountType: "personal",
@@ -172,9 +167,7 @@ export default function FeedList({
       </div>
 
       {hasMore ? (
-        <div ref={loaderRef} className="py-5 text-center text-sm font-bold text-slate-400">
-          Loading more posts...
-        </div>
+        <div ref={loaderRef} className="py-5" aria-hidden="true" />
       ) : (
         <p className="py-5 text-center text-sm font-bold text-slate-400">You are all caught up.</p>
       )}

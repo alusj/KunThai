@@ -6,7 +6,7 @@ import { buildExploreProfileFromUser, getMetadataAvatar, writeStoredProfile } fr
 function toAppProfile(row, fallback = {}) {
   return {
     userId: row?.user_id || fallback.userId || "",
-    displayName: row?.display_name || fallback.displayName || "KunThai User",
+    displayName: row?.display_name || fallback.displayName || "Profile",
     username: row?.username || fallback.username || "",
     email: fallback.email || "",
     phone: fallback.phone || "",
@@ -81,7 +81,11 @@ export async function fetchExploreProfile(userId) {
     throw error;
   }
 
-  return data ? toAppProfile(data) : null;
+  if (!data) return null;
+
+  const profile = toAppProfile(data);
+  writeStoredProfile(profile.userId, profile);
+  return profile;
 }
 
 export async function getCurrentUserProfile() {
@@ -152,7 +156,7 @@ export async function updateExploreProfile(patch) {
   const updated = {
     ...nextProfile,
     userId: user.id,
-    displayName: authData.display_name || user.email || "KunThai User",
+    displayName: authData.display_name || user.email || "Profile",
     username: authData.username || user.email?.split("@")[0] || "",
     avatarUrl: avatarUrl || getMetadataAvatar(data.user?.user_metadata || authData),
     avatarWarning,

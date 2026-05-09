@@ -5,9 +5,7 @@ import { useSellerOverview } from "../../../../../../Backend/hooks/useSellerOver
 export default function SellerDrawerProfile({ onOpenProfile }) {
   const { business, health, storeStatus, loading } = useSellerOverview();
 
-  if (loading) {
-    return <div className="mx-4 mt-4 h-32 rounded-xl bg-gray-100" />;
-  }
+  if (loading) return null;
 
   if (!business) {
     return null;

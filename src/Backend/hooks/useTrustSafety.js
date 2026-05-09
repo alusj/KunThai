@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   blockExploreUser,
   readBlockedUsers,
+  fetchPrivacySettings,
   readPrivacySettings,
   unblockExploreUser,
-  writePrivacySettings,
+  updatePrivacySettings as syncPrivacySettings,
 } from "../services/explore/safetyService";
 import { showToast } from "../services/toastService";
 
@@ -13,6 +14,20 @@ export function useTrustSafety() {
   const [blockedUsers, setBlockedUsers] = useState(readBlockedUsers);
   const [privacySettings, setPrivacySettings] = useState(readPrivacySettings);
   const [feedback, setFeedback] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    fetchPrivacySettings()
+      .then((settings) => {
+        if (active) setPrivacySettings(settings);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function blockUser(userId, reason) {
     try {
@@ -36,11 +51,18 @@ export function useTrustSafety() {
     }
   }
 
-  function updatePrivacySettings(patch) {
-    const next = writePrivacySettings({ ...privacySettings, ...patch });
-    setPrivacySettings(next);
-    setFeedback("Privacy settings updated.");
-    showToast("Privacy settings updated.", "success");
+  async function updatePrivacySettings(patch) {
+    const optimistic = { ...privacySettings, ...patch };
+    setPrivacySettings(optimistic);
+
+    try {
+      const next = await syncPrivacySettings(optimistic);
+      setPrivacySettings(next);
+      setFeedback("Privacy settings updated.");
+      showToast("Privacy settings updated.", "success");
+    } catch (error) {
+      setFeedback(error.message || "Privacy settings saved on this device.");
+    }
   }
 
   return {

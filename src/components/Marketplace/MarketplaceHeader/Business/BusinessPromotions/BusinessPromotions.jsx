@@ -13,9 +13,7 @@ export default function BusinessPromotions() {
     loading,
   } = useSellerPromotions();
 
-  if (loading || !performance) {
-    return <div className="h-80 rounded-xl bg-white shadow-sm" />;
-  }
+  if (loading || !performance) return null;
 
   return (
     <section className="space-y-4">

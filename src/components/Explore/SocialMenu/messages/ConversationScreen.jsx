@@ -17,7 +17,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
         <AppBackButton onBack={onBack} label="Back to inbox" historyKey="explore-conversation" className="rounded-2xl" />
         <Avatar name={user.displayName} src={user.avatarUrl} size="sm" />
         <div className="min-w-0">
-          <p className="truncate text-sm font-black text-slate-950">{user.displayName || "KunThai User"}</p>
+          <p className="truncate text-sm font-black text-slate-950">{user.displayName || "Profile"}</p>
           <p className="truncate text-xs font-bold text-slate-500">@{user.username || "user"}</p>
         </div>
       </div>

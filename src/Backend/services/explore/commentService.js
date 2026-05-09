@@ -51,7 +51,7 @@ export async function createExploreComment(input) {
     post_id: payload.post_id,
     parent_comment_id: payload.parent_comment_id || null,
     user_id: userId,
-    author_name: profile?.name || "KunThai User",
+    author_name: profile?.name || profile?.displayName || "Profile",
     author_username: profile?.username || "user",
     author_avatar_url: profile?.avatar_url || "",
     body: trimmedBody,

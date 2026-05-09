@@ -78,7 +78,6 @@ export default function Messages({ onBack, onProductOpen }) {
       <section className="mx-auto grid max-w-6xl gap-4 p-4 lg:grid-cols-[320px_1fr]">
         <aside className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
           <h2 className="mb-3 font-black text-gray-950">Conversations</h2>
-          {loading && <p className="text-sm font-bold text-gray-500">Loading messages...</p>}
           {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
           {!loading && !error && !messages.length && (
             <div className="rounded-lg bg-gray-50 p-5 text-center">

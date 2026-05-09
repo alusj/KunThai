@@ -384,7 +384,7 @@ async function fetchProfileConnections(kind, currentUserId) {
       return {
         id: profile.user_id,
         user_id: profile.user_id,
-        name: profile.display_name || "KunThai User",
+        name: profile.display_name || "Profile",
         username: profile.username || "user",
         avatar_url: profile.avatar_url || "",
         bio: profile.bio || "",

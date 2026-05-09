@@ -21,7 +21,6 @@ import SellerWorkspaceTabs from "./SellerWorkspaceTabs";
 import ProductSuccessToast from "./ProductSuccessToast";
 //import RecentOrders from "./RecentOrders";
 //import RecentMessages from "./RecentMessages";
-import BusinessSkeleton from "./BusinessSkeleton";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
 import { useState } from "react";
@@ -96,7 +95,7 @@ export default function Business({ onBack }) {
     });
   }
 
-  if (loading) return <BusinessSkeleton />;
+  if (loading) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -1,15 +1,10 @@
 import { useExploreConnections } from "../../../../../Backend/hooks/useExploreConnections";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
-import ConnectionsSkeleton from "../skeletons/ConnectionsSkeleton";
 import DiscoverList from "./DiscoverList";
 
 export default function Discover({ currentUserId, onViewProfile }) {
-  const { items, loading, error, blockUser, followUser, removeUser, reload } = useExploreConnections("discover", currentUserId);
-
-  if (loading) {
-    return <ConnectionsSkeleton />;
-  }
+  const { items, error, blockUser, followUser, removeUser, reload } = useExploreConnections("discover", currentUserId);
 
   if (error) {
     return <ErrorState message={error} onRetry={reload} />;

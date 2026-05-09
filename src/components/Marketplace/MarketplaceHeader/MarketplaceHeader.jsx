@@ -4,8 +4,8 @@ import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
 export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessagesClick, activeUtility }) {
-  const { loading, hasBusiness } = useSellerBusinessStatus();
-  const businessLabel = loading ? "..." : hasBusiness ? "MyBiz" : "REGISTER";
+  const { hasBusiness } = useSellerBusinessStatus();
+  const businessLabel = hasBusiness ? "MyBiz" : "REGISTER";
 
   return (
     <header className="sticky top-0 z-20 border-b bg-white">

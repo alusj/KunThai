@@ -27,7 +27,7 @@ function toPostResult(post) {
   return {
     id: post.id,
     type: isVideo ? "swip" : "feed",
-    title: post.author_name || "KunThai User",
+    title: post.author_name || "Profile",
     subtitle: post.body || (isVideo ? "Swip video" : "Explore post"),
     username: post.author_username || "",
     avatarUrl: post.author_avatar_url || "",
@@ -74,7 +74,7 @@ async function searchPeople(query) {
   return (data || []).map((profile) => ({
     id: profile.user_id,
     type: "people",
-    title: profile.display_name || "KunThai User",
+    title: profile.display_name || "Profile",
     subtitle: profile.bio || `@${profile.username || "user"}`,
     username: profile.username || "",
     avatarUrl: profile.avatar_url || "",

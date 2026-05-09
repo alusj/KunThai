@@ -2,47 +2,26 @@ import { useState } from "react";
 import { HiOutlineCheckCircle, HiOutlineCog6Tooth } from "react-icons/hi2";
 
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
+import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import NotificationSettings from "./components/NotificationSettings";
 import NotificationsList from "./list/NotificationsList";
-import NotificationsSkeleton from "./skeletons/NotificationsSkeleton";
-
-const SETTINGS_KEY = "explore-notification-settings";
-
-function readSettings() {
-  try {
-    const value = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
-    return value && typeof value === "object" ? value : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeSettings(value) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(value));
-}
 
 export default function Notifications({ onOpenNotification }) {
-  const { notifications, unreadCount, loading, error, markRead, markAllRead } = useExploreNotifications();
+  const { notifications, unreadCount, error, markRead, markAllRead } = useExploreNotifications();
+  const preferences = useExplorePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState(readSettings);
 
   function toggleSetting(key) {
-    setSettings((current) => {
-      const next = { ...current, [key]: current[key] === false };
-      writeSettings(next);
-      return next;
+    preferences.updateSection("notifications", {
+      [key]: preferences.settings.notifications[key] === false,
     });
   }
 
   async function openNotification(item) {
     await markRead(item.id);
     onOpenNotification?.(item);
-  }
-
-  if (loading) {
-    return <NotificationsSkeleton />;
   }
 
   return (
@@ -75,7 +54,7 @@ export default function Notifications({ onOpenNotification }) {
 
         {settingsOpen ? (
           <div className="mt-4">
-            <NotificationSettings values={settings} onToggle={toggleSetting} />
+            <NotificationSettings values={preferences.settings.notifications} onToggle={toggleSetting} />
           </div>
         ) : null}
       </div>

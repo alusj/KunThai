@@ -8,7 +8,6 @@ import {
 
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
 import { useExploreMessageStatus } from "../../../../Backend/hooks/useExploreMessageStatus";
-import HeaderMenu from "./HeaderMenu";
 import MenuButton from "./MenuButton";
 import MessageButton from "./MessageButton";
 import SearchButton from "./SearchButton";
@@ -17,7 +16,6 @@ import AlertButton from "./AlertButton";
 import SearchOverlay from "./search/SearchOverlay";
 
 export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const { notifications, unreadCount } = useExploreNotifications();
@@ -35,7 +33,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
         <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onOpenResult={onSearchResult} />
         <div className="grid h-16 w-full max-w-full grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-            <MenuButton onClick={() => setMenuOpen(true)} />
+            <MenuButton onClick={() => onNavigate?.("Menu")} />
             <MessageButton
               active={messageStatus.active}
               activity={messageStatus.activity}
@@ -78,8 +76,6 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
           </div>
         </>
       ) : null}
-
-      <HeaderMenu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} />
     </>
   );
 }

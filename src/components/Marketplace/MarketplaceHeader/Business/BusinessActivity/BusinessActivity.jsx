@@ -5,9 +5,7 @@ import ActivitySummary from "./ActivitySummary";
 export default function BusinessActivity() {
   const { activities, summary, loading } = useSellerActivities();
 
-  if (loading) {
-    return <div className="h-80 rounded-xl bg-white shadow-sm" />;
-  }
+  if (loading) return null;
 
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

@@ -17,9 +17,7 @@ export default function CustomerCare() {
   const [reply, setReply] = useState("");
   const [feedback, setFeedback] = useState("");
 
-  if (loading) {
-    return <div className="h-80 rounded-xl bg-white shadow-sm" />;
-  }
+  if (loading) return null;
 
   async function sendReply(event) {
     event.preventDefault();

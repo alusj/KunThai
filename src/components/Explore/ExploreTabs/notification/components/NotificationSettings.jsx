@@ -1,15 +1,16 @@
-import { HiOutlineBellAlert, HiOutlineChatBubbleOvalLeft, HiOutlineHandThumbUp, HiOutlineUserPlus } from "react-icons/hi2";
+import { HiOutlineBellAlert, HiOutlineChatBubbleOvalLeft, HiOutlineHandThumbUp, HiOutlineRectangleStack, HiOutlineUserPlus } from "react-icons/hi2";
 
 const settings = [
   { key: "reactions", label: "Reactions", icon: HiOutlineHandThumbUp },
   { key: "comments", label: "Comments", icon: HiOutlineChatBubbleOvalLeft },
   { key: "follows", label: "Follows", icon: HiOutlineUserPlus },
-  { key: "alerts", label: "Alerts", icon: HiOutlineBellAlert },
+  { key: "followedPosts", label: "Posts", icon: HiOutlineRectangleStack },
+  { key: "safetyAlerts", label: "Alerts", icon: HiOutlineBellAlert },
 ];
 
 export default function NotificationSettings({ values, onToggle }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
       {settings.map((item) => {
         const Icon = item.icon;
         const active = values[item.key] !== false;

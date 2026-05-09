@@ -59,9 +59,7 @@ export default function CartDrawer({
         </div>
 
         <div className="h-[calc(100%-15rem)] space-y-3 overflow-y-auto p-4">
-          {loading ? (
-            <p className="text-center text-sm font-bold text-gray-500">Loading cart...</p>
-          ) : items.length ? (
+          {items.length ? (
             items.map((item) => (
               <CartItem
                 key={item.id}
@@ -71,9 +69,9 @@ export default function CartDrawer({
                 onViewProduct={onViewProduct}
               />
             ))
-          ) : (
+          ) : !loading ? (
             <p className="mt-10 text-center font-bold text-gray-500">Your cart is empty</p>
-          )}
+          ) : null}
 
           {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
           {checkoutStatus && (

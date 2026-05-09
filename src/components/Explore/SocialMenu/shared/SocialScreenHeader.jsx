@@ -15,8 +15,8 @@ export default function SocialScreenHeader({ eyebrow = "Explore", title, subtitl
 
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-700 sm:text-xs">{eyebrow}</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-950 sm:text-xl">{title}</h2>
-          {subtitle ? <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-600 sm:mt-2">{subtitle}</p> : null}
+          <h2 className="mt-1 text-xl font-black text-slate-950 sm:text-2xl">{title}</h2>
+          {subtitle ? <p className="mt-1 max-w-2xl text-base font-semibold leading-6 text-slate-600 sm:mt-2">{subtitle}</p> : null}
         </div>
       </div>
     </header>

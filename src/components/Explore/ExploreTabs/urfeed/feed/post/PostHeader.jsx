@@ -18,17 +18,15 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
               onClick={onViewProfile}
               className="min-w-0 truncate text-left text-sm font-black text-slate-950 hover:text-sky-700"
             >
-              {post.author_name || "KunThai User"}
+              {post.author_name || "Profile"}
             </button>
-            {!isOwner && post.user_id ? (
+            {!isOwner && post.user_id && !followed ? (
               <button
                 type="button"
                 onClick={onFollow}
-                className={`h-7 flex-none rounded-full px-3 text-xs font-bold transition ${
-                  followed ? "bg-sky-50 text-sky-700" : "bg-slate-950 text-white hover:bg-slate-800"
-                }`}
+                className="h-7 flex-none rounded-full bg-slate-950 px-3 text-xs font-bold text-white transition hover:bg-slate-800"
               >
-                {followed ? "Following" : "Follow"}
+                Follow
               </button>
             ) : null}
           </div>

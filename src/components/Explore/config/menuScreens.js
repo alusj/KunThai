@@ -47,9 +47,11 @@ export const MENU_SCREENS = {
   },
   HelpCenter: {
     title: "Help Center",
-    subtitle: "Find help for your Explore account.",
-    emptyTitle: "Help Center is coming soon",
-    emptyMessage: "Guides, contact support, and safety resources will live here.",
+    subtitle: "Guides, reports, support requests, and safety help.",
+  },
+  TermsPolicies: {
+    title: "Terms & Policies",
+    subtitle: "Understand your rights, responsibilities, and safety rules.",
   },
   FutureFeatures: {
     title: "Future Features",

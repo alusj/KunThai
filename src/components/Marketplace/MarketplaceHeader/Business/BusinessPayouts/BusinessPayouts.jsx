@@ -17,9 +17,7 @@ export default function BusinessPayouts() {
     loading,
   } = useSellerPayouts();
 
-  if (loading) {
-    return <div className="h-80 rounded-xl bg-white shadow-sm" />;
-  }
+  if (loading) return null;
 
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

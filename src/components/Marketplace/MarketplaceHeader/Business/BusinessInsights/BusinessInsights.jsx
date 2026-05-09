@@ -7,9 +7,7 @@ import TrafficSources from "./TrafficSources";
 export default function BusinessInsights() {
   const { metrics, trafficSources, searchTerms, productSignals, loading } = useSellerInsights();
 
-  if (loading || !metrics || !productSignals) {
-    return <div className="h-80 rounded-xl bg-white shadow-sm" />;
-  }
+  if (loading || !metrics || !productSignals) return null;
 
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

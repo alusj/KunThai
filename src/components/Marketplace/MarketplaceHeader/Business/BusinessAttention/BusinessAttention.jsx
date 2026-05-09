@@ -6,9 +6,7 @@ export default function BusinessAttention({ onAction }) {
   const { items, summary, loading } = useSellerAttention();
   const urgentItems = items.filter((item) => item.priority === "high");
 
-  if (loading) {
-    return <div className="h-56 rounded-xl bg-white shadow-sm" />;
-  }
+  if (loading) return null;
 
   if (urgentItems.length === 0) {
     return null;

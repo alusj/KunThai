@@ -6,17 +6,12 @@ import VerificationBadge from "./verification/VerificationBadge";
 
 export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification }) {
   const [savedOperators, setSavedOperators] = useState(() => getSavedOperators());
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     fetchSavedOperators()
       .then((items) => {
         if (alive) setSavedOperators(items);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
       });
     return () => {
       alive = false;
@@ -38,7 +33,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
             <p className="truncate text-xs text-gray-500">Your trusted fleets and operators.</p>
           </div>
           <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-            {loading ? "Refreshing" : `${savedOperators.length} saved`}
+            {savedOperators.length} saved
           </span>
         </div>
       </header>

@@ -162,11 +162,6 @@ export default function Transport() {
           setRegistrationOpen(true);
         }}
       />
-      {operatorLoading && (
-        <div className="mx-4 mt-3 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-          Loading fleet account...
-        </div>
-      )}
       {operatorError && (
         <div className="mx-4 mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
           {operatorError}

@@ -12,9 +12,7 @@ export default function BusinessStats() {
   const { revenue, orders, averageOrderValue, bestSalesWindow, loading } = useSellerSales();
   const [activeView, setActiveView] = useState("revenue");
 
-  if (loading || !revenue || !orders || !bestSalesWindow) {
-    return <div className="h-64 rounded-xl bg-white shadow-sm" />;
-  }
+  if (loading || !revenue || !orders || !bestSalesWindow) return null;
 
   return (
     <section className="space-y-4">

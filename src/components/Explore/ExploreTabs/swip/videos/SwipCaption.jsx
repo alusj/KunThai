@@ -11,7 +11,7 @@ export default function SwipCaption({ post, onFullscreen, onViewProfile }) {
           <Avatar name={post.author_name} src={post.author_avatar_url} size="sm" />
           <span className="min-w-0">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate text-sm font-black">{post.author_name || "KunThai User"}</span>
+              <span className="truncate text-sm font-black">{post.author_name || "Profile"}</span>
               {post.verified ? <HiOutlineCheckBadge className="flex-none text-sky-300" /> : null}
             </span>
             <span className="block truncate text-xs font-bold text-white/70">

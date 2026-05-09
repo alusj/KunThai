@@ -181,7 +181,9 @@ export async function getOperatorAccount() {
 
   if (fleetError) throw new Error(fleetError.message);
 
-  return mapOperatorAccount(operator, fleets?.[0], { dashboard });
+  const account = mapOperatorAccount(operator, fleets?.[0], { dashboard });
+  localStorage.setItem(LEGACY_ACCOUNT_KEY, JSON.stringify(account));
+  return account;
 }
 
 export async function fetchOperatorDashboard(operatorId = null) {

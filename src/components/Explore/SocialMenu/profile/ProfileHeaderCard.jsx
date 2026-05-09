@@ -1,11 +1,16 @@
 import {
+  HiOutlineArchiveBox,
   HiOutlineArrowTopRightOnSquare,
   HiOutlineCheckBadge,
   HiOutlineChatBubbleLeftRight,
+  HiOutlineEllipsisHorizontal,
+  HiOutlineFlag,
   HiOutlineNoSymbol,
   HiOutlinePencilSquare,
   HiOutlinePhoto,
+  HiOutlineUserMinus,
 } from "react-icons/hi2";
+import { useEffect, useRef, useState } from "react";
 
 import Avatar from "../../shared/Avatar";
 
@@ -26,6 +31,27 @@ export default function ProfileHeaderCard({
   stats,
   values,
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    function handlePointerDown(event) {
+      if (!menuRef.current?.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [menuOpen]);
+
+  function runMenuAction(action) {
+    setMenuOpen(false);
+    action?.();
+  }
+
   return (
     <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
       <div className="h-24 bg-gradient-to-r from-sky-100 via-white to-slate-100" />
@@ -53,7 +79,7 @@ export default function ProfileHeaderCard({
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarChange} className="hidden" />
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2 pt-10">
+          <div ref={menuRef} className="relative flex flex-wrap justify-end gap-2 pt-10">
             {editable ? (
               <button
                 type="button"
@@ -66,13 +92,15 @@ export default function ProfileHeaderCard({
               </button>
             ) : (
               <>
-                <button
-                  type="button"
-                  onClick={onFollow}
-                  className={`h-10 rounded-2xl px-4 text-sm font-black ${followed ? "bg-sky-50 text-sky-700" : "bg-slate-950 text-white"}`}
-                >
-                  {followed ? "Following" : "Follow"}
-                </button>
+                {!followed ? (
+                  <button
+                    type="button"
+                    onClick={onFollow}
+                    className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+                  >
+                    Follow
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={onMessage}
@@ -81,20 +109,75 @@ export default function ProfileHeaderCard({
                 >
                   <HiOutlineChatBubbleLeftRight />
                 </button>
-                <button type="button" onClick={onBlock} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-600" aria-label="Block profile">
-                  <HiOutlineNoSymbol />
-                </button>
               </>
             )}
-            <button type="button" onClick={onShare} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700" aria-label="Share profile">
-              <HiOutlineArrowTopRightOnSquare />
+            <button
+              type="button"
+              onClick={() => setMenuOpen((current) => !current)}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
+              aria-label="Open profile actions"
+              aria-expanded={menuOpen}
+            >
+              <HiOutlineEllipsisHorizontal />
             </button>
+
+            {menuOpen ? (
+              <div className="absolute right-0 top-20 z-20 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-sm font-black shadow-xl">
+                {!editable && followed ? (
+                  <button
+                    type="button"
+                    onClick={() => runMenuAction(onFollow)}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                  >
+                    <HiOutlineUserMinus className="text-lg" />
+                    Unfollow account
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => runMenuAction(onShare)}
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                >
+                  <HiOutlineArrowTopRightOnSquare className="text-lg" />
+                  Share profile
+                </button>
+                {!editable ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => runMenuAction(onReport)}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                    >
+                      <HiOutlineFlag className="text-lg" />
+                      Report profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runMenuAction(onBlock)}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-rose-700 hover:bg-rose-50"
+                    >
+                      <HiOutlineNoSymbol className="text-lg" />
+                      Block profile
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => runMenuAction(onShare)}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                  >
+                    <HiOutlineArchiveBox className="text-lg" />
+                    Copy public profile
+                  </button>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
 
         <div className="mt-3 min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <h3 className="truncate text-2xl font-black text-slate-950">{values.displayName || "KunThai User"}</h3>
+            <h3 className="truncate text-2xl font-black text-slate-950">{values.displayName || "Profile"}</h3>
             {values.verified ? <HiOutlineCheckBadge className="flex-none text-xl text-sky-600" /> : null}
           </div>
           <p className="mt-1 text-sm font-bold text-slate-500">{values.username ? `@${values.username}` : "@username"}</p>
@@ -119,11 +202,6 @@ export default function ProfileHeaderCard({
             </div>
           </div>
 
-          {!editable ? (
-            <button type="button" onClick={onReport} className="mt-3 text-xs font-bold text-rose-600">
-              Report profile
-            </button>
-          ) : null}
           {feedback ? <p className="mt-3 text-xs font-bold text-sky-700">{feedback}</p> : null}
         </div>
       </div>

@@ -23,7 +23,7 @@ export default function CommentItem({
   function viewCommentProfile() {
     onViewProfile?.({
       userId: comment.user_id || "",
-      displayName: comment.author_name || "KunThai User",
+      displayName: comment.author_name || "Profile",
       username: comment.author_username || "",
       avatarUrl: comment.author_avatar_url || "",
       accountType: "personal",
@@ -34,13 +34,13 @@ export default function CommentItem({
     <div className="space-y-2">
       <div className="flex min-w-0 gap-3">
         <button type="button" onClick={viewCommentProfile} className="flex-none self-start" aria-label={`View ${comment.author_name || "user"} profile`}>
-          <Avatar name={comment.author_name || "KunThai User"} src={comment.author_avatar_url} size="sm" />
+          <Avatar name={comment.author_name || "Profile"} src={comment.author_avatar_url} size="sm" />
         </button>
         <div className="min-w-0 flex-1 rounded-[20px] bg-slate-50 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <button type="button" onClick={viewCommentProfile} className="block max-w-full truncate text-left text-sm font-black text-slate-950 hover:text-sky-700">
-                {comment.author_name || "KunThai User"}
+                {comment.author_name || "Profile"}
               </button>
               <button type="button" onClick={viewCommentProfile} className="block max-w-full truncate text-left text-xs font-semibold text-slate-400 hover:text-sky-700">
                 @{comment.author_username || "user"} - {formatRelativeTime(comment.created_at)}

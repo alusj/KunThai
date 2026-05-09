@@ -2,16 +2,11 @@ import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
-import FeedSkeleton from "../../ExploreTabs/urfeed/feed/skeletons/FeedSkeleton";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
 export default function MyPostsScreen({ currentUserId, hideHeader = false }) {
   const feed = useExploreFeed("feed");
   const myPosts = feed.posts.filter((post) => post.user_id === currentUserId);
-
-  if (feed.loading) {
-    return <FeedSkeleton />;
-  }
 
   return (
     <div>

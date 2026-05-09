@@ -216,20 +216,7 @@ export default function SellerIntelligence() {
 
   const activeItem = items.find((item) => item.key === activeKey) || items[0];
 
-  if (loading) {
-    return (
-      <section className="animate-pulse rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="h-5 w-44 rounded bg-gray-200" />
-        <div className="mt-2 h-4 w-72 rounded bg-gray-100" />
-        <div className="mt-4 flex gap-3 overflow-x-auto">
-          {[0, 1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-24 min-w-[178px] flex-1 rounded-lg bg-gray-100" />
-          ))}
-        </div>
-        <div className="mt-4 h-44 rounded-xl bg-gray-100" />
-      </section>
-    );
-  }
+  if (loading) return null;
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

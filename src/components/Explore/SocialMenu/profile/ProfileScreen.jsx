@@ -29,7 +29,7 @@ function shareProfile(values) {
   const url = new URL(window.location.href);
   url.hash = `profile-${values.userId || values.username || "user"}`;
   const data = {
-    title: `${values.displayName || "KunThai User"} on KunThai`,
+    title: `${values.displayName || "Profile"} on KunThai`,
     text: values.bio || `View @${values.username || "user"} on KunThai Explore`,
     url: url.toString(),
   };

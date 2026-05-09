@@ -56,7 +56,6 @@ export default function Orders({ onBack }) {
       </header>
 
       <section className="mx-auto max-w-4xl space-y-3 p-4">
-        {loading && <p className="rounded-lg bg-white p-5 text-center font-bold text-gray-500">Loading orders...</p>}
         {error && <p className="rounded-lg bg-red-50 p-4 font-bold text-red-700">{error}</p>}
 
         {!loading && !error && !orders.length && (

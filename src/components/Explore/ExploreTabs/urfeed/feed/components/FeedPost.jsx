@@ -58,11 +58,13 @@ export default function FeedPost({
 
       {optionsOpen ? (
         <PostOptionsMenu
+          followed={followed}
           isOwner={isOwner}
           saved={saved}
           onCopy={() => runAction(() => copyPostLink(post.id))}
           onDelete={() => runAction(onDelete)}
           onEdit={() => runAction(onEdit)}
+          onFollow={() => runAction(onFollow)}
           onHide={() => runAction(onHide)}
           onReport={() => runAction(onReport)}
           onSave={() => runAction(onSave)}

@@ -17,7 +17,7 @@ export default function ConversationRow({ conversation, currentUserId, onOpen })
       <Avatar name={user.displayName} src={user.avatarUrl} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="truncate text-sm font-black text-slate-950">{user.displayName || "KunThai User"}</span>
+          <span className="truncate text-sm font-black text-slate-950">{user.displayName || "Profile"}</span>
           {conversation.unreadCount ? (
             <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-black text-white">{conversation.unreadCount}</span>
           ) : null}

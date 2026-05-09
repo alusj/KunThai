@@ -6,17 +6,12 @@ import VerificationBadge from "./verification/VerificationBadge";
 
 export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification }) {
   const [trips, setTrips] = useState(() => getActiveTrips());
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     fetchActiveTrips()
       .then((items) => {
         if (alive) setTrips(items);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
       });
     return () => {
       alive = false;
@@ -25,7 +20,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ScreenHeader title="Active Trips" subtitle={loading ? "Refreshing your bookings..." : "Track rides, deliveries, and pending bookings."} onBack={onBack} />
+      <ScreenHeader title="Active Trips" subtitle="Track rides, deliveries, and pending bookings." onBack={onBack} />
 
       <main className="w-full px-3 py-4 sm:px-5 xl:px-8">
         <div className="grid gap-3 xl:grid-cols-2">

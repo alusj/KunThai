@@ -6,7 +6,6 @@ import { showToast } from "../../../../Backend/services/toastService";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
-import FeedSkeleton from "../../ExploreTabs/urfeed/feed/skeletons/FeedSkeleton";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import CollectionPicker from "./CollectionPicker";
@@ -52,10 +51,6 @@ export default function SavedPostsScreen({ currentUserId, hideHeader = false }) 
       collections.createCollection(name);
       showToast("Collection created.", "success");
     }
-  }
-
-  if (feed.loading || swip.loading) {
-    return <FeedSkeleton />;
   }
 
   return (

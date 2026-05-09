@@ -13,12 +13,15 @@ import Connections from "./ExploreTabs/connections/Connections"
 import Notifications from "./ExploreTabs/notification/Notifications";
 import ActivityScreen from "./SocialMenu/activity/ActivityScreen";
 import FutureFeaturesScreen from "./SocialMenu/future/FutureFeaturesScreen";
+import HelpCenterScreen from "./SocialMenu/help/HelpCenterScreen";
 import MessagesScreen from "./SocialMenu/messages/MessagesScreen";
 import MyPostsScreen from "./SocialMenu/myPosts/MyPostsScreen";
 import PrivacyScreen from "./SocialMenu/privacy/PrivacyScreen";
 import ProfileScreen from "./SocialMenu/profile/ProfileScreen";
 import SavedPostsScreen from "./SocialMenu/savedPosts/SavedPostsScreen";
+import SettingsScreen from "./SocialMenu/settings/SettingsScreen";
 import SocialScreenHeader from "./SocialMenu/shared/SocialScreenHeader";
+import TermsPoliciesScreen from "./SocialMenu/terms/TermsPoliciesScreen";
 import { MENU_SCREENS } from "./config/menuScreens";
 
 // UI Components
@@ -70,6 +73,23 @@ export default function Explore({ onScreenModeChange }) {
       onScreenModeChange?.(false);
     };
   }, [exploreNav.isFullScreen, onScreenModeChange]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    let alive = true;
+    fetchExploreProfile(user.id)
+      .then((profileData) => {
+        if (alive && profileData) {
+          setProfileOverride(profileData);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     let clearTimer;
@@ -136,7 +156,7 @@ export default function Explore({ onScreenModeChange }) {
     if (result.type === "people") {
       openViewedProfile({
         userId: result.userId || "",
-        displayName: result.title || "KunThai User",
+        displayName: result.title || "Profile",
         username: result.username || "",
         avatarUrl: result.avatarUrl || "",
         accountType: result.accountType || "personal",
@@ -176,18 +196,8 @@ export default function Explore({ onScreenModeChange }) {
 
     if (activeMenuScreen === "Menu") {
       return (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            onClick={exploreNav.goBackMenuScreen}
-            aria-label="Close social menu"
-          />
-          <aside className="absolute inset-y-0 left-0 flex h-screen w-80 max-w-[88vw] flex-col border-r border-slate-200 bg-white shadow-xl">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">KunThai</p>
-              <h2 className="mt-2 text-lg font-semibold text-slate-900">Social Menu</h2>
-            </div>
+        <div className="min-h-[calc(100vh-72px)] bg-slate-100">
+          <aside className="flex min-h-[calc(100vh-72px)] w-full flex-col bg-white shadow-sm">
             <SocialMenuContent onNavigate={openMenuScreen} />
           </aside>
         </div>
@@ -250,6 +260,18 @@ export default function Explore({ onScreenModeChange }) {
       return <PrivacyScreen hideHeader />;
     }
 
+    if (activeMenuScreen === "Settings") {
+      return <SettingsScreen hideHeader />;
+    }
+
+    if (activeMenuScreen === "HelpCenter") {
+      return <HelpCenterScreen hideHeader />;
+    }
+
+    if (activeMenuScreen === "TermsPolicies") {
+      return <TermsPoliciesScreen hideHeader />;
+    }
+
     if (activeMenuScreen === "FutureFeatures") {
       return <FutureFeaturesScreen />;
     }
@@ -260,13 +282,11 @@ export default function Explore({ onScreenModeChange }) {
   if (exploreNav.isFullScreen) {
     return (
       <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 kuntai-safe-bottom">
-        {activeMenuScreen === "Menu" ? null : (
-          <SocialScreenHeader
-            title={menuScreen.title}
-            subtitle={menuScreen.subtitle}
-            onBack={exploreNav.goBackMenuScreen}
-          />
-        )}
+        <SocialScreenHeader
+          title={menuScreen.title}
+          subtitle={menuScreen.subtitle}
+          onBack={exploreNav.goBackMenuScreen}
+        />
         {renderMenuScreen()}
       </div>
     );

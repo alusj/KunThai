@@ -14,7 +14,7 @@ export default function DiscoverList({ mode = "discover", onBlock, onFollow, onR
           onViewProfile={() =>
             onViewProfile?.({
               userId: user.user_id || "",
-              displayName: user.name || "KunThai User",
+              displayName: user.name || "Profile",
               username: user.username || "",
               avatarUrl: user.avatar_url || "",
               accountType: user.account_type || "personal",

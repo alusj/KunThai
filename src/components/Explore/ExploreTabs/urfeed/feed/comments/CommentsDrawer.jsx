@@ -51,10 +51,6 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, onVi
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 kuntai-scrollbar-none">
           {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
 
-          {comments.loading ? (
-            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">Loading comments...</p>
-          ) : null}
-
           {!comments.loading && !comments.thread.length ? (
             <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
               <HiOutlineChatBubbleLeftRight className="mx-auto text-3xl text-slate-400" />
