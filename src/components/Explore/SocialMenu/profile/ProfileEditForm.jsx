@@ -1,4 +1,4 @@
-import { FaFacebookF, FaInstagram, FaTiktok } from "react-icons/fa";
+import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { detectSocialPlatform, normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
 
@@ -6,6 +6,9 @@ const platformIcons = {
   facebook: FaFacebookF,
   instagram: FaInstagram,
   tiktok: FaTiktok,
+  x: FaTwitter,
+  whatsapp: FaWhatsapp,
+  youtube: FaYoutube,
 };
 
 function SocialLinkInput({ index, onChange, value }) {
@@ -23,7 +26,7 @@ function SocialLinkInput({ index, onChange, value }) {
           value={value?.url || ""}
           onChange={(event) => onChange(index, event.target.value)}
           className="h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none"
-          placeholder="Paste Facebook, Instagram, or TikTok link"
+          placeholder="Paste Facebook, TikTok, Instagram, X, WhatsApp, or YouTube link"
         />
       </div>
     </label>
@@ -66,9 +69,15 @@ export default function ProfileEditForm({ onChange, values }) {
         placeholder="Email"
       />
       <input
+        value={values.address || ""}
+        onChange={(event) => onChange("address", event.target.value)}
+        className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
+        placeholder="Address"
+      />
+      <input
         value={values.phone || ""}
         onChange={(event) => onChange("phone", event.target.value)}
-        className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
+        className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20 sm:col-span-2"
         placeholder="Phone"
       />
       <div className="grid gap-3 sm:col-span-2 lg:grid-cols-3">

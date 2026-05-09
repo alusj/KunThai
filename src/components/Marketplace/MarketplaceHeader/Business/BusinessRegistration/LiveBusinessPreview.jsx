@@ -4,6 +4,8 @@ export default function LiveBusinessPreview({ form, readinessScore }) {
   const categories = form.identity.categories.length ? form.identity.categories : ["Category"];
   const city = form.location.city || "City";
   const country = form.location.country || "Country";
+  const website = form.location.website?.trim();
+  const websiteHref = website ? (/^https?:\/\//i.test(website) ? website : `https://${website}`) : "";
 
   return (
     <aside className="space-y-4">
@@ -27,6 +29,20 @@ export default function LiveBusinessPreview({ form, readinessScore }) {
               </span>
             ))}
           </div>
+          {(form.location.email || website) ? (
+            <div className="mt-4 flex flex-wrap gap-2 text-xs font-black">
+              {form.location.email ? (
+                <a href={`mailto:${form.location.email}`} className="rounded-full bg-blue-50 px-3 py-1 text-blue-700 hover:bg-blue-100">
+                  Email
+                </a>
+              ) : null}
+              {website ? (
+                <a href={websiteHref} target="_blank" rel="noreferrer" className="rounded-full bg-gray-900 px-3 py-1 text-white hover:bg-gray-800">
+                  Website
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
 

@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { isMissingColumn } from "../explore/errors";
 
 export const BUSINESS_CATEGORIES = [
   "Electronics",
@@ -50,6 +51,7 @@ export const INITIAL_REGISTRATION = {
     whatsappEnabled: false,
     whatsapp: "",
     email: "",
+    website: "",
     discoverableNearby: true,
     coordinates: null,
   },
@@ -124,6 +126,7 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
       whatsappEnabled: row.whatsapp_enabled,
       whatsapp: row.whatsapp,
       email: row.email,
+      website: row.website_url || "",
       discoverableNearby: row.discoverable_nearby,
       coordinates:
         typeof row.latitude === "number" && typeof row.longitude === "number"
@@ -187,38 +190,41 @@ export async function submitSellerRegistration(registration) {
   ]);
 
   const verified = Boolean(idDocumentUrl || businessDocumentUrl);
-  const { data: business, error } = await supabase
-    .from("marketplace_businesses")
-    .upsert(
-      {
-        user_id: userId,
-        business_name: registration.identity.businessName.trim(),
-        description: registration.identity.description.trim(),
-        country: registration.location.country.trim(),
-        city: registration.location.city.trim(),
-        address: registration.location.address.trim(),
-        phone: registration.location.phone.trim(),
-        whatsapp_enabled: registration.location.whatsappEnabled,
-        whatsapp: registration.location.whatsapp.trim(),
-        email: registration.location.email.trim(),
-        discoverable_nearby: registration.location.discoverableNearby,
-        latitude: registration.location.coordinates?.latitude ?? null,
-        longitude: registration.location.coordinates?.longitude ?? null,
-        business_type: registration.operations.businessType,
-        delivery_enabled: registration.operations.deliveryEnabled,
-        pickup_enabled: registration.operations.pickupEnabled,
-        open_time: registration.operations.openTime || null,
-        close_time: registration.operations.closeTime || null,
-        logo_url: logoUrl || null,
-        banner_url: bannerUrl || null,
-        verification_status: verified ? "submitted" : "pending",
-        readiness_score: readinessScore,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    )
-    .select()
-    .maybeSingle();
+  const businessPayload = {
+    user_id: userId,
+    business_name: registration.identity.businessName.trim(),
+    description: registration.identity.description.trim(),
+    country: registration.location.country.trim(),
+    city: registration.location.city.trim(),
+    address: registration.location.address.trim(),
+    phone: registration.location.phone.trim(),
+    whatsapp_enabled: registration.location.whatsappEnabled,
+    whatsapp: registration.location.whatsapp.trim(),
+    email: registration.location.email.trim(),
+    website_url: registration.location.website.trim(),
+    discoverable_nearby: registration.location.discoverableNearby,
+    latitude: registration.location.coordinates?.latitude ?? null,
+    longitude: registration.location.coordinates?.longitude ?? null,
+    business_type: registration.operations.businessType,
+    delivery_enabled: registration.operations.deliveryEnabled,
+    pickup_enabled: registration.operations.pickupEnabled,
+    open_time: registration.operations.openTime || null,
+    close_time: registration.operations.closeTime || null,
+    logo_url: logoUrl || null,
+    banner_url: bannerUrl || null,
+    verification_status: verified ? "submitted" : "pending",
+    readiness_score: readinessScore,
+    updated_at: new Date().toISOString(),
+  };
+
+  let { data: business, error } = await supabase.from("marketplace_businesses").upsert(businessPayload, { onConflict: "user_id" }).select().maybeSingle();
+
+  if (error && isMissingColumn(error, "website_url")) {
+    const { website_url: _websiteUrl, ...fallbackPayload } = businessPayload;
+    const fallback = await supabase.from("marketplace_businesses").upsert(fallbackPayload, { onConflict: "user_id" }).select().maybeSingle();
+    business = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) throw new Error(error.message);
 
@@ -304,6 +310,7 @@ export function calculateReadinessScore(registration) {
     registration.location.address,
     registration.location.phone,
     registration.location.email,
+    registration.location.website,
     registration.location.coordinates,
     registration.operations.businessType,
     registration.operations.deliveryEnabled || registration.operations.pickupEnabled,

@@ -2,6 +2,9 @@ export const SOCIAL_LINK_PLATFORMS = [
   { id: "facebook", label: "Facebook", hosts: ["facebook.com", "fb.com"] },
   { id: "instagram", label: "Instagram", hosts: ["instagram.com"] },
   { id: "tiktok", label: "TikTok", hosts: ["tiktok.com"] },
+  { id: "x", label: "X", hosts: ["x.com", "twitter.com"] },
+  { id: "whatsapp", label: "WhatsApp", hosts: ["wa.me", "whatsapp.com"] },
+  { id: "youtube", label: "YouTube", hosts: ["youtube.com", "youtu.be"] },
 ];
 
 export function detectSocialPlatform(value = "") {
@@ -15,7 +18,7 @@ export function detectSocialPlatform(value = "") {
     const host = url.hostname.replace(/^www\./, "");
     return SOCIAL_LINK_PLATFORMS.find((platform) => platform.hosts.some((item) => host === item || host.endsWith(`.${item}`))) || null;
   } catch {
-    return SOCIAL_LINK_PLATFORMS.find((platform) => text.includes(platform.id)) || null;
+    return SOCIAL_LINK_PLATFORMS.find((platform) => text.includes(platform.id) || platform.hosts.some((host) => text.includes(host))) || null;
   }
 }
 

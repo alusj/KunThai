@@ -32,6 +32,7 @@ function buildProfileFromUser(user) {
     username: metadata.username ?? "",
     city: metadata.city ?? "",
     country: metadata.country ?? "",
+    address: metadata.address ?? "",
     email: metadata.contact_email ?? user?.email ?? "",
     phone: metadata.phone_number ?? user?.phone ?? "",
     avatarUrl: metadata.avatar_url ?? metadata.picture ?? "",
@@ -89,6 +90,7 @@ export async function updateOnboardingProfile(patch) {
     username: patch.username ?? current.username,
     city: patch.city ?? current.city,
     country: patch.country ?? current.country,
+    address: patch.address ?? current.address,
     contact_email: patch.email ?? current.email,
     phone_number: patch.phone ?? current.phone,
     avatar_url: patch.avatarUrl ?? current.avatarUrl,
@@ -117,6 +119,7 @@ export async function updateOnboardingProfile(patch) {
     email: profile.email,
     phone: profile.phone,
     dateOfBirth: profile.dateOfBirth,
+    address: profile.address,
     accountType: profile.accountType,
     avatarUrl: profile.avatarUrl,
     bio: profile.bio,
@@ -127,6 +130,8 @@ export async function updateOnboardingProfile(patch) {
     user_id: user.id,
     display_name: profile.displayName,
     username: profile.username,
+    contact_email: profile.email,
+    address: profile.address,
     avatar_url: profile.avatarUrl,
     bio: profile.bio || "",
     social_links: normalizeSocialLinks(profile.socialLinks),
@@ -136,9 +141,17 @@ export async function updateOnboardingProfile(patch) {
 
   let { error: profileError } = await supabase.from("explore_profiles").upsert(exploreProfilePayload, { onConflict: "user_id" });
 
-  if (profileError && isMissingColumn(profileError, "social_links")) {
-    const { social_links: _socialLinks, ...fallbackPayload } = exploreProfilePayload;
-    const fallback = await supabase.from("explore_profiles").upsert(fallbackPayload, { onConflict: "user_id" });
+  let nextExploreProfilePayload = exploreProfilePayload;
+
+  for (let attempt = 0; profileError && attempt < 3; attempt += 1) {
+    const missingOptionalColumn = ["social_links", "contact_email", "address"].find((column) => isMissingColumn(profileError, column));
+    if (!missingOptionalColumn) {
+      break;
+    }
+
+    const { [missingOptionalColumn]: _removed, ...fallbackPayload } = nextExploreProfilePayload;
+    nextExploreProfilePayload = fallbackPayload;
+    const fallback = await supabase.from("explore_profiles").upsert(nextExploreProfilePayload, { onConflict: "user_id" });
     profileError = fallback.error;
   }
 

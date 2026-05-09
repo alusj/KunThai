@@ -29,6 +29,7 @@ function normalizeProfile(profile) {
     username: profile?.username ?? "",
     city: profile?.city ?? "",
     country: profile?.country ?? "",
+    address: profile?.address ?? "",
     email: profile?.email ?? "",
     phone: profile?.phone ?? "",
     avatarUrl: profile?.avatarUrl ?? "",

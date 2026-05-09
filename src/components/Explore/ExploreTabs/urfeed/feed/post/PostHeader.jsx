@@ -33,6 +33,11 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
           <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
             @{post.author_username || "user"} · {formatRelativeTime(post.created_at)}
           </p>
+          {post.contextLabel ? (
+            <span className="mt-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">
+              {post.contextLabel}
+            </span>
+          ) : null}
         </div>
       </div>
 

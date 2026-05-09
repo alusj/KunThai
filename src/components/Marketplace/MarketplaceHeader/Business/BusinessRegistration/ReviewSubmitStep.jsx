@@ -22,6 +22,7 @@ export default function ReviewSubmitStep({ registration }) {
       <SummaryCard title="Location & Contact" onEdit={() => goToStep(1)}>
         <p>{form.location.city}, {form.location.country}</p>
         <p>{form.location.address}</p>
+        {form.location.website ? <p>{form.location.website}</p> : null}
         <p>{form.location.phone} · {form.location.email}</p>
       </SummaryCard>
 

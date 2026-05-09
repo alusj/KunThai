@@ -25,6 +25,7 @@ export default function FeedList({
   onViewActivity,
   onViewProfile,
   currentUserId,
+  actionsByScope,
   emptyTitle = "No posts yet",
   emptyMessage = "The feed is empty right now. Be the first to share something.",
 }) {
@@ -140,16 +141,16 @@ export default function FeedList({
             key={post.id}
             post={post}
             currentUserId={currentUserId}
-            liked={likedPosts?.has?.(post.id)}
-            saved={savedPosts?.has?.(post.id)}
-            onLike={() => onLike?.(post.id)}
-            onSave={() => onSave?.(post.id)}
-            onComment={(body) => onComment?.(post.id, body)}
-            onEdit={() => onEdit?.(post.id)}
-            onDelete={() => onDelete?.(post.id)}
-            onHide={() => onHide?.(post.id)}
-            onReport={() => onReport?.(post.id)}
-            onViewActivity={() => onViewActivity?.(post.id)}
+            liked={(actionsByScope?.[post.feed_scope || "feed"]?.likedPosts || likedPosts)?.has?.(post.id)}
+            saved={(actionsByScope?.[post.feed_scope || "feed"]?.savedPosts || savedPosts)?.has?.(post.id)}
+            onLike={() => (actionsByScope?.[post.feed_scope || "feed"]?.onLike || onLike)?.(post.id)}
+            onSave={() => (actionsByScope?.[post.feed_scope || "feed"]?.onSave || onSave)?.(post.id)}
+            onComment={(body) => (actionsByScope?.[post.feed_scope || "feed"]?.onComment || onComment)?.(post.id, body)}
+            onEdit={() => (actionsByScope?.[post.feed_scope || "feed"]?.onEdit || onEdit)?.(post.id)}
+            onDelete={() => (actionsByScope?.[post.feed_scope || "feed"]?.onDelete || onDelete)?.(post.id)}
+            onHide={() => (actionsByScope?.[post.feed_scope || "feed"]?.onHide || onHide)?.(post.id)}
+            onReport={() => (actionsByScope?.[post.feed_scope || "feed"]?.onReport || onReport)?.(post.id)}
+            onViewActivity={() => (actionsByScope?.[post.feed_scope || "feed"]?.onViewActivity || onViewActivity)?.(post.id)}
             onViewProfile={() =>
               onViewProfile?.({
                 userId: post.user_id || "",

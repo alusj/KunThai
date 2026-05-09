@@ -11,7 +11,7 @@ import {
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
-import { FaFacebookF, FaInstagram, FaTiktok } from "react-icons/fa";
+import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
 import Avatar from "../../shared/Avatar";
@@ -20,6 +20,9 @@ const platformIcons = {
   facebook: FaFacebookF,
   instagram: FaInstagram,
   tiktok: FaTiktok,
+  x: FaTwitter,
+  whatsapp: FaWhatsapp,
+  youtube: FaYoutube,
 };
 
 export default function ProfileHeaderCard({
@@ -88,50 +91,73 @@ export default function ProfileHeaderCard({
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarChange} className="hidden" />
           </div>
 
-          <div ref={menuRef} className="relative flex flex-wrap justify-end gap-2 pt-10">
-            {editable ? (
-              <button
-                type="button"
-                onClick={onEdit}
-                disabled={saving}
-                className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60"
-              >
-                <HiOutlinePencilSquare />
-                {editing ? (saving ? "Saving" : "Save") : "Edit"}
-              </button>
-            ) : (
-              <>
-                {!followed ? (
-                  <button
-                    type="button"
-                    onClick={onFollow}
-                    className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
-                  >
-                    Follow
-                  </button>
-                ) : null}
+          <div ref={menuRef} className="relative flex flex-col items-end gap-2 pt-10">
+            {socialLinks.length ? (
+              <div className="flex items-center justify-end gap-2">
+                {socialLinks.map((link) => {
+                  const Icon = platformIcons[link.platform];
+                  return Icon ? (
+                    <a
+                      key={link.id}
+                      href={/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={link.label || "Social profile"}
+                      aria-label={link.label || "Social profile"}
+                      className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-lg text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
+                    >
+                      <Icon />
+                    </a>
+                  ) : null;
+                })}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap justify-end gap-2">
+              {editable ? (
                 <button
                   type="button"
-                  onClick={onMessage}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"
-                  aria-label="Message profile"
+                  onClick={onEdit}
+                  disabled={saving}
+                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60"
                 >
-                  <HiOutlineChatBubbleLeftRight />
+                  <HiOutlinePencilSquare />
+                  {editing ? (saving ? "Saving" : "Save") : "Edit"}
                 </button>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => setMenuOpen((current) => !current)}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
-              aria-label="Open profile actions"
-              aria-expanded={menuOpen}
-            >
-              <HiOutlineEllipsisHorizontal />
-            </button>
+              ) : (
+                <>
+                  {!followed ? (
+                    <button
+                      type="button"
+                      onClick={onFollow}
+                      className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+                    >
+                      Follow
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={onMessage}
+                    className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"
+                    aria-label="Message profile"
+                  >
+                    <HiOutlineChatBubbleLeftRight />
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setMenuOpen((current) => !current)}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
+                aria-label="Open profile actions"
+                aria-expanded={menuOpen}
+              >
+                <HiOutlineEllipsisHorizontal />
+              </button>
+            </div>
 
             {menuOpen ? (
-              <div className="absolute right-0 top-20 z-20 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-sm font-black shadow-xl">
+              <div className="absolute right-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-sm font-black shadow-xl">
                 {!editable && followed ? (
                   <button
                     type="button"
@@ -191,26 +217,6 @@ export default function ProfileHeaderCard({
           </div>
           {values.username ? <p className="mt-1 text-sm font-bold text-slate-500">@{values.username}</p> : null}
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
-
-          {socialLinks.length ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {socialLinks.map((link) => {
-                const Icon = platformIcons[link.platform];
-                return (
-                  <a
-                    key={link.id}
-                    href={/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-100 px-3 text-sm font-black text-slate-700 hover:bg-sky-50 hover:text-sky-700"
-                  >
-                    {Icon ? <Icon /> : null}
-                    {link.label || "Social"}
-                  </a>
-                );
-              })}
-            </div>
-          ) : null}
 
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
             <div className="rounded-2xl bg-slate-50 px-3 py-2">

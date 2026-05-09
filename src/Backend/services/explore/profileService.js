@@ -9,9 +9,10 @@ function toAppProfile(row, fallback = {}) {
     userId: row?.user_id || fallback.userId || "",
     displayName: row?.display_name || fallback.displayName || "Profile",
     username: row?.username || fallback.username || "",
-    email: fallback.email || "",
+    email: row?.contact_email || fallback.email || "",
     phone: fallback.phone || "",
     dateOfBirth: fallback.dateOfBirth || "",
+    address: row?.address || fallback.address || "",
     accountType: row?.account_type || fallback.accountType || "personal",
     avatarUrl: row?.avatar_url || fallback.avatarUrl || "",
     bio: row?.bio || fallback.bio || "",
@@ -38,6 +39,8 @@ async function upsertExploreProfile(userId, profile) {
     user_id: userId,
     display_name: profile.displayName,
     username: profile.username,
+    contact_email: profile.email || "",
+    address: profile.address || "",
     avatar_url: profile.avatarUrl,
     bio: profile.bio || "",
     social_links: normalizeSocialLinks(profile.socialLinks),
@@ -45,13 +48,26 @@ async function upsertExploreProfile(userId, profile) {
     updated_at: new Date().toISOString(),
   };
 
-  let { data, error } = await supabase.from("explore_profiles").upsert(payload, { onConflict: "user_id" }).select().maybeSingle();
+  let nextPayload = payload;
+  let data = null;
+  let error = null;
 
-  if (error && isMissingColumn(error, "social_links")) {
-    const { social_links: _socialLinks, ...fallbackPayload } = payload;
-    const fallback = await supabase.from("explore_profiles").upsert(fallbackPayload, { onConflict: "user_id" }).select().maybeSingle();
-    data = fallback.data;
-    error = fallback.error;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const result = await supabase.from("explore_profiles").upsert(nextPayload, { onConflict: "user_id" }).select().maybeSingle();
+    data = result.data;
+    error = result.error;
+
+    if (!error) {
+      break;
+    }
+
+    const missingOptionalColumn = ["social_links", "contact_email", "address"].find((column) => isMissingColumn(error, column));
+    if (!missingOptionalColumn) {
+      break;
+    }
+
+    const { [missingOptionalColumn]: _removed, ...fallbackPayload } = nextPayload;
+    nextPayload = fallbackPayload;
   }
 
   if (error) {
@@ -152,6 +168,7 @@ export async function updateExploreProfile(patch) {
     contact_email: nextProfile.email,
     phone_number: nextProfile.phone,
     date_of_birth: nextProfile.dateOfBirth,
+    address: nextProfile.address || "",
     account_type: nextProfile.accountType,
     bio: nextProfile.bio || "",
     social_links: normalizeSocialLinks(nextProfile.socialLinks),
@@ -170,6 +187,8 @@ export async function updateExploreProfile(patch) {
     userId: user.id,
     displayName: authData.display_name || user.email || "",
     username: authData.username || user.email?.split("@")[0] || "",
+    email: authData.contact_email || user.email || "",
+    address: authData.address || "",
     avatarUrl: avatarUrl || getMetadataAvatar(data.user?.user_metadata || authData),
     socialLinks: normalizeSocialLinks(authData.social_links),
     avatarWarning,

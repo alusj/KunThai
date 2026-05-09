@@ -1,5 +1,5 @@
-import { Camera, CheckCircle2, Mail, Phone, ShieldCheck } from "lucide-react";
-import { FaFacebookF, FaInstagram, FaTiktok } from "react-icons/fa";
+import { Camera, CheckCircle2, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { detectSocialPlatform, normalizeSocialLinks } from "../../Backend/services/explore/socialLinks";
 import OnboardingFrame from "./OnboardingFrame";
@@ -61,6 +61,9 @@ const platformIcons = {
   facebook: FaFacebookF,
   instagram: FaInstagram,
   tiktok: FaTiktok,
+  x: FaTwitter,
+  whatsapp: FaWhatsapp,
+  youtube: FaYoutube,
 };
 
 function SocialLinkInput({ index, onChange, value }) {
@@ -79,7 +82,7 @@ function SocialLinkInput({ index, onChange, value }) {
         <input
           value={value?.url || ""}
           onChange={(event) => onChange(index, event.target.value)}
-          placeholder="https://facebook.com/yourprofile"
+          placeholder="Paste Facebook, TikTok, Instagram, X, WhatsApp, or YouTube link"
           className="h-12 min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none"
         />
       </div>
@@ -214,6 +217,16 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
             </label>
           </div>
 
+          <label className="mt-5 block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Address</span>
+            <input
+              value={values.address || ""}
+              onChange={(event) => onChange("address", event.target.value)}
+              placeholder="Street, area, or delivery address"
+              className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
+            />
+          </label>
+
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <label className="block sm:col-span-1">
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Username</span>
@@ -305,6 +318,10 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
               <p className="flex items-center gap-2">
                 <Phone size={15} />
                 {values.phone || "+232 phone number"}
+              </p>
+              <p className="flex items-center gap-2">
+                <MapPin size={15} />
+                {values.address || "Address"}
               </p>
               <p>
                 {values.city || "City"}, {values.country || "Country"}

@@ -27,7 +27,7 @@ export default function BusinessRegistration({ onComplete }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-10 xl:px-14">
         <div className="mb-6">
           <p className="text-sm font-black uppercase text-blue-700">Seller Registration</p>
           <h1 className="mt-1 text-2xl font-black text-gray-950">Create your business profile</h1>
@@ -36,7 +36,7 @@ export default function BusinessRegistration({ onComplete }) {
           </p>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
           <main className="space-y-4">
             <RegistrationProgress step={registration.step} />
 
@@ -47,33 +47,46 @@ export default function BusinessRegistration({ onComplete }) {
               </div>
             </section>
 
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
                 onClick={registration.back}
                 disabled={registration.step === 0}
-                className="rounded-lg border border-gray-200 px-4 py-3 text-sm font-black text-gray-700 disabled:opacity-40"
+                className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Back
               </button>
-              {registration.step < 4 ? (
-                <button
-                  type="button"
-                  onClick={registration.next}
-                  className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-700"
-                >
-                  Continue
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={registration.submit}
-                  disabled={registration.submitting}
-                  className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
-                >
-                  {registration.submitting ? "Submitting..." : "Submit Business"}
-                </button>
-              )}
+
+              <div className="flex flex-col gap-2 sm:items-end">
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={registration.saveDraft}
+                    className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+                  >
+                    Save Draft
+                  </button>
+                  {registration.step < 4 ? (
+                    <button
+                      type="button"
+                      onClick={registration.next}
+                      className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-700"
+                    >
+                      Continue
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={registration.submit}
+                      disabled={registration.submitting}
+                      className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {registration.submitting ? "Submitting..." : "Submit Business"}
+                    </button>
+                  )}
+                </div>
+                {registration.draftStatus ? <p className="text-xs font-bold text-blue-700">{registration.draftStatus}</p> : null}
+              </div>
             </div>
             {registration.errors.submit ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">

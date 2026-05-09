@@ -70,6 +70,7 @@ export function buildExploreProfileFromUser(user) {
     email: metadata.contact_email || cached.email || user?.email || "",
     phone: metadata.phone_number || cached.phone || user?.phone || "",
     dateOfBirth: metadata.date_of_birth || cached.dateOfBirth || "",
+    address: metadata.address || cached.address || "",
     accountType: metadata.account_type || cached.accountType || "personal",
     avatarUrl,
     bio: cached.bio || metadata.bio || "",

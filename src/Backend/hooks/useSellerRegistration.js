@@ -7,16 +7,109 @@ import {
   submitSellerRegistration,
 } from "../services/marketplace/sellerRegistrationService";
 
+const DRAFT_KEY = "marketplace-seller-registration-draft";
+
+function cloneInitialRegistration() {
+  return {
+    identity: { ...INITIAL_REGISTRATION.identity, categories: [...INITIAL_REGISTRATION.identity.categories] },
+    location: { ...INITIAL_REGISTRATION.location },
+    operations: { ...INITIAL_REGISTRATION.operations },
+    trustPayout: { ...INITIAL_REGISTRATION.trustPayout },
+  };
+}
+
+function sanitizeDraftForm(form) {
+  return {
+    identity: {
+      ...form.identity,
+      categories: Array.isArray(form.identity.categories) ? form.identity.categories : [],
+      logoFile: null,
+      logoName: "",
+      bannerFile: null,
+      bannerName: "",
+    },
+    location: { ...form.location },
+    operations: { ...form.operations },
+    trustPayout: {
+      ...form.trustPayout,
+      idDocumentFile: null,
+      idDocumentName: "",
+      businessDocumentFile: null,
+      businessDocumentName: "",
+    },
+  };
+}
+
+function readDraft() {
+  try {
+    const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+    if (!draft?.form) return null;
+    const initial = cloneInitialRegistration();
+
+    return {
+      step: Math.min(Math.max(Number(draft.step || 0), 0), 4),
+      savedAt: draft.savedAt || "",
+      form: {
+        identity: { ...initial.identity, ...draft.form.identity, categories: Array.isArray(draft.form.identity?.categories) ? draft.form.identity.categories : [] },
+        location: { ...initial.location, ...draft.form.location },
+        operations: { ...initial.operations, ...draft.form.operations },
+        trustPayout: { ...initial.trustPayout, ...draft.form.trustPayout },
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatCoordinates(latitude, longitude) {
+  return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+}
+
+async function reverseGeocode(latitude, longitude) {
+  const fallback = {
+    address: formatCoordinates(latitude, longitude),
+    city: "",
+    country: "",
+  };
+
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`,
+      { headers: { Accept: "application/json" } },
+    );
+
+    if (!response.ok) return fallback;
+
+    const data = await response.json();
+    const address = data?.address || {};
+    const city = address.city || address.town || address.village || address.county || "";
+
+    return {
+      address: data?.display_name || fallback.address,
+      city,
+      country: address.country || "",
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 export function useSellerRegistration({ onComplete } = {}) {
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState(INITIAL_REGISTRATION);
+  const draft = readDraft();
+  const [step, setStep] = useState(draft?.step ?? 0);
+  const [form, setForm] = useState(draft?.form ?? cloneInitialRegistration());
   const [errors, setErrors] = useState({});
   const [locationStatus, setLocationStatus] = useState("");
+  const [locationPromptOpen, setLocationPromptOpen] = useState(false);
+  const [locationCandidate, setLocationCandidate] = useState(null);
+  const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [draftStatus, setDraftStatus] = useState(draft?.savedAt ? `Draft saved ${new Date(draft.savedAt).toLocaleString()}` : "");
 
   const readinessScore = useMemo(() => calculateReadinessScore(form), [form]);
 
   function updateSection(section, patch) {
+    setDraftStatus("");
     setForm((current) => ({
       ...current,
       [section]: {
@@ -117,31 +210,86 @@ export function useSellerRegistration({ onComplete } = {}) {
   }
 
   function goToStep(nextStep) {
+    setDraftStatus("");
     setStep(nextStep);
   }
 
+  function saveDraft() {
+    const payload = {
+      step,
+      form: sanitizeDraftForm(form),
+      savedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+    setDraftStatus(`Draft saved ${new Date(payload.savedAt).toLocaleString()}`);
+    setErrors((current) => ({ ...current, submit: "" }));
+  }
+
   function locateBusiness() {
+    setLocationPromptOpen(true);
+    setLocationCandidate(null);
+    setLocationStatus("");
+  }
+
+  function closeLocationPrompt() {
+    setLocationPromptOpen(false);
+    setLocationCandidate(null);
+    setLocating(false);
+  }
+
+  function detectBusinessLocation() {
     if (!navigator.geolocation) {
       setLocationStatus("Location is not supported on this device.");
       return;
     }
 
+    setLocating(true);
     setLocationStatus("Locating your business...");
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        updateSection("location", {
+      async (position) => {
+        const coordinates = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        const resolved = await reverseGeocode(coordinates.latitude, coordinates.longitude);
+
+        setLocationCandidate({
+          ...resolved,
           coordinates: {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           },
         });
-        setLocationStatus("Location detected.");
+        setLocationStatus(`Your current location is ${resolved.address}.`);
+        setLocating(false);
       },
       () => {
         setLocationStatus("Location permission denied. You can enter address manually.");
+        setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
+  }
+
+  function acceptDetectedLocation() {
+    if (!locationCandidate) return;
+
+    updateSection("location", {
+      address: locationCandidate.address,
+      city: locationCandidate.city || form.location.city,
+      country: locationCandidate.country || form.location.country,
+      coordinates: locationCandidate.coordinates,
+    });
+    setLocationStatus(`Location added: ${locationCandidate.address}`);
+    setLocationPromptOpen(false);
+    setLocationCandidate(null);
+  }
+
+  function enterLocationManually() {
+    setLocationStatus("Enter the business address manually.");
+    setLocationPromptOpen(false);
+    setLocationCandidate(null);
   }
 
   function skipTrustPayout() {
@@ -166,6 +314,7 @@ export function useSellerRegistration({ onComplete } = {}) {
     setSubmitting(true);
     try {
       const business = await submitSellerRegistration(form);
+      localStorage.removeItem(DRAFT_KEY);
       onComplete?.(business);
     } catch (error) {
       setErrors((current) => ({
@@ -184,16 +333,25 @@ export function useSellerRegistration({ onComplete } = {}) {
     errors,
     readinessScore,
     locationStatus,
+    locationPromptOpen,
+    locationCandidate,
+    locating,
     submitting,
     updateSection,
     toggleCategory,
     updateOtherCategory,
     addOtherCategory,
     locateBusiness,
+    closeLocationPrompt,
+    detectBusinessLocation,
+    acceptDetectedLocation,
+    enterLocationManually,
     skipTrustPayout,
+    saveDraft,
     next,
     back,
     goToStep,
     submit,
+    draftStatus,
   };
 }
