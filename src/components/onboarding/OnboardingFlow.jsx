@@ -32,6 +32,7 @@ function normalizeProfile(profile) {
     email: profile?.email ?? "",
     phone: profile?.phone ?? "",
     avatarUrl: profile?.avatarUrl ?? "",
+    socialLinks: profile?.socialLinks ?? [],
     provider: profile?.provider ?? "email",
     providerName: profile?.providerName ?? "Email",
     accountType: profile?.accountType ?? "personal",

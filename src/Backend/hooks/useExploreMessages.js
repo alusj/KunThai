@@ -9,6 +9,7 @@ import {
   setExploreMessageActivity,
   startExploreConversation,
 } from "../services/explore/messageService";
+import { readExploreSettings } from "../services/explore/preferencesService";
 
 export function useExploreMessages(currentProfile, initialRecipient) {
   const currentUserId = currentProfile?.userId || "";
@@ -48,11 +49,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   function openConversation(conversation) {
     setActiveConversation(conversation);
     setMessages(fetchExploreMessages(conversation.id));
-    markExploreConversationRead(conversation.id, currentUserId);
+    if (readExploreSettings().messages.readReceipts) {
+      markExploreConversationRead(conversation.id, currentUserId);
+    }
     setConversations(fetchExploreConversations(currentUserId));
   }
 
   function closeConversation() {
+    setActivity("active");
     setActiveConversation(null);
     setMessages([]);
     reload();
@@ -67,6 +71,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   }
 
   function setActivity(activity) {
+    const settings = readExploreSettings().messages;
+    if (activity === "typing" && !settings.showTypingStatus) return;
+    if (activity === "recording" && !settings.allowVoiceNotes) return;
+    if (activity === "active" && !settings.showActiveStatus) return;
     setExploreMessageActivity(activeConversation?.id, currentUserId, activity);
   }
 

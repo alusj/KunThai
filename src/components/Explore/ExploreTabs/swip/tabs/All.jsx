@@ -2,11 +2,11 @@ import { useExploreFeed } from "../../../../../Backend/hooks/useExploreFeed";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import VideoCard from "../videos/VideoCard";
-import { filterSwipVideos } from "../videos/swipUtils";
+import { getSwipContext, getVideoCategoryLabel, getSwipVideos } from "../videos/swipUtils";
 
-export default function All({ category = "all", currentUserId = "", onlyUserId = "", onViewProfile }) {
+export default function All({ currentUserId = "", onlyUserId = "", onViewProfile }) {
   const feed = useExploreFeed("swip");
-  const videos = filterSwipVideos(feed.posts, category, onlyUserId);
+  const videos = getSwipVideos(feed.posts, onlyUserId);
 
   if (feed.error) {
     return (
@@ -20,7 +20,7 @@ export default function All({ category = "all", currentUserId = "", onlyUserId =
     return (
       <div className="p-4">
         <EmptyState
-          title={category === "all" ? "No Swip videos yet" : "No videos in this category yet"}
+          title="No Swip videos yet"
           message="Videos you post from the composer will appear in Swip automatically."
         />
       </div>
@@ -33,6 +33,8 @@ export default function All({ category = "all", currentUserId = "", onlyUserId =
         <VideoCard
           key={post.id}
           post={post}
+          contextLabel={getSwipContext(post, currentUserId)}
+          categoryLabel={getVideoCategoryLabel(post)}
           currentUserId={currentUserId}
           liked={feed.likedPosts.has(post.id)}
           saved={feed.savedPosts.has(post.id)}

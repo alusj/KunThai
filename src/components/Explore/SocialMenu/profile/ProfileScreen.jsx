@@ -180,7 +180,7 @@ export default function ProfileScreen({
         />
       ) : null}
 
-      <div className="w-full space-y-4 px-4 py-4 sm:px-5">
+      <div className="w-full space-y-4 px-4 py-4 sm:px-6 lg:px-8">
         <ProfileHeaderCard
           editable={editable}
           editing={editing}
@@ -208,7 +208,7 @@ export default function ProfileScreen({
 
         <ProfileTabs active={postTab} editable={editable} onChange={setPostTab} />
 
-        <section className="space-y-4">
+        <section className="w-full space-y-4">
           {postTab === "feed" ? renderFeedPosts() : null}
           {postTab === "swip" ? renderSwipPosts() : null}
           {postTab === "saved" && editable ? <SavedPostsScreen currentUserId={currentUserId} hideHeader /> : null}

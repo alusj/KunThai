@@ -8,12 +8,23 @@ import {
   markExploreNotificationRead,
   NOTIFICATION_EVENT,
 } from "../services/exploreService";
+import { readExploreSettings } from "../services/explore/preferencesService";
 
 function normalizeNotification(item) {
   return {
     ...item,
     time_label: item.time_label || formatRelativeTime(item.created_at),
   };
+}
+
+function notificationEnabled(item) {
+  const settings = readExploreSettings().notifications;
+  if (item.type === "like" || item.type === "save") return settings.reactions;
+  if (item.type === "comment" || item.type === "mention") return settings.comments;
+  if (item.type === "follow") return settings.follows;
+  if (item.type === "post") return settings.followedPosts;
+  if (item.type === "message") return settings.messages;
+  return settings.safetyAlerts;
 }
 
 export function useExploreNotifications() {
@@ -32,7 +43,7 @@ export function useExploreNotifications() {
         setError("");
         const nextItems = await fetchExploreNotifications();
         if (active) {
-          setNotifications(nextItems);
+          setNotifications(nextItems.filter(notificationEnabled));
         }
       } catch (err) {
         if (active) {
@@ -69,6 +80,7 @@ export function useExploreNotifications() {
             }
 
             const nextItem = normalizeNotification(payload.new);
+            if (!notificationEnabled(nextItem)) return;
             setNotifications((current) => [nextItem, ...current.filter((item) => item.id !== nextItem.id)]);
           },
         )
@@ -102,6 +114,9 @@ export function useExploreNotifications() {
       }
 
       const nextItem = normalizeNotification(event.detail);
+      if (!notificationEnabled(nextItem)) {
+        return;
+      }
       setNotifications((current) => [nextItem, ...current.filter((item) => item.id !== nextItem.id)]);
     }
 

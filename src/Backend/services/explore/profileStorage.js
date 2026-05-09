@@ -1,12 +1,24 @@
 import { PROFILE_STORAGE_PREFIX } from "./constants";
+import { normalizeSocialLinks } from "./socialLinks";
+
+const LAST_PROFILE_KEY = `${PROFILE_STORAGE_PREFIX}-last`;
 
 function getProfileStorageKey(userId) {
   return `${PROFILE_STORAGE_PREFIX}-${userId}`;
 }
 
+export function readLastStoredProfile() {
+  try {
+    const value = JSON.parse(localStorage.getItem(LAST_PROFILE_KEY) || "{}");
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+}
+
 export function readStoredProfile(userId) {
   if (!userId) {
-    return {};
+    return readLastStoredProfile();
   }
 
   try {
@@ -22,7 +34,13 @@ export function writeStoredProfile(userId, profile) {
     return;
   }
 
-  localStorage.setItem(getProfileStorageKey(userId), JSON.stringify(profile));
+  const normalized = {
+    ...profile,
+    socialLinks: normalizeSocialLinks(profile?.socialLinks),
+  };
+
+  localStorage.setItem(getProfileStorageKey(userId), JSON.stringify(normalized));
+  localStorage.setItem(LAST_PROFILE_KEY, JSON.stringify(normalized));
 }
 
 export function getMetadataAvatar(metadata = {}) {
@@ -41,9 +59,9 @@ export function getMetadataAvatar(metadata = {}) {
 export function buildExploreProfileFromUser(user) {
   const metadata = user?.user_metadata || {};
   const cached = readStoredProfile(user?.id);
-  const displayName = cached.displayName || metadata.display_name || metadata.full_name || metadata.name || user?.email || "Profile";
+  const displayName = cached.displayName || metadata.display_name || metadata.full_name || metadata.name || user?.email || "";
   const username = cached.username || metadata.username || user?.email?.split("@")[0] || "";
-  const avatarUrl = getMetadataAvatar(metadata) || cached.avatarUrl || "";
+  const avatarUrl = cached.avatarUrl || getMetadataAvatar(metadata) || "";
 
   return {
     userId: user?.id || "",
@@ -54,5 +72,7 @@ export function buildExploreProfileFromUser(user) {
     dateOfBirth: metadata.date_of_birth || cached.dateOfBirth || "",
     accountType: metadata.account_type || cached.accountType || "personal",
     avatarUrl,
+    bio: cached.bio || metadata.bio || "",
+    socialLinks: normalizeSocialLinks(cached.socialLinks || metadata.social_links),
   };
 }

@@ -1,5 +1,4 @@
-export const SWIP_CATEGORIES = [
-  { id: "all", label: "All" },
+const SWIP_CATEGORIES = [
   { id: "entertainment", label: "Entertainment" },
   { id: "connections", label: "Connections" },
   { id: "religious", label: "Religious" },
@@ -13,10 +12,27 @@ export function getVideoCategory(post) {
     .join(" ")
     .toLowerCase();
 
-  return SWIP_CATEGORIES.find((category) => category.id !== "all" && text.includes(category.id))?.id || "all";
+  return SWIP_CATEGORIES.find((category) => text.includes(category.id))?.id || "";
 }
 
-export function filterSwipVideos(posts, categoryId, onlyUserId = "") {
+export function getVideoCategoryLabel(post) {
+  const category = getVideoCategory(post);
+  return SWIP_CATEGORIES.find((item) => item.id === category)?.label || "";
+}
+
+export function getSwipContext(post, currentUserId = "") {
+  if (currentUserId && post?.user_id === currentUserId) {
+    return "Your Swip";
+  }
+
+  if (post?.isFollowing || post?.feed_scope === "connections" || post?.source === "circle") {
+    return "From your circle";
+  }
+
+  return "Suggested";
+}
+
+export function getSwipVideos(posts, onlyUserId = "") {
   return (posts || []).filter((post) => {
     if (!post.video_url) {
       return false;
@@ -26,10 +42,6 @@ export function filterSwipVideos(posts, categoryId, onlyUserId = "") {
       return false;
     }
 
-    if (categoryId === "all") {
-      return true;
-    }
-
-    return getVideoCategory(post) === categoryId;
+    return true;
   });
 }

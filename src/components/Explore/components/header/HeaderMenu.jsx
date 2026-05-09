@@ -6,7 +6,6 @@ import { signOutSocialSession, switchSocialAccount } from "../../../../Backend/s
 import MenuSection from "./menu/MenuSection";
 import ActivityMenuItem from "./menu/items/ActivityMenuItem";
 import ConnectionsMenuItem from "./menu/items/ConnectionsMenuItem";
-import FutureFeaturesMenuItem from "./menu/items/FutureFeaturesMenuItem";
 import HelpCenterMenuItem from "./menu/items/HelpCenterMenuItem";
 import MessagesMenuItem from "./menu/items/MessagesMenuItem";
 import MyPostsMenuItem from "./menu/items/MyPostsMenuItem";
@@ -33,7 +32,6 @@ export function SocialMenuContent({ onClose, onNavigate }) {
       settings: "Settings",
       "help-center": "HelpCenter",
       "terms-policies": "TermsPolicies",
-      "future-features": "FutureFeatures",
     };
 
     if (navigationMap[target]) {
@@ -74,10 +72,6 @@ export function SocialMenuContent({ onClose, onNavigate }) {
         <MenuSection title="Support">
           <HelpCenterMenuItem onSelect={handleSelect} />
           <TermsPoliciesMenuItem onSelect={handleSelect} />
-        </MenuSection>
-
-        <MenuSection title="Roadmap">
-          <FutureFeaturesMenuItem onSelect={handleSelect} />
         </MenuSection>
       </div>
 

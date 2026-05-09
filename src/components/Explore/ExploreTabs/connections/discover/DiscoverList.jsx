@@ -2,7 +2,7 @@ import ConnectionCard from "../components/ConnectionCard";
 
 export default function DiscoverList({ mode = "discover", onBlock, onFollow, onRemove, onViewProfile, users }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {users.map((user) => (
         <ConnectionCard
           key={user.id}

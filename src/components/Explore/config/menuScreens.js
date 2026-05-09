@@ -25,9 +25,7 @@ export const MENU_SCREENS = {
   },
   Messages: {
     title: "Messages",
-    subtitle: "Your Explore conversations will appear here.",
-    emptyTitle: "Messages are coming soon",
-    emptyMessage: "Soon you will be able to chat with people from your circle without leaving Explore.",
+    subtitle: "Private Explore conversations and message requests.",
   },
   Connections: {
     title: "Connections",
@@ -36,14 +34,10 @@ export const MENU_SCREENS = {
   Privacy: {
     title: "Privacy",
     subtitle: "Control who can see your social activity.",
-    emptyTitle: "Privacy controls are coming soon",
-    emptyMessage: "Account visibility, post audience, and interaction controls will live here.",
   },
   Settings: {
     title: "Settings",
     subtitle: "Tune your Explore experience.",
-    emptyTitle: "Settings are coming soon",
-    emptyMessage: "Notification preferences, account options, and Explore defaults will live here.",
   },
   HelpCenter: {
     title: "Help Center",
@@ -52,10 +46,6 @@ export const MENU_SCREENS = {
   TermsPolicies: {
     title: "Terms & Policies",
     subtitle: "Understand your rights, responsibilities, and safety rules.",
-  },
-  FutureFeatures: {
-    title: "Future Features",
-    subtitle: "The advanced Explore roadmap for features we will build after the core experience is strong.",
   },
   ViewedProfile: {
     title: "Profile",

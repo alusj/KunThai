@@ -4,7 +4,7 @@ import Avatar from "../../../../shared/Avatar";
 
 export default function CompactComposer({ profile, creating, onOpen, onQuickMedia, onQuickVoice, onSubmit }) {
   return (
-    <div className="mt-4 w-full min-w-0 px-3 sm:px-5">
+    <div className="mt-4 w-full min-w-0 px-3 sm:px-5 lg:px-8">
       <div className="flex w-full min-w-0 items-center gap-2 rounded-[20px] border border-slate-200 bg-white p-2.5 shadow-sm sm:p-3">
         <div className="flex-none">
           <Avatar name={profile?.displayName || "KunThai"} src={profile?.avatarUrl} size="sm" />

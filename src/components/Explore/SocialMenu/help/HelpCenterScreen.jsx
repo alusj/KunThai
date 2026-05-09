@@ -147,13 +147,13 @@ export default function HelpCenterScreen({ hideHeader = false }) {
             </div>
           </div>
 
-          <label className="mt-5 flex h-13 items-center gap-3 rounded-[22px] bg-slate-100 px-4">
+          <label className="mt-5 flex h-14 items-center gap-3 rounded-[22px] bg-slate-100 px-4">
             <HiOutlineMagnifyingGlass className="text-xl text-slate-500" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search profile, Swip, privacy, marketplace, transport..."
-              className="h-13 min-w-0 flex-1 bg-transparent text-base font-bold text-slate-800 outline-none placeholder:text-slate-400"
+              className="h-14 min-w-0 flex-1 bg-transparent text-base font-bold text-slate-800 outline-none placeholder:text-slate-400"
             />
           </label>
         </section>

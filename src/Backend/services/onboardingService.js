@@ -1,4 +1,7 @@
 import supabase from "../lib/supabaseClient";
+import { isMissingColumn, isMissingTable } from "./explore/errors";
+import { writeStoredProfile } from "./explore/profileStorage";
+import { normalizeSocialLinks } from "./explore/socialLinks";
 
 const DEFAULT_NAV = "explore";
 
@@ -32,6 +35,8 @@ function buildProfileFromUser(user) {
     email: metadata.contact_email ?? user?.email ?? "",
     phone: metadata.phone_number ?? user?.phone ?? "",
     avatarUrl: metadata.avatar_url ?? metadata.picture ?? "",
+    bio: metadata.bio ?? "",
+    socialLinks: normalizeSocialLinks(metadata.social_links),
     provider,
     providerName,
     accountType: metadata.account_type ?? "personal",
@@ -87,6 +92,8 @@ export async function updateOnboardingProfile(patch) {
     contact_email: patch.email ?? current.email,
     phone_number: patch.phone ?? current.phone,
     avatar_url: patch.avatarUrl ?? current.avatarUrl,
+    bio: patch.bio ?? current.bio,
+    social_links: normalizeSocialLinks(patch.socialLinks ?? current.socialLinks),
     account_type: patch.accountType ?? current.accountType,
     interests: patch.interests ?? current.interests,
     primary_surface: patch.primarySurface ?? current.primarySurface,
@@ -102,7 +109,44 @@ export async function updateOnboardingProfile(patch) {
     throw error;
   }
 
-  return buildProfileFromUser(data.user);
+  const profile = buildProfileFromUser(data.user);
+  writeStoredProfile(user.id, {
+    userId: user.id,
+    displayName: profile.displayName,
+    username: profile.username,
+    email: profile.email,
+    phone: profile.phone,
+    dateOfBirth: profile.dateOfBirth,
+    accountType: profile.accountType,
+    avatarUrl: profile.avatarUrl,
+    bio: profile.bio,
+    socialLinks: profile.socialLinks,
+  });
+
+  const exploreProfilePayload = {
+    user_id: user.id,
+    display_name: profile.displayName,
+    username: profile.username,
+    avatar_url: profile.avatarUrl,
+    bio: profile.bio || "",
+    social_links: normalizeSocialLinks(profile.socialLinks),
+    account_type: profile.accountType || "personal",
+    updated_at: new Date().toISOString(),
+  };
+
+  let { error: profileError } = await supabase.from("explore_profiles").upsert(exploreProfilePayload, { onConflict: "user_id" });
+
+  if (profileError && isMissingColumn(profileError, "social_links")) {
+    const { social_links: _socialLinks, ...fallbackPayload } = exploreProfilePayload;
+    const fallback = await supabase.from("explore_profiles").upsert(fallbackPayload, { onConflict: "user_id" });
+    profileError = fallback.error;
+  }
+
+  if (profileError && !isMissingTable(profileError)) {
+    throw profileError;
+  }
+
+  return profile;
 }
 
 export async function markOnboardingComplete(profile) {

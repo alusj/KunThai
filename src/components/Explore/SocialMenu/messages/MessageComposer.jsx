@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { HiOutlinePaperAirplane, HiOutlinePhoto, HiOutlineMicrophone } from "react-icons/hi2";
 
+import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
+
 function formatRecordingTime(seconds) {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -8,6 +10,9 @@ function formatRecordingTime(seconds) {
 }
 
 export default function MessageComposer({ onActivity, onSend }) {
+  const messageSettings = readExploreSettings().messages;
+  const showTypingStatus = messageSettings.showTypingStatus !== false;
+  const allowVoiceNotes = messageSettings.allowVoiceNotes !== false;
   const [value, setValue] = useState("");
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -17,10 +22,10 @@ export default function MessageComposer({ onActivity, onSend }) {
       return undefined;
     }
 
-    onActivity?.("recording");
+    if (allowVoiceNotes) onActivity?.("recording");
     const interval = window.setInterval(() => {
       setRecordingSeconds((current) => current + 1);
-      onActivity?.("recording");
+      if (allowVoiceNotes) onActivity?.("recording");
     }, 1000);
 
     return () => window.clearInterval(interval);
@@ -37,10 +42,12 @@ export default function MessageComposer({ onActivity, onSend }) {
 
   function updateValue(nextValue) {
     setValue(nextValue);
-    onActivity?.(nextValue.trim() ? "typing" : "active");
+    onActivity?.(showTypingStatus && nextValue.trim() ? "typing" : "active");
   }
 
   function toggleRecording() {
+    if (!allowVoiceNotes) return;
+
     setRecording((current) => {
       const next = !current;
       if (next) {
@@ -73,14 +80,16 @@ export default function MessageComposer({ onActivity, onSend }) {
         placeholder="Write a message..."
         className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none"
       />
-      <button
-        type="button"
-        onClick={toggleRecording}
-        className={`flex h-11 w-11 items-center justify-center rounded-2xl text-lg ${recording ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}`}
-        aria-label={recording ? "Stop recording voice note" : "Record voice note"}
-      >
-        <HiOutlineMicrophone />
-      </button>
+      {allowVoiceNotes ? (
+        <button
+          type="button"
+          onClick={toggleRecording}
+          className={`flex h-11 w-11 items-center justify-center rounded-2xl text-lg ${recording ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}`}
+          aria-label={recording ? "Stop recording voice note" : "Record voice note"}
+        >
+          <HiOutlineMicrophone />
+        </button>
+      ) : null}
       <button
         type="submit"
         disabled={!value.trim()}

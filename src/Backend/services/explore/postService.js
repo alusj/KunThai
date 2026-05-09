@@ -84,8 +84,8 @@ export async function createExplorePost(input, scope = "feed") {
 
   const draft = {
     user_id: user.id,
-    author_name: profile.displayName || "KunThai user",
-    author_username: profile.username || "user",
+    author_name: profile.displayName || user.email || "Profile",
+    author_username: profile.username || user.email?.split("@")[0] || "",
     author_avatar_url: profile.avatarUrl || "",
     feed_scope: feedScope,
     body: trimmedBody,

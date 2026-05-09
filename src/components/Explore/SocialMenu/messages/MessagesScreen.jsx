@@ -34,7 +34,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
         <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Explore Messages</p>
           <h3 className="mt-1 text-xl font-black text-slate-950">Inbox</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Start chats from profiles. Media messages and read receipts are staged for later.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Start chats from profiles, see live activity, and manage message requests from one place.</p>
         </div>
 
         <MessageTabs

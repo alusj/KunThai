@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineSpeakerWave, HiOutlineSpeakerXMark, HiOutlineXMark } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
+import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { sharePost } from "../../urfeed/feed/post/postUtils";
 import SwipActionRail from "./SwipActionRail";
@@ -9,9 +10,12 @@ import SwipCaption from "./SwipCaption";
 
 const SWIP_VIDEO_SOUND_EVENT = "swip-video-sound";
 let swipSoundMuted = true;
+let swipSettingsLoaded = false;
 
 export default function VideoCard({
   post,
+  categoryLabel = "",
+  contextLabel = "",
   currentUserId = "",
   liked,
   saved,
@@ -24,7 +28,13 @@ export default function VideoCard({
 }) {
   const [commentOpen, setCommentOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [muted, setMuted] = useState(true);
+  if (!swipSettingsLoaded) {
+    swipSoundMuted = readExploreSettings().video.defaultMuted;
+    swipSettingsLoaded = true;
+  }
+
+  const videoSettings = readExploreSettings().video;
+  const [muted, setMuted] = useState(swipSoundMuted);
   const [message, setMessage] = useState("");
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
@@ -95,7 +105,9 @@ export default function VideoCard({
         if (entry.isIntersecting) {
           activeRef.current = true;
           video.muted = swipSoundMuted;
-          video.play().catch(() => {});
+          if (videoSettings.autoplay && !videoSettings.reduceData) {
+            video.play().catch(() => {});
+          }
           return;
         }
 
@@ -108,7 +120,7 @@ export default function VideoCard({
 
     observer.observe(video);
     return () => observer.disconnect();
-  }, [fullscreen, post.video_url]);
+  }, [fullscreen, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
 
   useEffect(() => {
     function handleSoundChanged(event) {
@@ -147,12 +159,12 @@ export default function VideoCard({
       <video
         ref={videoRef}
         src={post.video_url}
-        autoPlay
+        autoPlay={videoSettings.autoplay && !videoSettings.reduceData}
         controls={fullscreen}
         muted={muted}
         playsInline
         loop
-        preload="metadata"
+        preload={videoSettings.reduceData ? "none" : "metadata"}
         className="absolute inset-0 h-full w-full object-cover"
       />
       <div className="absolute inset-0 bg-slate-950/10" />
@@ -189,7 +201,13 @@ export default function VideoCard({
         onShare={handleShare}
       />
 
-      <SwipCaption post={post} onFullscreen={() => setFullscreen(true)} onViewProfile={onViewProfile} />
+      <SwipCaption
+        post={post}
+        categoryLabel={categoryLabel}
+        contextLabel={contextLabel}
+        onFullscreen={() => setFullscreen(true)}
+        onViewProfile={onViewProfile}
+      />
 
       <CommentsDrawer
         currentUserId={currentUserId}

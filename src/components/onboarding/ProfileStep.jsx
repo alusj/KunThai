@@ -1,5 +1,7 @@
 import { Camera, CheckCircle2, Mail, Phone, ShieldCheck } from "lucide-react";
+import { FaFacebookF, FaInstagram, FaTiktok } from "react-icons/fa";
 
+import { detectSocialPlatform, normalizeSocialLinks } from "../../Backend/services/explore/socialLinks";
 import OnboardingFrame from "./OnboardingFrame";
 
 const accountTypes = [
@@ -55,6 +57,36 @@ function readAvatarFile(file) {
   });
 }
 
+const platformIcons = {
+  facebook: FaFacebookF,
+  instagram: FaInstagram,
+  tiktok: FaTiktok,
+};
+
+function SocialLinkInput({ index, onChange, value }) {
+  const platform = detectSocialPlatform(value?.url);
+  const Icon = platformIcons[platform?.id];
+
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+        Social link {index + 1}
+      </span>
+      <div className="flex items-center gap-2 rounded-[20px] border border-slate-200 bg-slate-50 px-3 focus-within:border-sky-400">
+        <span className={`flex h-9 w-9 items-center justify-center rounded-2xl ${platform ? "bg-sky-50 text-sky-700" : "bg-white text-slate-400"}`}>
+          {Icon ? <Icon /> : index + 1}
+        </span>
+        <input
+          value={value?.url || ""}
+          onChange={(event) => onChange(index, event.target.value)}
+          placeholder="https://facebook.com/yourprofile"
+          className="h-12 min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none"
+        />
+      </div>
+    </label>
+  );
+}
+
 export default function ProfileStep({ values, onChange, onBack, onNext }) {
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || "Your name";
@@ -72,6 +104,12 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
       [field]: value,
       displayName: buildFullName(nextValues),
     });
+  };
+
+  const updateSocialLink = (index, url) => {
+    const nextLinks = normalizeSocialLinks(values.socialLinks);
+    nextLinks[index] = { ...nextLinks[index], url };
+    onChange("socialLinks", normalizeSocialLinks(nextLinks));
   };
 
   const handleAvatarChange = async (event) => {
@@ -209,6 +247,15 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
           </div>
 
           <div className="mt-5">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Social profiles</span>
+            <div className="grid gap-4 lg:grid-cols-3">
+              {normalizeSocialLinks(values.socialLinks).map((link, index) => (
+                <SocialLinkInput key={link.id} index={index} value={link} onChange={updateSocialLink} />
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Account type</span>
             <div className="grid gap-3 lg:grid-cols-3">
               {accountTypes.map((type) => (
@@ -268,6 +315,15 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
               <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-100">
                 {values.accountType}
               </p>
+              {normalizeSocialLinks(values.socialLinks).filter((link) => link.url).map((link) => {
+                const Icon = platformIcons[link.platform];
+                return (
+                  <p key={link.id} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-sky-100">
+                    {Icon ? <Icon /> : null}
+                    {link.label || "Social"}
+                  </p>
+                );
+              })}
               {values.dateOfBirth && (
                 <p className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-sky-100">
                   <CheckCircle2 size={13} />

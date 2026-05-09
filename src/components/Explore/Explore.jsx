@@ -12,7 +12,6 @@ import Swip from "./ExploreTabs/swip/Swip";
 import Connections from "./ExploreTabs/connections/Connections"
 import Notifications from "./ExploreTabs/notification/Notifications";
 import ActivityScreen from "./SocialMenu/activity/ActivityScreen";
-import FutureFeaturesScreen from "./SocialMenu/future/FutureFeaturesScreen";
 import HelpCenterScreen from "./SocialMenu/help/HelpCenterScreen";
 import MessagesScreen from "./SocialMenu/messages/MessagesScreen";
 import MyPostsScreen from "./SocialMenu/myPosts/MyPostsScreen";
@@ -270,10 +269,6 @@ export default function Explore({ onScreenModeChange }) {
 
     if (activeMenuScreen === "TermsPolicies") {
       return <TermsPoliciesScreen hideHeader />;
-    }
-
-    if (activeMenuScreen === "FutureFeatures") {
-      return <FutureFeaturesScreen />;
     }
 
     return <PlaceholderMenuScreen screen={menuScreen} />;

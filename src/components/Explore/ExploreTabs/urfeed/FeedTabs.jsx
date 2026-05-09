@@ -8,7 +8,7 @@
 export default function FeedTabs({ activeTab, setActiveTab }) {
   return (
     <div className="sticky top-0 z-20 border-b border-white/50 bg-transparent">
-      <div className="grid w-full grid-cols-2 px-3 pt-3">
+      <div className="grid w-full grid-cols-2 px-3 pt-3 sm:px-5 lg:px-8">
       {["feed", "connections"].map(tab => {
         const isActive = activeTab === tab;
 

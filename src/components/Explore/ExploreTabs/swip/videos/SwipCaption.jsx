@@ -3,7 +3,7 @@ import { HiOutlineArrowsPointingOut, HiOutlineCheckBadge } from "react-icons/hi2
 import { formatRelativeTime } from "../../../../../Backend/services/exploreService";
 import Avatar from "../../../shared/Avatar";
 
-export default function SwipCaption({ post, onFullscreen, onViewProfile }) {
+export default function SwipCaption({ categoryLabel, contextLabel, post, onFullscreen, onViewProfile }) {
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent px-4 pb-5 pt-24 text-white sm:px-5">
       <div className="min-w-0 max-w-[calc(100%-72px)] space-y-3">
@@ -23,7 +23,10 @@ export default function SwipCaption({ post, onFullscreen, onViewProfile }) {
         {post.body ? <p className="kuntai-break line-clamp-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-white/95">{post.body}</p> : null}
 
         <div className="flex min-w-0 items-center gap-2">
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">Swip</span>
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{contextLabel || "Suggested"}</span>
+          {categoryLabel ? (
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{categoryLabel}</span>
+          ) : null}
           <button
             type="button"
             onClick={onFullscreen}

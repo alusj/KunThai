@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { readExploreSettings } from "../services/explore/preferencesService";
 import { readExploreNavigation, writeExploreNavigation } from "../services/explore/navigationService";
 
 const PARENT_TABS = new Set(["UrFeed", "Swip", "Connections"]);
 
 export function useExploreNavigation(menuScreens) {
-  const [navigation, setNavigation] = useState(() => readExploreNavigation());
+  const [navigation, setNavigation] = useState(() => {
+    const savedNavigation = readExploreNavigation();
+    const settings = readExploreSettings();
+    return {
+      ...savedNavigation,
+      activeTab: PARENT_TABS.has(savedNavigation.activeTab) ? savedNavigation.activeTab : settings.feed.defaultTab,
+    };
+  });
   const activeMenuScreen = navigation.menuStack[navigation.menuStack.length - 1] || null;
   const menuScreen = activeMenuScreen ? menuScreens[activeMenuScreen] : null;
 

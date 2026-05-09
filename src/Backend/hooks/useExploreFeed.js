@@ -271,6 +271,8 @@ export function useExploreFeed(scope = "feed") {
       if (detail.key === getPostsStorageKey(scope) || detail.scope === scope) {
         setPosts(readStoredPosts(scope));
       }
+      if (detail.key === LIKE_STORAGE_KEY) setLikedPosts(readStoredSet(LIKE_STORAGE_KEY));
+      if (detail.key === SAVE_STORAGE_KEY) setSavedPosts(readStoredSet(SAVE_STORAGE_KEY));
     }
 
     window.addEventListener("storage", handleStorage);
@@ -346,14 +348,18 @@ export function useExploreFeed(scope = "feed") {
         next.add(postId);
       }
       writeStoredSet(storageKey, next);
+      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { key: storageKey, type: `${type}-state` } }));
       return next;
     });
 
     const targetPost = posts.find((post) => post.id === postId);
     let nextCount = Math.max(0, (targetPost?.[countKey] ?? 0) + delta);
 
-    setPosts((current) =>
-      current.map((post) => {
+    let previousPosts = [];
+
+    setPosts((current) => {
+      previousPosts = current;
+      const nextPosts = current.map((post) => {
         if (post.id !== postId) {
           return post;
         }
@@ -362,8 +368,11 @@ export function useExploreFeed(scope = "feed") {
           ...post,
           [countKey]: nextCount,
         };
-      })
-    );
+      });
+      writeStoredPosts(scope, nextPosts);
+      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope, postId, type: `${type}-count` } }));
+      return nextPosts;
+    });
 
     try {
       await syncExploreReaction(postId, type, !currentlyActive);
@@ -379,6 +388,22 @@ export function useExploreFeed(scope = "feed") {
         });
       }
     } catch (err) {
+      stateSetter((current) => {
+        const next = new Set(current);
+        if (currentlyActive) {
+          next.add(postId);
+        } else {
+          next.delete(postId);
+        }
+        writeStoredSet(storageKey, next);
+        window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { key: storageKey, type: `${type}-rollback` } }));
+        return next;
+      });
+      if (previousPosts.length) {
+        setPosts(previousPosts);
+        writeStoredPosts(scope, previousPosts);
+        window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope, postId, type: `${type}-rollback` } }));
+      }
       setError(err.message || `Unable to update ${type}.`);
     }
   }
@@ -394,8 +419,8 @@ export function useExploreFeed(scope = "feed") {
     const targetPost = posts.find((post) => post.id === postId);
     const nextCount = (targetPost?.comments_count ?? 0) + 1;
 
-    setPosts((current) =>
-      current.map((post) => {
+    setPosts((current) => {
+      const nextPosts = current.map((post) => {
         if (post.id !== postId) {
           return post;
         }
@@ -404,8 +429,11 @@ export function useExploreFeed(scope = "feed") {
           ...post,
           comments_count: nextCount,
         };
-      })
-    );
+      });
+      writeStoredPosts(scope, nextPosts);
+      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope, postId, type: "comment-count" } }));
+      return nextPosts;
+    });
 
     try {
       await createExploreComment(typeof content === "string" ? { post_id: postId, body: content } : { post_id: postId, ...content });
@@ -511,8 +539,9 @@ export function useExploreFeed(scope = "feed") {
       return;
     }
 
-    window.alert(
-      `Post activity\n\nLikes: ${post.likes_count ?? 0}\nComments: ${post.comments_count ?? 0}\nSaves: ${post.saves_count ?? 0}`,
+    showToast(
+      `Activity: ${post.likes_count ?? 0} likes, ${post.comments_count ?? 0} comments, ${post.saves_count ?? 0} saves.`,
+      "info",
     );
   }
 

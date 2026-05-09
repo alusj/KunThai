@@ -43,7 +43,7 @@ export default function Connections({ currentUserId = "", onViewProfile }) {
   );
 
   return (
-    <div className="w-full space-y-4 px-4 pt-4 sm:px-5">
+    <div className="w-full space-y-4 px-4 pt-4 sm:px-5 lg:px-8">
       <ConnectionsSummary counts={counts} />
 
       <div className="rounded-[24px] border border-slate-200 bg-white px-2 pt-2 shadow-sm">

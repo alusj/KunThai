@@ -1,7 +1,8 @@
 import supabase from "../../lib/supabaseClient";
-import { isMissingTable } from "./errors";
+import { isMissingColumn, isMissingTable } from "./errors";
 import { uploadMediaDataUrl } from "./mediaService";
 import { buildExploreProfileFromUser, getMetadataAvatar, writeStoredProfile } from "./profileStorage";
+import { normalizeSocialLinks } from "./socialLinks";
 
 function toAppProfile(row, fallback = {}) {
   return {
@@ -14,6 +15,7 @@ function toAppProfile(row, fallback = {}) {
     accountType: row?.account_type || fallback.accountType || "personal",
     avatarUrl: row?.avatar_url || fallback.avatarUrl || "",
     bio: row?.bio || fallback.bio || "",
+    socialLinks: normalizeSocialLinks(row?.social_links || fallback.socialLinks),
     verified: Boolean(row?.verified || fallback.verified),
   };
 }
@@ -38,11 +40,19 @@ async function upsertExploreProfile(userId, profile) {
     username: profile.username,
     avatar_url: profile.avatarUrl,
     bio: profile.bio || "",
+    social_links: normalizeSocialLinks(profile.socialLinks),
     account_type: profile.accountType || "personal",
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase.from("explore_profiles").upsert(payload, { onConflict: "user_id" }).select().maybeSingle();
+  let { data, error } = await supabase.from("explore_profiles").upsert(payload, { onConflict: "user_id" }).select().maybeSingle();
+
+  if (error && isMissingColumn(error, "social_links")) {
+    const { social_links: _socialLinks, ...fallbackPayload } = payload;
+    const fallback = await supabase.from("explore_profiles").upsert(fallbackPayload, { onConflict: "user_id" }).select().maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     if (isMissingTable(error)) {
@@ -143,6 +153,8 @@ export async function updateExploreProfile(patch) {
     phone_number: nextProfile.phone,
     date_of_birth: nextProfile.dateOfBirth,
     account_type: nextProfile.accountType,
+    bio: nextProfile.bio || "",
+    social_links: normalizeSocialLinks(nextProfile.socialLinks),
     avatar_url: avatarUrl?.startsWith?.("data:") ? getMetadataAvatar(current) : avatarUrl,
     picture: avatarUrl?.startsWith?.("data:") ? current.picture || "" : avatarUrl || current.picture || "",
   };
@@ -156,9 +168,10 @@ export async function updateExploreProfile(patch) {
   const updated = {
     ...nextProfile,
     userId: user.id,
-    displayName: authData.display_name || user.email || "Profile",
+    displayName: authData.display_name || user.email || "",
     username: authData.username || user.email?.split("@")[0] || "",
     avatarUrl: avatarUrl || getMetadataAvatar(data.user?.user_metadata || authData),
+    socialLinks: normalizeSocialLinks(authData.social_links),
     avatarWarning,
   };
 

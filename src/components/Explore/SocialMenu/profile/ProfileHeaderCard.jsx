@@ -11,8 +11,16 @@ import {
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
+import { FaFacebookF, FaInstagram, FaTiktok } from "react-icons/fa";
 
+import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
 import Avatar from "../../shared/Avatar";
+
+const platformIcons = {
+  facebook: FaFacebookF,
+  instagram: FaInstagram,
+  tiktok: FaTiktok,
+};
 
 export default function ProfileHeaderCard({
   editable,
@@ -33,6 +41,7 @@ export default function ProfileHeaderCard({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -180,8 +189,28 @@ export default function ProfileHeaderCard({
             <h3 className="truncate text-2xl font-black text-slate-950">{values.displayName || "Profile"}</h3>
             {values.verified ? <HiOutlineCheckBadge className="flex-none text-xl text-sky-600" /> : null}
           </div>
-          <p className="mt-1 text-sm font-bold text-slate-500">{values.username ? `@${values.username}` : "@username"}</p>
+          {values.username ? <p className="mt-1 text-sm font-bold text-slate-500">@{values.username}</p> : null}
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
+
+          {socialLinks.length ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {socialLinks.map((link) => {
+                const Icon = platformIcons[link.platform];
+                return (
+                  <a
+                    key={link.id}
+                    href={/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-100 px-3 text-sm font-black text-slate-700 hover:bg-sky-50 hover:text-sky-700"
+                  >
+                    {Icon ? <Icon /> : null}
+                    {link.label || "Social"}
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
 
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
             <div className="rounded-2xl bg-slate-50 px-3 py-2">
