@@ -1,5 +1,8 @@
 const CONVERSATIONS_KEY = "explore-message-conversations";
 const MESSAGES_KEY = "explore-message-items";
+const MESSAGE_ACTIVITY_KEY = "explore-message-activity";
+export const EXPLORE_MESSAGE_EVENT = "explore-message-event";
+export const EXPLORE_MESSAGE_ACTIVITY_EVENT = "explore-message-activity";
 
 function readArray(key) {
   try {
@@ -11,6 +14,19 @@ function readArray(key) {
 }
 
 function writeArray(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function readObject(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeObject(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
@@ -95,6 +111,7 @@ export function sendExploreMessage(conversationId, senderProfile, body) {
     conversation.id === conversationId ? { ...conversation, updatedAt: message.createdAt } : conversation,
   );
   writeArray(CONVERSATIONS_KEY, conversations);
+  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
 
   return message;
 }
@@ -104,4 +121,25 @@ export function markExploreConversationRead(conversationId, currentUserId) {
     message.conversationId === conversationId && message.senderId !== currentUserId ? { ...message, read: true } : message,
   );
   writeArray(MESSAGES_KEY, messages);
+  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "read", conversationId, currentUserId } }));
+}
+
+export function setExploreMessageActivity(conversationId, userId, activity = "active") {
+  if (!conversationId || !userId) return;
+
+  const activityMap = readObject(MESSAGE_ACTIVITY_KEY);
+  const nextActivity = {
+    conversationId,
+    userId,
+    activity,
+    updatedAt: new Date().toISOString(),
+  };
+
+  activityMap[`${conversationId}:${userId}`] = nextActivity;
+  writeObject(MESSAGE_ACTIVITY_KEY, activityMap);
+  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_ACTIVITY_EVENT, { detail: nextActivity }));
+}
+
+export function fetchExploreMessageActivity() {
+  return Object.values(readObject(MESSAGE_ACTIVITY_KEY));
 }

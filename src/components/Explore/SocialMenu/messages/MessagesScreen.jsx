@@ -21,6 +21,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
         messages={messages.messages}
         onBack={messages.closeConversation}
         onSend={messages.sendMessage}
+        onActivity={messages.setActivity}
       />
     );
   }

@@ -21,6 +21,7 @@ import {
   createExploreComment,
   createExplorePost,
   deleteExplorePost,
+  fetchExploreFollowers,
   fetchCurrentUserReactions,
   fetchExplorePosts,
   getCurrentUserProfile,
@@ -285,6 +286,18 @@ export function useExploreFeed(scope = "feed") {
       setCreating(true);
       const created = await createExplorePost(postInput, scope);
       setPosts((current) => mergePosts([created], current));
+      const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
+      await Promise.all(
+        followers.map((followerId) =>
+          createExploreNotification({
+            user_id: followerId,
+            type: "post",
+            post_id: created.id,
+            post_preview: created.body,
+            media_type: getPostMediaType(created),
+          }),
+        ),
+      );
       return { ok: true };
     } catch (err) {
       const draft = typeof postInput === "string" ? { body: postInput } : postInput || {};

@@ -21,7 +21,7 @@ export {
   updateExploreCommentCounts,
 } from "./explore/commentService";
 export { fetchExploreProfile, getCurrentUserProfile, updateExploreProfile } from "./explore/profileService";
-export { fetchExploreFollowing, fetchExploreFollowStats, syncExploreFollow } from "./explore/followService";
+export { fetchExploreFollowers, fetchExploreFollowing, fetchExploreFollowStats, syncExploreFollow } from "./explore/followService";
 
 function readStoredNotifications() {
   try {
@@ -59,6 +59,8 @@ function getNotificationMessage(type, actorName, mediaType = "post") {
       return `${name} mentioned you in a comment`;
     case "follow":
       return `${name} started following you`;
+    case "post":
+      return `${name} added a new ${mediaType}`;
     default:
       return `${name} interacted with your account`;
   }

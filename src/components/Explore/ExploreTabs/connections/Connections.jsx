@@ -16,7 +16,7 @@ function TabButton({ active, label, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex-1 px-4 pb-3 pt-2 text-sm font-bold transition ${
+      className={`relative flex-1 px-4 pb-4 pt-3 text-base font-black transition ${
         active
           ? "text-sky-700 after:absolute after:bottom-0 after:left-6 after:right-6 after:h-0.5 after:rounded-full after:bg-sky-700"
           : "text-slate-600 hover:text-slate-900"

@@ -1,4 +1,8 @@
 export const MENU_SCREENS = {
+  Menu: {
+    title: "Social Menu",
+    subtitle: "Choose where to go next in Explore.",
+  },
   Profile: {
     title: "Profile",
     subtitle: "Your public social identity across Explore, posts, comments, and connections.",

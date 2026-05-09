@@ -1,18 +1,36 @@
-import { createElement } from "react";
+import { createElement, useEffect, useState } from "react";
 import { FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
-import { getTransportFleets } from "../services/transportFleetService";
+import { fetchTransportFleets, getTransportFleets } from "../services/transportFleetService";
 import AppBackButton from "../shared/AppBackButton";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
 export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification }) {
-  const fleets = getTransportFleets(selection);
+  const [fleets, setFleets] = useState(() => getTransportFleets(selection));
+  const [loading, setLoading] = useState(true);
   const modeLabel =
     selection.mode === "topRated" ? "All Fleets" : selection.mode === "ride" ? "Ride" : "Delivery";
   const helperText =
     selection.mode === "topRated"
       ? "Highest rated fleets are shown first across all categories."
       : "Closest active fleets are shown first.";
+
+  useEffect(() => {
+    let alive = true;
+
+    setLoading(true);
+    fetchTransportFleets(selection)
+      .then((items) => {
+        if (alive) setFleets(items);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [selection]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -33,7 +51,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
             </p>
           </div>
           <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-            {fleets.length} found
+            {loading ? "Refreshing" : `${fleets.length} found`}
           </span>
         </div>
       </header>
@@ -77,7 +95,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification }) {
               {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
             </p>
             <p className="mt-1 text-xs font-semibold text-gray-600">
-              {fleet.serviceCategory} - {fleet.fleetType}
+              {[fleet.serviceCategory, fleet.fleetType, fleet.color].filter(Boolean).join(" - ")}
             </p>
           </div>
           <div className="lg:mt-3">
@@ -111,8 +129,9 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification }) {
         )}
         <InfoLine
           icon={FiStar}
-          text={`${fleet.rating || "New"} rating - ${fleet.trips} completed trips`}
+          text={`${fleet.rating || "New"} rating - ${fleet.trips || 0} completed trips`}
         />
+        {fleet.operatorName ? <InfoLine icon={FiClock} text={`Operator: ${fleet.operatorName}`} /> : null}
       </div>
 
       <div className="flex flex-col gap-2 lg:items-end">

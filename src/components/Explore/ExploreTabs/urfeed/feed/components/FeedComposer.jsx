@@ -209,6 +209,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     clearDraft();
   }
 
+  function publishPostingUpdate(detail) {
+    window.dispatchEvent(new CustomEvent("explore-posting-update", { detail }));
+  }
+
   async function handleSubmit(event) {
     event?.preventDefault?.();
 
@@ -218,31 +222,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       return;
     }
 
-    setFeedback("");
-    setPostingStage("preparing");
-    setPostingProgress(5);
-
-    const review = await runPostReviewPipeline({
-      body: value,
-      media: {
-        ...mediaMeta,
-        hasMedia: Boolean(imagePreview || videoPreview || audioPreview),
-      },
-      onStage: (stage, progress) => {
-        setPostingStage(stage);
-        setPostingProgress(progress);
-      },
-    });
-
-    if (!review.ok) {
-      setPostingStage("");
-      setPostingProgress(0);
-      setFeedback(review.reason);
-      return;
-    }
-
-    const tags = parseTags(value);
-    const result = await onSubmit?.({
+    const postDraft = {
       body: value,
       author_name: profile?.displayName || "KunThai User",
       author_username: profile?.username || "user",
@@ -253,6 +233,58 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       video_url: videoPreview,
       audio_duration_seconds: audioDuration,
       post_privacy: privacy,
+      mediaMeta,
+    };
+
+    setFeedback("");
+    setPostingStage("preparing");
+    setPostingProgress(5);
+    setOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    publishPostingUpdate({
+      status: "posting",
+      stage: "preparing",
+      progress: 5,
+      message: "Securing your draft before publishing.",
+    });
+
+    const review = await runPostReviewPipeline({
+      body: postDraft.body,
+      media: {
+        ...postDraft.mediaMeta,
+        hasMedia: Boolean(postDraft.image_url || postDraft.video_url || postDraft.audio_url),
+      },
+      onStage: (stage, progress) => {
+        setPostingStage(stage);
+        setPostingProgress(progress);
+        publishPostingUpdate({ status: "posting", stage, progress });
+      },
+    });
+
+    if (!review.ok) {
+      setPostingStage("");
+      setPostingProgress(0);
+      setFeedback(review.reason);
+      publishPostingUpdate({ status: "error", progress: 0, message: review.reason });
+      return;
+    }
+
+    const tags = parseTags(postDraft.body);
+    setPostingStage("syncing");
+    setPostingProgress(92);
+    publishPostingUpdate({ status: "posting", stage: "syncing", progress: 92 });
+
+    const result = await onSubmit?.({
+      body: postDraft.body,
+      author_name: postDraft.author_name,
+      author_username: postDraft.author_username,
+      author_avatar_url: postDraft.author_avatar_url,
+      user_id: postDraft.user_id,
+      image_url: postDraft.image_url,
+      audio_url: postDraft.audio_url,
+      video_url: postDraft.video_url,
+      audio_duration_seconds: postDraft.audio_duration_seconds,
+      post_privacy: postDraft.post_privacy,
       hashtags: tags.hashtags,
       mentions: tags.mentions,
     });
@@ -260,15 +292,20 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (result?.ok) {
       setPostingStage("complete");
       setPostingProgress(100);
-      await new Promise((resolve) => setTimeout(resolve, 450));
+      publishPostingUpdate({
+        status: "complete",
+        stage: "complete",
+        progress: 100,
+        message: result.warning || "Your post is now live on Explore.",
+      });
       resetComposer();
-      setOpen(false);
       return;
     }
 
     setPostingStage("");
     setPostingProgress(0);
     setFeedback(result?.error || "Unable to publish post.");
+    publishPostingUpdate({ status: "error", progress: 0, message: result?.error || "Unable to publish post." });
   }
 
   return (

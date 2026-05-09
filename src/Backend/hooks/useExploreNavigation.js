@@ -26,12 +26,18 @@ export function useExploreNavigation(menuScreens) {
 
         setNavigation((current) => ({ ...current, activeTab: tab, menuStack: [] }));
       },
-      openMenuScreen(screen) {
+      openMenuScreen(screen, options = {}) {
         if (!menuScreens[screen]) {
           return;
         }
 
-        setNavigation((current) => ({ ...current, menuStack: [...current.menuStack, screen] }));
+        setNavigation((current) => {
+          const stack = options.fromMenu && current.menuStack.at(-1) !== "Menu"
+            ? [...current.menuStack, "Menu", screen]
+            : [...current.menuStack, screen];
+
+          return { ...current, menuStack: stack };
+        });
         window.scrollTo({ top: 0, behavior: "instant" });
       },
       goBackMenuScreen() {

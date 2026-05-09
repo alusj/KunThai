@@ -1,14 +1,31 @@
+import { useEffect, useState } from "react";
 import { FiAlertTriangle, FiMapPin, FiMessageCircle, FiPhone } from "react-icons/fi";
-import { getActiveTrips } from "../services/passengerTransportService";
+import { fetchActiveTrips, getActiveTrips } from "../services/passengerTransportService";
 import AppBackButton from "../shared/AppBackButton";
 import VerificationBadge from "./verification/VerificationBadge";
 
 export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification }) {
-  const trips = getActiveTrips();
+  const [trips, setTrips] = useState(() => getActiveTrips());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    fetchActiveTrips()
+      .then((items) => {
+        if (alive) setTrips(items);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ScreenHeader title="Active Trips" subtitle="Track rides, deliveries, and pending bookings." onBack={onBack} />
+      <ScreenHeader title="Active Trips" subtitle={loading ? "Refreshing your bookings..." : "Track rides, deliveries, and pending bookings."} onBack={onBack} />
 
       <main className="w-full px-3 py-4 sm:px-5 xl:px-8">
         <div className="grid gap-3 xl:grid-cols-2">

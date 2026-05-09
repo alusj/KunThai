@@ -222,6 +222,7 @@ export async function fetchOperatorDashboard(operatorId = null) {
   const [
     { data: waitingTrips, error: waitingError },
     { data: todayTrips, error: todayError },
+    { data: historyTrips, error: historyError },
     { data: alerts, error: alertsError },
     { data: reviews, error: reviewsError },
     { data: transactions, error: transactionsError },
@@ -241,6 +242,15 @@ export async function fetchOperatorDashboard(operatorId = null) {
           .select("*")
           .eq("fleet_id", fleetId)
           .gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+      : { data: [], error: null },
+    fleetId
+      ? supabase
+          .from("transport_trips")
+          .select("*")
+          .eq("fleet_id", fleetId)
+          .in("status", ["completed", "cancelled"])
+          .order("created_at", { ascending: false })
+          .limit(20)
       : { data: [], error: null },
     supabase
       .from("transport_operator_alerts")
@@ -267,7 +277,7 @@ export async function fetchOperatorDashboard(operatorId = null) {
       .order("uploaded_at", { ascending: false }),
   ]);
 
-  const errors = [waitingError, todayError, alertsError, reviewsError, transactionsError, documentsError].filter(Boolean);
+  const errors = [waitingError, todayError, historyError, alertsError, reviewsError, transactionsError, documentsError].filter(Boolean);
   if (errors.length) throw new Error(errors[0].message);
 
   const completedToday = (todayTrips || []).filter((trip) => trip.status === "completed");
@@ -280,6 +290,7 @@ export async function fetchOperatorDashboard(operatorId = null) {
     operator,
     fleet,
     waitingPassengers: (waitingTrips || []).map(mapTrip),
+    tripHistory: (historyTrips || []).map(mapTrip),
     today: {
       trips: completedToday.length,
       earnings: earningsToday,

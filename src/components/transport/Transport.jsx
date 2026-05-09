@@ -182,6 +182,7 @@ export default function Transport() {
         onOpenNearbyArea={() => setNearbyAreaOpen(true)}
         onOpenActiveTrips={() => setActiveTripsOpen(true)}
         onOpenSavedOperators={() => setSavedOperatorsOpen(true)}
+        onViewFleet={setActiveFleetId}
       />
     </div>
   );

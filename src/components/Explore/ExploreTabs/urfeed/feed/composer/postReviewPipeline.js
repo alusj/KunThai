@@ -3,11 +3,12 @@ import { contentHasModerationFlags } from "../../../../../../Backend/services/ex
 const MEDIA_WARNING_WORDS = ["nude", "naked", "sex", "porn", "abuse", "violent"];
 
 export const postingStages = [
-  { key: "preparing", label: "Preparing post" },
-  { key: "text-scan", label: "Scanning words" },
-  { key: "media-scan", label: "Reviewing media safety" },
-  { key: "publishing", label: "Publishing" },
-  { key: "complete", label: "Posted successfully" },
+  { key: "preparing", label: "Securing draft" },
+  { key: "text-scan", label: "Scanning for policy violations" },
+  { key: "media-scan", label: "Reviewing attached media" },
+  { key: "publishing", label: "Publishing to Explore" },
+  { key: "syncing", label: "Syncing feed" },
+  { key: "complete", label: "Post live" },
 ];
 
 function wait(ms) {

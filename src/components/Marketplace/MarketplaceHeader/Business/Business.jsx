@@ -56,6 +56,7 @@ function SellerFullScreen({ eyebrow, title, subtitle, onBack, children }) {
 export default function Business({ onBack }) {
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
   const [activeScreen, setActiveScreen] = useState("dashboard");
+  const [screenHistory, setScreenHistory] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
   const [toastMessage, setToastMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -75,6 +76,26 @@ export default function Business({ onBack }) {
     setMenuOpen(true);
   }
 
+  function openSellerScreen(screen) {
+    if (activeScreen === screen) return;
+
+    setScreenHistory((history) => [...history, activeScreen]);
+    setActiveScreen(screen);
+  }
+
+  function replaceSellerScreen(screen) {
+    setScreenHistory([]);
+    setActiveScreen(screen);
+  }
+
+  function goBackSellerScreen() {
+    setScreenHistory((history) => {
+      const previousScreen = history.at(-1) || "dashboard";
+      setActiveScreen(previousScreen);
+      return history.slice(0, -1);
+    });
+  }
+
   if (loading) return <BusinessSkeleton />;
 
   return (
@@ -89,13 +110,13 @@ export default function Business({ onBack }) {
           onBack={onBack}
           onAddProduct={() => {
             setEditingProduct(null);
-            setActiveScreen("addProduct");
+            openSellerScreen("addProduct");
           }}
           onMessages={() => {
-            setActiveScreen("messages");
+            openSellerScreen("messages");
           }}
           onAlerts={() => {
-            setActiveScreen("notifications");
+            openSellerScreen("notifications");
           }}
           onMenu={openSellerMenu}
         />
@@ -116,10 +137,10 @@ export default function Business({ onBack }) {
         <AddProductForm
           mode={editingProduct ? "edit" : "create"}
           product={editingProduct}
-          onCancel={() => setActiveScreen("dashboard")}
+          onCancel={goBackSellerScreen}
           onComplete={() => {
             const wasEditing = Boolean(editingProduct);
-            setActiveScreen("dashboard");
+            replaceSellerScreen("dashboard");
             setActiveTab("store");
             setEditingProduct(null);
             setToastMessage(wasEditing ? "Product listing updated successfully" : "Product added successfully");
@@ -131,7 +152,7 @@ export default function Business({ onBack }) {
           eyebrow="Messages"
           title="Buyer Messages"
           subtitle="Reply to potential customers, product inquiries, and marketplace messages."
-          onBack={() => setActiveScreen("dashboard")}
+          onBack={goBackSellerScreen}
         >
           <CustomerCare />
         </SellerFullScreen>
@@ -140,14 +161,14 @@ export default function Business({ onBack }) {
           eyebrow="Notifications"
           title="Seller Notifications"
           subtitle="Review items that need attention and recent activity from your store."
-          onBack={() => setActiveScreen("dashboard")}
+          onBack={goBackSellerScreen}
         >
           <div className="space-y-6">
             <BusinessAttention
               onAction={(item) => {
-                if (item.id === "add-first-product") setActiveScreen("addProduct");
-                if (item.type === "payout") setActiveScreen("dashboard");
-                if (item.type === "profile") setActiveScreen("dashboard");
+                if (item.id === "add-first-product") openSellerScreen("addProduct");
+                if (item.type === "payout") replaceSellerScreen("dashboard");
+                if (item.type === "profile") replaceSellerScreen("dashboard");
               }}
             />
             <BusinessActivity />
@@ -168,7 +189,7 @@ export default function Business({ onBack }) {
               <>
                 <BusinessAttention
                   onAction={(item) => {
-                    if (item.id === "add-first-product") setActiveScreen("addProduct");
+                    if (item.id === "add-first-product") openSellerScreen("addProduct");
                     if (item.type === "payout") setActiveTab("overview");
                     if (item.type === "profile") setActiveTab("overview");
                   }}
@@ -182,7 +203,7 @@ export default function Business({ onBack }) {
                 mode="store"
                 onEditProduct={(product) => {
                   setEditingProduct(product);
-                  setActiveScreen("addProduct");
+                  openSellerScreen("addProduct");
                 }}
               />
             ) : null}
@@ -191,7 +212,7 @@ export default function Business({ onBack }) {
                 mode="catalog"
                 onEditProduct={(product) => {
                   setEditingProduct(product);
-                  setActiveScreen("addProduct");
+                  openSellerScreen("addProduct");
                 }}
               />
             ) : null}

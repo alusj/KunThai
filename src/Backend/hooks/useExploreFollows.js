@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchExploreFollowing, syncExploreFollow } from "../services/exploreService";
 
 const FOLLOW_STORAGE_KEY = "explore-followed-users";
+export const EXPLORE_FOLLOW_CHANGED_EVENT = "explore-follow-changed";
 
 function readStoredFollows() {
   try {
@@ -62,6 +63,7 @@ export function useExploreFollows(currentUserId) {
     });
 
     await syncExploreFollow(userId, nextActive);
+    window.dispatchEvent(new CustomEvent(EXPLORE_FOLLOW_CHANGED_EVENT, { detail: { userId, active: nextActive } }));
     return nextActive;
   }
 

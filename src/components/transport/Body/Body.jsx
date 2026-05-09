@@ -18,6 +18,7 @@ export default function Body({
   onOpenNearbyArea,
   onOpenActiveTrips,
   onOpenSavedOperators,
+  onViewFleet,
 }) {
   return (
     <div className="relative px-3 pt-5 pb-24">
@@ -40,7 +41,7 @@ export default function Body({
 
       </div>
 
-      <NearbyOperators />
+      <NearbyOperators onViewAll={onOpenTopRated} onViewFleet={onViewFleet} />
 
       {/* Radar Floating In Slot Between Row 2 
       <div className="absolute left-1/2 top-[46%] -translate-x-1/2 z-30">

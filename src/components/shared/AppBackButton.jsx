@@ -8,14 +8,14 @@ export default function AppBackButton({
   className = "",
   iconSize = 20,
 }) {
-  useBrowserBack(Boolean(onBack), onBack, historyKey);
+  const goBack = useBrowserBack(Boolean(onBack), onBack, historyKey);
 
   if (!onBack) return null;
 
   return (
     <button
       type="button"
-      onClick={onBack}
+      onClick={goBack}
       aria-label={label}
       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200 ${className}`}
     >

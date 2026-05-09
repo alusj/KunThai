@@ -1,50 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FiMapPin, FiStar } from "react-icons/fi";
+import { fetchTransportFleets, getTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 import VerificationDetailsModal from "../verification/VerificationDetailsModal";
 import { verificationStatuses } from "../verification/verificationStatus";
 
-const operators = [
-  {
-    name: "Alpha City Rides",
-    id: "KT-48291",
-    fleet: "Car",
-    plate: "ABX 184",
-    area: "Central",
-    rating: "4.8",
-    status: "recommended",
-  },
-  {
-    name: "Musa Quick Bike",
-    id: "KT-73042",
-    fleet: "Motorcycle",
-    plate: "MKL 552",
-    area: "East End",
-    rating: "4.5",
-    status: "verified",
-  },
-  {
-    name: "Kadiatu Keke",
-    id: "KT-10936",
-    fleet: "Tricycle",
-    plate: "TRC 011",
-    area: "Lumley",
-    rating: "New",
-    status: "pending",
-  },
-  {
-    name: "Open Fleet",
-    id: "KT-65820",
-    fleet: "Car",
-    plate: "NVA 903",
-    area: "Waterloo",
-    rating: "New",
-    status: "notVerified",
-  },
-];
-
-export default function NearbyOperators() {
+export default function NearbyOperators({ onViewAll, onViewFleet }) {
   const [activeOperator, setActiveOperator] = useState(null);
+  const [operators, setOperators] = useState(() => getTransportFleets({ mode: "topRated", fleetType: null }).slice(0, 4));
+
+  useEffect(() => {
+    let alive = true;
+    fetchTransportFleets({ mode: "topRated", fleetType: null }).then((items) => {
+      if (alive) setOperators(items.slice(0, 4));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <section className="mt-5">
@@ -53,14 +26,14 @@ export default function NearbyOperators() {
           <h2 className="text-base font-bold text-gray-900">Available Operators</h2>
           <p className="text-xs text-gray-500">Visible with KunThai verification status</p>
         </div>
-        <button type="button" className="text-sm font-semibold text-green-700">
+        <button type="button" onClick={onViewAll} className="text-sm font-semibold text-green-700">
           View all
         </button>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-4">
         {operators.map((operator) => {
-          const status = verificationStatuses[operator.status];
+          const status = verificationStatuses[operator.verificationStatus];
 
           return (
             <article
@@ -69,25 +42,27 @@ export default function NearbyOperators() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-950">{operator.name}</h3>
+                  <button type="button" onClick={() => onViewFleet?.(operator.id)} className="text-left text-sm font-bold text-gray-950 hover:text-green-700">
+                    {operator.fleetName}
+                  </button>
                   <p className="mt-1 text-xs text-gray-500">
-                    {operator.id} - {operator.fleet} - {operator.plate}
+                    {operator.operatorId} - {operator.displayType} - {operator.plateNumber}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 text-xs font-semibold text-gray-600">
                   <FiStar className="text-yellow-500" size={14} />
-                  {operator.rating}
+                  {operator.rating || "New"}
                 </div>
               </div>
 
               <div className="mt-3 flex items-center gap-1 text-xs text-gray-500">
                 <FiMapPin size={14} />
-                {operator.area}
+                {operator.currentLocation || operator.lastKnownLocation}
               </div>
 
               <div className="mt-4">
                 <VerificationBadge
-                  status={operator.status}
+                  status={operator.verificationStatus}
                   onClick={() => setActiveOperator(operator)}
                 />
                 <button
@@ -104,8 +79,8 @@ export default function NearbyOperators() {
       </div>
 
       <VerificationDetailsModal
-        status={activeOperator?.status}
-        operatorName={activeOperator?.name}
+        status={activeOperator?.verificationStatus}
+        operatorName={activeOperator?.fleetName}
         onClose={() => setActiveOperator(null)}
       />
     </section>

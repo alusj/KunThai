@@ -51,6 +51,18 @@ export default function ToastProvider({ children }) {
             >
               <Icon className={`flex-none text-xl ${tone.iconClass}`} />
               <p className="kuntai-break min-w-0 flex-1 leading-5">{item.message}</p>
+              {item.actionLabel && item.onAction ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    item.onAction?.();
+                    setItems((current) => current.filter((toast) => toast.id !== item.id));
+                  }}
+                  className="flex-none rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white"
+                >
+                  {item.actionLabel}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setItems((current) => current.filter((toast) => toast.id !== item.id))}

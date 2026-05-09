@@ -7,6 +7,7 @@ import {
   FiEdit3,
   FiFileText,
   FiHome,
+  FiMap,
   FiMapPin,
   FiMoreVertical,
   FiRefreshCw,
@@ -115,6 +116,7 @@ export default function OperatorDashboardScreen({
   const earnings = dashboard?.earnings || {};
   const reviews = dashboard?.reviews || {};
   const alerts = dashboard?.alerts || [];
+  const tripHistory = dashboard?.tripHistory || [];
 
   const refreshDashboard = useCallback(async () => {
     try {
@@ -173,7 +175,7 @@ export default function OperatorDashboardScreen({
 
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-black text-gray-950">
-              {activeView === "waiting" ? "Waiting Passengers" : "Operator Dashboard"}
+              {activeView === "waiting" ? "Waiting Passengers" : activeView === "history" ? "Trip History" : "Operator Dashboard"}
             </h1>
             <p className="truncate text-xs text-gray-500">
               {account?.displayCode} - {fleetName}
@@ -240,6 +242,12 @@ export default function OperatorDashboardScreen({
             fleetName={fleetName}
             isActive={isActive}
             availabilityText={availabilityText}
+            onBack={() => setActiveView("dashboard")}
+          />
+        ) : activeView === "history" ? (
+          <TripHistoryScreen
+            trips={tripHistory}
+            fleetName={fleetName}
             onBack={() => setActiveView("dashboard")}
           />
         ) : (
@@ -336,6 +344,7 @@ export default function OperatorDashboardScreen({
           <OperatorToolsContainer
             hasWaitingPassengers={hasWaitingPassengers}
             onOpenWaiting={hasWaitingPassengers ? () => setActiveView("waiting") : undefined}
+            onOpenHistory={() => setActiveView("history")}
           />
         </div>
           </>
@@ -369,6 +378,10 @@ export default function OperatorDashboardScreen({
         }}
         onOpenWaiting={() => {
           setActiveView("waiting");
+          setOperatorMenuOpen(false);
+        }}
+        onOpenHistory={() => {
+          setActiveView("history");
           setOperatorMenuOpen(false);
         }}
         onShowVerification={() => {
@@ -652,7 +665,7 @@ function OperatorAlertsContainer({ alerts }) {
   );
 }
 
-function OperatorToolsContainer({ hasWaitingPassengers, onOpenWaiting }) {
+function OperatorToolsContainer({ hasWaitingPassengers, onOpenHistory, onOpenWaiting }) {
   return (
     <DashboardContainer title="Operator Tools" subtitle="Quick actions for your workspace" icon={FiCalendar}>
       <div className="grid gap-2">
@@ -663,6 +676,7 @@ function OperatorToolsContainer({ hasWaitingPassengers, onOpenWaiting }) {
           onClick={onOpenWaiting}
         />
         <ActionRow icon={FiSliders} label="Trip controls" detail="Fares, route limits, and service rules" />
+        <ActionRow icon={FiMap} label="Trip history" detail="Areas worked, deliveries, and completed routes" onClick={onOpenHistory} />
         <ActionRow icon={FiCalendar} label="Schedule" detail="Plan shifts and operating hours" />
       </div>
     </DashboardContainer>
@@ -823,6 +837,49 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
   );
 }
 
+function TripHistoryScreen({ trips, fleetName, onBack }) {
+  return (
+    <section className="space-y-4">
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50"
+          aria-label="Back to dashboard"
+        >
+          <FiX size={18} />
+        </button>
+        <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator History</p>
+        <h2 className="mt-1 text-2xl font-black text-gray-950">Trip and delivery history</h2>
+        <p className="mt-1 text-sm font-semibold text-gray-500">{fleetName}</p>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-2">
+        {trips.length ? trips.map((trip) => (
+          <article key={trip.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-wide text-green-700">{trip.status || "completed"}</p>
+                <h3 className="mt-1 truncate text-base font-black text-gray-950">{trip.name}</h3>
+                <p className="mt-1 text-sm font-semibold text-gray-600">{trip.route}</p>
+              </div>
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-700">{trip.time}</span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <MiniRow label="Fare" value={trip.fare} />
+              <MiniRow label="Note" value={trip.note} />
+            </div>
+          </article>
+        )) : (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm font-bold text-gray-500 xl:col-span-2">
+            Completed ride and delivery areas will appear here.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function OperatorMenuDrawer({
   open,
   account,
@@ -838,6 +895,7 @@ function OperatorMenuDrawer({
   onClose,
   onToggleAvailability,
   onOpenDashboard,
+  onOpenHistory,
   onOpenWaiting,
   onShowVerification,
   onEditProfile,
@@ -856,6 +914,12 @@ function OperatorMenuDrawer({
       label: "Waiting passengers",
       detail: "Review nearby demand and accept requests",
       onClick: onOpenWaiting,
+    },
+    {
+      icon: FiMap,
+      label: "Trip history",
+      detail: "Completed areas, routes, and deliveries",
+      onClick: onOpenHistory,
     },
     {
       icon: FiShield,

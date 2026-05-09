@@ -23,7 +23,9 @@ import { MENU_SCREENS } from "./config/menuScreens";
 
 // UI Components
 import ExploreHeader from "./components/header/ExploreHeader";
+import { SocialMenuContent } from "./components/header/HeaderMenu";
 import ExploreTabs from "./ExploreTabs/ExploreTabs";
+import { postingStages } from "./ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 
 function PlaceholderMenuScreen({ screen }) {
   return (
@@ -51,6 +53,7 @@ export default function Explore({ onScreenModeChange }) {
   const [profileOverride, setProfileOverride] = useState(null);
   const [viewedProfile, setViewedProfile] = useState(null);
   const [messageRecipient, setMessageRecipient] = useState(null);
+  const [postingNotice, setPostingNotice] = useState(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
   const { user } = useAuth();
@@ -67,6 +70,26 @@ export default function Explore({ onScreenModeChange }) {
       onScreenModeChange?.(false);
     };
   }, [exploreNav.isFullScreen, onScreenModeChange]);
+
+  useEffect(() => {
+    let clearTimer;
+
+    function handlePostingUpdate(event) {
+      const detail = event.detail || {};
+      clearTimeout(clearTimer);
+      setPostingNotice(detail);
+
+      if (detail.status === "complete" || detail.status === "error") {
+        clearTimer = setTimeout(() => setPostingNotice(null), 4200);
+      }
+    }
+
+    window.addEventListener("explore-posting-update", handlePostingUpdate);
+    return () => {
+      clearTimeout(clearTimer);
+      window.removeEventListener("explore-posting-update", handlePostingUpdate);
+    };
+  }, []);
 
   function openViewedProfile(authorProfile) {
     setViewedProfile(authorProfile);
@@ -139,16 +162,36 @@ export default function Explore({ onScreenModeChange }) {
     exploreNav.openMenuScreen("Messages");
   }
 
-  function openMenuScreen(screen) {
+  function openMenuScreen(screen, options = {}) {
     if (screen === "Messages") {
       setMessageRecipient(null);
     }
-    exploreNav.openMenuScreen(screen);
+    exploreNav.openMenuScreen(screen, options);
   }
 
   function renderMenuScreen() {
     if (!activeMenuScreen) {
       return null;
+    }
+
+    if (activeMenuScreen === "Menu") {
+      return (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={exploreNav.goBackMenuScreen}
+            aria-label="Close social menu"
+          />
+          <aside className="absolute inset-y-0 left-0 flex h-screen w-80 max-w-[88vw] flex-col border-r border-slate-200 bg-white shadow-xl">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-700">KunThai</p>
+              <h2 className="mt-2 text-lg font-semibold text-slate-900">Social Menu</h2>
+            </div>
+            <SocialMenuContent onNavigate={openMenuScreen} />
+          </aside>
+        </div>
+      );
     }
 
     if (activeMenuScreen === "Profile") {
@@ -217,11 +260,13 @@ export default function Explore({ onScreenModeChange }) {
   if (exploreNav.isFullScreen) {
     return (
       <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 kuntai-safe-bottom">
-        <SocialScreenHeader
-          title={menuScreen.title}
-          subtitle={menuScreen.subtitle}
-          onBack={exploreNav.goBackMenuScreen}
-        />
+        {activeMenuScreen === "Menu" ? null : (
+          <SocialScreenHeader
+            title={menuScreen.title}
+            subtitle={menuScreen.subtitle}
+            onBack={exploreNav.goBackMenuScreen}
+          />
+        )}
         {renderMenuScreen()}
       </div>
     );
@@ -229,6 +274,7 @@ export default function Explore({ onScreenModeChange }) {
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 kuntai-safe-bottom">
+      {postingNotice ? <PostingStatusBanner notice={postingNotice} /> : null}
 
       {/* =========================
           HEADER + PARENT TABS
@@ -252,6 +298,7 @@ export default function Explore({ onScreenModeChange }) {
           }
         >
           <ExploreHeader
+            currentProfile={profile}
             onAlertsClick={() => exploreNav.openMenuScreen("Notifications")}
             onNavigate={openMenuScreen}
             onCreateSelect={exploreNav.openComposer}
@@ -277,6 +324,59 @@ export default function Explore({ onScreenModeChange }) {
         {activeTab === "Connections" && <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />}
       </div>
 
+    </div>
+  );
+}
+
+function PostingStatusBanner({ notice }) {
+  const progress = Math.max(0, Math.min(100, notice.progress || 0));
+  const isError = notice.status === "error";
+  const activeIndex = Math.max(0, postingStages.findIndex((item) => item.key === notice.stage));
+  const currentStage = postingStages[activeIndex] || postingStages[0];
+  const title = isError ? "Post not published" : notice.status === "complete" ? "Post published" : "Publishing in background";
+  const stageMessages = {
+    preparing: "Locking your draft and preparing the upload.",
+    "text-scan": "Scanning text for policy violations and unsafe content.",
+    "media-scan": "Reviewing attached media before it reaches the feed.",
+    publishing: "Publishing the approved post to Explore.",
+    syncing: "Syncing the new post into your feed.",
+    complete: "Your post is live on Explore.",
+  };
+  const message = notice.message || stageMessages[notice.stage] || "Processing your post securely.";
+
+  return (
+    <div className="fixed left-3 right-3 top-3 z-[90] mx-auto max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+      <div className="px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${isError ? "text-rose-600" : "text-sky-700"}`}>{title}</p>
+            <h3 className="mt-1 truncate text-sm font-black text-slate-950">{isError ? "Review stopped" : currentStage.label}</h3>
+            <p className="mt-0.5 line-clamp-2 text-xs font-semibold leading-5 text-slate-600">{message}</p>
+          </div>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${isError ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700"}`}>{progress}%</span>
+        </div>
+
+        {!isError ? (
+          <>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full bg-sky-600 transition-all duration-300" style={{ width: `${progress}%` }} />
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+              {postingStages.map((stage, index) => {
+                const done = notice.status === "complete" || index < activeIndex;
+                const active = stage.key === notice.stage && notice.status !== "complete";
+                return (
+                  <div
+                    key={stage.key}
+                    className={`h-1.5 rounded-full transition-colors ${done || active ? "bg-sky-600" : "bg-slate-200"}`}
+                    title={stage.label}
+                  />
+                );
+              })}
+            </div>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -1,12 +1,30 @@
-import { createElement } from "react";
-import { FiClock, FiMapPin, FiMessageCircle, FiPhone, FiShield, FiStar } from "react-icons/fi";
-import { getTransportFleetById } from "../services/transportFleetService";
+import { createElement, useEffect, useState } from "react";
+import { FiBox, FiClock, FiMapPin, FiMessageCircle, FiPhone, FiShield, FiStar, FiTruck, FiUser } from "react-icons/fi";
+import { fetchTransportFleetById, getTransportFleetById } from "../services/transportFleetService";
 import AppBackButton from "../shared/AppBackButton";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
 export default function FleetProfileScreen({ fleetId, onBack, onShowVerification }) {
-  const fleet = getTransportFleetById(fleetId);
+  const [fleet, setFleet] = useState(() => getTransportFleetById(fleetId));
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+
+    setLoading(true);
+    fetchTransportFleetById(fleetId)
+      .then((item) => {
+        if (alive) setFleet(item);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [fleetId]);
 
   if (!fleet) {
     return (
@@ -17,13 +35,13 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
     );
   }
 
-  const status = verificationStatuses[fleet.verificationStatus];
+  const status = verificationStatuses[fleet.verificationStatus] || verificationStatuses.pending;
   const isActive = fleet.activeStatus === "active";
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
-        <div className="mx-auto flex max-w-7xl items-center gap-3">
+        <div className="flex w-full items-center gap-3">
           <AppBackButton
             onBack={onBack}
             label="Back to fleet list"
@@ -36,21 +54,13 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
               {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
             </p>
           </div>
+          {loading ? <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">Refreshing</span> : null}
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl gap-4 px-3 py-4 sm:px-4 sm:py-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
+      <main className="grid w-full gap-4 px-3 py-4 sm:px-5 sm:py-5 xl:grid-cols-[minmax(0,1fr)_400px] 2xl:grid-cols-[minmax(0,1fr)_460px] 2xl:px-8">
         <section className="min-w-0 space-y-4">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {fleet.photos.map((photo) => (
-              <div
-                key={photo}
-                className="flex aspect-[4/3] items-center justify-center rounded-2xl border border-gray-100 bg-gray-100 text-sm font-semibold text-gray-500"
-              >
-                {photo}
-              </div>
-            ))}
-          </div>
+          <FleetInformationGrid fleet={fleet} />
 
           <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -77,7 +87,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <ProfileMetric label="Status" value={isActive ? "Active" : "Offline"} />
               <ProfileMetric label="Rating" value={fleet.rating || "New"} />
-              <ProfileMetric label="Trips" value={fleet.trips} />
+              <ProfileMetric label="Trips" value={fleet.trips || 0} />
             </div>
           </section>
 
@@ -90,6 +100,18 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
                   {item}
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <h3 className="font-bold text-gray-950">Passenger service details</h3>
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <ProfileMetric label="Service area" value={fleet.operatingArea || fleet.currentLocation || "Area pending"} />
+              <ProfileMetric label="Availability" value={fleet.availability || fleet.lastActive || "Schedule pending"} />
+              <ProfileMetric label="Distance limit" value={fleet.maxDistanceKm ? `${fleet.maxDistanceKm} km` : "Operator controlled"} />
+              <ProfileMetric label="Hours" value={fleet.operatingHours || "Flexible"} />
+              <ProfileMetric label="Ride service" value={fleet.acceptsRide ? "Available" : "Not offered"} />
+              <ProfileMetric label="Delivery service" value={fleet.acceptsDelivery ? "Available" : "Not offered"} />
             </div>
           </section>
         </section>
@@ -134,6 +156,34 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
           </section>
         </aside>
       </main>
+    </div>
+  );
+}
+
+function FleetInformationGrid({ fleet }) {
+  const vehicleName = [fleet.color, fleet.year, fleet.make, fleet.model].filter(Boolean).join(" ") || fleet.displayType;
+  const equipment = [fleet.bodyType, fleet.maxLoad ? `Max load ${fleet.maxLoad}` : "", fleet.fuelType].filter(Boolean).join(" - ") || "Standard passenger setup";
+  const operator = [fleet.operatorName, fleet.operatorCity].filter(Boolean).join(" - ") || fleet.operatorId;
+
+  const items = [
+    { icon: FiTruck, label: "Vehicle", value: vehicleName, detail: `${fleet.fleetType} - ${fleet.plateNumber}` },
+    { icon: FiUser, label: "Operator", value: operator, detail: fleet.operatorPhone || "Contact through KunThai" },
+    { icon: FiBox, label: "Equipment", value: equipment, detail: fleet.serviceCategory },
+    { icon: FiShield, label: "Verification", value: fleet.verificationStatus, detail: fleet.activeStatus === "active" ? "Visible to passengers" : fleet.lastActive },
+  ];
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <article key={item.label} className="min-h-[150px] rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-green-700">
+            <item.icon size={20} />
+          </div>
+          <p className="mt-4 text-xs font-black uppercase tracking-wide text-gray-400">{item.label}</p>
+          <h3 className="mt-1 text-base font-black text-gray-950">{item.value}</h3>
+          <p className="mt-1 text-sm font-semibold text-gray-500">{item.detail}</p>
+        </article>
+      ))}
     </div>
   );
 }

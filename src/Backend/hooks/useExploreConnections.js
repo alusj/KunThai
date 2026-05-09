@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { fetchExploreConnections } from "../services/exploreService";
-import { useExploreFollows } from "./useExploreFollows";
+import { createExploreNotification, fetchExploreConnections } from "../services/exploreService";
+import { showToast } from "../services/toastService";
+import { EXPLORE_FOLLOW_CHANGED_EVENT, useExploreFollows } from "./useExploreFollows";
 
 const BLOCK_STORAGE_KEY = "explore-blocked-users";
 
@@ -67,29 +68,106 @@ export function useExploreConnections(kind, currentUserId = "") {
     };
   }, [kind]);
 
+  useEffect(() => {
+    function handleFollowChanged(event) {
+      const { userId, active } = event.detail || {};
+      if (!userId) {
+        return;
+      }
+
+      setItems((current) => current.map((item) => (item.user_id === userId ? { ...item, isFollowing: active } : item)));
+
+      if (kind === "mycircle" || kind === "followers") {
+        load();
+      }
+    }
+
+    window.addEventListener(EXPLORE_FOLLOW_CHANGED_EVENT, handleFollowChanged);
+    return () => window.removeEventListener(EXPLORE_FOLLOW_CHANGED_EVENT, handleFollowChanged);
+  }, [kind]);
+
   async function followUser(userId) {
-    await toggleFollow(userId);
+    const targetItem = items.find((item) => item.user_id === userId);
+    const active = await toggleFollow(userId);
+    showToast(active ? "Added to your circle." : "Unfollowed.", "success", {
+      actionLabel: "Undo",
+      onAction: async () => {
+        await toggleFollow(userId);
+        await load();
+      },
+    });
+
+    if (active && targetItem) {
+      await createExploreNotification({
+        user_id: userId,
+        type: "follow",
+        media_type: "profile",
+        post_preview: "New follower",
+      });
+
+      setItems((current) => {
+        if (kind === "followers") {
+          return current.filter((item) => item.user_id !== userId);
+        }
+
+        return current.map((item) => (item.user_id === userId ? { ...item, isFollowing: true, status: "In your circle" } : item));
+      });
+    }
+
     await load();
   }
 
   function blockUser(userId) {
+    const blockedItem = items.find((item) => item.user_id === userId);
     setBlockedUsers((current) => {
       const next = new Set(current);
       next.add(userId);
       writeBlockedUsers(next);
       return next;
     });
+    showToast("Account blocked.", "danger", {
+      actionLabel: "Undo",
+      onAction: () => {
+        setBlockedUsers((current) => {
+          const next = new Set(current);
+          next.delete(userId);
+          writeBlockedUsers(next);
+          return next;
+        });
+        if (blockedItem) {
+          setItems((current) => (current.some((item) => item.user_id === userId) ? current : [blockedItem, ...current]));
+        }
+      },
+    });
   }
 
-  function removeUser(userId) {
+  async function removeUser(userId) {
+    const removedItem = items.find((item) => item.user_id === userId);
+    const wasFollowing = followedUsers.has(userId) || removedItem?.isFollowing;
+
     if (followedUsers.has(userId)) {
-      followUser(userId);
+      await toggleFollow(userId);
     }
+
     setItems((current) => current.filter((item) => item.user_id !== userId));
+    showToast("Connection removed from this list.", "info", {
+      actionLabel: "Undo",
+      onAction: async () => {
+        if (removedItem) {
+          setItems((current) => (current.some((item) => item.user_id === userId) ? current : [removedItem, ...current]));
+        }
+
+        if (wasFollowing) {
+          await toggleFollow(userId);
+          await load();
+        }
+      },
+    });
   }
 
   const visibleItems = items
     .filter((item) => !blockedUsers.has(item.user_id))
+    .filter((item) => kind === "mycircle" || !(followedUsers.has(item.user_id) || item.isFollowing))
     .map((item) => ({ ...item, isFollowing: followedUsers.has(item.user_id) || item.isFollowing }));
 
   return { items: visibleItems, loading, error, reload: load, followUser, blockUser, removeUser };

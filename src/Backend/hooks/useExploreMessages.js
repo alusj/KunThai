@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchExploreConversations,
   fetchExploreMessages,
+  EXPLORE_MESSAGE_EVENT,
   markExploreConversationRead,
   sendExploreMessage,
+  setExploreMessageActivity,
   startExploreConversation,
 } from "../services/explore/messageService";
 
@@ -30,6 +32,19 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
   }, [initialRecipient?.userId, initialRecipient?.username]);
 
+  useEffect(() => {
+    function handleMessageEvent() {
+      reload();
+    }
+
+    window.addEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
+    window.addEventListener("storage", handleMessageEvent);
+    return () => {
+      window.removeEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
+      window.removeEventListener("storage", handleMessageEvent);
+    };
+  }, [activeConversation?.id, currentUserId]);
+
   function openConversation(conversation) {
     setActiveConversation(conversation);
     setMessages(fetchExploreMessages(conversation.id));
@@ -51,6 +66,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
   }
 
+  function setActivity(activity) {
+    setExploreMessageActivity(activeConversation?.id, currentUserId, activity);
+  }
+
   const requests = useMemo(() => conversations.filter((conversation) => conversation.request), [conversations]);
   const inbox = useMemo(() => conversations.filter((conversation) => !conversation.request), [conversations]);
 
@@ -64,5 +83,6 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     reload,
     requests,
     sendMessage,
+    setActivity,
   };
 }

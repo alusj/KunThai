@@ -16,11 +16,9 @@ import SettingsMenuItem from "./menu/items/SettingsMenuItem";
 import SignOutMenuItem from "./menu/items/SignOutMenuItem";
 import SwitchAccountMenuItem from "./menu/items/SwitchAccountMenuItem";
 
-export default function HeaderMenu({ open, onClose, onNavigate }) {
-  if (!open) return null;
-
+export function SocialMenuContent({ onClose, onNavigate }) {
   const handleSelect = (target) => {
-    onClose();
+    onClose?.();
 
     const navigationMap = {
       profile: "Profile",
@@ -36,19 +34,59 @@ export default function HeaderMenu({ open, onClose, onNavigate }) {
     };
 
     if (navigationMap[target]) {
-      onNavigate?.(navigationMap[target]);
+      onNavigate?.(navigationMap[target], { fromMenu: true });
     }
   };
 
   const handleSwitchAccount = async () => {
-    onClose();
+    onClose?.();
     await switchSocialAccount();
   };
 
   const handleSignOut = async () => {
-    onClose();
+    onClose?.();
     await signOutSocialSession();
   };
+
+  return (
+    <>
+      <div className="flex-1 overflow-y-auto p-3">
+        <MenuSection title="You">
+          <ProfileMenuItem onSelect={handleSelect} />
+          <MyPostsMenuItem onSelect={handleSelect} />
+          <SavedPostsMenuItem onSelect={handleSelect} />
+          <ActivityMenuItem onSelect={handleSelect} />
+        </MenuSection>
+
+        <MenuSection title="Social">
+          <MessagesMenuItem onSelect={handleSelect} />
+          <ConnectionsMenuItem onSelect={handleSelect} />
+        </MenuSection>
+
+        <MenuSection title="Preferences">
+          <PrivacyMenuItem onSelect={handleSelect} />
+          <SettingsMenuItem onSelect={handleSelect} />
+        </MenuSection>
+
+        <MenuSection title="Support">
+          <HelpCenterMenuItem onSelect={handleSelect} />
+        </MenuSection>
+
+        <MenuSection title="Roadmap">
+          <FutureFeaturesMenuItem onSelect={handleSelect} />
+        </MenuSection>
+      </div>
+
+      <div className="border-t border-slate-200 p-3">
+        <SwitchAccountMenuItem onSwitchAccount={handleSwitchAccount} />
+        <SignOutMenuItem onSignOut={handleSignOut} />
+      </div>
+    </>
+  );
+}
+
+export default function HeaderMenu({ open, onClose, onNavigate }) {
+  if (!open) return null;
 
   return createPortal(
     <>
@@ -60,37 +98,7 @@ export default function HeaderMenu({ open, onClose, onNavigate }) {
           <h2 className="mt-2 text-lg font-semibold text-slate-900">Social Menu</h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
-          <MenuSection title="You">
-            <ProfileMenuItem onSelect={handleSelect} />
-            <MyPostsMenuItem onSelect={handleSelect} />
-            <SavedPostsMenuItem onSelect={handleSelect} />
-            <ActivityMenuItem onSelect={handleSelect} />
-          </MenuSection>
-
-          <MenuSection title="Social">
-            <MessagesMenuItem onSelect={handleSelect} />
-            <ConnectionsMenuItem onSelect={handleSelect} />
-          </MenuSection>
-
-          <MenuSection title="Preferences">
-            <PrivacyMenuItem onSelect={handleSelect} />
-            <SettingsMenuItem onSelect={handleSelect} />
-          </MenuSection>
-
-          <MenuSection title="Support">
-            <HelpCenterMenuItem onSelect={handleSelect} />
-          </MenuSection>
-
-          <MenuSection title="Roadmap">
-            <FutureFeaturesMenuItem onSelect={handleSelect} />
-          </MenuSection>
-        </div>
-
-        <div className="border-t border-slate-200 p-3">
-          <SwitchAccountMenuItem onSwitchAccount={handleSwitchAccount} />
-          <SignOutMenuItem onSignOut={handleSignOut} />
-        </div>
+        <SocialMenuContent onClose={onClose} onNavigate={onNavigate} />
       </aside>
     </>,
     document.body,

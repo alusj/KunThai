@@ -8,7 +8,7 @@ function getOtherParticipant(conversation, currentUserId) {
   return conversation.participants?.[otherId] || {};
 }
 
-export default function ConversationScreen({ conversation, currentUserId, messages, onBack, onSend }) {
+export default function ConversationScreen({ conversation, currentUserId, messages, onActivity, onBack, onSend }) {
   const user = getOtherParticipant(conversation, currentUserId);
 
   return (
@@ -34,7 +34,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
         ))}
       </div>
 
-      <MessageComposer onSend={onSend} />
+      <MessageComposer onActivity={onActivity} onSend={onSend} />
     </section>
   );
 }

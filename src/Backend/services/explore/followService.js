@@ -28,6 +28,25 @@ export async function fetchExploreFollowing() {
   return (data || []).map((item) => item.following_id).filter(Boolean);
 }
 
+export async function fetchExploreFollowers(targetUserId = "") {
+  const userId = targetUserId || (await getCurrentUserId());
+
+  if (!userId) {
+    return [];
+  }
+
+  const { data, error } = await supabase.from("explore_follows").select("follower_id").eq("following_id", userId);
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return [];
+    }
+    throw error;
+  }
+
+  return (data || []).map((item) => item.follower_id).filter(Boolean);
+}
+
 export async function fetchExploreFollowStats(targetUserId) {
   if (!targetUserId) {
     return { followers: 0, following: 0 };

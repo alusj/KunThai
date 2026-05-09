@@ -25,8 +25,14 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, onVi
   }
 
   return (
-    <div className="fixed inset-0 z-[65] flex min-w-0 items-end bg-slate-950/35 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
-      <section className="flex h-[86vh] max-h-[calc(100vh-0.75rem)] w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:max-w-2xl sm:rounded-[28px]">
+    <div className="fixed inset-0 z-[65] flex min-w-0 items-end">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default bg-slate-950/35 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close comments"
+      />
+      <section className="relative z-10 flex h-[56vh] max-h-[620px] min-h-[360px] w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:mx-auto sm:h-[58vh] sm:max-w-2xl">
         <div className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Comments</p>
