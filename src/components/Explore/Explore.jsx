@@ -65,7 +65,7 @@ export default function Explore({ onScreenModeChange }) {
   const isSwipTab = activeTab === "Swip";
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
-  const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, goBackFullScreen, {
+  const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, {
     edgeWidth: Math.min(280, Math.max(160, Math.round(window.innerWidth * 0.45))),
     minDistance: 58,
     maxVerticalDrift: 92,

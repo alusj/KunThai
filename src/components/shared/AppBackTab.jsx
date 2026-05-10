@@ -116,7 +116,11 @@ export default function AppBackTab({
     onBack?.();
   }, [goBack, onBack, useHistoryLayer]);
 
-  useBackTabSwipe(Boolean(onBack && enableSwipe), handleBack, swipeOptions);
+  const handleSwipeBack = useCallback(() => {
+    onBack?.();
+  }, [onBack]);
+
+  useBackTabSwipe(Boolean(onBack && enableSwipe), handleSwipeBack, swipeOptions);
 
   if (!onBack) return null;
 

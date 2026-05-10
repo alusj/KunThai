@@ -11,6 +11,7 @@ import Avatar from "../../../../shared/Avatar";
 export default function CommentItem({
   comment,
   currentUserId,
+  isLiked,
   isOwner,
   liked,
   onDelete,
@@ -82,13 +83,15 @@ export default function CommentItem({
               key={reply.id}
               comment={reply}
               currentUserId={currentUserId}
+              isLiked={isLiked}
               isOwner={Boolean(currentUserId && reply.user_id === currentUserId)}
-              liked={liked}
+              liked={isLiked ? isLiked(reply.id) : liked}
               onDelete={() => onDelete(reply.id)}
               onLike={() => onLike(reply.id)}
               onViewProfile={onViewProfile}
               onReply={() => onReply(reply)}
               onReport={() => onReport(reply.id)}
+              replies={reply.replies}
             />
           ))}
         </div>

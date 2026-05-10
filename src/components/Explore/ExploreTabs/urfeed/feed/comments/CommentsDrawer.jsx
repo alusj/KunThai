@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HiOutlineChatBubbleLeftRight, HiOutlineXMark } from "react-icons/hi2";
 
 import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
@@ -9,6 +9,33 @@ import CommentItem from "./CommentItem";
 export default function CommentsDrawer({ currentUserId, onClose, onCreated, onViewProfile, open, post }) {
   const [replyingTo, setReplyingTo] = useState(null);
   const comments = useExploreComments(post?.id, currentUserId);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const scrollY = window.scrollY;
+    const previousBody = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    };
+
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+
+    return () => {
+      document.body.style.overflow = previousBody.overflow;
+      document.body.style.position = previousBody.position;
+      document.body.style.top = previousBody.top;
+      document.body.style.width = previousBody.width;
+      window.scrollTo(0, scrollY);
+    };
+  }, [open]);
 
   if (!open) {
     return null;
@@ -32,7 +59,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, onVi
         onClick={onClose}
         aria-label="Close comments"
       />
-      <section className="relative z-10 flex h-[56vh] max-h-[620px] min-h-[360px] w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:mx-auto sm:h-[58vh] sm:max-w-2xl">
+      <section className="relative z-10 flex h-[86dvh] max-h-[760px] min-h-[420px] w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:mx-auto sm:h-[78dvh] sm:max-w-2xl">
         <div className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Comments</p>
@@ -64,6 +91,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, onVi
               key={comment.id}
               comment={comment}
               currentUserId={currentUserId}
+              isLiked={(commentId) => comments.likedComments.has(commentId)}
               replies={comment.replies}
               isOwner={comments.isOwner(comment)}
               liked={comments.likedComments.has(comment.id)}

@@ -97,19 +97,25 @@ export function useExploreComments(postId, currentUserId = "") {
   }, []);
 
   const thread = useMemo(() => {
+    const byId = new Map();
     const roots = [];
-    const replies = new Map();
 
     comments.forEach((comment) => {
-      if (comment.parent_comment_id) {
-        const items = replies.get(comment.parent_comment_id) || [];
-        replies.set(comment.parent_comment_id, [...items, comment]);
+      byId.set(comment.id, { ...comment, replies: [] });
+    });
+
+    comments.forEach((comment) => {
+      const item = byId.get(comment.id);
+      const parent = comment.parent_comment_id ? byId.get(comment.parent_comment_id) : null;
+
+      if (parent) {
+        parent.replies.push(item);
       } else {
-        roots.push(comment);
+        roots.push(item);
       }
     });
 
-    return roots.map((comment) => ({ ...comment, replies: replies.get(comment.id) || [] }));
+    return roots;
   }, [comments]);
 
   async function addComment(input) {
