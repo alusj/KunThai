@@ -8,28 +8,34 @@ import {
   sendExploreMessage,
   setExploreMessageActivity,
   startExploreConversation,
+  subscribeToExploreMessages,
 } from "../services/explore/messageService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 
 export function useExploreMessages(currentProfile, initialRecipient) {
   const currentUserId = currentProfile?.userId || "";
   const [activeConversation, setActiveConversation] = useState(null);
-  const [conversations, setConversations] = useState(() => fetchExploreConversations(currentUserId));
+  const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
 
-  function reload() {
-    setConversations(fetchExploreConversations(currentUserId));
+  async function reload() {
+    setConversations(await fetchExploreConversations(currentUserId));
     if (activeConversation?.id) {
-      setMessages(fetchExploreMessages(activeConversation.id));
+      setMessages(await fetchExploreMessages(activeConversation.id));
     }
   }
 
   useEffect(() => {
+    reload();
+  }, [currentUserId, activeConversation?.id]);
+
+  useEffect(() => {
     if (initialRecipient?.userId || initialRecipient?.username) {
-      const conversation = startExploreConversation(currentProfile, initialRecipient);
-      setActiveConversation(conversation);
-      setMessages(fetchExploreMessages(conversation.id));
-      setConversations(fetchExploreConversations(currentUserId));
+      startExploreConversation(currentProfile, initialRecipient).then(async (conversation) => {
+        setActiveConversation(conversation);
+        setMessages(await fetchExploreMessages(conversation.id));
+        setConversations(await fetchExploreConversations(currentUserId));
+      });
     }
   }, [initialRecipient?.userId, initialRecipient?.username]);
 
@@ -38,9 +44,11 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       reload();
     }
 
+    const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, handleMessageEvent);
     window.addEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
     window.addEventListener("storage", handleMessageEvent);
     return () => {
+      unsubscribeRealtime();
       window.removeEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
       window.removeEventListener("storage", handleMessageEvent);
     };
@@ -51,17 +59,16 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       return;
     }
 
-    markExploreConversationRead(activeConversation.id, currentUserId);
-    setConversations(fetchExploreConversations(currentUserId));
+    markExploreConversationRead(activeConversation.id, currentUserId).then(() => fetchExploreConversations(currentUserId).then(setConversations));
   }, [activeConversation?.id, currentUserId, messages.length]);
 
-  function openConversation(conversation) {
+  async function openConversation(conversation) {
     setActiveConversation(conversation);
-    setMessages(fetchExploreMessages(conversation.id));
+    setMessages(await fetchExploreMessages(conversation.id));
     if (readExploreSettings().messages.readReceipts) {
-      markExploreConversationRead(conversation.id, currentUserId);
+      await markExploreConversationRead(conversation.id, currentUserId);
     }
-    setConversations(fetchExploreConversations(currentUserId));
+    setConversations(await fetchExploreConversations(currentUserId));
   }
 
   function closeConversation() {
@@ -71,11 +78,11 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     reload();
   }
 
-  function sendMessage(body) {
-    const created = sendExploreMessage(activeConversation?.id, currentProfile, body);
+  async function sendMessage(body) {
+    const created = await sendExploreMessage(activeConversation?.id, currentProfile, body);
     if (created) {
-      setMessages(fetchExploreMessages(activeConversation.id));
-      setConversations(fetchExploreConversations(currentUserId));
+      setMessages(await fetchExploreMessages(activeConversation.id));
+      setConversations(await fetchExploreConversations(currentUserId));
     }
   }
 

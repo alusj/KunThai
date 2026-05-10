@@ -8,7 +8,16 @@ import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
 import MediaPreview from "../composer/MediaPreview";
 import PostingProgress from "../composer/PostingProgress";
-import { clearDraft, fileToDataUrl, parseTags, readDraft, writeDraft } from "../composer/composerUtils";
+import {
+  clearDraft,
+  fileToDataUrl,
+  getVideoDuration,
+  MAX_VIDEO_SECONDS,
+  parseTags,
+  readDraft,
+  trimVideoFileToDataUrl,
+  writeDraft,
+} from "../composer/composerUtils";
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 
 export default function FeedComposer({ profile, creating, onSubmit }) {
@@ -25,6 +34,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [isRecording, setIsRecording] = useState(false);
   const [mediaMode, setMediaMode] = useState("image");
   const [mediaMeta, setMediaMeta] = useState(draft.media_meta || {});
+  const [pendingVideoFile, setPendingVideoFile] = useState(null);
+  const [pendingVideoUrl, setPendingVideoUrl] = useState("");
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoTrimStart, setVideoTrimStart] = useState(0);
+  const [trimmingVideo, setTrimmingVideo] = useState(false);
   const [postingStage, setPostingStage] = useState("");
   const [postingProgress, setPostingProgress] = useState(0);
   const fileInputRef = useRef(null);
@@ -41,8 +55,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       if (recorderRef.current?.stream) {
         recorderRef.current.stream.getTracks().forEach((track) => track.stop());
       }
+      if (pendingVideoUrl) {
+        URL.revokeObjectURL(pendingVideoUrl);
+      }
     };
-  }, []);
+  }, [pendingVideoUrl]);
 
   useEffect(() => {
     writeDraft({
@@ -88,10 +105,30 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     try {
-      const nextPreview = await fileToDataUrl(file);
       if (file.type.startsWith("video/") || mediaMode === "video") {
+        const duration = await getVideoDuration(file);
+        if (duration > MAX_VIDEO_SECONDS) {
+          if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
+          setPendingVideoFile(file);
+          setPendingVideoUrl(URL.createObjectURL(file));
+          setVideoDuration(duration);
+          setVideoTrimStart(0);
+          setVideoPreview("");
+          setImagePreview("");
+          setOpen(true);
+          setFeedback(`This video is ${Math.ceil(duration)} seconds. Swip videos must be 15 seconds or less. Trim it below.`);
+          return;
+        }
+
+        const nextPreview = await fileToDataUrl(file);
         setVideoPreview(nextPreview);
         setImagePreview("");
+        setPendingVideoFile(null);
+        if (pendingVideoUrl) {
+          URL.revokeObjectURL(pendingVideoUrl);
+          setPendingVideoUrl("");
+        }
+        setVideoDuration(duration);
         setMediaMeta((current) => ({
           ...current,
           videoName: file.name,
@@ -101,6 +138,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           imageType: "",
         }));
       } else {
+        const nextPreview = await fileToDataUrl(file);
         setImagePreview(nextPreview);
         setVideoPreview("");
         setMediaMeta((current) => ({
@@ -118,6 +156,39 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setFeedback(error.message || "Unable to attach media.");
     } finally {
       event.target.value = "";
+    }
+  }
+
+  async function trimPendingVideo() {
+    if (!pendingVideoFile) {
+      return;
+    }
+
+    try {
+      setTrimmingVideo(true);
+      setFeedback("Trimming video to 15 seconds...");
+      const trimmedPreview = await trimVideoFileToDataUrl(pendingVideoFile, videoTrimStart, MAX_VIDEO_SECONDS);
+      setVideoPreview(trimmedPreview);
+      setImagePreview("");
+      setPendingVideoFile(null);
+      if (pendingVideoUrl) {
+        URL.revokeObjectURL(pendingVideoUrl);
+        setPendingVideoUrl("");
+      }
+      setMediaMeta((current) => ({
+        ...current,
+        videoName: `trimmed-${pendingVideoFile.name || "swip-video.webm"}`,
+        videoType: "video/webm",
+        videoSize: 0,
+        videoDuration: MAX_VIDEO_SECONDS,
+        imageName: "",
+        imageType: "",
+      }));
+      setFeedback("Video trimmed to 15 seconds.");
+    } catch (error) {
+      setFeedback(error.message || "Unable to trim this video.");
+    } finally {
+      setTrimmingVideo(false);
     }
   }
 
@@ -205,6 +276,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAudioPreview("");
     setAudioDuration(null);
     setMediaMeta({});
+    setPendingVideoFile(null);
+    if (pendingVideoUrl) {
+      URL.revokeObjectURL(pendingVideoUrl);
+      setPendingVideoUrl("");
+    }
+    setVideoDuration(0);
+    setVideoTrimStart(0);
     setPostingStage("");
     setPostingProgress(0);
     setPrivacy(privacySettings.defaultPostPrivacy || "public");
@@ -380,12 +458,26 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 imagePreview={imagePreview}
                 videoPreview={videoPreview}
                 audioPreview={audioPreview}
+                pendingVideoUrl={pendingVideoUrl}
+                videoDuration={videoDuration}
+                videoTrimStart={videoTrimStart}
+                maxVideoSeconds={MAX_VIDEO_SECONDS}
+                trimmingVideo={trimmingVideo}
+                onTrimStartChange={setVideoTrimStart}
+                onTrimVideo={trimPendingVideo}
                 onRemoveImage={() => {
                   setImagePreview("");
                   setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
                 }}
                 onRemoveVideo={() => {
                   setVideoPreview("");
+                  setPendingVideoFile(null);
+                  if (pendingVideoUrl) {
+                    URL.revokeObjectURL(pendingVideoUrl);
+                    setPendingVideoUrl("");
+                  }
+                  setVideoDuration(0);
+                  setVideoTrimStart(0);
                   setMediaMeta((current) => ({ ...current, videoName: "", videoType: "", videoSize: 0 }));
                 }}
                 onRemoveAudio={() => {

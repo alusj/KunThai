@@ -1,6 +1,7 @@
 import {
   HiOutlineBookmark,
   HiOutlineChatBubbleOvalLeft,
+  HiOutlineArrowsPointingOut,
   HiOutlineHandThumbUp,
   HiOutlineShare,
   HiOutlineTrash,
@@ -25,7 +26,7 @@ function RailButton({ active, children, label, onClick, danger = false }) {
   );
 }
 
-export default function SwipActionRail({ post, liked, saved, isOwner, onComment, onDelete, onLike, onSave, onShare }) {
+export default function SwipActionRail({ post, liked, saved, isOwner, onComment, onDelete, onFullscreen, onLike, onSave, onShare }) {
   return (
     <div className="absolute bottom-24 right-3 z-10 flex flex-col items-center gap-3 sm:right-5">
       <RailButton active={liked} label={post.likes_count ?? 0} onClick={onLike}>
@@ -39,6 +40,9 @@ export default function SwipActionRail({ post, liked, saved, isOwner, onComment,
       </RailButton>
       <RailButton label="Share" onClick={onShare}>
         <HiOutlineShare />
+      </RailButton>
+      <RailButton label="Full" onClick={onFullscreen}>
+        <HiOutlineArrowsPointingOut />
       </RailButton>
       {isOwner ? (
         <RailButton danger label="Delete" onClick={onDelete}>

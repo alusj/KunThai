@@ -7,6 +7,7 @@ import {
 
 import { formatRelativeTime } from "../../../../../../Backend/services/exploreService";
 import Avatar from "../../../../shared/Avatar";
+import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 
 export default function CommentItem({
   comment,
@@ -50,7 +51,14 @@ export default function CommentItem({
           </div>
 
           {comment.body ? <p className="kuntai-break mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{comment.body}</p> : null}
-          {comment.audio_url ? <audio controls src={comment.audio_url} className="mt-3 h-10 w-full min-w-0" /> : null}
+          {comment.audio_url ? (
+            <audio
+              controls
+              src={comment.audio_url}
+              onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
+              className="mt-3 h-10 w-full min-w-0"
+            />
+          ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-black text-slate-500">
             <button type="button" onClick={() => onLike(comment.id)} className={`inline-flex items-center gap-1 ${liked ? "text-sky-700" : ""}`}>

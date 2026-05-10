@@ -5,6 +5,7 @@ import {
   EXPLORE_MESSAGE_EVENT,
   fetchExploreConversations,
   fetchExploreMessageActivity,
+  subscribeToExploreMessages,
 } from "../services/explore/messageService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 
@@ -13,12 +14,12 @@ function isFreshActivity(item) {
 }
 
 export function useExploreMessageStatus(currentUserId = "") {
-  const [conversations, setConversations] = useState(() => fetchExploreConversations(currentUserId));
+  const [conversations, setConversations] = useState([]);
   const [activity, setActivity] = useState(() => fetchExploreMessageActivity());
 
   useEffect(() => {
     function reloadMessages() {
-      setConversations(fetchExploreConversations(currentUserId));
+      fetchExploreConversations(currentUserId).then(setConversations).catch(() => setConversations([]));
     }
 
     function reloadActivity() {
@@ -27,6 +28,7 @@ export function useExploreMessageStatus(currentUserId = "") {
 
     reloadMessages();
     reloadActivity();
+    const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, reloadMessages);
     window.addEventListener(EXPLORE_MESSAGE_EVENT, reloadMessages);
     window.addEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
     window.addEventListener("storage", reloadMessages);
@@ -34,6 +36,7 @@ export function useExploreMessageStatus(currentUserId = "") {
     const interval = window.setInterval(reloadActivity, 5000);
 
     return () => {
+      unsubscribeRealtime();
       window.removeEventListener(EXPLORE_MESSAGE_EVENT, reloadMessages);
       window.removeEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
       window.removeEventListener("storage", reloadMessages);

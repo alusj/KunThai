@@ -5,6 +5,7 @@ import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { sharePost } from "../../urfeed/feed/post/postUtils";
+import { pauseOtherExploreMedia, playExploreMedia } from "../../../shared/singleMediaPlayback";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 
@@ -68,7 +69,7 @@ export default function VideoCard({
 
   function toggleVideoSound() {
     if (videoRef.current) {
-      videoRef.current.play().catch(() => {});
+      playExploreMedia(videoRef.current).catch(() => {});
     }
     toggleMute();
   }
@@ -90,7 +91,7 @@ export default function VideoCard({
     }
 
     window.clearTimeout(holdTimerRef.current);
-    videoRef.current?.play().catch(() => {});
+    playExploreMedia(videoRef.current).catch(() => {});
   }
 
   useEffect(() => {
@@ -106,7 +107,7 @@ export default function VideoCard({
           activeRef.current = true;
           video.muted = swipSoundMuted;
           if (videoSettings.autoplay && !videoSettings.reduceData) {
-            video.play().catch(() => {});
+            playExploreMedia(video).catch(() => {});
           }
           return;
         }
@@ -164,6 +165,7 @@ export default function VideoCard({
         muted={muted}
         playsInline
         loop
+        onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
         preload={videoSettings.reduceData ? "none" : "metadata"}
         className="absolute inset-0 h-full w-full object-cover"
       />
@@ -198,6 +200,7 @@ export default function VideoCard({
         onSave={onSave}
         onComment={() => setCommentOpen(true)}
         onDelete={onDelete}
+        onFullscreen={() => setFullscreen(true)}
         onShare={handleShare}
       />
 

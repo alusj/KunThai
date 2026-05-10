@@ -306,11 +306,16 @@ export async function fetchExploreNotifications() {
     .map(normalizeNotification)
     .filter((item) => !currentUserId || item.user_id === currentUserId);
 
+  if (!currentUserId) {
+    return storedNotifications;
+  }
+
   const { data, error } = await supabase
     .from("explore_notifications")
     .select("*")
+    .eq("user_id", currentUserId)
     .order("created_at", { ascending: false })
-    .limit(30);
+    .limit(100);
 
   if (error) {
     if (isMissingTable(error)) {
@@ -319,8 +324,7 @@ export async function fetchExploreNotifications() {
     throw error;
   }
 
-  const userNotifications = (data || []).filter((item) => !currentUserId || item.user_id === currentUserId);
-  const merged = mergeNotifications(userNotifications, storedNotifications);
+  const merged = mergeNotifications(data || [], storedNotifications);
   writeStoredNotifications(merged);
   return merged;
 }

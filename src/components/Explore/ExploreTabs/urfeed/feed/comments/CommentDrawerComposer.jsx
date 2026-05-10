@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlineXMark } from "react-icons/hi2";
 
 import { fileToDataUrl } from "../composer/composerUtils";
+import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 
 export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelReply }) {
   const [value, setValue] = useState("");
@@ -67,7 +68,12 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
 
       {audioPreview ? (
         <div className="mb-2 flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
-          <audio controls src={audioPreview} className="h-10 min-w-0 flex-1" />
+          <audio
+            controls
+            src={audioPreview}
+            onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
+            className="h-10 min-w-0 flex-1"
+          />
           <button type="button" onClick={() => setAudioPreview("")} className="text-slate-500" aria-label="Remove voice comment">
             <HiOutlineXMark />
           </button>
