@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { FiAlertTriangle, FiMapPin, FiMessageCircle, FiPhone } from "react-icons/fi";
 import { fetchActiveTrips, getActiveTrips } from "../services/passengerTransportService";
-import AppBackButton from "../shared/AppBackButton";
+import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 
 export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification }) {
@@ -82,7 +82,7 @@ function ScreenHeader({ title, subtitle, onBack }) {
   return (
     <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
       <div className="flex w-full items-center gap-3">
-        <AppBackButton
+        <AppBackTab
           onBack={onBack}
           label="Back to dashboard"
           historyKey="transport-active-trips"

@@ -24,14 +24,14 @@ import ProductSuccessToast from "./ProductSuccessToast";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
 import { useState } from "react";
-import AppBackButton from "../../../shared/AppBackButton";
+import AppBackTab from "../../../shared/AppBackTab";
 
 function SellerFullScreen({ eyebrow, title, subtitle, onBack, children }) {
   return (
     <section className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
-          <AppBackButton
+          <AppBackTab
             onBack={onBack}
             label="Back to seller dashboard"
             historyKey={`marketplace-seller-${title}`}

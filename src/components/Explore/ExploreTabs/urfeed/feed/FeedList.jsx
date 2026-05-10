@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { createExploreNotification } from "../../../../../Backend/services/exploreService";
 import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollows";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import FeedPost from "./components/FeedPost";
-
-const PAGE_SIZE = 8;
 
 export default function FeedList({
   posts,
@@ -29,36 +27,9 @@ export default function FeedList({
   emptyTitle = "No posts yet",
   emptyMessage = "The feed is empty right now. Be the first to share something.",
 }) {
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [refreshing, setRefreshing] = useState(false);
   const touchStartRef = useRef(null);
-  const loaderRef = useRef(null);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
-
-  const visiblePosts = useMemo(() => (posts || []).slice(0, visibleCount), [posts, visibleCount]);
-  const hasMore = visibleCount < (posts?.length || 0);
-
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [posts?.length]);
-
-  useEffect(() => {
-    if (!loaderRef.current || !hasMore) {
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisibleCount((current) => current + PAGE_SIZE);
-        }
-      },
-      { rootMargin: "300px" },
-    );
-
-    observer.observe(loaderRef.current);
-    return () => observer.disconnect();
-  }, [hasMore]);
 
   async function refresh() {
     if (!onRetry || refreshing) {
@@ -118,6 +89,16 @@ export default function FeedList({
     );
   }
 
+  if (loading && !posts?.length) {
+    return (
+      <div className="mt-4 w-full overflow-x-clip px-4 sm:px-5 lg:px-8">
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-5 text-sm font-bold text-slate-500 shadow-sm">
+          Loading posts...
+        </div>
+      </div>
+    );
+  }
+
   if (!posts?.length) {
     return (
       <div className="mt-4 w-full overflow-x-clip px-4 sm:px-5 lg:px-8">
@@ -136,7 +117,7 @@ export default function FeedList({
       </div>
 
       <div className="w-full max-w-full space-y-4 overflow-x-clip">
-        {visiblePosts.map((post) => (
+        {(posts || []).map((post) => (
           <FeedPost
             key={post.id}
             post={post}
@@ -167,11 +148,7 @@ export default function FeedList({
         ))}
       </div>
 
-      {hasMore ? (
-        <div ref={loaderRef} className="py-5" aria-hidden="true" />
-      ) : (
-        <p className="py-5 text-center text-sm font-bold text-slate-400">You are all caught up.</p>
-      )}
+      <p className="py-5 text-center text-sm font-bold text-slate-400">You are all caught up.</p>
     </div>
   );
 }

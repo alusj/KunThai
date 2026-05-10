@@ -1,8 +1,8 @@
-import AppBackButton from "../../../shared/AppBackButton";
+import AppBackTab from "../../../shared/AppBackTab";
 
 export default function BackTab({ onBack }) {
   return (
-    <AppBackButton
+    <AppBackTab
       onBack={onBack}
       label="Back"
       historyKey="transport-operator-header"

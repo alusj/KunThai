@@ -6,7 +6,7 @@ import ProductFormProgress from "./ProductFormProgress";
 import ProductMediaStep from "./ProductMediaStep";
 import ProductPreview from "./ProductPreview";
 import ProductPricingStep from "./ProductPricingStep";
-import AppBackButton from "../../../../shared/AppBackButton";
+import AppBackTab from "../../../../shared/AppBackTab";
 
 const STEPS = [
   { title: "Product basics", component: ProductBasicsStep },
@@ -25,7 +25,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
-            <AppBackButton
+            <AppBackTab
               onBack={onCancel}
               label="Back"
               historyKey="marketplace-product-form"

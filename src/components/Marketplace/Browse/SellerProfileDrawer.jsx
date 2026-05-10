@@ -13,7 +13,7 @@ import {
   Star,
   Store,
 } from "lucide-react";
-import AppBackButton from "../../shared/AppBackButton";
+import AppBackTab from "../../shared/AppBackTab";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerReviews,
@@ -180,7 +180,7 @@ export default function SellerProfileDrawer({
       <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
       <aside className="fixed inset-0 z-[999] flex h-dvh w-screen flex-col bg-white">
         <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
-          <AppBackButton onBack={onClose} label="Back to product" historyKey="marketplace-seller-profile" />
+          <AppBackTab onBack={onClose} label="Back to product" historyKey="marketplace-seller-profile" />
           <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">Seller Marketplace</p>
             <h2 className="truncate text-lg font-black text-gray-950">{seller.name}</h2>

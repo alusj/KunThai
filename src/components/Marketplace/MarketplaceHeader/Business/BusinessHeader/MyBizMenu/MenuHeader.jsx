@@ -1,11 +1,11 @@
 import { X } from "lucide-react";
-import AppBackButton from "../../../../../shared/AppBackButton";
+import AppBackTab from "../../../../../shared/AppBackTab";
 
 export default function MenuHeader({ title, showBack, onBack, onClose }) {
   return (
     <div className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
       {showBack ? (
-        <AppBackButton
+        <AppBackTab
           onBack={onBack}
           label="Back to menu"
           historyKey="marketplace-business-menu"

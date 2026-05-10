@@ -1,8 +1,8 @@
-import AppBackButton from "../../../../../../../../shared/AppBackButton.jsx";
+import AppBackTab from "../../../../../../../../shared/AppBackTab.jsx";
 
 export default function BackTab({ onBack }) {
   return (
-    <AppBackButton
+    <AppBackTab
       onBack={onBack}
       label="Back"
       historyKey="marketplace-menu-back"

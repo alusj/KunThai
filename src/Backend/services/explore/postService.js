@@ -16,7 +16,7 @@ export async function fetchExplorePosts(scope = "feed") {
     .from("explore_posts")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(scope === "swip" ? 50 : 25);
+    .limit(100);
 
   if (scope !== "swip") {
     query = query.eq("feed_scope", scope);
@@ -29,7 +29,7 @@ export async function fetchExplorePosts(scope = "feed") {
       .from("explore_posts")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(25);
+      .limit(100);
 
     data = fallback.data;
     error = fallback.error;

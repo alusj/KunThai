@@ -1,7 +1,7 @@
 import { createElement, useEffect, useState } from "react";
 import { FiClock, FiMapPin, FiStar, FiTrash2 } from "react-icons/fi";
 import { fetchSavedOperators, getSavedOperators } from "../services/passengerTransportService";
-import AppBackButton from "../shared/AppBackButton";
+import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 
 export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification }) {
@@ -22,7 +22,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
-          <AppBackButton
+          <AppBackTab
             onBack={onBack}
             label="Back to dashboard"
             historyKey="transport-saved-operators"

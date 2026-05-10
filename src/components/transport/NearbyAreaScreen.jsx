@@ -9,7 +9,7 @@ import {
   FiSearch,
   FiShield,
 } from "react-icons/fi";
-import AppBackButton from "../shared/AppBackButton";
+import AppBackTab from "../shared/AppBackTab";
 import {
   emergencyContacts,
   locationCategories,
@@ -48,7 +48,7 @@ export default function NearbyAreaScreen({ onBack }) {
 
         <header className="absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
           <div className="flex items-center gap-3">
-            <AppBackButton
+            <AppBackTab
               onBack={onBack}
               label="Back to transport"
               historyKey="transport-nearby-area"

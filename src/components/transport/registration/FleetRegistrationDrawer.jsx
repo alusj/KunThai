@@ -11,7 +11,7 @@ import {
   FiTruck,
   FiUser,
 } from "react-icons/fi";
-import AppBackButton from "../../shared/AppBackButton";
+import AppBackTab from "../../shared/AppBackTab";
 import {
   getOperatorDraft,
   saveOperatorAccount,
@@ -337,7 +337,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 lg:px-8">
         <div className="flex w-full items-center gap-3 sm:gap-4">
-          <AppBackButton
+          <AppBackTab
             onBack={onClose}
             label="Back to transport"
             historyKey="transport-registration"
