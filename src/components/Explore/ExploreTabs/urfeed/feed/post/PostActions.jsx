@@ -1,6 +1,4 @@
 import {
-  HiArrowPathRoundedSquare,
-  HiOutlineBookmark,
   HiOutlineChatBubbleOvalLeft,
   HiOutlineHandThumbUp,
   HiOutlineShare,
@@ -22,14 +20,12 @@ function ActionButton({ active, icon: Icon, label, meta, onClick }) {
   );
 }
 
-export default function PostActions({ post, liked, saved, onLike, onComment, onSave, onShare }) {
+export default function PostActions({ post, liked, onLike, onComment, onShare }) {
   return (
-    <div className="grid grid-cols-5 gap-1 border-t border-slate-100 px-2 py-2">
+    <div className="grid grid-cols-3 gap-1 border-t border-slate-100 px-2 py-2">
       <ActionButton active={liked} icon={HiOutlineHandThumbUp} label="Like" meta={post.likes_count ?? 0} onClick={onLike} />
       <ActionButton icon={HiOutlineChatBubbleOvalLeft} label="Comment" meta={post.comments_count ?? 0} onClick={onComment} />
-      <ActionButton icon={HiArrowPathRoundedSquare} label="Repost" onClick={onShare} />
       <ActionButton icon={HiOutlineShare} label="Share" onClick={onShare} />
-      <ActionButton active={saved} icon={HiOutlineBookmark} label={saved ? "Saved" : "Save"} onClick={onSave} />
     </div>
   );
 }

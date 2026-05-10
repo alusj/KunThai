@@ -44,6 +44,7 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
       <button
         type="button"
         onClick={onOptions}
+        data-post-options-toggle={post.id}
         className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
         aria-label="Post options"
       >

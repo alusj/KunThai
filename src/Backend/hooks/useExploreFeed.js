@@ -78,6 +78,31 @@ function isCurrentUserPost(post, profile) {
   );
 }
 
+function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
+  const draft = typeof postInput === "string" ? { body: postInput } : postInput || {};
+
+  return {
+    id,
+    body: String(draft.body || "").trim(),
+    created_at: new Date().toISOString(),
+    feed_scope: draft.video_url ? "swip" : scope,
+    user_id: draft.user_id || "",
+    author_name: draft.author_name || "You",
+    author_username: draft.author_username || "you",
+    author_avatar_url: draft.author_avatar_url || "",
+    image_url: draft.image_url || "",
+    audio_url: draft.audio_url || "",
+    video_url: draft.video_url || "",
+    audio_duration_seconds: draft.audio_duration_seconds ?? null,
+    post_privacy: draft.post_privacy || "public",
+    hashtags: Array.isArray(draft.hashtags) ? draft.hashtags : [],
+    mentions: Array.isArray(draft.mentions) ? draft.mentions : [],
+    likes_count: 0,
+    comments_count: 0,
+    saves_count: 0,
+  };
+}
+
 function applyCurrentProfileToPost(post, profile) {
   if (!isCurrentUserPost(post, profile)) {
     return post;
@@ -284,10 +309,14 @@ export function useExploreFeed(scope = "feed") {
   }, [scope]);
 
   async function submitPost(postInput) {
+    const localId = `local-${scope}-${Date.now()}`;
+    const optimisticPost = buildLocalPost(postInput, scope, localId);
+
     try {
       setCreating(true);
+      setPosts((current) => mergePosts([optimisticPost], current));
       const created = await createExplorePost(postInput, scope);
-      setPosts((current) => mergePosts([created], current));
+      setPosts((current) => mergePosts([created], current.filter((post) => post.id !== localId)));
       const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
       await Promise.all(
         followers.map((followerId) =>
@@ -302,29 +331,6 @@ export function useExploreFeed(scope = "feed") {
       );
       return { ok: true };
     } catch (err) {
-      const draft = typeof postInput === "string" ? { body: postInput } : postInput || {};
-      const fallbackPost = {
-        id: `local-${scope}-${Date.now()}`,
-        body: String(draft.body || "").trim(),
-        created_at: new Date().toISOString(),
-        feed_scope: draft.video_url ? "swip" : scope,
-        user_id: draft.user_id || "",
-        author_name: draft.author_name || "You",
-        author_username: draft.author_username || "you",
-        author_avatar_url: draft.author_avatar_url || "",
-        image_url: draft.image_url || "",
-        audio_url: draft.audio_url || "",
-        video_url: draft.video_url || "",
-        audio_duration_seconds: draft.audio_duration_seconds ?? null,
-        post_privacy: draft.post_privacy || "public",
-        hashtags: Array.isArray(draft.hashtags) ? draft.hashtags : [],
-        mentions: Array.isArray(draft.mentions) ? draft.mentions : [],
-        likes_count: 0,
-        comments_count: 0,
-        saves_count: 0,
-      };
-
-      setPosts((current) => mergePosts([fallbackPost], current));
       setError(err.message || "Unable to sync post to backend right now.");
       return { ok: true, warning: err.message || "Saved locally for now." };
     } finally {
@@ -377,7 +383,6 @@ export function useExploreFeed(scope = "feed") {
     try {
       await syncExploreReaction(postId, type, !currentlyActive);
       await updateExplorePostCounts(postId, { [countKey]: nextCount });
-      showToast(type === "save" ? (currentlyActive ? "Removed from saved." : "Saved privately.") : (currentlyActive ? "Reaction removed." : "Reaction added."), "success");
       if (!currentlyActive && targetPost?.user_id) {
         await createExploreNotification({
           user_id: targetPost.user_id,

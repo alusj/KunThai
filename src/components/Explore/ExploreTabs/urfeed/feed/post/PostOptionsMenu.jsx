@@ -1,4 +1,5 @@
 import {
+  HiArrowPathRoundedSquare,
   HiOutlineBookmark,
   HiOutlineChartBar,
   HiOutlineEyeSlash,
@@ -13,12 +14,16 @@ import {
 export default function PostOptionsMenu({ followed, isOwner, saved, onCopy, onDelete, onEdit, onFollow, onHide, onReport, onSave, onShare, onViewActivity }) {
   const ownerActions = [
     { label: "Edit post", icon: HiOutlinePencilSquare, action: onEdit },
+    { label: saved ? "Remove saved" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
+    { label: "Repost", icon: HiArrowPathRoundedSquare, action: onShare },
+    { label: "Share", icon: HiOutlineShare, action: onShare },
     { label: "Delete post", icon: HiOutlineTrash, action: onDelete, danger: true },
     { label: "Copy link", icon: HiOutlineLink, action: onCopy },
     { label: "View activity", icon: HiOutlineChartBar, action: onViewActivity },
   ];
   const viewerActions = [
     { label: saved ? "Remove saved" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
+    { label: "Repost", icon: HiArrowPathRoundedSquare, action: onShare },
     { label: "Share", icon: HiOutlineShare, action: onShare },
     { label: "Copy link", icon: HiOutlineLink, action: onCopy },
     ...(followed ? [{ label: "Unfollow account", icon: HiOutlineUserMinus, action: onFollow }] : []),

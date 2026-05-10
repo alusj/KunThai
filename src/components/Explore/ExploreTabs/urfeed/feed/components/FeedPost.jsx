@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import CommentsDrawer from "../comments/CommentsDrawer";
@@ -29,8 +29,40 @@ export default function FeedPost({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [menuMessage, setMenuMessage] = useState("");
+  const optionsRef = useRef(null);
 
   useBrowserBack(commentsOpen, () => setCommentsOpen(false), `comments-${post.id}`);
+
+  useEffect(() => {
+    if (!optionsOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event) {
+      if (event.target?.closest?.(`[data-post-options-toggle="${post.id}"]`)) {
+        return;
+      }
+
+      if (optionsRef.current?.contains(event.target)) {
+        return;
+      }
+
+      setOptionsOpen(false);
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setOptionsOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [optionsOpen]);
 
   async function runAction(action) {
     setOptionsOpen(false);
@@ -57,20 +89,22 @@ export default function FeedPost({
       />
 
       {optionsOpen ? (
-        <PostOptionsMenu
-          followed={followed}
-          isOwner={isOwner}
-          saved={saved}
-          onCopy={() => runAction(() => copyPostLink(post.id))}
-          onDelete={() => runAction(onDelete)}
-          onEdit={() => runAction(onEdit)}
-          onFollow={() => runAction(onFollow)}
-          onHide={() => runAction(onHide)}
-          onReport={() => runAction(onReport)}
-          onSave={() => runAction(onSave)}
-          onShare={() => runAction(() => sharePost(post))}
-          onViewActivity={() => runAction(onViewActivity)}
-        />
+        <div ref={optionsRef}>
+          <PostOptionsMenu
+            followed={followed}
+            isOwner={isOwner}
+            saved={saved}
+            onCopy={() => runAction(() => copyPostLink(post.id))}
+            onDelete={() => runAction(onDelete)}
+            onEdit={() => runAction(onEdit)}
+            onFollow={() => runAction(onFollow)}
+            onHide={() => runAction(onHide)}
+            onReport={() => runAction(onReport)}
+            onSave={() => runAction(onSave)}
+            onShare={() => runAction(() => sharePost(post))}
+            onViewActivity={() => runAction(onViewActivity)}
+          />
+        </div>
       ) : null}
 
       {post.body ? <div className="kuntai-break whitespace-pre-wrap px-4 pb-4 text-[15px] leading-7 text-slate-800">{post.body}</div> : null}

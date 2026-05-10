@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   HiOutlineMicrophone,
   HiOutlinePencilSquare,
@@ -60,22 +61,25 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
         ) : null}
       </header>
 
-      {createOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close create menu"
-            className="fixed inset-0 z-[80] cursor-default bg-transparent"
-            onClick={() => setCreateOpen(false)}
-          />
-          <div className="fixed right-3 top-16 z-[90] w-48 rounded-[18px] border border-slate-200 bg-white p-2 text-left shadow-xl sm:right-5">
-            <CreateMenuItem icon={HiOutlinePencilSquare} label="Text post" onClick={() => selectCreateType("text")} />
-            <CreateMenuItem icon={HiOutlinePhoto} label="Image" onClick={() => selectCreateType("image")} />
-            <CreateMenuItem icon={HiOutlineMicrophone} label="Voice post" onClick={() => selectCreateType("voice")} />
-            <CreateMenuItem icon={HiOutlinePlayCircle} label="Video" onClick={() => selectCreateType("video")} />
-          </div>
-        </>
-      ) : null}
+      {createOpen
+        ? createPortal(
+            <>
+              <button
+                type="button"
+                aria-label="Close create menu"
+                className="fixed inset-0 z-[80] cursor-default bg-transparent"
+                onClick={() => setCreateOpen(false)}
+              />
+              <div className="fixed right-3 top-16 z-[90] w-48 rounded-[18px] border border-slate-200 bg-white p-2 text-left shadow-xl sm:right-5">
+                <CreateMenuItem icon={HiOutlinePencilSquare} label="Text post" onClick={() => selectCreateType("text")} />
+                <CreateMenuItem icon={HiOutlinePhoto} label="Image" onClick={() => selectCreateType("image")} />
+                <CreateMenuItem icon={HiOutlineMicrophone} label="Voice post" onClick={() => selectCreateType("voice")} />
+                <CreateMenuItem icon={HiOutlinePlayCircle} label="Video" onClick={() => selectCreateType("video")} />
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
