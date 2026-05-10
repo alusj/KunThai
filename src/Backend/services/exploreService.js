@@ -219,6 +219,11 @@ export async function markExploreNotificationRead(notificationId, read = true) {
     return null;
   }
 
+  const stored = readStoredNotifications();
+  if (stored.length) {
+    writeStoredNotifications(stored.map((item) => (item.id === notificationId ? { ...item, read } : item)));
+  }
+
   const { data, error } = await supabase
     .from("explore_notifications")
     .update({ read })
@@ -241,6 +246,11 @@ export async function markAllExploreNotificationsRead() {
 
   if (!currentUserId) {
     return [];
+  }
+
+  const stored = readStoredNotifications();
+  if (stored.length) {
+    writeStoredNotifications(stored.map((item) => (item.user_id === currentUserId ? { ...item, read: true } : item)));
   }
 
   const { data, error } = await supabase

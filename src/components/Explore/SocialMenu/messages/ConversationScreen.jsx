@@ -1,4 +1,4 @@
-import AppBackButton from "../../../shared/AppBackButton";
+import AppBackTab from "../../../shared/AppBackTab";
 import Avatar from "../../shared/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
@@ -14,7 +14,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
   return (
     <section className="flex h-[calc(100vh-112px)] min-w-0 flex-col overflow-hidden bg-white">
       <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
-        <AppBackButton onBack={onBack} label="Back to inbox" historyKey="explore-conversation" className="rounded-2xl" />
+        <AppBackTab onBack={onBack} label="Back to inbox" historyKey="explore-conversation" />
         <Avatar name={user.displayName} src={user.avatarUrl} size="sm" />
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-slate-950">{user.displayName || "Profile"}</p>

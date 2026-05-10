@@ -1,11 +1,11 @@
-import AppBackButton from "../../../shared/AppBackButton";
+import AppBackTab from "../../../shared/AppBackTab";
 
 export default function SocialScreenHeader({ eyebrow = "Explore", title, onBack }) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-5">
       <div className="flex min-w-0 items-start gap-3">
         {onBack ? (
-          <AppBackButton
+          <AppBackTab
             onBack={onBack}
             label="Back to Explore"
             historyKey="explore-shared-header"

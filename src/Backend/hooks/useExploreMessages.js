@@ -46,6 +46,15 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     };
   }, [activeConversation?.id, currentUserId]);
 
+  useEffect(() => {
+    if (!activeConversation?.id || !currentUserId || !readExploreSettings().messages.readReceipts) {
+      return;
+    }
+
+    markExploreConversationRead(activeConversation.id, currentUserId);
+    setConversations(fetchExploreConversations(currentUserId));
+  }, [activeConversation?.id, currentUserId, messages.length]);
+
   function openConversation(conversation) {
     setActiveConversation(conversation);
     setMessages(fetchExploreMessages(conversation.id));

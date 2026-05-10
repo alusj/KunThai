@@ -125,6 +125,7 @@ export function useExploreFeed(scope = "feed") {
   const [likedPosts, setLikedPosts] = useState(() => readStoredSet(LIKE_STORAGE_KEY));
   const [savedPosts, setSavedPosts] = useState(() => readStoredSet(SAVE_STORAGE_KEY));
   const [hiddenPosts, setHiddenPosts] = useState(() => readStoredSet(HIDE_STORAGE_KEY));
+  const [currentUserId, setCurrentUserId] = useState("");
 
   async function load() {
     try {
@@ -136,6 +137,7 @@ export function useExploreFeed(scope = "feed") {
         getCurrentUserProfile(),
       ]);
       const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
+      setCurrentUserId(currentProfile?.id || "");
 
       const nextLikedPosts = new Set([...readStoredSet(LIKE_STORAGE_KEY), ...reactions.likes]);
       const nextSavedPosts = new Set([...readStoredSet(SAVE_STORAGE_KEY), ...reactions.saves]);
@@ -155,6 +157,7 @@ export function useExploreFeed(scope = "feed") {
       });
     } catch (err) {
       const currentProfile = await getCurrentUserProfile().catch(() => null);
+      setCurrentUserId(currentProfile?.id || "");
       const cachedPosts = readStoredPosts(scope).map((post) => applyCurrentProfileToPost(post, currentProfile));
       setPosts(cachedPosts);
       setError(err.message || "Unable to load feed.");
@@ -551,7 +554,10 @@ export function useExploreFeed(scope = "feed") {
   }
 
   return {
-    posts: posts.filter((post) => !hiddenPosts.has(post.id) && !readBlockedUsers().has(post.user_id)),
+    posts: posts.filter((post) => {
+      const isOwnPost = Boolean(currentUserId && post.user_id === currentUserId);
+      return isOwnPost || (!hiddenPosts.has(post.id) && !readBlockedUsers().has(post.user_id));
+    }),
     loading,
     error,
     creating,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HiOutlineCheckCircle, HiOutlineCog6Tooth } from "react-icons/hi2";
 
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
@@ -12,6 +12,12 @@ export default function Notifications({ onOpenNotification }) {
   const { notifications, unreadCount, error, markRead, markAllRead } = useExploreNotifications();
   const preferences = useExplorePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (unreadCount > 0) {
+      markAllRead();
+    }
+  }, [unreadCount]);
 
   function toggleSetting(key) {
     preferences.updateSection("notifications", {
