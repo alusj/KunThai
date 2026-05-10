@@ -7,15 +7,17 @@ export default function AppBackButton({
   historyKey = "kuntai-screen",
   className = "",
   iconSize = 20,
+  useHistoryLayer = true,
 }) {
-  const goBack = useBrowserBack(Boolean(onBack), onBack, historyKey);
+  const goBack = useBrowserBack(Boolean(onBack && useHistoryLayer), onBack, historyKey);
+  const handleBack = useHistoryLayer ? goBack : onBack;
 
   if (!onBack) return null;
 
   return (
     <button
       type="button"
-      onClick={goBack}
+      onClick={handleBack}
       aria-label={label}
       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200 ${className}`}
     >

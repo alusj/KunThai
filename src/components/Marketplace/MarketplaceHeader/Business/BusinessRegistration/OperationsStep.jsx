@@ -13,26 +13,19 @@ export default function OperationsStep({ registration }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-sm font-black text-gray-800">Business type</p>
-        <div className="mt-2 grid gap-3 sm:grid-cols-3">
-          {BUSINESS_TYPES.map((type) => {
-            const active = form.operations.businessType === type.id;
-            return (
-              <button
-                key={type.id}
-                type="button"
-                onClick={() => updateSection("operations", { businessType: type.id })}
-                className={`rounded-lg border p-4 text-left font-black ${
-                  active ? "border-blue-600 bg-blue-50 text-blue-800" : "border-gray-200 bg-white text-gray-700"
-                }`}
-              >
-                {type.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <RegistrationField label="Business type">
+        <select
+          value={form.operations.businessType}
+          onChange={(event) => updateSection("operations", { businessType: event.target.value })}
+          className="h-12 w-full rounded-xl border border-gray-300 bg-white px-4 text-sm font-bold text-gray-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        >
+          {BUSINESS_TYPES.map((type) => (
+            <option key={type.id} value={type.id}>
+              {type.label}
+            </option>
+          ))}
+        </select>
+      </RegistrationField>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <ToggleRow

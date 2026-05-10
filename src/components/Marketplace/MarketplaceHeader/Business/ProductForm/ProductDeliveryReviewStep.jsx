@@ -43,6 +43,12 @@ export default function ProductDeliveryReviewStep({ productForm }) {
         <div className="mt-3 space-y-2 text-sm font-medium text-gray-600">
           <p>Name: {form.basics.name || "Missing"}</p>
           <p>Category: {form.basics.category || "Missing"}</p>
+          <p>Condition: {form.basics.condition || "Missing"}</p>
+          {form.details.size || form.details.color || form.details.variants ? (
+            <p>
+              Details: {[form.details.size, form.details.color, form.details.variants].filter(Boolean).join(" · ")}
+            </p>
+          ) : null}
           <p>Price: {form.pricing.price || "Missing"}</p>
           <p>Stock: {form.pricing.stock || "Missing"}</p>
           <p>Cover image: {form.media.coverImageName || (form.media.coverImageUrl ? "Current cover image" : "Missing")}</p>

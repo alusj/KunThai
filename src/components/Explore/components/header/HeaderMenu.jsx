@@ -99,8 +99,8 @@ export default function HeaderMenu({ open, onClose, onNavigate }) {
             <HiOutlineArrowLeft />
           </button>
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-700">KunThai</p>
-            <h2 className="mt-1 text-xl font-black text-slate-950">Social Menu</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">KunThai</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950">Social Menu</h2>
           </div>
         </div>
       </header>

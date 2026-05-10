@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { isMissingColumn } from "../explore/errors";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
@@ -78,6 +79,16 @@ export const INITIAL_PRODUCT_FORM = {
     brand: "",
     model: "",
   },
+  details: {
+    size: "",
+    color: "",
+    material: "",
+    weight: "",
+    dimensions: "",
+    warranty: "",
+    variants: "",
+    specifications: "",
+  },
   media: {
     coverImageFile: null,
     coverImageName: "",
@@ -130,6 +141,7 @@ export async function fetchSellerProducts() {
     condition: product.condition,
     brand: product.brand,
     model: product.model,
+    details: product.product_attributes || {},
     status: product.status,
     stock: product.stock,
     sku: product.sku,
@@ -195,6 +207,45 @@ async function uploadProductFile(userId, file, folder) {
   return data.publicUrl;
 }
 
+function normalizeProductAttributes(details = {}) {
+  return {
+    size: String(details.size || "").trim(),
+    color: String(details.color || "").trim(),
+    material: String(details.material || "").trim(),
+    weight: String(details.weight || "").trim(),
+    dimensions: String(details.dimensions || "").trim(),
+    warranty: String(details.warranty || "").trim(),
+    variants: String(details.variants || "").trim(),
+    specifications: String(details.specifications || "").trim(),
+  };
+}
+
+async function insertProductPayload(payload) {
+  let { data, error } = await supabase.from("marketplace_products").insert(payload).select().maybeSingle();
+
+  if (error && isMissingColumn(error, "product_attributes")) {
+    const { product_attributes: _attributes, ...fallbackPayload } = payload;
+    const fallback = await supabase.from("marketplace_products").insert(fallbackPayload).select().maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  return { data, error };
+}
+
+async function updateProductPayload(productId, businessId, payload) {
+  let { data, error } = await supabase.from("marketplace_products").update(payload).eq("id", productId).eq("business_id", businessId).select().maybeSingle();
+
+  if (error && isMissingColumn(error, "product_attributes")) {
+    const { product_attributes: _attributes, ...fallbackPayload } = payload;
+    const fallback = await supabase.from("marketplace_products").update(fallbackPayload).eq("id", productId).eq("business_id", businessId).select().maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  return { data, error };
+}
+
 export async function fetchProductFormOptions() {
   const business = await readRegisteredBusiness();
   if (!business) {
@@ -241,35 +292,33 @@ export async function submitSellerProduct(form, onProgress) {
 
   const status = form.pricing.publishStatus;
   onProgress?.("Saving product details...");
+  const payload = {
+    business_id: business.id,
+    name: form.basics.name.trim(),
+    description: form.basics.description.trim(),
+    category: form.basics.category,
+    condition: form.basics.condition,
+    brand: form.basics.brand.trim(),
+    model: form.basics.model.trim(),
+    product_attributes: normalizeProductAttributes(form.details),
+    price: Number(form.pricing.price || 0),
+    discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
+    status,
+    stock: Number(form.pricing.stock || 0),
+    sku: form.pricing.sku.trim(),
+    low_stock_alert: Number(form.pricing.lowStockAlert || 0),
+    allow_negotiation: form.pricing.allowNegotiation,
+    delivery_available: form.delivery.deliveryAvailable,
+    pickup_available: form.delivery.pickupAvailable,
+    delivery_time: form.delivery.deliveryTime.trim(),
+    location: form.delivery.location.trim(),
+    main_image_url: coverUrl || null,
+    image_urls: extraImageUrls,
+    video_url: videoUrl || null,
+    published_at: status === "active" ? new Date().toISOString() : null,
+  };
   const { data, error } = await withTimeout(
-    supabase
-      .from("marketplace_products")
-      .insert({
-        business_id: business.id,
-        name: form.basics.name.trim(),
-        description: form.basics.description.trim(),
-        category: form.basics.category,
-        condition: form.basics.condition,
-        brand: form.basics.brand.trim(),
-        model: form.basics.model.trim(),
-        price: Number(form.pricing.price || 0),
-        discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
-        status,
-        stock: Number(form.pricing.stock || 0),
-        sku: form.pricing.sku.trim(),
-        low_stock_alert: Number(form.pricing.lowStockAlert || 0),
-        allow_negotiation: form.pricing.allowNegotiation,
-        delivery_available: form.delivery.deliveryAvailable,
-        pickup_available: form.delivery.pickupAvailable,
-        delivery_time: form.delivery.deliveryTime.trim(),
-        location: form.delivery.location.trim(),
-        main_image_url: coverUrl || null,
-        image_urls: extraImageUrls,
-        video_url: videoUrl || null,
-        published_at: status === "active" ? new Date().toISOString() : null,
-      })
-      .select()
-      .maybeSingle(),
+    insertProductPayload(payload),
     "Product save timed out. Check that the marketplace_products table and policies exist.",
   );
 
@@ -327,37 +376,33 @@ export async function updateSellerProductListing(product, form, onProgress) {
 
   const status = form.pricing.publishStatus;
   onProgress?.("Updating product listing...");
+  const payload = {
+    name: form.basics.name.trim(),
+    description: form.basics.description.trim(),
+    category: form.basics.category,
+    condition: form.basics.condition,
+    brand: form.basics.brand.trim(),
+    model: form.basics.model.trim(),
+    product_attributes: normalizeProductAttributes(form.details),
+    price: Number(form.pricing.price || 0),
+    discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
+    status,
+    stock: Number(form.pricing.stock || 0),
+    sku: form.pricing.sku.trim(),
+    low_stock_alert: Number(form.pricing.lowStockAlert || 0),
+    allow_negotiation: form.pricing.allowNegotiation,
+    delivery_available: form.delivery.deliveryAvailable,
+    pickup_available: form.delivery.pickupAvailable,
+    delivery_time: form.delivery.deliveryTime.trim(),
+    location: form.delivery.location.trim(),
+    main_image_url: coverUrl,
+    image_urls: extraImageUrls,
+    video_url: videoUrl,
+    published_at: status === "active" ? product.publishedAt || new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  };
   const { data, error } = await withTimeout(
-    supabase
-      .from("marketplace_products")
-      .update({
-        name: form.basics.name.trim(),
-        description: form.basics.description.trim(),
-        category: form.basics.category,
-        condition: form.basics.condition,
-        brand: form.basics.brand.trim(),
-        model: form.basics.model.trim(),
-        price: Number(form.pricing.price || 0),
-        discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
-        status,
-        stock: Number(form.pricing.stock || 0),
-        sku: form.pricing.sku.trim(),
-        low_stock_alert: Number(form.pricing.lowStockAlert || 0),
-        allow_negotiation: form.pricing.allowNegotiation,
-        delivery_available: form.delivery.deliveryAvailable,
-        pickup_available: form.delivery.pickupAvailable,
-        delivery_time: form.delivery.deliveryTime.trim(),
-        location: form.delivery.location.trim(),
-        main_image_url: coverUrl,
-        image_urls: extraImageUrls,
-        video_url: videoUrl,
-        published_at: status === "active" ? product.publishedAt || new Date().toISOString() : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", product.id)
-      .eq("business_id", business.id)
-      .select()
-      .maybeSingle(),
+    updateProductPayload(product.id, business.id, payload),
     "Product update timed out. Check that the marketplace_products table and policies exist.",
   );
 

@@ -56,12 +56,17 @@ export function getMetadataAvatar(metadata = {}) {
   );
 }
 
+export function getMetadataCover(metadata = {}) {
+  return metadata.cover_url || metadata.coverUrl || metadata.profile_cover_url || "";
+}
+
 export function buildExploreProfileFromUser(user) {
   const metadata = user?.user_metadata || {};
   const cached = readStoredProfile(user?.id);
   const displayName = cached.displayName || metadata.display_name || metadata.full_name || metadata.name || user?.email || "";
   const username = cached.username || metadata.username || user?.email?.split("@")[0] || "";
   const avatarUrl = cached.avatarUrl || getMetadataAvatar(metadata) || "";
+  const coverUrl = cached.coverUrl || getMetadataCover(metadata) || "preset:gradient";
 
   return {
     userId: user?.id || "",
@@ -73,6 +78,7 @@ export function buildExploreProfileFromUser(user) {
     address: metadata.address || cached.address || "",
     accountType: metadata.account_type || cached.accountType || "personal",
     avatarUrl,
+    coverUrl,
     bio: cached.bio || metadata.bio || "",
     socialLinks: normalizeSocialLinks(cached.socialLinks || metadata.social_links),
   };

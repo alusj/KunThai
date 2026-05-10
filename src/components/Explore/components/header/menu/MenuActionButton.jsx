@@ -13,7 +13,7 @@ export default function MenuActionButton({ icon: Icon, label, tone = "default", 
       className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left transition sm:px-5 ${toneClass}`}
     >
       <Icon className="text-2xl" />
-      <span className="text-base font-black sm:text-lg">{label}</span>
+      <span className="text-base font-semibold sm:text-lg">{label}</span>
     </button>
   );
 }

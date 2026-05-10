@@ -1,7 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./errors";
 import { uploadMediaDataUrl } from "./mediaService";
-import { buildExploreProfileFromUser, getMetadataAvatar, writeStoredProfile } from "./profileStorage";
+import { buildExploreProfileFromUser, getMetadataAvatar, getMetadataCover, writeStoredProfile } from "./profileStorage";
 import { normalizeSocialLinks } from "./socialLinks";
 
 function toAppProfile(row, fallback = {}) {
@@ -15,6 +15,7 @@ function toAppProfile(row, fallback = {}) {
     address: row?.address || fallback.address || "",
     accountType: row?.account_type || fallback.accountType || "personal",
     avatarUrl: row?.avatar_url || fallback.avatarUrl || "",
+    coverUrl: row?.cover_url || fallback.coverUrl || "preset:gradient",
     bio: row?.bio || fallback.bio || "",
     socialLinks: normalizeSocialLinks(row?.social_links || fallback.socialLinks),
     verified: Boolean(row?.verified || fallback.verified),
@@ -42,6 +43,7 @@ async function upsertExploreProfile(userId, profile) {
     contact_email: profile.email || "",
     address: profile.address || "",
     avatar_url: profile.avatarUrl,
+    cover_url: profile.coverUrl || "preset:gradient",
     bio: profile.bio || "",
     social_links: normalizeSocialLinks(profile.socialLinks),
     account_type: profile.accountType || "personal",
@@ -52,7 +54,7 @@ async function upsertExploreProfile(userId, profile) {
   let data = null;
   let error = null;
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     const result = await supabase.from("explore_profiles").upsert(nextPayload, { onConflict: "user_id" }).select().maybeSingle();
     data = result.data;
     error = result.error;
@@ -61,7 +63,7 @@ async function upsertExploreProfile(userId, profile) {
       break;
     }
 
-    const missingOptionalColumn = ["social_links", "contact_email", "address"].find((column) => isMissingColumn(error, column));
+    const missingOptionalColumn = ["social_links", "contact_email", "address", "cover_url"].find((column) => isMissingColumn(error, column));
     if (!missingOptionalColumn) {
       break;
     }
@@ -143,7 +145,9 @@ export async function updateExploreProfile(patch) {
   const current = user.user_metadata || {};
   const currentProfile = buildExploreProfileFromUser(user);
   let avatarUrl = patch.avatarUrl ?? getMetadataAvatar(current) ?? "";
+  let coverUrl = patch.coverUrl ?? getMetadataCover(current) ?? "preset:gradient";
   let avatarWarning = "";
+  let coverWarning = "";
 
   if (patch.avatarUrl?.startsWith?.("data:")) {
     try {
@@ -154,10 +158,20 @@ export async function updateExploreProfile(patch) {
     }
   }
 
+  if (patch.coverUrl?.startsWith?.("data:")) {
+    try {
+      coverUrl = await uploadMediaDataUrl(patch.coverUrl, "profile-cover", user.id);
+    } catch (error) {
+      coverUrl = patch.coverUrl;
+      coverWarning = error.message || "Cover image is saved locally until storage is ready.";
+    }
+  }
+
   const nextProfile = {
     ...currentProfile,
     ...patch,
     avatarUrl,
+    coverUrl,
   };
 
   const authData = {
@@ -173,6 +187,7 @@ export async function updateExploreProfile(patch) {
     bio: nextProfile.bio || "",
     social_links: normalizeSocialLinks(nextProfile.socialLinks),
     avatar_url: avatarUrl?.startsWith?.("data:") ? getMetadataAvatar(current) : avatarUrl,
+    cover_url: coverUrl?.startsWith?.("data:") ? getMetadataCover(current) : coverUrl,
     picture: avatarUrl?.startsWith?.("data:") ? current.picture || "" : avatarUrl || current.picture || "",
   };
 
@@ -190,8 +205,9 @@ export async function updateExploreProfile(patch) {
     email: authData.contact_email || user.email || "",
     address: authData.address || "",
     avatarUrl: avatarUrl || getMetadataAvatar(data.user?.user_metadata || authData),
+    coverUrl: coverUrl || getMetadataCover(data.user?.user_metadata || authData) || "preset:gradient",
     socialLinks: normalizeSocialLinks(authData.social_links),
-    avatarWarning,
+    avatarWarning: avatarWarning || coverWarning,
   };
 
   await upsertExploreProfile(user.id, updated);

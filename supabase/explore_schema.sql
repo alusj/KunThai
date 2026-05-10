@@ -26,6 +26,7 @@ create table if not exists public.explore_profiles (
   contact_email text,
   address text,
   avatar_url text,
+  cover_url text,
   bio text,
   social_links jsonb not null default '[]'::jsonb,
   account_type text not null default 'personal',
@@ -38,6 +39,7 @@ alter table public.explore_profiles add column if not exists username text;
 alter table public.explore_profiles add column if not exists contact_email text;
 alter table public.explore_profiles add column if not exists address text;
 alter table public.explore_profiles add column if not exists avatar_url text;
+alter table public.explore_profiles add column if not exists cover_url text;
 alter table public.explore_profiles add column if not exists bio text;
 alter table public.explore_profiles add column if not exists social_links jsonb not null default '[]'::jsonb;
 alter table public.explore_profiles add column if not exists account_type text not null default 'personal';

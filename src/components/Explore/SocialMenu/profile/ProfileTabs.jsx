@@ -17,7 +17,7 @@ export default function ProfileTabs({ active, editable, onChange }) {
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`h-10 flex-1 rounded-2xl px-4 text-sm font-black transition ${
+          className={`h-10 flex-1 rounded-2xl px-4 text-sm font-semibold transition ${
             active === tab.id ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
           }`}
         >

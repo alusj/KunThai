@@ -26,6 +26,7 @@ const platformIcons = {
 };
 
 export default function ProfileHeaderCard({
+  coverInputRef,
   editable,
   editing,
   feedback,
@@ -33,6 +34,8 @@ export default function ProfileHeaderCard({
   followed,
   onAvatarChange,
   onBlock,
+  onCoverChange,
+  onCoverPreset,
   onEdit,
   onFollow,
   onMessage,
@@ -45,6 +48,7 @@ export default function ProfileHeaderCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
+  const coverStyle = getCoverStyle(values.coverUrl);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -65,15 +69,37 @@ export default function ProfileHeaderCard({
   }
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className="h-24 bg-gradient-to-r from-sky-100 via-white to-slate-100" />
-      <div className="-mt-10 px-5 pb-5">
+    <section className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+      <div className="relative h-28 overflow-hidden rounded-t-[28px] bg-slate-100 sm:h-36" style={coverStyle}>
+        {editing && editable ? (
+          <div className="absolute inset-x-4 top-4 flex flex-wrap gap-2">
+            {["gradient", "animated", "marketplace", "transport"].map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => onCoverPreset?.(preset)}
+                className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold capitalize text-slate-700 shadow-sm backdrop-blur"
+              >
+                {preset}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white shadow-sm"
+            >
+              Upload cover
+            </button>
+          </div>
+        ) : null}
+      </div>
+      <div className="relative z-10 -mt-10 px-5 pb-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <button
               type="button"
               onClick={() => editable && editing && fileInputRef.current?.click()}
-              className="inline-flex rounded-full bg-white p-1 shadow-sm"
+              className="inline-flex rounded-full bg-white p-1 shadow-sm ring-4 ring-white"
               aria-label={editable && editing ? "Change profile image" : "Profile image"}
             >
               <Avatar name={values.displayName} src={values.avatarUrl} size="lg" />
@@ -89,6 +115,7 @@ export default function ProfileHeaderCard({
               </button>
             ) : null}
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarChange} className="hidden" />
+            <input ref={coverInputRef} type="file" accept="image/*" onChange={onCoverChange} className="hidden" />
           </div>
 
           <div ref={menuRef} className="relative flex flex-col items-end gap-2 pt-10">
@@ -119,7 +146,7 @@ export default function ProfileHeaderCard({
                   type="button"
                   onClick={onEdit}
                   disabled={saving}
-                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60"
+                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   <HiOutlinePencilSquare />
                   {editing ? (saving ? "Saving" : "Save") : "Edit"}
@@ -130,7 +157,7 @@ export default function ProfileHeaderCard({
                     <button
                       type="button"
                       onClick={onFollow}
-                      className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+                      className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white"
                     >
                       Follow
                     </button>
@@ -157,7 +184,7 @@ export default function ProfileHeaderCard({
             </div>
 
             {menuOpen ? (
-              <div className="absolute right-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-sm font-black shadow-xl">
+              <div className="absolute right-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-sm font-semibold shadow-xl">
                 {!editable && followed ? (
                   <button
                     type="button"
@@ -212,7 +239,7 @@ export default function ProfileHeaderCard({
 
         <div className="mt-3 min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <h3 className="truncate text-2xl font-black text-slate-950">{values.displayName || "Profile"}</h3>
+            <h3 className="truncate text-2xl font-semibold text-slate-950">{values.displayName || "Profile"}</h3>
             {values.verified ? <HiOutlineCheckBadge className="flex-none text-xl text-sky-600" /> : null}
           </div>
           {values.username ? <p className="mt-1 text-sm font-bold text-slate-500">@{values.username}</p> : null}
@@ -242,4 +269,34 @@ export default function ProfileHeaderCard({
       </div>
     </section>
   );
+}
+
+function getCoverStyle(coverUrl) {
+  const value = coverUrl || "preset:gradient";
+  const presets = {
+    "preset:gradient": {
+      backgroundImage: "linear-gradient(120deg, #dff4ff 0%, #ffffff 50%, #eef2f7 100%)",
+    },
+    "preset:animated": {
+      backgroundImage: "linear-gradient(120deg, #e0f2fe 0%, #f8fafc 35%, #dbeafe 70%, #f0fdfa 100%)",
+      backgroundSize: "220% 220%",
+      animation: "kuntai-cover-pan 12s ease-in-out infinite",
+    },
+    "preset:marketplace": {
+      backgroundImage: "linear-gradient(120deg, #ecfeff 0%, #fef9c3 48%, #e0f2fe 100%)",
+    },
+    "preset:transport": {
+      backgroundImage: "linear-gradient(120deg, #f0fdf4 0%, #eff6ff 55%, #e2e8f0 100%)",
+    },
+  };
+
+  if (presets[value]) {
+    return presets[value];
+  }
+
+  return {
+    backgroundImage: `linear-gradient(120deg, rgba(15,23,42,0.08), rgba(255,255,255,0.12)), url("${value}")`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  };
 }

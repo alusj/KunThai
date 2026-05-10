@@ -1,6 +1,7 @@
 import { useSellerProductForm } from "../../../../../Backend/hooks/useSellerProductForm";
 import ProductBasicsStep from "./ProductBasicsStep";
 import ProductDeliveryReviewStep from "./ProductDeliveryReviewStep";
+import ProductDetailsStep from "./ProductDetailsStep";
 import ProductFormProgress from "./ProductFormProgress";
 import ProductMediaStep from "./ProductMediaStep";
 import ProductPreview from "./ProductPreview";
@@ -9,6 +10,7 @@ import AppBackButton from "../../../../shared/AppBackButton";
 
 const STEPS = [
   { title: "Product basics", component: ProductBasicsStep },
+  { title: "Optional details", component: ProductDetailsStep },
   { title: "Media", component: ProductMediaStep },
   { title: "Pricing & inventory", component: ProductPricingStep },
   { title: "Delivery, review & publish", component: ProductDeliveryReviewStep },
@@ -64,7 +66,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
               >
                 Back
               </button>
-              {productForm.step < 3 ? (
+              {productForm.step < STEPS.length - 1 ? (
                 <button
                   type="button"
                   onClick={productForm.next}

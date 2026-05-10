@@ -46,12 +46,15 @@ export default function ProductPricingStep({ productForm }) {
             onChange={(event) => updateSection("pricing", { lowStockAlert: event.target.value })}
           />
         </ProductFormField>
-        <ProductFormField label="SKU optional">
+        <ProductFormField label="Product code optional">
           <ProductFormInput
             value={form.pricing.sku}
             onChange={(event) => updateSection("pricing", { sku: event.target.value })}
-            placeholder="SKU-001"
+            placeholder="Example: JAY-HEADPHONE-001"
           />
+          <p className="mt-2 text-xs font-bold leading-5 text-gray-500">
+            This is your own tracking code for stock or receipts. You can leave it empty if you do not use product codes.
+          </p>
         </ProductFormField>
       </div>
 

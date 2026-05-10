@@ -86,6 +86,12 @@
   100% { transform: translateY(0px); }
 }
 
+@keyframes kuntai-cover-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .animate-radarFloat {
   animation: radarFloat 1s ease-in-out infinite;
 }

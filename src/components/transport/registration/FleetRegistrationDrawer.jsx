@@ -20,6 +20,24 @@ import {
 
 const categories = ["Transport", "Delivery", "Both"];
 const fleetTypes = ["Car", "Motorcycle", "Tricycle"];
+const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends only", "Night service"];
+const fuelTypes = ["Petrol", "Diesel", "Hybrid", "Electric", "Not applicable"];
+const carBodyTypes = ["Sedan", "SUV", "Hatchback", "Minivan", "Pickup", "Van"];
+const deliveryBodyTypes = ["Open cargo", "Covered cargo", "Delivery box", "Insulated box", "Passenger + cargo"];
+const locationSuggestions = [
+  "Freetown CBD",
+  "Wilkinson Road",
+  "Lumley",
+  "Congo Cross",
+  "Kissy",
+  "Waterloo",
+  "Bo",
+  "Kenema",
+  "Makeni",
+  "Koidu",
+  "Lungi",
+  "Port Loko",
+];
 const requiredFleetImages = [
   "Front view",
   "Back view",
@@ -121,6 +139,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
   const [uploads, setUploads] = useState(draft?.uploads || {});
   const [documentsSkipped, setDocumentsSkipped] = useState(Boolean(draft?.documentsSkipped));
   const [showSkipWarning, setShowSkipWarning] = useState(false);
+  const [showSafetyWarning, setShowSafetyWarning] = useState(false);
+  const [showReviewSaveWarning, setShowReviewSaveWarning] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
   const [stepError, setStepError] = useState("");
   const [submitError, setSubmitError] = useState("");
@@ -187,7 +207,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
 
     if (targetStep === 3) {
       return questions
-        .filter((question) => !String(answers[question.key] || "").trim())
+        .filter((question) => question.type === "number" && !String(answers[question.key] || "").trim())
         .map((question) => question.label.toLowerCase());
     }
 
@@ -219,13 +239,22 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
     return false;
   };
 
+  const normalizedAnswers = () =>
+    questions.reduce(
+      (nextAnswers, question) => ({
+        ...nextAnswers,
+        [question.key]: question.type === "select" ? answers[question.key] || "Yes" : answers[question.key] || "",
+      }),
+      answers,
+    );
+
   const buildPayload = (status = "draft") => ({
     operatorId,
     displayCode: `KT-${operatorId}`,
     step,
     maxStepReached,
     form,
-    answers,
+    answers: normalizedAnswers(),
     uploads,
     documentsSkipped,
     verificationStatus: documentsSkipped ? "notVerified" : "pending",
@@ -234,6 +263,11 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
   });
 
   const handleSave = () => {
+    if (step === 5) {
+      setShowReviewSaveWarning(true);
+      return;
+    }
+
     saveOperatorDraft(buildPayload("draft"));
     setSavedMessage("Checkpoint secured. You can return later and continue from this exact point.");
     window.setTimeout(() => setSavedMessage(""), 4200);
@@ -264,11 +298,33 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
   const nextStep = () => {
     if (!requireCurrentStep()) return;
 
+    if (step === 3) {
+      setShowSafetyWarning(true);
+      return;
+    }
+
+    proceedToNextStep();
+  };
+
+  const proceedToNextStep = () => {
     setStep((current) => {
       const next = Math.min(current + 1, steps.length - 1);
       setMaxStepReached((reached) => Math.max(reached, next));
       return next;
     });
+  };
+
+  const confirmSafetyAndContinue = () => {
+    setAnswers(normalizedAnswers());
+    setShowSafetyWarning(false);
+    proceedToNextStep();
+  };
+
+  const saveReviewDraft = () => {
+    saveOperatorDraft(buildPayload("draft"));
+    setShowReviewSaveWarning(false);
+    setSavedMessage("Review checkpoint saved. You can return later before submitting.");
+    window.setTimeout(() => setSavedMessage(""), 4200);
   };
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
   const goToStep = (index) => {
@@ -279,8 +335,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 sm:gap-4">
+      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 lg:px-8">
+        <div className="flex w-full items-center gap-3 sm:gap-4">
           <AppBackButton
             onBack={onClose}
             label="Back to transport"
@@ -304,7 +360,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl gap-4 px-3 py-4 sm:px-4 sm:py-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
+      <main className="grid w-full gap-5 px-3 py-4 sm:px-5 sm:py-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="min-w-0 lg:sticky lg:top-20 lg:h-fit">
           <div className="grid grid-cols-2 gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm sm:grid-cols-3 sm:p-3 lg:grid-cols-1">
             {steps.map((item, index) => {
@@ -334,7 +390,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
           </div>
         </aside>
 
-        <section className="min-w-0 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
+        <section className="min-w-0 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
           {savedMessage && (
             <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900 sm:hidden">
               {savedMessage}
@@ -347,10 +403,39 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
           )}
           {step === 0 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <FormInput label="Operator name" value={form.name} onChange={(value) => update("name", value)} />
-              <FormInput label="Phone number" value={form.phone} onChange={(value) => update("phone", value)} />
-              <FormInput label="City or district" value={form.city} onChange={(value) => update("city", value)} />
-              <FormInput label="Emergency contact" value={form.emergencyContact} onChange={(value) => update("emergencyContact", value)} />
+              <FormInput
+                label="Operator name"
+                value={form.name}
+                onChange={(value) => update("name", value)}
+                placeholder="Operator name"
+                autoComplete="name"
+                helper="Use the real operator name that passengers or admins can verify."
+              />
+              <FormInput
+                label="Phone number"
+                type="tel"
+                value={form.phone}
+                onChange={(value) => update("phone", value)}
+                placeholder="Phone number"
+                autoComplete="tel"
+                helper="This number is used for operator contact and account review."
+              />
+              <LocationInput
+                label="City or district"
+                value={form.city}
+                onChange={(value) => update("city", value)}
+                placeholder="City or district"
+                helper="Start typing and choose the closest operating city or district."
+              />
+              <FormInput
+                label="Emergency contact"
+                type="tel"
+                value={form.emergencyContact}
+                onChange={(value) => update("emergencyContact", value)}
+                placeholder="Emergency contact"
+                autoComplete="tel"
+                helper="A trusted contact for urgent transport safety follow-up."
+              />
             </div>
           )}
 
@@ -361,45 +446,48 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
                 options={categories}
                 value={form.category}
                 onChange={(value) => update("category", value)}
+                helper="Choose what this fleet will offer to passengers."
               />
               <SelectField
                 label="Fleet type"
                 options={fleetTypes}
                 value={form.fleetType}
                 onChange={(value) => update("fleetType", value)}
+                helper="This controls the safety questions and required review details."
               />
             </div>
           )}
 
           {step === 2 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <FormInput label="Fleet name or label" value={form.fleetName} onChange={(value) => update("fleetName", value)} />
-              <FormInput label="Plate number" value={form.plateNumber} onChange={(value) => update("plateNumber", value)} />
-              <FormInput label="Make / brand" value={form.make} onChange={(value) => update("make", value)} />
-              <FormInput label="Model" value={form.model} onChange={(value) => update("model", value)} />
-              <FormInput label="Year" value={form.year} onChange={(value) => update("year", value)} />
-              <FormInput label="Color" value={form.color} onChange={(value) => update("color", value)} />
-              <FormInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} />
-              <FormInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} />
-              <FormInput label="Base fare" value={form.baseFare} onChange={(value) => update("baseFare", value)} />
-              <FormInput label="Passenger price hint" value={form.priceHint} onChange={(value) => update("priceHint", value)} />
-              <ChoiceGroup
+              <FormInput label="Fleet name or label" value={form.fleetName} onChange={(value) => update("fleetName", value)} placeholder="Fleet name or label" helper="A short public name passengers can recognize." />
+              <FormInput label="Plate number" value={form.plateNumber} onChange={(value) => update("plateNumber", value.toUpperCase())} placeholder="Plate number" helper="Use the plate exactly as shown on the fleet." />
+              <FormInput label="Make / brand" value={form.make} onChange={(value) => update("make", value)} placeholder="Make or brand" />
+              <FormInput label="Model" value={form.model} onChange={(value) => update("model", value)} placeholder="Model" />
+              <FormInput label="Year" type="number" value={form.year} onChange={(value) => update("year", value)} placeholder="Year" min="1950" helper="Vehicle manufacture year." />
+              <FormInput label="Color" value={form.color} onChange={(value) => update("color", value)} placeholder="Color" />
+              <LocationInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder="Operating area" helper="Main area where passengers should expect service." />
+              <LocationInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder="Home base or station" helper="Where the fleet usually starts or parks." />
+              <FormInput label="Base fare" type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder="Base fare" min="0" helper="Starting fare before distance or negotiation." />
+              <FormInput label="Passenger price hint" value={form.priceHint} onChange={(value) => update("priceHint", value)} placeholder="Passenger price hint" helper="A readable price note shown to passengers." />
+              <SelectField
                 label="Availability"
-                options={["Full-time", "Part-time", "Scheduled"]}
+                options={availabilityOptions}
                 value={form.availability}
                 onChange={(value) => update("availability", value)}
+                helper="Choose when this fleet is usually available."
               />
               {form.fleetType === "Car" && (
                 <>
-                  <FormInput label="Fuel type" value={form.fuelType} onChange={(value) => update("fuelType", value)} />
-                  <FormInput label="Car body type" value={form.carBodyType} onChange={(value) => update("carBodyType", value)} />
+                  <SelectField label="Fuel type" options={fuelTypes} value={form.fuelType} onChange={(value) => update("fuelType", value)} />
+                  <SelectField label="Car body type" options={carBodyTypes} value={form.carBodyType} onChange={(value) => update("carBodyType", value)} />
                 </>
               )}
               {(form.category === "Delivery" || form.category === "Both") && (
-                <FormInput label="Estimated max load" value={form.maxLoad} onChange={(value) => update("maxLoad", value)} />
+                <FormInput label="Estimated max load" value={form.maxLoad} onChange={(value) => update("maxLoad", value)} placeholder="Estimated max load" />
               )}
               {(form.category === "Delivery" || form.category === "Both") && form.fleetType === "Tricycle" && (
-                <FormInput label="Delivery booth type" value={form.deliveryBodyType} onChange={(value) => update("deliveryBodyType", value)} />
+                <SelectField label="Delivery booth type" options={deliveryBodyTypes} value={form.deliveryBodyType} onChange={(value) => update("deliveryBodyType", value)} />
               )}
             </div>
           )}
@@ -427,6 +515,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
                         min="0"
                         value={answers[question.key] || ""}
                         onChange={(event) => updateAnswer(question.key, event.target.value)}
+                        placeholder="0"
                         className="mt-3 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-green-500"
                       />
                     ) : (
@@ -499,6 +588,22 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
                     />
                   ))}
                 </div>
+                <div className="mt-5">
+                  <h3 className="font-bold text-gray-950">Additional documents optional</h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Add any extra permit, association card, inspection note, or supporting document that can help the review team.
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {[1, 2, 3].map((item) => (
+                      <UploadField
+                        key={item}
+                        label={`Additional document ${item}`}
+                        value={uploads[`doc-additional-${item}`]}
+                        onChange={(file) => markUpload(`doc-additional-${item}`, file)}
+                      />
+                    ))}
+                  </div>
+                </div>
               </section>
             </div>
           )}
@@ -569,11 +674,11 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
             ) : (
               <button
                 type="button"
-                onClick={handleSubmit}
+                onClick={() => setShowReviewSaveWarning(true)}
                 disabled={submitting}
                 className="h-11 w-full rounded-2xl bg-green-600 px-5 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-60 sm:w-auto"
               >
-                {submitting ? "Submitting..." : "Submit Registration"}
+                {submitting ? "Submitting..." : "Review and submit"}
               </button>
             )}
               </div>
@@ -613,48 +718,124 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
           </section>
         </div>
       )}
+
+      {showSafetyWarning && (
+        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 px-3 py-3 sm:items-center sm:justify-center">
+          <section className="w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg">
+            <div className="flex items-start gap-3">
+              <FiShield className="mt-1 shrink-0 text-green-700" size={22} />
+              <div>
+                <h2 className="text-lg font-black text-gray-950">Confirm safety answers</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Be aware that the KunThai admin team will thoroughly check the safety answers you provided. Make sure each answer is honest and matches the actual condition of the fleet.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setShowSafetyWarning(false)}
+                className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
+              >
+                Edit safety questions
+              </button>
+              <button
+                type="button"
+                onClick={confirmSafetyAndContinue}
+                className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
+              >
+                Yes, continue
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showReviewSaveWarning && (
+        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 px-3 py-3 sm:items-center sm:justify-center">
+          <section className="w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg">
+            <div className="flex items-start gap-3">
+              <FiAlertTriangle className="mt-1 shrink-0 text-amber-600" size={22} />
+              <div>
+                <h2 className="text-lg font-black text-gray-950">Before final review</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  We are going to check every document you provided and run a thorough verification review. Please make sure most documents carry the same, or very similar, operator and fleet names so the KunThai admin team can confirm ownership faster.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => setShowReviewSaveWarning(false)}
+                className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
+              >
+                Go back
+              </button>
+              <button
+                type="button"
+                onClick={saveReviewDraft}
+                className="h-11 rounded-2xl border border-green-200 bg-green-50 text-sm font-bold text-green-700"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReviewSaveWarning(false);
+                  saveOperatorDraft(buildPayload("draft"));
+                  handleSubmit();
+                }}
+                className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
+              >
+                Save and continue
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
 
-function FormInput({ label, value, onChange }) {
+function FormInput({ label, value, onChange, type = "text", placeholder = "", helper = "", ...props }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
+      <input
+        {...props}
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+      />
+      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
+    </label>
+  );
+}
+
+function LocationInput({ label, value, onChange, placeholder = "", helper = "" }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
       <input
         value={value}
+        list="transport-location-suggestions"
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+        className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
       />
+      <datalist id="transport-location-suggestions">
+        {locationSuggestions.map((location) => (
+          <option key={location} value={location} />
+        ))}
+      </datalist>
+      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
     </label>
   );
 }
 
-function ChoiceGroup({ label, options, value, onChange }) {
-  return (
-    <div>
-      <p className="mb-2 text-sm font-semibold text-gray-800">{label}</p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {options.map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => onChange(option)}
-            className={`min-h-12 rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
-              value === option
-                ? "border-green-500 bg-green-50 text-green-700"
-                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {option}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SelectField({ label, options, value, onChange }) {
+function SelectField({ label, options, value, onChange, helper = "" }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
@@ -663,12 +844,14 @@ function SelectField({ label, options, value, onChange }) {
         onChange={(event) => onChange(event.target.value)}
         className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
       >
+        {!value ? <option value="">Select {label.toLowerCase()}</option> : null}
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
       </select>
+      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
     </label>
   );
 }

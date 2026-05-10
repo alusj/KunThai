@@ -1,4 +1,4 @@
-const STEPS = ["Basics", "Media", "Pricing", "Publish"];
+const STEPS = ["Basics", "Details", "Media", "Pricing", "Publish"];
 
 export default function ProductFormProgress({ step }) {
   return (
@@ -7,7 +7,7 @@ export default function ProductFormProgress({ step }) {
         <p className="text-sm font-black text-gray-950">Step {step + 1} of {STEPS.length}</p>
         <p className="text-sm font-bold text-gray-500">{STEPS[step]}</p>
       </div>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {STEPS.map((item, index) => (
           <div key={item} className={`h-2 rounded-full ${index <= step ? "bg-blue-600" : "bg-gray-100"}`} />
         ))}

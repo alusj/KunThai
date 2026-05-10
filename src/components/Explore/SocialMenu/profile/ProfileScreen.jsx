@@ -56,6 +56,7 @@ export default function ProfileScreen({
   const [feedback, setFeedback] = useState("");
   const [values, setValues] = useState(profile || {});
   const fileInputRef = useRef(null);
+  const coverInputRef = useRef(null);
   const feed = useExploreFeed("feed");
   const swipFeed = useExploreFeed("swip");
   const followStats = useExploreFollowStats(values?.userId);
@@ -82,6 +83,19 @@ export default function ProfileScreen({
       updateField("avatarUrl", await fileToDataUrl(file));
     } catch (error) {
       setFeedback(error.message || "Unable to load image.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function handleCoverChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      updateField("coverUrl", await fileToDataUrl(file));
+    } catch (error) {
+      setFeedback(error.message || "Unable to load cover image.");
     } finally {
       event.target.value = "";
     }
@@ -184,11 +198,14 @@ export default function ProfileScreen({
         <ProfileHeaderCard
           editable={editable}
           editing={editing}
+          coverInputRef={coverInputRef}
           feedback={feedback}
           fileInputRef={fileInputRef}
           followed={followed}
           onAvatarChange={handleAvatarChange}
           onBlock={blockProfile}
+          onCoverChange={handleCoverChange}
+          onCoverPreset={(preset) => updateField("coverUrl", `preset:${preset}`)}
           onEdit={() => (editing ? saveProfile() : setEditing(true))}
           onFollow={followProfile}
           onMessage={() => onStartChat?.(values)}

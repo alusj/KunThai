@@ -39,25 +39,27 @@ export default function ProductBasicsStep({ productForm }) {
       </ProductFormField>
 
       <div>
-        <p className="text-sm font-black text-gray-800">Condition</p>
-        <div className="mt-2 grid gap-3 sm:grid-cols-3">
-          {CONDITIONS.map((condition) => (
-            <button
-              key={condition}
-              type="button"
-              onClick={() => updateSection("basics", { condition })}
-              className={`rounded-lg border p-4 text-left font-black capitalize ${
-                form.basics.condition === condition
-                  ? "border-blue-600 bg-blue-50 text-blue-800"
-                  : "border-gray-200 bg-white text-gray-700"
-              }`}
-            >
-              {condition}
-            </button>
-          ))}
-        </div>
+        <ProductFormField label="Condition">
+          <select
+            value={form.basics.condition}
+            onChange={(event) => updateSection("basics", { condition: event.target.value })}
+            className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium capitalize outline-none focus:border-blue-500"
+          >
+            {CONDITIONS.map((condition) => (
+              <option key={condition} value={condition}>
+                {condition}
+              </option>
+            ))}
+          </select>
+        </ProductFormField>
       </div>
 
+      <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+        <p className="text-sm font-black text-blue-900">Optional product details come next</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-blue-700">
+          Add size, color, material, warranty, variants, and specifications when they help buyers decide.
+        </p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <ProductFormField label="Brand optional">
           <ProductFormInput

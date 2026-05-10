@@ -19,6 +19,15 @@ export default function ProductPreview({ preview }) {
             </span>
           </div>
           <p className="mt-3 text-sm font-medium leading-5 text-gray-600">{preview.description}</p>
+          {[preview.details?.size, preview.details?.color, preview.details?.warranty].filter(Boolean).length ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[preview.details?.size, preview.details?.color, preview.details?.warranty].filter(Boolean).map((item) => (
+                <span key={item} className="rounded-full bg-white px-3 py-1 text-xs font-black text-gray-700">
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <p className="mt-4 text-xl font-black text-gray-950">{formatCurrency(Number(preview.price || 0))}</p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 // src/Explore/Explore.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../Backend/hooks/useAuth";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
@@ -56,6 +56,7 @@ export default function Explore({ onScreenModeChange }) {
   const [viewedProfile, setViewedProfile] = useState(null);
   const [messageRecipient, setMessageRecipient] = useState(null);
   const [postingNotice, setPostingNotice] = useState(null);
+  const backSwipeRef = useRef(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
   const { user } = useAuth();
@@ -63,7 +64,7 @@ export default function Explore({ onScreenModeChange }) {
   const { activeTab, activeMenuScreen, menuScreen } = exploreNav;
   const isSwipTab = activeTab === "Swip";
 
-  useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
+  const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
 
   useEffect(() => {
     onScreenModeChange?.(exploreNav.isFullScreen);
@@ -188,6 +189,44 @@ export default function Explore({ onScreenModeChange }) {
     exploreNav.openMenuScreen(screen, options);
   }
 
+  function handleBackTouchStart(event) {
+    if (!exploreNav.isFullScreen) {
+      return;
+    }
+
+    const touch = event.touches?.[0];
+    if (!touch || touch.clientX > 96) {
+      backSwipeRef.current = null;
+      return;
+    }
+
+    backSwipeRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  }
+
+  function handleBackTouchEnd(event) {
+    const start = backSwipeRef.current;
+    backSwipeRef.current = null;
+
+    if (!start || !exploreNav.isFullScreen) {
+      return;
+    }
+
+    const touch = event.changedTouches?.[0];
+    if (!touch) {
+      return;
+    }
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = Math.abs(touch.clientY - start.y);
+
+    if (deltaX > 70 && deltaY < 70) {
+      goBackFullScreen();
+    }
+  }
+
   function renderMenuScreen() {
     if (!activeMenuScreen) {
       return null;
@@ -276,11 +315,15 @@ export default function Explore({ onScreenModeChange }) {
 
   if (exploreNav.isFullScreen) {
     return (
-      <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 kuntai-safe-bottom">
+      <div
+        className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 kuntai-safe-bottom"
+        onTouchStart={handleBackTouchStart}
+        onTouchEnd={handleBackTouchEnd}
+      >
         <SocialScreenHeader
           title={menuScreen.title}
           subtitle={menuScreen.subtitle}
-          onBack={exploreNav.goBackMenuScreen}
+          onBack={goBackFullScreen}
         />
         {renderMenuScreen()}
       </div>
@@ -295,10 +338,12 @@ export default function Explore({ onScreenModeChange }) {
           HEADER + PARENT TABS
       ========================= */}
       <div
-        className={`sticky top-0 z-30 ${
+        className={`sticky top-0 z-30 overflow-hidden ${
           isSwipTab
             ? "bg-slate-100/95 backdrop-blur"
-            : `transition-transform duration-300 ${navHidden ? "-translate-y-full" : "translate-y-0"}`
+            : `bg-slate-100/95 backdrop-blur transition-[max-height,opacity,transform] duration-300 ${
+                navHidden ? "max-h-0 -translate-y-2 opacity-0 pointer-events-none" : "max-h-56 translate-y-0 opacity-100"
+              }`
         }`}
       >
         <div

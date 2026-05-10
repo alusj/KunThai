@@ -33,6 +33,10 @@ function buildProductForm(product, options) {
       brand: product.brand || "",
       model: product.model || "",
     },
+    details: {
+      ...INITIAL_PRODUCT_FORM.details,
+      ...(product.details || {}),
+    },
     media: {
       coverImageFile: null,
       coverImageName: product.mainImageUrl ? "Current cover image" : "",
@@ -89,6 +93,7 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
       category: form.basics.category || "Category",
       description: form.basics.description || "Product description preview.",
       price: form.pricing.price || "0",
+      details: form.details,
       coverName: form.media.coverImageName || (form.media.coverImageUrl ? "Current cover image" : ""),
       status: form.pricing.publishStatus,
     }),
@@ -114,11 +119,11 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
       if (!form.basics.description.trim()) nextErrors.description = "Description is required.";
     }
 
-    if (nextStep === 1 && !form.media.coverImageFile && !form.media.coverImageUrl) {
+    if (nextStep === 2 && !form.media.coverImageFile && !form.media.coverImageUrl) {
       nextErrors.coverImage = "Cover image is required.";
     }
 
-    if (nextStep === 2) {
+    if (nextStep === 3) {
       if (!form.pricing.price || Number(form.pricing.price) <= 0) nextErrors.price = "Enter a valid price.";
       if (form.pricing.discountPrice && Number(form.pricing.discountPrice) >= Number(form.pricing.price)) {
         nextErrors.discountPrice = "Discount price must be lower than price.";
@@ -126,7 +131,7 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
       if (form.pricing.stock === "" || Number(form.pricing.stock) < 0) nextErrors.stock = "Enter stock quantity.";
     }
 
-    if (nextStep === 3 && !form.delivery.deliveryAvailable && !form.delivery.pickupAvailable) {
+    if (nextStep === 4 && !form.delivery.deliveryAvailable && !form.delivery.pickupAvailable) {
       nextErrors.fulfillment = "Enable delivery, pickup, or both.";
     }
 
@@ -135,7 +140,7 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
   }
 
   function next() {
-    if (validateStep(step)) setStep((current) => Math.min(current + 1, 3));
+    if (validateStep(step)) setStep((current) => Math.min(current + 1, 4));
   }
 
   function back() {
@@ -143,7 +148,7 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
   }
 
   async function submit() {
-    if (!validateStep(0) || !validateStep(1) || !validateStep(2) || !validateStep(3)) return;
+    if (!validateStep(0) || !validateStep(2) || !validateStep(3) || !validateStep(4)) return;
     setErrors((current) => ({ ...current, submit: "" }));
     setWarnings({});
     setSaveStatus("Starting save...");
