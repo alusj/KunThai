@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { useAuth } from "./Backend/hooks/useAuth";
+import { useOnboarding } from "./Backend/hooks/useOnboarding";
 import BottomTabs from "./components/BottomTabs";
 import Explore from "./components/Explore/Explore";
 import Marketplace from "./components/Marketplace/Marketplace";
+import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import Transport from "./components/transport/Transport";
 import Login from "./Login";
 
@@ -57,6 +59,12 @@ function AppLoading({ page = "explore" }) {
 
 export default function App() {
   const { user, loading } = useAuth();
+  const {
+    profile: onboardingProfile,
+    loading: onboardingLoading,
+    refresh: refreshOnboarding,
+    isComplete: onboardingComplete,
+  } = useOnboarding(user);
   const [page, setPage] = useState(() => localStorage.getItem("kuntai-last-page") || "explore");
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
@@ -65,12 +73,16 @@ export default function App() {
     localStorage.setItem("kuntai-last-page", page);
   }, [page]);
 
-  if (loading) {
+  if (loading || (user && onboardingLoading)) {
     return <AppLoading page={page} />;
   }
 
   if (!user) {
     return <Login />;
+  }
+
+  if (!onboardingComplete) {
+    return <OnboardingFlow profile={onboardingProfile} onComplete={refreshOnboarding} />;
   }
 
   const bottomTabsHidden = exploreFullScreen || marketplaceNav.sub;
