@@ -15,7 +15,7 @@ import { getLegacyOperatorAccount, getOperatorAccount } from "../services/transp
 export default function Transport() {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [operatorAccount, setOperatorAccount] = useState(() => getLegacyOperatorAccount());
-  const [operatorLoading, setOperatorLoading] = useState(true);
+  const [, setOperatorLoading] = useState(true);
   const [operatorError, setOperatorError] = useState("");
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
   const [operatorDashboardView, setOperatorDashboardView] = useState("dashboard");
@@ -152,6 +152,7 @@ export default function Transport() {
     <div className="min-h-screen bg-gray-50 relative">
       <Header
         operatorAccount={operatorAccount}
+        onViewFleet={setActiveFleetId}
         onRegisterFleet={() => {
           if (operatorAccount) {
             setOperatorDashboardView("dashboard");

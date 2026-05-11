@@ -18,6 +18,31 @@ export const signUpWithPhone = async (phone, password) => {
   const { data, error } = await supabase.auth.signUp({
     phone,
     password,
+    options: {
+      data: {
+        phone_number: phone,
+        account_type: "personal",
+      },
+    },
+  });
+
+  return { data, error };
+};
+
+export const verifyPhoneOtp = async (phone, token) => {
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone,
+    token,
+    type: "sms",
+  });
+
+  return { data, error };
+};
+
+export const resendPhoneOtp = async (phone) => {
+  const { data, error } = await supabase.auth.resend({
+    phone,
+    type: "sms",
   });
 
   return { data, error };

@@ -8,8 +8,13 @@ import {
 } from "react-icons/hi2";
 
 function RailButton({ active, children, label, onClick, danger = false }) {
+  function handleClick(event) {
+    event.stopPropagation();
+    onClick?.(event);
+  }
+
   return (
-    <button type="button" onClick={onClick} className="flex flex-col items-center gap-1 text-white">
+    <button type="button" onClick={handleClick} className="flex flex-col items-center gap-1 text-white">
       <span
         className={`flex h-11 w-11 items-center justify-center rounded-full text-xl shadow-lg backdrop-blur ${
           danger
@@ -21,7 +26,7 @@ function RailButton({ active, children, label, onClick, danger = false }) {
       >
         {children}
       </span>
-      <span className="max-w-14 truncate text-[11px] font-black drop-shadow">{label}</span>
+      <span className="max-w-14 truncate text-xs font-black drop-shadow">{label}</span>
     </button>
   );
 }

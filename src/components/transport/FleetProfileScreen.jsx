@@ -7,25 +7,45 @@ import { verificationStatuses } from "./verification/verificationStatus";
 
 export default function FleetProfileScreen({ fleetId, onBack, onShowVerification }) {
   const [fleet, setFleet] = useState(() => getTransportFleetById(fleetId));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let alive = true;
+    setLoading(true);
+    setError("");
 
     fetchTransportFleetById(fleetId)
       .then((item) => {
         if (alive) setFleet(item);
       })
+      .catch((err) => {
+        if (alive) {
+          setError(err.message || "Unable to load fleet profile.");
+          setFleet(null);
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
 
     return () => {
       alive = false;
     };
   }, [fleetId]);
 
-  if (!fleet) {
+  if (loading || error || !fleet) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
         <AppBackTab onBack={onBack} label="Back to fleet list" historyKey="transport-missing-fleet" />
-        <p className="mt-4 text-gray-700">Fleet not found.</p>
+        <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h1 className="text-lg font-black text-gray-950">
+            {loading ? "Loading fleet profile" : error ? "Unable to load fleet" : "Fleet not found"}
+          </h1>
+          <p className="mt-2 text-sm font-semibold text-gray-500">
+            {loading ? "Checking the backend for this fleet." : error || "This fleet is no longer visible to passengers."}
+          </p>
+        </div>
       </div>
     );
   }

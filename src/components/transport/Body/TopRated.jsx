@@ -3,7 +3,7 @@
 
 import { FiStar } from "react-icons/fi";
 
-export default function TopRated({ onClick }) {
+export default function TopRated({ onClick, count = 0, loading = false }) {
   return (
     <button
       type="button"
@@ -22,8 +22,11 @@ justify-between
 "
     >
       <FiStar size={26} className="text-yellow-500" />
-      <span className="font-bold text-gray-700">
-        Top Rated
+      <span>
+        <span className="block font-bold text-gray-700">Top Rated</span>
+        <span className="mt-1 block text-xs font-semibold text-gray-400">
+          {loading ? "Loading..." : `${count} live fleets`}
+        </span>
       </span>
     </button>
   );

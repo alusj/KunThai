@@ -26,7 +26,7 @@ export default function ExploreTabs({ activeTab, setActiveTab }) {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`
-              inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-2 text-[12px] font-medium transition sm:gap-2 sm:px-3 sm:text-sm
+              inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-2 text-[13px] font-black transition sm:gap-2 sm:px-3 sm:text-sm
               ${
                 isActive
                   ? "bg-slate-950 text-white shadow"

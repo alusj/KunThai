@@ -28,7 +28,7 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
   }
 
   return (
-    <div className="h-[calc(100vh-176px)] w-full min-w-0 snap-y snap-mandatory space-y-4 overflow-y-auto px-3 py-4 sm:h-[calc(100vh-188px)] sm:px-5 kuntai-scrollbar-none">
+    <div className="h-[calc(100dvh-57px)] w-full min-w-0 snap-y snap-mandatory overflow-y-auto bg-slate-950 px-0 py-0 kuntai-scrollbar-none">
       {videos.map((post) => (
         <VideoCard
           key={post.id}

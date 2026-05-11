@@ -1,78 +1,12 @@
 import supabase from "../../Backend/lib/supabaseClient";
-import { fetchTransportFleetById, fetchTransportFleets, getTransportFleetById } from "./transportFleetService";
-
-export const activeTrips = [
-  {
-    id: "trip-ride-alpha",
-    mode: "Ride",
-    title: "Ride to Lumley",
-    fleetId: "fleet-alpha-taxi",
-    status: "Operator arriving",
-    stage: "ETA 3 min",
-    pickup: "Current location",
-    destination: "Lumley Beach Road",
-    fare: "SLE 35",
-    priority: "live",
-  },
-  {
-    id: "trip-delivery-fast",
-    mode: "Delivery",
-    title: "Package to Central",
-    fleetId: "fleet-fast-delivery-bike",
-    status: "Pickup in progress",
-    stage: "Rider is 5 min away",
-    pickup: "Wilkinson Road",
-    destination: "Central",
-    fare: "SLE 22",
-    priority: "live",
-  },
-  {
-    id: "trip-pending-keke",
-    mode: "Ride",
-    title: "Tricycle booking",
-    fleetId: "fleet-central-keke",
-    status: "Pending confirmation",
-    stage: "Waiting for operator",
-    pickup: "Siaka Stevens Street",
-    destination: "Market area",
-    fare: "SLE 17",
-    priority: "pending",
-  },
-];
-
-export const savedOperators = [
-  {
-    id: "saved-alpha-taxi",
-    fleetId: "fleet-alpha-taxi",
-    savedAs: "Trusted taxi",
-    lastUsed: "Used yesterday",
-  },
-  {
-    id: "saved-easy-bike",
-    fleetId: "fleet-easy-bike",
-    savedAs: "Fast bike",
-    lastUsed: "Used 3 days ago",
-  },
-  {
-    id: "saved-central-keke",
-    fleetId: "fleet-central-keke",
-    savedAs: "Market tricycle",
-    lastUsed: "Used last week",
-  },
-];
+import { fetchTransportFleetById } from "./transportFleetService";
 
 export function getActiveTrips() {
-  return activeTrips.map((trip) => ({
-    ...trip,
-    fleet: getTransportFleetById(trip.fleetId),
-  }));
+  return [];
 }
 
 export function getSavedOperators() {
-  return savedOperators.map((saved) => ({
-    ...saved,
-    fleet: getTransportFleetById(saved.fleetId),
-  }));
+  return [];
 }
 
 function formatFare(row) {
@@ -112,7 +46,7 @@ async function mapTrip(row) {
 
 export async function fetchActiveTrips() {
   const passengerId = await getCurrentPassengerId();
-  if (!passengerId) return getActiveTrips();
+  if (!passengerId) return [];
 
   const { data, error } = await supabase
     .from("transport_trips")
@@ -121,31 +55,39 @@ export async function fetchActiveTrips() {
     .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "in_progress"])
     .order("created_at", { ascending: false });
 
-  if (error || !data?.length) return getActiveTrips();
-  return Promise.all(data.map(mapTrip));
+  if (error) {
+    throw error;
+  }
+
+  return Promise.all((data || []).map(mapTrip));
 }
 
 export async function fetchSavedOperators() {
-  const savedIds = JSON.parse(localStorage.getItem("kuntai.transport.savedFleetIds") || "[]");
-  const ids = Array.isArray(savedIds) ? savedIds : [];
+  const passengerId = await getCurrentPassengerId();
+  if (!passengerId) return [];
 
-  if (ids.length) {
-    const fleets = await Promise.all(ids.map((id) => fetchTransportFleetById(id)));
-    return fleets.filter(Boolean).map((fleet) => ({
-      id: `saved-${fleet.id}`,
-      fleetId: fleet.id,
-      savedAs: fleet.serviceCategory === "Delivery" ? "Saved delivery operator" : "Saved ride operator",
-      lastUsed: fleet.lastActive || "Saved operator",
-      fleet,
-    }));
+  const { data, error } = await supabase
+    .from("transport_saved_operators")
+    .select("*")
+    .eq("passenger_id", passengerId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
   }
 
-  const liveFleets = await fetchTransportFleets({ mode: "topRated", fleetType: null });
-  return liveFleets.slice(0, 4).map((fleet) => ({
-    id: `suggested-saved-${fleet.id}`,
-    fleetId: fleet.id,
-    savedAs: fleet.rating ? "Trusted by passengers" : "Available operator",
-    lastUsed: fleet.lastActive || "Available now",
-    fleet,
-  }));
+  const savedRows = data || [];
+  const fleets = await Promise.all(savedRows.map((row) => fetchTransportFleetById(row.fleet_id)));
+
+  return savedRows.map((row, index) => {
+    const fleet = fleets[index];
+
+    return {
+      id: row.id,
+      fleetId: row.fleet_id,
+      savedAs: row.saved_as || row.label || (fleet?.serviceCategory === "Delivery" ? "Saved delivery operator" : "Saved ride operator"),
+      lastUsed: row.updated_at ? `Saved ${new Date(row.updated_at).toLocaleDateString()}` : "Saved operator",
+      fleet,
+    };
+  }).filter((saved) => saved.fleet);
 }

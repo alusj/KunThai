@@ -44,11 +44,15 @@ function shareProfile(values) {
 export default function ProfileScreen({
   currentUserId = "",
   editable = false,
+  authProfile = null,
   hideHeader = false,
+  loading = false,
+  loadError = "",
   onOpenNotification,
   onProfileUpdate,
   onStartChat,
   profile,
+  profileFetched = true,
 }) {
   const [editing, setEditing] = useState(false);
   const [postTab, setPostTab] = useState("feed");
@@ -104,7 +108,11 @@ export default function ProfileScreen({
   async function saveProfile() {
     try {
       setSaving(true);
-      const updated = await updateExploreProfile(values);
+      const updated = await updateExploreProfile({
+        ...authProfile,
+        ...values,
+        userId: currentUserId || values.userId || authProfile?.userId || "",
+      });
       setValues(updated);
       onProfileUpdate?.(updated);
       setEditing(false);
@@ -195,6 +203,21 @@ export default function ProfileScreen({
       ) : null}
 
       <div className="w-full space-y-4 px-4 py-4 sm:px-6 lg:px-8">
+        {loading ? (
+          <ProfileSkeleton />
+        ) : loadError ? (
+          <EmptyState title="Profile could not load" message={loadError} />
+        ) : profileFetched && !profile ? (
+          <CreateProfileState
+            onCreate={() => {
+              setValues({ ...(authProfile || {}), userId: currentUserId || authProfile?.userId || "" });
+              setEditing(true);
+            }}
+          />
+        ) : null}
+
+        {!loading && !loadError && (profile || editing) ? (
+          <>
         <ProfileHeaderCard
           editable={editable}
           editing={editing}
@@ -231,7 +254,48 @@ export default function ProfileScreen({
           {postTab === "saved" && editable ? <SavedPostsScreen currentUserId={currentUserId} hideHeader /> : null}
           {postTab === "activity" && editable ? <ActivityScreen hideHeader onOpenNotification={onOpenNotification} /> : null}
         </section>
+          </>
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function ProfileSkeleton() {
+  return (
+    <section className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+      <div className="h-28 animate-pulse rounded-t-[28px] bg-slate-100 sm:h-36" />
+      <div className="-mt-10 px-5 pb-5">
+        <div className="h-16 w-16 animate-pulse rounded-full bg-slate-200 ring-4 ring-white" />
+        <div className="mt-4 space-y-2">
+          <div className="h-6 w-48 animate-pulse rounded-full bg-slate-200" />
+          <div className="h-4 w-28 animate-pulse rounded-full bg-slate-100" />
+          <div className="h-4 w-full max-w-md animate-pulse rounded-full bg-slate-100" />
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-14 animate-pulse rounded-2xl bg-slate-50" />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CreateProfileState({ onCreate }) {
+  return (
+    <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm">
+      <h3 className="text-base font-black text-slate-950">Create your profile</h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600">
+        Your public Explore profile has not been created yet. Add real profile details before your posts and reactions go live.
+      </p>
+      <button
+        type="button"
+        onClick={onCreate}
+        className="mt-4 h-11 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white"
+      >
+        Create profile
+      </button>
     </div>
   );
 }

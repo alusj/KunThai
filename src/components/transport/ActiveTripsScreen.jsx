@@ -6,12 +6,26 @@ import VerificationBadge from "./verification/VerificationBadge";
 
 export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification }) {
   const [trips, setTrips] = useState(() => getActiveTrips());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let alive = true;
+    setLoading(true);
+    setError("");
+
     fetchActiveTrips()
       .then((items) => {
         if (alive) setTrips(items);
+      })
+      .catch((err) => {
+        if (alive) {
+          setError(err.message || "Unable to load active trips.");
+          setTrips([]);
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
       });
     return () => {
       alive = false;
@@ -23,6 +37,13 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
       <ScreenHeader title="Active Trips" subtitle="Track rides, deliveries, and pending bookings." onBack={onBack} />
 
       <main className="w-full px-3 py-4 sm:px-5 xl:px-8">
+        {error ? (
+          <EmptyState title="Unable to load trips" body={error} />
+        ) : loading ? (
+          <EmptyState title="Loading active trips" body="Checking your current ride and delivery records." />
+        ) : trips.length === 0 ? (
+          <EmptyState title="No active trips" body="Your live rides, deliveries, and pending bookings will appear here." />
+        ) : (
         <div className="grid gap-3 xl:grid-cols-2">
           {trips.map((trip) => (
             <article key={trip.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -42,14 +63,14 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
               <div className="mt-4 grid gap-2 text-sm text-gray-600 md:grid-cols-2">
                 <InfoLine text={`Pickup: ${trip.pickup}`} />
                 <InfoLine text={`Destination: ${trip.destination}`} />
-                <InfoLine text={`${trip.fleet?.fleetName} - ${trip.fleet?.operatorId}`} />
+                <InfoLine text={trip.fleet ? `${trip.fleet.fleetName} - ${trip.fleet.operatorId}` : "Fleet details unavailable"} />
                 <InfoLine text={`Fare: ${trip.fare}`} />
               </div>
 
               <div className="mt-4">
                 <VerificationBadge
                   status={trip.fleet?.verificationStatus}
-                  onClick={() => onShowVerification(trip.fleet)}
+                  onClick={() => trip.fleet && onShowVerification(trip.fleet)}
                 />
               </div>
 
@@ -59,7 +80,8 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
                 <ActionButton label="Call" icon={FiPhone} />
                 <button
                   type="button"
-                  onClick={() => onViewFleet(trip.fleetId)}
+                  onClick={() => trip.fleetId && onViewFleet(trip.fleetId)}
+                  disabled={!trip.fleetId}
                   className="h-10 rounded-2xl border border-gray-200 px-3 text-sm font-bold text-gray-700 hover:bg-gray-50"
                 >
                   Fleet
@@ -73,6 +95,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
             </article>
           ))}
         </div>
+        )}
       </main>
     </div>
   );
@@ -119,5 +142,14 @@ function ActionButton({ label, icon: Icon, primary }) {
         {label}
       </span>
     </button>
+  );
+}
+
+function EmptyState({ title, body }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
+      <h2 className="text-base font-black text-gray-950">{title}</h2>
+      <p className="mt-2 text-sm font-semibold text-gray-500">{body}</p>
+    </div>
   );
 }

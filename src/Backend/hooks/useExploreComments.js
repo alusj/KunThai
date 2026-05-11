@@ -9,6 +9,7 @@ import {
   reportExploreComment,
   syncExploreCommentLike,
 } from "../services/exploreService";
+import { showToast } from "../services/toastService";
 
 function getMentions(value) {
   return Array.from(new Set((String(value || "").match(/@[a-z0-9_]+/gi) || []).map((item) => item.slice(1).toLowerCase())));
@@ -148,6 +149,8 @@ export function useExploreComments(postId, currentUserId = "") {
   async function toggleCommentLike(commentId) {
     const active = !likedComments.has(commentId);
     const target = comments.find((comment) => comment.id === commentId);
+    const previousLikedComments = likedComments;
+    const previousComments = comments;
     const nextCount = Math.max(0, (target?.likes_count || 0) + (active ? 1 : -1));
     setLikedComments((current) => {
       const next = new Set(current);
@@ -167,7 +170,10 @@ export function useExploreComments(postId, currentUserId = "") {
     try {
       await syncExploreCommentLike(commentId, active);
     } catch (err) {
+      setLikedComments(previousLikedComments);
+      setComments(previousComments);
       setError(err.message || "Unable to update comment like.");
+      showToast(err.message || "Unable to update comment like.", "error");
     }
   }
 

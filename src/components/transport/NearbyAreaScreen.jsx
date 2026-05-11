@@ -10,6 +10,7 @@ import {
   FiShield,
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
+import NearbyAreaMap from "./area/NearbyAreaMap";
 import {
   emergencyContacts,
   locationCategories,
@@ -35,6 +36,7 @@ export default function NearbyAreaScreen({ onBack }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [adding, setAdding] = useState(false);
+  const [, setMapCenter] = useState(null);
 
   const filteredLocations = useMemo(() => {
     if (activeCategory === "All") return nearbyLocations;
@@ -44,7 +46,21 @@ export default function NearbyAreaScreen({ onBack }) {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <section className="relative min-h-screen overflow-hidden">
-        <MapBackdrop />
+        <NearbyAreaMap onLocationResolved={setMapCenter}>
+          <div className="absolute inset-0 z-10">
+            <div className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-sky-200 bg-sky-300/30 shadow-[0_0_45px_rgba(125,211,252,0.6)] sm:h-72 sm:w-72" />
+            <div className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-blue-600 shadow-xl" />
+
+            {filteredLocations.map((location) => (
+              <MapPinButton
+                key={location.id}
+                location={location}
+                active={activeLocation?.id === location.id}
+                onClick={() => setActiveLocation(location)}
+              />
+            ))}
+          </div>
+        </NearbyAreaMap>
 
         <header className="absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
           <div className="flex items-center gap-3">
@@ -90,20 +106,6 @@ export default function NearbyAreaScreen({ onBack }) {
           </div>
         </header>
 
-        <div className="absolute inset-0 z-10">
-          <div className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-sky-200 bg-sky-300/30 shadow-[0_0_45px_rgba(125,211,252,0.6)] sm:h-72 sm:w-72" />
-          <div className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-blue-600 shadow-xl" />
-
-          {filteredLocations.map((location) => (
-            <MapPinButton
-              key={location.id}
-              location={location}
-              active={activeLocation?.id === location.id}
-              onClick={() => setActiveLocation(location)}
-            />
-          ))}
-        </div>
-
         <div className="absolute bottom-32 right-4 z-20 grid gap-3 sm:bottom-8">
           <button className="h-12 w-12 rounded-full bg-slate-900/85 text-white shadow-lg flex items-center justify-center">
             <FiCrosshair size={21} />
@@ -127,25 +129,6 @@ export default function NearbyAreaScreen({ onBack }) {
 
         {adding && <AddLocationPanel onClose={() => setAdding(false)} />}
       </section>
-    </div>
-  );
-}
-
-function MapBackdrop() {
-  return (
-    <div className="absolute inset-0 bg-slate-900">
-      <div className="absolute inset-0 opacity-70">
-        <div className="absolute left-[10%] top-0 h-full w-1 rotate-[34deg] bg-slate-600/60" />
-        <div className="absolute left-[32%] top-0 h-full w-1 rotate-[18deg] bg-slate-600/60" />
-        <div className="absolute left-[57%] top-0 h-full w-1 -rotate-[22deg] bg-slate-600/60" />
-        <div className="absolute left-0 top-[24%] h-1 w-full rotate-[7deg] bg-slate-600/60" />
-        <div className="absolute left-0 top-[49%] h-1 w-full -rotate-[12deg] bg-slate-600/60" />
-        <div className="absolute left-0 top-[72%] h-1 w-full rotate-[3deg] bg-slate-600/60" />
-      </div>
-      <div className="absolute left-[-10%] top-[18%] h-60 w-64 rounded-full bg-cyan-800/60 blur-sm" />
-      <span className="absolute left-[8%] top-[54%] text-2xl font-black tracking-wide text-white/60">LUMLEY</span>
-      <span className="absolute left-[47%] top-[42%] rotate-[55deg] text-lg font-bold text-white/40">Regent Rd</span>
-      <span className="absolute left-[20%] top-[31%] rotate-[35deg] text-lg font-bold text-white/40">Lumley Beach Rd</span>
     </div>
   );
 }

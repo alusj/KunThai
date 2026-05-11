@@ -5,11 +5,16 @@ import {
 } from "react-icons/hi2";
 
 function ActionButton({ active, icon: Icon, label, meta, onClick }) {
+  function handleClick(event) {
+    event.stopPropagation();
+    onClick?.(event);
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[12px] font-semibold transition sm:text-sm ${
+      onClick={handleClick}
+      className={`flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[13px] font-black transition sm:text-sm ${
         active ? "bg-sky-50 text-sky-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
       }`}
     >

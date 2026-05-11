@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import supabase from "../lib/supabaseClient";
 import {
@@ -117,19 +117,73 @@ function applyCurrentProfileToPost(post, profile) {
   };
 }
 
+const FEED_MEMORY = new Map();
+const FEED_MEMORY_TTL = 60_000;
+
+function readFeedMemory(scope) {
+  const cached = FEED_MEMORY.get(scope);
+  if (!cached) {
+    return null;
+  }
+
+  return Date.now() - cached.savedAt < FEED_MEMORY_TTL ? cached : null;
+}
+
+function writeFeedMemory(scope, patch) {
+  const current = FEED_MEMORY.get(scope) || {};
+  FEED_MEMORY.set(scope, { ...current, ...patch, savedAt: Date.now() });
+}
+
 export function useExploreFeed(scope = "feed") {
-  const [posts, setPosts] = useState(() => readStoredPosts(scope));
-  const [loading, setLoading] = useState(true);
+  const memory = readFeedMemory(scope);
+  const [posts, setPosts] = useState(() => memory?.posts || readStoredPosts(scope));
+  const [loading, setLoading] = useState(() => !memory?.posts?.length);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-  const [likedPosts, setLikedPosts] = useState(() => readStoredSet(LIKE_STORAGE_KEY));
-  const [savedPosts, setSavedPosts] = useState(() => readStoredSet(SAVE_STORAGE_KEY));
+  const [likedPosts, setLikedPosts] = useState(() => memory?.likedPosts || readStoredSet(LIKE_STORAGE_KEY));
+  const [savedPosts, setSavedPosts] = useState(() => memory?.savedPosts || readStoredSet(SAVE_STORAGE_KEY));
   const [hiddenPosts, setHiddenPosts] = useState(() => readStoredSet(HIDE_STORAGE_KEY));
-  const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState(() => memory?.currentUserId || "");
+  const postsRef = useRef(posts);
+  const likedPostsRef = useRef(likedPosts);
+  const savedPostsRef = useRef(savedPosts);
 
-  async function load() {
+  useEffect(() => {
+    postsRef.current = posts;
+    writeFeedMemory(scope, { posts });
+  }, [posts, scope]);
+
+  useEffect(() => {
+    likedPostsRef.current = likedPosts;
+    writeFeedMemory(scope, { likedPosts });
+  }, [likedPosts, scope]);
+
+  useEffect(() => {
+    savedPostsRef.current = savedPosts;
+    writeFeedMemory(scope, { savedPosts });
+  }, [savedPosts, scope]);
+
+  useEffect(() => {
+    writeFeedMemory(scope, { currentUserId });
+  }, [currentUserId, scope]);
+
+  async function load(options = {}) {
+    const force = Boolean(options.force);
+    const cached = readFeedMemory(scope);
+    if (cached?.posts?.length && !force) {
+      setLoading(false);
+      setError("");
+      return;
+    }
+
+    if (cached?.posts?.length && !error) {
+      setLoading(false);
+    }
+
     try {
-      setLoading(true);
+      if (!cached?.posts?.length) {
+        setLoading(true);
+      }
       setError("");
       const [rawPosts, reactions, currentProfile] = await Promise.all([
         fetchExplorePosts(scope),
@@ -139,8 +193,8 @@ export function useExploreFeed(scope = "feed") {
       const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
       setCurrentUserId(currentProfile?.id || "");
 
-      const nextLikedPosts = new Set([...readStoredSet(LIKE_STORAGE_KEY), ...reactions.likes]);
-      const nextSavedPosts = new Set([...readStoredSet(SAVE_STORAGE_KEY), ...reactions.saves]);
+      const nextLikedPosts = new Set([...likedPostsRef.current, ...readStoredSet(LIKE_STORAGE_KEY), ...reactions.likes]);
+      const nextSavedPosts = new Set([...savedPostsRef.current, ...readStoredSet(SAVE_STORAGE_KEY), ...reactions.saves]);
 
       setLikedPosts(nextLikedPosts);
       setSavedPosts(nextSavedPosts);
@@ -343,31 +397,29 @@ export function useExploreFeed(scope = "feed") {
 
   async function toggleReaction(postId, type) {
     const stateSetter = type === "like" ? setLikedPosts : setSavedPosts;
-    const stateSet = type === "like" ? likedPosts : savedPosts;
+    const stateRef = type === "like" ? likedPostsRef : savedPostsRef;
     const storageKey = type === "like" ? LIKE_STORAGE_KEY : SAVE_STORAGE_KEY;
     const countKey = type === "like" ? "likes_count" : "saves_count";
-    const currentlyActive = stateSet.has(postId);
+    const currentlyActive = stateRef.current.has(postId);
     const delta = currentlyActive ? -1 : 1;
+    const previousSet = new Set(stateRef.current);
+    const previousPosts = postsRef.current;
+    const targetPost = postsRef.current.find((post) => post.id === postId);
+    const nextCount = Math.max(0, (targetPost?.[countKey] ?? 0) + delta);
+    const nextSet = new Set(previousSet);
 
-    stateSetter((current) => {
-      const next = new Set(current);
-      if (currentlyActive) {
-        next.delete(postId);
-      } else {
-        next.add(postId);
-      }
-      writeStoredSet(storageKey, next);
-      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { key: storageKey, type: `${type}-state` } }));
-      return next;
-    });
+    if (currentlyActive) {
+      nextSet.delete(postId);
+    } else {
+      nextSet.add(postId);
+    }
 
-    const targetPost = posts.find((post) => post.id === postId);
-    let nextCount = Math.max(0, (targetPost?.[countKey] ?? 0) + delta);
-
-    let previousPosts = [];
+    stateRef.current = nextSet;
+    stateSetter(nextSet);
+    writeStoredSet(storageKey, nextSet);
+    window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { key: storageKey, type: `${type}-state` } }));
 
     setPosts((current) => {
-      previousPosts = current;
       const nextPosts = current.map((post) => {
         if (post.id !== postId) {
           return post;
@@ -396,23 +448,17 @@ export function useExploreFeed(scope = "feed") {
         });
       }
     } catch (err) {
-      stateSetter((current) => {
-        const next = new Set(current);
-        if (currentlyActive) {
-          next.add(postId);
-        } else {
-          next.delete(postId);
-        }
-        writeStoredSet(storageKey, next);
-        window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { key: storageKey, type: `${type}-rollback` } }));
-        return next;
-      });
+      stateRef.current = previousSet;
+      stateSetter(previousSet);
+      writeStoredSet(storageKey, previousSet);
+      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { key: storageKey, type: `${type}-rollback` } }));
       if (previousPosts.length) {
         setPosts(previousPosts);
         writeStoredPosts(scope, previousPosts);
         window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope, postId, type: `${type}-rollback` } }));
       }
       setError(err.message || `Unable to update ${type}.`);
+      showToast(err.message || `Unable to update ${type}.`, "error");
     }
   }
 
@@ -563,7 +609,9 @@ export function useExploreFeed(scope = "feed") {
     creating,
     likedPosts,
     savedPosts,
-    reload: load,
+    reload() {
+      return load({ force: true });
+    },
     submitPost,
     toggleLike(postId) {
       return toggleReaction(postId, "like");

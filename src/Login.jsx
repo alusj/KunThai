@@ -7,6 +7,8 @@ import {
   signInWithPhone,
   signUpWithEmailAccount,
   signUpWithPhone,
+  resendPhoneOtp,
+  verifyPhoneOtp,
 } from "./Backend/services/authService";
 import {
   DEFAULT_WEST_AFRICAN_COUNTRY_CODE,
@@ -194,6 +196,8 @@ export default function Login() {
   const [signInAccount, setSignInAccount] = useState("");
   const [selectedCountry, setSelectedCountry] = useState(DEFAULT_WEST_AFRICAN_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [pendingPhone, setPendingPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -219,6 +223,8 @@ export default function Login() {
     setSignupStep("options");
     setSignupMethod("");
     setConfirmPassword("");
+    setOtpCode("");
+    setPendingPhone("");
     resetMessages();
   }
 
@@ -248,6 +254,7 @@ export default function Login() {
     resetMessages();
     setSignupMethod(method);
     setSignupStep("details");
+    setOtpCode("");
   }
 
   function validatePhoneDigits(digits, country) {
@@ -320,13 +327,55 @@ export default function Login() {
         throw authError;
       }
 
-      setMessage(
-        isPhoneSignup
-          ? "OTP sent. Please verify your phone number."
-          : "Verification sent. Please check your email.",
-      );
+      if (isPhoneSignup) {
+        setPendingPhone(`${selectedCountry.dialCode}${phoneDigits}`);
+        setSignupStep("otp");
+        setMessage("OTP sent. Please verify your phone number.");
+      } else {
+        setMessage("Verification sent. Please check your email.");
+      }
     } catch (err) {
       setError(err.message || "Unable to create your account.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyPhoneOtp(event) {
+    event.preventDefault();
+
+    try {
+      resetMessages();
+      setLoading(true);
+
+      const { error: authError } = await verifyPhoneOtp(pendingPhone, otpCode.trim());
+
+      if (authError) {
+        throw authError;
+      }
+
+      setMessage("Phone verified. Your onboarding is ready.");
+    } catch (err) {
+      setError(err.message || "Unable to verify this OTP.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResendPhoneOtp() {
+    try {
+      resetMessages();
+      setLoading(true);
+
+      const { error: authError } = await resendPhoneOtp(pendingPhone);
+
+      if (authError) {
+        throw authError;
+      }
+
+      setMessage("A new OTP has been sent.");
+    } catch (err) {
+      setError(err.message || "Unable to resend OTP.");
     } finally {
       setLoading(false);
     }
@@ -409,11 +458,13 @@ export default function Login() {
           <div className="mt-8 space-y-3">
             <button
               type="button"
-              onClick={() => openSignupDetails("Google")}
+              onClick={() => handleOAuth("google")}
               disabled={isLoading}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
-              Sign up with Google
+              {providerLoading === "google"
+                ? "Connecting Google..."
+                : "Sign up with Google"}
             </button>
 
             <button
@@ -495,6 +546,54 @@ export default function Login() {
               className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
               {loading ? "Creating Account..." : "Create Account / Verify"}
+            </button>
+          </form>
+        )}
+
+        {mode === "signup" && signupStep === "otp" && (
+          <form onSubmit={handleVerifyPhoneOtp} className="mt-8 space-y-4">
+            <button
+              type="button"
+              onClick={() => setSignupStep("details")}
+              className="text-sm font-semibold text-slate-500"
+            >
+              Back
+            </button>
+
+            <h2 className="text-center text-xl font-bold text-slate-900">
+              Verify phone number
+            </h2>
+
+            <p className="text-center text-sm text-slate-500">
+              Enter the OTP sent to {pendingPhone}.
+            </p>
+
+            <AuthInput
+              label="OTP Code"
+              type="text"
+              inputMode="numeric"
+              value={otpCode}
+              onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 8))}
+              placeholder="Enter OTP"
+              autoComplete="one-time-code"
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+            >
+              {loading ? "Verifying..." : "Verify Phone"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResendPhoneOtp}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              Resend OTP
             </button>
           </form>
         )}

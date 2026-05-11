@@ -29,6 +29,7 @@ import ExploreHeader from "./components/header/ExploreHeader";
 import { SocialMenuContent } from "./components/header/HeaderMenu";
 import ExploreTabs from "./ExploreTabs/ExploreTabs";
 import { postingStages } from "./ExploreTabs/urfeed/feed/composer/postReviewPipeline";
+import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
 function PlaceholderMenuScreen({ screen }) {
   return (
@@ -54,13 +55,17 @@ function PlaceholderMenuScreen({ screen }) {
 
 export default function Explore({ onScreenModeChange }) {
   const [profileOverride, setProfileOverride] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState("");
+  const [profileFetched, setProfileFetched] = useState(false);
   const [viewedProfile, setViewedProfile] = useState(null);
   const [messageRecipient, setMessageRecipient] = useState(null);
   const [postingNotice, setPostingNotice] = useState(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
   const { user } = useAuth();
-  const profile = profileOverride || buildExploreProfileFromUser(user);
+  const authProfile = buildExploreProfileFromUser(user);
+  const profile = profileOverride;
   const { activeTab, activeMenuScreen, menuScreen } = exploreNav;
   const isSwipTab = activeTab === "Swip";
 
@@ -72,24 +77,63 @@ export default function Explore({ onScreenModeChange }) {
   });
 
   useEffect(() => {
-    onScreenModeChange?.(exploreNav.isFullScreen);
+    onScreenModeChange?.(exploreNav.isFullScreen || isSwipTab);
+
+    if (exploreNav.isFullScreen) {
+      stopAllExploreMedia();
+    }
 
     return () => {
       onScreenModeChange?.(false);
     };
-  }, [exploreNav.isFullScreen, onScreenModeChange]);
+  }, [exploreNav.isFullScreen, isSwipTab, onScreenModeChange]);
 
   useEffect(() => {
-    if (!user?.id) return undefined;
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        stopAllExploreMedia();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stopAllExploreMedia();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setProfileOverride(null);
+      setProfileLoading(false);
+      setProfileFetched(true);
+      return undefined;
+    }
 
     let alive = true;
+    setProfileLoading(true);
+    setProfileError("");
+    setProfileFetched(false);
+
     fetchExploreProfile(user.id)
       .then((profileData) => {
-        if (alive && profileData) {
+        if (alive) {
           setProfileOverride(profileData);
+          setProfileFetched(true);
         }
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (alive) {
+          setProfileError(error.message || "Unable to load your Explore profile.");
+          setProfileOverride(null);
+          setProfileFetched(true);
+        }
+      })
+      .finally(() => {
+        if (alive) {
+          setProfileLoading(false);
+        }
+      });
 
     return () => {
       alive = false;
@@ -117,6 +161,8 @@ export default function Explore({ onScreenModeChange }) {
   }, []);
 
   function openViewedProfile(authorProfile) {
+    stopAllExploreMedia();
+    exploreNav.rememberScrollPosition();
     setViewedProfile(authorProfile);
     exploreNav.openMenuScreen("ViewedProfile");
 
@@ -183,11 +229,15 @@ export default function Explore({ onScreenModeChange }) {
   }
 
   function startChat(recipient) {
+    stopAllExploreMedia();
+    exploreNav.rememberScrollPosition();
     setMessageRecipient(recipient);
     exploreNav.openMenuScreen("Messages");
   }
 
   function openMenuScreen(screen, options = {}) {
+    stopAllExploreMedia();
+    exploreNav.rememberScrollPosition();
     if (screen === "Messages") {
       setMessageRecipient(null);
     }
@@ -213,9 +263,13 @@ export default function Explore({ onScreenModeChange }) {
       return (
         <ProfileScreen
           profile={profile}
-          currentUserId={profile.userId}
+          authProfile={authProfile}
+          currentUserId={profile?.userId || user?.id || ""}
           hideHeader
           editable
+          loading={profileLoading}
+          loadError={profileError}
+          profileFetched={profileFetched}
           onOpenNotification={openNotificationTarget}
           onProfileUpdate={setProfileOverride}
           onStartChat={startChat}
@@ -227,9 +281,12 @@ export default function Explore({ onScreenModeChange }) {
       return (
         <ProfileScreen
           profile={viewedProfile || profile}
-          currentUserId={profile.userId}
+          authProfile={authProfile}
+          currentUserId={profile?.userId || user?.id || ""}
           hideHeader
-          editable={viewedProfile?.userId === profile.userId}
+          editable={viewedProfile?.userId === profile?.userId}
+          loading={!viewedProfile}
+          profileFetched={Boolean(viewedProfile)}
           onOpenNotification={openNotificationTarget}
           onProfileUpdate={setProfileOverride}
           onStartChat={startChat}
@@ -238,11 +295,11 @@ export default function Explore({ onScreenModeChange }) {
     }
 
     if (activeMenuScreen === "MyPosts") {
-      return <MyPostsScreen currentUserId={profile.userId} hideHeader />;
+      return <MyPostsScreen currentUserId={profile?.userId || user?.id || ""} hideHeader />;
     }
 
     if (activeMenuScreen === "SavedPosts") {
-      return <SavedPostsScreen currentUserId={profile.userId} hideHeader />;
+      return <SavedPostsScreen currentUserId={profile?.userId || user?.id || ""} hideHeader />;
     }
 
     if (activeMenuScreen === "Activity") {
@@ -258,7 +315,7 @@ export default function Explore({ onScreenModeChange }) {
     }
 
     if (activeMenuScreen === "Connections") {
-      return <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />;
+      return <Connections currentUserId={profile?.userId || user?.id || ""} onViewProfile={openViewedProfile} />;
     }
 
     if (activeMenuScreen === "Privacy") {
@@ -323,13 +380,15 @@ export default function Explore({ onScreenModeChange }) {
               : ""
           }
         >
-          <ExploreHeader
-            currentProfile={profile}
-            onAlertsClick={() => exploreNav.openMenuScreen("Notifications")}
-            onNavigate={openMenuScreen}
-            onCreateSelect={exploreNav.openComposer}
-            onSearchResult={openSearchResult}
-          />
+          {!isSwipTab ? (
+            <ExploreHeader
+              currentProfile={profile}
+              onAlertsClick={() => exploreNav.openMenuScreen("Notifications")}
+              onNavigate={openMenuScreen}
+              onCreateSelect={exploreNav.openComposer}
+              onSearchResult={openSearchResult}
+            />
+          ) : null}
         </div>
 
         {/* =========================
@@ -344,12 +403,66 @@ export default function Explore({ onScreenModeChange }) {
       {/* =========================
           ACTIVE PAGE
       ========================= */}
-      <div className="w-full max-w-full overflow-x-clip pt-2">
-        {activeTab === "UrFeed" && <UrFeed profile={profile} onViewProfile={openViewedProfile} />}
-        {activeTab === "Swip" && <Swip currentUserId={profile.userId} onViewProfile={openViewedProfile} />}
-        {activeTab === "Connections" && <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />}
+      <div className={`w-full max-w-full overflow-x-clip ${isSwipTab ? "pt-0" : "pt-2"}`}>
+        {profileLoading && !profileFetched ? <ExploreProfileSkeleton /> : null}
+        {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
+        {!profileLoading && profileFetched && !profile ? <ExploreCreateProfileState onCreate={() => openMenuScreen("Profile")} /> : null}
+        {profile ? (
+          <>
+            {activeTab === "UrFeed" && <UrFeed profile={profile} onViewProfile={openViewedProfile} />}
+            {activeTab === "Swip" && <Swip currentUserId={profile.userId} onViewProfile={openViewedProfile} />}
+            {activeTab === "Connections" && <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />}
+          </>
+        ) : null}
       </div>
 
+    </div>
+  );
+}
+
+function ExploreProfileSkeleton() {
+  return (
+    <div className="space-y-4 px-4 py-4 sm:px-5 lg:px-8">
+      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 animate-pulse rounded-full bg-slate-200" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-40 animate-pulse rounded-full bg-slate-200" />
+            <div className="h-3 w-24 animate-pulse rounded-full bg-slate-100" />
+          </div>
+        </div>
+        <div className="mt-4 h-24 animate-pulse rounded-[20px] bg-slate-100" />
+      </div>
+    </div>
+  );
+}
+
+function ExploreProfileError({ message }) {
+  return (
+    <div className="px-4 py-4 sm:px-5 lg:px-8">
+      <div className="rounded-[24px] border border-rose-100 bg-white p-5 text-sm font-bold text-rose-700 shadow-sm">
+        {message}
+      </div>
+    </div>
+  );
+}
+
+function ExploreCreateProfileState({ onCreate }) {
+  return (
+    <div className="px-4 py-4 sm:px-5 lg:px-8">
+      <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm">
+        <h3 className="text-base font-black text-slate-950">Create your Explore profile</h3>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600">
+          Add your name, username, and profile image before posting or reacting as a public account.
+        </p>
+        <button
+          type="button"
+          onClick={onCreate}
+          className="mt-4 h-11 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white"
+        >
+          Create profile
+        </button>
+      </div>
     </div>
   );
 }

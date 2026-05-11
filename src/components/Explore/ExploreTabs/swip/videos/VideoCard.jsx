@@ -5,7 +5,7 @@ import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { sharePost } from "../../urfeed/feed/post/postUtils";
-import { pauseOtherExploreMedia, playExploreMedia } from "../../../shared/singleMediaPlayback";
+import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 
@@ -44,7 +44,10 @@ export default function VideoCard({
   useBrowserBack(commentOpen, () => setCommentOpen(false), `swip-comments-${post.id}`);
   useBrowserBack(fullscreen, () => setFullscreen(false), `swip-fullscreen-${post.id}`);
 
-  useEffect(() => () => window.clearTimeout(holdTimerRef.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(holdTimerRef.current);
+    stopAllExploreMedia();
+  }, []);
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
@@ -120,7 +123,10 @@ export default function VideoCard({
     );
 
     observer.observe(video);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      video.pause();
+    };
   }, [fullscreen, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
 
   useEffect(() => {
@@ -154,7 +160,7 @@ export default function VideoCard({
       className={`relative overflow-hidden bg-slate-950 shadow-sm ${
         fullscreen
           ? "fixed inset-0 z-[70] h-screen w-screen rounded-none"
-          : "w-full min-w-0 min-h-[calc(100vh-176px)] snap-start rounded-[28px] border border-slate-800/20 sm:min-h-[720px]"
+          : "h-[calc(100dvh-57px)] w-full min-w-0 snap-start rounded-none border-0"
       }`}
     >
       <video

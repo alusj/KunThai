@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { readExploreSettings } from "../services/explore/preferencesService";
 import { readExploreNavigation, writeExploreNavigation } from "../services/explore/navigationService";
@@ -6,6 +6,7 @@ import { readExploreNavigation, writeExploreNavigation } from "../services/explo
 const PARENT_TABS = new Set(["UrFeed", "Swip", "Connections"]);
 
 export function useExploreNavigation(menuScreens) {
+  const savedScrollRef = useRef(Number(sessionStorage.getItem("exploreFeedScrollY") || 0));
   const [navigation, setNavigation] = useState(() => {
     const savedNavigation = readExploreNavigation();
     const settings = readExploreSettings();
@@ -21,17 +22,34 @@ export function useExploreNavigation(menuScreens) {
     writeExploreNavigation(navigation);
   }, [navigation]);
 
+  const rememberScrollPosition = useCallback(() => {
+    const nextScroll = window.scrollY || 0;
+    savedScrollRef.current = nextScroll;
+    sessionStorage.setItem("exploreFeedScrollY", String(nextScroll));
+  }, []);
+
+  const restoreScrollPosition = useCallback(() => {
+    const nextScroll = savedScrollRef.current || Number(sessionStorage.getItem("exploreFeedScrollY") || 0);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: nextScroll, behavior: "instant" });
+      });
+    });
+  }, []);
+
   return useMemo(
     () => ({
       activeTab: PARENT_TABS.has(navigation.activeTab) ? navigation.activeTab : "UrFeed",
       activeMenuScreen,
       menuScreen,
       isFullScreen: Boolean(activeMenuScreen && menuScreen),
+      rememberScrollPosition,
       setActiveTab(tab) {
         if (!PARENT_TABS.has(tab)) {
           return;
         }
 
+        rememberScrollPosition();
         setNavigation((current) => ({ ...current, activeTab: tab, menuStack: [] }));
       },
       openMenuScreen(screen, options = {}) {
@@ -39,6 +57,7 @@ export function useExploreNavigation(menuScreens) {
           return;
         }
 
+        rememberScrollPosition();
         setNavigation((current) => {
           const stack = options.fromMenu && current.menuStack.at(-1) !== "Menu"
             ? [...current.menuStack, "Menu", screen]
@@ -49,13 +68,22 @@ export function useExploreNavigation(menuScreens) {
         window.scrollTo({ top: 0, behavior: "instant" });
       },
       goBackMenuScreen() {
-        setNavigation((current) => ({ ...current, menuStack: current.menuStack.slice(0, -1) }));
-        window.scrollTo({ top: 0, behavior: "instant" });
+        setNavigation((current) => {
+          const nextStack = current.menuStack.slice(0, -1);
+          if (!nextStack.length) {
+            restoreScrollPosition();
+          } else {
+            window.scrollTo({ top: 0, behavior: "instant" });
+          }
+          return { ...current, menuStack: nextStack };
+        });
       },
       closeMenuScreens() {
         setNavigation((current) => ({ ...current, menuStack: [] }));
+        restoreScrollPosition();
       },
       openComposer(type) {
+        rememberScrollPosition();
         setNavigation((current) => ({ ...current, activeTab: "UrFeed", menuStack: [] }));
         window.scrollTo({ top: 0, behavior: "instant" });
         setTimeout(() => {
@@ -63,6 +91,6 @@ export function useExploreNavigation(menuScreens) {
         }, 80);
       },
     }),
-    [activeMenuScreen, menuScreen, menuScreens, navigation.activeTab],
+    [activeMenuScreen, menuScreen, menuScreens, navigation.activeTab, rememberScrollPosition, restoreScrollPosition],
   );
 }

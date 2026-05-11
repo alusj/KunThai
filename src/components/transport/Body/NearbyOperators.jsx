@@ -8,12 +8,28 @@ import { verificationStatuses } from "../verification/verificationStatus";
 export default function NearbyOperators({ onViewAll, onViewFleet }) {
   const [activeOperator, setActiveOperator] = useState(null);
   const [operators, setOperators] = useState(() => getTransportFleets({ mode: "topRated", fleetType: null }).slice(0, 4));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let alive = true;
-    fetchTransportFleets({ mode: "topRated", fleetType: null }).then((items) => {
-      if (alive) setOperators(items.slice(0, 4));
-    });
+    setLoading(true);
+    setError("");
+
+    fetchTransportFleets({ mode: "topRated", fleetType: null })
+      .then((items) => {
+        if (alive) setOperators(items.slice(0, 4));
+      })
+      .catch((err) => {
+        if (alive) {
+          setError(err.message || "Unable to load operators.");
+          setOperators([]);
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
     return () => {
       alive = false;
     };
@@ -31,6 +47,13 @@ export default function NearbyOperators({ onViewAll, onViewFleet }) {
         </button>
       </div>
 
+      {error ? (
+        <EmptyState title="Unable to load operators" body={error} />
+      ) : loading ? (
+        <EmptyState title="Loading operators" body="Checking visible operator fleets." />
+      ) : operators.length === 0 ? (
+        <EmptyState title="No visible operators" body="Verified passenger-visible fleets will appear here." />
+      ) : (
       <div className="grid gap-3 lg:grid-cols-4">
         {operators.map((operator) => {
           const status = verificationStatuses[operator.verificationStatus];
@@ -77,6 +100,7 @@ export default function NearbyOperators({ onViewAll, onViewFleet }) {
           );
         })}
       </div>
+      )}
 
       <VerificationDetailsModal
         status={activeOperator?.verificationStatus}
@@ -84,5 +108,14 @@ export default function NearbyOperators({ onViewAll, onViewFleet }) {
         onClose={() => setActiveOperator(null)}
       />
     </section>
+  );
+}
+
+function EmptyState({ title, body }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 text-center shadow-sm">
+      <h3 className="text-sm font-black text-gray-950">{title}</h3>
+      <p className="mt-1 text-xs font-semibold text-gray-500">{body}</p>
+    </div>
   );
 }

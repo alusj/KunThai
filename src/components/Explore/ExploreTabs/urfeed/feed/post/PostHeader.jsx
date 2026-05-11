@@ -16,7 +16,7 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
             <button
               type="button"
               onClick={onViewProfile}
-              className="min-w-0 truncate text-left text-sm font-black text-slate-950 hover:text-sky-700"
+              className="min-w-0 truncate text-left text-[15px] font-black text-slate-950 hover:text-sky-700"
             >
               {post.author_name || "Profile"}
             </button>
@@ -30,7 +30,7 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
               </button>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+          <p className="mt-0.5 truncate text-[13px] font-bold text-slate-500">
             @{post.author_username || "user"} · {formatRelativeTime(post.created_at)}
           </p>
           {post.contextLabel ? (

@@ -2,6 +2,8 @@
 // Professional Passenger Dashboard Layout
 // Radar uses floating slot system (not inside grid)
 
+import { useEffect, useState } from "react";
+
 import BookRide from "./BookRide/BookRide";
 import SendDelivery from "./SendDelivery/SendDelivery";
 import LocationSearch from "./LocationSearch";
@@ -10,6 +12,8 @@ import TopRated from "./TopRated";
 import TourHistory from "./TourHistory";
 import Favorite from "./Favorite";
 import NearbyOperators from "./NearbyOperators";
+import { fetchActiveTrips, fetchSavedOperators } from "../../services/passengerTransportService";
+import { fetchTransportFleets } from "../../services/transportFleetService";
 //import Radar from "./Radar";
 
 export default function Body({
@@ -20,6 +24,46 @@ export default function Body({
   onOpenSavedOperators,
   onViewFleet,
 }) {
+  const [summary, setSummary] = useState({
+    loading: true,
+    topRatedCount: 0,
+    activeTripsCount: 0,
+    savedOperatorsCount: 0,
+  });
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadSummary() {
+      try {
+        const [fleets, trips, saved] = await Promise.all([
+          fetchTransportFleets({ mode: "topRated", fleetType: null }),
+          fetchActiveTrips(),
+          fetchSavedOperators(),
+        ]);
+
+        if (alive) {
+          setSummary({
+            loading: false,
+            topRatedCount: fleets.length,
+            activeTripsCount: trips.length,
+            savedOperatorsCount: saved.length,
+          });
+        }
+      } catch {
+        if (alive) {
+          setSummary((current) => ({ ...current, loading: false }));
+        }
+      }
+    }
+
+    loadSummary();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <div className="relative px-3 pt-5 pb-24">
       <LocationSearch />
@@ -33,11 +77,11 @@ export default function Body({
 
         {/* Row 2 */}
         <AreaView onClick={onOpenNearbyArea} />
-        <TopRated onClick={onOpenTopRated} />
+        <TopRated onClick={onOpenTopRated} count={summary.topRatedCount} loading={summary.loading} />
 
         {/* Row 3 */}
-        <TourHistory onClick={onOpenActiveTrips} />
-        <Favorite onClick={onOpenSavedOperators} />
+        <TourHistory onClick={onOpenActiveTrips} count={summary.activeTripsCount} loading={summary.loading} />
+        <Favorite onClick={onOpenSavedOperators} count={summary.savedOperatorsCount} loading={summary.loading} />
 
       </div>
 

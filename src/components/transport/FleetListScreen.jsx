@@ -7,6 +7,8 @@ import { verificationStatuses } from "./verification/verificationStatus";
 
 export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification }) {
   const [fleets, setFleets] = useState(() => getTransportFleets(selection));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const modeLabel =
     selection.mode === "topRated" ? "All Fleets" : selection.mode === "ride" ? "Ride" : "Delivery";
   const helperText =
@@ -16,10 +18,21 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
 
   useEffect(() => {
     let alive = true;
+    setLoading(true);
+    setError("");
 
     fetchTransportFleets(selection)
       .then((items) => {
         if (alive) setFleets(items);
+      })
+      .catch((err) => {
+        if (alive) {
+          setError(err.message || "Unable to load fleets.");
+          setFleets([]);
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
       });
 
     return () => {
@@ -61,6 +74,13 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
           <SummaryItem label="Mode" value={modeLabel} />
         </div>
 
+        {error ? (
+          <EmptyState title="Unable to load fleets" body={error} />
+        ) : loading ? (
+          <EmptyState title="Loading fleets" body="Checking live operators from the backend." />
+        ) : fleets.length === 0 ? (
+          <EmptyState title="No fleets available" body="No visible operators match this transport sector yet." />
+        ) : (
         <div className="grid gap-3 2xl:grid-cols-2">
           {fleets.map((fleet) => (
             <FleetListCard
@@ -71,6 +91,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
             />
           ))}
         </div>
+        )}
       </main>
     </div>
   );
@@ -171,6 +192,15 @@ function SummaryItem({ label, value }) {
     <div>
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
       <p className="mt-1 text-sm font-bold text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function EmptyState({ title, body }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
+      <h2 className="text-base font-black text-gray-950">{title}</h2>
+      <p className="mt-2 text-sm font-semibold text-gray-500">{body}</p>
     </div>
   );
 }

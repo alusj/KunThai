@@ -2,7 +2,7 @@
 
 import { FiClock } from "react-icons/fi";
 
-export default function TourHistory({ onClick }) {
+export default function TourHistory({ onClick, count = 0, loading = false }) {
   return (
     <button
       type="button"
@@ -21,10 +21,13 @@ justify-between
 "
     >
     
-      <span className="font-semibold text-gray-700">
-        Active Trips
+      <span>
+        <span className="block font-semibold text-gray-700">Active Trips</span>
+        <span className="mt-1 block text-xs font-semibold text-gray-400">
+          {loading ? "Loading..." : `${count} live`}
+        </span>
       </span>
-        <FiClock size={24} className="text-gray-600" />
+      <FiClock size={24} className="text-gray-600" />
     </button>
   );
 }

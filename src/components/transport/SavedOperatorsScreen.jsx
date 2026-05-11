@@ -6,12 +6,26 @@ import VerificationBadge from "./verification/VerificationBadge";
 
 export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification }) {
   const [savedOperators, setSavedOperators] = useState(() => getSavedOperators());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let alive = true;
+    setLoading(true);
+    setError("");
+
     fetchSavedOperators()
       .then((items) => {
         if (alive) setSavedOperators(items);
+      })
+      .catch((err) => {
+        if (alive) {
+          setError(err.message || "Unable to load saved operators.");
+          setSavedOperators([]);
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
       });
     return () => {
       alive = false;
@@ -39,6 +53,13 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
       </header>
 
       <main className="w-full px-3 py-4 sm:px-5 xl:px-8">
+        {error ? (
+          <EmptyState title="Unable to load saved operators" body={error} />
+        ) : loading ? (
+          <EmptyState title="Loading saved operators" body="Checking your saved transport operators." />
+        ) : savedOperators.length === 0 ? (
+          <EmptyState title="No saved operators" body="Save a real operator from a fleet profile and they will appear here." />
+        ) : (
         <div className="grid gap-3 xl:grid-cols-2">
           {savedOperators.map((saved) => (
             <article key={saved.id} className="grid gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-[minmax(260px,1fr)_minmax(240px,1fr)_auto] lg:items-center">
@@ -88,6 +109,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
             </article>
           ))}
         </div>
+        )}
       </main>
     </div>
   );
@@ -98,6 +120,15 @@ function InfoLine({ icon, text }) {
     <div className="flex min-w-0 items-center gap-2">
       {createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}
       <span className="truncate">{text}</span>
+    </div>
+  );
+}
+
+function EmptyState({ title, body }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
+      <h2 className="text-base font-black text-gray-950">{title}</h2>
+      <p className="mt-2 text-sm font-semibold text-gray-500">{body}</p>
     </div>
   );
 }

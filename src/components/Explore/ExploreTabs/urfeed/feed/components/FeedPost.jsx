@@ -107,7 +107,7 @@ export default function FeedPost({
         </div>
       ) : null}
 
-      {post.body ? <div className="kuntai-break whitespace-pre-wrap px-4 pb-4 text-[15px] leading-7 text-slate-800">{post.body}</div> : null}
+      {post.body ? <div className="kuntai-break whitespace-pre-wrap px-4 pb-4 text-base font-semibold leading-7 text-slate-900">{post.body}</div> : null}
 
       <PostMedia post={post} />
 

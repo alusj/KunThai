@@ -3,7 +3,7 @@
 
 import { FiHeart } from "react-icons/fi";
 
-export default function Favorite({ onClick }) {
+export default function Favorite({ onClick, count = 0, loading = false }) {
   return (
     <button
       type="button"
@@ -21,8 +21,11 @@ flex-col
 justify-between
 "
     >
-      <span className="font-semibold text-gray-700">
-        Saved Operators
+      <span>
+        <span className="block font-semibold text-gray-700">Saved Operators</span>
+        <span className="mt-1 block text-xs font-semibold text-gray-400">
+          {loading ? "Loading..." : `${count} saved`}
+        </span>
       </span>
       <FiHeart size={24} className="text-gray-600" />
     </button>
