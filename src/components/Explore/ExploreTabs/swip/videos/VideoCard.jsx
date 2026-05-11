@@ -126,6 +126,7 @@ export default function VideoCard({
     return () => {
       observer.disconnect();
       video.pause();
+      video.currentTime = 0;
     };
   }, [fullscreen, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
 
@@ -160,7 +161,7 @@ export default function VideoCard({
       className={`relative overflow-hidden bg-slate-950 shadow-sm ${
         fullscreen
           ? "fixed inset-0 z-[70] h-screen w-screen rounded-none"
-          : "h-[calc(100dvh-57px)] w-full min-w-0 snap-start rounded-none border-0"
+          : "h-full w-full min-w-0 rounded-none border-0"
       }`}
     >
       <video

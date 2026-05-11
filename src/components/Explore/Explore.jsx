@@ -1,5 +1,5 @@
 // src/Explore/Explore.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAuth } from "../../Backend/hooks/useAuth";
 import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
@@ -61,13 +61,18 @@ export default function Explore({ onScreenModeChange }) {
   const [viewedProfile, setViewedProfile] = useState(null);
   const [messageRecipient, setMessageRecipient] = useState(null);
   const [postingNotice, setPostingNotice] = useState(null);
+  const [topChromeHeight, setTopChromeHeight] = useState(0);
+  const topChromeRef = useRef(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const authProfile = buildExploreProfileFromUser(user);
   const profile = profileOverride;
   const { activeTab, activeMenuScreen, menuScreen } = exploreNav;
   const isSwipTab = activeTab === "Swip";
+  const profileExists = !authLoading && profileFetched && Boolean(profile);
+  const profileMissing = !authLoading && !profileLoading && profileFetched && Boolean(user?.id) && !profile && !profileError;
+  const showProfileSkeleton = authLoading || profileLoading || !profileFetched;
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
   const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, {
@@ -75,6 +80,26 @@ export default function Explore({ onScreenModeChange }) {
     minDistance: 58,
     maxVerticalDrift: 92,
   });
+
+  useLayoutEffect(() => {
+    const node = topChromeRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    function measure() {
+      setTopChromeHeight(Math.ceil(node.getBoundingClientRect().height || 0));
+    }
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [isSwipTab, navHidden]);
 
   useEffect(() => {
     onScreenModeChange?.(exploreNav.isFullScreen || isSwipTab);
@@ -103,6 +128,14 @@ export default function Explore({ onScreenModeChange }) {
   }, []);
 
   useEffect(() => {
+    if (authLoading) {
+      setProfileOverride(null);
+      setProfileLoading(true);
+      setProfileError("");
+      setProfileFetched(false);
+      return undefined;
+    }
+
     if (!user?.id) {
       setProfileOverride(null);
       setProfileLoading(false);
@@ -138,7 +171,7 @@ export default function Explore({ onScreenModeChange }) {
     return () => {
       alive = false;
     };
-  }, [user?.id]);
+  }, [authLoading, user?.id]);
 
   useEffect(() => {
     let clearTimer;
@@ -354,13 +387,17 @@ export default function Explore({ onScreenModeChange }) {
   }
 
   return (
-    <div className="min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 kuntai-safe-bottom">
+    <div
+      className={`min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
+      style={{ "--explore-top-chrome-height": `${topChromeHeight}px` }}
+    >
       {postingNotice ? <PostingStatusBanner notice={postingNotice} /> : null}
 
       {/* =========================
           HEADER + PARENT TABS
       ========================= */}
       <div
+        ref={topChromeRef}
         className={`sticky top-0 z-30 overflow-hidden ${
           isSwipTab
             ? "bg-slate-100/95 backdrop-blur"
@@ -404,10 +441,10 @@ export default function Explore({ onScreenModeChange }) {
           ACTIVE PAGE
       ========================= */}
       <div className={`w-full max-w-full overflow-x-clip ${isSwipTab ? "pt-0" : "pt-2"}`}>
-        {profileLoading && !profileFetched ? <ExploreProfileSkeleton /> : null}
+        {showProfileSkeleton ? <ExploreProfileSkeleton /> : null}
         {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
-        {!profileLoading && profileFetched && !profile ? <ExploreCreateProfileState onCreate={() => openMenuScreen("Profile")} /> : null}
-        {profile ? (
+        {profileMissing ? <ExploreCreateProfileState onCreate={() => openMenuScreen("Profile")} /> : null}
+        {profileExists ? (
           <>
             {activeTab === "UrFeed" && <UrFeed profile={profile} onViewProfile={openViewedProfile} />}
             {activeTab === "Swip" && <Swip currentUserId={profile.userId} onViewProfile={openViewedProfile} />}

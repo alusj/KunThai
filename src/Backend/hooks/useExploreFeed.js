@@ -35,6 +35,10 @@ function isLocalPost(post) {
   return String(post?.id || "").startsWith("local-");
 }
 
+function logExploreFeed(event, detail = {}) {
+  console.info(`[ExploreFeed] ${event}`, detail);
+}
+
 function mergePosts(remotePosts, localPosts) {
   const merged = new Map();
 
@@ -190,6 +194,11 @@ export function useExploreFeed(scope = "feed") {
         fetchCurrentUserReactions(),
         getCurrentUserProfile(),
       ]);
+      logExploreFeed("hook load completed", {
+        scope,
+        user_id: currentProfile?.id || "",
+        feed_query_result_count: rawPosts.length,
+      });
       const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
       setCurrentUserId(currentProfile?.id || "");
 
@@ -228,6 +237,7 @@ export function useExploreFeed(scope = "feed") {
     return subscribeToExplorePosts(scope, {
       onDelete(payload) {
           const deletedId = payload.old?.id;
+          logExploreFeed("realtime delete delivered", { scope, post_id: deletedId });
           if (!deletedId) {
             return;
           }
@@ -240,6 +250,13 @@ export function useExploreFeed(scope = "feed") {
       },
       onInsert(payload) {
           const nextPost = payload.new;
+          logExploreFeed("realtime insert delivered", {
+            scope,
+            post_id: nextPost?.id,
+            user_id: nextPost?.user_id,
+            visibility: nextPost?.post_privacy || "public",
+            feed_scope: nextPost?.feed_scope || "",
+          });
           const belongsInScope =
             scope === "swip"
               ? (nextPost?.feed_scope ?? "") === "swip" || Boolean(nextPost?.video_url)
@@ -249,29 +266,22 @@ export function useExploreFeed(scope = "feed") {
             return;
           }
 
-          setPosts((current) => {
-            const nextPosts = mergePosts([nextPost], current);
-            writeStoredPosts(scope, nextPosts);
-            return nextPosts;
-          });
+          load({ force: true });
       },
       onUpdate(payload) {
           const nextPost = payload.new;
+          logExploreFeed("realtime update delivered", {
+            scope,
+            post_id: nextPost?.id,
+            user_id: nextPost?.user_id,
+            visibility: nextPost?.post_privacy || "public",
+            feed_scope: nextPost?.feed_scope || "",
+          });
           if (!nextPost) {
             return;
           }
 
-          setPosts((current) => {
-            const belongsInScope =
-              scope === "swip"
-                ? (nextPost.feed_scope ?? "") === "swip" || Boolean(nextPost.video_url)
-                : (nextPost.feed_scope ?? "feed") === scope && !nextPost.video_url;
-            const nextPosts = belongsInScope
-              ? mergePosts([nextPost], current)
-              : current.filter((post) => post.id !== nextPost.id);
-            writeStoredPosts(scope, nextPosts);
-            return nextPosts;
-          });
+          load({ force: true });
       },
     });
   }, [scope]);
@@ -386,6 +396,8 @@ export function useExploreFeed(scope = "feed") {
           }),
         ),
       );
+      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope: created.feed_scope || scope, postId: created.id, type: "post-created" } }));
+      load({ force: true });
       return { ok: true };
     } catch (err) {
       setError(err.message || "Unable to sync post to backend right now.");

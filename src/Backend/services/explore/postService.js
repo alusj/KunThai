@@ -3,6 +3,10 @@ import { isMissingColumn, isMissingTable } from "./errors";
 import { uploadMediaDataUrl } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 
+function logExploreFeed(event, detail = {}) {
+  console.info(`[ExploreFeed] ${event}`, detail);
+}
+
 async function getCurrentUserId() {
   const {
     data: { user },
@@ -11,7 +15,59 @@ async function getCurrentUserId() {
   return user?.id ?? null;
 }
 
+async function getCurrentUserContext() {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return { userId: null, followingIds: new Set() };
+  }
+
+  const { data, error } = await supabase.from("explore_follows").select("following_id").eq("follower_id", userId);
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return { userId, followingIds: new Set() };
+    }
+    throw error;
+  }
+
+  return {
+    userId,
+    followingIds: new Set((data || []).map((item) => item.following_id).filter(Boolean)),
+  };
+}
+
+function normalizePostPrivacy(post) {
+  const value = String(post?.post_privacy || "public").toLowerCase();
+  if (value === "followers") return "circle";
+  return ["public", "circle", "private"].includes(value) ? value : "public";
+}
+
+function canCurrentUserViewPost(post, context) {
+  const privacy = normalizePostPrivacy(post);
+  const postUserId = post?.user_id || "";
+
+  if (privacy === "public") {
+    return true;
+  }
+
+  if (!context.userId) {
+    return false;
+  }
+
+  if (postUserId === context.userId) {
+    return true;
+  }
+
+  if (privacy === "circle") {
+    return context.followingIds.has(postUserId);
+  }
+
+  return false;
+}
+
 export async function fetchExplorePosts(scope = "feed") {
+  const context = await getCurrentUserContext();
   let query = supabase
     .from("explore_posts")
     .select("*")
@@ -42,20 +98,36 @@ export async function fetchExplorePosts(scope = "feed") {
     throw error;
   }
 
-  return (data || []).filter((post) => {
+  const scopedPosts = (data || []).filter((post) => {
     if (scope === "swip") {
       return (post.feed_scope ?? "") === "swip" || Boolean(post.video_url);
     }
 
     return (post.feed_scope ?? "feed") === scope && !post.video_url;
   });
+  const visiblePosts = scopedPosts.filter((post) => canCurrentUserViewPost(post, context));
+
+  logExploreFeed("feed query completed", {
+    scope,
+    user_id: context.userId,
+    result_count: visiblePosts.length,
+    raw_count: data?.length || 0,
+    scoped_count: scopedPosts.length,
+  });
+
+  return visiblePosts;
 }
 
 export async function createExplorePost(input, scope = "feed") {
   const payload = typeof input === "string" ? { body: input } : input || {};
   const trimmedBody = String(payload.body || "").trim();
   const audioDuration = Number.isFinite(payload.audio_duration_seconds) ? payload.audio_duration_seconds : null;
-  const postPrivacy = ["public", "circle", "private"].includes(payload.post_privacy) ? payload.post_privacy : "public";
+  const requestedPrivacy = String(payload.post_privacy || "public").toLowerCase();
+  const postPrivacy = requestedPrivacy === "followers"
+    ? "circle"
+    : ["public", "circle", "private"].includes(requestedPrivacy)
+      ? requestedPrivacy
+      : "public";
   const hashtags = Array.isArray(payload.hashtags) ? payload.hashtags : [];
   const mentions = Array.isArray(payload.mentions) ? payload.mentions : [];
 
@@ -101,6 +173,15 @@ export async function createExplorePost(input, scope = "feed") {
     saves_count: 0,
   };
 
+  logExploreFeed("post creation started", {
+    user_id: user.id,
+    feed_scope: feedScope,
+    visibility: postPrivacy,
+    has_image: Boolean(imageUrl),
+    has_audio: Boolean(audioUrl),
+    has_video: Boolean(videoUrl),
+  });
+
   const { data, error } = await insertExplorePostDraft(draft);
 
   if (error) {
@@ -113,6 +194,13 @@ export async function createExplorePost(input, scope = "feed") {
     }
     throw error;
   }
+
+  logExploreFeed("post creation completed", {
+    post_id: data?.id,
+    user_id: data?.user_id,
+    feed_scope: data?.feed_scope,
+    visibility: normalizePostPrivacy(data),
+  });
 
   return data;
 }
@@ -165,7 +253,14 @@ async function createPostWithoutFeedScope(draft, feedScope) {
     throw error;
   }
 
-  return { ...data, feed_scope: feedScope };
+  const created = { ...data, feed_scope: feedScope, post_privacy: draft.post_privacy || "public" };
+  logExploreFeed("post creation completed without feed_scope column", {
+    post_id: created.id,
+    user_id: created.user_id,
+    feed_scope: feedScope,
+    visibility: normalizePostPrivacy(created),
+  });
+  return created;
 }
 
 export async function updateExplorePostCounts(postId, patch) {

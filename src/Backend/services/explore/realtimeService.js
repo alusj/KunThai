@@ -6,7 +6,9 @@ export function subscribeToExplorePosts(scope, handlers) {
     .on("postgres_changes", { event: "DELETE", schema: "public", table: "explore_posts" }, handlers.onDelete)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "explore_posts" }, handlers.onInsert)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "explore_posts" }, handlers.onUpdate)
-    .subscribe();
+    .subscribe((status) => {
+      console.info("[ExploreFeed] realtime subscription status", { scope, status });
+    });
 
   return () => supabase.removeChannel(channel);
 }
