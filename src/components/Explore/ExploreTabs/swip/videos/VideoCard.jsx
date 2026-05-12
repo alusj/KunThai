@@ -10,7 +10,8 @@ import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 
 const SWIP_VIDEO_SOUND_EVENT = "swip-video-sound";
-let swipSoundMuted = true;
+let swipSoundMuted = false;
+let swipSoundUnlocked = false;
 let swipSettingsLoaded = false;
 
 export default function VideoCard({
@@ -19,6 +20,7 @@ export default function VideoCard({
   categoryLabel = "",
   contextLabel = "",
   currentUserId = "",
+  fullscreen = false,
   liked,
   saved,
   isOwner,
@@ -26,14 +28,14 @@ export default function VideoCard({
   onSave,
   onComment,
   onDelete,
+  onFullscreenToggle,
   onViewProfile,
 }) {
   const [commentOpen, setCommentOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
   if (!swipSettingsLoaded) {
-    swipSoundMuted = readExploreSettings().video.defaultMuted;
+    swipSoundMuted = false;
     swipSettingsLoaded = true;
   }
 
@@ -45,7 +47,6 @@ export default function VideoCard({
   const activeRef = useRef(false);
 
   useBrowserBack(commentOpen, () => setCommentOpen(false), `swip-comments-${post.id}`);
-  useBrowserBack(fullscreen, () => setFullscreen(false), `swip-fullscreen-${post.id}`);
 
   useEffect(() => () => {
     window.clearTimeout(holdTimerRef.current);
@@ -58,21 +59,14 @@ export default function VideoCard({
       return;
     }
 
-    activeRef.current = active || fullscreen;
-    if (activeRef.current) {
-      video.muted = swipSoundMuted;
-      if (videoSettings.autoplay && !videoSettings.reduceData) {
-        playExploreMedia(video).catch(() => {});
-      }
+    activeRef.current = active;
+    if (active) {
+      requestActivePlayback();
       return;
     }
 
-    video.pause();
-    video.muted = true;
-    if (!Number.isNaN(video.currentTime)) {
-      video.currentTime = 0;
-    }
-  }, [active, fullscreen, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
+    pauseInactiveVideo(video);
+  }, [active, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
@@ -102,20 +96,67 @@ export default function VideoCard({
         videoRef.current.muted = next || !activeRef.current;
       }
       swipSoundMuted = next;
-      window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: next } }));
+      swipSoundUnlocked = !next;
+      window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: next, soundUnlocked: swipSoundUnlocked } }));
       return next;
     });
+  }
+
+  function pauseInactiveVideo(video) {
+    video.pause();
+    video.muted = true;
+    if (!Number.isNaN(video.currentTime)) {
+      video.currentTime = 0;
+    }
+  }
+
+  async function requestActivePlayback({ userGesture = false } = {}) {
+    const video = videoRef.current;
+    if (!video || !videoSettings.autoplay || videoSettings.reduceData) {
+      return;
+    }
+
+    activeRef.current = true;
+
+    const shouldTrySound = userGesture || swipSoundUnlocked || !swipSoundMuted;
+    if (shouldTrySound) {
+      try {
+        video.muted = false;
+        await playExploreMedia(video);
+        swipSoundMuted = false;
+        swipSoundUnlocked = true;
+        setMuted(false);
+        window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: false, soundUnlocked: true } }));
+        return;
+      } catch {
+        // Mobile browsers can block sound until a user gesture. Fall through to muted autoplay.
+      }
+    }
+
+    try {
+      video.muted = true;
+      await playExploreMedia(video);
+      swipSoundMuted = true;
+      setMuted(true);
+      window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: true, soundUnlocked: false } }));
+    } catch {
+      // Keep the poster frame if autoplay is completely blocked.
+    }
   }
 
   function shouldIgnoreVideoGesture(event) {
     return Boolean(event.target.closest("button, a, input, textarea, [role='button']"));
   }
 
-  function toggleVideoSound() {
-    if (videoRef.current) {
-      playExploreMedia(videoRef.current).catch(() => {});
+  function handleVideoTap() {
+    if (!activeRef.current) {
+      return;
     }
-    toggleMute();
+
+    swipSoundMuted = false;
+    swipSoundUnlocked = true;
+    setMuted(false);
+    requestActivePlayback({ userGesture: true });
   }
 
   function handlePointerDown(event) {
@@ -135,13 +176,13 @@ export default function VideoCard({
     }
 
     window.clearTimeout(holdTimerRef.current);
-    playExploreMedia(videoRef.current).catch(() => {});
+    requestActivePlayback({ userGesture: true });
   }
 
   useEffect(() => {
     const video = videoRef.current;
 
-    if (!video || fullscreen) {
+    if (!video) {
       return undefined;
     }
 
@@ -149,31 +190,27 @@ export default function VideoCard({
       ([entry]) => {
         if (entry.isIntersecting && active) {
           activeRef.current = true;
-          video.muted = swipSoundMuted;
-          if (videoSettings.autoplay && !videoSettings.reduceData) {
-            playExploreMedia(video).catch(() => {});
-          }
+          requestActivePlayback();
           return;
         }
 
         activeRef.current = false;
-        video.pause();
-        video.muted = true;
+        pauseInactiveVideo(video);
       },
-      { threshold: 0.6 },
+      { threshold: 0.72 },
     );
 
     observer.observe(video);
     return () => {
       observer.disconnect();
-      video.pause();
-      video.currentTime = 0;
+      pauseInactiveVideo(video);
     };
-  }, [active, fullscreen, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
+  }, [active, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
 
   useEffect(() => {
     function handleSoundChanged(event) {
       const nextMuted = event.detail?.muted ?? true;
+      swipSoundUnlocked = Boolean(event.detail?.soundUnlocked);
       if (videoRef.current) {
         videoRef.current.muted = nextMuted || !activeRef.current;
       }
@@ -193,17 +230,13 @@ export default function VideoCard({
     <article
       id={`post-${post.id}`}
       onClick={(event) => {
-        if (!shouldIgnoreVideoGesture(event)) toggleVideoSound();
+        if (!shouldIgnoreVideoGesture(event)) handleVideoTap();
       }}
       onPointerCancel={handlePointerUp}
       onPointerDown={handlePointerDown}
       onPointerLeave={handlePointerUp}
       onPointerUp={handlePointerUp}
-      className={`relative overflow-hidden bg-slate-950 shadow-sm ${
-        fullscreen
-          ? "fixed inset-0 z-[70] h-screen w-screen rounded-none"
-          : "h-full w-full min-w-0 rounded-none border-0"
-      }`}
+      className="relative h-full w-full min-w-0 overflow-hidden rounded-none border-0 bg-slate-950 shadow-sm"
     >
       <video
         ref={videoRef}
@@ -240,7 +273,7 @@ export default function VideoCard({
         onSave={onSave}
         onComment={() => setCommentOpen(true)}
         onDelete={() => setDeleteOpen(true)}
-        onFullscreen={() => setFullscreen((current) => !current)}
+        onFullscreen={onFullscreenToggle}
         onShare={handleShare}
       />
 

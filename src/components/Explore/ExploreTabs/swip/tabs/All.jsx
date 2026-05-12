@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { useExploreFeed } from "../../../../../Backend/hooks/useExploreFeed";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
@@ -14,11 +15,14 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
   const feed = useExploreFeed("swip");
   const videos = getSwipVideos(feed.posts, onlyUserId);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
   const scrollerRef = useRef(null);
   const itemRefs = useRef([]);
   const wheelLockedRef = useRef(false);
   const wheelUnlockTimerRef = useRef(null);
   const wheelDeltaRef = useRef(0);
+
+  useBrowserBack(fullscreen, () => setFullscreen(false), "swip-fullscreen");
 
   useEffect(() => {
     setActiveIndex((current) => Math.min(Math.max(current, 0), Math.max(videos.length - 1, 0)));
@@ -125,7 +129,11 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
       ref={scrollerRef}
       className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       onWheel={handleWheel}
-      style={{ touchAction: "pan-y", overscrollBehavior: "contain", scrollSnapStop: "always" }}
+      style={{
+        "--swip-item-height": "calc(100dvh - var(--explore-top-chrome-height,57px))",
+        touchAction: "pan-y",
+        overscrollBehavior: "contain",
+      }}
     >
       {videos.map((post, index) => (
         <section
@@ -134,11 +142,12 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
             itemRefs.current[index] = node;
           }}
           data-swip-index={index}
-          className="h-full min-h-full w-full snap-start snap-always"
+          className="h-[var(--swip-item-height)] min-h-[var(--swip-item-height)] w-full snap-start snap-always"
         >
           <VideoCard
             post={post}
             active={index === activeIndex}
+            fullscreen={fullscreen}
             contextLabel={getSwipContext(post, currentUserId)}
             categoryLabel={getVideoCategoryLabel(post)}
             currentUserId={currentUserId}
@@ -149,6 +158,7 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
             onSave={() => feed.toggleSave(post.id)}
             onComment={(body) => feed.addComment(post.id, body)}
             onDelete={() => feed.deletePost(post.id, { confirm: false })}
+            onFullscreenToggle={() => setFullscreen((current) => !current)}
             onViewProfile={() =>
               onViewProfile?.({
                 userId: post.user_id || "",
@@ -161,11 +171,6 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
           />
         </section>
       ))}
-      <div className="pointer-events-none fixed right-3 top-[calc(var(--explore-top-chrome-height,57px)+10px)] z-20 flex items-center gap-1 rounded-full border border-white/12 bg-slate-950/18 px-2.5 py-1 text-[11px] font-black text-white/90 backdrop-blur-md">
-        <span>{activeIndex + 1}</span>
-        <span className="text-white/40">/</span>
-        <span className="text-white/65">{videos.length}</span>
-      </div>
     </div>
   );
 }

@@ -55,9 +55,7 @@ export default function SwipActionRail({
 }) {
   return (
     <div
-      className={`absolute right-3 z-20 flex flex-col items-center gap-1.5 rounded-full border border-white/14 bg-slate-950/24 px-1.5 py-2 shadow-2xl backdrop-blur-md sm:right-5 ${
-        fullscreen ? "bottom-6" : "bottom-28"
-      }`}
+      className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-1.5 rounded-full border border-white/14 bg-slate-950/24 px-1.5 py-2 shadow-2xl backdrop-blur-md sm:right-5"
     >
       <RailButton active={liked} label={post.likes_count ?? 0} title="Like" onClick={onLike}>
         <HiOutlineHandThumbUp />
