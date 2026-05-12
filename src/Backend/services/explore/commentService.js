@@ -67,6 +67,7 @@ export async function createExploreComment(input) {
     const { data, error } = await supabase.from("explore_post_comments").insert(nextDraft).select().single();
 
     if (!error) {
+      await notifyCommentReply(data, draft);
       await notifyMentionedUsers(data, draft);
       return data;
     }
@@ -95,6 +96,35 @@ export async function createExploreComment(input) {
   }
 
   return null;
+}
+
+async function notifyCommentReply(comment, draft) {
+  if (!draft.parent_comment_id) {
+    return;
+  }
+
+  const { data: parent, error } = await supabase
+    .from("explore_post_comments")
+    .select("id, user_id, body")
+    .eq("id", draft.parent_comment_id)
+    .maybeSingle();
+
+  if (error || !parent?.user_id || parent.user_id === draft.user_id) {
+    return;
+  }
+
+  await supabase.from("explore_notifications").insert({
+    user_id: parent.user_id,
+    actor_user_id: draft.user_id,
+    actor_name: draft.author_name,
+    actor_avatar_url: draft.author_avatar_url,
+    type: "reply",
+    media_type: "comment",
+    message: `${draft.author_name} replied to your comment`,
+    read: false,
+    post_id: draft.post_id,
+    post_preview: comment.body || "Voice reply",
+  });
 }
 
 async function notifyMentionedUsers(comment, draft) {

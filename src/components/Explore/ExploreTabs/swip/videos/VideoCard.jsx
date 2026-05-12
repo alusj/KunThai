@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { HiOutlineSpeakerWave, HiOutlineSpeakerXMark, HiOutlineXMark } from "react-icons/hi2";
+import { HiOutlineSpeakerWave, HiOutlineSpeakerXMark } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
@@ -15,6 +15,7 @@ let swipSettingsLoaded = false;
 
 export default function VideoCard({
   post,
+  active = true,
   categoryLabel = "",
   contextLabel = "",
   currentUserId = "",
@@ -28,6 +29,8 @@ export default function VideoCard({
   onViewProfile,
 }) {
   const [commentOpen, setCommentOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   if (!swipSettingsLoaded) {
     swipSoundMuted = readExploreSettings().video.defaultMuted;
@@ -49,9 +52,47 @@ export default function VideoCard({
     stopAllExploreMedia();
   }, []);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    activeRef.current = active || fullscreen;
+    if (activeRef.current) {
+      video.muted = swipSoundMuted;
+      if (videoSettings.autoplay && !videoSettings.reduceData) {
+        playExploreMedia(video).catch(() => {});
+      }
+      return;
+    }
+
+    video.pause();
+    video.muted = true;
+    if (!Number.isNaN(video.currentTime)) {
+      video.currentTime = 0;
+    }
+  }, [active, fullscreen, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
+
   async function handleShare() {
     const nextMessage = await sharePost(post);
     setMessage(nextMessage);
+  }
+
+  async function confirmDelete() {
+    try {
+      setDeleting(true);
+      const deleted = await onDelete?.();
+      if (deleted === false) {
+        setMessage("Unable to delete video.");
+        return;
+      }
+      setDeleteOpen(false);
+    } catch (error) {
+      setMessage(error.message || "Unable to delete video.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function toggleMute() {
@@ -106,7 +147,7 @@ export default function VideoCard({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        if (entry.isIntersecting && active) {
           activeRef.current = true;
           video.muted = swipSoundMuted;
           if (videoSettings.autoplay && !videoSettings.reduceData) {
@@ -128,7 +169,7 @@ export default function VideoCard({
       video.pause();
       video.currentTime = 0;
     };
-  }, [fullscreen, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
+  }, [active, fullscreen, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
 
   useEffect(() => {
     function handleSoundChanged(event) {
@@ -168,7 +209,7 @@ export default function VideoCard({
         ref={videoRef}
         src={post.video_url}
         autoPlay={videoSettings.autoplay && !videoSettings.reduceData}
-        controls={fullscreen}
+        controls={false}
         muted={muted}
         playsInline
         loop
@@ -176,29 +217,21 @@ export default function VideoCard({
         preload={videoSettings.reduceData ? "none" : "metadata"}
         className="absolute inset-0 h-full w-full object-cover"
       />
-      <div className="absolute inset-0 bg-slate-950/10" />
+      <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
 
-      <button
-        type="button"
-        onClick={toggleMute}
-        className="absolute left-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-slate-950/45 text-lg text-white backdrop-blur"
-        aria-label={muted ? "Unmute video" : "Mute video"}
-      >
-        {muted ? <HiOutlineSpeakerXMark /> : <HiOutlineSpeakerWave />}
-      </button>
-
-      {fullscreen ? (
+      {!fullscreen ? (
         <button
           type="button"
-          onClick={() => setFullscreen(false)}
-          className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-xl text-slate-900 shadow-lg"
-          aria-label="Close full-screen video"
+          onClick={toggleMute}
+          className="absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-950/28 text-base text-white shadow-xl backdrop-blur"
+          aria-label={muted ? "Unmute video" : "Mute video"}
         >
-          <HiOutlineXMark />
+          {muted ? <HiOutlineSpeakerXMark /> : <HiOutlineSpeakerWave />}
         </button>
       ) : null}
 
       <SwipActionRail
+        fullscreen={fullscreen}
         post={post}
         liked={liked}
         saved={saved}
@@ -206,18 +239,19 @@ export default function VideoCard({
         onLike={onLike}
         onSave={onSave}
         onComment={() => setCommentOpen(true)}
-        onDelete={onDelete}
-        onFullscreen={() => setFullscreen(true)}
+        onDelete={() => setDeleteOpen(true)}
+        onFullscreen={() => setFullscreen((current) => !current)}
         onShare={handleShare}
       />
 
-      <SwipCaption
-        post={post}
-        categoryLabel={categoryLabel}
-        contextLabel={contextLabel}
-        onFullscreen={() => setFullscreen(true)}
-        onViewProfile={onViewProfile}
-      />
+      {!fullscreen ? (
+        <SwipCaption
+          post={post}
+          categoryLabel={categoryLabel}
+          contextLabel={contextLabel}
+          onViewProfile={onViewProfile}
+        />
+      ) : null}
 
       <CommentsDrawer
         currentUserId={currentUserId}
@@ -227,7 +261,39 @@ export default function VideoCard({
         onCreated={onComment}
         onViewProfile={onViewProfile}
       />
-      {message ? <p className="absolute left-4 top-16 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-sky-700">{message}</p> : null}
+      {message && !fullscreen ? <p className="absolute left-4 top-16 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-sky-700">{message}</p> : null}
+      {deleteOpen ? (
+        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/45 px-4 pb-5 backdrop-blur-sm" onClick={() => !deleting && setDeleteOpen(false)}>
+          <div
+            className="w-full rounded-[24px] border border-white/10 bg-white p-4 text-slate-950 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">Delete Swip</p>
+            <h3 className="mt-1 text-lg font-black">Remove this video?</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              This will remove the video from Swip and your profile feed.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteOpen(false)}
+                className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={confirmDelete}
+                className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60"
+              >
+                {deleting ? "Deleting" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 

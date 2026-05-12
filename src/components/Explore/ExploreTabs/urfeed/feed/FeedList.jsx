@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 
-import { createExploreNotification } from "../../../../../Backend/services/exploreService";
 import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollows";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
@@ -68,13 +67,6 @@ export default function FeedList({
     const active = await toggleFollow(post.user_id);
 
     if (active && post.user_id) {
-      await createExploreNotification({
-        user_id: post.user_id,
-        type: "follow",
-        post_id: post.id,
-        post_preview: post.body,
-        media_type: "profile",
-      });
       return "Following";
     }
 

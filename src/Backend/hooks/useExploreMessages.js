@@ -16,12 +16,29 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   const currentUserId = currentProfile?.userId || "";
   const [activeConversation, setActiveConversation] = useState(null);
   const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(Boolean(currentUserId));
+  const [error, setError] = useState("");
   const [messages, setMessages] = useState([]);
 
   async function reload() {
-    setConversations(await fetchExploreConversations(currentUserId));
-    if (activeConversation?.id) {
-      setMessages(await fetchExploreMessages(activeConversation.id));
+    if (!currentUserId) {
+      setConversations([]);
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      setConversations(await fetchExploreConversations(currentUserId));
+      if (activeConversation?.id) {
+        setMessages(await fetchExploreMessages(activeConversation.id));
+      }
+    } catch (err) {
+      setError(err.message || "Unable to load messages.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -35,7 +52,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         setActiveConversation(conversation);
         setMessages(await fetchExploreMessages(conversation.id));
         setConversations(await fetchExploreConversations(currentUserId));
-      });
+      }).catch((err) => setError(err.message || "Unable to start conversation."));
     }
   }, [initialRecipient?.userId, initialRecipient?.username]);
 
@@ -64,11 +81,16 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
   async function openConversation(conversation) {
     setActiveConversation(conversation);
-    setMessages(await fetchExploreMessages(conversation.id));
-    if (readExploreSettings().messages.readReceipts) {
-      await markExploreConversationRead(conversation.id, currentUserId);
+    try {
+      setError("");
+      setMessages(await fetchExploreMessages(conversation.id));
+      if (readExploreSettings().messages.readReceipts) {
+        await markExploreConversationRead(conversation.id, currentUserId);
+      }
+      setConversations(await fetchExploreConversations(currentUserId));
+    } catch (err) {
+      setError(err.message || "Unable to open conversation.");
     }
-    setConversations(await fetchExploreConversations(currentUserId));
   }
 
   function closeConversation() {
@@ -79,10 +101,15 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   }
 
   async function sendMessage(body) {
-    const created = await sendExploreMessage(activeConversation?.id, currentProfile, body);
-    if (created) {
-      setMessages(await fetchExploreMessages(activeConversation.id));
-      setConversations(await fetchExploreConversations(currentUserId));
+    try {
+      setError("");
+      const created = await sendExploreMessage(activeConversation?.id, currentProfile, body);
+      if (created) {
+        setMessages(await fetchExploreMessages(activeConversation.id));
+        setConversations(await fetchExploreConversations(currentUserId));
+      }
+    } catch (err) {
+      setError(err.message || "Unable to send message.");
     }
   }
 
@@ -101,7 +128,9 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     activeConversation,
     closeConversation,
     conversations,
+    error,
     inbox,
+    loading,
     messages,
     openConversation,
     reload,

@@ -202,7 +202,44 @@ export async function createExplorePost(input, scope = "feed") {
     visibility: normalizePostPrivacy(data),
   });
 
+  await notifyMentionedUsers(data, draft);
+
   return data;
+}
+
+async function notifyMentionedUsers(post, draft) {
+  if (!draft.mentions.length) {
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("explore_profiles")
+    .select("user_id, username")
+    .in("username", draft.mentions);
+
+  if (error || !data?.length) {
+    return;
+  }
+
+  const targets = data.filter((profile) => profile.user_id && profile.user_id !== draft.user_id);
+  if (!targets.length) {
+    return;
+  }
+
+  await supabase.from("explore_notifications").insert(
+    targets.map((profile) => ({
+      user_id: profile.user_id,
+      actor_user_id: draft.user_id,
+      actor_name: draft.author_name,
+      actor_avatar_url: draft.author_avatar_url,
+      type: "mention",
+      media_type: post.video_url ? "video post" : "post",
+      message: `${draft.author_name} mentioned you in a post`,
+      read: false,
+      post_id: post.id,
+      post_preview: post.body || "Post mention",
+    })),
+  );
 }
 
 async function insertExplorePostDraft(draft) {

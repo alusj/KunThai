@@ -547,9 +547,11 @@ export function useExploreFeed(scope = "feed") {
     }
   }
 
-  async function deletePost(postId) {
-    if (!window.confirm("Delete this post?")) {
-      return;
+  async function deletePost(postId, options = {}) {
+    const confirmDelete = options.confirm !== false;
+
+    if (confirmDelete && !window.confirm("Delete this post?")) {
+      return false;
     }
 
     const previousPosts = posts;
@@ -559,9 +561,11 @@ export function useExploreFeed(scope = "feed") {
       await deleteExplorePost(postId);
       removePostFromAllCaches(postId);
       showToast("Post deleted.", "success");
+      return true;
     } catch (err) {
       setPosts(previousPosts);
       setError(err.message || "Unable to delete post.");
+      return false;
     }
   }
 

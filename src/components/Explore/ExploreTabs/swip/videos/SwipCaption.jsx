@@ -1,9 +1,9 @@
-import { HiOutlineArrowsPointingOut, HiOutlineCheckBadge } from "react-icons/hi2";
+import { HiOutlineCheckBadge } from "react-icons/hi2";
 
 import { formatRelativeTime } from "../../../../../Backend/services/exploreService";
 import Avatar from "../../../shared/Avatar";
 
-export default function SwipCaption({ categoryLabel, contextLabel, post, onFullscreen, onViewProfile }) {
+export default function SwipCaption({ categoryLabel, contextLabel, post, onViewProfile }) {
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent px-4 pb-5 pt-24 text-white sm:px-5">
       <div className="min-w-0 max-w-[calc(100%-72px)] space-y-3">
@@ -27,14 +27,6 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onFulls
           {categoryLabel ? (
             <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{categoryLabel}</span>
           ) : null}
-          <button
-            type="button"
-            onClick={onFullscreen}
-            className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur"
-          >
-            <HiOutlineArrowsPointingOut />
-            Full screen
-          </button>
         </div>
       </div>
     </div>

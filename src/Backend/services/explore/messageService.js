@@ -57,10 +57,72 @@ function normalizeMessage(row) {
     conversationId: row.conversation_id || row.conversationId,
     senderId: row.sender_id || row.senderId,
     body: row.body || "",
-    type: row.type || "text",
+    type: row.type || row.media_type || "text",
     read: Boolean(row.read),
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
   };
+}
+
+async function fetchConversationMemberRows(conversationIds = []) {
+  if (!conversationIds.length) return [];
+
+  const { data, error } = await supabase
+    .from("explore_conversation_members")
+    .select("conversation_id, user_id")
+    .in("conversation_id", conversationIds);
+
+  if (error) {
+    if (isMissingMessageStore(error)) return [];
+    throw error;
+  }
+
+  return data || [];
+}
+
+async function fetchProfilesByIds(userIds = []) {
+  const ids = Array.from(new Set(userIds.filter(Boolean)));
+  if (!ids.length) return {};
+
+  const { data, error } = await supabase
+    .from("explore_profiles")
+    .select("user_id, display_name, username, avatar_url")
+    .in("user_id", ids);
+
+  if (error) return {};
+
+  return (data || []).reduce((profiles, profile) => {
+    profiles[profile.user_id] = {
+      userId: profile.user_id,
+      displayName: profile.display_name || "Profile",
+      username: profile.username || "user",
+      avatarUrl: profile.avatar_url || "",
+    };
+    return profiles;
+  }, {});
+}
+
+function hydrateConversations(conversations, members, profiles) {
+  const membersByConversation = members.reduce((map, member) => {
+    const list = map.get(member.conversation_id) || [];
+    list.push(member.user_id);
+    map.set(member.conversation_id, list);
+    return map;
+  }, new Map());
+
+  return conversations.map((conversation) => {
+    const participantIds = conversation.participantIds?.length
+      ? conversation.participantIds
+      : membersByConversation.get(conversation.id) || [];
+
+    return {
+      ...conversation,
+      participantIds,
+      participants: participantIds.reduce((items, userId) => {
+        items[userId] = profiles[userId] || { userId, displayName: "Profile", username: "user", avatarUrl: "" };
+        return items;
+      }, conversation.participants || {}),
+    };
+  });
 }
 
 function fetchLocalConversations(currentUserId) {
@@ -81,10 +143,23 @@ function fetchLocalConversations(currentUserId) {
 export async function fetchExploreConversations(currentUserId) {
   if (!currentUserId) return [];
 
+  const { data: memberRows, error: memberError } = await supabase
+    .from("explore_conversation_members")
+    .select("conversation_id, user_id")
+    .eq("user_id", currentUserId);
+
+  if (memberError) {
+    if (isMissingMessageStore(memberError)) return fetchLocalConversations(currentUserId);
+    throw memberError;
+  }
+
+  const conversationIds = (memberRows || []).map((item) => item.conversation_id).filter(Boolean);
+  if (!conversationIds.length) return [];
+
   const { data, error } = await supabase
     .from("explore_conversations")
     .select("*")
-    .contains("participant_ids", [currentUserId])
+    .in("id", conversationIds)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -93,9 +168,12 @@ export async function fetchExploreConversations(currentUserId) {
   }
 
   const conversations = (data || []).map(normalizeConversation);
-  const conversationIds = conversations.map((conversation) => conversation.id);
-  const { data: messageRows, error: messageError } = conversationIds.length
-    ? await supabase.from("explore_messages").select("*").in("conversation_id", conversationIds).order("created_at", { ascending: true })
+  const fetchedConversationIds = conversations.map((conversation) => conversation.id);
+  const allMembers = await fetchConversationMemberRows(fetchedConversationIds);
+  const profiles = await fetchProfilesByIds(allMembers.map((member) => member.user_id));
+  const hydratedConversations = hydrateConversations(conversations, allMembers, profiles);
+  const { data: messageRows, error: messageError } = fetchedConversationIds.length
+    ? await supabase.from("explore_messages").select("*").in("conversation_id", fetchedConversationIds).order("created_at", { ascending: true })
     : { data: [], error: null };
 
   if (messageError) {
@@ -104,10 +182,10 @@ export async function fetchExploreConversations(currentUserId) {
   }
 
   const messages = (messageRows || []).map(normalizeMessage);
-  writeArray(CONVERSATIONS_KEY, conversations);
+  writeArray(CONVERSATIONS_KEY, hydratedConversations);
   writeArray(MESSAGES_KEY, messages);
 
-  return conversations
+  return hydratedConversations
     .map((conversation) => {
       const conversationMessages = messages.filter((message) => message.conversationId === conversation.id);
       const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
@@ -138,16 +216,75 @@ export async function fetchExploreMessages(conversationId) {
 export async function startExploreConversation(currentProfile, recipient) {
   const currentUserId = currentProfile?.userId || currentProfile?.id || "me";
   const recipientId = recipient?.userId || recipient?.id || recipient?.username || "unknown";
-  const conversationId = getConversationId(currentUserId, recipientId);
+  const localConversationId = getConversationId(currentUserId, recipientId);
   const conversations = readArray(CONVERSATIONS_KEY);
-  const existing = conversations.find((conversation) => conversation.id === conversationId);
+  const existing = conversations.find(
+    (conversation) => conversation.participantIds?.includes(currentUserId) && conversation.participantIds?.includes(recipientId),
+  );
 
   if (existing) {
     return existing;
   }
 
+  const { data: currentMemberRows, error: currentMemberError } = await supabase
+    .from("explore_conversation_members")
+    .select("conversation_id")
+    .eq("user_id", currentUserId);
+
+  if (currentMemberError && !isMissingMessageStore(currentMemberError)) {
+    throw currentMemberError;
+  }
+
+  const candidateIds = (currentMemberRows || []).map((item) => item.conversation_id).filter(Boolean);
+  if (candidateIds.length) {
+    const { data: recipientMemberRows, error: recipientMemberError } = await supabase
+      .from("explore_conversation_members")
+      .select("conversation_id")
+      .eq("user_id", recipientId)
+      .in("conversation_id", candidateIds);
+
+    if (recipientMemberError && !isMissingMessageStore(recipientMemberError)) {
+      throw recipientMemberError;
+    }
+
+    const existingId = recipientMemberRows?.[0]?.conversation_id;
+    if (existingId) {
+      const { data: remoteExisting, error: remoteError } = await supabase
+        .from("explore_conversations")
+        .select("*")
+        .eq("id", existingId)
+        .maybeSingle();
+
+      if (remoteError && !isMissingMessageStore(remoteError)) {
+        throw remoteError;
+      }
+
+      if (remoteExisting) {
+        const normalized = hydrateConversations([normalizeConversation(remoteExisting)], [
+          { conversation_id: existingId, user_id: currentUserId },
+          { conversation_id: existingId, user_id: recipientId },
+        ], {
+          [currentUserId]: {
+            userId: currentUserId,
+            displayName: currentProfile?.displayName || currentProfile?.name || "You",
+            username: currentProfile?.username || "you",
+            avatarUrl: currentProfile?.avatarUrl || currentProfile?.avatar_url || "",
+          },
+          [recipientId]: {
+            userId: recipientId,
+            displayName: recipient?.displayName || recipient?.name || "Profile",
+            username: recipient?.username || "user",
+            avatarUrl: recipient?.avatarUrl || recipient?.avatar_url || "",
+          },
+        })[0];
+        writeArray(CONVERSATIONS_KEY, [normalized, ...conversations.filter((item) => item.id !== normalized.id)]);
+        return normalized;
+      }
+    }
+  }
+
   const conversation = {
-    id: conversationId,
+    id: localConversationId,
     participantIds: [currentUserId, recipientId],
     participants: {
       [currentUserId]: {
@@ -167,23 +304,40 @@ export async function startExploreConversation(currentProfile, recipient) {
     updatedAt: new Date().toISOString(),
   };
 
-  writeArray(CONVERSATIONS_KEY, [conversation, ...conversations]);
-  const { error } = await supabase.from("explore_conversations").upsert(
-    {
-      id: conversationId,
-      participant_ids: conversation.participantIds,
-      participants: conversation.participants,
+  const { data: createdConversation, error } = await supabase
+    .from("explore_conversations")
+    .insert({
+      created_by: currentUserId,
       request: conversation.request,
       updated_at: conversation.updatedAt,
-    },
-    { onConflict: "id" },
-  );
+    })
+    .select()
+    .maybeSingle();
 
   if (error && !isMissingMessageStore(error)) {
     throw error;
   }
 
-  return conversation;
+  if (!createdConversation) {
+    writeArray(CONVERSATIONS_KEY, [conversation, ...conversations]);
+    return conversation;
+  }
+
+  const remoteConversation = { ...conversation, id: createdConversation.id };
+  const { error: membersError } = await supabase.from("explore_conversation_members").upsert(
+    [
+      { conversation_id: remoteConversation.id, user_id: currentUserId },
+      { conversation_id: remoteConversation.id, user_id: recipientId },
+    ],
+    { onConflict: "conversation_id,user_id", ignoreDuplicates: true },
+  );
+
+  if (membersError && !isMissingMessageStore(membersError)) {
+    throw membersError;
+  }
+
+  writeArray(CONVERSATIONS_KEY, [remoteConversation, ...conversations]);
+  return remoteConversation;
 }
 
 export async function sendExploreMessage(conversationId, senderProfile, body) {
@@ -211,11 +365,10 @@ export async function sendExploreMessage(conversationId, senderProfile, body) {
   window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
 
   const { error } = await supabase.from("explore_messages").insert({
-    id: message.id,
     conversation_id: conversationId,
     sender_id: senderId,
     body: message.body,
-    type: message.type,
+    media_type: message.type,
     read: message.read,
     created_at: message.createdAt,
   });
@@ -233,7 +386,17 @@ export async function sendExploreMessage(conversationId, senderProfile, body) {
 
 async function notifyMessageRecipients(conversationId, senderProfile, message) {
   const conversations = readArray(CONVERSATIONS_KEY);
-  const conversation = conversations.find((item) => item.id === conversationId);
+  let conversation = conversations.find((item) => item.id === conversationId);
+
+  if (!conversation) {
+    const { data } = await supabase.from("explore_conversations").select("*").eq("id", conversationId).maybeSingle();
+    if (data) {
+      const members = await fetchConversationMemberRows([conversationId]);
+      const profiles = await fetchProfilesByIds(members.map((member) => member.user_id));
+      conversation = hydrateConversations([normalizeConversation(data)], members, profiles)[0];
+    }
+  }
+
   const senderId = senderProfile?.userId || senderProfile?.id || "me";
   const recipientIds = (conversation?.participantIds || []).filter((id) => id && id !== senderId);
 
@@ -301,6 +464,7 @@ export function subscribeToExploreMessages(currentUserId, onChange) {
     .channel(`explore-direct-messages-${currentUserId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "explore_messages" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversations" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversation_members" }, onChange)
     .subscribe();
 
   return () => supabase.removeChannel(channel);

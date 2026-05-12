@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { useExploreConnections } from "../../../../Backend/hooks/useExploreConnections";
+import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
 import ConnectionsSummary from "./components/ConnectionsSummary";
 import Discover from "./discover/Discover";
 import MyCircle from "./myCircle/MyCircle";
@@ -29,22 +29,20 @@ function TabButton({ active, label, onClick }) {
 
 export default function Connections({ currentUserId = "", onViewProfile }) {
   const [tab, setTab] = useState("mycircle");
-  const following = useExploreConnections("mycircle", currentUserId);
-  const followers = useExploreConnections("followers", currentUserId);
-  const discover = useExploreConnections("discover", currentUserId);
+  const stats = useExploreFollowStats(currentUserId);
 
   const counts = useMemo(
     () => ({
-      following: following.items.length,
-      followers: followers.items.length,
-      discover: discover.items.length,
+      following: stats.following,
+      followers: stats.followers,
+      discover: stats.suggested,
     }),
-    [discover.items.length, followers.items.length, following.items.length],
+    [stats.followers, stats.following, stats.suggested],
   );
 
   return (
     <div className="w-full space-y-4 px-4 pt-4 sm:px-5 lg:px-8">
-      <ConnectionsSummary counts={counts} />
+      <ConnectionsSummary counts={counts} loading={stats.loading} />
 
       <div className="rounded-[24px] border border-slate-200 bg-white px-2 pt-2 shadow-sm">
         <div className="flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

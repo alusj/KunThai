@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
+import { createExploreNotification } from "../../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../comments/CommentsDrawer";
 import PostActions from "../post/PostActions";
 import PostHeader from "../post/PostHeader";
@@ -77,6 +78,20 @@ export default function FeedPost({
     }
   }
 
+  async function shareAndNotify() {
+    const message = await sharePost(post);
+    if (post.user_id) {
+      await createExploreNotification({
+        user_id: post.user_id,
+        type: "share",
+        post_id: post.id,
+        post_preview: post.body,
+        media_type: post.video_url ? "video post" : post.image_url ? "photo post" : "post",
+      });
+    }
+    return message;
+  }
+
   return (
     <article id={`post-${post.id}`} className="relative w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
       <PostHeader
@@ -101,7 +116,7 @@ export default function FeedPost({
             onHide={() => runAction(onHide)}
             onReport={() => runAction(onReport)}
             onSave={() => runAction(onSave)}
-            onShare={() => runAction(() => sharePost(post))}
+            onShare={() => runAction(shareAndNotify)}
             onViewActivity={() => runAction(onViewActivity)}
           />
         </div>
@@ -118,7 +133,7 @@ export default function FeedPost({
         onLike={onLike}
         onComment={() => setCommentsOpen((current) => !current)}
         onSave={onSave}
-        onShare={() => runAction(() => sharePost(post))}
+        onShare={() => runAction(shareAndNotify)}
       />
 
       <CommentsDrawer

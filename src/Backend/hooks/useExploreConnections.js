@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { createExploreNotification, fetchExploreConnections } from "../services/exploreService";
+import { fetchExploreConnections } from "../services/exploreService";
 import { showToast } from "../services/toastService";
 import { EXPLORE_FOLLOW_CHANGED_EVENT, useExploreFollows } from "./useExploreFollows";
 
@@ -30,7 +30,7 @@ export function useExploreConnections(kind, currentUserId = "") {
     try {
       setLoading(true);
       setError("");
-      const nextItems = await fetchExploreConnections(kind);
+      const nextItems = await fetchExploreConnections(kind, currentUserId);
       setItems(nextItems);
     } catch (err) {
       setError(err.message || "Unable to load connections.");
@@ -46,7 +46,7 @@ export function useExploreConnections(kind, currentUserId = "") {
       try {
         setLoading(true);
         setError("");
-        const nextItems = await fetchExploreConnections(kind);
+          const nextItems = await fetchExploreConnections(kind, currentUserId);
         if (active) {
           setItems(nextItems);
         }
@@ -66,7 +66,7 @@ export function useExploreConnections(kind, currentUserId = "") {
     return () => {
       active = false;
     };
-  }, [kind]);
+  }, [currentUserId, kind]);
 
   useEffect(() => {
     function handleFollowChanged(event) {
@@ -98,13 +98,6 @@ export function useExploreConnections(kind, currentUserId = "") {
     });
 
     if (active && targetItem) {
-      await createExploreNotification({
-        user_id: userId,
-        type: "follow",
-        media_type: "profile",
-        post_preview: "New follower",
-      });
-
       setItems((current) => {
         if (kind === "followers") {
           return current.filter((item) => item.user_id !== userId);

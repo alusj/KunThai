@@ -19,8 +19,8 @@ function normalizeNotification(item) {
 
 function notificationEnabled(item) {
   const settings = readExploreSettings().notifications;
-  if (item.type === "like" || item.type === "save") return settings.reactions;
-  if (item.type === "comment" || item.type === "mention") return settings.comments;
+  if (item.type === "like" || item.type === "save" || item.type === "share") return settings.reactions;
+  if (item.type === "comment" || item.type === "reply" || item.type === "mention") return settings.comments;
   if (item.type === "follow") return settings.follows;
   if (item.type === "post") return settings.followedPosts;
   if (item.type === "message") return settings.messages;

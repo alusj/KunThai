@@ -22,6 +22,7 @@ export {
 } from "./explore/commentService";
 export { fetchExploreProfile, getCurrentUserProfile, updateExploreProfile } from "./explore/profileService";
 export { fetchExploreFollowers, fetchExploreFollowing, fetchExploreFollowStats, syncExploreFollow } from "./explore/followService";
+export { fetchExploreProfileStats } from "./explore/profileStatsService";
 
 function readStoredNotifications() {
   try {
@@ -53,17 +54,53 @@ function getNotificationMessage(type, actorName, mediaType = "post") {
       return `${name} liked your ${mediaType}`;
     case "comment":
       return `${name} commented on your ${mediaType}`;
+    case "reply":
+      return `${name} replied to your comment`;
     case "save":
       return `${name} saved your ${mediaType}`;
+    case "share":
+      return `${name} shared your ${mediaType}`;
     case "mention":
       return `${name} mentioned you in a comment`;
     case "follow":
-      return `${name} started following you`;
+      return `${name} followed you`;
     case "post":
       return `${name} added a new ${mediaType}`;
     default:
       return `${name} interacted with your account`;
   }
+}
+
+async function findRecentDuplicateNotification(draft) {
+  if (!draft.user_id || !draft.actor_user_id || !draft.type) {
+    return null;
+  }
+
+  const since = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  let query = supabase
+    .from("explore_notifications")
+    .select("*")
+    .eq("user_id", draft.user_id)
+    .eq("actor_user_id", draft.actor_user_id)
+    .eq("type", draft.type)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (draft.post_id) {
+    query = query.eq("post_id", draft.post_id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    if (isMissingTable(error) || isMissingColumn(error, "created_at") || isMissingColumn(error, "post_id")) {
+      return null;
+    }
+    throw error;
+  }
+
+  return data?.[0] ? normalizeNotification(data[0]) : null;
 }
 
 function mergeNotifications(remoteItems, localItems) {
@@ -148,6 +185,11 @@ export async function createExploreNotification(input) {
     post_preview: input.post_preview || "",
     created_at: new Date().toISOString(),
   });
+
+  const duplicate = await findRecentDuplicateNotification(draft).catch(() => null);
+  if (duplicate) {
+    return duplicate;
+  }
 
   const payload = {
     user_id: draft.user_id,
@@ -324,13 +366,13 @@ export async function fetchExploreNotifications() {
     throw error;
   }
 
-  const merged = mergeNotifications(data || [], storedNotifications);
+  const merged = currentUserId ? (data || []).map(normalizeNotification) : mergeNotifications(data || [], storedNotifications);
   writeStoredNotifications(merged);
   return merged;
 }
 
-export async function fetchExploreConnections(kind = "discover") {
-  const currentUserId = await getCurrentUserId();
+export async function fetchExploreConnections(kind = "discover", profileUserId = "") {
+  const currentUserId = profileUserId || (await getCurrentUserId());
 
   if (currentUserId) {
     const liveItems = await fetchProfileConnections(kind, currentUserId);

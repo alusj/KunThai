@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchExploreFollowing, syncExploreFollow } from "../services/exploreService";
+import { createExploreNotification, fetchExploreFollowing, syncExploreFollow } from "../services/exploreService";
 
 const FOLLOW_STORAGE_KEY = "explore-followed-users";
 export const EXPLORE_FOLLOW_CHANGED_EVENT = "explore-follow-changed";
@@ -63,6 +63,14 @@ export function useExploreFollows(currentUserId) {
     });
 
     await syncExploreFollow(userId, nextActive);
+    if (nextActive) {
+      await createExploreNotification({
+        user_id: userId,
+        type: "follow",
+        media_type: "profile",
+        post_preview: "New follower",
+      });
+    }
     window.dispatchEvent(new CustomEvent(EXPLORE_FOLLOW_CHANGED_EVENT, { detail: { userId, active: nextActive } }));
     return nextActive;
   }

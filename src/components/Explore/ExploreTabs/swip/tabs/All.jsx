@@ -7,18 +7,17 @@ import { stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import VideoCard from "../videos/VideoCard";
 import { getSwipContext, getVideoCategoryLabel, getSwipVideos } from "../videos/swipUtils";
 
-const SWIPE_THRESHOLD_PX = 70;
-const SWIPE_LOCK_MS = 650;
-const WHEEL_THRESHOLD_PX = 80;
+const WHEEL_THRESHOLD_PX = 70;
+const WHEEL_LOCK_MS = 720;
 
 export default function All({ currentUserId = "", onlyUserId = "", onViewProfile }) {
   const feed = useExploreFeed("swip");
   const videos = getSwipVideos(feed.posts, onlyUserId);
   const [activeIndex, setActiveIndex] = useState(0);
-  const touchStartYRef = useRef(null);
-  const touchMovedRef = useRef(false);
-  const swipeLockedRef = useRef(false);
-  const swipeUnlockTimerRef = useRef(null);
+  const scrollerRef = useRef(null);
+  const itemRefs = useRef([]);
+  const wheelLockedRef = useRef(false);
+  const wheelUnlockTimerRef = useRef(null);
   const wheelDeltaRef = useRef(0);
 
   useEffect(() => {
@@ -26,69 +25,68 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
   }, [videos.length]);
 
   useEffect(() => () => {
-    window.clearTimeout(swipeUnlockTimerRef.current);
+    window.clearTimeout(wheelUnlockTimerRef.current);
     stopAllExploreMedia();
   }, []);
 
-  function lockSwipe() {
-    swipeLockedRef.current = true;
-    window.clearTimeout(swipeUnlockTimerRef.current);
-    swipeUnlockTimerRef.current = window.setTimeout(() => {
-      swipeLockedRef.current = false;
-      wheelDeltaRef.current = 0;
-    }, SWIPE_LOCK_MS);
-  }
-
-  function moveBy(direction) {
-    if (swipeLockedRef.current || !direction) {
-      return;
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) {
+      return undefined;
     }
 
-    setActiveIndex((current) => {
-      const next = Math.min(Math.max(current + direction, 0), videos.length - 1);
-      if (next !== current) {
-        stopAllExploreMedia();
-      }
-      return next;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const centered = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+        if (!centered) {
+          return;
+        }
+
+        const nextIndex = Number(centered.target.getAttribute("data-swip-index") || 0);
+        setActiveIndex((current) => {
+          if (current !== nextIndex) {
+            stopAllExploreMedia();
+          }
+          return nextIndex;
+        });
+      },
+      { root: scroller, threshold: [0.72, 0.86, 0.98] },
+    );
+
+    itemRefs.current.forEach((node) => {
+      if (node) observer.observe(node);
     });
-    lockSwipe();
+
+    return () => observer.disconnect();
+  }, [videos.length]);
+
+  function lockWheel() {
+    wheelLockedRef.current = true;
+    window.clearTimeout(wheelUnlockTimerRef.current);
+    wheelUnlockTimerRef.current = window.setTimeout(() => {
+      wheelLockedRef.current = false;
+      wheelDeltaRef.current = 0;
+    }, WHEEL_LOCK_MS);
   }
 
-  function handleTouchStart(event) {
-    touchStartYRef.current = event.touches[0]?.clientY ?? null;
-    touchMovedRef.current = false;
-  }
-
-  function handleTouchMove(event) {
-    if (touchStartYRef.current === null) {
+  function scrollToIndex(index) {
+    const next = Math.min(Math.max(index, 0), videos.length - 1);
+    const node = itemRefs.current[next];
+    if (!node) {
       return;
     }
 
-    touchMovedRef.current = true;
-    event.preventDefault();
-  }
-
-  function handleTouchEnd(event) {
-    const startY = touchStartYRef.current;
-    touchStartYRef.current = null;
-
-    if (startY === null || !touchMovedRef.current) {
-      return;
-    }
-
-    const endY = event.changedTouches[0]?.clientY ?? startY;
-    const distance = startY - endY;
-
-    if (Math.abs(distance) < SWIPE_THRESHOLD_PX) {
-      return;
-    }
-
-    moveBy(distance > 0 ? 1 : -1);
+    stopAllExploreMedia();
+    setActiveIndex(next);
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function handleWheel(event) {
     event.preventDefault();
-    if (swipeLockedRef.current) {
+    if (wheelLockedRef.current) {
       return;
     }
 
@@ -99,7 +97,8 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
 
     const direction = wheelDeltaRef.current > 0 ? 1 : -1;
     wheelDeltaRef.current = 0;
-    moveBy(direction);
+    scrollToIndex(activeIndex + direction);
+    lockWheel();
   }
 
   if (feed.error) {
@@ -121,48 +120,51 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
     );
   }
 
-  const activePost = videos[activeIndex] || videos[0];
-
   return (
     <div
-      className="relative h-full min-h-0 w-full min-w-0 overflow-hidden bg-slate-950"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={() => {
-        touchStartYRef.current = null;
-        touchMovedRef.current = false;
-      }}
+      ref={scrollerRef}
+      className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       onWheel={handleWheel}
-      style={{ touchAction: "none", overscrollBehavior: "none" }}
+      style={{ touchAction: "pan-y", overscrollBehavior: "contain", scrollSnapStop: "always" }}
     >
-      {activePost ? (
-        <VideoCard
-          key={activePost.id}
-          post={activePost}
-          contextLabel={getSwipContext(activePost, currentUserId)}
-          categoryLabel={getVideoCategoryLabel(activePost)}
-          currentUserId={currentUserId}
-          liked={feed.likedPosts.has(activePost.id)}
-          saved={feed.savedPosts.has(activePost.id)}
-          isOwner={Boolean(currentUserId && activePost.user_id === currentUserId)}
-          onLike={() => feed.toggleLike(activePost.id)}
-          onSave={() => feed.toggleSave(activePost.id)}
-          onComment={(body) => feed.addComment(activePost.id, body)}
-          onDelete={() => feed.deletePost(activePost.id)}
-          onViewProfile={() =>
-            onViewProfile?.({
-              userId: activePost.user_id || "",
-              displayName: activePost.author_name || "Profile",
-              username: activePost.author_username || "",
-              avatarUrl: activePost.author_avatar_url || "",
-              accountType: "personal",
-            })
-          }
-        />
-      ) : null}
-      <div className="pointer-events-none absolute right-3 top-3 z-20 rounded-full bg-slate-950/45 px-3 py-1 text-xs font-black text-white backdrop-blur">
-        {activeIndex + 1}/{videos.length}
+      {videos.map((post, index) => (
+        <section
+          key={post.id}
+          ref={(node) => {
+            itemRefs.current[index] = node;
+          }}
+          data-swip-index={index}
+          className="h-full min-h-full w-full snap-start snap-always"
+        >
+          <VideoCard
+            post={post}
+            active={index === activeIndex}
+            contextLabel={getSwipContext(post, currentUserId)}
+            categoryLabel={getVideoCategoryLabel(post)}
+            currentUserId={currentUserId}
+            liked={feed.likedPosts.has(post.id)}
+            saved={feed.savedPosts.has(post.id)}
+            isOwner={Boolean(currentUserId && post.user_id === currentUserId)}
+            onLike={() => feed.toggleLike(post.id)}
+            onSave={() => feed.toggleSave(post.id)}
+            onComment={(body) => feed.addComment(post.id, body)}
+            onDelete={() => feed.deletePost(post.id, { confirm: false })}
+            onViewProfile={() =>
+              onViewProfile?.({
+                userId: post.user_id || "",
+                displayName: post.author_name || "Profile",
+                username: post.author_username || "",
+                avatarUrl: post.author_avatar_url || "",
+                accountType: "personal",
+              })
+            }
+          />
+        </section>
+      ))}
+      <div className="pointer-events-none fixed right-3 top-[calc(var(--explore-top-chrome-height,57px)+10px)] z-20 flex items-center gap-1 rounded-full border border-white/12 bg-slate-950/18 px-2.5 py-1 text-[11px] font-black text-white/90 backdrop-blur-md">
+        <span>{activeIndex + 1}</span>
+        <span className="text-white/40">/</span>
+        <span className="text-white/65">{videos.length}</span>
       </div>
     </div>
   );

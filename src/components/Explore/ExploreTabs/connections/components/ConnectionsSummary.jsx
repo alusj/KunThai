@@ -1,6 +1,6 @@
 import { HiOutlineSparkles, HiOutlineUserGroup, HiOutlineUsers } from "react-icons/hi2";
 
-export default function ConnectionsSummary({ counts }) {
+export default function ConnectionsSummary({ counts, loading = false }) {
   const items = [
     { label: "Following", value: counts.following, icon: HiOutlineUserGroup },
     { label: "Followers", value: counts.followers, icon: HiOutlineUsers },
@@ -14,7 +14,11 @@ export default function ConnectionsSummary({ counts }) {
         return (
           <div key={item.label} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
             <Icon className="text-xl text-sky-700" />
-            <p className="mt-3 text-2xl font-black text-slate-950">{item.value}</p>
+            {loading ? (
+              <div className="mt-3 h-8 w-10 animate-pulse rounded-full bg-slate-100" />
+            ) : (
+              <p className="mt-3 text-2xl font-black text-slate-950">{item.value}</p>
+            )}
             <p className="text-sm font-black text-slate-500">{item.label}</p>
           </div>
         );

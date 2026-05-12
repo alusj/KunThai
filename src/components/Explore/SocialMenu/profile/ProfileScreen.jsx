@@ -236,8 +236,8 @@ export default function ProfileScreen({
           onShare={handleShare}
           saving={saving}
           stats={{
-            feed: profileFeedPosts.length,
-            swip: profileSwipPosts.length,
+            feed: followStats.feed,
+            swip: followStats.swip,
             followers: followStats.followers,
             following: followStats.following,
           }}

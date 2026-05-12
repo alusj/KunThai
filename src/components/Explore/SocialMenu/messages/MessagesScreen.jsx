@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { useExploreMessages } from "../../../../Backend/hooks/useExploreMessages";
 import EmptyState from "../../shared/EmptyState";
+import ErrorState from "../../shared/ErrorState";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import ConversationRow from "./ConversationRow";
 import ConversationScreen from "./ConversationScreen";
@@ -43,7 +44,11 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
           onChange={setTab}
         />
 
-        {!activeItems.length ? (
+        {messages.error ? <ErrorState message={messages.error} onRetry={messages.reload} /> : null}
+
+        {messages.loading ? (
+          <MessagesSkeleton />
+        ) : !activeItems.length ? (
           <EmptyState
             title={tab === "requests" ? "No message requests" : "No conversations yet"}
             message={tab === "requests" ? "New people outside your circle can appear here later." : "Open a profile and tap Message to start a chat."}
@@ -61,6 +66,24 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function MessagesSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3].map((item) => (
+        <div key={item} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 animate-pulse rounded-full bg-slate-200" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-4 w-40 animate-pulse rounded-full bg-slate-200" />
+              <div className="h-3 w-56 max-w-full animate-pulse rounded-full bg-slate-100" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
