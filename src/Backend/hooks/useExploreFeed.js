@@ -151,6 +151,7 @@ export function useExploreFeed(scope = "feed") {
   const postsRef = useRef(posts);
   const likedPostsRef = useRef(likedPosts);
   const savedPostsRef = useRef(savedPosts);
+  const loadIdRef = useRef(0);
 
   useEffect(() => {
     postsRef.current = posts;
@@ -172,6 +173,8 @@ export function useExploreFeed(scope = "feed") {
   }, [currentUserId, scope]);
 
   async function load(options = {}) {
+    const loadId = loadIdRef.current + 1;
+    loadIdRef.current = loadId;
     const force = Boolean(options.force);
     const cached = readFeedMemory(scope);
     if (cached?.posts?.length && !force) {
@@ -194,6 +197,9 @@ export function useExploreFeed(scope = "feed") {
         fetchCurrentUserReactions(),
         getCurrentUserProfile(),
       ]);
+      if (loadId !== loadIdRef.current) {
+        return;
+      }
       logExploreFeed("hook load completed", {
         scope,
         user_id: currentProfile?.id || "",
@@ -220,6 +226,9 @@ export function useExploreFeed(scope = "feed") {
       });
     } catch (err) {
       const currentProfile = await getCurrentUserProfile().catch(() => null);
+      if (loadId !== loadIdRef.current) {
+        return;
+      }
       setCurrentUserId(currentProfile?.id || "");
       const cachedPosts = readStoredPosts(scope).map((post) => applyCurrentProfileToPost(post, currentProfile));
       setPosts(cachedPosts);
@@ -397,7 +406,7 @@ export function useExploreFeed(scope = "feed") {
         ),
       );
       window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope: created.feed_scope || scope, postId: created.id, type: "post-created" } }));
-      load({ force: true });
+      await load({ force: true });
       return { ok: true };
     } catch (err) {
       setError(err.message || "Unable to sync post to backend right now.");
@@ -451,13 +460,13 @@ export function useExploreFeed(scope = "feed") {
       await syncExploreReaction(postId, type, !currentlyActive);
       await updateExplorePostCounts(postId, { [countKey]: nextCount });
       if (!currentlyActive && targetPost?.user_id) {
-        await createExploreNotification({
+        createExploreNotification({
           user_id: targetPost.user_id,
           type,
           post_id: targetPost.id,
           post_preview: targetPost.body,
           media_type: getPostMediaType(targetPost),
-        });
+        }).catch(() => null);
       }
     } catch (err) {
       stateRef.current = previousSet;
@@ -517,6 +526,24 @@ export function useExploreFeed(scope = "feed") {
     } catch (err) {
       setError(err.message || "Unable to add comment.");
     }
+  }
+
+  function bumpCommentCount(postId, delta = 1) {
+    setPosts((current) => {
+      const nextPosts = current.map((post) => {
+        if (post.id !== postId) {
+          return post;
+        }
+
+        return {
+          ...post,
+          comments_count: Math.max(0, (post.comments_count ?? 0) + delta),
+        };
+      });
+      writeStoredPosts(scope, nextPosts);
+      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope, postId, type: "comment-count" } }));
+      return nextPosts;
+    });
   }
 
   async function editPost(postId) {
@@ -636,6 +663,7 @@ export function useExploreFeed(scope = "feed") {
       return toggleReaction(postId, "save");
     },
     addComment,
+    bumpCommentCount,
     editPost,
     deletePost,
     hidePost,

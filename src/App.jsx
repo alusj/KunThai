@@ -66,13 +66,31 @@ export default function App() {
     refresh: refreshOnboarding,
     isComplete: onboardingComplete,
   } = useOnboarding(user);
-  const [page, setPage] = useState(() => localStorage.getItem("kuntai-last-page") || "explore");
+  const [page, setPage] = useState(() => {
+    const hash = String(window.location.hash || "").toLowerCase();
+    if (hash.includes("swip") || hash.includes("urfeed") || hash.includes("connections")) {
+      return "explore";
+    }
+
+    try {
+      return localStorage.getItem("kuntai-last-page") || "explore";
+    } catch {
+      return "explore";
+    }
+  });
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
 
   useEffect(() => {
     stopAllExploreMedia();
-    localStorage.setItem("kuntai-last-page", page);
+    try {
+      localStorage.setItem("kuntai-last-page", page);
+    } catch {
+      // Keep navigation usable if browser storage is unavailable.
+    }
+    if (page !== "explore" && /#\/?(swip|urfeed|connections)/i.test(window.location.hash || "")) {
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+    }
   }, [page]);
 
   useEffect(() => {

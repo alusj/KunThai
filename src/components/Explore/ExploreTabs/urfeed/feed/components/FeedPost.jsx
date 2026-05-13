@@ -17,7 +17,7 @@ export default function FeedPost({
   isOwner = false,
   onLike,
   onSave,
-  onComment,
+  onCommentCountChange,
   onEdit,
   onDelete,
   onHide,
@@ -141,7 +141,7 @@ export default function FeedPost({
         open={commentsOpen}
         post={post}
         onClose={() => setCommentsOpen(false)}
-        onCreated={onComment}
+        onCountChange={onCommentCountChange}
         onViewProfile={onViewProfile}
       />
 

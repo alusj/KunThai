@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   HiOutlineBookmark,
   HiOutlineChatBubbleOvalLeft,
@@ -8,9 +9,21 @@ import {
   HiOutlineTrash,
 } from "react-icons/hi2";
 
-function RailButton({ active, children, label, title, onClick, danger = false }) {
+function RailButton({ active, children, label, title, onClick, danger = false, emphasis = "tap" }) {
+  const [tapped, setTapped] = useState(false);
+
+  useEffect(() => {
+    if (!tapped) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setTapped(false), emphasis === "like" ? 260 : 150);
+    return () => window.clearTimeout(timer);
+  }, [emphasis, tapped]);
+
   function handleClick(event) {
     event.stopPropagation();
+    setTapped(true);
     onClick?.(event);
   }
 
@@ -30,6 +43,12 @@ function RailButton({ active, children, label, title, onClick, danger = false })
               ? "bg-white text-rose-500"
               : "text-white/92 group-hover:bg-white/12"
         }`}
+        style={{
+          transform: tapped ? `scale(${emphasis === "like" ? 1.16 : 0.94})` : "scale(1)",
+          transition: emphasis === "like"
+            ? "transform 260ms cubic-bezier(.2,1.6,.35,1), background-color 160ms ease, color 160ms ease"
+            : "transform 150ms ease, background-color 160ms ease, color 160ms ease",
+        }}
       >
         {children}
       </span>
@@ -57,7 +76,7 @@ export default function SwipActionRail({
     <div
       className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-1.5 rounded-full border border-white/14 bg-slate-950/24 px-1.5 py-2 shadow-2xl backdrop-blur-md sm:right-5"
     >
-      <RailButton active={liked} label={post.likes_count ?? 0} title="Like" onClick={onLike}>
+      <RailButton active={liked} emphasis="like" label={post.likes_count ?? 0} title="Like" onClick={onLike}>
         <HiOutlineHandThumbUp />
       </RailButton>
       <RailButton label={post.comments_count ?? 0} title="Comments" onClick={onComment}>

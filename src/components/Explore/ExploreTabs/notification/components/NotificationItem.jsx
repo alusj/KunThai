@@ -17,11 +17,13 @@ function getMessage(item) {
   const name = item.actor_name || item.user || "Someone";
   const mediaType = item.media_type || "post";
 
-  if (item.type === "follow") return `${name} started following you`;
-  if (item.type === "like") return `${name} liked your ${mediaType}`;
-  if (item.type === "comment") return `${name} commented on your ${mediaType}`;
+  if (item.type === "follow") return `${name} connected with you`;
+  if (item.type === "like") return `${name} reacted to your ${mediaType}`;
+  if (item.type === "comment") return `${name} joined the conversation on your ${mediaType}`;
   if (item.type === "mention") return `${name} mentioned you in a comment`;
-  if (item.type === "save") return `${name} saved your ${mediaType}`;
+  if (item.type === "save") return `${name} bookmarked your ${mediaType}`;
+  if (item.type === "share") return `${name} shared your ${mediaType}`;
+  if (item.type === "message") return `${name} sent you a message`;
   return `${name} interacted with your account`;
 }
 

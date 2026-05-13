@@ -48,24 +48,27 @@ function normalizeNotification(item) {
 
 function getNotificationMessage(type, actorName, mediaType = "post") {
   const name = actorName || "Someone";
+  const target = mediaType || "post";
 
   switch (type) {
     case "like":
-      return `${name} liked your ${mediaType}`;
+      return `${name} reacted to your ${target}`;
     case "comment":
-      return `${name} commented on your ${mediaType}`;
+      return `${name} joined the conversation on your ${target}`;
     case "reply":
-      return `${name} replied to your comment`;
+      return `${name} replied to your comment thread`;
     case "save":
-      return `${name} saved your ${mediaType}`;
+      return `${name} bookmarked your ${target}`;
     case "share":
-      return `${name} shared your ${mediaType}`;
+      return `${name} shared your ${target}`;
     case "mention":
       return `${name} mentioned you in a comment`;
     case "follow":
-      return `${name} followed you`;
+      return `${name} connected with you`;
     case "post":
-      return `${name} added a new ${mediaType}`;
+      return `${name} published a new ${target}`;
+    case "message":
+      return `${name} sent you a message`;
     default:
       return `${name} interacted with your account`;
   }
@@ -179,7 +182,7 @@ export async function createExploreNotification(input) {
     actor_avatar_url: actor.avatar_url,
     type: input.type || "system",
     media_type: input.media_type || "post",
-    message: getNotificationMessage(input.type || "system", actor.name, input.media_type || "post"),
+    message: input.message || getNotificationMessage(input.type || "system", actor.name, input.media_type || "post"),
     read: false,
     post_id: input.post_id || null,
     post_preview: input.post_preview || "",

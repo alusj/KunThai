@@ -1,4 +1,5 @@
 import AppBackTab from "../../../shared/AppBackTab";
+import { useEffect, useRef } from "react";
 import Avatar from "../../shared/Avatar";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
@@ -10,6 +11,13 @@ function getOtherParticipant(conversation, currentUserId) {
 
 export default function ConversationScreen({ conversation, currentUserId, messages, onActivity, onBack, onSend }) {
   const user = getOtherParticipant(conversation, currentUserId);
+  const messagesRef = useRef(null);
+
+  useEffect(() => {
+    const node = messagesRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+  }, [messages.length]);
 
   return (
     <section className="flex h-[calc(100vh-112px)] min-w-0 flex-col overflow-hidden bg-white">
@@ -22,7 +30,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
         </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
+      <div ref={messagesRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
         {!messages.length ? (
           <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center">
             <p className="text-sm font-black text-slate-950">Start the conversation</p>

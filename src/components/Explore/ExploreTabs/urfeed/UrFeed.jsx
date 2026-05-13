@@ -11,6 +11,7 @@ function feedActions(feed) {
     onLike: feed.toggleLike,
     onSave: feed.toggleSave,
     onComment: feed.addComment,
+    onCommentCountChange: feed.bumpCommentCount,
     onEdit: feed.editPost,
     onDelete: feed.deletePost,
     onHide: feed.hidePost,

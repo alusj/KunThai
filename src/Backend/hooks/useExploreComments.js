@@ -4,10 +4,13 @@ import supabase from "../lib/supabaseClient";
 import { subscribeToCurrentUserCommentLikes, subscribeToExploreComments } from "../services/explore/realtimeService";
 import {
   createExploreComment,
+  createExploreNotification,
   deleteExploreComment,
   fetchExploreComments,
+  getCurrentUserProfile,
   reportExploreComment,
   syncExploreCommentLike,
+  updateExplorePostCounts,
 } from "../services/exploreService";
 import { showToast } from "../services/toastService";
 
@@ -15,11 +18,20 @@ function getMentions(value) {
   return Array.from(new Set((String(value || "").match(/@[a-z0-9_]+/gi) || []).map((item) => item.slice(1).toLowerCase())));
 }
 
-export function useExploreComments(postId, currentUserId = "") {
+function getCommentMediaType(post) {
+  if (post?.video_url || String(post?.feed_scope || "").toLowerCase() === "swip") return "Swip video";
+  if (post?.image_url) return "photo post";
+  if (post?.audio_url) return "voice post";
+  return "post";
+}
+
+export function useExploreComments(postId, currentUserId = "", post = null) {
   const [comments, setComments] = useState([]);
   const [likedComments, setLikedComments] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [pendingKeys, setPendingKeys] = useState(new Set());
 
   async function load() {
     if (!postId) {
@@ -40,6 +52,22 @@ export function useExploreComments(postId, currentUserId = "") {
   useEffect(() => {
     load();
   }, [postId]);
+
+  useEffect(() => {
+    let active = true;
+
+    getCurrentUserProfile()
+      .then((profile) => {
+        if (active) setCurrentProfile(profile);
+      })
+      .catch(() => {
+        if (active) setCurrentProfile(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUserId]);
 
   useEffect(() => {
     return subscribeToExploreComments(postId, {
@@ -121,17 +149,79 @@ export function useExploreComments(postId, currentUserId = "") {
 
   async function addComment(input) {
     const payload = typeof input === "string" ? { body: input } : input || {};
-    const created = await createExploreComment({
-      ...payload,
-      post_id: postId,
-      mentions: payload.mentions || getMentions(payload.body),
-    });
+    const body = String(payload.body || "").trim();
+    const signature = [postId, payload.parent_comment_id || "", body, payload.audio_url || ""].join("|");
 
-    if (created) {
-      setComments((current) => [...current, created]);
+    if (pendingKeys.has(signature)) {
+      return { ok: false, duplicate: true };
     }
 
-    return created;
+    const tempId = `pending-comment-${Date.now()}`;
+    const now = new Date().toISOString();
+    const optimisticComment = {
+      id: tempId,
+      post_id: postId,
+      parent_comment_id: payload.parent_comment_id || null,
+      user_id: currentUserId || currentProfile?.id || "",
+      author_name: currentProfile?.name || currentProfile?.displayName || "Profile",
+      author_username: currentProfile?.username || "user",
+      author_avatar_url: currentProfile?.avatar_url || currentProfile?.avatarUrl || "",
+      authorProfile: {
+        userId: currentUserId || currentProfile?.id || "",
+        displayName: currentProfile?.name || currentProfile?.displayName || "Profile",
+        username: currentProfile?.username || "user",
+        avatarUrl: currentProfile?.avatar_url || currentProfile?.avatarUrl || "",
+        accountType: "personal",
+      },
+      body,
+      audio_url: payload.audio_url || "",
+      audio_duration_seconds: payload.audio_duration_seconds ?? null,
+      mentions: payload.mentions || getMentions(body),
+      likes_count: 0,
+      created_at: now,
+      pending: true,
+    };
+
+    setError("");
+    setPendingKeys((current) => new Set(current).add(signature));
+    setComments((current) => [...current, optimisticComment]);
+
+    try {
+      const created = await createExploreComment({
+      ...payload,
+      post_id: postId,
+        mentions: payload.mentions || getMentions(body),
+      });
+
+      if (created) {
+        setComments((current) => current.map((comment) => (comment.id === tempId ? created : comment)));
+      }
+
+      if (post?.user_id) {
+        const nextCount = Math.max(Number(post.comments_count || 0), comments.length) + 1;
+        updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
+        createExploreNotification({
+          user_id: post.user_id,
+          type: "comment",
+          post_id: post.id || postId,
+          post_preview: body || post.body || "New comment",
+          media_type: getCommentMediaType(post),
+        }).catch(() => null);
+      }
+
+      return { ok: true, comment: created || optimisticComment };
+    } catch (err) {
+      setComments((current) => current.filter((comment) => comment.id !== tempId));
+      setError("Comment failed. Try again.");
+      showToast("Comment failed. Try again.", "error");
+      return { ok: false, error: err.message || "Comment failed. Try again." };
+    } finally {
+      setPendingKeys((current) => {
+        const next = new Set(current);
+        next.delete(signature);
+        return next;
+      });
+    }
   }
 
   async function removeComment(commentId) {
@@ -190,6 +280,7 @@ export function useExploreComments(postId, currentUserId = "") {
     thread,
     loading,
     error,
+    pendingKeys,
     likedComments,
     addComment,
     reload: load,

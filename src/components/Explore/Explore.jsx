@@ -192,6 +192,18 @@ export default function Explore({ onScreenModeChange }) {
     };
   }, []);
 
+  useEffect(() => {
+    function handleOpenTab(event) {
+      const tab = event.detail?.tab;
+      if (tab) {
+        exploreNav.setActiveTab(tab);
+      }
+    }
+
+    window.addEventListener("explore-open-tab", handleOpenTab);
+    return () => window.removeEventListener("explore-open-tab", handleOpenTab);
+  }, [exploreNav]);
+
   function openViewedProfile(authorProfile) {
     stopAllExploreMedia();
     exploreNav.rememberScrollPosition();
@@ -225,10 +237,22 @@ export default function Explore({ onScreenModeChange }) {
     if (notification?.post_id) {
       const targetTab = String(notification.media_type || "").includes("video") ? "Swip" : "UrFeed";
       exploreNav.setActiveTab(targetTab);
-      setTimeout(() => {
-        document.getElementById(`post-${notification.post_id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 250);
+      scrollToNotificationPost(notification.post_id);
     }
+  }
+
+  function scrollToNotificationPost(postId, attempt = 0) {
+    window.setTimeout(() => {
+      const node = document.getElementById(`post-${postId}`);
+      if (node) {
+        node.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+
+      if (attempt < 12) {
+        scrollToNotificationPost(postId, attempt + 1);
+      }
+    }, attempt ? 220 : 260);
   }
 
   function openSearchResult(result) {

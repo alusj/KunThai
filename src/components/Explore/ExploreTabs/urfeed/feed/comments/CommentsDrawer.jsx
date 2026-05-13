@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HiOutlineChatBubbleLeftRight, HiOutlineXMark } from "react-icons/hi2";
 
 import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
@@ -6,9 +6,10 @@ import ErrorState from "../../../../shared/ErrorState";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
 
-export default function CommentsDrawer({ currentUserId, onClose, onCreated, onViewProfile, open, post }) {
+export default function CommentsDrawer({ currentUserId, onClose, onCountChange, onViewProfile, open, post }) {
   const [replyingTo, setReplyingTo] = useState(null);
-  const comments = useExploreComments(post?.id, currentUserId);
+  const listRef = useRef(null);
+  const comments = useExploreComments(post?.id, currentUserId, post);
 
   useEffect(() => {
     if (!open) {
@@ -37,13 +38,24 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, onVi
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const node = listRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+  }, [comments.comments.length, open]);
+
   if (!open) {
     return null;
   }
 
   async function addComment(payload) {
-    await onCreated?.(payload);
-    await comments.reload();
+    onCountChange?.(1);
+    const result = await comments.addComment(payload);
+    if (result?.ok === false) {
+      onCountChange?.(-1);
+    }
+    return result;
   }
 
   function viewProfile(profile) {
@@ -75,7 +87,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCreated, onVi
           </button>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 kuntai-scrollbar-none">
+        <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 kuntai-scrollbar-none">
           {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
 
           {!comments.loading && !comments.thread.length ? (

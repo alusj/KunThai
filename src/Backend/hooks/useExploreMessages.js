@@ -27,6 +27,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   const [loading, setLoading] = useState(Boolean(currentUserId));
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([]);
+  const [pendingMessageKeys, setPendingMessageKeys] = useState(new Set());
 
   async function reload() {
     if (!currentUserId) {
@@ -109,15 +110,53 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   }
 
   async function sendMessage(body) {
+    const text = String(body || "").trim();
+    const conversationId = activeConversation?.id;
+    const signature = `${conversationId || ""}|${currentUserId}|${text}`;
+
+    if (!conversationId || !text || pendingMessageKeys.has(signature)) {
+      return { ok: false, duplicate: pendingMessageKeys.has(signature) };
+    }
+
+    const tempMessage = {
+      id: `pending-message-${Date.now()}`,
+      conversationId,
+      senderId: currentUserId,
+      body: text,
+      type: "text",
+      read: false,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+
+    setError("");
+    setPendingMessageKeys((current) => new Set(current).add(signature));
+    setMessages((current) => [...current, tempMessage]);
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, preview: text, updatedAt: tempMessage.createdAt }
+          : conversation,
+      ),
+    );
+
     try {
-      setError("");
-      const created = await sendExploreMessage(activeConversation?.id, currentProfile, body);
+      const created = await sendExploreMessage(conversationId, currentProfile, text, { optimisticManaged: true });
       if (created) {
-        setMessages(await fetchExploreMessages(activeConversation.id));
+        setMessages((current) => current.map((message) => (message.id === tempMessage.id ? created : message)));
         setConversations(await fetchExploreConversations(currentUserId));
       }
+      return { ok: true, message: created || tempMessage };
     } catch (err) {
-      setError(friendlyMessageError(err));
+      setMessages((current) => current.filter((message) => message.id !== tempMessage.id));
+      setError("Message failed. Try again.");
+      return { ok: false, error: friendlyMessageError(err) };
+    } finally {
+      setPendingMessageKeys((current) => {
+        const next = new Set(current);
+        next.delete(signature);
+        return next;
+      });
     }
   }
 

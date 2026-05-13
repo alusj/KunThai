@@ -34,6 +34,8 @@ export default function VideoCard({
   const [commentOpen, setCommentOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [mediaReady, setMediaReady] = useState(false);
+  const [mediaError, setMediaError] = useState("");
   if (!swipSettingsLoaded) {
     swipSoundMuted = false;
     swipSettingsLoaded = true;
@@ -47,6 +49,11 @@ export default function VideoCard({
   const activeRef = useRef(false);
 
   useBrowserBack(commentOpen, () => setCommentOpen(false), `swip-comments-${post.id}`);
+
+  useEffect(() => {
+    setMediaReady(false);
+    setMediaError("");
+  }, [post.video_url]);
 
   useEffect(() => () => {
     window.clearTimeout(holdTimerRef.current);
@@ -246,10 +253,26 @@ export default function VideoCard({
         muted={muted}
         playsInline
         loop
+        onLoadedMetadata={() => setMediaReady(true)}
+        onCanPlay={() => setMediaReady(true)}
+        onWaiting={() => setMediaReady(false)}
+        onError={() => setMediaError("Video is still being prepared.")}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
         preload={videoSettings.reduceData ? "none" : "metadata"}
         className="absolute inset-0 h-full w-full object-cover"
       />
+      {!mediaReady || mediaError ? (
+        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-slate-950">
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950" />
+          <div className="relative mx-6 max-w-xs rounded-2xl border border-white/10 bg-white/10 px-4 py-4 text-center text-white shadow-xl backdrop-blur">
+            <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-white/20" />
+            <p className="text-sm font-black">{mediaError ? "Preparing video" : "Loading video"}</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-white/70">
+              {mediaError || "Getting the media ready for smooth playback."}
+            </p>
+          </div>
+        </div>
+      ) : null}
       <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
 
       {!fullscreen ? (
@@ -291,7 +314,7 @@ export default function VideoCard({
         open={commentOpen}
         post={post}
         onClose={() => setCommentOpen(false)}
-        onCreated={onComment}
+        onCountChange={onComment}
         onViewProfile={onViewProfile}
       />
       {message && !fullscreen ? <p className="absolute left-4 top-16 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-sky-700">{message}</p> : null}

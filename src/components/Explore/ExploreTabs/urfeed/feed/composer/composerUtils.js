@@ -36,7 +36,15 @@ export function getVideoDuration(file) {
 
 export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds = MAX_VIDEO_SECONDS) {
   return new Promise((resolve, reject) => {
-    if (typeof MediaRecorder === "undefined") {
+    if (typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) {
+      reject(new Error("Video trimming is not supported on this browser. Please choose a video under 15 seconds."));
+      return;
+    }
+
+    const mimeType = ["video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+      .find((type) => MediaRecorder.isTypeSupported?.(type));
+
+    if (!mimeType) {
       reject(new Error("Video trimming is not supported on this browser. Please choose a video under 15 seconds."));
       return;
     }
@@ -76,7 +84,7 @@ export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds =
     video.onseeked = async () => {
       try {
         const stream = canvas.captureStream(30);
-        recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+        recorder = new MediaRecorder(stream, { mimeType });
 
         recorder.ondataavailable = (event) => {
           if (event.data?.size) chunks.push(event.data);
@@ -86,7 +94,7 @@ export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds =
           reject(new Error("Unable to trim this video."));
         };
         recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: "video/webm" });
+          const blob = new Blob(chunks, { type: mimeType.split(";")[0] || "video/webm" });
           const reader = new FileReader();
           reader.onload = () => {
             cleanup();

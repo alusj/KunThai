@@ -372,6 +372,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (result?.ok) {
       setPostingStage("complete");
       setPostingProgress(100);
+      if (postDraft.video_url) {
+        window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip" } }));
+      }
       publishPostingUpdate({
         status: "complete",
         stage: "complete",

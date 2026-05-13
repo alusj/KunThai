@@ -49,6 +49,11 @@ function isMissingMessageStore(error) {
   return error?.code === "42P01" || message.includes("does not exist") || message.includes("schema cache");
 }
 
+function isMissingColumn(error, columnName) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes(`'${columnName}' column`) || message.includes(`column "${columnName}"`) || message.includes(columnName) && message.includes("schema cache");
+}
+
 function normalizeConversation(row) {
   return {
     id: row.id,
@@ -234,6 +239,7 @@ export async function startExploreConversation(currentProfile, recipient) {
   }
 
   const localConversationId = getConversationId(currentUserId, recipientId);
+  const conversationKey = localConversationId;
   const conversations = readArray(CONVERSATIONS_KEY);
   const existing = conversations.find(
     (conversation) => conversation.participantIds?.includes(currentUserId) && conversation.participantIds?.includes(recipientId),
@@ -241,6 +247,38 @@ export async function startExploreConversation(currentProfile, recipient) {
 
   if (existing && isUuid(existing.id)) {
     return existing;
+  }
+
+  const { data: keyedConversation, error: keyedError } = await supabase
+    .from("explore_conversations")
+    .select("*")
+    .eq("conversation_key", conversationKey)
+    .maybeSingle();
+
+  if (keyedError && !isMissingMessageStore(keyedError) && !isMissingColumn(keyedError, "conversation_key")) {
+    throw keyedError;
+  }
+
+  if (keyedConversation) {
+    const normalized = hydrateConversations([normalizeConversation(keyedConversation)], [
+      { conversation_id: keyedConversation.id, user_id: currentUserId },
+      { conversation_id: keyedConversation.id, user_id: recipientId },
+    ], {
+      [currentUserId]: {
+        userId: currentUserId,
+        displayName: currentProfile?.displayName || currentProfile?.name || "You",
+        username: currentProfile?.username || "you",
+        avatarUrl: currentProfile?.avatarUrl || currentProfile?.avatar_url || "",
+      },
+      [recipientId]: {
+        userId: recipientId,
+        displayName: recipient?.displayName || recipient?.name || "Profile",
+        username: recipient?.username || "user",
+        avatarUrl: recipient?.avatarUrl || recipient?.avatar_url || "",
+      },
+    })[0];
+    writeArray(CONVERSATIONS_KEY, [normalized, ...conversations.filter((item) => item.id !== normalized.id)]);
+    return normalized;
   }
 
   const { data: currentMemberRows, error: currentMemberError } = await supabase
@@ -321,15 +359,13 @@ export async function startExploreConversation(currentProfile, recipient) {
     updatedAt: new Date().toISOString(),
   };
 
-  const { data: createdConversation, error } = await supabase
-    .from("explore_conversations")
-    .insert({
-      created_by: currentUserId,
-      request: conversation.request,
-      updated_at: conversation.updatedAt,
-    })
-    .select()
-    .maybeSingle();
+  const { data: createdConversation, error } = await insertExploreConversationDraft({
+    created_by: currentUserId,
+    participant_ids: [currentUserId, recipientId],
+    conversation_key: conversationKey,
+    request: conversation.request,
+    updated_at: conversation.updatedAt,
+  });
 
   if (error && !isMissingMessageStore(error)) {
     throw error;
@@ -357,7 +393,33 @@ export async function startExploreConversation(currentProfile, recipient) {
   return remoteConversation;
 }
 
-export async function sendExploreMessage(conversationId, senderProfile, body) {
+async function insertExploreConversationDraft(draft) {
+  let payload = { ...draft };
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { data, error } = await supabase
+      .from("explore_conversations")
+      .insert(payload)
+      .select()
+      .maybeSingle();
+
+    if (!error) {
+      return { data, error: null };
+    }
+
+    const optionalColumn = ["participant_ids", "conversation_key", "created_by", "request"].find((column) => isMissingColumn(error, column));
+    if (!optionalColumn) {
+      return { data: null, error };
+    }
+
+    const { [optionalColumn]: _removed, ...nextPayload } = payload;
+    payload = nextPayload;
+  }
+
+  return supabase.from("explore_conversations").insert(payload).select().maybeSingle();
+}
+
+export async function sendExploreMessage(conversationId, senderProfile, body, options = {}) {
   const text = String(body || "").trim();
   if (!conversationId || !text) return null;
 
@@ -372,27 +434,31 @@ export async function sendExploreMessage(conversationId, senderProfile, body) {
     createdAt: new Date().toISOString(),
   };
 
-  const messages = readArray(MESSAGES_KEY);
-  writeArray(MESSAGES_KEY, [...messages, message]);
+  if (!options.optimisticManaged) {
+    const messages = readArray(MESSAGES_KEY);
+    writeArray(MESSAGES_KEY, [...messages, message]);
+  }
 
   const conversations = readArray(CONVERSATIONS_KEY).map((conversation) =>
     conversation.id === conversationId ? { ...conversation, updatedAt: message.createdAt } : conversation,
   );
   writeArray(CONVERSATIONS_KEY, conversations);
-  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
+  if (!options.optimisticManaged) {
+    window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
+  }
 
   if (isLocalConversationId(conversationId)) {
     return message;
   }
 
-  const { error } = await supabase.from("explore_messages").insert({
+  const { data, error } = await supabase.from("explore_messages").insert({
     conversation_id: conversationId,
     sender_id: senderId,
     body: message.body,
     media_type: message.type,
     read: message.read,
     created_at: message.createdAt,
-  });
+  }).select().single();
 
   if (error) {
     if (isMissingMessageStore(error)) return message;
@@ -400,9 +466,10 @@ export async function sendExploreMessage(conversationId, senderProfile, body) {
   }
 
   await supabase.from("explore_conversations").update({ updated_at: message.createdAt }).eq("id", conversationId);
-  await notifyMessageRecipients(conversationId, senderProfile, message).catch(() => {});
+  const savedMessage = data ? normalizeMessage(data) : message;
+  await notifyMessageRecipients(conversationId, senderProfile, savedMessage).catch(() => {});
 
-  return message;
+  return savedMessage;
 }
 
 async function notifyMessageRecipients(conversationId, senderProfile, message) {

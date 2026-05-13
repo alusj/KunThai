@@ -14,7 +14,7 @@ export default function FeedList({
   savedPosts,
   onLike,
   onSave,
-  onComment,
+  onCommentCountChange,
   onEdit,
   onDelete,
   onHide,
@@ -118,7 +118,7 @@ export default function FeedList({
             saved={(actionsByScope?.[post.feed_scope || "feed"]?.savedPosts || savedPosts)?.has?.(post.id)}
             onLike={() => (actionsByScope?.[post.feed_scope || "feed"]?.onLike || onLike)?.(post.id)}
             onSave={() => (actionsByScope?.[post.feed_scope || "feed"]?.onSave || onSave)?.(post.id)}
-            onComment={(body) => (actionsByScope?.[post.feed_scope || "feed"]?.onComment || onComment)?.(post.id, body)}
+            onCommentCountChange={(delta) => (actionsByScope?.[post.feed_scope || "feed"]?.onCommentCountChange || onCommentCountChange)?.(post.id, delta)}
             onEdit={() => (actionsByScope?.[post.feed_scope || "feed"]?.onEdit || onEdit)?.(post.id)}
             onDelete={() => (actionsByScope?.[post.feed_scope || "feed"]?.onDelete || onDelete)?.(post.id)}
             onHide={() => (actionsByScope?.[post.feed_scope || "feed"]?.onHide || onHide)?.(post.id)}

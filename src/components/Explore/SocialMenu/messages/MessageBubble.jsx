@@ -8,7 +8,7 @@ export default function MessageBubble({ mine, message }) {
       >
         {message.body}
         <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
-          {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {message.pending ? "Sending..." : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
     </div>

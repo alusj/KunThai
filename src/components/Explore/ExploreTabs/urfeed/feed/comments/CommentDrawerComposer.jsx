@@ -8,6 +8,7 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
   const [value, setValue] = useState("");
   const [audioPreview, setAudioPreview] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [pendingSignature, setPendingSignature] = useState("");
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
 
@@ -37,7 +38,7 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
     setIsRecording(true);
   }
 
-  async function handleSubmit(event) {
+  function handleSubmit(event) {
     event.preventDefault();
     const body = value.trim();
 
@@ -45,7 +46,13 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
       return;
     }
 
-    await onSubmit?.({
+    const signature = [replyingTo?.id || "", body, audioPreview || ""].join("|");
+    if (pendingSignature === signature) {
+      return;
+    }
+
+    setPendingSignature(signature);
+    const submitPromise = onSubmit?.({
       body,
       audio_url: audioPreview,
       parent_comment_id: replyingTo?.id || null,
@@ -53,6 +60,7 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
     setValue("");
     setAudioPreview("");
     onCancelReply?.();
+    Promise.resolve(submitPromise).finally(() => setPendingSignature((current) => (current === signature ? "" : current)));
   }
 
   return (
@@ -97,7 +105,7 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
         </button>
         <button
           type="submit"
-          disabled={!value.trim() && !audioPreview}
+          disabled={(!value.trim() && !audioPreview) || pendingSignature === [replyingTo?.id || "", value.trim(), audioPreview || ""].join("|")}
           className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white disabled:bg-slate-200 disabled:text-slate-400"
           aria-label="Send comment"
         >

@@ -46,7 +46,7 @@ export default function CommentItem({
                 {comment.author_name || "Profile"}
               </button>
               <button type="button" onClick={viewCommentProfile} className="block max-w-full truncate text-left text-xs font-semibold text-slate-400 hover:text-sky-700">
-                @{comment.author_username || "user"} - {formatRelativeTime(comment.created_at)}
+                @{comment.author_username || "user"} - {comment.pending ? "Sending..." : formatRelativeTime(comment.created_at)}
               </button>
             </div>
           </div>
@@ -62,15 +62,17 @@ export default function CommentItem({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-black text-slate-500">
-            <button type="button" onClick={() => onLike(comment.id)} className={`inline-flex items-center gap-1 ${liked ? "text-sky-700" : ""}`}>
+            <button type="button" disabled={comment.pending} onClick={() => onLike(comment.id)} className={`inline-flex items-center gap-1 disabled:opacity-60 ${liked ? "text-sky-700" : ""}`}>
               <HiOutlineHandThumbUp />
               {comment.likes_count || 0}
             </button>
-            <button type="button" onClick={() => onReply(comment)} className="inline-flex items-center gap-1">
+            <button type="button" disabled={comment.pending} onClick={() => onReply(comment)} className="inline-flex items-center gap-1 disabled:opacity-60">
               <HiOutlineChatBubbleLeftRight />
               Reply
             </button>
-            {isOwner ? (
+            {comment.pending ? (
+              <span className="inline-flex items-center gap-1 text-sky-700">Posting</span>
+            ) : isOwner ? (
               <button type="button" onClick={() => onDelete(comment.id)} className="inline-flex items-center gap-1 text-rose-600">
                 <HiOutlineTrash />
                 Delete

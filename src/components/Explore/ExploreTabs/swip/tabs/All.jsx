@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Component, useEffect, useRef, useState } from "react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { useExploreFeed } from "../../../../../Backend/hooks/useExploreFeed";
@@ -6,14 +6,14 @@ import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import { stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import VideoCard from "../videos/VideoCard";
-import { getSwipContext, getVideoCategoryLabel, getSwipVideos } from "../videos/swipUtils";
+import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipPost } from "../videos/swipUtils";
 
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
 
 export default function All({ currentUserId = "", onlyUserId = "", onViewProfile }) {
   const feed = useExploreFeed("swip");
-  const videos = getSwipVideos(feed.posts, onlyUserId);
+  const videos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
   const [activeIndex, setActiveIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const scrollerRef = useRef(null);
@@ -113,6 +113,10 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
     );
   }
 
+  if (feed.loading && !videos.length) {
+    return <SwipSkeleton />;
+  }
+
   if (!videos.length) {
     return (
       <div className="p-4">
@@ -144,33 +148,80 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
           data-swip-index={index}
           className="h-[var(--swip-item-height)] min-h-[var(--swip-item-height)] w-full snap-start snap-always"
         >
-          <VideoCard
-            post={post}
-            active={index === activeIndex}
-            fullscreen={fullscreen}
-            contextLabel={getSwipContext(post, currentUserId)}
-            categoryLabel={getVideoCategoryLabel(post)}
-            currentUserId={currentUserId}
-            liked={feed.likedPosts.has(post.id)}
-            saved={feed.savedPosts.has(post.id)}
-            isOwner={Boolean(currentUserId && post.user_id === currentUserId)}
-            onLike={() => feed.toggleLike(post.id)}
-            onSave={() => feed.toggleSave(post.id)}
-            onComment={(body) => feed.addComment(post.id, body)}
-            onDelete={() => feed.deletePost(post.id, { confirm: false })}
-            onFullscreenToggle={() => setFullscreen((current) => !current)}
-            onViewProfile={() =>
-              onViewProfile?.({
-                userId: post.user_id || "",
-                displayName: post.author_name || "Profile",
-                username: post.author_username || "",
-                avatarUrl: post.author_avatar_url || "",
-                accountType: "personal",
-              })
-            }
-          />
+          <SwipPostBoundary postId={post.id}>
+            <VideoCard
+              post={post}
+              active={index === activeIndex}
+              fullscreen={fullscreen}
+              contextLabel={getSwipContext(post, currentUserId)}
+              categoryLabel={getVideoCategoryLabel(post)}
+              currentUserId={currentUserId}
+              liked={feed.likedPosts.has(post.id)}
+              saved={feed.savedPosts.has(post.id)}
+              isOwner={Boolean(currentUserId && post.user_id === currentUserId)}
+              onLike={() => feed.toggleLike(post.id)}
+              onSave={() => feed.toggleSave(post.id)}
+              onComment={(delta) => feed.bumpCommentCount(post.id, delta)}
+              onDelete={() => feed.deletePost(post.id, { confirm: false })}
+              onFullscreenToggle={() => setFullscreen((current) => !current)}
+              onViewProfile={() =>
+                onViewProfile?.({
+                  userId: post.user_id || "",
+                  displayName: post.author_name || "Profile",
+                  username: post.author_username || "",
+                  avatarUrl: post.author_avatar_url || "",
+                  accountType: "personal",
+                })
+              }
+            />
+          </SwipPostBoundary>
         </section>
       ))}
     </div>
   );
+}
+
+function SwipSkeleton() {
+  return (
+    <div className="relative h-full min-h-0 w-full overflow-hidden bg-slate-950">
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950" />
+      <div className="absolute bottom-10 left-4 right-24 space-y-3">
+        <div className="h-12 w-12 animate-pulse rounded-full bg-white/20" />
+        <div className="h-5 w-48 animate-pulse rounded-full bg-white/20" />
+        <div className="h-4 w-32 animate-pulse rounded-full bg-white/15" />
+        <div className="h-4 w-56 animate-pulse rounded-full bg-white/15" />
+      </div>
+      <div className="absolute bottom-28 right-3 h-56 w-14 animate-pulse rounded-full bg-white/15" />
+    </div>
+  );
+}
+
+class SwipPostBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error) {
+    console.error("[Swip] Video card failed", { postId: this.props.postId, error });
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-slate-950 p-6 text-center">
+          <div className="max-w-xs rounded-2xl border border-white/10 bg-white/10 px-4 py-5 text-white shadow-xl backdrop-blur">
+            <p className="text-sm font-black">This Swip could not load.</p>
+            <p className="mt-2 text-xs font-semibold leading-5 text-white/70">Keep scrolling while the video is prepared.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
