@@ -1,12 +1,12 @@
 import { createElement, useEffect, useState } from "react";
 import { FiBox, FiClock, FiMapPin, FiMessageCircle, FiPhone, FiShield, FiStar, FiTruck, FiUser } from "react-icons/fi";
-import { fetchTransportFleetById, getTransportFleetById } from "../services/transportFleetService";
+import { fetchTransportFleetById } from "../services/transportFleetService";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
 export default function FleetProfileScreen({ fleetId, onBack, onShowVerification }) {
-  const [fleet, setFleet] = useState(() => getTransportFleetById(fleetId));
+  const [fleet, setFleet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -34,7 +34,23 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
     };
   }, [fleetId]);
 
-  if (loading || error || !fleet) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4">
+        <AppBackTab onBack={onBack} label="Back to fleet list" historyKey="transport-loading-fleet" />
+        <div className="mt-4 grid gap-4">
+          <div className="h-32 animate-pulse rounded-2xl border border-gray-100 bg-white shadow-sm" />
+          <div className="grid gap-3 md:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-24 animate-pulse rounded-2xl border border-gray-100 bg-white shadow-sm" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !fleet) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
         <AppBackTab onBack={onBack} label="Back to fleet list" historyKey="transport-missing-fleet" />

@@ -8,6 +8,7 @@ import Marketplace from "./components/Marketplace/Marketplace";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import Transport from "./components/transport/Transport";
 import Login from "./Login";
+import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 
 function AppLoading({ page = "explore" }) {
   return (
@@ -70,8 +71,25 @@ export default function App() {
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
 
   useEffect(() => {
+    stopAllExploreMedia();
     localStorage.setItem("kuntai-last-page", page);
   }, [page]);
+
+  useEffect(() => {
+    function cleanupMedia() {
+      stopAllExploreMedia();
+    }
+
+    window.addEventListener("hashchange", cleanupMedia);
+    window.addEventListener("popstate", cleanupMedia);
+    document.addEventListener("visibilitychange", cleanupMedia);
+    return () => {
+      window.removeEventListener("hashchange", cleanupMedia);
+      window.removeEventListener("popstate", cleanupMedia);
+      document.removeEventListener("visibilitychange", cleanupMedia);
+      stopAllExploreMedia();
+    };
+  }, []);
 
   if (loading || (user && onboardingLoading)) {
     return <AppLoading page={page} />;

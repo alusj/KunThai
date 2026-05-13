@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useExploreMessages } from "../../../../Backend/hooks/useExploreMessages";
 import EmptyState from "../../shared/EmptyState";
@@ -8,11 +8,16 @@ import ConversationRow from "./ConversationRow";
 import ConversationScreen from "./ConversationScreen";
 import MessageTabs from "./MessageTabs";
 
-export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient }) {
+export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange }) {
   const [tab, setTab] = useState("inbox");
   const messages = useExploreMessages(currentProfile, initialRecipient);
   const currentUserId = currentProfile?.userId || "";
   const activeItems = tab === "requests" ? messages.requests : messages.inbox;
+
+  useEffect(() => {
+    onConversationActiveChange?.(Boolean(messages.activeConversation));
+    return () => onConversationActiveChange?.(false);
+  }, [messages.activeConversation, onConversationActiveChange]);
 
   if (messages.activeConversation) {
     return (

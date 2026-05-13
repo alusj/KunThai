@@ -14,8 +14,8 @@ import { getLegacyOperatorAccount, getOperatorAccount } from "../services/transp
 
 export default function Transport() {
   const [registrationOpen, setRegistrationOpen] = useState(false);
-  const [operatorAccount, setOperatorAccount] = useState(() => getLegacyOperatorAccount());
-  const [, setOperatorLoading] = useState(true);
+  const [operatorAccount, setOperatorAccount] = useState(null);
+  const [operatorLoading, setOperatorLoading] = useState(true);
   const [operatorError, setOperatorError] = useState("");
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
   const [operatorDashboardView, setOperatorDashboardView] = useState("dashboard");
@@ -33,7 +33,7 @@ export default function Transport() {
       try {
         setOperatorError("");
         const account = await getOperatorAccount();
-        if (alive) setOperatorAccount(account);
+        if (alive) setOperatorAccount(account || getLegacyOperatorAccount());
       } catch (error) {
         if (alive) setOperatorError(error.message || "Unable to load fleet account.");
       } finally {
@@ -152,6 +152,7 @@ export default function Transport() {
     <div className="min-h-screen bg-gray-50 relative">
       <Header
         operatorAccount={operatorAccount}
+        operatorLoading={operatorLoading}
         onViewFleet={setActiveFleetId}
         onRegisterFleet={() => {
           if (operatorAccount) {

@@ -12,6 +12,14 @@ import {
 } from "../services/explore/messageService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 
+function friendlyMessageError(err) {
+  const message = String(err?.message || "");
+  if (message.toLowerCase().includes("uuid") || message.includes("__")) {
+    return "We could not open that conversation. Please try starting the chat again.";
+  }
+  return message || "Unable to load messages.";
+}
+
 export function useExploreMessages(currentProfile, initialRecipient) {
   const currentUserId = currentProfile?.userId || "";
   const [activeConversation, setActiveConversation] = useState(null);
@@ -36,7 +44,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         setMessages(await fetchExploreMessages(activeConversation.id));
       }
     } catch (err) {
-      setError(err.message || "Unable to load messages.");
+      setError(friendlyMessageError(err));
     } finally {
       setLoading(false);
     }
@@ -52,7 +60,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         setActiveConversation(conversation);
         setMessages(await fetchExploreMessages(conversation.id));
         setConversations(await fetchExploreConversations(currentUserId));
-      }).catch((err) => setError(err.message || "Unable to start conversation."));
+      }).catch((err) => setError(friendlyMessageError(err)));
     }
   }, [initialRecipient?.userId, initialRecipient?.username]);
 
@@ -89,7 +97,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       }
       setConversations(await fetchExploreConversations(currentUserId));
     } catch (err) {
-      setError(err.message || "Unable to open conversation.");
+      setError(friendlyMessageError(err));
     }
   }
 
@@ -109,7 +117,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         setConversations(await fetchExploreConversations(currentUserId));
       }
     } catch (err) {
-      setError(err.message || "Unable to send message.");
+      setError(friendlyMessageError(err));
     }
   }
 

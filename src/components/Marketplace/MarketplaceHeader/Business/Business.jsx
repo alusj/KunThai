@@ -25,6 +25,7 @@ import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
 import { useState } from "react";
 import AppBackTab from "../../../shared/AppBackTab";
+import BusinessSkeleton from "./BusinessSkeleton";
 
 function SellerFullScreen({ eyebrow, title, subtitle, onBack, children }) {
   return (
@@ -95,7 +96,7 @@ export default function Business({ onBack }) {
     });
   }
 
-  if (loading) return null;
+  if (loading) return <BusinessSkeleton />;
 
   return (
     <div className="min-h-screen bg-gray-50">

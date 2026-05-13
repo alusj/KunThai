@@ -60,6 +60,7 @@ export default function Explore({ onScreenModeChange }) {
   const [profileFetched, setProfileFetched] = useState(false);
   const [viewedProfile, setViewedProfile] = useState(null);
   const [messageRecipient, setMessageRecipient] = useState(null);
+  const [messageConversationActive, setMessageConversationActive] = useState(false);
   const [postingNotice, setPostingNotice] = useState(null);
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const topChromeRef = useRef(null);
@@ -104,14 +105,12 @@ export default function Explore({ onScreenModeChange }) {
   useEffect(() => {
     onScreenModeChange?.(exploreNav.isFullScreen || isSwipTab);
 
-    if (exploreNav.isFullScreen) {
-      stopAllExploreMedia();
-    }
+    stopAllExploreMedia();
 
     return () => {
       onScreenModeChange?.(false);
     };
-  }, [exploreNav.isFullScreen, isSwipTab, onScreenModeChange]);
+  }, [exploreNav.isFullScreen, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
 
   useEffect(() => {
     function handleVisibilityChange() {
@@ -344,7 +343,14 @@ export default function Explore({ onScreenModeChange }) {
     }
 
     if (activeMenuScreen === "Messages") {
-      return <MessagesScreen currentProfile={profile} hideHeader initialRecipient={messageRecipient} />;
+      return (
+        <MessagesScreen
+          currentProfile={profile}
+          hideHeader
+          initialRecipient={messageRecipient}
+          onConversationActiveChange={setMessageConversationActive}
+        />
+      );
     }
 
     if (activeMenuScreen === "Connections") {
@@ -376,11 +382,13 @@ export default function Explore({ onScreenModeChange }) {
         ref={fullScreenSwipeRef}
         className="min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 kuntai-safe-bottom"
       >
-        <SocialScreenHeader
-          title={menuScreen.title}
-          subtitle={menuScreen.subtitle}
-          onBack={goBackFullScreen}
-        />
+        {activeMenuScreen === "Messages" && messageConversationActive ? null : (
+          <SocialScreenHeader
+            title={menuScreen.title}
+            subtitle={menuScreen.subtitle}
+            onBack={goBackFullScreen}
+          />
+        )}
         {renderMenuScreen()}
       </div>
     );

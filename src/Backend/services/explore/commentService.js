@@ -25,7 +25,52 @@ export async function fetchExploreComments(postId) {
     throw error;
   }
 
-  return data || [];
+  return hydrateCommentAuthors(data || []);
+}
+
+async function hydrateCommentAuthors(comments) {
+  const userIds = Array.from(new Set(comments.map((comment) => comment.user_id).filter(Boolean)));
+  if (!userIds.length) return comments;
+
+  const { data, error } = await supabase
+    .from("explore_profiles")
+    .select("user_id, display_name, username, avatar_url, account_type")
+    .in("user_id", userIds);
+
+  if (error) {
+    return comments;
+  }
+
+  const profilesByUserId = new Map(
+    (data || []).map((profile) => [
+      profile.user_id,
+      {
+        userId: profile.user_id,
+        displayName: profile.display_name || "",
+        username: profile.username || "",
+        avatarUrl: profile.avatar_url || "",
+        accountType: profile.account_type || "personal",
+      },
+    ]),
+  );
+
+  return comments.map((comment) => {
+    const authorProfile = profilesByUserId.get(comment.user_id) || {
+      userId: comment.user_id || "",
+      displayName: comment.author_name || "",
+      username: comment.author_username || "",
+      avatarUrl: comment.author_avatar_url || "",
+      accountType: "personal",
+    };
+
+    return {
+      ...comment,
+      authorProfile,
+      author_name: authorProfile.displayName || comment.author_name || "",
+      author_username: authorProfile.username || comment.author_username || "",
+      author_avatar_url: authorProfile.avatarUrl || comment.author_avatar_url || "",
+    };
+  });
 }
 
 export async function createExploreComment(input) {

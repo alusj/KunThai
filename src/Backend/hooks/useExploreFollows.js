@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { createExploreNotification, fetchExploreFollowing, syncExploreFollow } from "../services/exploreService";
+import { showToast } from "../services/toastService";
 
 const FOLLOW_STORAGE_KEY = "explore-followed-users";
 export const EXPLORE_FOLLOW_CHANGED_EVENT = "explore-follow-changed";
@@ -47,6 +48,7 @@ export function useExploreFollows(currentUserId) {
     }
 
     let nextActive = false;
+    const previous = new Set(followedUsers);
 
     setFollowedUsers((current) => {
       const next = new Set(current);
@@ -62,14 +64,21 @@ export function useExploreFollows(currentUserId) {
       return next;
     });
 
-    await syncExploreFollow(userId, nextActive);
-    if (nextActive) {
-      await createExploreNotification({
-        user_id: userId,
-        type: "follow",
-        media_type: "profile",
-        post_preview: "New follower",
-      });
+    try {
+      await syncExploreFollow(userId, nextActive);
+      if (nextActive) {
+        await createExploreNotification({
+          user_id: userId,
+          type: "follow",
+          media_type: "profile",
+          post_preview: "New follower",
+        });
+      }
+    } catch (error) {
+      setFollowedUsers(previous);
+      writeStoredFollows(previous);
+      showToast(error.message || "Unable to update follow.", "error");
+      return !nextActive;
     }
     window.dispatchEvent(new CustomEvent(EXPLORE_FOLLOW_CHANGED_EVENT, { detail: { userId, active: nextActive } }));
     return nextActive;

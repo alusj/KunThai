@@ -23,12 +23,13 @@ export default function CommentItem({
   replies = [],
 }) {
   function viewCommentProfile() {
+    const authorProfile = comment.authorProfile || {};
     onViewProfile?.({
-      userId: comment.user_id || "",
-      displayName: comment.author_name || "Profile",
-      username: comment.author_username || "",
-      avatarUrl: comment.author_avatar_url || "",
-      accountType: "personal",
+      userId: authorProfile.userId || comment.user_id || "",
+      displayName: authorProfile.displayName || comment.author_name || "",
+      username: authorProfile.username || comment.author_username || "",
+      avatarUrl: authorProfile.avatarUrl || comment.author_avatar_url || "",
+      accountType: authorProfile.accountType || "personal",
     });
   }
 

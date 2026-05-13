@@ -235,12 +235,8 @@ export default function ProfileScreen({
           onReport={reportProfile}
           onShare={handleShare}
           saving={saving}
-          stats={{
-            feed: followStats.feed,
-            swip: followStats.swip,
-            followers: followStats.followers,
-            following: followStats.following,
-          }}
+          loadingStats={followStats.loading || !followStats.stats}
+          stats={followStats.stats}
           values={values}
         />
 

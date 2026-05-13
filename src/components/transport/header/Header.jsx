@@ -7,7 +7,7 @@ import MenuButton from "./MenuButton";
 import Radar from "./Radar";
 import TransportMenuDrawer from "./TransportMenuDrawer";
 
-export default function Header({ operatorAccount, onRegisterFleet, onViewFleet }) {
+export default function Header({ operatorAccount, operatorLoading = false, onRegisterFleet, onViewFleet }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const hasOperatorAccount = Boolean(operatorAccount);
 
@@ -17,7 +17,11 @@ export default function Header({ operatorAccount, onRegisterFleet, onViewFleet }
 
         {/* Left Section */}
         <div className="flex items-center gap-3">
-          <OperatorButton hasOperatorAccount={hasOperatorAccount} onClick={onRegisterFleet} />
+          {operatorLoading ? (
+            <div className="h-10 w-10 animate-pulse rounded-2xl bg-gray-100" aria-label="Loading operator account" />
+          ) : (
+            <OperatorButton hasOperatorAccount={hasOperatorAccount} onClick={onRegisterFleet} />
+          )}
           <Radar onViewFleet={onViewFleet} />
         </div>
 

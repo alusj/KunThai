@@ -41,6 +41,7 @@ export default function ProfileHeaderCard({
   onMessage,
   onReport,
   onShare,
+  loadingStats = false,
   saving,
   stats,
   values,
@@ -246,28 +247,29 @@ export default function ProfileHeaderCard({
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
 
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
-            <div className="rounded-2xl bg-slate-50 px-3 py-2">
-              <p className="text-lg font-black text-slate-950">{stats.feed}</p>
-              <p className="text-[11px] font-bold text-slate-500">Feed</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-3 py-2">
-              <p className="text-lg font-black text-slate-950">{stats.swip}</p>
-              <p className="text-[11px] font-bold text-slate-500">Swip</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-3 py-2">
-              <p className="text-lg font-black text-slate-950">{stats.followers}</p>
-              <p className="text-[11px] font-bold text-slate-500">Followers</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-3 py-2">
-              <p className="text-lg font-black text-slate-950">{stats.following}</p>
-              <p className="text-[11px] font-bold text-slate-500">Following</p>
-            </div>
+            <StatTile label="Feed" value={stats?.feed} loading={loadingStats} />
+            <StatTile label="Swip" value={stats?.swip} loading={loadingStats} />
+            <StatTile label="Followers" value={stats?.followers} loading={loadingStats} />
+            <StatTile label="Following" value={stats?.following} loading={loadingStats} />
           </div>
 
           {feedback ? <p className="mt-3 text-xs font-bold text-sky-700">{feedback}</p> : null}
         </div>
       </div>
     </section>
+  );
+}
+
+function StatTile({ label, loading, value }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+      {loading ? (
+        <div className="mx-auto h-6 w-8 animate-pulse rounded-full bg-slate-200" aria-label={`${label} loading`} />
+      ) : (
+        <p className="text-lg font-black text-slate-950">{Number(value || 0)}</p>
+      )}
+      <p className="text-[11px] font-bold text-slate-500">{label}</p>
+    </div>
   );
 }
 

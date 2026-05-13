@@ -5,7 +5,7 @@ import { fetchExploreProfileStats } from "../services/exploreService";
 import { EXPLORE_FOLLOW_CHANGED_EVENT } from "./useExploreFollows";
 
 export function useExploreFollowStats(userId) {
-  const [stats, setStats] = useState({ feed: 0, swip: 0, followers: 0, following: 0, suggested: 0 });
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(Boolean(userId));
   const [error, setError] = useState("");
 
@@ -15,7 +15,7 @@ export function useExploreFollowStats(userId) {
 
     async function load() {
       if (!userId) {
-        setStats({ feed: 0, swip: 0, followers: 0, following: 0, suggested: 0 });
+        setStats(null);
         setLoading(false);
         return;
       }
@@ -57,5 +57,5 @@ export function useExploreFollowStats(userId) {
     };
   }, [userId]);
 
-  return { ...stats, loading, error };
+  return { stats, loading, error };
 }

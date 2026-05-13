@@ -30,14 +30,15 @@ function TabButton({ active, label, onClick }) {
 export default function Connections({ currentUserId = "", onViewProfile }) {
   const [tab, setTab] = useState("mycircle");
   const stats = useExploreFollowStats(currentUserId);
+  const statValues = stats.stats || {};
 
   const counts = useMemo(
     () => ({
-      following: stats.following,
-      followers: stats.followers,
-      discover: stats.suggested,
+      following: statValues.following,
+      followers: statValues.followers,
+      discover: statValues.suggested,
     }),
-    [stats.followers, stats.following, stats.suggested],
+    [statValues.followers, statValues.following, statValues.suggested],
   );
 
   return (

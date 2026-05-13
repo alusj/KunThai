@@ -36,6 +36,14 @@ function getConversationId(currentUserId, recipientId) {
   return [currentUserId || "me", recipientId || "unknown"].sort().join("__");
 }
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
+function isLocalConversationId(value) {
+  return !isUuid(value);
+}
+
 function isMissingMessageStore(error) {
   const message = String(error?.message || "").toLowerCase();
   return error?.code === "42P01" || message.includes("does not exist") || message.includes("schema cache");
@@ -196,6 +204,11 @@ export async function fetchExploreConversations(currentUserId) {
 }
 
 export async function fetchExploreMessages(conversationId) {
+  if (!conversationId) return [];
+  if (isLocalConversationId(conversationId)) {
+    return readArray(MESSAGES_KEY).filter((message) => message.conversationId === conversationId);
+  }
+
   const { data, error } = await supabase
     .from("explore_messages")
     .select("*")
@@ -214,15 +227,19 @@ export async function fetchExploreMessages(conversationId) {
 }
 
 export async function startExploreConversation(currentProfile, recipient) {
-  const currentUserId = currentProfile?.userId || currentProfile?.id || "me";
-  const recipientId = recipient?.userId || recipient?.id || recipient?.username || "unknown";
+  const currentUserId = currentProfile?.userId || currentProfile?.id || "";
+  const recipientId = recipient?.userId || recipient?.id || "";
+  if (!isUuid(currentUserId) || !isUuid(recipientId)) {
+    throw new Error("Unable to start this chat right now.");
+  }
+
   const localConversationId = getConversationId(currentUserId, recipientId);
   const conversations = readArray(CONVERSATIONS_KEY);
   const existing = conversations.find(
     (conversation) => conversation.participantIds?.includes(currentUserId) && conversation.participantIds?.includes(recipientId),
   );
 
-  if (existing) {
+  if (existing && isUuid(existing.id)) {
     return existing;
   }
 
@@ -364,6 +381,10 @@ export async function sendExploreMessage(conversationId, senderProfile, body) {
   writeArray(CONVERSATIONS_KEY, conversations);
   window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
 
+  if (isLocalConversationId(conversationId)) {
+    return message;
+  }
+
   const { error } = await supabase.from("explore_messages").insert({
     conversation_id: conversationId,
     sender_id: senderId,
@@ -385,6 +406,10 @@ export async function sendExploreMessage(conversationId, senderProfile, body) {
 }
 
 async function notifyMessageRecipients(conversationId, senderProfile, message) {
+  if (isLocalConversationId(conversationId)) {
+    return;
+  }
+
   const conversations = readArray(CONVERSATIONS_KEY);
   let conversation = conversations.find((item) => item.id === conversationId);
 
@@ -424,6 +449,10 @@ export async function markExploreConversationRead(conversationId, currentUserId)
   );
   writeArray(MESSAGES_KEY, messages);
   window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "read", conversationId, currentUserId } }));
+
+  if (isLocalConversationId(conversationId)) {
+    return;
+  }
 
   const { error } = await supabase
     .from("explore_messages")
