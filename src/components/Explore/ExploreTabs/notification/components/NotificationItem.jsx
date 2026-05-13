@@ -1,4 +1,5 @@
 import { HiOutlineBellAlert, HiOutlineBookmark, HiOutlineChatBubbleOvalLeft, HiOutlineHandThumbUp, HiOutlineUserPlus } from "react-icons/hi2";
+import NotificationAction from "./NotificationAction";
 
 function getIcon(type) {
   if (type === "follow") return HiOutlineUserPlus;
@@ -17,23 +18,20 @@ function getMessage(item) {
   const name = item.actor_name || item.user || "Someone";
   const mediaType = item.media_type || "post";
 
-  if (item.type === "follow") return `${name} connected with you`;
+  if (item.type === "follow") return `${name} started following you`;
   if (item.type === "like") return `${name} reacted to your ${mediaType}`;
   if (item.type === "comment") return `${name} joined the conversation on your ${mediaType}`;
-  if (item.type === "mention") return `${name} mentioned you in a comment`;
+  if (item.type === "mention") return `${name} mentioned you`;
   if (item.type === "save") return `${name} bookmarked your ${mediaType}`;
   if (item.type === "share") return `${name} shared your ${mediaType}`;
-  if (item.type === "message") return `${name} sent you a message`;
   return `${name} interacted with your account`;
 }
 
-export default function NotificationItem({ item, onOpen }) {
+export default function NotificationItem({ followed, item, onFollowBack, onOpen }) {
   const Icon = getIcon(item.type);
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen?.(item)}
+    <article
       className={`flex w-full gap-3 rounded-[22px] border px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
         item.read ? "border-slate-200 bg-white" : "border-sky-100 bg-sky-50"
       }`}
@@ -43,13 +41,16 @@ export default function NotificationItem({ item, onOpen }) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <p className="min-w-0 flex-1 text-sm font-bold leading-6 text-slate-800">{getMessage(item)}</p>
-          {!item.read ? <span className="mt-2 h-2.5 w-2.5 flex-none rounded-full bg-sky-600" /> : null}
-        </div>
-        {item.post_preview ? <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">"{item.post_preview}"</p> : null}
-        <p className="mt-2 text-xs font-bold text-slate-400">{item.time_label || item.time}</p>
+        <button type="button" onClick={() => onOpen?.(item)} className="w-full text-left">
+          <div className="flex items-start gap-2">
+            <p className="min-w-0 flex-1 text-sm font-bold leading-6 text-slate-800">{getMessage(item)}</p>
+            {!item.read ? <span className="mt-2 h-2.5 w-2.5 flex-none rounded-full bg-sky-600" /> : null}
+          </div>
+          {item.post_preview ? <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">"{item.post_preview}"</p> : null}
+          <p className="mt-2 text-xs font-bold text-slate-400">{item.time_label || item.time}</p>
+        </button>
+        <NotificationAction followed={followed} onFollowBack={() => onFollowBack?.(item)} type={item.type} />
       </div>
-    </button>
+    </article>
   );
 }

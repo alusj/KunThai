@@ -234,7 +234,7 @@ async function notifyMentionedUsers(post, draft) {
       actor_avatar_url: draft.author_avatar_url,
       type: "mention",
       media_type: post.video_url ? "video post" : "post",
-      message: `${draft.author_name} mentioned you in a post`,
+      message: `${draft.author_name} mentioned you`,
       read: false,
       post_id: post.id,
       post_preview: post.body || "Post mention",

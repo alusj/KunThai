@@ -467,47 +467,7 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
 
   await supabase.from("explore_conversations").update({ updated_at: message.createdAt }).eq("id", conversationId);
   const savedMessage = data ? normalizeMessage(data) : message;
-  await notifyMessageRecipients(conversationId, senderProfile, savedMessage).catch(() => {});
-
   return savedMessage;
-}
-
-async function notifyMessageRecipients(conversationId, senderProfile, message) {
-  if (isLocalConversationId(conversationId)) {
-    return;
-  }
-
-  const conversations = readArray(CONVERSATIONS_KEY);
-  let conversation = conversations.find((item) => item.id === conversationId);
-
-  if (!conversation) {
-    const { data } = await supabase.from("explore_conversations").select("*").eq("id", conversationId).maybeSingle();
-    if (data) {
-      const members = await fetchConversationMemberRows([conversationId]);
-      const profiles = await fetchProfilesByIds(members.map((member) => member.user_id));
-      conversation = hydrateConversations([normalizeConversation(data)], members, profiles)[0];
-    }
-  }
-
-  const senderId = senderProfile?.userId || senderProfile?.id || "me";
-  const recipientIds = (conversation?.participantIds || []).filter((id) => id && id !== senderId);
-
-  if (!recipientIds.length) return;
-
-  await supabase.from("explore_notifications").insert(
-    recipientIds.map((userId) => ({
-      user_id: userId,
-      actor_user_id: senderId,
-      actor_name: senderProfile?.displayName || senderProfile?.name || "Someone",
-      actor_avatar_url: senderProfile?.avatarUrl || senderProfile?.avatar_url || "",
-      type: "message",
-      media_type: "message",
-      message: `${senderProfile?.displayName || senderProfile?.name || "Someone"} sent you a message`,
-      read: false,
-      post_id: null,
-      post_preview: message.body,
-    })),
-  );
 }
 
 export async function markExploreConversationRead(conversationId, currentUserId) {

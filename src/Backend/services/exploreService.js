@@ -62,13 +62,11 @@ function getNotificationMessage(type, actorName, mediaType = "post") {
     case "share":
       return `${name} shared your ${target}`;
     case "mention":
-      return `${name} mentioned you in a comment`;
+      return `${name} mentioned you`;
     case "follow":
-      return `${name} connected with you`;
+      return `${name} started following you`;
     case "post":
       return `${name} published a new ${target}`;
-    case "message":
-      return `${name} sent you a message`;
     default:
       return `${name} interacted with your account`;
   }
@@ -409,10 +407,13 @@ async function fetchProfileConnections(kind, currentUserId) {
   const follows = followsResult.data || [];
   const followingIds = follows.filter((item) => item.follower_id === currentUserId).map((item) => item.following_id);
   const followerIds = follows.filter((item) => item.following_id === currentUserId).map((item) => item.follower_id);
+  const followingSet = new Set(followingIds);
+  const followerSet = new Set(followerIds);
+  const mutualIds = followerIds.filter((id) => followingSet.has(id));
 
   let targetIds = [];
   if (kind === "mycircle" || kind === "following") {
-    targetIds = followingIds;
+    targetIds = mutualIds;
   } else if (kind === "followers") {
     targetIds = followerIds;
   }
@@ -437,9 +438,13 @@ async function fetchProfileConnections(kind, currentUserId) {
 
   return (data || [])
     .filter((profile) => profile.user_id !== currentUserId)
+    .filter((profile) => {
+      if (kind !== "discover") return true;
+      return !followingSet.has(profile.user_id) && !followerSet.has(profile.user_id);
+    })
     .map((profile) => {
-      const isFollowing = followingIds.includes(profile.user_id);
-      const followsYou = followerIds.includes(profile.user_id);
+      const isFollowing = followingSet.has(profile.user_id);
+      const followsYou = followerSet.has(profile.user_id);
       return {
         id: profile.user_id,
         user_id: profile.user_id,
@@ -449,7 +454,7 @@ async function fetchProfileConnections(kind, currentUserId) {
         bio: profile.bio || "",
         account_type: profile.account_type || "personal",
         verified: Boolean(profile.verified),
-        status: followsYou ? "Follows you" : isFollowing ? "In your circle" : "Suggested for you",
+        status: followsYou && isFollowing ? "Mutual connection" : followsYou ? "Follows you" : isFollowing ? "Following" : "Suggested for you",
         isFollowing,
         followsYou,
         mutual_count: followsYou && isFollowing ? 1 : 0,

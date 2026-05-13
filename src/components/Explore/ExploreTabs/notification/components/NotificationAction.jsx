@@ -1,28 +1,18 @@
-// src/explore/notifications/components/NotificationAction.jsx
-
-/*
-  NotificationAction.jsx
-  ----------------------
-  Optional action buttons per notification
-*/
-
-export default function NotificationAction({ type }) {
+export default function NotificationAction({ followed, onFollowBack, type }) {
   if (type === "follow") {
     return (
-      <button style={btnStyle}>
-        Follow back
+      <button
+        type="button"
+        onClick={onFollowBack}
+        disabled={followed}
+        className={`mt-3 inline-flex h-9 items-center rounded-full px-4 text-xs font-black transition ${
+          followed ? "bg-slate-100 text-slate-400" : "bg-sky-600 text-white active:scale-95"
+        }`}
+      >
+        {followed ? "Following" : "Follow back"}
       </button>
     );
   }
 
   return null;
 }
-
-const btnStyle = {
-  border: "none",
-  padding: "6px 12px",
-  borderRadius: "20px",
-  background: "#2563eb",
-  color: "#fff",
-  cursor: "pointer",
-};

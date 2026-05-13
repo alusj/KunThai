@@ -36,7 +36,7 @@ export function getVideoDuration(file) {
 
 export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds = MAX_VIDEO_SECONDS) {
   return new Promise((resolve, reject) => {
-    if (typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) {
+    if (typeof MediaRecorder === "undefined") {
       reject(new Error("Video trimming is not supported on this browser. Please choose a video under 15 seconds."));
       return;
     }
@@ -55,12 +55,14 @@ export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds =
     const context = canvas.getContext("2d");
     const chunks = [];
     let recorder = null;
-    let animationFrame = 0;
     let stopTimer = 0;
+    let animationFrame = 0;
+    let audioContext = null;
 
     function cleanup() {
-      window.cancelAnimationFrame(animationFrame);
       window.clearTimeout(stopTimer);
+      window.cancelAnimationFrame(animationFrame);
+      audioContext?.close?.().catch(() => {});
       URL.revokeObjectURL(url);
       video.pause();
       video.src = "";
@@ -68,12 +70,13 @@ export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds =
 
     function drawFrame() {
       if (!video.paused && !video.ended) {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        context?.drawImage(video, 0, 0, canvas.width, canvas.height);
         animationFrame = window.requestAnimationFrame(drawFrame);
       }
     }
 
-    video.muted = true;
+    video.muted = false;
+    video.volume = 0.01;
     video.playsInline = true;
     video.preload = "auto";
     video.onloadedmetadata = () => {
@@ -83,7 +86,28 @@ export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds =
     };
     video.onseeked = async () => {
       try {
-        const stream = canvas.captureStream(30);
+        let stream = null;
+        if (typeof video.captureStream === "function") {
+          stream = video.captureStream();
+        } else if (typeof canvas.captureStream === "function") {
+          const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+          stream = canvas.captureStream(30);
+
+          if (AudioContextCtor) {
+            audioContext = new AudioContextCtor();
+            const source = audioContext.createMediaElementSource(video);
+            const destination = audioContext.createMediaStreamDestination();
+            source.connect(destination);
+            destination.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
+          }
+        }
+
+        if (!stream) {
+          cleanup();
+          reject(new Error("This browser cannot prepare a 15 second clip. Try a shorter video."));
+          return;
+        }
+
         recorder = new MediaRecorder(stream, { mimeType });
 
         recorder.ondataavailable = (event) => {
@@ -109,7 +133,9 @@ export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds =
 
         recorder.start();
         await video.play();
-        drawFrame();
+        if (typeof video.captureStream !== "function") {
+          drawFrame();
+        }
         stopTimer = window.setTimeout(() => {
           if (recorder?.state === "recording") recorder.stop();
         }, durationSeconds * 1000);

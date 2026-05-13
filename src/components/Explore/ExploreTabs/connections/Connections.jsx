@@ -53,9 +53,15 @@ export default function Connections({ currentUserId = "", onViewProfile }) {
         </div>
       </div>
 
-      {tab === "mycircle" ? <MyCircle currentUserId={currentUserId} onViewProfile={onViewProfile} /> : null}
-      {tab === "followers" ? <MyCircle currentUserId={currentUserId} kind="followers" onViewProfile={onViewProfile} /> : null}
-      {tab === "discover" ? <Discover currentUserId={currentUserId} onViewProfile={onViewProfile} /> : null}
+      <div className={tab === "mycircle" ? "block" : "hidden"} aria-hidden={tab !== "mycircle"}>
+        <MyCircle currentUserId={currentUserId} onViewProfile={onViewProfile} />
+      </div>
+      <div className={tab === "followers" ? "block" : "hidden"} aria-hidden={tab !== "followers"}>
+        <MyCircle currentUserId={currentUserId} kind="followers" onViewProfile={onViewProfile} />
+      </div>
+      <div className={tab === "discover" ? "block" : "hidden"} aria-hidden={tab !== "discover"}>
+        <Discover currentUserId={currentUserId} onViewProfile={onViewProfile} />
+      </div>
     </div>
   );
 }

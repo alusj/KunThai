@@ -64,11 +64,13 @@ export default function Explore({ onScreenModeChange }) {
   const [postingNotice, setPostingNotice] = useState(null);
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const topChromeRef = useRef(null);
+  const tabScrollRef = useRef({});
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
   const { user, loading: authLoading } = useAuth();
   const authProfile = buildExploreProfileFromUser(user);
   const profile = profileOverride;
+  const currentUserId = profile?.userId || user?.id || "";
   const { activeTab, activeMenuScreen, menuScreen } = exploreNav;
   const isSwipTab = activeTab === "Swip";
   const profileExists = !authLoading && profileFetched && Boolean(profile);
@@ -226,6 +228,7 @@ export default function Explore({ onScreenModeChange }) {
 
     if (notification?.type === "follow" && notification.actor_name) {
       openViewedProfile({
+        userId: notification.actor_user_id || "",
         displayName: notification.actor_name,
         username: "",
         avatarUrl: notification.actor_avatar_url || "",
@@ -272,7 +275,10 @@ export default function Explore({ onScreenModeChange }) {
     }
 
     if (result.type === "hashtag") {
-      exploreNav.setActiveTab("UrFeed");
+      exploreNav.setActiveTab(result.targetType === "swip" ? "Swip" : "UrFeed");
+      if (result.postId) {
+        scrollToNotificationPost(result.postId);
+      }
       return;
     }
 
@@ -300,6 +306,15 @@ export default function Explore({ onScreenModeChange }) {
     exploreNav.openMenuScreen(screen, options);
   }
 
+  function switchExploreTab(tab) {
+    tabScrollRef.current[activeTab] = window.scrollY || 0;
+    exploreNav.setActiveTab(tab);
+    const nextScroll = tabScrollRef.current[tab] || 0;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.scrollTo({ top: nextScroll, behavior: "instant" }));
+    });
+  }
+
   function renderMenuScreen() {
     if (!activeMenuScreen) {
       return null;
@@ -320,7 +335,7 @@ export default function Explore({ onScreenModeChange }) {
         <ProfileScreen
           profile={profile}
           authProfile={authProfile}
-          currentUserId={profile?.userId || user?.id || ""}
+          currentUserId={currentUserId}
           hideHeader
           editable
           loading={profileLoading}
@@ -338,7 +353,7 @@ export default function Explore({ onScreenModeChange }) {
         <ProfileScreen
           profile={viewedProfile || profile}
           authProfile={authProfile}
-          currentUserId={profile?.userId || user?.id || ""}
+          currentUserId={currentUserId}
           hideHeader
           editable={viewedProfile?.userId === profile?.userId}
           loading={!viewedProfile}
@@ -351,11 +366,11 @@ export default function Explore({ onScreenModeChange }) {
     }
 
     if (activeMenuScreen === "MyPosts") {
-      return <MyPostsScreen currentUserId={profile?.userId || user?.id || ""} hideHeader />;
+      return <MyPostsScreen currentUserId={currentUserId} hideHeader />;
     }
 
     if (activeMenuScreen === "SavedPosts") {
-      return <SavedPostsScreen currentUserId={profile?.userId || user?.id || ""} hideHeader />;
+      return <SavedPostsScreen currentUserId={currentUserId} hideHeader />;
     }
 
     if (activeMenuScreen === "Activity") {
@@ -363,7 +378,7 @@ export default function Explore({ onScreenModeChange }) {
     }
 
     if (activeMenuScreen === "Notifications") {
-      return <Notifications onOpenNotification={openNotificationTarget} />;
+      return <Notifications currentUserId={currentUserId} onOpenNotification={openNotificationTarget} />;
     }
 
     if (activeMenuScreen === "Messages") {
@@ -373,12 +388,13 @@ export default function Explore({ onScreenModeChange }) {
           hideHeader
           initialRecipient={messageRecipient}
           onConversationActiveChange={setMessageConversationActive}
+          onViewProfile={openViewedProfile}
         />
       );
     }
 
     if (activeMenuScreen === "Connections") {
-      return <Connections currentUserId={profile?.userId || user?.id || ""} onViewProfile={openViewedProfile} />;
+      return <Connections currentUserId={currentUserId} onViewProfile={openViewedProfile} />;
     }
 
     if (activeMenuScreen === "Privacy") {
@@ -400,27 +416,10 @@ export default function Explore({ onScreenModeChange }) {
     return <PlaceholderMenuScreen screen={menuScreen} />;
   }
 
-  if (exploreNav.isFullScreen) {
-    return (
-      <div
-        ref={fullScreenSwipeRef}
-        className="min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 kuntai-safe-bottom"
-      >
-        {activeMenuScreen === "Messages" && messageConversationActive ? null : (
-          <SocialScreenHeader
-            title={menuScreen.title}
-            subtitle={menuScreen.subtitle}
-            onBack={goBackFullScreen}
-          />
-        )}
-        {renderMenuScreen()}
-      </div>
-    );
-  }
-
   return (
+    <>
     <div
-      className={`min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
+      className={`${exploreNav.isFullScreen ? "hidden" : "block"} min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
       style={{ "--explore-top-chrome-height": `${topChromeHeight}px` }}
     >
       {postingNotice ? <PostingStatusBanner notice={postingNotice} /> : null}
@@ -465,7 +464,7 @@ export default function Explore({ onScreenModeChange }) {
         ========================= */}
         <ExploreTabs
           activeTab={activeTab}
-          setActiveTab={exploreNav.setActiveTab}
+          setActiveTab={switchExploreTab}
         />
       </div>
 
@@ -478,14 +477,36 @@ export default function Explore({ onScreenModeChange }) {
         {profileMissing ? <ExploreCreateProfileState onCreate={() => openMenuScreen("Profile")} /> : null}
         {profileExists ? (
           <>
-            {activeTab === "UrFeed" && <UrFeed profile={profile} onViewProfile={openViewedProfile} />}
-            {activeTab === "Swip" && <Swip currentUserId={profile.userId} onViewProfile={openViewedProfile} />}
-            {activeTab === "Connections" && <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />}
+            <div className={activeTab === "UrFeed" ? "block" : "hidden"} aria-hidden={activeTab !== "UrFeed"}>
+              <UrFeed profile={profile} onViewProfile={openViewedProfile} />
+            </div>
+            <div className={activeTab === "Swip" ? "block" : "hidden"} aria-hidden={activeTab !== "Swip"}>
+              <Swip active={activeTab === "Swip" && !exploreNav.isFullScreen} currentUserId={profile.userId} onViewProfile={openViewedProfile} />
+            </div>
+            <div className={activeTab === "Connections" ? "block" : "hidden"} aria-hidden={activeTab !== "Connections"}>
+              <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />
+            </div>
           </>
         ) : null}
       </div>
 
     </div>
+    {exploreNav.isFullScreen ? (
+      <div
+        ref={fullScreenSwipeRef}
+        className="min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 kuntai-safe-bottom"
+      >
+        {activeMenuScreen === "Messages" && messageConversationActive ? null : (
+          <SocialScreenHeader
+            title={menuScreen.title}
+            subtitle={menuScreen.subtitle}
+            onBack={goBackFullScreen}
+          />
+        )}
+        {renderMenuScreen()}
+      </div>
+    ) : null}
+    </>
   );
 }
 

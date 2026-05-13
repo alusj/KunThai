@@ -25,8 +25,11 @@ export default function MediaPreview({
   videoTrimStart = 0,
   maxVideoSeconds = 15,
   trimmingVideo = false,
+  trimError = "",
   onTrimStartChange,
+  onTrimPreset,
   onTrimVideo,
+  onRetryTrim,
   onRemoveImage,
   onRemoveVideo,
   onRemoveAudio,
@@ -58,12 +61,18 @@ export default function MediaPreview({
         </div>
       ) : null}
 
-      {videoPreview ? (
+      {videoPreview && !pendingVideoUrl ? (
         <div className="relative overflow-hidden rounded-[22px] border border-slate-200 bg-slate-950">
           <video
             src={videoPreview}
             controls
             onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
+            onTimeUpdate={(event) => {
+              if (event.currentTarget.currentTime >= videoTrimStart + maxVideoSeconds) {
+                event.currentTarget.currentTime = videoTrimStart;
+                event.currentTarget.play().catch(() => {});
+              }
+            }}
             className="max-h-[420px] w-full object-contain"
           />
           <RemoveButton onClick={onRemoveVideo} />
@@ -74,45 +83,71 @@ export default function MediaPreview({
       ) : null}
 
       {pendingVideoUrl ? (
-        <div className="relative overflow-hidden rounded-[22px] border border-amber-200 bg-amber-50 p-4">
+        <div className="relative overflow-hidden rounded-[22px] border border-amber-200 bg-amber-50 p-4 shadow-sm">
           <video
             ref={pendingVideoRef}
             src={pendingVideoUrl}
-            controls
+            controls={false}
+            autoPlay
+            muted={false}
+            playsInline
+            loop
             onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
             className="max-h-[360px] w-full rounded-[18px] bg-slate-950 object-contain"
           />
           <RemoveButton onClick={onRemoveVideo} />
-          <div className="mt-4 space-y-3">
-            <div>
-              <p className="text-sm font-black text-amber-900">Trim required</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">
-                This video is {Math.ceil(videoDuration)} seconds. Choose a {maxVideoSeconds}-second section to post.
-              </p>
-            </div>
-            <label className="block text-xs font-black uppercase tracking-[0.16em] text-amber-700">
-              Manual trim window
-            </label>
-            <div className="rounded-2xl border border-amber-200 bg-white/80 p-3 shadow-sm">
-              <div className="mb-2 flex items-center justify-between text-xs font-black text-amber-900">
-                <span>{Math.round(videoTrimStart)}s</span>
-                <span>{Math.round(Math.min(videoDuration, videoTrimStart + maxVideoSeconds))}s</span>
+          <div className="mt-4 space-y-4">
+            <div className="rounded-2xl border border-amber-200 bg-white/85 px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-amber-950">Auto 15s Swip clip</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">
+                    Your video is {Math.ceil(videoDuration)}s. The first {maxVideoSeconds}s is ready by default; adjust only if you want.
+                  </p>
+                </div>
+                <span className="flex-none rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-900">
+                  {Math.round(videoTrimStart)}s-{Math.round(Math.min(videoDuration, videoTrimStart + maxVideoSeconds))}s
+                </span>
               </div>
-              <div className="relative h-12 overflow-hidden rounded-xl bg-slate-950/90">
-                <div className="absolute inset-y-0 left-0 right-0 grid grid-cols-12 gap-px p-1">
-                  {Array.from({ length: 12 }).map((_, index) => (
-                    <span key={index} className="rounded-sm bg-white/20" />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                ["First 15s", 0],
+                ["Middle 15s", Math.max(0, (videoDuration - maxVideoSeconds) / 2)],
+                ["Last 15s", Math.max(0, videoDuration - maxVideoSeconds)],
+              ].map(([label, start]) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => onTrimPreset?.(Number(start))}
+                  className="h-10 rounded-2xl bg-white px-2 text-xs font-black text-amber-900 shadow-sm ring-1 ring-amber-200 transition active:scale-[0.98]"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-[22px] border border-amber-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                <span>Clip timeline</span>
+                <span>{maxVideoSeconds}s max</span>
+              </div>
+              <div className="relative h-16 overflow-hidden rounded-2xl bg-slate-950">
+                <div className="absolute inset-0 grid grid-cols-[repeat(15,minmax(0,1fr))] gap-px p-1">
+                  {Array.from({ length: 15 }).map((_, index) => (
+                    <span key={index} className="rounded bg-gradient-to-b from-slate-600 to-slate-800" />
                   ))}
                 </div>
                 <div
-                  className="absolute inset-y-1 rounded-lg border-2 border-white bg-amber-400/20 shadow-[0_0_0_999px_rgba(15,23,42,0.42)]"
+                  className="absolute inset-y-1 rounded-xl border-2 border-white bg-amber-300/20 shadow-[0_0_0_999px_rgba(2,6,23,0.5)] transition-[left] duration-150"
                   style={{
                     left: `${Math.max(0, (videoTrimStart / Math.max(videoDuration, 1)) * 100)}%`,
                     width: `${Math.min(100, (maxVideoSeconds / Math.max(videoDuration, 1)) * 100)}%`,
                   }}
                 >
-                  <span className="absolute -left-1 top-1/2 h-8 w-2 -translate-y-1/2 rounded-full bg-white" />
-                  <span className="absolute -right-1 top-1/2 h-8 w-2 -translate-y-1/2 rounded-full bg-white" />
+                  <span className="absolute -left-2 top-1/2 h-10 w-4 -translate-y-1/2 rounded-full bg-white shadow" />
+                  <span className="absolute -right-2 top-1/2 h-10 w-4 -translate-y-1/2 rounded-full bg-white shadow" />
                 </div>
                 <input
                   type="range"
@@ -121,33 +156,28 @@ export default function MediaPreview({
                   value={videoTrimStart}
                   onChange={(event) => onTrimStartChange?.(Number(event.target.value))}
                   className="absolute inset-0 h-full w-full cursor-ew-resize opacity-0"
-                  aria-label="Choose video trim start"
+                  aria-label="Choose Swip clip start"
                 />
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => onTrimStartChange?.(Math.max(0, videoTrimStart - 1))}
-                  className="h-9 rounded-xl bg-amber-100 text-xs font-black text-amber-900"
-                >
-                  -1s
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTrimStartChange?.(Math.min(Math.max(0, videoDuration - maxVideoSeconds), videoTrimStart + 1))}
-                  className="h-9 rounded-xl bg-amber-100 text-xs font-black text-amber-900"
-                >
-                  +1s
-                </button>
+              <div className="mt-2 flex items-center justify-between text-xs font-black text-slate-500">
+                <span>0s</span>
+                <span>{Math.ceil(videoDuration)}s</span>
               </div>
             </div>
+
+            {trimError ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                {trimError}
+              </div>
+            ) : null}
+
             <button
               type="button"
-              onClick={onTrimVideo}
+              onClick={trimError ? onRetryTrim : onTrimVideo}
               disabled={trimmingVideo}
-              className="h-11 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:bg-slate-300"
+              className="h-12 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition active:scale-[0.98] disabled:bg-slate-300"
             >
-              {trimmingVideo ? "Trimming..." : `Trim to ${maxVideoSeconds}s`}
+              {trimmingVideo ? "Preparing clip..." : trimError ? "Retry clip" : videoPreview ? "Clip ready" : `Use this ${maxVideoSeconds}s clip`}
             </button>
           </div>
         </div>

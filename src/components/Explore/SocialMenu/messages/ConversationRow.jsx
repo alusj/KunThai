@@ -5,8 +5,19 @@ function getOtherParticipant(conversation, currentUserId) {
   return conversation.participants?.[otherId] || {};
 }
 
-export default function ConversationRow({ conversation, currentUserId, onOpen }) {
+export default function ConversationRow({ conversation, currentUserId, onOpen, onViewProfile }) {
   const user = getOtherParticipant(conversation, currentUserId);
+
+  function viewProfile(event) {
+    event.stopPropagation();
+    onViewProfile?.({
+      userId: user.userId || "",
+      displayName: user.displayName || "Profile",
+      username: user.username || "",
+      avatarUrl: user.avatarUrl || "",
+      accountType: "personal",
+    });
+  }
 
   return (
     <button
@@ -14,10 +25,14 @@ export default function ConversationRow({ conversation, currentUserId, onOpen })
       onClick={() => onOpen(conversation)}
       className="flex w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
     >
-      <Avatar name={user.displayName} src={user.avatarUrl} />
+      <span role="button" tabIndex={0} onClick={viewProfile} onKeyDown={(event) => event.key === "Enter" && viewProfile(event)} className="flex-none" aria-label={`View ${user.displayName || "Profile"} profile`}>
+        <Avatar name={user.displayName} src={user.avatarUrl} />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="truncate text-sm font-black text-slate-950">{user.displayName || "Profile"}</span>
+          <span role="button" tabIndex={0} onClick={viewProfile} onKeyDown={(event) => event.key === "Enter" && viewProfile(event)} className="truncate text-sm font-black text-slate-950 hover:text-sky-700">
+            {user.displayName || "Profile"}
+          </span>
           {conversation.unreadCount ? (
             <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-black text-white">{conversation.unreadCount}</span>
           ) : null}

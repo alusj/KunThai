@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { HiOutlineCheckCircle, HiOutlineCog6Tooth } from "react-icons/hi2";
 
+import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
 import EmptyState from "../../shared/EmptyState";
@@ -8,8 +9,9 @@ import ErrorState from "../../shared/ErrorState";
 import NotificationSettings from "./components/NotificationSettings";
 import NotificationsList from "./list/NotificationsList";
 
-export default function Notifications({ onOpenNotification }) {
+export default function Notifications({ currentUserId, onOpenNotification }) {
   const { notifications, unreadCount, error, markRead, markAllRead } = useExploreNotifications();
+  const follows = useExploreFollows(currentUserId);
   const preferences = useExplorePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -28,6 +30,14 @@ export default function Notifications({ onOpenNotification }) {
   async function openNotification(item) {
     await markRead(item.id);
     onOpenNotification?.(item);
+  }
+
+  async function followBack(item) {
+    if (!item?.actor_user_id || follows.followedUsers.has(item.actor_user_id)) {
+      return;
+    }
+
+    await follows.toggleFollow(item.actor_user_id);
   }
 
   return (
@@ -70,7 +80,7 @@ export default function Notifications({ onOpenNotification }) {
       {!notifications.length ? (
         <EmptyState title="No notifications yet" message="When people interact with you, you'll see it here." />
       ) : (
-        <NotificationsList data={notifications} onOpen={openNotification} />
+        <NotificationsList data={notifications} followedUsers={follows.followedUsers} onFollowBack={followBack} onOpen={openNotification} />
       )}
     </div>
   );

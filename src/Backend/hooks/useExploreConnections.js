@@ -5,6 +5,20 @@ import { showToast } from "../services/toastService";
 import { EXPLORE_FOLLOW_CHANGED_EVENT, useExploreFollows } from "./useExploreFollows";
 
 const BLOCK_STORAGE_KEY = "explore-blocked-users";
+const CONNECTIONS_MEMORY = new Map();
+const CONNECTIONS_MEMORY_TTL = 120_000;
+
+function getConnectionsKey(kind, currentUserId) {
+  return `${kind || "discover"}:${currentUserId || "guest"}`;
+}
+
+function readConnectionsMemory(key) {
+  return CONNECTIONS_MEMORY.get(key) || null;
+}
+
+function writeConnectionsMemory(key, items) {
+  CONNECTIONS_MEMORY.set(key, { items, savedAt: Date.now() });
+}
 
 function readBlockedUsers() {
   try {
@@ -20,18 +34,40 @@ function writeBlockedUsers(value) {
 }
 
 export function useExploreConnections(kind, currentUserId = "") {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = getConnectionsKey(kind, currentUserId);
+  const cached = readConnectionsMemory(cacheKey);
+  const [items, setItems] = useState(() => cached?.items || []);
+  const [loading, setLoading] = useState(() => !cached?.items?.length);
   const [error, setError] = useState("");
   const [blockedUsers, setBlockedUsers] = useState(readBlockedUsers);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
 
-  async function load() {
+  useEffect(() => {
+    if (items.length) {
+      writeConnectionsMemory(cacheKey, items);
+    }
+  }, [cacheKey, items]);
+
+  async function load(options = {}) {
+    const force = Boolean(options.force);
+    const currentCache = readConnectionsMemory(cacheKey);
+    const hasCachedItems = Boolean(currentCache?.items?.length || items.length);
+    const fresh = currentCache?.items?.length && Date.now() - currentCache.savedAt < CONNECTIONS_MEMORY_TTL;
+
+    if (fresh && !force) {
+      setLoading(false);
+      setError("");
+      return;
+    }
+
     try {
-      setLoading(true);
+      if (!hasCachedItems) {
+        setLoading(true);
+      }
       setError("");
       const nextItems = await fetchExploreConnections(kind, currentUserId);
       setItems(nextItems);
+      writeConnectionsMemory(cacheKey, nextItems);
     } catch (err) {
       setError(err.message || "Unable to load connections.");
     } finally {
@@ -43,12 +79,28 @@ export function useExploreConnections(kind, currentUserId = "") {
     let active = true;
 
     async function loadActive() {
+      const currentCache = readConnectionsMemory(cacheKey);
+      const hasCachedItems = Boolean(currentCache?.items?.length);
+      const fresh = hasCachedItems && Date.now() - currentCache.savedAt < CONNECTIONS_MEMORY_TTL;
+
+      if (hasCachedItems) {
+        setItems(currentCache.items);
+        setLoading(false);
+      }
+
+      if (fresh) {
+        return;
+      }
+
       try {
-        setLoading(true);
+        if (!hasCachedItems) {
+          setLoading(true);
+        }
         setError("");
-          const nextItems = await fetchExploreConnections(kind, currentUserId);
+        const nextItems = await fetchExploreConnections(kind, currentUserId);
         if (active) {
           setItems(nextItems);
+          writeConnectionsMemory(cacheKey, nextItems);
         }
       } catch (err) {
         if (active) {
@@ -66,7 +118,7 @@ export function useExploreConnections(kind, currentUserId = "") {
     return () => {
       active = false;
     };
-  }, [currentUserId, kind]);
+  }, [cacheKey, currentUserId, kind]);
 
   useEffect(() => {
     function handleFollowChanged(event) {
@@ -78,7 +130,7 @@ export function useExploreConnections(kind, currentUserId = "") {
       setItems((current) => current.map((item) => (item.user_id === userId ? { ...item, isFollowing: active } : item)));
 
       if (kind === "mycircle" || kind === "followers") {
-        load();
+        load({ force: true });
       }
     }
 
@@ -93,7 +145,7 @@ export function useExploreConnections(kind, currentUserId = "") {
       actionLabel: "Undo",
       onAction: async () => {
         await toggleFollow(userId);
-        await load();
+        load({ force: true });
       },
     });
 
@@ -107,7 +159,7 @@ export function useExploreConnections(kind, currentUserId = "") {
       });
     }
 
-    await load();
+    load({ force: true });
   }
 
   function blockUser(userId) {
@@ -152,7 +204,7 @@ export function useExploreConnections(kind, currentUserId = "") {
 
         if (wasFollowing) {
           await toggleFollow(userId);
-          await load();
+          load({ force: true });
         }
       },
     });
@@ -160,8 +212,8 @@ export function useExploreConnections(kind, currentUserId = "") {
 
   const visibleItems = items
     .filter((item) => !blockedUsers.has(item.user_id))
-    .filter((item) => kind === "mycircle" || !(followedUsers.has(item.user_id) || item.isFollowing))
+    .filter((item) => kind !== "discover" || !(followedUsers.has(item.user_id) || item.isFollowing || item.followsYou))
     .map((item) => ({ ...item, isFollowing: followedUsers.has(item.user_id) || item.isFollowing }));
 
-  return { items: visibleItems, loading, error, reload: load, followUser, blockUser, removeUser };
+  return { items: visibleItems, loading, error, reload: () => load({ force: true }), followUser, blockUser, removeUser };
 }

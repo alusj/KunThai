@@ -4,9 +4,13 @@ import supabase from "../lib/supabaseClient";
 import { fetchExploreProfileStats } from "../services/exploreService";
 import { EXPLORE_FOLLOW_CHANGED_EVENT } from "./useExploreFollows";
 
+const STATS_MEMORY = new Map();
+const STATS_MEMORY_TTL = 120_000;
+
 export function useExploreFollowStats(userId) {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(Boolean(userId));
+  const cached = userId ? STATS_MEMORY.get(userId) : null;
+  const [stats, setStats] = useState(() => cached?.stats || null);
+  const [loading, setLoading] = useState(() => Boolean(userId && !cached?.stats));
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -21,10 +25,28 @@ export function useExploreFollowStats(userId) {
       }
 
       try {
-        setLoading(true);
+        const currentCache = STATS_MEMORY.get(userId);
+        const hasCachedStats = Boolean(currentCache?.stats);
+        const fresh = currentCache?.stats && Date.now() - currentCache.savedAt < STATS_MEMORY_TTL;
+
+        if (currentCache?.stats) {
+          setStats(currentCache.stats);
+          setLoading(false);
+        }
+
+        if (fresh) {
+          return;
+        }
+
+        if (!hasCachedStats) {
+          setLoading(true);
+        }
         setError("");
         const nextStats = await fetchExploreProfileStats(userId);
-        if (active) setStats(nextStats);
+        if (active) {
+          setStats(nextStats);
+          STATS_MEMORY.set(userId, { stats: nextStats, savedAt: Date.now() });
+        }
       } catch (err) {
         if (active) setError(err.message || "Unable to load profile stats.");
       } finally {
@@ -35,6 +57,7 @@ export function useExploreFollowStats(userId) {
     load();
 
     function handleFollowChanged() {
+      STATS_MEMORY.delete(userId);
       load();
     }
 

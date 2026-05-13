@@ -39,14 +39,16 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoTrimStart, setVideoTrimStart] = useState(0);
   const [trimmingVideo, setTrimmingVideo] = useState(false);
+  const [trimError, setTrimError] = useState("");
   const [postingStage, setPostingStage] = useState("");
   const [postingProgress, setPostingProgress] = useState(0);
   const fileInputRef = useRef(null);
   const composerRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const trimRequestRef = useRef(0);
 
-  const hasContent = Boolean(value.trim() || imagePreview || audioPreview || videoPreview);
+  const hasContent = Boolean(value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
 
   useBrowserBack(open, () => setOpen(false), "explore-composer");
 
@@ -105,6 +107,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     try {
+      trimRequestRef.current += 1;
       if (file.type.startsWith("video/") || mediaMode === "video") {
         const duration = await getVideoDuration(file);
         if (duration > MAX_VIDEO_SECONDS) {
@@ -116,7 +119,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           setVideoPreview("");
           setImagePreview("");
           setOpen(true);
-          setFeedback(`This video is ${Math.ceil(duration)} seconds. Swip videos must be 15 seconds or less. Trim it below.`);
+          setFeedback("");
+          setTrimError("");
+          trimPendingVideo(file, 0);
           return;
         }
 
@@ -129,6 +134,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           setPendingVideoUrl("");
         }
         setVideoDuration(duration);
+        setTrimError("");
         setMediaMeta((current) => ({
           ...current,
           videoName: file.name,
@@ -159,37 +165,52 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
   }
 
-  async function trimPendingVideo() {
-    if (!pendingVideoFile) {
+  async function trimPendingVideo(fileOverride = pendingVideoFile, startOverride = videoTrimStart) {
+    const fileToTrim = fileOverride || pendingVideoFile;
+    if (!fileToTrim) {
       return;
     }
 
     try {
+      const requestId = trimRequestRef.current + 1;
+      trimRequestRef.current = requestId;
       setTrimmingVideo(true);
-      setFeedback("Trimming video to 15 seconds...");
-      const trimmedPreview = await trimVideoFileToDataUrl(pendingVideoFile, videoTrimStart, MAX_VIDEO_SECONDS);
+      setTrimError("");
+      setFeedback("");
+      const trimmedPreview = await trimVideoFileToDataUrl(fileToTrim, startOverride, MAX_VIDEO_SECONDS);
+      if (requestId !== trimRequestRef.current) {
+        return "";
+      }
       setVideoPreview(trimmedPreview);
       setImagePreview("");
-      setPendingVideoFile(null);
-      if (pendingVideoUrl) {
-        URL.revokeObjectURL(pendingVideoUrl);
-        setPendingVideoUrl("");
-      }
       setMediaMeta((current) => ({
         ...current,
-        videoName: `trimmed-${pendingVideoFile.name || "swip-video.webm"}`,
-        videoType: "video/webm",
+        videoName: `trimmed-${fileToTrim.name || "swip-video.webm"}`,
+        videoType: trimmedPreview.startsWith("data:video/mp4") ? "video/mp4" : "video/webm",
         videoSize: 0,
         videoDuration: MAX_VIDEO_SECONDS,
         imageName: "",
         imageType: "",
       }));
-      setFeedback("Video trimmed to 15 seconds.");
+      setFeedback("");
+      return trimmedPreview;
     } catch (error) {
-      setFeedback(error.message || "Unable to trim this video.");
+      if (trimRequestRef.current === 0) {
+        return "";
+      }
+      setTrimError(error.message || "Unable to prepare this clip. Try again or choose a shorter video.");
+      return "";
     } finally {
       setTrimmingVideo(false);
     }
+  }
+
+  function chooseTrimPreset(start) {
+    const nextStart = Math.max(0, Math.min(start, Math.max(0, videoDuration - MAX_VIDEO_SECONDS)));
+    trimRequestRef.current += 1;
+    setVideoTrimStart(nextStart);
+    setVideoPreview("");
+    setTrimError("");
   }
 
   async function handleAudioClick() {
@@ -269,6 +290,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function resetComposer() {
+    trimRequestRef.current += 1;
     setValue("");
     setFeedback("");
     setImagePreview("");
@@ -283,6 +305,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
     setVideoDuration(0);
     setVideoTrimStart(0);
+    setTrimError("");
     setPostingStage("");
     setPostingProgress(0);
     setPrivacy(privacySettings.defaultPostPrivacy || "public");
@@ -302,6 +325,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       return;
     }
 
+    let finalVideoPreview = videoPreview;
+    if (pendingVideoFile && !finalVideoPreview) {
+      finalVideoPreview = await trimPendingVideo(pendingVideoFile, videoTrimStart);
+      if (!finalVideoPreview) {
+        setOpen(true);
+        return;
+      }
+    }
+
     const postDraft = {
       body: value,
       author_name: profile?.displayName || "Profile",
@@ -310,7 +342,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       user_id: profile?.userId || "",
       image_url: imagePreview,
       audio_url: audioPreview,
-      video_url: videoPreview,
+      video_url: finalVideoPreview,
       audio_duration_seconds: audioDuration,
       post_privacy: privacy,
       mediaMeta,
@@ -466,13 +498,21 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 videoTrimStart={videoTrimStart}
                 maxVideoSeconds={MAX_VIDEO_SECONDS}
                 trimmingVideo={trimmingVideo}
-                onTrimStartChange={setVideoTrimStart}
+                trimError={trimError}
+                onTrimStartChange={(start) => {
+                  setVideoTrimStart(start);
+                  setVideoPreview("");
+                  setTrimError("");
+                }}
+                onTrimPreset={chooseTrimPreset}
                 onTrimVideo={trimPendingVideo}
+                onRetryTrim={() => trimPendingVideo(pendingVideoFile, videoTrimStart)}
                 onRemoveImage={() => {
                   setImagePreview("");
                   setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
                 }}
                 onRemoveVideo={() => {
+                  trimRequestRef.current += 1;
                   setVideoPreview("");
                   setPendingVideoFile(null);
                   if (pendingVideoUrl) {
@@ -481,6 +521,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                   }
                   setVideoDuration(0);
                   setVideoTrimStart(0);
+                  setTrimError("");
                   setMediaMeta((current) => ({ ...current, videoName: "", videoType: "", videoSize: 0 }));
                 }}
                 onRemoveAudio={() => {

@@ -91,7 +91,9 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
               </div>
             ) : null}
           </div>
-          <p className="truncate text-sm font-bold text-slate-500">@{user.username}</p>
+          <button type="button" onClick={onViewProfile} className="block max-w-full truncate text-left text-sm font-bold text-slate-500 hover:text-sky-700">
+            @{user.username}
+          </button>
           {user.bio ? <p className="mt-2 line-clamp-2 text-base font-semibold leading-7 text-slate-600">{user.bio}</p> : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-black">

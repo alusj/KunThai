@@ -122,7 +122,7 @@ function applyCurrentProfileToPost(post, profile) {
 }
 
 const FEED_MEMORY = new Map();
-const FEED_MEMORY_TTL = 60_000;
+const FEED_MEMORY_TTL = 120_000;
 
 function readFeedMemory(scope) {
   const cached = FEED_MEMORY.get(scope);
@@ -130,7 +130,7 @@ function readFeedMemory(scope) {
     return null;
   }
 
-  return Date.now() - cached.savedAt < FEED_MEMORY_TTL ? cached : null;
+  return cached;
 }
 
 function writeFeedMemory(scope, patch) {
@@ -177,18 +177,21 @@ export function useExploreFeed(scope = "feed") {
     loadIdRef.current = loadId;
     const force = Boolean(options.force);
     const cached = readFeedMemory(scope);
-    if (cached?.posts?.length && !force) {
+    const hasCachedPosts = Boolean(cached?.posts?.length || postsRef.current.length || readStoredPosts(scope).length);
+    const cacheFresh = hasCachedPosts && Date.now() - cached.savedAt < FEED_MEMORY_TTL;
+
+    if (cacheFresh && !force) {
       setLoading(false);
       setError("");
       return;
     }
 
-    if (cached?.posts?.length && !error) {
+    if (hasCachedPosts && !error) {
       setLoading(false);
     }
 
     try {
-      if (!cached?.posts?.length) {
+      if (!hasCachedPosts) {
         setLoading(true);
       }
       setError("");

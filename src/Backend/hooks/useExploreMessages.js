@@ -12,6 +12,9 @@ import {
 } from "../services/explore/messageService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 
+const MESSAGES_MEMORY = new Map();
+const MESSAGES_MEMORY_TTL = 120_000;
+
 function friendlyMessageError(err) {
   const message = String(err?.message || "");
   if (message.toLowerCase().includes("uuid") || message.includes("__")) {
@@ -22,12 +25,23 @@ function friendlyMessageError(err) {
 
 export function useExploreMessages(currentProfile, initialRecipient) {
   const currentUserId = currentProfile?.userId || "";
+  const memory = MESSAGES_MEMORY.get(currentUserId) || {};
   const [activeConversation, setActiveConversation] = useState(null);
-  const [conversations, setConversations] = useState([]);
-  const [loading, setLoading] = useState(Boolean(currentUserId));
+  const [conversations, setConversations] = useState(() => memory.conversations || []);
+  const [loading, setLoading] = useState(() => Boolean(currentUserId && !memory.conversations?.length));
   const [error, setError] = useState("");
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => memory.messages || []);
   const [pendingMessageKeys, setPendingMessageKeys] = useState(new Set());
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    MESSAGES_MEMORY.set(currentUserId, {
+      ...(MESSAGES_MEMORY.get(currentUserId) || {}),
+      conversations,
+      messages,
+      savedAt: Date.now(),
+    });
+  }, [conversations, currentUserId, messages]);
 
   async function reload() {
     if (!currentUserId) {
@@ -38,11 +52,29 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
 
     try {
-      setLoading(true);
+      const cached = MESSAGES_MEMORY.get(currentUserId);
+      const hasCachedConversations = Boolean(cached?.conversations?.length || conversations.length);
+      const fresh = cached?.conversations?.length && Date.now() - cached.savedAt < MESSAGES_MEMORY_TTL;
+
+      if (cached?.conversations) {
+        setConversations(cached.conversations);
+        setMessages(cached.messages || []);
+        setLoading(false);
+      }
+
+      if (fresh) {
+        return;
+      }
+
+      if (!hasCachedConversations) {
+        setLoading(true);
+      }
       setError("");
-      setConversations(await fetchExploreConversations(currentUserId));
+      const nextConversations = await fetchExploreConversations(currentUserId);
+      setConversations(nextConversations);
       if (activeConversation?.id) {
-        setMessages(await fetchExploreMessages(activeConversation.id));
+        const nextMessages = await fetchExploreMessages(activeConversation.id);
+        setMessages(nextMessages);
       }
     } catch (err) {
       setError(friendlyMessageError(err));

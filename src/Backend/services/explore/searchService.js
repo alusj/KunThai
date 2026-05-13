@@ -22,6 +22,10 @@ function matches(value, query) {
   return String(value || "").toLowerCase().includes(query);
 }
 
+function escapeSearchValue(value) {
+  return String(value || "").replace(/[%_,]/g, "\\$&");
+}
+
 function toPostResult(post) {
   const isVideo = Boolean(post.video_url);
   return {
@@ -45,7 +49,7 @@ function getHashtagResults(posts, query) {
     [...inlineTags, ...(post.hashtags || []).map((tag) => `#${tag}`)].forEach((tag) => {
       const normalized = tag.toLowerCase();
       if (!normalized.includes(query.replace("#", "")) && !normalized.includes(query)) return;
-      const current = tags.get(normalized) || { tag: normalized, count: 0 };
+      const current = tags.get(normalized) || { tag: normalized, count: 0, postId: post.id, targetType: post.video_url ? "swip" : "feed" };
       tags.set(normalized, { ...current, count: current.count + 1 });
     });
   });
@@ -56,14 +60,17 @@ function getHashtagResults(posts, query) {
     title: item.tag,
     subtitle: `${item.count} post${item.count === 1 ? "" : "s"}`,
     query: item.tag,
+    postId: item.postId,
+    targetType: item.targetType,
   }));
 }
 
 async function searchPeople(query) {
+  const safeQuery = escapeSearchValue(query.replace(/^@/, ""));
   const { data, error } = await supabase
     .from("explore_profiles")
     .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
-    .or(`display_name.ilike.%${query}%,username.ilike.%${query}%,bio.ilike.%${query}%`)
+    .or(`display_name.ilike.%${safeQuery}%,username.ilike.%${safeQuery}%,bio.ilike.%${safeQuery}%`)
     .limit(12);
 
   if (error) {
@@ -110,6 +117,7 @@ export function getSuggestedSearches() {
 export async function searchExplore(query, filter = "all") {
   const value = String(query || "").trim().toLowerCase();
   if (!value) return [];
+  const normalizedValue = value.replace(/^[@#]/, "");
 
   const posts = readCachedPosts();
   const postResults = posts
@@ -121,14 +129,16 @@ export async function searchExplore(query, filter = "all") {
         ...(post.hashtags || []),
         ...(post.mentions || []),
       ].join(" ");
-      return matches(haystack, value);
+      return matches(haystack, value) || matches(haystack, normalizedValue);
     })
     .map(toPostResult);
 
   const hashtagResults = getHashtagResults(posts, value);
-  const peopleResults = filter === "feed" || filter === "swip" || filter === "hashtags" ? [] : await searchPeople(value);
+  const mentionResults = value.startsWith("@") ? await searchPeople(normalizedValue) : [];
+  const peopleResults = filter === "feed" || filter === "swip" || filter === "hashtag" ? [] : await searchPeople(normalizedValue);
+  const mergedPeople = Array.from(new Map([...mentionResults, ...peopleResults].map((item) => [item.id, item])).values());
 
-  return [...postResults, ...peopleResults, ...hashtagResults].filter((item) => {
+  return [...postResults, ...mergedPeople, ...hashtagResults].filter((item) => {
     if (filter === "all") return true;
     return item.type === filter;
   });

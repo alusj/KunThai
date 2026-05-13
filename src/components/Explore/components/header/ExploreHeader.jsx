@@ -21,7 +21,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   const [createOpen, setCreateOpen] = useState(false);
   const { notifications, unreadCount } = useExploreNotifications();
   const messageStatus = useExploreMessageStatus(currentProfile?.userId || "");
-  const latestMessage = notifications[0]?.message || "";
+  const latestMessage = notifications.find((item) => item.type !== "message")?.message || "";
 
   function selectCreateType(type) {
     setCreateOpen(false);

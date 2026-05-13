@@ -199,7 +199,7 @@ async function notifyMentionedUsers(comment, draft) {
       actor_avatar_url: draft.author_avatar_url,
       type: "mention",
       media_type: "comment",
-      message: `${draft.author_name} mentioned you in a comment`,
+      message: `${draft.author_name} mentioned you`,
       read: false,
       post_id: draft.post_id,
       post_preview: comment.body || "Voice comment",

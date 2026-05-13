@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { HiOutlineMagnifyingGlass, HiOutlineXMark } from "react-icons/hi2";
 
 import { useExploreSearch } from "../../../../../Backend/hooks/useExploreSearch";
@@ -40,11 +41,11 @@ export default function SearchOverlay({ onClose, onOpenResult, open }) {
     }
   }
 
-  return (
+  return createPortal(
     <>
       <button type="button" aria-label="Close search" onClick={close} className="fixed inset-0 z-40 cursor-default bg-slate-950/10" />
 
-      <div className="absolute inset-x-2 top-2 z-50 sm:inset-x-5">
+      <div className="fixed inset-x-2 top-2 z-50 sm:inset-x-5">
         <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center gap-2 p-2">
             <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl bg-slate-100 px-3 text-slate-500">
@@ -131,6 +132,7 @@ export default function SearchOverlay({ onClose, onOpenResult, open }) {
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

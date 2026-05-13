@@ -67,12 +67,12 @@ export function useExploreFollows(currentUserId) {
     try {
       await syncExploreFollow(userId, nextActive);
       if (nextActive) {
-        await createExploreNotification({
+        createExploreNotification({
           user_id: userId,
           type: "follow",
           media_type: "profile",
           post_preview: "New follower",
-        });
+        }).catch(() => {});
       }
     } catch (error) {
       setFollowedUsers(previous);

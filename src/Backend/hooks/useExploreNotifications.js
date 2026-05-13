@@ -10,6 +10,12 @@ import {
 } from "../services/exploreService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 
+const NOTIFICATIONS_MEMORY = {
+  items: [],
+  savedAt: 0,
+};
+const NOTIFICATIONS_MEMORY_TTL = 120_000;
+
 function normalizeNotification(item) {
   return {
     ...item,
@@ -23,13 +29,13 @@ function notificationEnabled(item) {
   if (item.type === "comment" || item.type === "reply" || item.type === "mention") return settings.comments;
   if (item.type === "follow") return settings.follows;
   if (item.type === "post") return settings.followedPosts;
-  if (item.type === "message") return settings.messages;
+  if (item.type === "message") return false;
   return settings.safetyAlerts;
 }
 
 export function useExploreNotifications() {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState(() => NOTIFICATIONS_MEMORY.items || []);
+  const [loading, setLoading] = useState(() => !NOTIFICATIONS_MEMORY.items?.length);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -39,11 +45,28 @@ export function useExploreNotifications() {
 
     async function load() {
       try {
-        setLoading(true);
+        const hasCachedItems = Boolean(NOTIFICATIONS_MEMORY.items?.length);
+        const fresh = hasCachedItems && Date.now() - NOTIFICATIONS_MEMORY.savedAt < NOTIFICATIONS_MEMORY_TTL;
+
+        if (hasCachedItems) {
+          setNotifications(NOTIFICATIONS_MEMORY.items.filter(notificationEnabled));
+          setLoading(false);
+        }
+
+        if (fresh) {
+          return;
+        }
+
+        if (!hasCachedItems) {
+          setLoading(true);
+        }
         setError("");
         const nextItems = await fetchExploreNotifications();
         if (active) {
-          setNotifications(nextItems.filter(notificationEnabled));
+          const visibleItems = nextItems.filter(notificationEnabled);
+          NOTIFICATIONS_MEMORY.items = visibleItems;
+          NOTIFICATIONS_MEMORY.savedAt = Date.now();
+          setNotifications(visibleItems);
         }
       } catch (err) {
         if (active) {
@@ -81,7 +104,12 @@ export function useExploreNotifications() {
 
             const nextItem = normalizeNotification(payload.new);
             if (!notificationEnabled(nextItem)) return;
-            setNotifications((current) => [nextItem, ...current.filter((item) => item.id !== nextItem.id)]);
+            setNotifications((current) => {
+              const next = [nextItem, ...current.filter((item) => item.id !== nextItem.id)];
+              NOTIFICATIONS_MEMORY.items = next;
+              NOTIFICATIONS_MEMORY.savedAt = Date.now();
+              return next;
+            });
           },
         )
         .on(
@@ -98,7 +126,12 @@ export function useExploreNotifications() {
             }
 
             const nextItem = normalizeNotification(payload.new);
-            setNotifications((current) => current.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item)));
+            setNotifications((current) => {
+              const next = current.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item));
+              NOTIFICATIONS_MEMORY.items = next;
+              NOTIFICATIONS_MEMORY.savedAt = Date.now();
+              return next;
+            });
           },
         )
         .subscribe();
@@ -117,7 +150,12 @@ export function useExploreNotifications() {
       if (!notificationEnabled(nextItem)) {
         return;
       }
-      setNotifications((current) => [nextItem, ...current.filter((item) => item.id !== nextItem.id)]);
+      setNotifications((current) => {
+        const next = [nextItem, ...current.filter((item) => item.id !== nextItem.id)];
+        NOTIFICATIONS_MEMORY.items = next;
+        NOTIFICATIONS_MEMORY.savedAt = Date.now();
+        return next;
+      });
     }
 
     window.addEventListener(NOTIFICATION_EVENT, handleNotificationCreated);
@@ -132,12 +170,20 @@ export function useExploreNotifications() {
   }, []);
 
   async function markRead(notificationId) {
-    setNotifications((current) => current.map((item) => (item.id === notificationId ? { ...item, read: true } : item)));
+    setNotifications((current) => {
+      const next = current.map((item) => (item.id === notificationId ? { ...item, read: true } : item));
+      NOTIFICATIONS_MEMORY.items = next;
+      return next;
+    });
 
     try {
       const updated = await markExploreNotificationRead(notificationId, true);
       if (updated) {
-        setNotifications((current) => current.map((item) => (item.id === notificationId ? { ...item, ...updated } : item)));
+        setNotifications((current) => {
+          const next = current.map((item) => (item.id === notificationId ? { ...item, ...updated } : item));
+          NOTIFICATIONS_MEMORY.items = next;
+          return next;
+        });
       }
     } catch (err) {
       setError(err.message || "Unable to update notification.");
@@ -145,7 +191,11 @@ export function useExploreNotifications() {
   }
 
   async function markAllRead() {
-    setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+    setNotifications((current) => {
+      const next = current.map((item) => ({ ...item, read: true }));
+      NOTIFICATIONS_MEMORY.items = next;
+      return next;
+    });
 
     try {
       await markAllExploreNotificationsRead();

@@ -9,9 +9,19 @@ function getOtherParticipant(conversation, currentUserId) {
   return conversation.participants?.[otherId] || {};
 }
 
-export default function ConversationScreen({ conversation, currentUserId, messages, onActivity, onBack, onSend }) {
+export default function ConversationScreen({ conversation, currentUserId, messages, onActivity, onBack, onSend, onViewProfile }) {
   const user = getOtherParticipant(conversation, currentUserId);
   const messagesRef = useRef(null);
+
+  function viewProfile() {
+    onViewProfile?.({
+      userId: user.userId || "",
+      displayName: user.displayName || "Profile",
+      username: user.username || "",
+      avatarUrl: user.avatarUrl || "",
+      accountType: "personal",
+    });
+  }
 
   useEffect(() => {
     const node = messagesRef.current;
@@ -23,10 +33,16 @@ export default function ConversationScreen({ conversation, currentUserId, messag
     <section className="flex h-[calc(100vh-112px)] min-w-0 flex-col overflow-hidden bg-white">
       <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
         <AppBackTab onBack={onBack} label="Back to inbox" historyKey="explore-conversation" />
-        <Avatar name={user.displayName} src={user.avatarUrl} size="sm" />
+        <button type="button" onClick={viewProfile} className="flex-none" aria-label={`View ${user.displayName || "Profile"} profile`}>
+          <Avatar name={user.displayName} src={user.avatarUrl} size="sm" />
+        </button>
         <div className="min-w-0">
-          <p className="truncate text-sm font-black text-slate-950">{user.displayName || "Profile"}</p>
-          <p className="truncate text-xs font-bold text-slate-500">@{user.username || "user"}</p>
+          <button type="button" onClick={viewProfile} className="block max-w-full truncate text-left text-sm font-black text-slate-950 hover:text-sky-700">
+            {user.displayName || "Profile"}
+          </button>
+          <button type="button" onClick={viewProfile} className="block max-w-full truncate text-left text-xs font-bold text-slate-500 hover:text-sky-700">
+            @{user.username || "user"}
+          </button>
         </div>
       </div>
 

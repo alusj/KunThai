@@ -3,8 +3,13 @@ import { useEffect } from "react";
 import { stopAllExploreMedia } from "../../shared/singleMediaPlayback";
 import All from "./tabs/All";
 
-export default function Swip({ currentUserId = "", onViewProfile }) {
+export default function Swip({ active = true, currentUserId = "", onViewProfile }) {
   useEffect(() => {
+    if (!active) {
+      stopAllExploreMedia();
+      return undefined;
+    }
+
     const previousBody = {
       overflow: document.body.style.overflow,
       overscrollBehavior: document.body.style.overscrollBehavior,
@@ -32,7 +37,7 @@ export default function Swip({ currentUserId = "", onViewProfile }) {
       document.documentElement.style.overscrollBehavior = previousHtml.overscrollBehavior;
       document.documentElement.style.height = previousHtml.height;
     };
-  }, []);
+  }, [active]);
 
   return (
     <div className="flex h-[calc(100dvh-var(--explore-top-chrome-height,57px))] min-h-0 flex-col overflow-hidden bg-slate-950">

@@ -30,9 +30,13 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
               </button>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate text-[13px] font-bold text-slate-500">
-            @{post.author_username || "user"} · {formatRelativeTime(post.created_at)}
-          </p>
+          <button
+            type="button"
+            onClick={onViewProfile}
+            className="mt-0.5 block max-w-full truncate text-left text-[13px] font-bold text-slate-500 hover:text-sky-700"
+          >
+            @{post.author_username || "user"} - {formatRelativeTime(post.created_at)}
+          </button>
           {post.contextLabel ? (
             <span className="mt-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">
               {post.contextLabel}
