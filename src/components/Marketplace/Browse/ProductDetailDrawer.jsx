@@ -286,7 +286,7 @@ export default function ProductDetailDrawer({
         <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
           <AppBackTab
             onBack={onClose}
-            label="Back to marketplace listings"
+            label="Back to UrMall listings"
             historyKey="marketplace-product-detail"
           />
           <div className="min-w-0">
@@ -470,7 +470,7 @@ export default function ProductDetailDrawer({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase text-emerald-700">Message seller</p>
-                  <h3 className="mt-1 text-lg font-black text-gray-950">{product.seller?.name || "Marketplace seller"}</h3>
+                  <h3 className="mt-1 text-lg font-black text-gray-950">{product.seller?.name || "UrMall seller"}</h3>
                   <p className="mt-1 text-sm font-bold text-gray-500">Product inquiry: {product.name}</p>
                 </div>
                 <button

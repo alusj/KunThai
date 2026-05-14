@@ -11,7 +11,7 @@ import SwipCaption from "./SwipCaption";
 
 const SWIP_VIDEO_SOUND_EVENT = "swip-video-sound";
 let swipSoundMuted = false;
-let swipSoundUnlocked = false;
+let swipSoundUnlocked = true;
 let swipSettingsLoaded = false;
 
 export default function VideoCard({
@@ -38,6 +38,7 @@ export default function VideoCard({
   const [retryKey, setRetryKey] = useState(0);
   if (!swipSettingsLoaded) {
     swipSoundMuted = false;
+    swipSoundUnlocked = true;
     swipSettingsLoaded = true;
   }
 
@@ -126,6 +127,7 @@ export default function VideoCard({
     }
 
     activeRef.current = true;
+    stopAllExploreMedia(video);
 
     const shouldTrySound = userGesture || swipSoundUnlocked || !swipSoundMuted;
     if (shouldTrySound) {
@@ -138,16 +140,16 @@ export default function VideoCard({
         window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: false, soundUnlocked: true } }));
         return;
       } catch {
-        // Mobile browsers can block sound until a user gesture. Fall through to muted autoplay.
+        // Some browsers block sound until a trusted gesture. Keep Swip's requested state sound-on.
+        swipSoundMuted = false;
+        setMuted(false);
       }
     }
 
     try {
-      video.muted = true;
+      video.muted = swipSoundMuted;
       await playExploreMedia(video);
-      swipSoundMuted = true;
-      setMuted(true);
-      window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: true, soundUnlocked: false } }));
+      window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: swipSoundMuted, soundUnlocked: swipSoundUnlocked } }));
     } catch {
       // Keep the poster frame if autoplay is completely blocked.
     }
@@ -256,6 +258,7 @@ export default function VideoCard({
         autoPlay={videoSettings.autoplay && !videoSettings.reduceData}
         controls={false}
         muted={muted}
+        defaultMuted={false}
         playsInline
         loop
         onCanPlay={() => setMediaError("")}

@@ -23,7 +23,7 @@ export default function ConversationItem({ conversation, onOpen, active }) {
               <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-label="Unread" />
             ) : null}
           </div>
-          <p className="mt-1 text-xs font-bold uppercase text-gray-400">{conversation.productName ? "Product message" : "Marketplace message"}</p>
+          <p className="mt-1 text-xs font-bold uppercase text-gray-400">{conversation.productName ? "Product message" : "UrMall message"}</p>
         </div>
         <span className="text-xs font-bold text-gray-400">{conversation.time}</span>
       </div>

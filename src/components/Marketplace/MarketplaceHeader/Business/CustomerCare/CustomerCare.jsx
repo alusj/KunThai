@@ -45,7 +45,7 @@ export default function CustomerCare() {
           <div className="flex items-start justify-between gap-3 border-b border-gray-200 pb-4">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase text-emerald-700">
-                {activeConversation.productName ? "Product message" : "Marketplace message"}
+                {activeConversation.productName ? "Product message" : "UrMall message"}
               </p>
               <h3 className="mt-1 text-lg font-black text-gray-950">{conversationTitle(activeConversation)}</h3>
               <p className="mt-1 text-sm font-bold text-gray-500">{activeConversation.preview}</p>

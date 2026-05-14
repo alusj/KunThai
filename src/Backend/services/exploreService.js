@@ -42,8 +42,36 @@ function normalizeNotification(item) {
     ...item,
     actor_name: item.actor_name || item.user || "KunThai",
     media_type: item.media_type || "post",
+    priority: item.priority || getNotificationPriority(item.type),
+    category: item.category || getNotificationCategory(item.type),
+    group_key: item.group_key || buildNotificationGroupKey(item),
     time_label: item.time_label || formatRelativeTime(item.created_at),
   };
+}
+
+function getNotificationPriority(type) {
+  if (["comment", "reply", "mention", "follow", "message", "creator_reply", "thread_reply"].includes(type)) {
+    return "high";
+  }
+
+  if (["like", "share", "save", "reaction"].includes(type)) {
+    return "medium";
+  }
+
+  return "normal";
+}
+
+function getNotificationCategory(type) {
+  if (["mention", "tag"].includes(type)) return "mentions";
+  if (["follow", "connect", "connection"].includes(type)) return "connections";
+  if (["new_login", "password_changed", "verification_approved", "report_update", "moderation_action"].includes(type)) return "system";
+  return "activity";
+}
+
+function buildNotificationGroupKey(item) {
+  const type = item?.type || "system";
+  const target = item?.post_id || item?.comment_id || item?.target_id || item?.media_type || "account";
+  return `${type}:${target}`;
 }
 
 function getNotificationMessage(type, actorName, mediaType = "post") {
@@ -57,14 +85,40 @@ function getNotificationMessage(type, actorName, mediaType = "post") {
       return `${name} joined the conversation on your ${target}`;
     case "reply":
       return `${name} replied to your comment thread`;
+    case "creator_reply":
+      return `${name} replied to your comment`;
+    case "thread_reply":
+      return `${name} added a new reply in a thread you joined`;
     case "save":
       return `${name} bookmarked your ${target}`;
     case "share":
       return `${name} shared your ${target}`;
+    case "reaction":
+      return `${name} reacted to your ${target}`;
+    case "tag":
+      return `${name} tagged you in a ${target}`;
     case "mention":
       return `${name} mentioned you`;
     case "follow":
       return `${name} started following you`;
+    case "new_login":
+      return "New login detected on your account";
+    case "password_changed":
+      return "Your password was changed";
+    case "verification_approved":
+      return "Your verification was approved";
+    case "report_update":
+      return "There is an update on your report";
+    case "moderation_action":
+      return "A moderation action was applied to your content";
+    case "post_trending":
+      return `Your ${target} is trending`;
+    case "video_milestone":
+      return `Your video reached a new views milestone`;
+    case "profile_milestone":
+      return "Your profile visits reached a new milestone";
+    case "follower_milestone":
+      return "You reached a new follower milestone";
     case "post":
       return `${name} published a new ${target}`;
     default:
@@ -181,11 +235,14 @@ export async function createExploreNotification(input) {
     type: input.type || "system",
     media_type: input.media_type || "post",
     message: input.message || getNotificationMessage(input.type || "system", actor.name, input.media_type || "post"),
+    priority: input.priority || getNotificationPriority(input.type || "system"),
+    category: input.category || getNotificationCategory(input.type || "system"),
     read: false,
     post_id: input.post_id || null,
     post_preview: input.post_preview || "",
     created_at: new Date().toISOString(),
   });
+  draft.group_key = input.group_key || buildNotificationGroupKey(draft);
 
   const duplicate = await findRecentDuplicateNotification(draft).catch(() => null);
   if (duplicate) {
@@ -200,12 +257,37 @@ export async function createExploreNotification(input) {
     type: draft.type,
     media_type: draft.media_type,
     message: draft.message,
+    priority: draft.priority,
+    category: draft.category,
+    group_key: draft.group_key,
     read: draft.read,
     post_id: draft.post_id,
     post_preview: draft.post_preview,
   };
 
-  const { data, error } = await supabase.from("explore_notifications").insert(payload).select().maybeSingle();
+  let insertPayload = { ...payload };
+  let data = null;
+  let error = null;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const result = await supabase.from("explore_notifications").insert(insertPayload).select().maybeSingle();
+    data = result.data;
+    error = result.error;
+
+    if (!error) {
+      break;
+    }
+
+    const optionalColumns = ["post_id", "post_preview", "actor_avatar_url", "actor_user_id", "media_type", "message", "priority", "category", "group_key"];
+    const missingColumn = optionalColumns.find((column) => isMissingColumn(error, column));
+
+    if (!missingColumn) {
+      break;
+    }
+
+    const { [missingColumn]: _removed, ...nextPayload } = insertPayload;
+    insertPayload = nextPayload;
+  }
 
   if (error) {
     if (
@@ -215,7 +297,10 @@ export async function createExploreNotification(input) {
       !isMissingColumn(error, "actor_avatar_url") &&
       !isMissingColumn(error, "actor_user_id") &&
       !isMissingColumn(error, "media_type") &&
-      !isMissingColumn(error, "message")
+      !isMissingColumn(error, "message") &&
+      !isMissingColumn(error, "priority") &&
+      !isMissingColumn(error, "category") &&
+      !isMissingColumn(error, "group_key")
     ) {
       console.warn("Explore notification could not be synced.", error);
       return null;
@@ -239,6 +324,9 @@ export async function createExploreNotification(input) {
         ...fallbackData,
         media_type: draft.media_type,
         message: draft.message,
+        priority: draft.priority,
+        category: draft.category,
+        group_key: draft.group_key,
         post_preview: draft.post_preview,
       });
       window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, { detail: fallbackCreated }));
@@ -343,8 +431,10 @@ export async function syncExploreReaction(postId, reactionType, active) {
   }
 }
 
-export async function fetchExploreNotifications() {
+export async function fetchExploreNotifications(options = {}) {
   const currentUserId = await getCurrentUserId();
+  const limit = Number.isFinite(options.limit) ? options.limit : 100;
+  const before = options.before || "";
   const storedNotifications = readStoredNotifications()
     .map(normalizeNotification)
     .filter((item) => !currentUserId || item.user_id === currentUserId);
@@ -353,12 +443,18 @@ export async function fetchExploreNotifications() {
     return storedNotifications;
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("explore_notifications")
     .select("*")
     .eq("user_id", currentUserId)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(limit);
+
+  if (before) {
+    query = query.lt("created_at", before);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     if (isMissingTable(error)) {

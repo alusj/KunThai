@@ -1,4 +1,4 @@
-import { MessageCircle, PackageCheck, Store } from "lucide-react";
+import { MessageCircle, PackageCheck, ShoppingBag, Store } from "lucide-react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
@@ -23,7 +23,10 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
           {businessLabel}
         </button>
 
-        <span className="text-sm font-bold text-gray-500">Marketplace</span>
+        <span className="inline-flex items-center gap-1.5 text-sm font-black text-gray-700">
+          <ShoppingBag size={16} className="text-emerald-700" />
+          UrMall
+        </span>
 
         <div className="flex items-center gap-2">
           <button

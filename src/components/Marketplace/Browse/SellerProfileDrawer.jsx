@@ -31,7 +31,7 @@ function StarRatingInput({ value, onChange }) {
           type="button"
           onClick={() => onChange(rating)}
           className={rating <= value ? "text-amber-500" : "text-gray-300"}
-          aria-label={`Rate marketplace ${rating}`}
+          aria-label={`Rate UrMall ${rating}`}
         >
           <Star size={22} fill="currentColor" />
         </button>
@@ -110,11 +110,11 @@ export default function SellerProfileDrawer({
     try {
       await submitMarketplaceReview(seller, rating, comment);
       setComment("");
-      onNotice?.("Marketplace review submitted.");
+      onNotice?.("UrMall review submitted.");
       const nextReviews = await fetchBuyerReviews({ businessId: seller.id, reviewType: "marketplace" });
       setReviews(nextReviews);
     } catch (err) {
-      onNotice?.(err.message || "Unable to submit marketplace review.", "danger");
+      onNotice?.(err.message || "Unable to submit UrMall review.", "danger");
     }
   }
 
@@ -152,7 +152,7 @@ export default function SellerProfileDrawer({
     const link = productLink(product);
     const sharePayload = {
       title: product.name,
-      text: `View ${product.name} on KunThai Marketplace`,
+      text: `View ${product.name} on KunThai UrMall`,
       url: link,
     };
 
@@ -182,7 +182,7 @@ export default function SellerProfileDrawer({
         <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
           <AppBackTab onBack={onClose} label="Back to product" historyKey="marketplace-seller-profile" />
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase text-emerald-700">Seller Marketplace</p>
+            <p className="text-xs font-black uppercase text-emerald-700">Seller UrMall</p>
             <h2 className="truncate text-lg font-black text-gray-950">{seller.name}</h2>
           </div>
         </header>
@@ -199,10 +199,10 @@ export default function SellerProfileDrawer({
                   {[seller.city, seller.country].filter(Boolean).join(", ") || "Location not added"}
                 </p>
                 <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
-                  {seller.description || "This seller has not added a marketplace description yet."}
+                  {seller.description || "This seller has not added a UrMall description yet."}
                 </p>
                 <p className="mt-2 text-sm font-black text-amber-600">
-                  {reviews.reviewCount ? `${reviews.rating.toFixed(1)} from ${reviews.reviewCount} marketplace review${reviews.reviewCount === 1 ? "" : "s"}` : "No marketplace reviews yet"}
+                  {reviews.reviewCount ? `${reviews.rating.toFixed(1)} from ${reviews.reviewCount} UrMall review${reviews.reviewCount === 1 ? "" : "s"}` : "No UrMall reviews yet"}
                 </p>
               </div>
             </div>
@@ -344,11 +344,11 @@ export default function SellerProfileDrawer({
               <div className="rounded-lg border border-gray-200 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-black text-gray-950">Marketplace Reviews</h3>
+                    <h3 className="font-black text-gray-950">UrMall Reviews</h3>
                     <p className="mt-1 text-sm font-bold text-gray-500">
                       {reviews.reviewCount
                         ? `${reviews.rating.toFixed(1)} from ${reviews.reviewCount} review${reviews.reviewCount === 1 ? "" : "s"}`
-                        : "No marketplace reviews yet"}
+                        : "No UrMall reviews yet"}
                     </p>
                   </div>
                 </div>
@@ -359,11 +359,11 @@ export default function SellerProfileDrawer({
                 <textarea
                   value={comment}
                   onChange={(event) => setComment(event.target.value)}
-                  placeholder="Review this marketplace experience"
+                  placeholder="Review this UrMall experience"
                   className="min-h-24 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
                 />
                 <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700">
-                  Submit Marketplace Review
+                  Submit UrMall Review
                 </button>
               </form>
 
@@ -387,7 +387,7 @@ export default function SellerProfileDrawer({
             <section className="mt-4 rounded-lg border border-gray-200 bg-white p-5">
               <p className="font-black text-gray-950">Message {seller.name}</p>
               <p className="mt-1 text-sm font-medium text-gray-500">
-                Send a marketplace message that will appear in your Messages screen and the seller dashboard.
+                Send a UrMall message that will appear in your Messages screen and the seller dashboard.
               </p>
               <form onSubmit={sendMessage} className="mt-4 space-y-3">
                 <textarea

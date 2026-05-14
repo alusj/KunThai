@@ -32,7 +32,7 @@ function mapBuyerProduct(product) {
     allowNegotiation: Boolean(product.allow_negotiation),
     seller: {
       id: business.id || product.business_id,
-      name: business.business_name || "Marketplace seller",
+      name: business.business_name || "UrMall seller",
       description: business.description || "",
       city: business.city || "",
       country: business.country || "",
@@ -369,7 +369,7 @@ export async function fetchBuyerOrders() {
     return {
       id: order.id,
       businessId: order.business_id,
-      sellerName: business.business_name || "Marketplace seller",
+      sellerName: business.business_name || "UrMall seller",
       sellerLocation: [business.city, business.country].filter(Boolean).join(", "),
       sellerLogoUrl: business.logo_url || "",
       status: order.status,
@@ -407,10 +407,10 @@ export async function fetchBuyerMessages() {
         conversationKey: key,
         businessId: message.business_id,
         productId: message.product_id,
-        sellerName: business.business_name || "Marketplace seller",
+        sellerName: business.business_name || "UrMall seller",
         sellerLocation: [business.city, business.country].filter(Boolean).join(", "),
         sellerLogoUrl: business.logo_url || "",
-        topic: message.topic || message.product_name || "Marketplace message",
+        topic: message.topic || message.product_name || "UrMall message",
         productName: message.product_name || "",
         type: message.message_type || "message",
         unread: false,
@@ -449,7 +449,7 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
   const buyer = await getCurrentBuyer("Sign in to message this seller.");
   const businessId = seller?.id || product?.businessId;
   if (!businessId) throw new Error("Choose a seller to message.");
-  const conversationTopic = topic?.trim() || product?.name || "Marketplace message";
+  const conversationTopic = topic?.trim() || product?.name || "UrMall message";
   const conversationKey = buildConversationKey(businessId, product?.id, conversationTopic);
 
   const { error } = await supabase.from("marketplace_customer_messages").insert({
@@ -536,13 +536,13 @@ export async function submitProductReview(product, rating, comment) {
 }
 
 export async function submitMarketplaceReview(seller, rating, comment) {
-  const buyerId = await getCurrentUserId("Sign in to review this marketplace.");
+  const buyerId = await getCurrentUserId("Sign in to review this UrMall seller.");
   if (!seller?.id) throw new Error("Choose a valid seller.");
 
   const { error } = await supabase.from("marketplace_reviews").insert({
     buyer_id: buyerId,
     business_id: seller.id,
-    product_name: seller.name || "Marketplace",
+    product_name: seller.name || "UrMall",
     review_type: "marketplace",
     rating: Number(rating || 0),
     comment: comment.trim(),

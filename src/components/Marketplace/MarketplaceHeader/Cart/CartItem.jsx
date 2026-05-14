@@ -33,7 +33,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
     const link = productLink(item);
     const sharePayload = {
       title: item.name,
-      text: `View ${item.name} on KunThai Marketplace`,
+      text: `View ${item.name} on KunThai UrMall`,
       url: link,
     };
 

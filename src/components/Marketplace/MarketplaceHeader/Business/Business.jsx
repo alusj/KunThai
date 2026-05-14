@@ -36,7 +36,8 @@ function SellerFullScreen({ eyebrow, title, subtitle, onBack, children }) {
             onBack={onBack}
             label="Back to seller dashboard"
             historyKey={`marketplace-seller-${title}`}
-            className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+            className="mt-0.5 flex-none"
+            useHistoryLayer={false}
           />
           <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">{eyebrow}</p>
@@ -151,7 +152,7 @@ export default function Business({ onBack }) {
         <SellerFullScreen
           eyebrow="Messages"
           title="Buyer Messages"
-          subtitle="Reply to potential customers, product inquiries, and marketplace messages."
+          subtitle="Reply to potential customers, product inquiries, and UrMall messages."
           onBack={goBackSellerScreen}
         >
           <CustomerCare />

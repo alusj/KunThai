@@ -15,7 +15,7 @@ export const DEFAULT_EXPLORE_SETTINGS = {
   },
   video: {
     autoplay: true,
-    defaultMuted: true,
+    defaultMuted: false,
     reduceData: false,
   },
   feed: {

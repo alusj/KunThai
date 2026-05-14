@@ -1,14 +1,27 @@
+import { Menu, Plus, ShoppingBag } from "lucide-react";
+
 export default function BusinessSkeleton() {
   return (
     <div className="min-h-screen animate-pulse bg-gray-50">
       <div className="sticky top-0 z-30 border-b border-gray-200 bg-white">
         <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <div className="h-6 w-36 rounded bg-gray-200" />
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center text-gray-200">
+              <ShoppingBag size={28} strokeWidth={2.6} />
+            </div>
+            <div className="hidden h-6 w-px bg-gray-200 sm:block" />
+            <div className="h-5 w-32 rounded bg-gray-200" />
+          </div>
           <div className="hidden h-10 max-w-md flex-1 rounded-lg bg-gray-100 md:block" />
           <div className="flex gap-2">
-            <div className="h-10 w-10 rounded-lg bg-gray-200 lg:w-32" />
+            <div className="hidden h-10 w-32 rounded-lg bg-gray-200 lg:block" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-200 text-white">
+              <Plus size={18} />
+            </div>
             <div className="h-10 w-10 rounded-lg bg-gray-200" />
-            <div className="h-10 w-10 rounded-lg bg-gray-200" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-200 text-white">
+              <Menu size={18} />
+            </div>
           </div>
         </div>
       </div>

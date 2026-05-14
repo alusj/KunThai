@@ -14,6 +14,21 @@ alter table if exists public.explore_conversations enable row level security;
 alter table if exists public.explore_conversation_members enable row level security;
 alter table if exists public.explore_messages enable row level security;
 
+alter table if exists public.explore_notifications
+  add column if not exists priority text default 'normal',
+  add column if not exists category text default 'activity',
+  add column if not exists group_key text;
+
+create index if not exists explore_notifications_user_created_idx
+  on public.explore_notifications (user_id, created_at desc);
+
+create index if not exists explore_notifications_user_unread_idx
+  on public.explore_notifications (user_id, read)
+  where read = false;
+
+create index if not exists explore_notifications_group_idx
+  on public.explore_notifications (user_id, group_key, created_at desc);
+
 drop policy if exists "Explore profiles are readable" on public.explore_profiles;
 create policy "Explore profiles are readable" on public.explore_profiles for select using (true);
 

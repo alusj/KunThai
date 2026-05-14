@@ -11,7 +11,7 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export default function Messages({ onBack, onProductOpen }) {
+export default function Messages({ compact = false, onBack, onProductOpen }) {
   const [messages, setMessages] = useState([]);
   const [activeId, setActiveId] = useState("");
   const [draft, setDraft] = useState("");
@@ -66,14 +66,16 @@ export default function Messages({ onBack, onProductOpen }) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-white px-4">
-        <AppBackTab onBack={onBack} label="Back to marketplace" historyKey="marketplace-messages" />
-        <div>
-          <h1 className="text-lg font-black text-gray-950">Messages</h1>
-          <p className="text-xs font-bold text-gray-500">Buyer conversations with marketplace sellers</p>
-        </div>
-      </header>
+    <main className={compact ? "bg-gray-50" : "min-h-screen bg-gray-50"}>
+      {!compact ? (
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-white px-4">
+          <AppBackTab onBack={onBack} label="Back to UrMall" historyKey="marketplace-messages" />
+          <div>
+            <h1 className="text-lg font-black text-gray-950">Messages</h1>
+            <p className="text-xs font-bold text-gray-500">Buyer conversations with UrMall sellers</p>
+          </div>
+        </header>
+      ) : null}
 
       <section className="mx-auto grid max-w-6xl gap-4 p-4 lg:grid-cols-[320px_1fr]">
         <aside className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">

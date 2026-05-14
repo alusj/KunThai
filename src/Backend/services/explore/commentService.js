@@ -148,24 +148,37 @@ async function notifyCommentReply(comment, draft) {
     return;
   }
 
-  const { data: parent, error } = await supabase
-    .from("explore_post_comments")
-    .select("id, user_id, body")
-    .eq("id", draft.parent_comment_id)
-    .maybeSingle();
+  const [parentResult, postResult] = await Promise.all([
+    supabase
+      .from("explore_post_comments")
+      .select("id, user_id, body")
+      .eq("id", draft.parent_comment_id)
+      .maybeSingle(),
+    supabase
+      .from("explore_posts")
+      .select("id, user_id")
+      .eq("id", draft.post_id)
+      .maybeSingle(),
+  ]);
 
-  if (error || !parent?.user_id || parent.user_id === draft.user_id) {
+  const parent = parentResult.data;
+  const post = postResult.data;
+
+  if (parentResult.error || !parent?.user_id || parent.user_id === draft.user_id) {
     return;
   }
+
+  const replyType = post?.user_id === draft.user_id ? "creator_reply" : "reply";
+  const replyMessage = replyType === "creator_reply" ? `${draft.author_name} replied to your comment` : `${draft.author_name} replied to your comment`;
 
   await supabase.from("explore_notifications").insert({
     user_id: parent.user_id,
     actor_user_id: draft.user_id,
     actor_name: draft.author_name,
     actor_avatar_url: draft.author_avatar_url,
-    type: "reply",
+    type: replyType,
     media_type: "comment",
-    message: `${draft.author_name} replied to your comment`,
+    message: replyMessage,
     read: false,
     post_id: draft.post_id,
     post_preview: comment.body || "Voice reply",

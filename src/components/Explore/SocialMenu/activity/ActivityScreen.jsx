@@ -8,7 +8,8 @@ export default function ActivityScreen({ hideHeader = false, onOpenNotification 
   const { notifications, error, markRead } = useExploreNotifications();
 
   async function openNotification(item) {
-    await markRead(item.id);
+    const groupedItems = Array.isArray(item.groupedItems) ? item.groupedItems : [item];
+    await Promise.all(groupedItems.filter((notification) => !notification.read).map((notification) => markRead(notification.id)));
     onOpenNotification?.(item);
   }
 

@@ -105,7 +105,7 @@ export default function LocationContactStep({ registration }) {
 
       <ToggleRow
         label="Allow my business to be discoverable nearby"
-        description="Show this store to nearby buyers in marketplace discovery."
+        description="Show this store to nearby buyers in UrMall discovery."
         checked={form.location.discoverableNearby}
         onChange={(checked) => updateSection("location", { discoverableNearby: checked })}
       />

@@ -5,7 +5,7 @@ import { FiCompass, FiShoppingBag, FiTruck } from "react-icons/fi";
 
 const tabs = [
   { id: "explore", label: "Explore", icon: FiCompass },
-  { id: "marketplace", label: "Marketplace", icon: FiShoppingBag },
+  { id: "marketplace", label: "UrMall", icon: FiShoppingBag },
   { id: "transport", label: "Transport", icon: FiTruck },
 ];
 

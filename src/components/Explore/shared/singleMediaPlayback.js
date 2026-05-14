@@ -6,6 +6,9 @@ export function pauseOtherExploreMedia(activeMedia) {
   document.querySelectorAll("audio, video").forEach((media) => {
     if (media !== activeMedia && !media.paused) {
       media.pause();
+      if (media.tagName === "VIDEO") {
+        media.muted = true;
+      }
     }
   });
 }
@@ -21,6 +24,9 @@ export function stopAllExploreMedia(exceptMedia = null) {
     }
 
     media.pause();
+    if (media.tagName === "VIDEO") {
+      media.muted = true;
+    }
     if (!Number.isNaN(media.currentTime)) {
       media.currentTime = 0;
     }

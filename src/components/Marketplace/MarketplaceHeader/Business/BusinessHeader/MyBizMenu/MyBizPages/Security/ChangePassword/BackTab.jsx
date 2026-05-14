@@ -6,7 +6,8 @@ export default function BackTab({ onBack }) {
       onBack={onBack}
       label="Back"
       historyKey="marketplace-menu-back"
-      className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+      className="mt-0.5 flex-none"
+      useHistoryLayer={false}
     />
   );
 }

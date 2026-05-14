@@ -86,7 +86,7 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
         const products = await fetchBuyerMarketplaceProducts(filters);
         if (alive) setCatalog(products);
       } catch (err) {
-        if (alive) setError(err.message || "Unable to load marketplace products.");
+        if (alive) setError(err.message || "Unable to load UrMall products.");
       } finally {
         if (alive) setLoading(false);
       }

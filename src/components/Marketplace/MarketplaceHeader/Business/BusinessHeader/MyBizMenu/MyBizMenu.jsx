@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import Logout from "./Logout";
+import AppBackTab from "../../../../../shared/AppBackTab";
 import MenuHeader from "./MenuHeader";
 import SellerDrawerNavItem from "./SellerDrawerNavItem";
 import SellerDrawerProfile from "./SellerDrawerProfile";
@@ -85,21 +85,19 @@ export default function MyBizMenu({
         aria-label="Close seller menu"
       />
 
-      <aside className="absolute inset-0 flex h-full w-full flex-col bg-gray-50 shadow-2xl">
+      <aside
+        className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ${
+          activeScreen ? "translate-x-full" : "translate-x-0"
+        }`}
+      >
         <MenuHeader
-          title={activeScreen ? activeScreen.title : "Seller Menu"}
-          showBack={!!activeScreen}
-          onBack={() => setActiveScreenKey(null)}
+          title="Seller Menu"
+          showBack={false}
+          onBack={null}
           onClose={closeDrawer}
         />
 
-        {activeScreen ? (
-          <div className="flex-1 overflow-y-auto bg-white py-4">
-            {activeScreen.component}
-          </div>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto pb-6">
+        <div className="flex-1 overflow-y-auto pb-6">
               <SellerDrawerProfile
                 onOpenProfile={() => setActiveScreenKey("profile")}
               />
@@ -151,13 +149,31 @@ export default function MyBizMenu({
                 </SellerDrawerSection>
               </div>
             </div>
-
-            <div className="border-t border-gray-200 bg-white p-4">
-              <Logout />
-            </div>
-          </>
-        )}
       </aside>
+
+      {activeScreen ? (
+        <section className="absolute inset-0 flex h-full w-full flex-col bg-gray-50 shadow-2xl">
+          <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
+            <div className="flex min-w-0 items-start gap-3">
+              <AppBackTab
+                onBack={() => setActiveScreenKey(null)}
+                label="Back to seller menu"
+                historyKey="marketplace-business-menu-screen"
+                className="mt-0.5 flex-none"
+                useHistoryLayer={false}
+              />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-700 sm:text-xs">UrMall</p>
+                <h2 className="mt-1 text-xl font-semibold text-gray-950 sm:text-2xl">{activeScreen.title}</h2>
+              </div>
+            </div>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white py-4">
+            {activeScreen.component}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

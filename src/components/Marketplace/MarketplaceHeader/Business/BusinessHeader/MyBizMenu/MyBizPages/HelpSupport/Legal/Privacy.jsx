@@ -43,13 +43,13 @@ export default function Privacy() {
       <SettingsSubMenuItem
         icon={FileCheck2}
         title="Community Guidelines"
-        description="Marketplace standards for safe and trusted selling."
+        description="UrMall standards for safe and trusted selling."
         onClick={() => setCurrentView("guidelines")}
       />
       <SettingsSubMenuItem
         icon={Scale}
         title="Terms Of Service"
-        description="Rules and responsibilities for sellers using the marketplace."
+        description="Rules and responsibilities for sellers using UrMall."
         onClick={() => setCurrentView("service")}
       />
     </div>

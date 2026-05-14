@@ -16,7 +16,7 @@ function statusTone(status) {
   return "bg-amber-50 text-amber-700";
 }
 
-export default function Orders({ onBack }) {
+export default function Orders({ compact = false, onBack }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -46,14 +46,16 @@ export default function Orders({ onBack }) {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-white px-4">
-        <AppBackTab onBack={onBack} label="Back to marketplace" historyKey="marketplace-orders" />
-        <div>
+    <main className={compact ? "bg-gray-50" : "min-h-screen bg-gray-50"}>
+      {!compact ? (
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-white px-4">
+          <AppBackTab onBack={onBack} label="Back to UrMall" historyKey="marketplace-orders" />
+          <div>
           <h1 className="text-lg font-black text-gray-950">Orders</h1>
-          <p className="text-xs font-bold text-gray-500">Your marketplace purchases and checkout requests</p>
-        </div>
-      </header>
+            <p className="text-xs font-bold text-gray-500">Your UrMall purchases and checkout requests</p>
+          </div>
+        </header>
+      ) : null}
 
       <section className="mx-auto max-w-4xl space-y-3 p-4">
         {error && <p className="rounded-lg bg-red-50 p-4 font-bold text-red-700">{error}</p>}
@@ -91,7 +93,7 @@ export default function Orders({ onBack }) {
             </div>
 
             <div className="mt-4 rounded-lg bg-gray-50 p-3">
-              <p className="text-sm font-bold text-gray-700">{order.preview || "Marketplace order"}</p>
+              <p className="text-sm font-bold text-gray-700">{order.preview || "UrMall order"}</p>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-bold text-gray-500">
                   {order.itemCount} item{order.itemCount === 1 ? "" : "s"} • {formatDate(order.createdAt)}

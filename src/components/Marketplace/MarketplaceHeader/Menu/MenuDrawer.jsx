@@ -246,7 +246,7 @@ export default function MenuDrawer({ open, onClose }) {
                 <HelpCircle className="text-emerald-700" size={28} />
                 <h4 className="mt-3 font-black text-gray-950">Help & support</h4>
                 <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
-                  For order help, contact the seller in Messages. For account or safety issues, use Explore support until marketplace support tickets are added.
+                  For order help, contact the seller in Messages. For account or safety issues, use Explore support until UrMall support tickets are added.
                 </p>
               </div>
             )}
