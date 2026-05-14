@@ -116,6 +116,27 @@ export async function fetchExploreProfile(userId) {
   return profile;
 }
 
+export async function ensureExploreProfile(user) {
+  if (!user?.id) {
+    return null;
+  }
+
+  const existing = await fetchExploreProfile(user.id).catch(() => null);
+  if (existing) {
+    return existing;
+  }
+
+  const fallback = {
+    ...buildExploreProfileFromUser(user),
+    userId: user.id,
+  };
+
+  const row = await upsertExploreProfile(user.id, fallback).catch(() => null);
+  const profile = row ? toAppProfile(row, fallback) : fallback;
+  writeStoredProfile(user.id, profile);
+  return profile;
+}
+
 export async function getCurrentUserProfile() {
   const user = await getAuthUser();
 
@@ -124,7 +145,7 @@ export async function getCurrentUserProfile() {
   }
 
   const fallback = buildExploreProfileFromUser(user);
-  const stored = await fetchExploreProfile(user.id).catch(() => null);
+  const stored = await ensureExploreProfile(user).catch(() => null);
   const profile = stored || fallback;
 
   return {

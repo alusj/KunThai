@@ -2,7 +2,7 @@ import { HiOutlineSparkles, HiOutlineUserGroup, HiOutlineUsers } from "react-ico
 
 export default function ConnectionsSummary({ counts, loading = false }) {
   const items = [
-    { label: "Following", value: counts.following, icon: HiOutlineUserGroup },
+    { label: "My Circle", value: counts.circle, icon: HiOutlineUserGroup },
     { label: "Followers", value: counts.followers, icon: HiOutlineUsers },
     { label: "Suggested", value: counts.discover, icon: HiOutlineSparkles },
   ];

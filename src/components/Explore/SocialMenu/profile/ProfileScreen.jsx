@@ -68,11 +68,24 @@ export default function ProfileScreen({
   const safety = useTrustSafety();
   const profileFeedPosts = feed.posts.filter((post) => post.user_id === values?.userId);
   const profileSwipPosts = swipFeed.posts.filter((post) => post.user_id === values?.userId && post.video_url);
+  const displayedStats = {
+    ...(followStats.stats || {}),
+    feed: profileFeedPosts.length,
+    swip: profileSwipPosts.length,
+  };
   const followed = Boolean(values?.userId && followedUsers.has(values.userId));
 
   useEffect(() => {
     setValues(profile || {});
   }, [profile]);
+
+  useEffect(() => {
+    if (postTab === "swip" && values?.userId && !swipFeed.loading) {
+      swipFeed.reload();
+    }
+    // swipFeed is a hook facade; tab/user changes are the intended refresh triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postTab, values?.userId]);
 
   function updateField(field, value) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -165,8 +178,8 @@ export default function ProfileScreen({
         onLike={() => feed.toggleLike(post.id)}
         onSave={() => feed.toggleSave(post.id)}
         onComment={(body) => feed.addComment(post.id, body)}
-        onEdit={() => feed.editPost(post.id)}
-        onDelete={() => feed.deletePost(post.id)}
+        onEdit={(body) => feed.editPost(post.id, body)}
+        onDelete={() => feed.deletePost(post.id, { confirm: false })}
         onViewActivity={() => feed.viewActivity(post.id)}
       />
     ));
@@ -178,18 +191,20 @@ export default function ProfileScreen({
     }
 
     return profileSwipPosts.map((post) => (
-      <VideoCard
-        key={post.id}
-        post={post}
-        currentUserId={currentUserId}
-        isOwner={editable}
-        liked={swipFeed.likedPosts.has(post.id)}
-        saved={swipFeed.savedPosts.has(post.id)}
-        onLike={() => swipFeed.toggleLike(post.id)}
-        onSave={() => swipFeed.toggleSave(post.id)}
-        onComment={(body) => swipFeed.addComment(post.id, body)}
-        onDelete={() => swipFeed.deletePost(post.id)}
-      />
+      <div key={post.id} className="h-[520px] overflow-hidden rounded-[28px] bg-slate-950 sm:h-[640px]">
+        <VideoCard
+          post={post}
+          active={postTab === "swip"}
+          currentUserId={currentUserId}
+          isOwner={editable}
+          liked={swipFeed.likedPosts.has(post.id)}
+          saved={swipFeed.savedPosts.has(post.id)}
+          onLike={() => swipFeed.toggleLike(post.id)}
+          onSave={() => swipFeed.toggleSave(post.id)}
+          onComment={(body) => swipFeed.addComment(post.id, body)}
+          onDelete={() => swipFeed.deletePost(post.id, { confirm: false })}
+        />
+      </div>
     ));
   }
 
@@ -235,8 +250,8 @@ export default function ProfileScreen({
           onReport={reportProfile}
           onShare={handleShare}
           saving={saving}
-          loadingStats={followStats.loading || !followStats.stats}
-          stats={followStats.stats}
+          loadingStats={followStats.loading && !followStats.stats}
+          stats={displayedStats}
           values={values}
         />
 

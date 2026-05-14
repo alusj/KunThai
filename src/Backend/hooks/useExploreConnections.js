@@ -43,9 +43,7 @@ export function useExploreConnections(kind, currentUserId = "") {
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
 
   useEffect(() => {
-    if (items.length) {
-      writeConnectionsMemory(cacheKey, items);
-    }
+    writeConnectionsMemory(cacheKey, items);
   }, [cacheKey, items]);
 
   async function load(options = {}) {
@@ -129,13 +127,13 @@ export function useExploreConnections(kind, currentUserId = "") {
 
       setItems((current) => current.map((item) => (item.user_id === userId ? { ...item, isFollowing: active } : item)));
 
-      if (kind === "mycircle" || kind === "followers") {
-        load({ force: true });
-      }
+      load({ force: true });
     }
 
     window.addEventListener(EXPLORE_FOLLOW_CHANGED_EVENT, handleFollowChanged);
     return () => window.removeEventListener(EXPLORE_FOLLOW_CHANGED_EVENT, handleFollowChanged);
+    // load is intentionally kept local so follow events force only this connection cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind]);
 
   async function followUser(userId) {
@@ -151,6 +149,10 @@ export function useExploreConnections(kind, currentUserId = "") {
 
     if (active && targetItem) {
       setItems((current) => {
+        if (kind === "discover") {
+          return current.filter((item) => item.user_id !== userId);
+        }
+
         if (kind === "followers") {
           return current.filter((item) => item.user_id !== userId);
         }
@@ -212,7 +214,6 @@ export function useExploreConnections(kind, currentUserId = "") {
 
   const visibleItems = items
     .filter((item) => !blockedUsers.has(item.user_id))
-    .filter((item) => kind !== "discover" || !(followedUsers.has(item.user_id) || item.isFollowing || item.followsYou))
     .map((item) => ({ ...item, isFollowing: followedUsers.has(item.user_id) || item.isFollowing }));
 
   return { items: visibleItems, loading, error, reload: () => load({ force: true }), followUser, blockUser, removeUser };

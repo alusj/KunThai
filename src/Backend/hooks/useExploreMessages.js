@@ -73,7 +73,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       const nextConversations = await fetchExploreConversations(currentUserId);
       setConversations(nextConversations);
       if (activeConversation?.id) {
-        const nextMessages = await fetchExploreMessages(activeConversation.id);
+        const nextMessages = await fetchExploreMessages(activeConversation.id, currentUserId);
         setMessages(nextMessages);
       }
     } catch (err) {
@@ -85,16 +85,20 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
   useEffect(() => {
     reload();
+    // reload is intentionally scoped to the active user/conversation state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, activeConversation?.id]);
 
   useEffect(() => {
     if (initialRecipient?.userId || initialRecipient?.username) {
       startExploreConversation(currentProfile, initialRecipient).then(async (conversation) => {
         setActiveConversation(conversation);
-        setMessages(await fetchExploreMessages(conversation.id));
+        setMessages(await fetchExploreMessages(conversation.id, currentUserId));
         setConversations(await fetchExploreConversations(currentUserId));
       }).catch((err) => setError(friendlyMessageError(err)));
     }
+    // Only the target recipient identity should open the initial chat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRecipient?.userId, initialRecipient?.username]);
 
   useEffect(() => {
@@ -102,7 +106,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       reload();
     }
 
-    const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, handleMessageEvent);
+    const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, handleMessageEvent, conversations.map((conversation) => conversation.id));
     window.addEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
     window.addEventListener("storage", handleMessageEvent);
     return () => {
@@ -110,7 +114,9 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       window.removeEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
       window.removeEventListener("storage", handleMessageEvent);
     };
-  }, [activeConversation?.id, currentUserId]);
+    // Realtime subscription is keyed by user, active conversation, and known ids.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConversation?.id, currentUserId, conversations]);
 
   useEffect(() => {
     if (!activeConversation?.id || !currentUserId || !readExploreSettings().messages.readReceipts) {
@@ -124,7 +130,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     setActiveConversation(conversation);
     try {
       setError("");
-      setMessages(await fetchExploreMessages(conversation.id));
+      setMessages(await fetchExploreMessages(conversation.id, currentUserId));
       if (readExploreSettings().messages.readReceipts) {
         await markExploreConversationRead(conversation.id, currentUserId);
       }

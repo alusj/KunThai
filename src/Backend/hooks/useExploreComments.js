@@ -51,6 +51,8 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
 
   useEffect(() => {
     load();
+    // load is intentionally scoped to postId and local hook state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
   useEffect(() => {
@@ -197,7 +199,7 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
         setComments((current) => current.map((comment) => (comment.id === tempId ? created : comment)));
       }
 
-      if (post?.user_id) {
+      if (post?.user_id && post.user_id !== currentUserId) {
         const nextCount = Math.max(Number(post.comments_count || 0), comments.length) + 1;
         updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
         createExploreNotification({

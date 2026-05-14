@@ -19,6 +19,8 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
     if (unreadCount > 0) {
       markAllRead();
     }
+    // markAllRead is intentionally called only when unread count changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unreadCount]);
 
   function toggleSetting(key) {

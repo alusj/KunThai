@@ -29,7 +29,7 @@ export default function MessageComposer({ onActivity, onSend }) {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [onActivity, recording]);
+  }, [allowVoiceNotes, onActivity, recording]);
 
   function submit(event) {
     event.preventDefault();

@@ -1,15 +1,16 @@
+import { createElement } from "react";
 import { HiOutlineBolt, HiOutlineEye, HiOutlineShieldCheck, HiOutlineUserMinus } from "react-icons/hi2";
 
 import { useTrustSafety } from "../../../../Backend/hooks/useTrustSafety";
 import EmptyState from "../../shared/EmptyState";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
-function SettingRow({ children, description, icon: Icon, title }) {
+function SettingRow({ children, description, icon, title }) {
   return (
     <div className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
         <span className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
-          <Icon className="text-2xl" />
+          {createElement(icon, { className: "text-2xl" })}
         </span>
         <div className="min-w-0">
           <p className="text-base font-black text-slate-950">{title}</p>

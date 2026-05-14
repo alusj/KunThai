@@ -5,7 +5,7 @@ import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
 import { useScrollHidden } from "../../Backend/hooks/useScrollHidden";
-import { buildExploreProfileFromUser, fetchExploreProfile } from "../../Backend/services/exploreService";
+import { buildExploreProfileFromUser, ensureExploreProfile, fetchExploreProfile } from "../../Backend/services/exploreService";
 
 // Pages (PARENT TAB CONTENT)
 import UrFeed from "./ExploreTabs/urfeed/UrFeed";
@@ -74,7 +74,6 @@ export default function Explore({ onScreenModeChange }) {
   const { activeTab, activeMenuScreen, menuScreen } = exploreNav;
   const isSwipTab = activeTab === "Swip";
   const profileExists = !authLoading && profileFetched && Boolean(profile);
-  const profileMissing = !authLoading && !profileLoading && profileFetched && Boolean(user?.id) && !profile && !profileError;
   const showProfileSkeleton = authLoading || profileLoading || !profileFetched;
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
@@ -149,7 +148,7 @@ export default function Explore({ onScreenModeChange }) {
     setProfileError("");
     setProfileFetched(false);
 
-    fetchExploreProfile(user.id)
+    ensureExploreProfile(user)
       .then((profileData) => {
         if (alive) {
           setProfileOverride(profileData);
@@ -172,7 +171,7 @@ export default function Explore({ onScreenModeChange }) {
     return () => {
       alive = false;
     };
-  }, [authLoading, user?.id]);
+  }, [authLoading, user]);
 
   useEffect(() => {
     let clearTimer;
@@ -474,7 +473,6 @@ export default function Explore({ onScreenModeChange }) {
       <div className={`w-full max-w-full overflow-x-clip ${isSwipTab ? "pt-0" : "pt-2"}`}>
         {showProfileSkeleton ? <ExploreProfileSkeleton /> : null}
         {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
-        {profileMissing ? <ExploreCreateProfileState onCreate={() => openMenuScreen("Profile")} /> : null}
         {profileExists ? (
           <>
             <div className={activeTab === "UrFeed" ? "block" : "hidden"} aria-hidden={activeTab !== "UrFeed"}>
@@ -532,26 +530,6 @@ function ExploreProfileError({ message }) {
     <div className="px-4 py-4 sm:px-5 lg:px-8">
       <div className="rounded-[24px] border border-rose-100 bg-white p-5 text-sm font-bold text-rose-700 shadow-sm">
         {message}
-      </div>
-    </div>
-  );
-}
-
-function ExploreCreateProfileState({ onCreate }) {
-  return (
-    <div className="px-4 py-4 sm:px-5 lg:px-8">
-      <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm">
-        <h3 className="text-base font-black text-slate-950">Create your Explore profile</h3>
-        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600">
-          Add your name, username, and profile image before posting or reacting as a public account.
-        </p>
-        <button
-          type="button"
-          onClick={onCreate}
-          className="mt-4 h-11 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white"
-        >
-          Create profile
-        </button>
       </div>
     </div>
   );

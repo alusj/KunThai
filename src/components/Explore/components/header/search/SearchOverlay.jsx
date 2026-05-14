@@ -8,7 +8,7 @@ import SearchResultItem from "./SearchResultItem";
 
 export default function SearchOverlay({ onClose, onOpenResult, open }) {
   const inputRef = useRef(null);
-  const search = useExploreSearch(open);
+  const search = useExploreSearch();
 
   useEffect(() => {
     if (open) {

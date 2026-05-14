@@ -6,17 +6,21 @@ const MESSAGE_ACTIVITY_KEY = "explore-message-activity";
 export const EXPLORE_MESSAGE_EVENT = "explore-message-event";
 export const EXPLORE_MESSAGE_ACTIVITY_EVENT = "explore-message-activity";
 
-function readArray(key) {
+function scopedKey(key, userId = "") {
+  return userId ? `${key}-${userId}` : key;
+}
+
+function readArray(key, userId = "") {
   try {
-    const value = JSON.parse(localStorage.getItem(key) || "[]");
+    const value = JSON.parse(localStorage.getItem(scopedKey(key, userId)) || "[]");
     return Array.isArray(value) ? value : [];
   } catch {
     return [];
   }
 }
 
-function writeArray(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+function writeArray(key, value, userId = "") {
+  localStorage.setItem(scopedKey(key, userId), JSON.stringify(value));
 }
 
 function readObject(key) {
@@ -46,7 +50,7 @@ function isLocalConversationId(value) {
 
 function isMissingMessageStore(error) {
   const message = String(error?.message || "").toLowerCase();
-  return error?.code === "42P01" || message.includes("does not exist") || message.includes("schema cache");
+  return error?.code === "42P01" || message.includes("does not exist") || message.includes("schema cache") || message.includes("infinite recursion");
 }
 
 function isMissingColumn(error, columnName) {
@@ -139,8 +143,8 @@ function hydrateConversations(conversations, members, profiles) {
 }
 
 function fetchLocalConversations(currentUserId) {
-  const conversations = readArray(CONVERSATIONS_KEY);
-  const messages = readArray(MESSAGES_KEY);
+  const conversations = readArray(CONVERSATIONS_KEY, currentUserId);
+  const messages = readArray(MESSAGES_KEY, currentUserId);
 
   return conversations
     .filter((conversation) => conversation.participantIds?.includes(currentUserId))
@@ -195,8 +199,8 @@ export async function fetchExploreConversations(currentUserId) {
   }
 
   const messages = (messageRows || []).map(normalizeMessage);
-  writeArray(CONVERSATIONS_KEY, hydratedConversations);
-  writeArray(MESSAGES_KEY, messages);
+  writeArray(CONVERSATIONS_KEY, hydratedConversations, currentUserId);
+  writeArray(MESSAGES_KEY, messages, currentUserId);
 
   return hydratedConversations
     .map((conversation) => {
@@ -208,10 +212,10 @@ export async function fetchExploreConversations(currentUserId) {
     .sort((a, b) => new Date(b.lastMessage?.createdAt || b.updatedAt || 0) - new Date(a.lastMessage?.createdAt || a.updatedAt || 0));
 }
 
-export async function fetchExploreMessages(conversationId) {
+export async function fetchExploreMessages(conversationId, currentUserId = "") {
   if (!conversationId) return [];
   if (isLocalConversationId(conversationId)) {
-    return readArray(MESSAGES_KEY).filter((message) => message.conversationId === conversationId);
+    return readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId === conversationId);
   }
 
   const { data, error } = await supabase
@@ -221,13 +225,13 @@ export async function fetchExploreMessages(conversationId) {
     .order("created_at", { ascending: true });
 
   if (error) {
-    if (isMissingMessageStore(error)) return readArray(MESSAGES_KEY).filter((message) => message.conversationId === conversationId);
+    if (isMissingMessageStore(error)) return readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId === conversationId);
     throw error;
   }
 
   const nextMessages = (data || []).map(normalizeMessage);
-  const otherMessages = readArray(MESSAGES_KEY).filter((message) => message.conversationId !== conversationId);
-  writeArray(MESSAGES_KEY, [...otherMessages, ...nextMessages]);
+  const otherMessages = readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId !== conversationId);
+  writeArray(MESSAGES_KEY, [...otherMessages, ...nextMessages], currentUserId);
   return nextMessages;
 }
 
@@ -240,7 +244,7 @@ export async function startExploreConversation(currentProfile, recipient) {
 
   const localConversationId = getConversationId(currentUserId, recipientId);
   const conversationKey = localConversationId;
-  const conversations = readArray(CONVERSATIONS_KEY);
+  const conversations = readArray(CONVERSATIONS_KEY, currentUserId);
   const existing = conversations.find(
     (conversation) => conversation.participantIds?.includes(currentUserId) && conversation.participantIds?.includes(recipientId),
   );
@@ -277,7 +281,7 @@ export async function startExploreConversation(currentProfile, recipient) {
         avatarUrl: recipient?.avatarUrl || recipient?.avatar_url || "",
       },
     })[0];
-    writeArray(CONVERSATIONS_KEY, [normalized, ...conversations.filter((item) => item.id !== normalized.id)]);
+    writeArray(CONVERSATIONS_KEY, [normalized, ...conversations.filter((item) => item.id !== normalized.id)], currentUserId);
     return normalized;
   }
 
@@ -332,7 +336,7 @@ export async function startExploreConversation(currentProfile, recipient) {
             avatarUrl: recipient?.avatarUrl || recipient?.avatar_url || "",
           },
         })[0];
-        writeArray(CONVERSATIONS_KEY, [normalized, ...conversations.filter((item) => item.id !== normalized.id)]);
+        writeArray(CONVERSATIONS_KEY, [normalized, ...conversations.filter((item) => item.id !== normalized.id)], currentUserId);
         return normalized;
       }
     }
@@ -372,7 +376,7 @@ export async function startExploreConversation(currentProfile, recipient) {
   }
 
   if (!createdConversation) {
-    writeArray(CONVERSATIONS_KEY, [conversation, ...conversations]);
+    writeArray(CONVERSATIONS_KEY, [conversation, ...conversations], currentUserId);
     return conversation;
   }
 
@@ -389,7 +393,7 @@ export async function startExploreConversation(currentProfile, recipient) {
     throw membersError;
   }
 
-  writeArray(CONVERSATIONS_KEY, [remoteConversation, ...conversations]);
+  writeArray(CONVERSATIONS_KEY, [remoteConversation, ...conversations], currentUserId);
   return remoteConversation;
 }
 
@@ -435,14 +439,14 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
   };
 
   if (!options.optimisticManaged) {
-    const messages = readArray(MESSAGES_KEY);
-    writeArray(MESSAGES_KEY, [...messages, message]);
+    const messages = readArray(MESSAGES_KEY, senderId);
+    writeArray(MESSAGES_KEY, [...messages, message], senderId);
   }
 
-  const conversations = readArray(CONVERSATIONS_KEY).map((conversation) =>
+  const conversations = readArray(CONVERSATIONS_KEY, senderId).map((conversation) =>
     conversation.id === conversationId ? { ...conversation, updatedAt: message.createdAt } : conversation,
   );
-  writeArray(CONVERSATIONS_KEY, conversations);
+  writeArray(CONVERSATIONS_KEY, conversations, senderId);
   if (!options.optimisticManaged) {
     window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
   }
@@ -471,10 +475,10 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
 }
 
 export async function markExploreConversationRead(conversationId, currentUserId) {
-  const messages = readArray(MESSAGES_KEY).map((message) =>
+  const messages = readArray(MESSAGES_KEY, currentUserId).map((message) =>
     message.conversationId === conversationId && message.senderId !== currentUserId ? { ...message, read: true } : message,
   );
-  writeArray(MESSAGES_KEY, messages);
+  writeArray(MESSAGES_KEY, messages, currentUserId);
   window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "read", conversationId, currentUserId } }));
 
   if (isLocalConversationId(conversationId)) {
@@ -513,14 +517,22 @@ export function fetchExploreMessageActivity() {
   return Object.values(readObject(MESSAGE_ACTIVITY_KEY));
 }
 
-export function subscribeToExploreMessages(currentUserId, onChange) {
+export function subscribeToExploreMessages(currentUserId, onChange, conversationIds = []) {
   if (!currentUserId) return () => {};
+  const conversationSet = new Set(conversationIds.filter(Boolean));
+
+  function handleConversationScopedChange(payload) {
+    const conversationId = payload?.new?.conversation_id || payload?.old?.conversation_id || payload?.new?.id || payload?.old?.id || "";
+    if (!conversationSet.size || !conversationId || conversationSet.has(conversationId)) {
+      onChange(payload);
+    }
+  }
 
   const channel = supabase
     .channel(`explore-direct-messages-${currentUserId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "explore_messages" }, onChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversations" }, onChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversation_members" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "explore_messages" }, handleConversationScopedChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversations" }, handleConversationScopedChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversation_members", filter: `user_id=eq.${currentUserId}` }, onChange)
     .subscribe();
 
   return () => supabase.removeChannel(channel);

@@ -23,6 +23,8 @@ function sortSaved(items) {
 export default function SavedPostsScreen({ currentUserId, hideHeader = false }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
+  const [collectionOpen, setCollectionOpen] = useState(false);
+  const [collectionName, setCollectionName] = useState("");
   const feed = useExploreFeed("feed");
   const swip = useExploreFeed("swip");
   const collections = useSavedCollections();
@@ -45,10 +47,13 @@ export default function SavedPostsScreen({ currentUserId, hideHeader = false }) 
     return true;
   });
 
-  function createCollection() {
-    const name = window.prompt("Collection name");
-    if (name?.trim()) {
+  function createCollection(event) {
+    event?.preventDefault?.();
+    const name = collectionName.trim();
+    if (name) {
       collections.createCollection(name);
+      setCollectionName("");
+      setCollectionOpen(false);
       showToast("Collection created.", "success");
     }
   }
@@ -61,7 +66,7 @@ export default function SavedPostsScreen({ currentUserId, hideHeader = false }) 
         {feed.error ? <ErrorState message={feed.error} onRetry={feed.reload} /> : null}
         {swip.error ? <ErrorState message={swip.error} onRetry={swip.reload} /> : null}
 
-        <SavedToolbar query={query} onCreateCollection={createCollection} onQueryChange={setQuery} />
+        <SavedToolbar query={query} onCreateCollection={() => setCollectionOpen(true)} onQueryChange={setQuery} />
         <SavedFilters active={filter} collections={collections.collections} onChange={setFilter} />
 
         <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 shadow-sm">
@@ -97,7 +102,7 @@ export default function SavedPostsScreen({ currentUserId, hideHeader = false }) 
                       onLike={() => swip.toggleLike(post.id)}
                       onSave={() => swip.toggleSave(post.id)}
                       onComment={(body) => swip.addComment(post.id, body)}
-                      onDelete={() => swip.deletePost(post.id)}
+                      onDelete={() => swip.deletePost(post.id, { confirm: false })}
                     />
                   ) : (
                     <FeedPost
@@ -109,10 +114,10 @@ export default function SavedPostsScreen({ currentUserId, hideHeader = false }) 
                       onLike={() => feed.toggleLike(post.id)}
                       onSave={() => sourceFeed.toggleSave(post.id)}
                       onComment={(body) => feed.addComment(post.id, body)}
-                      onEdit={() => feed.editPost(post.id)}
-                      onDelete={() => feed.deletePost(post.id)}
+                      onEdit={(body) => feed.editPost(post.id, body)}
+                      onDelete={() => feed.deletePost(post.id, { confirm: false })}
                       onHide={() => feed.hidePost(post.id)}
-                      onReport={() => feed.reportPost(post.id)}
+                      onReport={(reason) => feed.reportPost(post.id, reason)}
                       onViewActivity={() => feed.viewActivity(post.id)}
                     />
                   )}
@@ -122,6 +127,28 @@ export default function SavedPostsScreen({ currentUserId, hideHeader = false }) 
           </div>
         )}
       </div>
+      {collectionOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/30 px-4 pb-4 backdrop-blur-sm" onClick={() => setCollectionOpen(false)}>
+          <form className="w-full rounded-[24px] bg-white p-4 shadow-2xl sm:mx-auto sm:max-w-md" onSubmit={createCollection} onClick={(event) => event.stopPropagation()}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">New collection</p>
+            <input
+              value={collectionName}
+              onChange={(event) => setCollectionName(event.target.value)}
+              placeholder="Collection name"
+              className="mt-3 h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-800 outline-none"
+              autoFocus
+            />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setCollectionOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">
+                Cancel
+              </button>
+              <button type="submit" disabled={!collectionName.trim()} className="h-11 rounded-2xl bg-slate-950 text-sm font-black text-white disabled:opacity-50">
+                Create
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

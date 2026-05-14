@@ -29,8 +29,8 @@ export default function MyPostsScreen({ currentUserId, hideHeader = false }) {
               onLike={() => feed.toggleLike(post.id)}
               onSave={() => feed.toggleSave(post.id)}
               onComment={() => feed.addComment(post.id)}
-              onEdit={() => feed.editPost(post.id)}
-              onDelete={() => feed.deletePost(post.id)}
+              onEdit={(body) => feed.editPost(post.id, body)}
+              onDelete={() => feed.deletePost(post.id, { confirm: false })}
               onViewActivity={() => feed.viewActivity(post.id)}
             />
           ))

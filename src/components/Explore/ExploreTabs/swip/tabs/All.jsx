@@ -207,7 +207,9 @@ class SwipPostBoundary extends Component {
   }
 
   componentDidCatch(error) {
-    console.error("[Swip] Video card failed", { postId: this.props.postId, error });
+    if (import.meta.env.DEV) {
+      console.error("[Swip] Video card failed", { postId: this.props.postId, error });
+    }
   }
 
   render() {

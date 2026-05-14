@@ -31,7 +31,7 @@ export function useExploreFollows(currentUserId) {
           return;
         }
 
-        const next = new Set([...readStoredFollows(), ...items]);
+        const next = new Set(items);
         setFollowedUsers(next);
         writeStoredFollows(next);
       })

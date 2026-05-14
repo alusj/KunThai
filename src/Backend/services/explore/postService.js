@@ -4,7 +4,9 @@ import { uploadMediaDataUrl } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 
 function logExploreFeed(event, detail = {}) {
-  console.info(`[ExploreFeed] ${event}`, detail);
+  if (import.meta.env.DEV) {
+    console.info(`[ExploreFeed] ${event}`, detail);
+  }
 }
 
 async function getCurrentUserId() {

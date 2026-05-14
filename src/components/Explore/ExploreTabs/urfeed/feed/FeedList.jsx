@@ -119,10 +119,10 @@ export default function FeedList({
             onLike={() => (actionsByScope?.[post.feed_scope || "feed"]?.onLike || onLike)?.(post.id)}
             onSave={() => (actionsByScope?.[post.feed_scope || "feed"]?.onSave || onSave)?.(post.id)}
             onCommentCountChange={(delta) => (actionsByScope?.[post.feed_scope || "feed"]?.onCommentCountChange || onCommentCountChange)?.(post.id, delta)}
-            onEdit={() => (actionsByScope?.[post.feed_scope || "feed"]?.onEdit || onEdit)?.(post.id)}
-            onDelete={() => (actionsByScope?.[post.feed_scope || "feed"]?.onDelete || onDelete)?.(post.id)}
+            onEdit={(body) => (actionsByScope?.[post.feed_scope || "feed"]?.onEdit || onEdit)?.(post.id, body)}
+            onDelete={() => (actionsByScope?.[post.feed_scope || "feed"]?.onDelete || onDelete)?.(post.id, { confirm: false })}
             onHide={() => (actionsByScope?.[post.feed_scope || "feed"]?.onHide || onHide)?.(post.id)}
-            onReport={() => (actionsByScope?.[post.feed_scope || "feed"]?.onReport || onReport)?.(post.id)}
+            onReport={(reason) => (actionsByScope?.[post.feed_scope || "feed"]?.onReport || onReport)?.(post.id, reason)}
             onViewActivity={() => (actionsByScope?.[post.feed_scope || "feed"]?.onViewActivity || onViewActivity)?.(post.id)}
             onViewProfile={() =>
               onViewProfile?.({

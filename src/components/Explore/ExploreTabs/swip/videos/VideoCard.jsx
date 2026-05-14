@@ -35,6 +35,7 @@ export default function VideoCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mediaError, setMediaError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
   if (!swipSettingsLoaded) {
     swipSoundMuted = false;
     swipSettingsLoaded = true;
@@ -51,6 +52,7 @@ export default function VideoCard({
 
   useEffect(() => {
     setMediaError("");
+    setRetryKey(0);
   }, [post.video_url]);
 
   useEffect(() => () => {
@@ -71,6 +73,8 @@ export default function VideoCard({
     }
 
     pauseInactiveVideo(video);
+    // requestActivePlayback reads current refs and sound state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
 
   async function handleShare() {
@@ -117,7 +121,7 @@ export default function VideoCard({
 
   async function requestActivePlayback({ userGesture = false } = {}) {
     const video = videoRef.current;
-    if (!video || !videoSettings.autoplay || videoSettings.reduceData) {
+    if (!video || mediaError || !videoSettings.autoplay || videoSettings.reduceData) {
       return;
     }
 
@@ -154,7 +158,7 @@ export default function VideoCard({
   }
 
   function handleVideoTap() {
-    if (!activeRef.current) {
+    if (!activeRef.current || mediaError) {
       return;
     }
 
@@ -165,7 +169,7 @@ export default function VideoCard({
   }
 
   function handlePointerDown(event) {
-    if (shouldIgnoreVideoGesture(event)) {
+    if (mediaError || shouldIgnoreVideoGesture(event)) {
       return;
     }
 
@@ -176,7 +180,7 @@ export default function VideoCard({
   }
 
   function handlePointerUp(event) {
-    if (shouldIgnoreVideoGesture(event)) {
+    if (mediaError || shouldIgnoreVideoGesture(event)) {
       return;
     }
 
@@ -210,6 +214,8 @@ export default function VideoCard({
       observer.disconnect();
       pauseInactiveVideo(video);
     };
+    // requestActivePlayback reads current refs and sound state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
 
   useEffect(() => {
@@ -244,6 +250,7 @@ export default function VideoCard({
       className="relative h-full w-full min-w-0 overflow-hidden rounded-none border-0 bg-slate-950 shadow-sm"
     >
       <video
+        key={`${post.id}-${retryKey}`}
         ref={videoRef}
         src={post.video_url}
         autoPlay={videoSettings.autoplay && !videoSettings.reduceData}
@@ -251,12 +258,34 @@ export default function VideoCard({
         muted={muted}
         playsInline
         loop
-        onError={() => setMediaError("Video is still being prepared.")}
+        onCanPlay={() => setMediaError("")}
+        onError={() => {
+          videoRef.current?.pause();
+          setMediaError("Video is still being prepared.");
+        }}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
         preload={videoSettings.reduceData ? "none" : "auto"}
         className="absolute inset-0 h-full w-full object-cover"
       />
-      {mediaError ? <div className="absolute inset-0 z-[1] bg-slate-950" /> : null}
+      {mediaError ? (
+        <div className="absolute inset-0 z-[25] flex items-center justify-center bg-slate-950 px-6 text-center text-white">
+          <div className="max-w-xs rounded-2xl border border-white/10 bg-white/10 px-5 py-5 shadow-xl backdrop-blur">
+            <p className="text-sm font-black">Video is not ready yet</p>
+            <p className="mt-2 text-xs font-semibold leading-5 text-white/70">Try again in a moment. The rest of Swip will keep working.</p>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setMediaError("");
+                setRetryKey((current) => current + 1);
+              }}
+              className="mt-4 h-10 rounded-2xl bg-white px-4 text-xs font-black text-slate-950"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
 
       {!fullscreen ? (

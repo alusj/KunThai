@@ -8,14 +8,14 @@ import {
   searchExplore,
 } from "../services/explore/searchService";
 
-export function useExploreSearch(open) {
+export function useExploreSearch() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [results, setResults] = useState([]);
   const [recent, setRecent] = useState(readRecentSearches);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const suggestions = useMemo(() => getSuggestedSearches(), [open]);
+  const suggestions = useMemo(() => getSuggestedSearches(), []);
 
   useEffect(() => {
     let active = true;

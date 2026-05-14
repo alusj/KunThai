@@ -1,10 +1,9 @@
-import { useExploreConnections } from "../../../../../Backend/hooks/useExploreConnections";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import MyCircleList from "./MyCircleList";
 
-export default function MyCircle({ currentUserId, kind = "mycircle", onViewProfile }) {
-  const { items, loading, error, blockUser, followUser, removeUser, reload } = useExploreConnections(kind, currentUserId);
+export default function MyCircle({ connectionState, kind = "mycircle", onViewProfile }) {
+  const { items = [], loading = false, error = "", blockUser, followUser, removeUser, reload } = connectionState || {};
 
   if (error) {
     return <ErrorState message={error} onRetry={reload} />;

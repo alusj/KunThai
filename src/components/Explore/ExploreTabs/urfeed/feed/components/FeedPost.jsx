@@ -29,7 +29,12 @@ export default function FeedPost({
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editValue, setEditValue] = useState(post.body || "");
   const [menuMessage, setMenuMessage] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
   const optionsRef = useRef(null);
 
   useBrowserBack(commentsOpen, () => setCommentsOpen(false), `comments-${post.id}`);
@@ -63,7 +68,7 @@ export default function FeedPost({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [optionsOpen]);
+  }, [optionsOpen, post.id]);
 
   async function runAction(action) {
     setOptionsOpen(false);
@@ -80,7 +85,7 @@ export default function FeedPost({
 
   async function shareAndNotify() {
     const message = await sharePost(post);
-    if (post.user_id) {
+    if (post.user_id && post.user_id !== currentUserId) {
       await createExploreNotification({
         user_id: post.user_id,
         type: "share",
@@ -90,6 +95,24 @@ export default function FeedPost({
       });
     }
     return message;
+  }
+
+  async function submitEdit(event) {
+    event.preventDefault();
+    await runAction(() => onEdit?.(editValue));
+    setEditOpen(false);
+  }
+
+  async function submitReport(event) {
+    event.preventDefault();
+    await runAction(() => onReport?.(reportReason));
+    setReportReason("");
+    setReportOpen(false);
+  }
+
+  async function confirmDelete() {
+    await runAction(onDelete);
+    setDeleteOpen(false);
   }
 
   return (
@@ -110,11 +133,21 @@ export default function FeedPost({
             isOwner={isOwner}
             saved={saved}
             onCopy={() => runAction(() => copyPostLink(post.id))}
-            onDelete={() => runAction(onDelete)}
-            onEdit={() => runAction(onEdit)}
+            onDelete={() => {
+              setOptionsOpen(false);
+              setDeleteOpen(true);
+            }}
+            onEdit={() => {
+              setOptionsOpen(false);
+              setEditValue(post.body || "");
+              setEditOpen(true);
+            }}
             onFollow={() => runAction(onFollow)}
             onHide={() => runAction(onHide)}
-            onReport={() => runAction(onReport)}
+            onReport={() => {
+              setOptionsOpen(false);
+              setReportOpen(true);
+            }}
             onSave={() => runAction(onSave)}
             onShare={() => runAction(shareAndNotify)}
             onViewActivity={() => runAction(onViewActivity)}
@@ -146,6 +179,66 @@ export default function FeedPost({
       />
 
       {menuMessage ? <p className="px-4 pb-3 text-xs font-bold text-sky-700">{menuMessage}</p> : null}
+      {editOpen ? (
+        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setEditOpen(false)}>
+          <form className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onSubmit={submitEdit} onClick={(event) => event.stopPropagation()}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Edit post</p>
+            <textarea
+              value={editValue}
+              onChange={(event) => setEditValue(event.target.value)}
+              rows={4}
+              className="mt-3 w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold leading-6 text-slate-800 outline-none"
+            />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setEditOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">
+                Cancel
+              </button>
+              <button type="submit" className="h-11 rounded-2xl bg-slate-950 text-sm font-black text-white">
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {reportOpen ? (
+        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setReportOpen(false)}>
+          <form className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onSubmit={submitReport} onClick={(event) => event.stopPropagation()}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">Report post</p>
+            <textarea
+              value={reportReason}
+              onChange={(event) => setReportReason(event.target.value)}
+              placeholder="Tell us what is wrong."
+              rows={4}
+              className="mt-3 w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold leading-6 text-slate-800 outline-none"
+            />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setReportOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">
+                Cancel
+              </button>
+              <button type="submit" disabled={!reportReason.trim()} className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-50">
+                Report
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {deleteOpen ? (
+        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setDeleteOpen(false)}>
+          <div className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">Delete post</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">Remove this post?</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">This removes it from Explore and your profile.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setDeleteOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">
+                Cancel
+              </button>
+              <button type="button" onClick={confirmDelete} className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

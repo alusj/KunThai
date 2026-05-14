@@ -20,7 +20,7 @@ export {
   syncExploreCommentLike,
   updateExploreCommentCounts,
 } from "./explore/commentService";
-export { fetchExploreProfile, getCurrentUserProfile, updateExploreProfile } from "./explore/profileService";
+export { ensureExploreProfile, fetchExploreProfile, getCurrentUserProfile, updateExploreProfile } from "./explore/profileService";
 export { fetchExploreFollowers, fetchExploreFollowing, fetchExploreFollowStats, syncExploreFollow } from "./explore/followService";
 export { fetchExploreProfileStats } from "./explore/profileStatsService";
 
@@ -394,6 +394,36 @@ export async function fetchExploreConnections(kind = "discover", profileUserId =
   return data || [];
 }
 
+async function fetchAllExploreProfiles() {
+  const pageSize = 500;
+  const profiles = [];
+
+  for (let page = 0; page < 10; page += 1) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("explore_profiles")
+      .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
+      .order("display_name", { ascending: true, nullsFirst: false })
+      .range(from, to);
+
+    if (error) {
+      if (isMissingTable(error)) {
+        return null;
+      }
+      throw error;
+    }
+
+    profiles.push(...(data || []));
+
+    if (!data || data.length < pageSize) {
+      break;
+    }
+  }
+
+  return profiles;
+}
+
 async function fetchProfileConnections(kind, currentUserId) {
   const followsResult = await supabase.from("explore_follows").select("follower_id, following_id");
 
@@ -418,26 +448,20 @@ async function fetchProfileConnections(kind, currentUserId) {
     targetIds = followerIds;
   }
 
-  const profilesQuery = supabase
-    .from("explore_profiles")
-    .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
-    .limit(60);
+  const allProfiles = await fetchAllExploreProfiles();
 
-  const { data, error } = targetIds.length
-    ? await profilesQuery.in("user_id", targetIds)
-    : kind === "discover"
-      ? await profilesQuery.neq("user_id", currentUserId)
-      : { data: [], error: null };
-
-  if (error) {
-    if (isMissingTable(error)) {
-      return null;
-    }
-    throw error;
+  if (!allProfiles) {
+    return null;
   }
 
-  return (data || [])
+  const targetSet = new Set(targetIds);
+
+  return allProfiles
     .filter((profile) => profile.user_id !== currentUserId)
+    .filter((profile) => {
+      if (kind === "discover") return true;
+      return targetSet.has(profile.user_id);
+    })
     .filter((profile) => {
       if (kind !== "discover") return true;
       return !followingSet.has(profile.user_id) && !followerSet.has(profile.user_id);

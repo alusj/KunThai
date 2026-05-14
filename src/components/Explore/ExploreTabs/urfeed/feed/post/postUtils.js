@@ -11,8 +11,7 @@ export async function copyPostLink(postId) {
     await navigator.clipboard.writeText(postUrl);
     return "Link copied";
   } catch {
-    window.prompt("Copy post link", postUrl);
-    return "Copy the link above";
+    return postUrl;
   }
 }
 

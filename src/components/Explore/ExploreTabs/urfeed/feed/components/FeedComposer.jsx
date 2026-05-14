@@ -83,6 +83,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     window.addEventListener("explore-create-post", handleCreatePost);
     return () => window.removeEventListener("explore-create-post", handleCreatePost);
+    // openComposer uses local refs/state; this event subscription should be registered once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function openComposer(type = "text") {

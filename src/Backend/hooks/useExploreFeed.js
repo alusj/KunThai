@@ -36,7 +36,9 @@ function isLocalPost(post) {
 }
 
 function logExploreFeed(event, detail = {}) {
-  console.info(`[ExploreFeed] ${event}`, detail);
+  if (import.meta.env.DEV) {
+    console.info(`[ExploreFeed] ${event}`, detail);
+  }
 }
 
 function mergePosts(remotePosts, localPosts) {
@@ -75,11 +77,11 @@ function isCurrentUserPost(post, profile) {
     return false;
   }
 
-  return (
-    (profile.id && post.user_id === profile.id) ||
-    (profile.username && post.author_username === profile.username) ||
-    (profile.name && post.author_name === profile.name)
-  );
+  if (profile.id && post.user_id === profile.id) {
+    return true;
+  }
+
+  return isLocalPost(post) && !post.user_id;
 }
 
 function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
@@ -144,8 +146,8 @@ export function useExploreFeed(scope = "feed") {
   const [loading, setLoading] = useState(() => !memory?.posts?.length);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-  const [likedPosts, setLikedPosts] = useState(() => memory?.likedPosts || readStoredSet(LIKE_STORAGE_KEY));
-  const [savedPosts, setSavedPosts] = useState(() => memory?.savedPosts || readStoredSet(SAVE_STORAGE_KEY));
+  const [likedPosts, setLikedPosts] = useState(() => new Set());
+  const [savedPosts, setSavedPosts] = useState(() => new Set());
   const [hiddenPosts, setHiddenPosts] = useState(() => readStoredSet(HIDE_STORAGE_KEY));
   const [currentUserId, setCurrentUserId] = useState(() => memory?.currentUserId || "");
   const postsRef = useRef(posts);
@@ -211,13 +213,11 @@ export function useExploreFeed(scope = "feed") {
       const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
       setCurrentUserId(currentProfile?.id || "");
 
-      const nextLikedPosts = new Set([...likedPostsRef.current, ...readStoredSet(LIKE_STORAGE_KEY), ...reactions.likes]);
-      const nextSavedPosts = new Set([...savedPostsRef.current, ...readStoredSet(SAVE_STORAGE_KEY), ...reactions.saves]);
+      const nextLikedPosts = new Set(reactions.likes);
+      const nextSavedPosts = new Set(reactions.saves);
 
       setLikedPosts(nextLikedPosts);
       setSavedPosts(nextSavedPosts);
-      writeStoredSet(LIKE_STORAGE_KEY, nextLikedPosts);
-      writeStoredSet(SAVE_STORAGE_KEY, nextSavedPosts);
 
       setPosts((current) => {
         const localPosts = (current.length ? current : readStoredPosts(scope))
@@ -243,6 +243,8 @@ export function useExploreFeed(scope = "feed") {
 
   useEffect(() => {
     load();
+    // load captures feed scope/cache refs intentionally; scope is the reload trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
 
   useEffect(() => {
@@ -296,6 +298,8 @@ export function useExploreFeed(scope = "feed") {
           load({ force: true });
       },
     });
+    // load captures optimistic feed state; realtime should reuse the current scope handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
 
   useEffect(() => {
@@ -365,8 +369,6 @@ export function useExploreFeed(scope = "feed") {
       if (event.key === getPostsStorageKey(scope)) {
         setPosts(readStoredPosts(scope));
       }
-      if (event.key === LIKE_STORAGE_KEY) setLikedPosts(readStoredSet(LIKE_STORAGE_KEY));
-      if (event.key === SAVE_STORAGE_KEY) setSavedPosts(readStoredSet(SAVE_STORAGE_KEY));
       if (event.key === HIDE_STORAGE_KEY) setHiddenPosts(readStoredSet(HIDE_STORAGE_KEY));
     }
 
@@ -375,8 +377,6 @@ export function useExploreFeed(scope = "feed") {
       if (detail.key === getPostsStorageKey(scope) || detail.scope === scope) {
         setPosts(readStoredPosts(scope));
       }
-      if (detail.key === LIKE_STORAGE_KEY) setLikedPosts(readStoredSet(LIKE_STORAGE_KEY));
-      if (detail.key === SAVE_STORAGE_KEY) setSavedPosts(readStoredSet(SAVE_STORAGE_KEY));
     }
 
     window.addEventListener("storage", handleStorage);
@@ -462,7 +462,7 @@ export function useExploreFeed(scope = "feed") {
     try {
       await syncExploreReaction(postId, type, !currentlyActive);
       await updateExplorePostCounts(postId, { [countKey]: nextCount });
-      if (!currentlyActive && targetPost?.user_id) {
+      if (!currentlyActive && targetPost?.user_id && targetPost.user_id !== currentUserId) {
         createExploreNotification({
           user_id: targetPost.user_id,
           type,
@@ -487,7 +487,7 @@ export function useExploreFeed(scope = "feed") {
   }
 
   async function addComment(postId, body) {
-    const content = typeof body === "string" || body?.body || body?.audio_url ? body : window.prompt("Write your comment");
+    const content = typeof body === "string" || body?.body || body?.audio_url ? body : "";
     const hasCommentContent = typeof content === "string" ? content.trim() : String(content?.body || "").trim() || content?.audio_url;
 
     if (!hasCommentContent) {
@@ -517,7 +517,7 @@ export function useExploreFeed(scope = "feed") {
       await createExploreComment(typeof content === "string" ? { post_id: postId, body: content } : { post_id: postId, ...content });
       await updateExplorePostCounts(postId, { comments_count: nextCount });
       showToast("Comment posted.", "success");
-      if (targetPost?.user_id) {
+      if (targetPost?.user_id && targetPost.user_id !== currentUserId) {
         await createExploreNotification({
           user_id: targetPost.user_id,
           type: "comment",
@@ -549,13 +549,9 @@ export function useExploreFeed(scope = "feed") {
     });
   }
 
-  async function editPost(postId) {
+  async function editPost(postId, nextBodyValue = "") {
     const post = posts.find((item) => item.id === postId);
-    const nextBody = window.prompt("Edit your post", post?.body || "");
-
-    if (nextBody === null) {
-      return;
-    }
+    const nextBody = String(nextBodyValue);
 
     const trimmedBody = nextBody.trim();
 
@@ -578,9 +574,7 @@ export function useExploreFeed(scope = "feed") {
   }
 
   async function deletePost(postId, options = {}) {
-    const confirmDelete = options.confirm !== false;
-
-    if (confirmDelete && !window.confirm("Delete this post?")) {
+    if (options.confirm === true) {
       return false;
     }
 
@@ -609,22 +603,22 @@ export function useExploreFeed(scope = "feed") {
     });
   }
 
-  async function reportPost(postId) {
+  async function reportPost(postId, reasonValue = "") {
     if (!canRunSafetyAction("report-post")) {
       setError("You are reporting too quickly. Please slow down for a moment.");
       return;
     }
 
-    const reason = window.prompt("Why are you reporting this post?", "Inappropriate content");
+    const reason = String(reasonValue || "").trim();
 
-    if (!reason?.trim()) {
+    if (!reason) {
       return;
     }
 
     try {
       const post = posts.find((item) => item.id === postId);
       const flags = contentHasModerationFlags(`${post?.body || ""} ${reason}`);
-      await reportExplorePost(postId, flags.length ? `${reason.trim()} | flags: ${flags.join(", ")}` : reason.trim());
+      await reportExplorePost(postId, flags.length ? `${reason} | flags: ${flags.join(", ")}` : reason);
       hidePost(postId);
       showToast("Report received. The post was hidden.", "success");
     } catch (err) {

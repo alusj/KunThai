@@ -118,7 +118,7 @@ export default function HelpCenterScreen({ hideHeader = false }) {
     }
   }
 
-  function useQuickAction(action) {
+  function applyQuickAction(action) {
     setForm((current) => ({
       ...current,
       priority: action.priority,
@@ -163,7 +163,7 @@ export default function HelpCenterScreen({ hideHeader = false }) {
             <button
               key={action.title}
               type="button"
-              onClick={() => useQuickAction(action)}
+              onClick={() => applyQuickAction(action)}
               className="rounded-[24px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-sky-200 hover:bg-sky-50"
             >
               <HiOutlineMegaphone className="text-2xl text-sky-700" />

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
+import { useExploreConnections } from "../../../../Backend/hooks/useExploreConnections";
 import ConnectionsSummary from "./components/ConnectionsSummary";
 import Discover from "./discover/Discover";
 import MyCircle from "./myCircle/MyCircle";
@@ -29,21 +29,23 @@ function TabButton({ active, label, onClick }) {
 
 export default function Connections({ currentUserId = "", onViewProfile }) {
   const [tab, setTab] = useState("mycircle");
-  const stats = useExploreFollowStats(currentUserId);
-  const statValues = stats.stats || {};
+  const circle = useExploreConnections("mycircle", currentUserId);
+  const followers = useExploreConnections("followers", currentUserId);
+  const discover = useExploreConnections("discover", currentUserId);
 
   const counts = useMemo(
     () => ({
-      following: statValues.following,
-      followers: statValues.followers,
-      discover: statValues.suggested,
+      circle: circle.items.length,
+      followers: followers.items.length,
+      discover: discover.items.length,
     }),
-    [statValues.followers, statValues.following, statValues.suggested],
+    [circle.items.length, discover.items.length, followers.items.length],
   );
+  const loading = circle.loading || followers.loading || discover.loading;
 
   return (
     <div className="w-full space-y-4 px-4 pt-4 sm:px-5 lg:px-8">
-      <ConnectionsSummary counts={counts} loading={stats.loading} />
+      <ConnectionsSummary counts={counts} loading={loading && !circle.items.length && !followers.items.length && !discover.items.length} />
 
       <div className="rounded-[24px] border border-slate-200 bg-white px-2 pt-2 shadow-sm">
         <div className="flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -54,13 +56,13 @@ export default function Connections({ currentUserId = "", onViewProfile }) {
       </div>
 
       <div className={tab === "mycircle" ? "block" : "hidden"} aria-hidden={tab !== "mycircle"}>
-        <MyCircle currentUserId={currentUserId} onViewProfile={onViewProfile} />
+        <MyCircle connectionState={circle} onViewProfile={onViewProfile} />
       </div>
       <div className={tab === "followers" ? "block" : "hidden"} aria-hidden={tab !== "followers"}>
-        <MyCircle currentUserId={currentUserId} kind="followers" onViewProfile={onViewProfile} />
+        <MyCircle connectionState={followers} kind="followers" onViewProfile={onViewProfile} />
       </div>
       <div className={tab === "discover" ? "block" : "hidden"} aria-hidden={tab !== "discover"}>
-        <Discover currentUserId={currentUserId} onViewProfile={onViewProfile} />
+        <Discover connectionState={discover} onViewProfile={onViewProfile} />
       </div>
     </div>
   );

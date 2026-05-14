@@ -1,10 +1,11 @@
+import { createElement } from "react";
 import {
   HiOutlineChatBubbleOvalLeft,
   HiOutlineHandThumbUp,
   HiOutlineShare,
 } from "react-icons/hi2";
 
-function ActionButton({ active, icon: Icon, label, meta, onClick }) {
+function ActionButton({ active, icon, label, meta, onClick }) {
   function handleClick(event) {
     event.stopPropagation();
     onClick?.(event);
@@ -18,7 +19,7 @@ function ActionButton({ active, icon: Icon, label, meta, onClick }) {
         active ? "bg-sky-50 text-sky-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
       }`}
     >
-      <Icon className="text-lg" />
+      {createElement(icon, { className: "text-lg" })}
       <span className="truncate">{label}</span>
       {meta !== undefined ? <span className="text-[11px] text-slate-400">{meta}</span> : null}
     </button>
