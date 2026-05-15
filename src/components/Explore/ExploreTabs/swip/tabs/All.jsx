@@ -10,9 +10,8 @@ import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipP
 
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
-const SWIP_VIDEO_USER_GESTURE = "swip-video-user-gesture";
 
-export default function All({ active = true, currentUserId = "", onlyUserId = "", onViewProfile }) {
+export default function All({ currentUserId = "", onlyUserId = "", onViewProfile }) {
   const feed = useExploreFeed("swip");
   const videos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -22,7 +21,6 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
   const wheelLockedRef = useRef(false);
   const wheelUnlockTimerRef = useRef(null);
   const wheelDeltaRef = useRef(0);
-  const scrollRafRef = useRef(null);
 
   useBrowserBack(fullscreen, () => setFullscreen(false), "swip-fullscreen");
 
@@ -32,22 +30,10 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
 
   useEffect(() => () => {
     window.clearTimeout(wheelUnlockTimerRef.current);
-    window.cancelAnimationFrame(scrollRafRef.current);
     stopAllExploreMedia();
   }, []);
 
   useEffect(() => {
-    if (!active) {
-      setFullscreen(false);
-      stopAllExploreMedia();
-    }
-  }, [active]);
-
-  useEffect(() => {
-    if (!active) {
-      return undefined;
-    }
-
     const scroller = scrollerRef.current;
     if (!scroller) {
       return undefined;
@@ -79,7 +65,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     });
 
     return () => observer.disconnect();
-  }, [active, videos.length]);
+  }, [videos.length]);
 
   function lockWheel() {
     wheelLockedRef.current = true;
@@ -91,10 +77,6 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
   }
 
   function scrollToIndex(index) {
-    if (!active) {
-      return;
-    }
-
     const next = Math.min(Math.max(index, 0), videos.length - 1);
     const node = itemRefs.current[next];
     if (!node) {
@@ -106,53 +88,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     node.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function setActiveVideoIndex(nextIndex) {
-    setActiveIndex((current) => {
-      if (current !== nextIndex) {
-        stopAllExploreMedia();
-      }
-      return nextIndex;
-    });
-  }
-
-  function handleScroll() {
-    if (!active || scrollRafRef.current) {
-      return;
-    }
-
-    scrollRafRef.current = window.requestAnimationFrame(() => {
-      scrollRafRef.current = null;
-      const scroller = scrollerRef.current;
-      if (!scroller) {
-        return;
-      }
-
-      const scrollerTop = scroller.getBoundingClientRect().top;
-      let nearestIndex = activeIndex;
-      let nearestDistance = Number.POSITIVE_INFINITY;
-
-      itemRefs.current.forEach((node, index) => {
-        if (!node) return;
-        const distance = Math.abs(node.getBoundingClientRect().top - scrollerTop);
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestIndex = index;
-        }
-      });
-
-      setActiveVideoIndex(nearestIndex);
-    });
-  }
-
-  function notifySwipGesture() {
-    window.dispatchEvent(new CustomEvent(SWIP_VIDEO_USER_GESTURE));
-  }
-
   function handleWheel(event) {
-    if (!active) {
-      return;
-    }
-
     event.preventDefault();
     if (wheelLockedRef.current) {
       return;
@@ -197,9 +133,6 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
       ref={scrollerRef}
       className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       onWheel={handleWheel}
-      onScroll={handleScroll}
-      onPointerDownCapture={notifySwipGesture}
-      onTouchStartCapture={notifySwipGesture}
       style={{
         "--swip-item-height": "calc(100dvh - var(--explore-top-chrome-height,57px))",
         touchAction: "pan-y",
@@ -218,7 +151,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
           <SwipPostBoundary postId={post.id}>
             <VideoCard
               post={post}
-              active={active && index === activeIndex}
+              active={index === activeIndex}
               fullscreen={fullscreen}
               contextLabel={getSwipContext(post, currentUserId)}
               categoryLabel={getVideoCategoryLabel(post)}
