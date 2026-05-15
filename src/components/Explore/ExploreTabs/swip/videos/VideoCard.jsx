@@ -11,7 +11,7 @@ import SwipCaption from "./SwipCaption";
 
 const SWIP_VIDEO_SOUND_EVENT = "swip-video-sound";
 let swipSoundMuted = false;
-let swipSoundUnlocked = false;
+let swipSoundUnlocked = true;
 let swipSettingsLoaded = false;
 
 export default function VideoCard({
@@ -37,6 +37,7 @@ export default function VideoCard({
   const [mediaError, setMediaError] = useState("");
   if (!swipSettingsLoaded) {
     swipSoundMuted = false;
+    swipSoundUnlocked = true;
     swipSettingsLoaded = true;
   }
 
@@ -95,16 +96,17 @@ export default function VideoCard({
   }
 
   function toggleMute() {
-    setMuted((current) => {
-      const next = !current;
-      if (videoRef.current) {
-        videoRef.current.muted = next || !activeRef.current;
-      }
-      swipSoundMuted = next;
-      swipSoundUnlocked = !next;
-      window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: next, soundUnlocked: swipSoundUnlocked } }));
-      return next;
-    });
+    const next = !(videoRef.current ? videoRef.current.muted : muted);
+    if (videoRef.current) {
+      videoRef.current.muted = next || !activeRef.current;
+    }
+    swipSoundMuted = next;
+    swipSoundUnlocked = !next;
+    setMuted(next);
+    window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: next, soundUnlocked: swipSoundUnlocked } }));
+    if (!next) {
+      requestActivePlayback({ userGesture: true });
+    }
   }
 
   function pauseInactiveVideo(video) {
@@ -141,9 +143,7 @@ export default function VideoCard({
     try {
       video.muted = true;
       await playExploreMedia(video);
-      swipSoundMuted = true;
       setMuted(true);
-      window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: true, soundUnlocked: false } }));
     } catch {
       // Keep the poster frame if autoplay is completely blocked.
     }
@@ -158,10 +158,7 @@ export default function VideoCard({
       return;
     }
 
-    swipSoundMuted = false;
-    swipSoundUnlocked = true;
-    setMuted(false);
-    requestActivePlayback({ userGesture: true });
+    toggleMute();
   }
 
   function handlePointerDown(event) {
@@ -181,7 +178,6 @@ export default function VideoCard({
     }
 
     window.clearTimeout(holdTimerRef.current);
-    requestActivePlayback({ userGesture: true });
   }
 
   useEffect(() => {
