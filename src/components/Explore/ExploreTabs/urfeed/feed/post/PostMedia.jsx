@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineArrowLeft, HiOutlineXMark } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
-import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 
 export default function PostMedia({ post }) {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
@@ -10,32 +10,6 @@ export default function PostMedia({ post }) {
   const videoRef = useRef(null);
 
   useBrowserBack(imagePreviewOpen, () => setImagePreviewOpen(false), `image-preview-${post.id}`);
-
-  useEffect(() => {
-    const media = post.video_url ? videoRef.current : audioRef.current;
-
-    if (!media) {
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          playExploreMedia(media).catch(() => {});
-          return;
-        }
-
-        media.pause();
-      },
-      { threshold: 0.6 },
-    );
-
-    observer.observe(media);
-    return () => {
-      observer.disconnect();
-      media.pause();
-    };
-  }, [post.audio_url, post.video_url]);
 
   useEffect(() => () => stopAllExploreMedia(), []);
 
@@ -58,12 +32,12 @@ export default function PostMedia({ post }) {
         <div className="max-w-full overflow-hidden px-4 pb-4">
           <video
             ref={videoRef}
-            autoPlay
             controls
             loop
             muted
             onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
             playsInline
+            preload="metadata"
             src={post.video_url}
             className="max-h-[520px] w-full max-w-full rounded-[20px] bg-slate-950 object-cover"
           />
@@ -76,9 +50,8 @@ export default function PostMedia({ post }) {
             <p className="mb-2 text-sm font-bold text-slate-900">Voice note</p>
             <audio
               ref={audioRef}
-              autoPlay
               controls
-              preload="auto"
+              preload="metadata"
               src={post.audio_url}
               onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
               className="w-full"

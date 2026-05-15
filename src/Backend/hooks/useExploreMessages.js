@@ -30,18 +30,38 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   const [conversations, setConversations] = useState(() => memory.conversations || []);
   const [loading, setLoading] = useState(() => Boolean(currentUserId && !memory.conversations?.length));
   const [error, setError] = useState("");
-  const [messages, setMessages] = useState(() => memory.messages || []);
+  const [messages, setMessages] = useState([]);
   const [pendingMessageKeys, setPendingMessageKeys] = useState(new Set());
 
   useEffect(() => {
     if (!currentUserId) return;
+    const currentMemory = MESSAGES_MEMORY.get(currentUserId) || {};
+    const messagesByConversation = { ...(currentMemory.messagesByConversation || {}) };
+
+    if (activeConversation?.id) {
+      messagesByConversation[activeConversation.id] = messages;
+    }
+
     MESSAGES_MEMORY.set(currentUserId, {
-      ...(MESSAGES_MEMORY.get(currentUserId) || {}),
+      ...currentMemory,
       conversations,
-      messages,
+      messagesByConversation,
       savedAt: Date.now(),
     });
-  }, [conversations, currentUserId, messages]);
+  }, [activeConversation?.id, conversations, currentUserId, messages]);
+
+  function cacheConversationMessages(conversationId, nextMessages) {
+    if (!currentUserId || !conversationId) return;
+    const currentMemory = MESSAGES_MEMORY.get(currentUserId) || {};
+    MESSAGES_MEMORY.set(currentUserId, {
+      ...currentMemory,
+      messagesByConversation: {
+        ...(currentMemory.messagesByConversation || {}),
+        [conversationId]: nextMessages,
+      },
+      savedAt: Date.now(),
+    });
+  }
 
   async function reload() {
     if (!currentUserId) {
@@ -58,11 +78,18 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
       if (cached?.conversations) {
         setConversations(cached.conversations);
-        setMessages(cached.messages || []);
+        if (activeConversation?.id && cached.messagesByConversation?.[activeConversation.id]) {
+          setMessages(cached.messagesByConversation[activeConversation.id]);
+        }
         setLoading(false);
       }
 
       if (fresh) {
+        if (activeConversation?.id && !cached.messagesByConversation?.[activeConversation.id]) {
+          const nextMessages = await fetchExploreMessages(activeConversation.id, currentUserId);
+          setMessages(nextMessages);
+          cacheConversationMessages(activeConversation.id, nextMessages);
+        }
         return;
       }
 
@@ -75,6 +102,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       if (activeConversation?.id) {
         const nextMessages = await fetchExploreMessages(activeConversation.id, currentUserId);
         setMessages(nextMessages);
+        cacheConversationMessages(activeConversation.id, nextMessages);
       }
     } catch (err) {
       setError(friendlyMessageError(err));
@@ -92,8 +120,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   useEffect(() => {
     if (initialRecipient?.userId || initialRecipient?.username) {
       startExploreConversation(currentProfile, initialRecipient).then(async (conversation) => {
+        const nextMessages = await fetchExploreMessages(conversation.id, currentUserId);
+        setMessages(nextMessages);
+        cacheConversationMessages(conversation.id, nextMessages);
         setActiveConversation(conversation);
-        setMessages(await fetchExploreMessages(conversation.id, currentUserId));
         setConversations(await fetchExploreConversations(currentUserId));
       }).catch((err) => setError(friendlyMessageError(err)));
     }
@@ -127,10 +157,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   }, [activeConversation?.id, currentUserId, messages.length]);
 
   async function openConversation(conversation) {
+    const cachedMessages = MESSAGES_MEMORY.get(currentUserId)?.messagesByConversation?.[conversation.id] || [];
+    setMessages(cachedMessages);
     setActiveConversation(conversation);
     try {
       setError("");
-      setMessages(await fetchExploreMessages(conversation.id, currentUserId));
+      const nextMessages = await fetchExploreMessages(conversation.id, currentUserId);
+      setMessages(nextMessages);
+      cacheConversationMessages(conversation.id, nextMessages);
       if (readExploreSettings().messages.readReceipts) {
         await markExploreConversationRead(conversation.id, currentUserId);
       }

@@ -146,8 +146,8 @@ export function useExploreFeed(scope = "feed") {
   const [loading, setLoading] = useState(() => !memory?.posts?.length);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-  const [likedPosts, setLikedPosts] = useState(() => new Set());
-  const [savedPosts, setSavedPosts] = useState(() => new Set());
+  const [likedPosts, setLikedPosts] = useState(() => memory?.likedPosts || readStoredSet(LIKE_STORAGE_KEY));
+  const [savedPosts, setSavedPosts] = useState(() => memory?.savedPosts || readStoredSet(SAVE_STORAGE_KEY));
   const [hiddenPosts, setHiddenPosts] = useState(() => readStoredSet(HIDE_STORAGE_KEY));
   const [currentUserId, setCurrentUserId] = useState(() => memory?.currentUserId || "");
   const postsRef = useRef(posts);
@@ -183,6 +183,7 @@ export function useExploreFeed(scope = "feed") {
     const cacheFresh = hasCachedPosts && Date.now() - cached.savedAt < FEED_MEMORY_TTL;
 
     if (cacheFresh && !force) {
+      refreshCurrentReactions();
       setLoading(false);
       setError("");
       return;
@@ -218,6 +219,8 @@ export function useExploreFeed(scope = "feed") {
 
       setLikedPosts(nextLikedPosts);
       setSavedPosts(nextSavedPosts);
+      writeStoredSet(LIKE_STORAGE_KEY, nextLikedPosts);
+      writeStoredSet(SAVE_STORAGE_KEY, nextSavedPosts);
 
       setPosts((current) => {
         const localPosts = (current.length ? current : readStoredPosts(scope))
@@ -238,6 +241,22 @@ export function useExploreFeed(scope = "feed") {
       setError(err.message || "Unable to load feed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function refreshCurrentReactions() {
+    try {
+      const reactions = await fetchCurrentUserReactions();
+      const nextLikedPosts = new Set(reactions.likes);
+      const nextSavedPosts = new Set(reactions.saves);
+      likedPostsRef.current = nextLikedPosts;
+      savedPostsRef.current = nextSavedPosts;
+      setLikedPosts(nextLikedPosts);
+      setSavedPosts(nextSavedPosts);
+      writeStoredSet(LIKE_STORAGE_KEY, nextLikedPosts);
+      writeStoredSet(SAVE_STORAGE_KEY, nextSavedPosts);
+    } catch {
+      // Keep local reaction state if the network is unavailable.
     }
   }
 
@@ -460,12 +479,30 @@ export function useExploreFeed(scope = "feed") {
     });
 
     try {
-      await syncExploreReaction(postId, type, !currentlyActive);
+      const syncResult = await syncExploreReaction(postId, type, !currentlyActive);
+      if (syncResult?.changed === false) {
+        const correctedSet = new Set(previousSet);
+        if (syncResult.active) correctedSet.add(postId);
+        else correctedSet.delete(postId);
+        stateRef.current = correctedSet;
+        stateSetter(correctedSet);
+        writeStoredSet(storageKey, correctedSet);
+
+        setPosts((current) => {
+          const correctedPosts = current.map((post) => (
+            post.id === postId ? { ...post, [countKey]: targetPost?.[countKey] ?? post[countKey] ?? 0 } : post
+          ));
+          writeStoredPosts(scope, correctedPosts);
+          return correctedPosts;
+        });
+        return;
+      }
+
       await updateExplorePostCounts(postId, { [countKey]: nextCount });
       if (!currentlyActive && targetPost?.user_id && targetPost.user_id !== currentUserId) {
-        createExploreNotification({
+        await createExploreNotification({
           user_id: targetPost.user_id,
-          type,
+          type: type === "like" ? "reaction" : type,
           post_id: targetPost.id,
           post_preview: targetPost.body,
           media_type: getPostMediaType(targetPost),

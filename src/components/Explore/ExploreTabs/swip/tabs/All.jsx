@@ -11,7 +11,7 @@ import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipP
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
 
-export default function All({ currentUserId = "", onlyUserId = "", onViewProfile }) {
+export default function All({ active = true, currentUserId = "", onlyUserId = "", onViewProfile }) {
   const feed = useExploreFeed("swip");
   const videos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -34,6 +34,17 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
   }, []);
 
   useEffect(() => {
+    if (!active) {
+      setFullscreen(false);
+      stopAllExploreMedia();
+    }
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) {
+      return undefined;
+    }
+
     const scroller = scrollerRef.current;
     if (!scroller) {
       return undefined;
@@ -65,7 +76,7 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
     });
 
     return () => observer.disconnect();
-  }, [videos.length]);
+  }, [active, videos.length]);
 
   function lockWheel() {
     wheelLockedRef.current = true;
@@ -77,6 +88,10 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
   }
 
   function scrollToIndex(index) {
+    if (!active) {
+      return;
+    }
+
     const next = Math.min(Math.max(index, 0), videos.length - 1);
     const node = itemRefs.current[next];
     if (!node) {
@@ -89,6 +104,10 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
   }
 
   function handleWheel(event) {
+    if (!active) {
+      return;
+    }
+
     event.preventDefault();
     if (wheelLockedRef.current) {
       return;
@@ -151,7 +170,7 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
           <SwipPostBoundary postId={post.id}>
             <VideoCard
               post={post}
-              active={index === activeIndex}
+              active={active && index === activeIndex}
               fullscreen={fullscreen}
               contextLabel={getSwipContext(post, currentUserId)}
               categoryLabel={getVideoCategoryLabel(post)}

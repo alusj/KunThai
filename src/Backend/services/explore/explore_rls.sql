@@ -29,6 +29,12 @@ create index if not exists explore_notifications_user_unread_idx
 create index if not exists explore_notifications_group_idx
   on public.explore_notifications (user_id, group_key, created_at desc);
 
+create unique index if not exists explore_post_likes_one_per_user_idx
+  on public.explore_post_likes (post_id, user_id);
+
+create unique index if not exists explore_post_saves_one_per_user_idx
+  on public.explore_post_saves (post_id, user_id);
+
 drop policy if exists "Explore profiles are readable" on public.explore_profiles;
 create policy "Explore profiles are readable" on public.explore_profiles for select using (true);
 

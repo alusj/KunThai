@@ -413,22 +413,32 @@ export async function syncExploreReaction(postId, reactionType, active) {
   const query = supabase.from(tableName);
 
   if (active) {
-    const { error } = await query.upsert(
-      { post_id: postId, user_id: userId },
-      { onConflict: "post_id,user_id", ignoreDuplicates: true },
-    );
+    const existing = await query.select("post_id").eq("post_id", postId).eq("user_id", userId).maybeSingle();
+
+    if (existing.error && !isMissingTable(existing.error)) {
+      throw existing.error;
+    }
+
+    if (existing.data) {
+      return { active: true, changed: false };
+    }
+
+    const { error } = await query.insert({ post_id: postId, user_id: userId });
 
     if (error && !isMissingTable(error)) {
       throw error;
     }
-    return;
+
+    return { active: true, changed: !error };
   }
 
-  const { error } = await query.delete().eq("post_id", postId).eq("user_id", userId);
+  const { data, error } = await query.delete().eq("post_id", postId).eq("user_id", userId).select("post_id");
 
   if (error && !isMissingTable(error)) {
     throw error;
   }
+
+  return { active: false, changed: Boolean(data?.length) };
 }
 
 export async function fetchExploreNotifications(options = {}) {

@@ -19,6 +19,12 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
     return () => onConversationActiveChange?.(false);
   }, [messages.activeConversation, onConversationActiveChange]);
 
+  useEffect(() => {
+    if (tab === "inbox" && !messages.inbox.length && messages.requests.length) {
+      setTab("requests");
+    }
+  }, [messages.inbox.length, messages.requests.length, tab]);
+
   if (messages.activeConversation) {
     return (
       <ConversationScreen

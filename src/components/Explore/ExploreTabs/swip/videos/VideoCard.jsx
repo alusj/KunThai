@@ -151,7 +151,12 @@ export default function VideoCard({
       await playExploreMedia(video);
       window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: swipSoundMuted, soundUnlocked: swipSoundUnlocked } }));
     } catch {
-      // Keep the poster frame if autoplay is completely blocked.
+      try {
+        video.muted = true;
+        await playExploreMedia(video);
+      } catch {
+        // Keep the poster frame if autoplay is completely blocked.
+      }
     }
   }
 
@@ -255,19 +260,29 @@ export default function VideoCard({
         key={`${post.id}-${retryKey}`}
         ref={videoRef}
         src={post.video_url}
-        autoPlay={videoSettings.autoplay && !videoSettings.reduceData}
+        autoPlay={active && videoSettings.autoplay && !videoSettings.reduceData}
         controls={false}
         muted={muted}
         defaultMuted={false}
         playsInline
         loop
-        onCanPlay={() => setMediaError("")}
+        onCanPlay={() => {
+          setMediaError("");
+          if (activeRef.current) {
+            requestActivePlayback();
+          }
+        }}
+        onLoadedMetadata={() => {
+          if (activeRef.current) {
+            requestActivePlayback();
+          }
+        }}
         onError={() => {
           videoRef.current?.pause();
           setMediaError("Video is still being prepared.");
         }}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
-        preload={videoSettings.reduceData ? "none" : "auto"}
+        preload={!active || videoSettings.reduceData ? "metadata" : "auto"}
         className="absolute inset-0 h-full w-full object-cover"
       />
       {mediaError ? (
