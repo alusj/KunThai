@@ -81,16 +81,6 @@ export default function FeedList({
     );
   }
 
-  if (loading && !posts?.length) {
-    return (
-      <div className="mt-4 w-full overflow-x-clip px-4 sm:px-5 lg:px-8">
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-5 text-sm font-bold text-slate-500 shadow-sm">
-          Loading posts...
-        </div>
-      </div>
-    );
-  }
-
   if (!posts?.length) {
     return (
       <div className="mt-4 w-full overflow-x-clip px-4 sm:px-5 lg:px-8">
