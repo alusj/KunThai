@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineSpeakerWave, HiOutlineSpeakerXMark } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
-import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { sharePost } from "../../urfeed/feed/post/postUtils";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
@@ -10,6 +9,7 @@ import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 
 const SWIP_VIDEO_SOUND_EVENT = "swip-video-sound";
+const SWIP_VIDEO_USER_GESTURE = "swip-video-user-gesture";
 let swipSoundMuted = false;
 let swipSoundUnlocked = true;
 let swipSettingsLoaded = false;
@@ -42,11 +42,12 @@ export default function VideoCard({
     swipSettingsLoaded = true;
   }
 
-  const videoSettings = readExploreSettings().video;
   const [muted, setMuted] = useState(swipSoundMuted);
   const [message, setMessage] = useState("");
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
+  const soundRetryTimerRef = useRef(null);
+  const soundRetryCountRef = useRef(0);
   const activeRef = useRef(false);
 
   useBrowserBack(commentOpen, () => setCommentOpen(false), `swip-comments-${post.id}`);
@@ -54,10 +55,12 @@ export default function VideoCard({
   useEffect(() => {
     setMediaError("");
     setRetryKey(0);
+    soundRetryCountRef.current = 0;
   }, [post.video_url]);
 
   useEffect(() => () => {
     window.clearTimeout(holdTimerRef.current);
+    window.clearTimeout(soundRetryTimerRef.current);
     stopAllExploreMedia();
   }, []);
 
@@ -76,7 +79,7 @@ export default function VideoCard({
     pauseInactiveVideo(video);
     // requestActivePlayback reads current refs and sound state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
+  }, [active, post.video_url]);
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
@@ -108,11 +111,16 @@ export default function VideoCard({
       swipSoundMuted = next;
       swipSoundUnlocked = !next;
       window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: next, soundUnlocked: swipSoundUnlocked } }));
+      if (!next) {
+        window.setTimeout(() => requestActivePlayback({ userGesture: true }), 0);
+      }
       return next;
     });
   }
 
   function pauseInactiveVideo(video) {
+    window.clearTimeout(soundRetryTimerRef.current);
+    soundRetryCountRef.current = 0;
     video.pause();
     video.muted = true;
     if (!Number.isNaN(video.currentTime)) {
@@ -122,7 +130,7 @@ export default function VideoCard({
 
   async function requestActivePlayback({ userGesture = false } = {}) {
     const video = videoRef.current;
-    if (!video || mediaError || !videoSettings.autoplay || videoSettings.reduceData) {
+    if (!video || mediaError) {
       return;
     }
 
@@ -136,6 +144,7 @@ export default function VideoCard({
         await playExploreMedia(video);
         swipSoundMuted = false;
         swipSoundUnlocked = true;
+        soundRetryCountRef.current = 0;
         setMuted(false);
         window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: false, soundUnlocked: true } }));
         return;
@@ -154,6 +163,18 @@ export default function VideoCard({
       try {
         video.muted = true;
         await playExploreMedia(video);
+        if (soundRetryCountRef.current < 2) {
+          soundRetryCountRef.current += 1;
+          window.clearTimeout(soundRetryTimerRef.current);
+          soundRetryTimerRef.current = window.setTimeout(() => {
+            if (activeRef.current) {
+              video.muted = false;
+              requestActivePlayback({ userGesture: swipSoundUnlocked });
+            }
+          }, 120);
+        } else {
+          video.muted = false;
+        }
       } catch {
         // Keep the poster frame if autoplay is completely blocked.
       }
@@ -223,7 +244,25 @@ export default function VideoCard({
     };
     // requestActivePlayback reads current refs and sound state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
+  }, [active, post.video_url]);
+
+  useEffect(() => {
+    function handleSwipGesture() {
+      if (!activeRef.current || mediaError) {
+        return;
+      }
+
+      swipSoundMuted = false;
+      swipSoundUnlocked = true;
+      setMuted(false);
+      requestActivePlayback({ userGesture: true });
+    }
+
+    window.addEventListener(SWIP_VIDEO_USER_GESTURE, handleSwipGesture);
+    return () => window.removeEventListener(SWIP_VIDEO_USER_GESTURE, handleSwipGesture);
+    // requestActivePlayback reads current refs and sound state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaError]);
 
   useEffect(() => {
     function handleSoundChanged(event) {
@@ -260,9 +299,9 @@ export default function VideoCard({
         key={`${post.id}-${retryKey}`}
         ref={videoRef}
         src={post.video_url}
-        autoPlay={active && videoSettings.autoplay && !videoSettings.reduceData}
+        autoPlay={active}
         controls={false}
-        muted={muted}
+        muted={muted || !active}
         defaultMuted={false}
         playsInline
         loop
@@ -282,7 +321,7 @@ export default function VideoCard({
           setMediaError("Video is still being prepared.");
         }}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
-        preload={!active || videoSettings.reduceData ? "metadata" : "auto"}
+        preload={active ? "auto" : "metadata"}
         className="absolute inset-0 h-full w-full object-cover"
       />
       {mediaError ? (

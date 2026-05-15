@@ -10,6 +10,7 @@ import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipP
 
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
+const SWIP_VIDEO_USER_GESTURE = "swip-video-user-gesture";
 
 export default function All({ active = true, currentUserId = "", onlyUserId = "", onViewProfile }) {
   const feed = useExploreFeed("swip");
@@ -21,6 +22,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
   const wheelLockedRef = useRef(false);
   const wheelUnlockTimerRef = useRef(null);
   const wheelDeltaRef = useRef(0);
+  const scrollRafRef = useRef(null);
 
   useBrowserBack(fullscreen, () => setFullscreen(false), "swip-fullscreen");
 
@@ -30,6 +32,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
 
   useEffect(() => () => {
     window.clearTimeout(wheelUnlockTimerRef.current);
+    window.cancelAnimationFrame(scrollRafRef.current);
     stopAllExploreMedia();
   }, []);
 
@@ -103,6 +106,48 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     node.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function setActiveVideoIndex(nextIndex) {
+    setActiveIndex((current) => {
+      if (current !== nextIndex) {
+        stopAllExploreMedia();
+      }
+      return nextIndex;
+    });
+  }
+
+  function handleScroll() {
+    if (!active || scrollRafRef.current) {
+      return;
+    }
+
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const scroller = scrollerRef.current;
+      if (!scroller) {
+        return;
+      }
+
+      const scrollerTop = scroller.getBoundingClientRect().top;
+      let nearestIndex = activeIndex;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+
+      itemRefs.current.forEach((node, index) => {
+        if (!node) return;
+        const distance = Math.abs(node.getBoundingClientRect().top - scrollerTop);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestIndex = index;
+        }
+      });
+
+      setActiveVideoIndex(nearestIndex);
+    });
+  }
+
+  function notifySwipGesture() {
+    window.dispatchEvent(new CustomEvent(SWIP_VIDEO_USER_GESTURE));
+  }
+
   function handleWheel(event) {
     if (!active) {
       return;
@@ -152,6 +197,9 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
       ref={scrollerRef}
       className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       onWheel={handleWheel}
+      onScroll={handleScroll}
+      onPointerDownCapture={notifySwipGesture}
+      onTouchStartCapture={notifySwipGesture}
       style={{
         "--swip-item-height": "calc(100dvh - var(--explore-top-chrome-height,57px))",
         touchAction: "pan-y",

@@ -498,7 +498,7 @@ export function useExploreFeed(scope = "feed") {
         return;
       }
 
-      await updateExplorePostCounts(postId, { [countKey]: nextCount });
+      updateExplorePostCounts(postId, { [countKey]: nextCount }).catch(() => null);
       if (!currentlyActive && targetPost?.user_id && targetPost.user_id !== currentUserId) {
         await createExploreNotification({
           user_id: targetPost.user_id,
@@ -552,7 +552,7 @@ export function useExploreFeed(scope = "feed") {
 
     try {
       await createExploreComment(typeof content === "string" ? { post_id: postId, body: content } : { post_id: postId, ...content });
-      await updateExplorePostCounts(postId, { comments_count: nextCount });
+      updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
       showToast("Comment posted.", "success");
       if (targetPost?.user_id && targetPost.user_id !== currentUserId) {
         await createExploreNotification({

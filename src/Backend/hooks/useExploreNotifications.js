@@ -171,7 +171,7 @@ export function useExploreNotifications() {
         return;
       }
 
-      if (currentUserId && event.detail.user_id && event.detail.user_id !== currentUserId) {
+      if (!currentUserId || event.detail.user_id !== currentUserId) {
         return;
       }
 

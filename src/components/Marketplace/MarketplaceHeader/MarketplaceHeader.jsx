@@ -4,8 +4,40 @@ import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
 export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessagesClick, activeUtility }) {
-  const { hasBusiness } = useSellerBusinessStatus();
+  const { loading, hasBusiness } = useSellerBusinessStatus();
   const businessLabel = hasBusiness ? "MyBiz" : "REGISTER";
+
+  if (loading) {
+    return (
+      <header className="sticky top-0 z-20 border-b bg-white" aria-busy="true">
+        <div className="flex h-14 items-center justify-between px-4">
+          <div className="flex h-10 w-[104px] animate-pulse items-center justify-center gap-2 rounded-lg bg-gray-100 text-gray-300">
+            <Store size={18} />
+            <span className="h-3 w-12 rounded-full bg-gray-200" />
+          </div>
+
+          <span className="flex flex-col items-center leading-tight text-blue-700">
+            <span className="text-[11px] font-black uppercase tracking-[0.38em]">KUNTHAI</span>
+            <span className="flex items-center gap-1.5 text-base font-black text-gray-900">
+              <ShoppingBag size={17} />
+              UrMall
+            </span>
+          </span>
+
+          <div className="flex items-center gap-2" aria-hidden="true">
+            {[PackageCheck, MessageCircle, ShoppingBag, Store].map((Icon, index) => (
+              <span
+                key={index}
+                className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-gray-100 text-gray-300"
+              >
+                <Icon size={18} />
+              </span>
+            ))}
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-20 border-b bg-white">
