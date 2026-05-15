@@ -127,6 +127,46 @@ begin
 end;
 $$;
 
+create or replace function public.explore_get_post_action_counts(target_post_ids uuid[])
+returns table (
+  post_id uuid,
+  likes_count integer,
+  comments_count integer,
+  saves_count integer
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    posts.id as post_id,
+    coalesce(likes.total, 0)::integer as likes_count,
+    coalesce(comments.total, 0)::integer as comments_count,
+    coalesce(saves.total, 0)::integer as saves_count
+  from public.explore_posts posts
+  left join (
+    select explore_post_likes.post_id, count(*) as total
+    from public.explore_post_likes
+    where explore_post_likes.post_id = any(target_post_ids)
+    group by explore_post_likes.post_id
+  ) likes on likes.post_id = posts.id
+  left join (
+    select explore_post_comments.post_id, count(*) as total
+    from public.explore_post_comments
+    where explore_post_comments.post_id = any(target_post_ids)
+    group by explore_post_comments.post_id
+  ) comments on comments.post_id = posts.id
+  left join (
+    select explore_post_saves.post_id, count(*) as total
+    from public.explore_post_saves
+    where explore_post_saves.post_id = any(target_post_ids)
+    group by explore_post_saves.post_id
+  ) saves on saves.post_id = posts.id
+  where posts.id = any(target_post_ids);
+$$;
+
+grant execute on function public.explore_get_post_action_counts(uuid[]) to anon, authenticated;
+
 create or replace function public.explore_sync_comment_count()
 returns trigger
 language plpgsql
@@ -391,11 +431,17 @@ create policy "Users delete own explore posts" on public.explore_posts for delet
 using (auth.uid() = user_id);
 
 drop policy if exists "Users manage own likes" on public.explore_post_likes;
+drop policy if exists "Post likes are readable" on public.explore_post_likes;
+create policy "Post likes are readable" on public.explore_post_likes for select using (true);
+
 create policy "Users manage own likes" on public.explore_post_likes for all
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
 drop policy if exists "Users manage own saves" on public.explore_post_saves;
+drop policy if exists "Post saves are readable" on public.explore_post_saves;
+create policy "Post saves are readable" on public.explore_post_saves for select using (true);
+
 create policy "Users manage own saves" on public.explore_post_saves for all
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);

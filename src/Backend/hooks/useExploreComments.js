@@ -199,9 +199,10 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
         setComments((current) => current.map((comment) => (comment.id === tempId ? created : comment)));
       }
 
+      const nextCount = Math.max(Number(post?.comments_count || 0), comments.length) + 1;
+      updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
+
       if (post?.user_id && post.user_id !== currentUserId) {
-        const nextCount = Math.max(Number(post.comments_count || 0), comments.length) + 1;
-        updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
         createExploreNotification({
           user_id: post.user_id,
           type: "comment",

@@ -7,6 +7,7 @@ import { formatRelativeTime } from "./explore/time";
 export {
   createExplorePost,
   deleteExplorePost,
+  fetchExplorePostCounts,
   fetchExplorePosts,
   reportExplorePost,
   updateExplorePost,
@@ -410,10 +411,8 @@ export async function syncExploreReaction(postId, reactionType, active) {
 
   const tableName = reactionType === "like" ? "explore_post_likes" : "explore_post_saves";
 
-  const query = supabase.from(tableName);
-
   if (active) {
-    const existing = await query.select("post_id").eq("post_id", postId).eq("user_id", userId).maybeSingle();
+    const existing = await supabase.from(tableName).select("post_id").eq("post_id", postId).eq("user_id", userId).maybeSingle();
 
     if (existing.error && !isMissingTable(existing.error)) {
       throw existing.error;
@@ -423,9 +422,12 @@ export async function syncExploreReaction(postId, reactionType, active) {
       return { active: true, changed: false };
     }
 
-    const { error } = await query.insert({ post_id: postId, user_id: userId });
+    const { error } = await supabase.from(tableName).insert({ post_id: postId, user_id: userId });
 
     if (error && !isMissingTable(error)) {
+      if (error.code === "23505") {
+        return { active: true, changed: false };
+      }
       throw error;
     }
 

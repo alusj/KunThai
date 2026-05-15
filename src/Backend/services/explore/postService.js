@@ -117,7 +117,79 @@ export async function fetchExplorePosts(scope = "feed") {
     scoped_count: scopedPosts.length,
   });
 
-  return visiblePosts;
+  return hydratePostActionCounts(visiblePosts);
+}
+
+export async function fetchExplorePostCounts(postIds = []) {
+  const ids = Array.from(new Set((postIds || []).filter(Boolean)));
+  if (!ids.length) {
+    return new Map();
+  }
+
+  const rpcResult = await supabase
+    .rpc("explore_get_post_action_counts", { target_post_ids: ids })
+    .catch((error) => ({ data: null, error }));
+
+  if (!rpcResult.error && Array.isArray(rpcResult.data)) {
+    return new Map(
+      rpcResult.data.map((item) => [
+        item.post_id,
+        {
+          likes_count: Number(item.likes_count || 0),
+          comments_count: Number(item.comments_count || 0),
+          saves_count: Number(item.saves_count || 0),
+        },
+      ]),
+    );
+  }
+
+  const [likesResult, commentsResult, savesResult] = await Promise.all([
+    supabase.from("explore_post_likes").select("post_id").in("post_id", ids),
+    supabase.from("explore_post_comments").select("post_id").in("post_id", ids),
+    supabase.from("explore_post_saves").select("post_id").in("post_id", ids),
+  ]);
+
+  const counts = new Map(ids.map((id) => [id, { likes_count: 0, comments_count: 0, saves_count: 0 }]));
+
+  function applyRows(result, key) {
+    if (result.error) {
+      if (isMissingTable(result.error) || isMissingColumn(result.error, "post_id")) {
+        return;
+      }
+      throw result.error;
+    }
+
+    (result.data || []).forEach((row) => {
+      const current = counts.get(row.post_id);
+      if (current) current[key] += 1;
+    });
+  }
+
+  applyRows(likesResult, "likes_count");
+  applyRows(commentsResult, "comments_count");
+  applyRows(savesResult, "saves_count");
+
+  return counts;
+}
+
+async function hydratePostActionCounts(posts) {
+  if (!posts.length) {
+    return posts;
+  }
+
+  try {
+    const counts = await fetchExplorePostCounts(posts.map((post) => post.id));
+    if (!counts.size) {
+      return posts;
+    }
+
+    return posts.map((post) => {
+      const count = counts.get(post.id);
+      return count ? { ...post, ...count } : post;
+    });
+  } catch {
+    return posts;
+  }
 }
 
 export async function createExplorePost(input, scope = "feed") {

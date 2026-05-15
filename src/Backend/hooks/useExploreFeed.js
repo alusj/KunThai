@@ -23,6 +23,7 @@ import {
   deleteExplorePost,
   fetchExploreFollowers,
   fetchCurrentUserReactions,
+  fetchExplorePostCounts,
   fetchExplorePosts,
   getCurrentUserProfile,
   reportExplorePost,
@@ -257,6 +258,31 @@ export function useExploreFeed(scope = "feed") {
       writeStoredSet(SAVE_STORAGE_KEY, nextSavedPosts);
     } catch {
       // Keep local reaction state if the network is unavailable.
+    }
+  }
+
+  async function refreshPostCounts(postIds) {
+    const ids = Array.from(new Set((postIds || []).filter(Boolean)));
+    if (!ids.length) {
+      return;
+    }
+
+    try {
+      const counts = await fetchExplorePostCounts(ids);
+      if (!counts.size) {
+        return;
+      }
+
+      setPosts((current) => {
+        const nextPosts = current.map((post) => {
+          const count = counts.get(post.id);
+          return count ? { ...post, ...count } : post;
+        });
+        writeStoredPosts(scope, nextPosts);
+        return nextPosts;
+      });
+    } catch {
+      // Keep optimistic counts if the exact count lookup is unavailable.
     }
   }
 
@@ -499,6 +525,7 @@ export function useExploreFeed(scope = "feed") {
       }
 
       updateExplorePostCounts(postId, { [countKey]: nextCount }).catch(() => null);
+      refreshPostCounts([postId]);
       if (!currentlyActive && targetPost?.user_id && targetPost.user_id !== currentUserId) {
         await createExploreNotification({
           user_id: targetPost.user_id,
@@ -553,6 +580,7 @@ export function useExploreFeed(scope = "feed") {
     try {
       await createExploreComment(typeof content === "string" ? { post_id: postId, body: content } : { post_id: postId, ...content });
       updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
+      refreshPostCounts([postId]);
       showToast("Comment posted.", "success");
       if (targetPost?.user_id && targetPost.user_id !== currentUserId) {
         await createExploreNotification({
