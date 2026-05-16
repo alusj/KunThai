@@ -11,7 +11,7 @@ import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipP
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
 
-export default function All({ currentUserId = "", onlyUserId = "", onViewProfile }) {
+export default function All({ active = true, currentUserId = "", onlyUserId = "", onViewProfile }) {
   const feed = useExploreFeed("swip");
   const videos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -27,6 +27,12 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
   useEffect(() => {
     setActiveIndex((current) => Math.min(Math.max(current, 0), Math.max(videos.length - 1, 0)));
   }, [videos.length]);
+
+  useEffect(() => {
+    if (!active) {
+      stopAllExploreMedia();
+    }
+  }, [active]);
 
   useEffect(() => () => {
     window.clearTimeout(wheelUnlockTimerRef.current);
@@ -151,7 +157,7 @@ export default function All({ currentUserId = "", onlyUserId = "", onViewProfile
           <SwipPostBoundary postId={post.id}>
             <VideoCard
               post={post}
-              active={index === activeIndex}
+              active={active && index === activeIndex}
               fullscreen={fullscreen}
               contextLabel={getSwipContext(post, currentUserId)}
               categoryLabel={getVideoCategoryLabel(post)}

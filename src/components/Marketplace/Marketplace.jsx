@@ -77,7 +77,7 @@ export default function Marketplace({ nav, setNav }) {
         subtitle="Your UrMall purchases and checkout requests"
         onClose={() => setActiveUtility(null)}
       >
-        <Orders onBack={() => setActiveUtility(null)} compact />
+        <Orders onBack={() => setActiveUtility(null)} onProductOpen={openProductFromUtility} compact />
       </UtilityDrawer>
 
       <UtilityDrawer

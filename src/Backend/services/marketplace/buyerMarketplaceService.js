@@ -407,6 +407,7 @@ export async function checkoutBuyerCart(deliveryLocation = "") {
       .insert({
         buyer_id: buyerId,
         business_id: businessId,
+        product_id: groupItems.length === 1 ? groupItems[0].id : null,
         status: "pending",
         total_amount: total,
         item_count: groupItems.reduce((sum, item) => sum + item.qty, 0),
@@ -452,6 +453,7 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
       buyer_id: buyer.id,
       buyer_name: buyerName.trim() || buyer.name,
       business_id: product.businessId,
+      product_id: product.id,
       status: "pending",
       total_amount: total,
       item_count: quantity,
@@ -469,11 +471,18 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
 
 export async function fetchBuyerOrders() {
   const buyerId = await getCurrentUserId("Sign in to view your orders.");
+  const hiddenResult = await supabase
+    .from("marketplace_buyer_hidden_orders")
+    .select("order_id")
+    .eq("buyer_id", buyerId);
+  const hiddenIds = new Set((hiddenResult.data || []).map((item) => item.order_id));
+
   const { data, error } = await supabase
     .from("marketplace_orders")
     .select(
       `
-        id,business_id,status,total_amount,item_count,preview,delivery_location,created_at,
+        id,business_id,product_id,status,total_amount,item_count,preview,delivery_location,created_at,
+        marketplace_products (${PRODUCT_SELECT}),
         marketplace_businesses (id,business_name,city,country,logo_url,verification_status)
       `,
     )
@@ -482,11 +491,14 @@ export async function fetchBuyerOrders() {
 
   if (error) throw new Error(error.message);
 
-  return (data || []).map((order) => {
+  return (data || []).filter((order) => !hiddenIds.has(order.id)).map((order) => {
     const business = order.marketplace_businesses || {};
+    const product = order.marketplace_products ? mapBuyerProduct(order.marketplace_products) : null;
     return {
       id: order.id,
       businessId: order.business_id,
+      productId: order.product_id || "",
+      product,
       sellerName: business.business_name || "UrMall seller",
       sellerLocation: [business.city, business.country].filter(Boolean).join(", "),
       sellerLogoUrl: business.logo_url || "",
@@ -498,6 +510,16 @@ export async function fetchBuyerOrders() {
       createdAt: order.created_at,
     };
   });
+}
+
+export async function hideBuyerOrder(orderId) {
+  const buyerId = await getCurrentUserId("Sign in to manage your orders.");
+  const { error } = await supabase
+    .from("marketplace_buyer_hidden_orders")
+    .upsert({ buyer_id: buyerId, order_id: orderId }, { onConflict: "buyer_id,order_id" });
+
+  if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
 }
 
 export async function fetchBuyerMessages() {

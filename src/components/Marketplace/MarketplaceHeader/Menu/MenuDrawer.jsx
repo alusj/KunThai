@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   Camera,
   CheckCircle2,
   CreditCard,
@@ -226,7 +227,7 @@ function OrderedItemsList({ orders, loading }) {
 }
 
 export default function MenuDrawer({ open, onClose }) {
-  const [active, setActive] = useState("orders");
+  const [active, setActive] = useState(null);
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [savedProducts, setSavedProducts] = useState([]);
@@ -271,7 +272,7 @@ export default function MenuDrawer({ open, onClose }) {
     return () => window.removeEventListener("marketplace-orders-updated", loadOrders);
   }, []);
 
-  const activeTitle = useMemo(() => menuItems.find((item) => item.id === active)?.label || "Menu", [active]);
+  const activeTitle = useMemo(() => menuItems.find((item) => item.id === active)?.label || "Buyer Menu", [active]);
 
   async function saveAddress() {
     const localId = address.id || `local-address-${Date.now()}`;
@@ -378,289 +379,316 @@ export default function MenuDrawer({ open, onClose }) {
     window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product } }));
   }
 
+  function renderActiveContent() {
+    return (
+      <>
+        {message && <p className="mb-3 rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p>}
+
+        {active === "orders" && <OrderedItemsList orders={orders} loading={ordersLoading} />}
+
+        {active === "saved" && (
+          <ProductMiniList
+            products={savedProducts}
+            emptyText="Saved products will appear here when you tap the heart on a listing."
+            onProductSelect={openProduct}
+          />
+        )}
+
+        {active === "recent" && (
+          <ProductMiniList
+            products={recentProducts}
+            emptyText="Recently viewed products will appear here after opening product details."
+            onProductSelect={openProduct}
+          />
+        )}
+
+        {active === "address" && (
+          <div className="space-y-4">
+            {savedAddresses.length ? (
+              <div className="space-y-2">
+                <p className="text-sm font-black text-gray-950">Saved addresses</p>
+                {savedAddresses.map((item) => (
+                  <button
+                    key={item.id || `${item.category}-${item.street}`}
+                    type="button"
+                    onClick={() => setAddress(item)}
+                    className="w-full rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-black text-gray-950">{getAddressLabel(item)} address</p>
+                      <span className="text-xs font-black text-emerald-700">Edit</span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{item.street || item.detectedAddress}</p>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <label className="space-y-1">
+                <span className="text-xs font-black uppercase text-gray-500">Location category</span>
+                <select
+                  value={address.category}
+                  onChange={(event) => updateAddress({ category: event.target.value })}
+                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+                >
+                  {addressTypes.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </label>
+
+              {address.category === "Other" ? (
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Custom category</span>
+                  <input
+                    value={address.customCategory}
+                    onChange={(event) => updateAddress({ customCategory: event.target.value })}
+                    placeholder="Eg. Warehouse, clinic, church"
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                  />
+                </label>
+              ) : null}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Full name</span>
+                  <input
+                    value={address.fullName}
+                    onChange={(event) => updateAddress({ fullName: event.target.value })}
+                    placeholder="Receiver name"
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Phone number</span>
+                  <input
+                    value={address.phone}
+                    onChange={(event) => updateAddress({ phone: event.target.value })}
+                    placeholder="Phone number"
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                  />
+                </label>
+              </div>
+
+              <label className="space-y-1">
+                <span className="text-xs font-black uppercase text-gray-500">Street</span>
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <input
+                    value={address.street}
+                    onChange={(event) => updateAddress({ street: event.target.value })}
+                    placeholder="Street, city, landmark"
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={locateMe}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
+                  >
+                    <LocateFixed size={16} />
+                    Locate me
+                  </button>
+                </div>
+              </label>
+
+              {locationCandidate ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <p className="text-sm font-black text-emerald-950">
+                    Your current location is {locationCandidate.address}
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={confirmDetectedLocation}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
+                    >
+                      <CheckCircle2 size={15} />
+                      Correct, add location
+                    </button>
+                    <button
+                      type="button"
+                      onClick={rejectDetectedLocation}
+                      className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+                    >
+                      Wrong, enter manually
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <label className="space-y-1">
+                <span className="text-xs font-black uppercase text-gray-500">Apartment, stall no / delivery note</span>
+                <textarea
+                  value={address.note}
+                  onChange={(event) => updateAddress({ note: event.target.value })}
+                  placeholder="Apartment, stall number, color of gate, nearby shop, or rider note"
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-black uppercase text-gray-500">Address front picture</span>
+                <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
+                    {address.frontPictureUrl ? (
+                      <img src={address.frontPictureUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Camera className="text-gray-400" size={30} />
+                    )}
+                  </div>
+                  <div className="flex flex-col justify-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFrontPictureChange}
+                      className="text-sm font-semibold text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white"
+                    />
+                    <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
+                      Add a front-facing picture of the gate, stall, office entrance, or building.
+                    </p>
+                  </div>
+                </div>
+              </label>
+
+              {address.detectedAddress ? (
+                <p className="rounded-xl bg-gray-50 p-3 text-xs font-bold leading-5 text-gray-600">
+                  Detected location: {address.detectedAddress}
+                </p>
+              ) : null}
+              {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
+            </div>
+
+            <button
+              onClick={saveAddress}
+              className="h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
+            >
+              Save Delivery Address
+            </button>
+          </div>
+        )}
+
+        {active === "payments" && (
+          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <label className="block text-sm font-black text-gray-950">Payment preference</label>
+            <textarea
+              value={payment}
+              onChange={(event) => setPayment(event.target.value)}
+              placeholder="KunThai Money, cash on pickup, bank transfer, or preferred method"
+              className="min-h-32 w-full rounded-xl border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
+            />
+            <button onClick={savePayment} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
+              Save Payment Preference
+            </button>
+          </div>
+        )}
+
+        {active === "returns" && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <ShieldAlert className="text-amber-600" size={28} />
+            <h4 className="mt-3 font-black text-gray-950">Returns & disputes</h4>
+            <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
+              Start from the related order or message so the seller, product, amount, and delivery context stay attached.
+            </p>
+          </div>
+        )}
+
+        {active === "support" && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <HelpCircle className="text-emerald-700" size={28} />
+            <h4 className="mt-3 font-black text-gray-950">Help & support</h4>
+            <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
+              For order help, contact the seller in Messages. For account or safety issues, use Explore support until UrMall support tickets are added.
+            </p>
+          </div>
+        )}
+
+        {active === "settings" && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="font-black text-gray-950">Buyer settings</p>
+            <p className="mt-1 text-sm font-medium text-gray-600">Saved products, recent views, address, and payment preferences are active in this buyer menu.</p>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       {open && <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40" />}
 
       <div
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-xl transform flex-col bg-white shadow-lg transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 flex h-full w-full transform flex-col bg-white shadow-lg transition-transform duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center justify-between border-b px-4">
-          <div>
-            <h3 className="text-lg font-black text-gray-950">Buyer Menu</h3>
-            <p className="text-xs font-bold text-gray-500">{activeTitle}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-            aria-label="Close buyer menu"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="grid min-h-0 flex-1 grid-cols-[180px_1fr]">
-          <nav className="border-r bg-gray-50 p-3">
-            <div className="space-y-1">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const selected = active === item.id;
-
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setActive(item.id);
-                      setMessage("");
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black transition ${
-                      selected ? "bg-emerald-600 text-white" : "text-gray-700 hover:bg-white"
-                    }`}
-                  >
-                    <Icon size={16} />
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                );
-              })}
+        {!active ? (
+          <>
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4 sm:px-6">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">UrMall</p>
+                <h3 className="mt-1 text-2xl font-black text-gray-950">Buyer Menu</h3>
+              </div>
+              <button
+                onClick={onClose}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200"
+                aria-label="Close buyer menu"
+              >
+                <X size={20} />
+              </button>
             </div>
-          </nav>
 
-          <section className="min-w-0 overflow-y-auto p-4">
-            {message && <p className="mb-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p>}
-
-            {active === "orders" && <OrderedItemsList orders={orders} loading={ordersLoading} />}
-
-            {active === "saved" && (
-              <ProductMiniList
-                products={savedProducts}
-                emptyText="Saved products will appear here when you tap the heart on a listing."
-                onProductSelect={openProduct}
-              />
-            )}
-
-            {active === "recent" && (
-              <ProductMiniList
-                products={recentProducts}
-                emptyText="Recently viewed products will appear here after opening product details."
-                onProductSelect={openProduct}
-              />
-            )}
-
-            {active === "address" && (
-              <div className="space-y-4">
-                {savedAddresses.length ? (
-                  <div className="space-y-2">
-                    <p className="text-sm font-black text-gray-950">Saved addresses</p>
-                    {savedAddresses.map((item) => (
-                      <button
-                        key={item.id || `${item.category}-${item.street}`}
-                        type="button"
-                        onClick={() => setAddress(item)}
-                        className="w-full rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-black text-gray-950">{getAddressLabel(item)} address</p>
-                          <span className="text-xs font-black text-emerald-700">Edit</span>
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{item.street || item.detectedAddress}</p>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <label className="space-y-1">
-                    <span className="text-xs font-black uppercase text-gray-500">Location category</span>
-                    <select
-                      value={address.category}
-                      onChange={(event) => updateAddress({ category: event.target.value })}
-                      className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+            <nav className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+              <div className="grid gap-3 lg:grid-cols-2">
+                {menuItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setActive(item.id);
+                        setMessage("");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
                     >
-                      {addressTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {address.category === "Other" ? (
-                    <label className="space-y-1">
-                      <span className="text-xs font-black uppercase text-gray-500">Custom category</span>
-                      <input
-                        value={address.customCategory}
-                        onChange={(event) => updateAddress({ customCategory: event.target.value })}
-                        placeholder="Eg. Warehouse, clinic, church"
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                      />
-                    </label>
-                  ) : null}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="space-y-1">
-                      <span className="text-xs font-black uppercase text-gray-500">Full name</span>
-                      <input
-                        value={address.fullName}
-                        onChange={(event) => updateAddress({ fullName: event.target.value })}
-                        placeholder="Receiver name"
-                        className="h-12 min-w-0 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                      />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-xs font-black uppercase text-gray-500">Phone number</span>
-                      <input
-                        value={address.phone}
-                        onChange={(event) => updateAddress({ phone: event.target.value })}
-                        placeholder="Phone number"
-                        className="h-12 min-w-0 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                      />
-                    </label>
-                  </div>
-
-                  <label className="space-y-1">
-                    <span className="text-xs font-black uppercase text-gray-500">Street</span>
-                    <div className="flex gap-2">
-                      <input
-                        value={address.street}
-                        onChange={(event) => updateAddress({ street: event.target.value })}
-                        placeholder="Street, city, landmark"
-                        className="h-12 min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={locateMe}
-                        className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-gray-950 px-3 text-xs font-black text-white transition hover:bg-gray-800"
-                      >
-                        <LocateFixed size={15} />
-                        Locate me
-                      </button>
-                    </div>
-                  </label>
-
-                  {locationCandidate ? (
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                      <p className="text-sm font-black text-emerald-950">
-                        Your current location is {locationCandidate.address}
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={confirmDetectedLocation}
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
-                        >
-                          <CheckCircle2 size={15} />
-                          Correct, add location
-                        </button>
-                        <button
-                          type="button"
-                          onClick={rejectDetectedLocation}
-                          className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
-                        >
-                          Wrong, enter manually
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <label className="space-y-1">
-                    <span className="text-xs font-black uppercase text-gray-500">Apartment, stall no / delivery note</span>
-                    <textarea
-                      value={address.note}
-                      onChange={(event) => updateAddress({ note: event.target.value })}
-                      placeholder="Apartment, stall number, color of gate, nearby shop, or rider note"
-                      rows={3}
-                      className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                    />
-                  </label>
-
-                  <label className="space-y-2">
-                    <span className="text-xs font-black uppercase text-gray-500">Address front picture</span>
-                    <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
-                      <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
-                        {address.frontPictureUrl ? (
-                          <img src={address.frontPictureUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <Camera className="text-gray-400" size={30} />
-                        )}
-                      </div>
-                      <div className="flex flex-col justify-center">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFrontPictureChange}
-                          className="text-sm font-semibold text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white"
-                        />
-                        <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-                          Add a front-facing picture of the gate, stall, office entrance, or building.
-                        </p>
-                      </div>
-                    </div>
-                  </label>
-
-                  {address.detectedAddress ? (
-                    <p className="rounded-xl bg-gray-50 p-3 text-xs font-bold leading-5 text-gray-600">
-                      Detected location: {address.detectedAddress}
-                    </p>
-                  ) : null}
-                  {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
-                </div>
-
-                <button
-                  onClick={saveAddress}
-                  className="h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
-                >
-                  Save Delivery Address
-                </button>
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-800">
+                        <Icon size={20} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-black text-gray-950">{item.label}</span>
+                        <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
+                          Manage your {item.label.toLowerCase()}.
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
-
-            {active === "payments" && (
-              <div className="space-y-3">
-                <label className="block text-sm font-black text-gray-950">Payment preference</label>
-                <textarea
-                  value={payment}
-                  onChange={(event) => setPayment(event.target.value)}
-                  placeholder="KunThai Money, cash on pickup, bank transfer, or preferred method"
-                  className="min-h-32 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
-                />
-                <button onClick={savePayment} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700">
-                  Save Payment Preference
-                </button>
+            </nav>
+          </>
+        ) : (
+          <>
+            <div className="flex items-start gap-3 border-b border-gray-100 px-4 py-4 shadow-sm sm:px-6">
+              <button
+                type="button"
+                onClick={() => setActive(null)}
+                className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-800 hover:bg-gray-200"
+                aria-label="Back to buyer menu"
+              >
+                <ArrowLeft size={22} />
+              </button>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Buyer Menu</p>
+                <h3 className="mt-1 truncate text-2xl font-black text-gray-950">{activeTitle}</h3>
               </div>
-            )}
-
-            {active === "returns" && (
-              <div className="rounded-lg border border-gray-200 p-4">
-                <ShieldAlert className="text-amber-600" size={28} />
-                <h4 className="mt-3 font-black text-gray-950">Returns & disputes</h4>
-                <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
-                  Start from the related order or message so the seller, product, amount, and delivery context stay attached.
-                </p>
-              </div>
-            )}
-
-            {active === "support" && (
-              <div className="rounded-lg border border-gray-200 p-4">
-                <HelpCircle className="text-emerald-700" size={28} />
-                <h4 className="mt-3 font-black text-gray-950">Help & support</h4>
-                <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
-                  For order help, contact the seller in Messages. For account or safety issues, use Explore support until UrMall support tickets are added.
-                </p>
-              </div>
-            )}
-
-            {active === "settings" && (
-              <div className="space-y-3">
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <p className="font-black text-gray-950">Buyer settings</p>
-                  <p className="mt-1 text-sm font-medium text-gray-600">Saved products, recent views, address, and payment preferences are active in this buyer menu.</p>
-                </div>
-              </div>
-            )}
-          </section>
+            </div>
+            <section className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+              {renderActiveContent()}
+            </section>
+          </>
+        )}
         </div>
-      </div>
     </>
   );
 }

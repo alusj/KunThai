@@ -28,7 +28,12 @@ export default function Swip({ active = true, currentUserId = "", onViewProfile 
     document.documentElement.style.overscrollBehavior = "none";
     document.documentElement.style.height = "100dvh";
 
+    const playTimer = window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("swip-active-play"));
+    }, 120);
+
     return () => {
+      window.clearTimeout(playTimer);
       stopAllExploreMedia();
       document.body.style.overflow = previousBody.overflow;
       document.body.style.overscrollBehavior = previousBody.overscrollBehavior;
@@ -42,7 +47,7 @@ export default function Swip({ active = true, currentUserId = "", onViewProfile 
   return (
     <div className="flex h-[calc(100dvh-var(--explore-top-chrome-height,57px))] min-h-0 flex-col overflow-hidden bg-slate-950">
       <div className="min-h-0 flex-1 overflow-hidden">
-        <All currentUserId={currentUserId} onViewProfile={onViewProfile} />
+        <All active={active} currentUserId={currentUserId} onViewProfile={onViewProfile} />
       </div>
     </div>
   );

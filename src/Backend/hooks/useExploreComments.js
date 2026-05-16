@@ -79,6 +79,22 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
           if (current.some((comment) => comment.id === payload.new.id)) {
             return current;
           }
+
+          const pendingIndex = current.findIndex((comment) => {
+            if (!comment.pending) return false;
+            return (
+              comment.post_id === payload.new.post_id &&
+              (comment.parent_comment_id || null) === (payload.new.parent_comment_id || null) &&
+              comment.user_id === payload.new.user_id &&
+              (comment.body || "") === (payload.new.body || "") &&
+              (comment.audio_url || "") === (payload.new.audio_url || "")
+            );
+          });
+
+          if (pendingIndex >= 0) {
+            return current.map((comment, index) => (index === pendingIndex ? payload.new : comment));
+          }
+
           return [...current, payload.new];
         });
       },

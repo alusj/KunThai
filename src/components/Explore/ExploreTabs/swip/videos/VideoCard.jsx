@@ -60,6 +60,17 @@ export default function VideoCard({
     pauseInactiveVideo(video);
   }, [active, post.video_url]);
 
+  useEffect(() => {
+    function handleSwipActivePlay() {
+      if (activeRef.current || active) {
+        requestActivePlayback();
+      }
+    }
+
+    window.addEventListener("swip-active-play", handleSwipActivePlay);
+    return () => window.removeEventListener("swip-active-play", handleSwipActivePlay);
+  }, [active, post.video_url]);
+
   async function handleShare() {
     const nextMessage = await sharePost(post);
     setMessage(nextMessage);
@@ -90,6 +101,10 @@ export default function VideoCard({
   }
 
   async function requestActivePlayback() {
+    if (!activeRef.current) {
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) {
       return;
@@ -185,6 +200,9 @@ export default function VideoCard({
         playsInline
         loop
         onError={() => setMediaError("Video is still being prepared.")}
+        onCanPlay={() => {
+          if (activeRef.current || active) requestActivePlayback();
+        }}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
         preload="auto"
         className="absolute inset-0 h-full w-full object-cover"
