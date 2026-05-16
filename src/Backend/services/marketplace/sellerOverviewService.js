@@ -78,6 +78,7 @@ export async function fetchSellerOverview() {
       logoUrl: registeredBusiness.identity.logoUrl,
       bannerUrl: registeredBusiness.identity.bannerUrl,
       verified,
+      verificationStatus: registeredBusiness.verificationStatus,
       verificationLabel: verified ? "Verified Seller" : "Verification Pending",
       rating: 0,
       reviewCount: 0,

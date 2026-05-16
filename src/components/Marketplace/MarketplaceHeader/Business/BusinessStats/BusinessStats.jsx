@@ -8,9 +8,9 @@ import OrderStatusGrid from "./OrderStatusGrid";
 import RevenueMetrics from "./RevenueMetrics";
 import SalesMetricCard from "./SalesMetricCard";
 
-export default function BusinessStats() {
+export default function BusinessStats({ initialView = "revenue" }) {
   const { revenue, orders, averageOrderValue, bestSalesWindow, loading } = useSellerSales();
-  const [activeView, setActiveView] = useState("revenue");
+  const [activeView, setActiveView] = useState(initialView);
 
   if (loading || !revenue || !orders || !bestSalesWindow) return null;
 

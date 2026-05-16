@@ -113,6 +113,9 @@ export default function Business({ onBack }) {
             setEditingProduct(null);
             openSellerScreen("addProduct");
           }}
+          onOrders={() => {
+            openSellerScreen("orders");
+          }}
           onMessages={() => {
             openSellerScreen("messages");
           }}
@@ -156,6 +159,15 @@ export default function Business({ onBack }) {
           onBack={goBackSellerScreen}
         >
           <CustomerCare />
+        </SellerFullScreen>
+      ) : activeScreen === "orders" ? (
+        <SellerFullScreen
+          eyebrow="Orders"
+          title="Seller Orders"
+          subtitle="Track pending, completed, cancelled, and refunded UrMall orders."
+          onBack={goBackSellerScreen}
+        >
+          <BusinessStats initialView="orders" />
         </SellerFullScreen>
       ) : activeScreen === "notifications" ? (
         <SellerFullScreen

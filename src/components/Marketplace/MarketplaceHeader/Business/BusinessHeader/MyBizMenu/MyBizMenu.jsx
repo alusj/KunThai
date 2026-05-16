@@ -3,12 +3,12 @@ import {
   BriefcaseBusiness,
   CreditCard,
   FileText,
+  LayoutDashboard,
   LockKeyhole,
   UserRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import AppBackTab from "../../../../../shared/AppBackTab";
 import MenuHeader from "./MenuHeader";
 import SellerDrawerNavItem from "./SellerDrawerNavItem";
 import SellerDrawerProfile from "./SellerDrawerProfile";
@@ -20,32 +20,30 @@ import Privacy from "./MyBizPages/HelpSupport/Legal/Privacy";
 import Payments from "./MyBizPages/PaymentsPayouts/Payments";
 import ProfileSettings from "./MyBizPages/ProfileSettings/ProfileSettings";
 import Security from "./MyBizPages/Security/Security";
+import SellerBoard from "./MyBizPages/SellerBoard/SellerBoard";
 
 function getDrawerScreen(key, props = {}) {
   const screens = {
   profile: {
-    title: "Profile",
-    component: <ProfileSettings initialView={props.profileInitialView} />,
+    component: <ProfileSettings initialView={props.profileInitialView} onBack={props.onBack} />,
   },
   business: {
-    title: "Store Settings",
-    component: <BusinessSettings />,
+    component: <BusinessSettings onBack={props.onBack} />,
   },
   payments: {
-    title: "Payments & Payouts",
-    component: <Payments />,
+    component: <Payments onBack={props.onBack} />,
   },
   security: {
-    title: "Security",
-    component: <Security />,
+    component: <Security onBack={props.onBack} />,
   },
   support: {
-    title: "Help & Support",
-    component: <HelpSupport />,
+    component: <HelpSupport onBack={props.onBack} />,
   },
   legal: {
-    title: "Privacy & Legal",
-    component: <Privacy />,
+    component: <Privacy onBack={props.onBack} />,
+  },
+  board: {
+    component: <SellerBoard onBack={props.onBack} />,
   },
   };
 
@@ -60,7 +58,10 @@ export default function MyBizMenu({
 }) {
   const [activeScreenKey, setActiveScreenKey] = useState(initialScreenKey);
   const activeScreen = activeScreenKey
-    ? getDrawerScreen(activeScreenKey, { profileInitialView })
+    ? getDrawerScreen(activeScreenKey, {
+        profileInitialView,
+        onBack: () => setActiveScreenKey(null),
+      })
     : null;
 
   useEffect(() => {
@@ -68,6 +69,17 @@ export default function MyBizMenu({
       setActiveScreenKey(initialScreenKey);
     }
   }, [initialScreenKey, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -77,7 +89,7 @@ export default function MyBizMenu({
   }
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50 overflow-hidden">
       <button
         type="button"
         className="absolute inset-0 bg-gray-950/45"
@@ -104,6 +116,12 @@ export default function MyBizMenu({
 
               <div className="space-y-5 px-4 pt-5">
                 <SellerDrawerSection title="Manage Store">
+                  <SellerDrawerNavItem
+                    icon={LayoutDashboard}
+                    title="Seller Board"
+                    description="Orders, messages, products, delivery, verification, reports, security, and policies."
+                    onClick={() => setActiveScreenKey("board")}
+                  />
                   <SellerDrawerNavItem
                     icon={UserRound}
                     title="Profile"
@@ -152,24 +170,8 @@ export default function MyBizMenu({
       </aside>
 
       {activeScreen ? (
-        <section className="absolute inset-0 flex h-full w-full flex-col bg-gray-50 shadow-2xl">
-          <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
-            <div className="flex min-w-0 items-start gap-3">
-              <AppBackTab
-                onBack={() => setActiveScreenKey(null)}
-                label="Back to seller menu"
-                historyKey="marketplace-business-menu-screen"
-                className="mt-0.5 flex-none"
-                useHistoryLayer={false}
-              />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-700 sm:text-xs">UrMall</p>
-                <h2 className="mt-1 text-xl font-semibold text-gray-950 sm:text-2xl">{activeScreen.title}</h2>
-              </div>
-            </div>
-          </header>
-
-          <div className="min-h-0 flex-1 overflow-y-auto bg-white py-4">
+        <section className="absolute inset-0 flex h-full w-full flex-col bg-white shadow-2xl">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {activeScreen.component}
           </div>
         </section>

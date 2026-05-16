@@ -1,4 +1,4 @@
-import { Bell, Menu, MessageSquare, Plus } from "lucide-react";
+import { Bell, Menu, MessageSquare, PackageCheck, Plus } from "lucide-react";
 
 import HeaderActionButton from "./HeaderActionButton";
 
@@ -6,6 +6,7 @@ export default function SellerHeaderActions({
   messageCount,
   notificationCount,
   onAddProduct,
+  onOrders,
   onMessages,
   onAlerts,
   onMenu,
@@ -17,6 +18,11 @@ export default function SellerHeaderActions({
         label="Add Product"
         primary
         onClick={onAddProduct}
+      />
+      <HeaderActionButton
+        icon={PackageCheck}
+        label="Orders"
+        onClick={onOrders}
       />
       <HeaderActionButton
         icon={MessageSquare}

@@ -111,6 +111,81 @@ function sortProducts(products, sort) {
   return sortable.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 }
 
+function mapBuyerDeliveryAddress(row) {
+  if (!row) return null;
+
+  return {
+    id: row.id || "",
+    category: row.category || "Resident",
+    customCategory: row.custom_category || "",
+    fullName: row.full_name || "",
+    phone: row.phone || "",
+    street: row.street || "",
+    note: row.delivery_note || "",
+    frontPictureUrl: row.front_picture_url || "",
+    detectedAddress: row.detected_address || "",
+    coordinates: row.latitude && row.longitude ? { latitude: Number(row.latitude), longitude: Number(row.longitude) } : null,
+  };
+}
+
+function buildDeliveryAddressPayload(address, buyerId) {
+  return {
+    buyer_id: buyerId,
+    category: address.category || "Resident",
+    custom_category: address.category === "Other" ? String(address.customCategory || "").trim() : "",
+    full_name: String(address.fullName || "").trim(),
+    phone: String(address.phone || "").trim(),
+    street: String(address.street || "").trim(),
+    delivery_note: String(address.note || "").trim(),
+    front_picture_url: address.frontPictureUrl || "",
+    detected_address: address.detectedAddress || "",
+    latitude: address.coordinates?.latitude ?? null,
+    longitude: address.coordinates?.longitude ?? null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function fetchBuyerDeliveryAddress() {
+  const buyerId = await getCurrentUserId("Sign in to view your delivery address.");
+  const { data, error } = await supabase
+    .from("marketplace_buyer_delivery_addresses")
+    .select("*")
+    .eq("buyer_id", buyerId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return mapBuyerDeliveryAddress(data);
+}
+
+export async function fetchBuyerDeliveryAddresses() {
+  const buyerId = await getCurrentUserId("Sign in to view your delivery addresses.");
+  const { data, error } = await supabase
+    .from("marketplace_buyer_delivery_addresses")
+    .select("*")
+    .eq("buyer_id", buyerId)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapBuyerDeliveryAddress).filter(Boolean);
+}
+
+export async function saveBuyerDeliveryAddress(address) {
+  const buyerId = await getCurrentUserId("Sign in to save your delivery address.");
+  const payload = buildDeliveryAddressPayload(address, buyerId);
+  if (address.id && !String(address.id).startsWith("local-")) payload.id = address.id;
+
+  const { data, error } = await supabase
+    .from("marketplace_buyer_delivery_addresses")
+    .upsert(payload, { onConflict: "id" })
+    .select()
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return mapBuyerDeliveryAddress(data);
+}
+
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
   const query = applyProductFilters(
     supabase
@@ -346,7 +421,50 @@ export async function checkoutBuyerCart(deliveryLocation = "") {
   }
 
   await clearBuyerCart();
+  window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
   return orders;
+}
+
+export async function createBuyerProductOrder(product, orderInput = {}) {
+  const buyer = await getCurrentBuyer("Sign in to order this product.");
+  if (!product?.id || !product?.businessId) throw new Error("Choose a valid product.");
+
+  const quantity = Math.max(1, Number(orderInput.quantity || 1));
+  const unitPrice = product.discountPrice && product.discountPrice < product.price ? product.discountPrice : product.price;
+  const total = Number(unitPrice || 0) * quantity;
+  const buyerName = orderInput.buyerName || orderInput.fullName || "";
+  const deliveryAddress = orderInput.address || orderInput.street || "";
+  const addressCategory = orderInput.addressType || orderInput.category || "";
+  const categoryLabel = addressCategory === "Other" && orderInput.customCategory ? orderInput.customCategory : addressCategory;
+  const contact = [buyerName, orderInput.phone].filter(Boolean).join(" | ");
+  const deliveryDetails = [
+    categoryLabel ? `${categoryLabel} address` : "",
+    deliveryAddress ? `Address: ${deliveryAddress}` : "",
+    contact ? `Contact: ${contact}` : "",
+    orderInput.note ? `Note: ${orderInput.note}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  const { data, error } = await supabase
+    .from("marketplace_orders")
+    .insert({
+      buyer_id: buyer.id,
+      buyer_name: buyerName.trim() || buyer.name,
+      business_id: product.businessId,
+      status: "pending",
+      total_amount: total,
+      item_count: quantity,
+      preview: `${product.name} x${quantity}`,
+      delivery_location: deliveryDetails,
+    })
+    .select()
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
+  return data;
 }
 
 export async function fetchBuyerOrders() {

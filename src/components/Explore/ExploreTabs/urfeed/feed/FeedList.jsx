@@ -25,6 +25,7 @@ export default function FeedList({
   actionsByScope,
   emptyTitle = "No posts yet",
   emptyMessage = "The feed is empty right now. Be the first to share something.",
+  showEmpty = false,
 }) {
   const [refreshing, setRefreshing] = useState(false);
   const touchStartRef = useRef(null);
@@ -81,7 +82,15 @@ export default function FeedList({
     );
   }
 
+  if (loading && !posts?.length) {
+    return null;
+  }
+
   if (!posts?.length) {
+    if (!showEmpty) {
+      return null;
+    }
+
     return (
       <div className="mt-4 w-full overflow-x-clip px-4 sm:px-5 lg:px-8">
         <EmptyState title={emptyTitle} message={emptyMessage} />

@@ -1,6 +1,6 @@
 function conversationTitle(conversation) {
   if (conversation.productName) {
-    return `${conversation.buyerName} sent a message about ${conversation.productName}`;
+    return `${conversation.buyerName} sent you a message about ${conversation.productName}`;
   }
 
   return `${conversation.buyerName} sent you a message`;

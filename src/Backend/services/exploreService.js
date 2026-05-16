@@ -434,7 +434,7 @@ export async function syncExploreReaction(postId, reactionType, active) {
     return { active: true, changed: !error };
   }
 
-  const { data, error } = await query.delete().eq("post_id", postId).eq("user_id", userId).select("post_id");
+  const { data, error } = await supabase.from(tableName).delete().eq("post_id", postId).eq("user_id", userId).select("post_id");
 
   if (error && !isMissingTable(error)) {
     throw error;

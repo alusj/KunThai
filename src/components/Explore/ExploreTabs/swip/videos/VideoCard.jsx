@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { HiOutlineSpeakerWave, HiOutlineSpeakerXMark } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
-import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { sharePost } from "../../urfeed/feed/post/postUtils";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
-
-const SWIP_VIDEO_SOUND_EVENT = "swip-video-sound";
-let swipSoundMuted = false;
-let swipSoundUnlocked = true;
-let swipSettingsLoaded = false;
 
 export default function VideoCard({
   post,
@@ -35,14 +28,7 @@ export default function VideoCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mediaError, setMediaError] = useState("");
-  if (!swipSettingsLoaded) {
-    swipSoundMuted = false;
-    swipSoundUnlocked = true;
-    swipSettingsLoaded = true;
-  }
 
-  const videoSettings = readExploreSettings().video;
-  const [muted, setMuted] = useState(swipSoundMuted);
   const [message, setMessage] = useState("");
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
@@ -72,7 +58,7 @@ export default function VideoCard({
     }
 
     pauseInactiveVideo(video);
-  }, [active, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
+  }, [active, post.video_url]);
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
@@ -95,20 +81,6 @@ export default function VideoCard({
     }
   }
 
-  function toggleMute() {
-    const next = !(videoRef.current ? videoRef.current.muted : muted);
-    if (videoRef.current) {
-      videoRef.current.muted = next || !activeRef.current;
-    }
-    swipSoundMuted = next;
-    swipSoundUnlocked = !next;
-    setMuted(next);
-    window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: next, soundUnlocked: swipSoundUnlocked } }));
-    if (!next) {
-      requestActivePlayback({ userGesture: true });
-    }
-  }
-
   function pauseInactiveVideo(video) {
     video.pause();
     video.muted = true;
@@ -117,35 +89,19 @@ export default function VideoCard({
     }
   }
 
-  async function requestActivePlayback({ userGesture = false } = {}) {
+  async function requestActivePlayback() {
     const video = videoRef.current;
-    if (!video || !videoSettings.autoplay || videoSettings.reduceData) {
+    if (!video) {
       return;
     }
 
     activeRef.current = true;
-
-    const shouldTrySound = userGesture || swipSoundUnlocked || !swipSoundMuted;
-    if (shouldTrySound) {
-      try {
-        video.muted = false;
-        await playExploreMedia(video);
-        swipSoundMuted = false;
-        swipSoundUnlocked = true;
-        setMuted(false);
-        window.dispatchEvent(new CustomEvent(SWIP_VIDEO_SOUND_EVENT, { detail: { muted: false, soundUnlocked: true } }));
-        return;
-      } catch {
-        // Mobile browsers can block sound until a user gesture. Fall through to muted autoplay.
-      }
-    }
-
+    video.muted = false;
+    video.volume = 1;
     try {
-      video.muted = true;
       await playExploreMedia(video);
-      setMuted(true);
     } catch {
-      // Keep the poster frame if autoplay is completely blocked.
+      // Some browsers block unmuted autoplay until the user has interacted with the page.
     }
   }
 
@@ -158,7 +114,7 @@ export default function VideoCard({
       return;
     }
 
-    toggleMute();
+    requestActivePlayback();
   }
 
   function handlePointerDown(event) {
@@ -206,26 +162,7 @@ export default function VideoCard({
       observer.disconnect();
       pauseInactiveVideo(video);
     };
-  }, [active, post.video_url, videoSettings.autoplay, videoSettings.reduceData]);
-
-  useEffect(() => {
-    function handleSoundChanged(event) {
-      const nextMuted = event.detail?.muted ?? true;
-      swipSoundUnlocked = Boolean(event.detail?.soundUnlocked);
-      if (videoRef.current) {
-        videoRef.current.muted = nextMuted || !activeRef.current;
-      }
-      setMuted(nextMuted);
-    }
-
-    setMuted(swipSoundMuted);
-    if (videoRef.current) {
-      videoRef.current.muted = swipSoundMuted || !activeRef.current;
-    }
-
-    window.addEventListener(SWIP_VIDEO_SOUND_EVENT, handleSoundChanged);
-    return () => window.removeEventListener(SWIP_VIDEO_SOUND_EVENT, handleSoundChanged);
-  }, []);
+  }, [active, post.video_url]);
 
   const content = (
     <article
@@ -242,29 +179,18 @@ export default function VideoCard({
       <video
         ref={videoRef}
         src={post.video_url}
-        autoPlay={videoSettings.autoplay && !videoSettings.reduceData}
+        autoPlay
         controls={false}
-        muted={muted}
+        muted={false}
         playsInline
         loop
         onError={() => setMediaError("Video is still being prepared.")}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
-        preload={videoSettings.reduceData ? "none" : "auto"}
+        preload="auto"
         className="absolute inset-0 h-full w-full object-cover"
       />
       {mediaError ? <div className="absolute inset-0 z-[1] bg-slate-950" /> : null}
       <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
-
-      {!fullscreen ? (
-        <button
-          type="button"
-          onClick={toggleMute}
-          className="absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-950/28 text-base text-white shadow-xl backdrop-blur"
-          aria-label={muted ? "Unmute video" : "Mute video"}
-        >
-          {muted ? <HiOutlineSpeakerXMark /> : <HiOutlineSpeakerWave />}
-        </button>
-      ) : null}
 
       <SwipActionRail
         fullscreen={fullscreen}

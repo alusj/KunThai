@@ -59,6 +59,7 @@ export const INITIAL_REGISTRATION = {
     businessType: "both",
     deliveryEnabled: true,
     pickupEnabled: true,
+    operatingDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
     openTime: "09:00",
     closeTime: "18:00",
   },
@@ -137,6 +138,7 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
       businessType: row.business_type,
       deliveryEnabled: row.delivery_enabled,
       pickupEnabled: row.pickup_enabled,
+      operatingDays: Array.isArray(row.operating_days) ? row.operating_days : ["Mon", "Tue", "Wed", "Thu", "Fri"],
       openTime: row.open_time || "",
       closeTime: row.close_time || "",
     },
@@ -208,6 +210,7 @@ export async function submitSellerRegistration(registration) {
     business_type: registration.operations.businessType,
     delivery_enabled: registration.operations.deliveryEnabled,
     pickup_enabled: registration.operations.pickupEnabled,
+    operating_days: registration.operations.operatingDays || [],
     open_time: registration.operations.openTime || null,
     close_time: registration.operations.closeTime || null,
     logo_url: logoUrl || null,
@@ -219,8 +222,8 @@ export async function submitSellerRegistration(registration) {
 
   let { data: business, error } = await supabase.from("marketplace_businesses").upsert(businessPayload, { onConflict: "user_id" }).select().maybeSingle();
 
-  if (error && isMissingColumn(error, "website_url")) {
-    const { website_url: _websiteUrl, ...fallbackPayload } = businessPayload;
+  if (error && (isMissingColumn(error, "website_url") || isMissingColumn(error, "operating_days"))) {
+    const { website_url: _websiteUrl, operating_days: _operatingDays, ...fallbackPayload } = businessPayload;
     const fallback = await supabase.from("marketplace_businesses").upsert(fallbackPayload, { onConflict: "user_id" }).select().maybeSingle();
     business = fallback.data;
     error = fallback.error;
@@ -295,6 +298,91 @@ export async function submitSellerRegistration(registration) {
     status: "completed",
     meta: "Registration",
   });
+
+  return readRegisteredBusiness();
+}
+
+export async function updateRegisteredBusinessProfile(updates) {
+  const currentBusiness = await readRegisteredBusiness();
+  if (!currentBusiness?.id) {
+    throw new Error("No registered business profile was found.");
+  }
+
+  const userId = await getCurrentUserId();
+  const registration = {
+    identity: {
+      ...currentBusiness.identity,
+      ...(updates.identity || {}),
+      logoFile: updates.identity?.logoFile || null,
+      bannerFile: updates.identity?.bannerFile || null,
+    },
+    location: {
+      ...currentBusiness.location,
+      ...(updates.location || {}),
+    },
+    operations: {
+      ...currentBusiness.operations,
+      ...(updates.operations || {}),
+    },
+    trustPayout: currentBusiness.trustPayout,
+  };
+  const [logoUrl, bannerUrl] = await Promise.all([
+    uploadBusinessFile(userId, registration.identity.logoFile, "logos"),
+    uploadBusinessFile(userId, registration.identity.bannerFile, "banners"),
+  ]);
+
+  const businessPayload = {
+    business_name: registration.identity.businessName.trim(),
+    description: registration.identity.description.trim(),
+    country: registration.location.country.trim(),
+    city: registration.location.city.trim(),
+    address: registration.location.address.trim(),
+    phone: registration.location.phone.trim(),
+    whatsapp_enabled: Boolean(registration.location.whatsappEnabled),
+    whatsapp: registration.location.whatsapp.trim(),
+    email: registration.location.email.trim(),
+    website_url: registration.location.website.trim(),
+    discoverable_nearby: Boolean(registration.location.discoverableNearby),
+    latitude: registration.location.coordinates?.latitude ?? null,
+    longitude: registration.location.coordinates?.longitude ?? null,
+    business_type: registration.operations.businessType || "both",
+    delivery_enabled: Boolean(registration.operations.deliveryEnabled),
+    pickup_enabled: Boolean(registration.operations.pickupEnabled),
+    operating_days: registration.operations.operatingDays || [],
+    open_time: registration.operations.openTime || null,
+    close_time: registration.operations.closeTime || null,
+    logo_url: logoUrl || currentBusiness.identity.logoUrl || null,
+    banner_url: bannerUrl || currentBusiness.identity.bannerUrl || null,
+    readiness_score: calculateReadinessScore(registration),
+    updated_at: new Date().toISOString(),
+  };
+
+  let { error } = await supabase
+    .from("marketplace_businesses")
+    .update(businessPayload)
+    .eq("id", currentBusiness.id);
+
+  if (error && (isMissingColumn(error, "website_url") || isMissingColumn(error, "operating_days"))) {
+    const { website_url: _websiteUrl, operating_days: _operatingDays, ...fallbackPayload } = businessPayload;
+    const fallback = await supabase
+      .from("marketplace_businesses")
+      .update(fallbackPayload)
+      .eq("id", currentBusiness.id);
+    error = fallback.error;
+  }
+
+  if (error) throw new Error(error.message);
+
+  if (updates.identity?.categories) {
+    await supabase.from("marketplace_business_categories").delete().eq("business_id", currentBusiness.id);
+    const categories = registration.identity.categories.filter(Boolean);
+    if (categories.length) {
+      const { error: categoryError } = await supabase.from("marketplace_business_categories").insert(
+        categories.map((category) => ({ business_id: currentBusiness.id, category })),
+      );
+      if (categoryError) throw new Error(categoryError.message);
+    }
+  }
 
   return readRegisteredBusiness();
 }

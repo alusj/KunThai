@@ -113,3 +113,20 @@ export async function sendSellerMarketplaceMessage(conversation, message) {
 
   if (error) throw new Error(error.message);
 }
+
+export async function markSellerConversationRead(conversation) {
+  const business = await readRegisteredBusiness();
+  if (!business || !conversation?.conversationKey) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("marketplace_customer_messages")
+    .update({ unread: false })
+    .eq("business_id", business.id)
+    .eq("conversation_key", conversation.conversationKey)
+    .eq("sender_role", "buyer");
+
+  if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-message-sent"));
+}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   addBuyerCartItem,
+  createBuyerProductOrder,
   fetchBuyerDiscoveryOptions,
   fetchBuyerMarketplaceProducts,
   fetchBuyerProductDetail,
@@ -166,6 +167,16 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
     }
   }
 
+  async function orderProduct(product, orderInput) {
+    try {
+      await createBuyerProductOrder(product, orderInput);
+      showNotice("Order sent. You can view it in Ordered items.");
+    } catch (err) {
+      showNotice(err.message || "Unable to create order.", "danger");
+      throw err;
+    }
+  }
+
   async function toggleSaved(product) {
     const currentlySaved = savedIds.has(product.id);
     setSavedIds((current) => {
@@ -247,6 +258,7 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         onAddToCart={addToCart}
+        onOrderProduct={orderProduct}
         onToggleSaved={toggleSaved}
         onMessageSeller={messageSeller}
         onOpenSeller={(seller) => {

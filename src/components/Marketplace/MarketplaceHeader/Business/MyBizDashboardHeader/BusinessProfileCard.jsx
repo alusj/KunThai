@@ -1,7 +1,9 @@
 import { Bike, Clock, MapPin, Store, Tags } from "lucide-react";
+import { useState } from "react";
 
 import BusinessLogo from "./BusinessLogo";
 import VerificationBadge from "./VerificationBadge";
+import { MarketplaceVerificationInline, MarketplaceVerificationModal } from "../../../shared/MarketplaceVerification";
 
 function StatusPill({ icon: Icon, label, active }) {
   return (
@@ -18,6 +20,8 @@ function StatusPill({ icon: Icon, label, active }) {
 }
 
 export default function BusinessProfileCard({ business, status, onEditProfile }) {
+  const [verificationOpen, setVerificationOpen] = useState(false);
+
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -27,8 +31,15 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-gray-950">{business.name}</h2>
             <VerificationBadge
+              status={business.verificationStatus}
               verified={business.verified}
-              label={business.verificationLabel}
+              onClick={() => setVerificationOpen(true)}
+            />
+            <MarketplaceVerificationInline
+              audience="seller"
+              status={business.verificationStatus}
+              verified={business.verified}
+              onReadMore={() => setVerificationOpen(true)}
             />
           </div>
 
@@ -86,6 +97,15 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
           Edit Profile
         </button>
       </div>
+      {verificationOpen ? (
+        <MarketplaceVerificationModal
+          audience="seller"
+          status={business.verificationStatus}
+          verified={business.verified}
+          onClose={() => setVerificationOpen(false)}
+          onSecondaryAction={onEditProfile}
+        />
+      ) : null}
     </section>
   );
 }

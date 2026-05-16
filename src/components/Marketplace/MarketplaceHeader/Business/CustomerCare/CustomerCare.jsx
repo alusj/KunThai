@@ -1,11 +1,11 @@
 import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCustomerCare";
 import RecentConversations from "./RecentConversations";
 import { useState } from "react";
-import { sendSellerMarketplaceMessage } from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
+import { markSellerConversationRead, sendSellerMarketplaceMessage } from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
 
 function conversationTitle(conversation) {
   if (conversation?.productName) {
-    return `${conversation.buyerName} sent a message about ${conversation.productName}`;
+    return `${conversation.buyerName} sent you a message about ${conversation.productName}`;
   }
 
   return `${conversation?.buyerName || "Buyer"} sent you a message`;
@@ -33,13 +33,26 @@ export default function CustomerCare() {
     }
   }
 
+  async function openConversation(conversation) {
+    setFeedback("");
+    setActiveConversation({ ...conversation, unread: false });
+
+    if (!conversation.unread) {
+      return;
+    }
+
+    try {
+      await markSellerConversationRead(conversation);
+      await reload?.();
+    } catch {
+      // The conversation is still readable even if the read receipt cannot sync.
+    }
+  }
+
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
       {!activeConversation ? (
-        <RecentConversations conversations={conversations} onOpen={(conversation) => {
-          setFeedback("");
-          setActiveConversation(conversation);
-        }} activeId={activeConversation?.id} />
+        <RecentConversations conversations={conversations} onOpen={openConversation} activeId={activeConversation?.id} />
       ) : (
         <section className="flex min-h-[70vh] flex-col">
           <div className="flex items-start justify-between gap-3 border-b border-gray-200 pb-4">

@@ -6,7 +6,7 @@ import {
   Heart,
   MapPin,
   MessageCircle,
-  ShieldCheck,
+  PackageCheck,
   ShoppingCart,
   Star,
   Truck,
@@ -14,7 +14,54 @@ import {
 } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
-import { fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
+
+const BUYER_ADDRESS_KEY = "marketplace-buyer-address";
+const BUYER_ADDRESSES_KEY = "marketplace-buyer-addresses";
+
+function mapSavedAddressToOrder(address = {}) {
+  return {
+    addressType: address.category || address.type || "Resident",
+    customCategory: address.customCategory || "",
+    buyerName: address.fullName || address.name || "",
+    phone: address.phone || "",
+    address: address.street || address.address || address.detectedAddress || "",
+    note: address.note || "",
+  };
+}
+
+function readSavedAddresses() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(BUYER_ADDRESSES_KEY) || "[]");
+    if (Array.isArray(saved)) return saved;
+  } catch {
+    // Local suggestions are optional.
+  }
+  return [];
+}
+
+function readDefaultAddress() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(BUYER_ADDRESS_KEY) || "null");
+    if (saved && typeof saved === "object") {
+      return mapSavedAddressToOrder(saved);
+    }
+  } catch {
+    // Older saved addresses were plain strings.
+  }
+
+  try {
+    const legacyAddress = localStorage.getItem(BUYER_ADDRESS_KEY) || "";
+    return { addressType: "Resident", buyerName: "", phone: "", address: legacyAddress, note: "" };
+  } catch {
+    return { addressType: "Resident", buyerName: "", phone: "", address: "", note: "" };
+  }
+}
+
+function getAddressLabel(address) {
+  return address.category === "Other" ? address.customCategory || "Other" : address.category || "Resident";
+}
 
 function ImageViewer({ images, activeIndex, onChange, onClose }) {
   const [touchStartX, setTouchStartX] = useState(null);
@@ -194,6 +241,7 @@ export default function ProductDetailDrawer({
   open,
   onClose,
   onAddToCart,
+  onOrderProduct,
   onToggleSaved,
   onMessageSeller,
   onOpenSeller,
@@ -204,6 +252,11 @@ export default function ProductDetailDrawer({
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [messageOpen, setMessageOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [verificationOpen, setVerificationOpen] = useState(false);
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderForm, setOrderForm] = useState(() => ({ ...readDefaultAddress(), quantity: 1 }));
+  const [savedAddresses, setSavedAddresses] = useState(readSavedAddresses);
   const [messageText, setMessageText] = useState("");
   const [messageSending, setMessageSending] = useState(false);
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
@@ -246,6 +299,28 @@ export default function ProductDetailDrawer({
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
+  const orderTotal = displayPrice * Math.max(1, Number(orderForm.quantity || 1));
+
+  function updateOrderForm(patch) {
+    setOrderForm((current) => ({ ...current, ...patch }));
+  }
+
+  async function openOrderForm() {
+    const localAddresses = readSavedAddresses();
+    setSavedAddresses(localAddresses);
+    try {
+      const remoteAddresses = await fetchBuyerDeliveryAddresses();
+      if (remoteAddresses.length) {
+        setSavedAddresses(remoteAddresses);
+        localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(remoteAddresses));
+      }
+    } catch {
+      // Keep local suggestions if the address table has not been applied yet.
+    }
+
+    setOrderForm({ ...readDefaultAddress(), quantity: 1 });
+    setOrderOpen(true);
+  }
 
   async function handleProductReviewSubmit(event) {
     event.preventDefault();
@@ -276,6 +351,22 @@ export default function ProductDetailDrawer({
       setMessageOpen(false);
     } finally {
       setMessageSending(false);
+    }
+  }
+
+  async function handleOrderSubmit(event) {
+    event.preventDefault();
+    if (!orderForm.address.trim()) {
+      onNotice?.("Add a delivery address before ordering.", "danger");
+      return;
+    }
+
+    setOrderSubmitting(true);
+    try {
+      await onOrderProduct?.(product, orderForm);
+      setOrderOpen(false);
+    } finally {
+      setOrderSubmitting(false);
     }
   }
 
@@ -333,10 +424,12 @@ export default function ProductDetailDrawer({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate font-black text-gray-950">{product.seller.name}</p>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">
-                        <ShieldCheck size={13} />
-                        {product.seller.verificationStatus}
-                      </span>
+                      <MarketplaceVerificationBadge status={product.seller.verificationStatus} onClick={() => setVerificationOpen(true)} />
+                      <MarketplaceVerificationInline
+                        audience="buyer"
+                        status={product.seller.verificationStatus}
+                        onReadMore={() => setVerificationOpen(true)}
+                      />
                     </div>
                     <p className="mt-1 flex items-center gap-1 text-sm font-bold text-gray-500">
                       <MapPin size={14} />
@@ -446,10 +539,18 @@ export default function ProductDetailDrawer({
           <button
             type="button"
             onClick={() => onAddToCart?.(product)}
-            className="inline-flex h-12 min-w-[140px] flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+            className="inline-flex h-12 min-w-[140px] flex-1 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 text-sm font-black text-emerald-700 hover:bg-emerald-50"
           >
             <ShoppingCart size={17} />
             Add to Cart
+          </button>
+          <button
+            type="button"
+            onClick={openOrderForm}
+            className="inline-flex h-12 min-w-[130px] flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+          >
+            <PackageCheck size={17} />
+            Order
           </button>
           <button
             type="button"
@@ -460,6 +561,126 @@ export default function ProductDetailDrawer({
             Product Review
           </button>
         </footer>
+
+        {orderOpen && (
+          <div className="fixed inset-0 z-[1001] flex items-end bg-black/35 p-3 sm:items-center sm:justify-center">
+            <form
+              onSubmit={handleOrderSubmit}
+              className="w-full rounded-xl border border-gray-200 bg-white p-4 shadow-2xl sm:max-w-lg"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase text-emerald-700">Create order</p>
+                  <h3 className="mt-1 text-lg font-black text-gray-950">{product.name}</h3>
+                  <p className="mt-1 text-sm font-bold text-gray-500">{product.seller?.name || "UrMall seller"}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOrderOpen(false)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  aria-label="Close order form"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {savedAddresses.length ? (
+                  <div className="col-span-2 space-y-2">
+                    <p className="text-xs font-black uppercase text-gray-500">Saved addresses</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {savedAddresses.map((address) => (
+                        <button
+                          key={address.id || `${address.category}-${address.street}`}
+                          type="button"
+                          onClick={() => updateOrderForm(mapSavedAddressToOrder(address))}
+                          className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
+                        >
+                          <p className="text-xs font-black text-gray-950">{getAddressLabel(address)} address</p>
+                          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{address.street || address.detectedAddress}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <input
+                  value={orderForm.buyerName}
+                  onChange={(event) => updateOrderForm({ buyerName: event.target.value })}
+                  placeholder="Full name"
+                  className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                />
+                <input
+                  value={orderForm.phone}
+                  onChange={(event) => updateOrderForm({ phone: event.target.value })}
+                  placeholder="Phone number"
+                  className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="mt-2 grid grid-cols-[1fr_120px] gap-2">
+                <input
+                  value={orderForm.address}
+                  onChange={(event) => updateOrderForm({ address: event.target.value })}
+                  placeholder="Delivery address"
+                  className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                />
+                <input
+                  type="number"
+                  min="1"
+                  max={Math.max(1, product.stock || 1)}
+                  value={orderForm.quantity}
+                  onChange={(event) => updateOrderForm({ quantity: event.target.value })}
+                  placeholder="Qty"
+                  className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <input
+                value={orderForm.note}
+                onChange={(event) => updateOrderForm({ note: event.target.value })}
+                placeholder="Delivery note or pickup instruction"
+                className="mt-2 h-11 w-full rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+              />
+
+              <div className="mt-4 rounded-lg bg-gray-50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-gray-500">Order total</p>
+                  <p className="text-xl font-black text-gray-950">{formatCurrency(orderTotal)}</p>
+                </div>
+                <p className="mt-1 text-xs font-bold text-gray-500">
+                  {Math.max(1, Number(orderForm.quantity || 1))} item{Number(orderForm.quantity || 1) === 1 ? "" : "s"} at {formatCurrency(displayPrice)}
+                </p>
+              </div>
+
+              <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setOrderOpen(false)}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-black text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={orderSubmitting || !orderForm.address.trim()}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {orderSubmitting ? "Sending order..." : "Complete Order"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {verificationOpen ? (
+          <MarketplaceVerificationModal
+            audience="buyer"
+            status={product.seller.verificationStatus}
+            onClose={() => setVerificationOpen(false)}
+            onPrimaryAction={() => null}
+            onSecondaryAction={() => setMessageOpen(true)}
+          />
+        ) : null}
 
         {messageOpen && (
           <div className="fixed inset-0 z-[1001] flex items-end bg-black/35 p-3 sm:items-center sm:justify-center">

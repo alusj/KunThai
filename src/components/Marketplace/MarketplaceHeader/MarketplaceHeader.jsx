@@ -1,11 +1,34 @@
 import { MessageCircle, PackageCheck, ShoppingBag, Store } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
+import { fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
 export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessagesClick, activeUtility }) {
   const { loading, hasBusiness } = useSellerBusinessStatus();
+  const [orderCount, setOrderCount] = useState(0);
   const businessLabel = hasBusiness ? "MyBiz" : "REGISTER";
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadOrderCount() {
+      try {
+        const orders = await fetchBuyerOrders();
+        if (alive) setOrderCount(orders.length);
+      } catch {
+        if (alive) setOrderCount(0);
+      }
+    }
+
+    loadOrderCount();
+    window.addEventListener("marketplace-orders-updated", loadOrderCount);
+    return () => {
+      alive = false;
+      window.removeEventListener("marketplace-orders-updated", loadOrderCount);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -64,12 +87,17 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
           <button
             type="button"
             onClick={onOrdersClick}
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-lg transition ${
+            className={`relative inline-flex h-10 w-10 items-center justify-center rounded-lg transition ${
               activeUtility === "orders" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
             }`}
-            aria-label="Open orders"
+            aria-label={`Open orders${orderCount ? `, ${orderCount} ordered item${orderCount === 1 ? "" : "s"}` : ""}`}
           >
             <PackageCheck size={18} />
+            {orderCount ? (
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-black leading-none text-white">
+                {orderCount > 99 ? "99+" : orderCount}
+              </span>
+            ) : null}
           </button>
           <button
             type="button"
