@@ -21,6 +21,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
   const wheelLockedRef = useRef(false);
   const wheelUnlockTimerRef = useRef(null);
   const wheelDeltaRef = useRef(0);
+  const scrollPlayTimerRef = useRef(null);
 
   useBrowserBack(fullscreen, () => setFullscreen(false), "swip-fullscreen");
 
@@ -36,8 +37,16 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
 
   useEffect(() => () => {
     window.clearTimeout(wheelUnlockTimerRef.current);
+    window.clearTimeout(scrollPlayTimerRef.current);
     stopAllExploreMedia();
   }, []);
+
+  function requestSwipActivePlay(delay = 0) {
+    window.clearTimeout(scrollPlayTimerRef.current);
+    scrollPlayTimerRef.current = window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("swip-active-play"));
+    }, delay);
+  }
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -59,6 +68,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
         setActiveIndex((current) => {
           if (current !== nextIndex) {
             stopAllExploreMedia();
+            requestSwipActivePlay(80);
           }
           return nextIndex;
         });
@@ -92,6 +102,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     stopAllExploreMedia();
     setActiveIndex(next);
     node.scrollIntoView({ behavior: "smooth", block: "start" });
+    requestSwipActivePlay(160);
   }
 
   function handleWheel(event) {
@@ -109,6 +120,10 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     wheelDeltaRef.current = 0;
     scrollToIndex(activeIndex + direction);
     lockWheel();
+  }
+
+  function handleScroll() {
+    requestSwipActivePlay(80);
   }
 
   if (feed.error) {
@@ -138,6 +153,9 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     <div
       ref={scrollerRef}
       className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      onPointerUp={() => requestSwipActivePlay()}
+      onScroll={handleScroll}
+      onTouchEnd={() => requestSwipActivePlay()}
       onWheel={handleWheel}
       style={{
         "--swip-item-height": "calc(100dvh - var(--explore-top-chrome-height,57px))",

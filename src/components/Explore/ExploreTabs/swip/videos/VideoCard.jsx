@@ -112,11 +112,19 @@ export default function VideoCard({
 
     activeRef.current = true;
     video.muted = false;
+    video.defaultMuted = false;
     video.volume = 1;
     try {
       await playExploreMedia(video);
     } catch {
-      // Some browsers block unmuted autoplay until the user has interacted with the page.
+      video.muted = true;
+      video.defaultMuted = true;
+      video.volume = 0;
+      try {
+        await playExploreMedia(video);
+      } catch {
+        // The browser may still be preparing the media; onCanPlay and the active event retry.
+      }
     }
   }
 
@@ -197,6 +205,7 @@ export default function VideoCard({
         autoPlay
         controls={false}
         muted={false}
+        defaultMuted={false}
         playsInline
         loop
         onError={() => setMediaError("Video is still being prepared.")}
