@@ -1,4 +1,4 @@
-export function pauseOtherExploreMedia(activeMedia) {
+export function pauseOtherExploreMedia(activeMedia, { muteVideos = true } = {}) {
   if (!activeMedia || typeof document === "undefined") {
     return;
   }
@@ -6,14 +6,14 @@ export function pauseOtherExploreMedia(activeMedia) {
   document.querySelectorAll("audio, video").forEach((media) => {
     if (media !== activeMedia && !media.paused) {
       media.pause();
-      if (media.tagName === "VIDEO") {
+      if (muteVideos && media.tagName === "VIDEO") {
         media.muted = true;
       }
     }
   });
 }
 
-export function stopAllExploreMedia(exceptMedia = null) {
+export function stopAllExploreMedia(exceptMedia = null, { muteVideos = true } = {}) {
   if (typeof document === "undefined") {
     return;
   }
@@ -24,7 +24,7 @@ export function stopAllExploreMedia(exceptMedia = null) {
     }
 
     media.pause();
-    if (media.tagName === "VIDEO") {
+    if (muteVideos && media.tagName === "VIDEO") {
       media.muted = true;
     }
     if (!Number.isNaN(media.currentTime)) {
@@ -33,11 +33,11 @@ export function stopAllExploreMedia(exceptMedia = null) {
   });
 }
 
-export function playExploreMedia(media) {
+export function playExploreMedia(media, options) {
   if (!media) {
     return Promise.resolve();
   }
 
-  pauseOtherExploreMedia(media);
+  pauseOtherExploreMedia(media, options);
   return media.play();
 }

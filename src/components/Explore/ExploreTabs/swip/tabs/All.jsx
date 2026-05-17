@@ -31,20 +31,29 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
 
   useEffect(() => {
     if (!active) {
-      stopAllExploreMedia();
+      stopAllExploreMedia(null, { muteVideos: false });
     }
   }, [active]);
 
   useEffect(() => () => {
     window.clearTimeout(wheelUnlockTimerRef.current);
     window.clearTimeout(scrollPlayTimerRef.current);
-    stopAllExploreMedia();
+    stopAllExploreMedia(null, { muteVideos: false });
   }, []);
 
-  function requestSwipActivePlay(delay = 0) {
+  function dispatchSwipActivePlay(sound = true) {
+    window.dispatchEvent(new CustomEvent("swip-active-play", { detail: { sound } }));
+  }
+
+  function requestSwipActivePlay(delay = 0, sound = true) {
     window.clearTimeout(scrollPlayTimerRef.current);
+    if (delay <= 0) {
+      dispatchSwipActivePlay(sound);
+      return;
+    }
+
     scrollPlayTimerRef.current = window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("swip-active-play"));
+      dispatchSwipActivePlay(sound);
     }, delay);
   }
 
@@ -67,8 +76,8 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
         const nextIndex = Number(centered.target.getAttribute("data-swip-index") || 0);
         setActiveIndex((current) => {
           if (current !== nextIndex) {
-            stopAllExploreMedia();
-            requestSwipActivePlay(80);
+            stopAllExploreMedia(null, { muteVideos: false });
+            requestSwipActivePlay(80, true);
           }
           return nextIndex;
         });
@@ -99,10 +108,10 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
       return;
     }
 
-    stopAllExploreMedia();
+    stopAllExploreMedia(null, { muteVideos: false });
     setActiveIndex(next);
     node.scrollIntoView({ behavior: "smooth", block: "start" });
-    requestSwipActivePlay(160);
+    requestSwipActivePlay(160, true);
   }
 
   function handleWheel(event) {
@@ -123,7 +132,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
   }
 
   function handleScroll() {
-    requestSwipActivePlay(80);
+    requestSwipActivePlay(80, true);
   }
 
   if (feed.error) {
@@ -153,9 +162,9 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     <div
       ref={scrollerRef}
       className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      onPointerUp={() => requestSwipActivePlay()}
+      onPointerUp={() => requestSwipActivePlay(0, true)}
       onScroll={handleScroll}
-      onTouchEnd={() => requestSwipActivePlay()}
+      onTouchEnd={() => requestSwipActivePlay(0, true)}
       onWheel={handleWheel}
       style={{
         "--swip-item-height": "calc(100dvh - var(--explore-top-chrome-height,57px))",

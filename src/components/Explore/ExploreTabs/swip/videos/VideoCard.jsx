@@ -6,6 +6,7 @@ import { sharePost } from "../../urfeed/feed/post/postUtils";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
+import VideoProgress from "./VideoProgress";
 
 export default function VideoCard({
   post,
@@ -28,6 +29,7 @@ export default function VideoCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mediaError, setMediaError] = useState("");
+  const [progress, setProgress] = useState({ currentTime: 0, duration: 0 });
 
   const [message, setMessage] = useState("");
   const videoRef = useRef(null);
@@ -38,11 +40,12 @@ export default function VideoCard({
 
   useEffect(() => {
     setMediaError("");
+    setProgress({ currentTime: 0, duration: 0 });
   }, [post.video_url]);
 
   useEffect(() => () => {
     window.clearTimeout(holdTimerRef.current);
-    stopAllExploreMedia();
+    stopAllExploreMedia(null, { muteVideos: false });
   }, []);
 
   useEffect(() => {
@@ -61,9 +64,9 @@ export default function VideoCard({
   }, [active, post.video_url]);
 
   useEffect(() => {
-    function handleSwipActivePlay() {
+    function handleSwipActivePlay(event) {
       if (activeRef.current || active) {
-        requestActivePlayback();
+        requestActivePlayback({ sound: Boolean(event.detail?.sound) });
       }
     }
 
@@ -94,10 +97,20 @@ export default function VideoCard({
 
   function pauseInactiveVideo(video) {
     video.pause();
-    video.muted = true;
+    video.muted = false;
+    video.defaultMuted = false;
+    video.volume = 1;
     if (!Number.isNaN(video.currentTime)) {
       video.currentTime = 0;
     }
+    setProgress((current) => ({ ...current, currentTime: 0 }));
+  }
+
+  function updateVideoProgress(video) {
+    setProgress({
+      currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+      duration: Number.isFinite(video.duration) ? video.duration : 0,
+    });
   }
 
   async function requestActivePlayback() {
@@ -110,21 +123,20 @@ export default function VideoCard({
       return;
     }
 
+    if (!video.paused && !video.muted) {
+      return;
+    }
+
     activeRef.current = true;
     video.muted = false;
     video.defaultMuted = false;
     video.volume = 1;
     try {
-      await playExploreMedia(video);
+      await playExploreMedia(video, { muteVideos: false });
     } catch {
-      video.muted = true;
-      video.defaultMuted = true;
-      video.volume = 0;
-      try {
-        await playExploreMedia(video);
-      } catch {
-        // The browser may still be preparing the media; onCanPlay and the active event retry.
-      }
+      video.muted = false;
+      video.defaultMuted = false;
+      video.volume = 1;
     }
   }
 
@@ -137,7 +149,21 @@ export default function VideoCard({
       return;
     }
 
-    requestActivePlayback();
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    video.muted = false;
+    video.defaultMuted = false;
+    video.volume = 1;
+
+    if (video.paused) {
+      requestActivePlayback();
+      return;
+    }
+
+    video.pause();
   }
 
   function handlePointerDown(event) {
@@ -146,9 +172,6 @@ export default function VideoCard({
     }
 
     window.clearTimeout(holdTimerRef.current);
-    holdTimerRef.current = window.setTimeout(() => {
-      videoRef.current?.pause();
-    }, 180);
   }
 
   function handlePointerUp(event) {
@@ -210,9 +233,13 @@ export default function VideoCard({
         loop
         onError={() => setMediaError("Video is still being prepared.")}
         onCanPlay={() => {
+          updateVideoProgress(videoRef.current);
           if (activeRef.current || active) requestActivePlayback();
         }}
-        onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
+        onDurationChange={(event) => updateVideoProgress(event.currentTarget)}
+        onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
+        onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
+        onTimeUpdate={(event) => updateVideoProgress(event.currentTarget)}
         preload="auto"
         className="absolute inset-0 h-full w-full object-cover"
       />
@@ -241,6 +268,8 @@ export default function VideoCard({
           onViewProfile={onViewProfile}
         />
       ) : null}
+
+      <VideoProgress currentTime={progress.currentTime} duration={progress.duration} />
 
       <CommentsDrawer
         currentUserId={currentUserId}

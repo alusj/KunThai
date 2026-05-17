@@ -6,7 +6,7 @@ import All from "./tabs/All";
 export default function Swip({ active = true, currentUserId = "", onViewProfile }) {
   useEffect(() => {
     if (!active) {
-      stopAllExploreMedia();
+      stopAllExploreMedia(null, { muteVideos: false });
       return undefined;
     }
 
@@ -34,7 +34,7 @@ export default function Swip({ active = true, currentUserId = "", onViewProfile 
 
     return () => {
       window.clearTimeout(playTimer);
-      stopAllExploreMedia();
+      stopAllExploreMedia(null, { muteVideos: false });
       document.body.style.overflow = previousBody.overflow;
       document.body.style.overscrollBehavior = previousBody.overscrollBehavior;
       document.body.style.height = previousBody.height;

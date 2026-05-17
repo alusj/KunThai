@@ -5,7 +5,7 @@ import Avatar from "../../../shared/Avatar";
 
 export default function SwipCaption({ categoryLabel, contextLabel, post, onViewProfile }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent px-4 pb-5 pt-24 text-white sm:px-5">
+    <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent px-4 pb-11 pt-24 text-white sm:px-5">
       <div className="min-w-0 max-w-[calc(100%-72px)] space-y-3">
         <button type="button" onClick={onViewProfile} className="flex min-w-0 items-center gap-3 text-left">
           <Avatar name={post.author_name} src={post.author_avatar_url} size="sm" />
