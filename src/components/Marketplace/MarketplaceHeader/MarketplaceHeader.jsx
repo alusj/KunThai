@@ -1,13 +1,14 @@
 import { MessageCircle, PackageCheck, ShoppingBag, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
-import { fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { fetchBuyerMessages, fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
 export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessagesClick, activeUtility }) {
   const { loading, hasBusiness } = useSellerBusinessStatus();
   const [orderCount, setOrderCount] = useState(0);
+  const [messageCount, setMessageCount] = useState(0);
   const businessLabel = hasBusiness ? "MyBiz" : "REGISTER";
 
   useEffect(() => {
@@ -27,6 +28,28 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
     return () => {
       alive = false;
       window.removeEventListener("marketplace-orders-updated", loadOrderCount);
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadMessageCount() {
+      try {
+        const messages = await fetchBuyerMessages();
+        if (alive) setMessageCount(messages.filter((message) => message.unread).length);
+      } catch {
+        if (alive) setMessageCount(0);
+      }
+    }
+
+    loadMessageCount();
+    window.addEventListener("marketplace-message-sent", loadMessageCount);
+    window.addEventListener("marketplace-seller-messages-updated", loadMessageCount);
+    return () => {
+      alive = false;
+      window.removeEventListener("marketplace-message-sent", loadMessageCount);
+      window.removeEventListener("marketplace-seller-messages-updated", loadMessageCount);
     };
   }, []);
 
@@ -102,12 +125,17 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
           <button
             type="button"
             onClick={onMessagesClick}
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-lg transition ${
+            className={`relative inline-flex h-10 w-10 items-center justify-center rounded-lg transition ${
               activeUtility === "messages" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
             }`}
-            aria-label="Open messages"
+            aria-label={`Open messages${messageCount ? `, ${messageCount} unread` : ""}`}
           >
             <MessageCircle size={18} />
+            {messageCount ? (
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-black leading-none text-white">
+                {messageCount > 99 ? "99+" : messageCount}
+              </span>
+            ) : null}
           </button>
           <Cart />
           <Menu />

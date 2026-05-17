@@ -48,5 +48,34 @@ export async function fetchSellerSales() {
       time: "Start selling to discover this",
       orderCount: 0,
     },
+    recentOrders: orders
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+      .slice(0, 20)
+      .map((order) => ({
+        id: order.id,
+        status: order.status || "pending",
+        totalAmount: Number(order.total_amount || 0),
+        itemCount: Number(order.item_count || 0),
+        preview: order.preview || "UrMall order",
+        buyerName: order.buyer_name || "Buyer",
+        deliveryLocation: order.delivery_location || "",
+        createdAt: order.created_at,
+      })),
   };
+}
+
+export async function updateSellerOrderStatus(orderId, status) {
+  const business = await readRegisteredBusiness();
+  if (!business) {
+    throw new Error("Register a business before managing orders.");
+  }
+
+  const { error } = await supabase
+    .from("marketplace_orders")
+    .update({ status })
+    .eq("id", orderId)
+    .eq("business_id", business.id);
+
+  if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
 }

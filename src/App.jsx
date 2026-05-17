@@ -71,6 +71,9 @@ export default function App() {
     if (hash.includes("swip") || hash.includes("urfeed") || hash.includes("connections")) {
       return "explore";
     }
+    if (hash.includes("marketplace") || hash.includes("urmall")) {
+      return "marketplace";
+    }
 
     try {
       return localStorage.getItem("kuntai-last-page") || "explore";

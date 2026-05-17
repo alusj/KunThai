@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Browse from "./Browse/Browse";
 import MarketplaceHeader from "./MarketplaceHeader/MarketplaceHeader";
 import Business from "./MarketplaceHeader/Business/Business";
@@ -93,6 +93,17 @@ export default function Marketplace({ nav, setNav }) {
 }
 
 function UtilityDrawer({ children, open, onClose, subtitle, title }) {
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose?.();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open]);
+
   return (
     <>
       {open ? <button type="button" aria-label={`Close ${title}`} onClick={onClose} className="fixed inset-0 z-40 bg-gray-950/45" /> : null}

@@ -63,6 +63,22 @@ function getAddressLabel(address) {
   return address.category === "Other" ? address.customCategory || "Other" : address.category || "Resident";
 }
 
+function getProductSpecs(product = {}) {
+  const details = product.details || {};
+  return [
+    ["Brand", product.brand],
+    ["Model", product.model],
+    ["Size", details.size],
+    ["Color", details.color],
+    ["Material", details.material],
+    ["Weight", details.weight],
+    ["Dimensions", details.dimensions],
+    ["Warranty", details.warranty],
+    ["Variants", details.variants],
+    ["Specifications", details.specifications],
+  ].filter(([, value]) => String(value || "").trim());
+}
+
 function ImageViewer({ images, activeIndex, onChange, onClose }) {
   const [touchStartX, setTouchStartX] = useState(null);
   if (activeIndex < 0) return null;
@@ -255,7 +271,7 @@ export default function ProductDetailDrawer({
   const [orderOpen, setOrderOpen] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
-  const [orderForm, setOrderForm] = useState(() => ({ ...readDefaultAddress(), quantity: 1 }));
+  const [orderForm, setOrderForm] = useState(() => ({ ...readDefaultAddress(), quantity: 1, fulfillment: "delivery" }));
   const [savedAddresses, setSavedAddresses] = useState(readSavedAddresses);
   const [messageText, setMessageText] = useState("");
   const [messageSending, setMessageSending] = useState(false);
@@ -288,11 +304,17 @@ export default function ProductDetailDrawer({
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose?.();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open]);
+  }, [onClose, open]);
 
   if (!open || !product) return null;
 
@@ -300,6 +322,7 @@ export default function ProductDetailDrawer({
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
   const orderTotal = displayPrice * Math.max(1, Number(orderForm.quantity || 1));
+  const specs = getProductSpecs(product);
 
   function updateOrderForm(patch) {
     setOrderForm((current) => ({ ...current, ...patch }));
@@ -318,7 +341,7 @@ export default function ProductDetailDrawer({
       // Keep local suggestions if the address table has not been applied yet.
     }
 
-    setOrderForm({ ...readDefaultAddress(), quantity: 1 });
+    setOrderForm({ ...readDefaultAddress(), quantity: 1, fulfillment: product.deliveryAvailable ? "delivery" : "pickup" });
     setOrderOpen(true);
   }
 
@@ -356,7 +379,20 @@ export default function ProductDetailDrawer({
 
   async function handleOrderSubmit(event) {
     event.preventDefault();
-    if (!orderForm.address.trim()) {
+    const quantity = Math.max(1, Number(orderForm.quantity || 1));
+    if (!String(orderForm.buyerName || "").trim()) {
+      onNotice?.("Add the receiver name before ordering.", "danger");
+      return;
+    }
+    if (!String(orderForm.phone || "").trim()) {
+      onNotice?.("Add a phone number before ordering.", "danger");
+      return;
+    }
+    if (quantity > Number(product.stock || 0)) {
+      onNotice?.(`Only ${product.stock} item${product.stock === 1 ? "" : "s"} available.`, "danger");
+      return;
+    }
+    if (orderForm.fulfillment !== "pickup" && !orderForm.address.trim()) {
       onNotice?.("Add a delivery address before ordering.", "danger");
       return;
     }
@@ -388,7 +424,14 @@ export default function ProductDetailDrawer({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-28 sm:p-6">
           <div className="grid w-full gap-5 md:grid-cols-[0.9fr_1.1fr]">
-            <Gallery product={product} onOpenImage={setActiveImageIndex} />
+            <div className="space-y-3">
+              <Gallery product={product} onOpenImage={setActiveImageIndex} />
+              {product.videoUrl ? (
+                <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-950">
+                  <video src={product.videoUrl} controls playsInline preload="metadata" className="aspect-video w-full bg-gray-950 object-contain" />
+                </div>
+              ) : null}
+            </div>
 
             <section className="space-y-4">
               <div>
@@ -461,6 +504,20 @@ export default function ProductDetailDrawer({
                   {product.description || "No product description has been added yet."}
                 </p>
               </div>
+
+              {specs.length ? (
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <h3 className="font-black text-gray-950">Product Details</h3>
+                  <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {specs.map(([label, value]) => (
+                      <div key={label} className="rounded-lg bg-gray-50 p-3">
+                        <dt className="text-[11px] font-black uppercase text-gray-500">{label}</dt>
+                        <dd className="mt-1 text-sm font-black text-gray-950">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ) : null}
 
               <div className="rounded-lg border border-gray-200 p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -585,6 +642,28 @@ export default function ProductDetailDrawer({
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="col-span-2 grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-1">
+                  <button
+                    type="button"
+                    disabled={!product.deliveryAvailable}
+                    onClick={() => updateOrderForm({ fulfillment: "delivery" })}
+                    className={`h-10 rounded-md text-xs font-black ${
+                      orderForm.fulfillment === "delivery" ? "bg-emerald-600 text-white" : "text-gray-600"
+                    } disabled:cursor-not-allowed disabled:opacity-40`}
+                  >
+                    Delivery
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!product.pickupAvailable}
+                    onClick={() => updateOrderForm({ fulfillment: "pickup" })}
+                    className={`h-10 rounded-md text-xs font-black ${
+                      orderForm.fulfillment === "pickup" ? "bg-emerald-600 text-white" : "text-gray-600"
+                    } disabled:cursor-not-allowed disabled:opacity-40`}
+                  >
+                    Pickup
+                  </button>
+                </div>
                 {savedAddresses.length ? (
                   <div className="col-span-2 space-y-2">
                     <p className="text-xs font-black uppercase text-gray-500">Saved addresses</p>
@@ -621,7 +700,7 @@ export default function ProductDetailDrawer({
                 <input
                   value={orderForm.address}
                   onChange={(event) => updateOrderForm({ address: event.target.value })}
-                  placeholder="Delivery address"
+                  placeholder={orderForm.fulfillment === "pickup" ? "Pickup note or preferred branch" : "Delivery address"}
                   className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
                 <input

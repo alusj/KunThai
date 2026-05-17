@@ -96,11 +96,17 @@ export default function SellerProfileDrawer({
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose?.();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open]);
+  }, [onClose, open]);
 
   if (!open || !seller) return null;
 

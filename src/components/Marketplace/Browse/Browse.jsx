@@ -52,6 +52,7 @@ function rememberRecentProduct(product) {
 
 export default function Browse({ activeTab = "new", onProductModeChange }) {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [queryFilters, setQueryFilters] = useState(DEFAULT_FILTERS);
   const [options, setOptions] = useState({ categories: [], locations: [] });
   const [catalog, setCatalog] = useState({
     newProducts: [],
@@ -98,6 +99,14 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
     return () => {
       alive = false;
     };
+  }, [queryFilters]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setQueryFilters(filters);
+    }, filters.search ? 320 : 0);
+
+    return () => window.clearTimeout(timer);
   }, [filters]);
 
   useEffect(() => {
@@ -135,6 +144,33 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
 
     window.addEventListener("marketplace-open-product", handleExternalProductOpen);
     return () => window.removeEventListener("marketplace-open-product", handleExternalProductOpen);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function openProductFromHash() {
+      const match = String(window.location.hash || "").match(/marketplace-product-([^/?#]+)/i);
+      if (!match) return;
+
+      try {
+        const detail = await fetchBuyerProductDetail(decodeURIComponent(match[1]));
+        if (!alive) return;
+        setSellerOpen(false);
+        setSelectedProduct(detail);
+        setDetailOpen(true);
+        rememberRecentProduct(detail);
+      } catch (err) {
+        showNotice(err.message || "Unable to open product details.", "danger");
+      }
+    }
+
+    openProductFromHash();
+    window.addEventListener("hashchange", openProductFromHash);
+    return () => {
+      alive = false;
+      window.removeEventListener("hashchange", openProductFromHash);
+    };
   }, []);
 
   function showNotice(message, tone = "success") {

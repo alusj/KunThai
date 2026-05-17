@@ -17,7 +17,18 @@ export default function CustomerCare() {
   const [reply, setReply] = useState("");
   const [feedback, setFeedback] = useState("");
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-busy="true">
+        <div className="h-5 w-44 animate-pulse rounded bg-gray-200" />
+        <div className="mt-4 space-y-3">
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="h-16 animate-pulse rounded-lg bg-gray-100" />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   async function sendReply(event) {
     event.preventDefault();

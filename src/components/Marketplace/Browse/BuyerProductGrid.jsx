@@ -1,4 +1,4 @@
-import { Heart, MapPin, PackageSearch, ShoppingCart, Star } from "lucide-react";
+import { BadgeCheck, Heart, MapPin, PackageSearch, ShoppingCart, Star, Truck } from "lucide-react";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 
 function ProductImage({ product }) {
@@ -22,19 +22,39 @@ function ProductImage({ product }) {
 function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved, saved }) {
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
+  const discountPercent = hasDiscount ? Math.round(((product.price - product.discountPrice) / product.price) * 100) : 0;
+  const verifiedSeller = product.seller?.verificationStatus === "verified";
+
+  function openProduct() {
+    onProductSelect?.(product);
+  }
 
   return (
     <article
+      role="button"
+      tabIndex={0}
       className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
-      onClick={() => onProductSelect?.(product)}
+      onClick={openProduct}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openProduct();
+        }
+      }}
     >
       <div className="relative aspect-square overflow-hidden bg-gray-100">
         <ProductImage product={product} />
         {hasDiscount && (
           <span className="absolute left-2 top-2 rounded-md bg-red-600 px-2 py-1 text-[11px] font-black uppercase text-white">
-            Deal
+            -{discountPercent}%
           </span>
         )}
+        {verifiedSeller ? (
+          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md bg-emerald-600/95 px-2 py-1 text-[11px] font-black text-white">
+            <BadgeCheck size={13} />
+            Verified
+          </span>
+        ) : null}
         <button
           type="button"
           onClick={(event) => {
@@ -55,7 +75,9 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
           <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-black leading-5 text-gray-950">
             {product.name}
           </h3>
-          <p className="mt-1 truncate text-xs font-semibold text-gray-500">{product.category}</p>
+          <p className="mt-1 truncate text-xs font-semibold text-gray-500">
+            {product.category} | {product.seller?.name || "UrMall seller"}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
@@ -65,16 +87,27 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500">
-          <MapPin size={14} className="shrink-0 text-emerald-600" />
-          <span className="truncate">{product.location}</span>
+        <div className="grid gap-1 text-xs font-bold text-gray-500">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <MapPin size={14} className="shrink-0 text-emerald-600" />
+            <span className="truncate">{product.location}</span>
+          </span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <Truck size={14} className="shrink-0 text-emerald-600" />
+            <span className="truncate">
+              {product.deliveryAvailable ? product.deliveryTime || "Delivery available" : product.pickupAvailable ? "Pickup available" : "Ask seller"}
+            </span>
+          </span>
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
-          <span className="inline-flex items-center gap-1 text-xs font-black text-amber-600">
-            <Star size={13} fill="currentColor" />
-            {product.sales > 0 ? `${product.sales} sold` : "New"}
-          </span>
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-1 text-xs font-black text-amber-600">
+              <Star size={13} fill="currentColor" />
+              {product.reviewCount ? `${product.rating.toFixed(1)} (${product.reviewCount})` : product.sales > 0 ? `${product.sales} sold` : "New"}
+            </span>
+            <p className="mt-0.5 truncate text-[11px] font-bold text-gray-400">{product.stock} in stock</p>
+          </div>
           <button
             type="button"
             onClick={(event) => {

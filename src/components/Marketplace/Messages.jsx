@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MessageCircle, Send } from "lucide-react";
+import { ArrowLeft, MessageCircle, Send } from "lucide-react";
 import {
   fetchBuyerMessages,
   sendBuyerMarketplaceMessage,
@@ -20,9 +20,10 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
   const [notice, setNotice] = useState("");
 
   const activeMessage = useMemo(
-    () => messages.find((message) => message.id === activeId) || messages[0] || null,
+    () => (activeId ? messages.find((message) => message.id === activeId) || null : null),
     [activeId, messages],
   );
+  const unreadCount = messages.filter((message) => message.unread).length;
 
   async function loadMessages() {
     setLoading(true);
@@ -78,8 +79,11 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
       ) : null}
 
       <section className="mx-auto grid max-w-6xl gap-4 p-4 lg:grid-cols-[320px_1fr]">
-        <aside className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-          <h2 className="mb-3 font-black text-gray-950">Conversations</h2>
+        <aside className={`rounded-lg border border-gray-200 bg-white p-3 shadow-sm ${activeMessage ? "hidden lg:block" : ""}`}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="font-black text-gray-950">Conversations</h2>
+            {unreadCount ? <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-black text-white">{unreadCount}</span> : null}
+          </div>
           {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
           {!loading && !error && !messages.length && (
             <div className="rounded-lg bg-gray-50 p-5 text-center">
@@ -98,7 +102,10 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="truncate font-black text-gray-950">{message.sellerName}</p>
+                  <p className="truncate font-black text-gray-950">
+                    {message.sellerName}
+                    {message.unread ? <span className="ml-2 inline-block h-2 w-2 rounded-full bg-emerald-600" /> : null}
+                  </p>
                   <span className="text-xs font-bold text-gray-400">{formatDate(message.createdAt)}</span>
                 </div>
                 <p className="mt-1 truncate text-xs font-bold text-gray-500">{message.topic}</p>
@@ -108,30 +115,42 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
           </div>
         </aside>
 
-        <section className="flex min-h-[70vh] flex-col rounded-lg border border-gray-200 bg-white shadow-sm">
+        <section className={`min-h-[70vh] flex-col rounded-lg border border-gray-200 bg-white shadow-sm ${activeMessage ? "flex" : "hidden lg:flex"}`}>
           {activeMessage ? (
             <>
               <div className="border-b p-4">
-                <h2 className="font-black text-gray-950">{activeMessage.topic}</h2>
-                <p className="mt-1 text-sm font-bold text-gray-500">
-                  {activeMessage.sellerName}
-                  {activeMessage.productName ? " - " : ""}
-                  {activeMessage.productName ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onProductOpen?.({
-                          id: activeMessage.productId,
-                          businessId: activeMessage.businessId,
-                          name: activeMessage.productName,
-                        })
-                      }
-                      className="font-black text-emerald-700 hover:text-emerald-800 hover:underline"
-                    >
-                      {activeMessage.productName}
-                    </button>
-                  ) : null}
-                </p>
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveId("")}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-700 lg:hidden"
+                    aria-label="Back to conversations"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
+                  <div className="min-w-0">
+                    <h2 className="font-black text-gray-950">{activeMessage.topic}</h2>
+                    <p className="mt-1 text-sm font-bold text-gray-500">
+                      {activeMessage.sellerName}
+                      {activeMessage.productName ? " - " : ""}
+                      {activeMessage.productName ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onProductOpen?.({
+                              id: activeMessage.productId,
+                              businessId: activeMessage.businessId,
+                              name: activeMessage.productName,
+                            })
+                          }
+                          className="font-black text-emerald-700 hover:text-emerald-800 hover:underline"
+                        >
+                          {activeMessage.productName}
+                        </button>
+                      ) : null}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -148,6 +167,9 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
                       }`}
                     >
                       {message.text}
+                      <span className={`mt-1 block text-[10px] font-bold ${fromBuyer ? "text-white/70" : "text-gray-400"}`}>
+                        {formatDate(message.createdAt)}
+                      </span>
                     </div>
                   );
                 })}

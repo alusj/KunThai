@@ -32,7 +32,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
               className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             />
             <div className="min-w-0">
-            <p className="text-xs font-black uppercase text-blue-700">{editing ? "Edit Listing" : "Add Product"}</p>
+            <p className="text-xs font-black uppercase text-emerald-700">{editing ? "Edit Listing" : "Add Product"}</p>
             <h1 className="truncate text-lg font-black text-gray-950">
               {editing ? "Edit product listing" : "Create a product listing"}
             </h1>
@@ -70,7 +70,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
                 <button
                   type="button"
                   onClick={productForm.next}
-                  className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-700"
+                  className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700"
                 >
                   Continue
                 </button>
@@ -102,7 +102,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
               </div>
             ) : null}
             {productForm.submitting && productForm.saveStatus ? (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-700">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
                 {productForm.saveStatus}
               </div>
             ) : null}

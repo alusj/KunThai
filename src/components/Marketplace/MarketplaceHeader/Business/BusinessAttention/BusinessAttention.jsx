@@ -6,7 +6,17 @@ export default function BusinessAttention({ onAction }) {
   const { items, summary, loading } = useSellerAttention();
   const urgentItems = items.filter((item) => item.priority === "high");
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-busy="true">
+        <div className="h-5 w-40 animate-pulse rounded bg-gray-200" />
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="h-20 animate-pulse rounded-lg bg-gray-100" />
+          <div className="h-20 animate-pulse rounded-lg bg-gray-100" />
+        </div>
+      </section>
+    );
+  }
 
   if (urgentItems.length === 0) {
     return null;

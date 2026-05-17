@@ -19,6 +19,7 @@ function mapBuyerProduct(product) {
     condition: product.condition || "new",
     brand: product.brand || "",
     model: product.model || "",
+    details: product.product_attributes || {},
     imageUrl: product.main_image_url,
     imageUrls: [product.main_image_url, ...imageUrls].filter(Boolean),
     videoUrl: product.video_url || "",
@@ -30,6 +31,8 @@ function mapBuyerProduct(product) {
     pickupAvailable: Boolean(product.pickup_available),
     deliveryTime: product.delivery_time || "",
     allowNegotiation: Boolean(product.allow_negotiation),
+    rating: Number(product.rating || 0),
+    reviewCount: Number(product.review_count || 0),
     seller: {
       id: business.id || product.business_id,
       name: business.business_name || "UrMall seller",
@@ -50,6 +53,17 @@ function mapBuyerProduct(product) {
 
 const PRODUCT_SELECT = `
   id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
+  main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
+  delivery_time,allow_negotiation,
+  marketplace_businesses (
+    id,business_name,description,city,country,phone,whatsapp_enabled,whatsapp,email,logo_url,banner_url,
+    verification_status,readiness_score
+  )
+`;
+
+const PRODUCT_DETAIL_SELECT = `
+  id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
+  product_attributes,
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
   delivery_time,allow_negotiation,
   marketplace_businesses (
@@ -214,13 +228,25 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
 export async function fetchBuyerProductDetail(productId) {
   if (!productId) throw new Error("Choose a product to view.");
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("marketplace_products")
-    .select(PRODUCT_SELECT)
+    .select(PRODUCT_DETAIL_SELECT)
     .eq("id", productId)
     .eq("status", "active")
     .gt("stock", 0)
     .maybeSingle();
+
+  if (error && String(error.message || "").toLowerCase().includes("product_attributes")) {
+    const fallback = await supabase
+      .from("marketplace_products")
+      .select(PRODUCT_SELECT)
+      .eq("id", productId)
+      .eq("status", "active")
+      .gt("stock", 0)
+      .maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("This product is no longer available.");
@@ -407,7 +433,7 @@ export async function checkoutBuyerCart(deliveryLocation = "") {
       .insert({
         buyer_id: buyerId,
         business_id: businessId,
-        product_id: groupItems.length === 1 ? groupItems[0].id : null,
+        product_id: groupItems.length === 1 ? groupItems[0].productId : null,
         status: "pending",
         total_amount: total,
         item_count: groupItems.reduce((sum, item) => sum + item.qty, 0),
@@ -439,6 +465,7 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
   const categoryLabel = addressCategory === "Other" && orderInput.customCategory ? orderInput.customCategory : addressCategory;
   const contact = [buyerName, orderInput.phone].filter(Boolean).join(" | ");
   const deliveryDetails = [
+    orderInput.fulfillment ? `Fulfillment: ${orderInput.fulfillment}` : "",
     categoryLabel ? `${categoryLabel} address` : "",
     deliveryAddress ? `Address: ${deliveryAddress}` : "",
     contact ? `Contact: ${contact}` : "",
@@ -537,6 +564,19 @@ export async function hideBuyerOrder(orderId) {
   const { error } = await supabase
     .from("marketplace_buyer_hidden_orders")
     .upsert({ buyer_id: buyerId, order_id: orderId }, { onConflict: "buyer_id,order_id" });
+
+  if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
+}
+
+export async function cancelBuyerOrder(orderId) {
+  const buyerId = await getCurrentUserId("Sign in to manage your orders.");
+  const { error } = await supabase
+    .from("marketplace_orders")
+    .update({ status: "cancelled" })
+    .eq("id", orderId)
+    .eq("buyer_id", buyerId)
+    .eq("status", "pending");
 
   if (error) throw new Error(error.message);
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));

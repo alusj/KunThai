@@ -283,6 +283,23 @@ export default function MenuDrawer({ open, onClose }) {
       .catch((err) => setMessage(err.message || "Unable to load saved products."));
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        if (active) {
+          setActive(null);
+          return;
+        }
+        onClose?.();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [active, onClose, open]);
+
   const activeTitle = useMemo(() => menuItems.find((item) => item.id === active)?.label || "Buyer Menu", [active]);
 
   async function saveAddress() {

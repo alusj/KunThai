@@ -15,6 +15,7 @@ function productLink(item) {
 export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduct }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const stock = Number(item.product?.stock || 0);
 
   async function copyProduct() {
     const link = productLink(item);
@@ -81,6 +82,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
         <p className="line-clamp-2 text-sm font-black text-gray-950">{item.name}</p>
         <p className="mt-1 text-xs font-bold text-gray-500">{formatCurrency(item.price)}</p>
         <p className="truncate text-xs font-semibold text-gray-400">{item.location}</p>
+        {stock ? <p className="mt-0.5 text-[11px] font-bold text-gray-400">{stock} in stock</p> : null}
       </div>
 
       <div className="flex flex-col items-end justify-between">
@@ -150,9 +152,11 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              if (stock && item.qty >= stock) return;
               onUpdateQty?.(item, item.qty + 1);
             }}
-            className="inline-flex h-8 w-8 items-center justify-center text-gray-700 hover:bg-gray-100"
+            disabled={Boolean(stock && item.qty >= stock)}
+            className="inline-flex h-8 w-8 items-center justify-center text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
             aria-label={`Increase ${item.name} quantity`}
           >
             <Plus size={14} />

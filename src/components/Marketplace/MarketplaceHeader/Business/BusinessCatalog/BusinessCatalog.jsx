@@ -16,7 +16,7 @@ export default function BusinessCatalog({ mode = "store", onEditProduct }) {
     loading,
   } = useSellerProducts();
 
-  if (loading || !summary) return null;
+  if (loading || !summary) return <SectionSkeleton title="Loading catalog" />;
 
   const visibleProducts = mode === "catalog" ? availableProducts : products;
   const title = mode === "catalog" ? "Catalog" : "Store";
@@ -65,6 +65,19 @@ export default function BusinessCatalog({ mode = "store", onEditProduct }) {
           }}
         />
       )}
+    </section>
+  );
+}
+
+function SectionSkeleton({ title }) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-busy="true">
+      <p className="text-sm font-black text-gray-500">{title}</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="h-28 animate-pulse rounded-lg bg-gray-100" />
+        ))}
+      </div>
     </section>
   );
 }

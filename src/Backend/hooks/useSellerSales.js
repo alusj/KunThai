@@ -7,6 +7,7 @@ const DEFAULT_SALES = {
   orders: null,
   averageOrderValue: 0,
   bestSalesWindow: null,
+  recentOrders: [],
 };
 
 export function useSellerSales() {

@@ -107,9 +107,31 @@ export default function VideoCard({
   }
 
   function updateVideoProgress(video) {
+    if (!video) {
+      return;
+    }
+
     setProgress({
       currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
       duration: Number.isFinite(video.duration) ? video.duration : 0,
+    });
+  }
+
+  function handleSeek(nextTime) {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(nextTime)) {
+      return;
+    }
+
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const clampedTime = duration > 0 ? Math.min(Math.max(nextTime, 0), duration) : 0;
+    video.currentTime = clampedTime;
+    video.muted = false;
+    video.defaultMuted = false;
+    video.volume = 1;
+    setProgress({
+      currentTime: clampedTime,
+      duration,
     });
   }
 
@@ -269,7 +291,7 @@ export default function VideoCard({
         />
       ) : null}
 
-      <VideoProgress currentTime={progress.currentTime} duration={progress.duration} />
+      <VideoProgress currentTime={progress.currentTime} duration={progress.duration} onSeek={handleSeek} />
 
       <CommentsDrawer
         currentUserId={currentUserId}
