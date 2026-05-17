@@ -4,7 +4,7 @@ import { fetchSavedOperators, getSavedOperators } from "../services/passengerTra
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 
-export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification }) {
+export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification, onOpenBooking }) {
   const [savedOperators, setSavedOperators] = useState(() => getSavedOperators());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -89,10 +89,18 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
               <div className="flex flex-col gap-2 lg:items-end">
                 <button
                   type="button"
-                  onClick={() => onViewFleet(saved.fleetId)}
-                  className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-bold text-white hover:bg-green-700"
+                  onClick={() => onOpenBooking?.({
+                    fleet: saved.fleet,
+                    selection: {
+                      mode: saved.fleet?.serviceCategory === "Delivery" ? "delivery" : "ride",
+                      fleetType: saved.fleet?.fleetType,
+                      label: saved.fleet?.displayType,
+                    },
+                  })}
+                  disabled={saved.fleet?.activeStatus !== "active"}
+                  className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-bold text-white hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-500"
                 >
-                  Book again
+                  {saved.fleet?.activeStatus === "active" ? "Book again" : "Offline"}
                 </button>
                 <button
                   type="button"

@@ -5,7 +5,7 @@ import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
-export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification }) {
+export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification, onOpenBooking }) {
   const [fleets, setFleets] = useState(() => getTransportFleets(selection));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -58,9 +58,18 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
               {helperText}
             </p>
           </div>
-          <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-            {fleets.length} found
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+              {fleets.length} found
+            </span>
+            <button
+              type="button"
+              onClick={() => onOpenBooking?.({ selection })}
+              className="hidden h-10 rounded-full bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700 sm:block"
+            >
+              Open booking
+            </button>
+          </div>
         </div>
       </header>
 
@@ -88,6 +97,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
               fleet={fleet}
               onViewFleet={() => onViewFleet(fleet.id)}
               onShowVerification={() => onShowVerification(fleet)}
+              onOpenBooking={() => onOpenBooking?.({ fleet, selection })}
             />
           ))}
         </div>
@@ -97,7 +107,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
   );
 }
 
-function FleetListCard({ fleet, onViewFleet, onShowVerification }) {
+function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }) {
   const status = verificationStatuses[fleet.verificationStatus];
   const isActive = fleet.activeStatus === "active";
 
@@ -154,8 +164,16 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification }) {
         <span className="text-sm font-bold text-gray-950 lg:text-right">{fleet.priceHint}</span>
         <button
           type="button"
+          onClick={onOpenBooking}
+          disabled={!isActive}
+          className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-semibold text-white transition hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-500"
+        >
+          {isActive ? "Open booking" : "Offline"}
+        </button>
+        <button
+          type="button"
           onClick={onViewFleet}
-          className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 transition"
+          className="h-10 rounded-2xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
         >
           View fleet profile
         </button>

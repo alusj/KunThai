@@ -7,6 +7,7 @@ import FleetProfileScreen from "./FleetProfileScreen";
 import NearbyAreaScreen from "./NearbyAreaScreen";
 import OperatorDashboardScreen from "./OperatorDashboardScreen";
 import SavedOperatorsScreen from "./SavedOperatorsScreen";
+import TransportBookingDrawer from "./booking/TransportBookingDrawer";
 import Header from "./header/Header";
 import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
@@ -25,6 +26,17 @@ export default function Transport() {
   const [nearbyAreaOpen, setNearbyAreaOpen] = useState(false);
   const [savedOperatorsOpen, setSavedOperatorsOpen] = useState(false);
   const [verificationFleet, setVerificationFleet] = useState(null);
+  const [bookingTarget, setBookingTarget] = useState(null);
+
+  function renderBookingDrawer() {
+    return (
+      <TransportBookingDrawer
+        open={Boolean(bookingTarget)}
+        target={bookingTarget}
+        onClose={() => setBookingTarget(null)}
+      />
+    );
+  }
 
   useEffect(() => {
     let alive = true;
@@ -86,12 +98,14 @@ export default function Transport() {
           fleetId={activeFleetId}
           onBack={() => setActiveFleetId(null)}
           onShowVerification={setVerificationFleet}
+          onOpenBooking={(target) => setBookingTarget(target)}
         />
         <VerificationDetailsModal
           status={verificationFleet?.verificationStatus}
           operatorName={verificationFleet?.fleetName}
           onClose={() => setVerificationFleet(null)}
         />
+        {renderBookingDrawer()}
       </>
     );
   }
@@ -109,6 +123,7 @@ export default function Transport() {
           operatorName={verificationFleet?.fleetName}
           onClose={() => setVerificationFleet(null)}
         />
+        {renderBookingDrawer()}
       </>
     );
   }
@@ -120,12 +135,14 @@ export default function Transport() {
           onBack={() => setSavedOperatorsOpen(false)}
           onViewFleet={setActiveFleetId}
           onShowVerification={setVerificationFleet}
+          onOpenBooking={(target) => setBookingTarget(target)}
         />
         <VerificationDetailsModal
           status={verificationFleet?.verificationStatus}
           operatorName={verificationFleet?.fleetName}
           onClose={() => setVerificationFleet(null)}
         />
+        {renderBookingDrawer()}
       </>
     );
   }
@@ -138,12 +155,14 @@ export default function Transport() {
           onBack={() => setFleetSelection(null)}
           onViewFleet={setActiveFleetId}
           onShowVerification={setVerificationFleet}
+          onOpenBooking={(target) => setBookingTarget(target)}
         />
         <VerificationDetailsModal
           status={verificationFleet?.verificationStatus}
           operatorName={verificationFleet?.fleetName}
           onClose={() => setVerificationFleet(null)}
         />
+        {renderBookingDrawer()}
       </>
     );
   }
@@ -180,7 +199,9 @@ export default function Transport() {
         onOpenActiveTrips={() => setActiveTripsOpen(true)}
         onOpenSavedOperators={() => setSavedOperatorsOpen(true)}
         onViewFleet={setActiveFleetId}
+        onOpenBooking={(target) => setBookingTarget(target)}
       />
+      {renderBookingDrawer()}
     </div>
   );
 }

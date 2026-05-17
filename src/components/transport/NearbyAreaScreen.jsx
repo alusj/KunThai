@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import {
   FiAlertTriangle,
   FiBookmark,
+  FiChevronDown,
+  FiChevronUp,
   FiCrosshair,
   FiMapPin,
   FiPhone,
@@ -35,6 +37,7 @@ const addCategories = [
 export default function NearbyAreaScreen({ onBack }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
+  const [locationPanelOpen, setLocationPanelOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [, setMapCenter] = useState(null);
 
@@ -42,6 +45,11 @@ export default function NearbyAreaScreen({ onBack }) {
     if (activeCategory === "All") return nearbyLocations;
     return nearbyLocations.filter((location) => location.category === activeCategory);
   }, [activeCategory]);
+
+  function openAddLocation() {
+    setLocationPanelOpen(false);
+    setAdding(true);
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -56,7 +64,10 @@ export default function NearbyAreaScreen({ onBack }) {
                 key={location.id}
                 location={location}
                 active={activeLocation?.id === location.id}
-                onClick={() => setActiveLocation(location)}
+                onClick={() => {
+                  setActiveLocation(location);
+                  setLocationPanelOpen(true);
+                }}
               />
             ))}
           </div>
@@ -81,7 +92,7 @@ export default function NearbyAreaScreen({ onBack }) {
             </label>
             <button
               type="button"
-              onClick={() => setAdding(true)}
+              onClick={openAddLocation}
               className="hidden h-12 rounded-2xl bg-green-600 px-4 text-sm font-bold text-white shadow-lg hover:bg-green-700 sm:block"
             >
               Add Location
@@ -115,7 +126,7 @@ export default function NearbyAreaScreen({ onBack }) {
           </button>
           <button
             type="button"
-            onClick={() => setAdding(true)}
+            onClick={openAddLocation}
             className="h-12 w-12 rounded-full bg-green-600 text-white shadow-lg flex items-center justify-center sm:hidden"
           >
             <FiPlus size={22} />
@@ -124,7 +135,9 @@ export default function NearbyAreaScreen({ onBack }) {
 
         <LocationPanel
           activeLocation={activeLocation}
-          onAddLocation={() => setAdding(true)}
+          open={locationPanelOpen}
+          onToggle={() => setLocationPanelOpen((open) => !open)}
+          onAddLocation={openAddLocation}
         />
 
         {adding && <AddLocationPanel onClose={() => setAdding(false)} />}
@@ -151,8 +164,31 @@ function MapPinButton({ location, active, onClick }) {
   );
 }
 
-function LocationPanel({ activeLocation, onAddLocation }) {
+function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
   const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute bottom-32 left-4 right-4 z-30 rounded-2xl border border-slate-200 bg-white p-3 text-left text-slate-950 shadow-2xl transition hover:bg-slate-50 sm:bottom-8 sm:left-5 sm:right-auto sm:w-[340px]"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Nearby Area</p>
+            <h2 className="mt-0.5 truncate text-base font-black">{activeLocation?.name}</h2>
+            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+              {activeLocation?.type} - {activeLocation?.distance}
+            </p>
+          </div>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+            <FiChevronUp size={20} />
+          </span>
+        </div>
+      </button>
+    );
+  }
 
   return (
     <aside className="absolute bottom-0 left-0 right-0 z-30 rounded-t-3xl bg-white p-4 text-slate-950 shadow-2xl sm:left-5 sm:right-auto sm:top-36 sm:bottom-5 sm:flex sm:w-[360px] sm:flex-col sm:rounded-3xl">
@@ -166,6 +202,14 @@ function LocationPanel({ activeLocation, onAddLocation }) {
         <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${status.className}`}>
           {status.label}
         </span>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
+          aria-label="Collapse nearby area card"
+        >
+          <FiChevronDown size={18} />
+        </button>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">{activeLocation?.description}</p>
@@ -205,6 +249,8 @@ function LocationPanel({ activeLocation, onAddLocation }) {
 }
 
 function AddLocationPanel({ onClose }) {
+  const [category, setCategory] = useState(addCategories[0]);
+
   return (
     <div className="absolute inset-0 z-40 flex items-end bg-slate-950/45 sm:items-center sm:justify-center">
       <section className="w-full rounded-t-3xl bg-white p-4 text-slate-950 shadow-2xl sm:max-w-xl sm:rounded-3xl">
@@ -224,12 +270,19 @@ function AddLocationPanel({ onClose }) {
           <FormInput label="Place name" placeholder="Example: Musa Mini Mart" />
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-slate-700">Category</span>
-            <select className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none">
+            <select
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none"
+            >
               {addCategories.map((category) => (
                 <option key={category}>{category}</option>
               ))}
             </select>
           </label>
+          {category === "Other" ? (
+            <FormInput label="Category name" placeholder="Example: Garage, mosque, office, junction..." />
+          ) : null}
           <FormInput label="Street / address" placeholder="Street, junction, or area" />
           <FormInput label="Landmark" placeholder="Near school, mosque, market..." />
           <FormInput label="Phone optional" placeholder="+232..." />

@@ -5,7 +5,7 @@ import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
-export default function FleetProfileScreen({ fleetId, onBack, onShowVerification }) {
+export default function FleetProfileScreen({ fleetId, onBack, onShowVerification, onOpenBooking }) {
   const [fleet, setFleet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -167,7 +167,19 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
 
           <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="grid gap-2">
-              <button type="button" className="h-11 rounded-2xl bg-green-600 text-sm font-semibold text-white hover:bg-green-700 transition">
+              <button
+                type="button"
+                onClick={() => onOpenBooking?.({
+                  fleet,
+                  selection: {
+                    mode: fleet.serviceCategory === "Delivery" ? "delivery" : "ride",
+                    fleetType: fleet.fleetType,
+                    label: fleet.displayType,
+                  },
+                })}
+                disabled={!isActive}
+                className="h-11 rounded-2xl bg-green-600 text-sm font-semibold text-white transition hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-500"
+              >
                 {fleet.serviceCategory === "Delivery" ? "Book Delivery" : "Book Ride"}
               </button>
               <button type="button" className="h-11 rounded-2xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">

@@ -37,6 +37,7 @@ export default function Header({ operatorAccount, operatorLoading = false, onReg
       <TransportMenuDrawer
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
+        onViewFleet={onViewFleet}
       />
     </>
   );

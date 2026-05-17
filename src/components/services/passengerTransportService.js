@@ -1,12 +1,105 @@
 import supabase from "../../Backend/lib/supabaseClient";
 import { fetchTransportFleetById } from "./transportFleetService";
 
+const TRANSPORT_SAVED_PLACES_KEY = "kuntai.transport.savedPlaces";
+const TRANSPORT_ACTIVE_PLACE_KEY = "kuntai.transport.activePlace";
+const TRANSPORT_SETTINGS_KEY = "kuntai.transport.passengerSettings";
+
+const pendingTripStatuses = ["pending_confirmation", "waiting_operator", "requested", "accepted", "in_progress"];
+const previousTripStatuses = ["completed", "cancelled"];
+
+function readLocalJson(key, fallback) {
+  if (typeof window === "undefined") return fallback;
+
+  try {
+    const saved = window.localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key, value) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
 export function getActiveTrips() {
+  return [];
+}
+
+export function getPassengerTrips() {
   return [];
 }
 
 export function getSavedOperators() {
   return [];
+}
+
+export function getTransportSavedPlaces() {
+  const saved = readLocalJson(TRANSPORT_SAVED_PLACES_KEY, []);
+  return Array.isArray(saved) ? saved : [];
+}
+
+export function getActiveTransportPlace() {
+  return readLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, null);
+}
+
+export function saveTransportSavedPlace(place) {
+  const id = place.id || `local-place-${Date.now()}`;
+  const savedPlace = {
+    ...place,
+    id,
+    updatedAt: new Date().toISOString(),
+  };
+  const places = getTransportSavedPlaces();
+  const nextPlaces = [savedPlace, ...places.filter((item) => item.id !== id)];
+  writeLocalJson(TRANSPORT_SAVED_PLACES_KEY, nextPlaces);
+  writeLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, savedPlace);
+  return savedPlace;
+}
+
+export function removeTransportSavedPlace(placeId) {
+  const nextPlaces = getTransportSavedPlaces().filter((place) => place.id !== placeId);
+  writeLocalJson(TRANSPORT_SAVED_PLACES_KEY, nextPlaces);
+
+  const activePlace = getActiveTransportPlace();
+  if (activePlace?.id === placeId) {
+    writeLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, nextPlaces[0] || null);
+  }
+
+  return nextPlaces;
+}
+
+export function selectTransportSavedPlace(place) {
+  writeLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, place || null);
+  if (typeof window !== "undefined" && place) {
+    window.dispatchEvent(new CustomEvent("transport-saved-place-selected", { detail: { place } }));
+  }
+  return place;
+}
+
+export function getTransportPassengerSettings() {
+  return {
+    tripAlerts: true,
+    nearbyOperators: true,
+    safetyReminders: true,
+    savedPlaceSuggestions: true,
+    language: "English",
+    defaultRideType: "Any available",
+    privacyMode: "Balanced",
+    ...readLocalJson(TRANSPORT_SETTINGS_KEY, {}),
+  };
+}
+
+export function saveTransportPassengerSettings(settings) {
+  const nextSettings = {
+    ...getTransportPassengerSettings(),
+    ...settings,
+    updatedAt: new Date().toISOString(),
+  };
+  writeLocalJson(TRANSPORT_SETTINGS_KEY, nextSettings);
+  return nextSettings;
 }
 
 function formatFare(row) {
@@ -22,6 +115,18 @@ function formatTripStage(row) {
   return row.status || "Active booking";
 }
 
+function formatStatusLabel(status) {
+  return String(status || "pending")
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getTripGroup(status) {
+  return previousTripStatuses.includes(status) ? "previous" : "pending";
+}
+
 async function getCurrentPassengerId() {
   const { data } = await supabase.auth.getUser();
   return data?.user?.id || "";
@@ -34,12 +139,16 @@ async function mapTrip(row) {
     mode: row.trip_type === "delivery" ? "Delivery" : "Ride",
     title: row.title || (row.trip_type === "delivery" ? "Delivery booking" : "Ride booking"),
     fleetId: row.fleet_id,
-    status: row.status || "Active",
+    status: formatStatusLabel(row.status),
+    rawStatus: row.status || "",
+    group: getTripGroup(row.status),
     stage: formatTripStage(row),
     pickup: row.pickup_label || "Pickup pending",
     destination: row.destination_label || "Destination pending",
     fare: formatFare(row),
     priority: ["pending_confirmation", "waiting_operator", "requested"].includes(row.status) ? "pending" : "live",
+    createdAt: row.created_at || "",
+    updatedAt: row.updated_at || row.created_at || "",
     fleet,
   };
 }
@@ -54,6 +163,25 @@ export async function fetchActiveTrips() {
     .eq("passenger_id", passengerId)
     .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "in_progress"])
     .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return Promise.all((data || []).map(mapTrip));
+}
+
+export async function fetchPassengerTrips() {
+  const passengerId = await getCurrentPassengerId();
+  if (!passengerId) return [];
+
+  const { data, error } = await supabase
+    .from("transport_trips")
+    .select("*")
+    .eq("passenger_id", passengerId)
+    .in("status", [...pendingTripStatuses, ...previousTripStatuses])
+    .order("created_at", { ascending: false })
+    .limit(50);
 
   if (error) {
     throw error;
