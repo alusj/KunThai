@@ -112,6 +112,9 @@ export async function sendSellerMarketplaceMessage(conversation, message) {
   });
 
   if (error) throw new Error(error.message);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("marketplace-message-sent"));
+  }
 }
 
 export async function markSellerConversationRead(conversation) {
@@ -120,13 +123,36 @@ export async function markSellerConversationRead(conversation) {
     return;
   }
 
-  const { error } = await supabase
+  const markRead = () => supabase
     .from("marketplace_customer_messages")
     .update({ unread: false })
     .eq("business_id", business.id)
-    .eq("conversation_key", conversation.conversationKey)
-    .eq("sender_role", "buyer");
+    .eq("unread", true)
+    .or("sender_role.eq.buyer,sender_role.is.null");
 
-  if (error) throw new Error(error.message);
-  window.dispatchEvent(new CustomEvent("marketplace-message-sent"));
+  const updates = [
+    markRead().eq("conversation_key", conversation.conversationKey),
+  ];
+
+  if (conversation.productId) {
+    updates.push(
+      markRead()
+        .eq("product_id", conversation.productId)
+        .eq("topic", conversation.topic || conversation.productName || "UrMall message"),
+    );
+  } else {
+    updates.push(
+      markRead()
+        .is("product_id", null)
+        .eq("topic", conversation.topic || "UrMall message"),
+    );
+  }
+
+  const results = await Promise.all(updates);
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw new Error(failed.error.message);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
+  }
 }

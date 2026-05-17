@@ -512,6 +512,26 @@ export async function fetchBuyerOrders() {
   });
 }
 
+export async function findBuyerOrderProduct(order) {
+  if (order?.product) return order.product;
+
+  const productName = String(order?.preview || "").split(" x")[0]?.trim();
+  if (!productName && !order?.businessId) return null;
+
+  let query = supabase
+    .from("marketplace_products")
+    .select(PRODUCT_SELECT)
+    .eq("status", "active")
+    .limit(1);
+
+  if (order?.businessId) query = query.eq("business_id", order.businessId);
+  if (productName) query = query.ilike("name", productName);
+
+  const { data, error } = await query.maybeSingle();
+  if (error || !data) return null;
+  return mapBuyerProduct(data);
+}
+
 export async function hideBuyerOrder(orderId) {
   const buyerId = await getCurrentUserId("Sign in to manage your orders.");
   const { error } = await supabase

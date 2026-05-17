@@ -13,9 +13,7 @@ export function useSellerOverview() {
   const [overview, setOverview] = useState(DEFAULT_OVERVIEW);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-
+  async function loadOverview(active = true) {
     fetchSellerOverview()
       .then((nextOverview) => {
         if (active) {
@@ -27,9 +25,29 @@ export function useSellerOverview() {
           setLoading(false);
         }
       });
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    setLoading(true);
+    loadOverview(active);
 
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleMessagesUpdated() {
+      loadOverview(true);
+    }
+
+    window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
+    window.addEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
+    return () => {
+      window.removeEventListener("marketplace-message-sent", handleMessagesUpdated);
+      window.removeEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
     };
   }, []);
 

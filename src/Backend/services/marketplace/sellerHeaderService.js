@@ -23,8 +23,8 @@ export async function fetchSellerHeaderState() {
       .from("marketplace_customer_messages")
       .select("id", { count: "exact", head: true })
       .eq("business_id", business.id)
-      .eq("sender_role", "buyer")
-      .eq("unread", true);
+      .eq("unread", true)
+      .or("sender_role.eq.buyer,sender_role.is.null");
 
     return {
       ...SELLER_HEADER_STATE,

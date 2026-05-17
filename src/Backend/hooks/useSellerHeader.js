@@ -39,12 +39,16 @@ export function useSellerHeader() {
   }, []);
 
   useEffect(() => {
-    function handleMessageSent() {
+    function handleMessagesUpdated() {
       loadHeaderState(true);
     }
 
-    window.addEventListener("marketplace-message-sent", handleMessageSent);
-    return () => window.removeEventListener("marketplace-message-sent", handleMessageSent);
+    window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
+    window.addEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
+    return () => {
+      window.removeEventListener("marketplace-message-sent", handleMessagesUpdated);
+      window.removeEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
+    };
   }, []);
 
   useEffect(() => {

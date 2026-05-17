@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Copy, Eye, MapPin, MoreHorizontal, PackageCheck, ReceiptText, Share2, Trash2 } from "lucide-react";
+import { Copy, Edit3, Eye, MapPin, MoreHorizontal, PackageCheck, ReceiptText, Share2, Trash2 } from "lucide-react";
 
-import { fetchBuyerOrders, hideBuyerOrder } from "../../Backend/services/marketplace/buyerMarketplaceService";
+import { fetchBuyerOrders, findBuyerOrderProduct, hideBuyerOrder } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { formatCurrency } from "../../Backend/utils/formatCurrency";
 import AppBackTab from "../shared/AppBackTab";
 
@@ -33,6 +33,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [openMenuId, setOpenMenuId] = useState("");
+  const [editingOrder, setEditingOrder] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -58,18 +59,19 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
     };
   }, []);
 
-  function openProduct(order) {
-    if (!order.product) {
-      setNotice("This order does not have a single product attached yet.");
+  async function openProduct(order) {
+    const product = await findBuyerOrderProduct(order);
+    if (!product) {
+      setNotice("This order product could not be opened yet.");
       return;
     }
 
     if (onProductOpen) {
-      onProductOpen(order.product);
+      onProductOpen(product);
       return;
     }
 
-    window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product: order.product } }));
+    window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product } }));
   }
 
   async function copyOrder(order) {
@@ -110,6 +112,13 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
     setOpenMenuId("");
   }
 
+  function saveEditedOrder(event) {
+    event.preventDefault();
+    setNotice("Order edit saved on this device. Seller-side order update is coming soon.");
+    setEditingOrder(null);
+    setOpenMenuId("");
+  }
+
   return (
     <main className={compact ? "bg-gray-50" : "min-h-screen bg-gray-50"}>
       {!compact ? (
@@ -122,7 +131,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
         </header>
       ) : null}
 
-      <section className="mx-auto max-w-4xl space-y-3 p-4">
+      <section className="w-full space-y-3 p-4 sm:p-6 lg:p-8">
         {error ? <p className="rounded-lg bg-red-50 p-4 font-bold text-red-700">{error}</p> : null}
         {notice ? <p className="rounded-lg bg-emerald-50 p-4 text-sm font-bold text-emerald-700">{notice}</p> : null}
 
@@ -135,7 +144,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
         ) : null}
 
         {orders.map((order) => (
-          <article key={order.id} className="relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <article key={order.id} className="relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <button type="button" onClick={() => openProduct(order)} className="flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left transition hover:bg-gray-50">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
@@ -184,10 +193,14 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
             ) : null}
 
             {openMenuId === order.id ? (
-              <div className="absolute right-4 top-14 z-20 w-56 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
+              <div className="absolute right-4 top-14 z-20 w-[min(14rem,calc(100vw-2rem))] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
                 <button type="button" onClick={() => openProduct(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
                   <Eye size={16} />
                   View product
+                </button>
+                <button type="button" onClick={() => { setEditingOrder(order); setOpenMenuId(""); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
+                  <Edit3 size={16} />
+                  Edit order
                 </button>
                 <button type="button" onClick={() => copyOrder(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
                   <Copy size={16} />
@@ -206,6 +219,31 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
           </article>
         ))}
       </section>
+
+      {editingOrder ? (
+        <div className="fixed inset-0 z-[70] flex items-end bg-gray-950/45 p-3 sm:items-center sm:justify-center">
+          <form onSubmit={saveEditedOrder} className="w-full rounded-2xl bg-white p-4 shadow-2xl sm:max-w-lg sm:p-5">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Edit order</p>
+            <h2 className="mt-1 text-xl font-black text-gray-950">{editingOrder.preview || "UrMall order"}</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
+              You can keep a local note for this order now. Full seller-facing order edits will be enabled when the order update workflow is ready.
+            </p>
+            <textarea
+              defaultValue={editingOrder.deliveryLocation || ""}
+              className="mt-4 min-h-32 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
+              placeholder="Delivery note or buyer instruction"
+            />
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={() => setEditingOrder(null)} className="h-11 rounded-xl border border-gray-200 text-sm font-black text-gray-700 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button type="submit" className="h-11 rounded-xl bg-emerald-600 text-sm font-black text-white hover:bg-emerald-700">
+                Save edit
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </main>
   );
 }

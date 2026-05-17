@@ -45,7 +45,11 @@ export function useSellerCustomerCare() {
 
   useEffect(() => {
     window.addEventListener("marketplace-message-sent", load);
-    return () => window.removeEventListener("marketplace-message-sent", load);
+    window.addEventListener("marketplace-seller-messages-updated", load);
+    return () => {
+      window.removeEventListener("marketplace-message-sent", load);
+      window.removeEventListener("marketplace-seller-messages-updated", load);
+    };
   }, [load]);
 
   return {

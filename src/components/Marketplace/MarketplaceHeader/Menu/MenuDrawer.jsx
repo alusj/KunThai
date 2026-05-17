@@ -23,10 +23,10 @@ import {
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerDeliveryAddresses,
-  fetchBuyerOrders,
   fetchSavedBuyerProducts,
   saveBuyerDeliveryAddress,
 } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
+import Orders from "../../Orders";
 
 const BUYER_ADDRESS_KEY = "marketplace-buyer-address";
 const BUYER_ADDRESSES_KEY = "marketplace-buyer-addresses";
@@ -226,10 +226,35 @@ function OrderedItemsList({ orders, loading }) {
   );
 }
 
+function BuyerArticlePanel({ icon: Icon, tone = "emerald", title, summary, sections }) {
+  const toneClass = tone === "amber" ? "bg-amber-50 text-amber-700" : tone === "blue" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700";
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${toneClass}`}>
+          <Icon size={24} />
+        </span>
+        <h4 className="mt-4 text-xl font-black text-gray-950">{title}</h4>
+        <p className="mt-2 text-sm font-semibold leading-7 text-gray-600">{summary}</p>
+      </section>
+
+      {sections.map((section) => (
+        <article key={section.title} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h5 className="text-base font-black text-gray-950">{section.title}</h5>
+          {section.paragraphs.map((paragraph) => (
+            <p key={paragraph} className="mt-3 text-sm font-semibold leading-7 text-gray-600">
+              {paragraph}
+            </p>
+          ))}
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export default function MenuDrawer({ open, onClose }) {
   const [active, setActive] = useState(null);
-  const [orders, setOrders] = useState([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
   const [savedProducts, setSavedProducts] = useState([]);
   const [recentProducts, setRecentProducts] = useState([]);
   const [address, setAddress] = useState(readBuyerAddress);
@@ -239,19 +264,10 @@ export default function MenuDrawer({ open, onClose }) {
   const [payment, setPayment] = useState(() => readLocalValue(BUYER_PAYMENT_KEY));
   const [message, setMessage] = useState("");
 
-  function loadOrders() {
-    setOrdersLoading(true);
-    fetchBuyerOrders()
-      .then(setOrders)
-      .catch((err) => setMessage(err.message || "Unable to load ordered items."))
-      .finally(() => setOrdersLoading(false));
-  }
-
   useEffect(() => {
     if (!open) return;
 
     setRecentProducts(readRecentProducts());
-    loadOrders();
     fetchBuyerDeliveryAddresses()
       .then((addresses) => {
         if (addresses.length) {
@@ -266,11 +282,6 @@ export default function MenuDrawer({ open, onClose }) {
       .then(setSavedProducts)
       .catch((err) => setMessage(err.message || "Unable to load saved products."));
   }, [open]);
-
-  useEffect(() => {
-    window.addEventListener("marketplace-orders-updated", loadOrders);
-    return () => window.removeEventListener("marketplace-orders-updated", loadOrders);
-  }, []);
 
   const activeTitle = useMemo(() => menuItems.find((item) => item.id === active)?.label || "Buyer Menu", [active]);
 
@@ -384,7 +395,7 @@ export default function MenuDrawer({ open, onClose }) {
       <>
         {message && <p className="mb-3 rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p>}
 
-        {active === "orders" && <OrderedItemsList orders={orders} loading={ordersLoading} />}
+        {active === "orders" && <Orders compact onProductOpen={openProduct} />}
 
         {active === "saved" && (
           <ProductMiniList
@@ -569,45 +580,116 @@ export default function MenuDrawer({ open, onClose }) {
         )}
 
         {active === "payments" && (
-          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <label className="block text-sm font-black text-gray-950">Payment preference</label>
-            <textarea
-              value={payment}
-              onChange={(event) => setPayment(event.target.value)}
-              placeholder="KunThai Money, cash on pickup, bank transfer, or preferred method"
-              className="min-h-32 w-full rounded-xl border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
+          <div className="space-y-4">
+            <BuyerArticlePanel
+              icon={CreditCard}
+              tone="amber"
+              title="Payment methods are coming soon"
+              summary="UrMall payment methods are currently unavailable because we are preparing a safer payment service that will connect directly to products, orders, sellers, and buyer records."
+              sections={[
+                {
+                  title: "Why this is not active yet",
+                  paragraphs: [
+                    "A payment method page should not only collect a card, account, or wallet name. It should protect the buyer, identify the seller, connect the payment to a real item, and keep a clear order record. Until that full service is ready, UrMall will not pretend that built-in payments are available.",
+                    "This protects buyers from confusing payment instructions and protects serious sellers from disputes caused by incomplete payment tracking.",
+                  ],
+                },
+                {
+                  title: "How buyers should pay for now",
+                  paragraphs: [
+                    "Before sending money, confirm the product name, final price, delivery fee, seller identity, delivery address, and expected delivery or pickup arrangement. If anything feels unclear, message the seller and ask for confirmation before paying.",
+                    "Keep important conversations inside UrMall where possible. A clear message history helps both the buyer and seller remember what was agreed.",
+                  ],
+                },
+              ]}
             />
-            <button onClick={savePayment} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
-              Save Payment Preference
-            </button>
+            <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <label className="block text-sm font-black text-gray-950">Temporary payment note</label>
+              <textarea
+                value={payment}
+                onChange={(event) => setPayment(event.target.value)}
+                placeholder="KunThai Money, cash on pickup, bank transfer, or preferred method"
+                className="min-h-32 w-full rounded-xl border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
+              />
+              <button onClick={savePayment} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
+                Save Payment Preference
+              </button>
+            </div>
           </div>
         )}
 
         {active === "returns" && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <ShieldAlert className="text-amber-600" size={28} />
-            <h4 className="mt-3 font-black text-gray-950">Returns & disputes</h4>
-            <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
-              Start from the related order or message so the seller, product, amount, and delivery context stay attached.
-            </p>
-          </div>
+          <BuyerArticlePanel
+            icon={ShieldAlert}
+            tone="amber"
+            title="Returns & disputes"
+            summary="Returns and disputes should be handled through the order context so the seller, product, price, delivery address, and conversation history stay connected."
+            sections={[
+              {
+                title: "Start with the order",
+                paragraphs: [
+                  "If a product arrives damaged, different from the listing, late, missing, or not delivered, begin from the related order or buyer-seller message. That gives support and the seller the information needed to understand what happened.",
+                  "A strong dispute includes the product name, order date, seller name, agreed price, delivery details, photos where useful, and a clear explanation of what you expected versus what happened.",
+                ],
+              },
+              {
+                title: "Be clear before escalating",
+                paragraphs: [
+                  "Many problems can be solved quickly when buyers explain the issue calmly and give the seller a fair chance to respond. If the seller does not respond or the issue involves fraud, unsafe behavior, or serious misrepresentation, the matter should be escalated with evidence.",
+                  "UrMall is being shaped as a trusted marketplace, so return and dispute tools should protect honest buyers without unfairly punishing honest sellers.",
+                ],
+              },
+            ]}
+          />
         )}
 
         {active === "support" && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <HelpCircle className="text-emerald-700" size={28} />
-            <h4 className="mt-3 font-black text-gray-950">Help & support</h4>
-            <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
-              For order help, contact the seller in Messages. For account or safety issues, use Explore support until UrMall support tickets are added.
-            </p>
-          </div>
+          <BuyerArticlePanel
+            icon={HelpCircle}
+            title="Help & support"
+            summary="Buyer support exists to help you shop with confidence, understand sellers clearly, and resolve problems without losing the order history that proves what happened."
+            sections={[
+              {
+                title: "Where to get help",
+                paragraphs: [
+                  "For product questions, delivery arrangements, availability, and price confirmation, message the seller from the product or order. Product-linked messages are better than random chats because they preserve the item context.",
+                  "For account, safety, suspicious seller behavior, fake payment requests, or repeated order problems, use UrMall support when the ticket system becomes active. Until then, keep evidence and use the most relevant seller message or order record.",
+                ],
+              },
+              {
+                title: "How to write a useful support request",
+                paragraphs: [
+                  "A professional support request should explain the product, seller, order date, payment expectation, delivery address, and the exact problem. Short messages like 'seller problem' or 'my order bad' make support slower because important facts are missing.",
+                  "Clear support communication protects you. It also helps UrMall identify fake marketplace behavior and protect serious sellers from false complaints.",
+                ],
+              },
+            ]}
+          />
         )}
 
         {active === "settings" && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="font-black text-gray-950">Buyer settings</p>
-            <p className="mt-1 text-sm font-medium text-gray-600">Saved products, recent views, address, and payment preferences are active in this buyer menu.</p>
-          </div>
+          <BuyerArticlePanel
+            icon={Settings}
+            tone="blue"
+            title="Buyer settings"
+            summary="Buyer settings help you keep your UrMall shopping activity organized, private, and ready for checkout."
+            sections={[
+              {
+                title: "What your buyer menu controls",
+                paragraphs: [
+                  "Your buyer menu keeps ordered items, saved products, recently viewed products, delivery addresses, temporary payment notes, support guidance, and dispute guidance in one place. This makes UrMall feel like a proper buying workspace instead of scattered screens.",
+                  "Saved addresses make ordering faster, especially when you use different delivery locations such as home, office, market, school, or another custom place.",
+                ],
+              },
+              {
+                title: "Privacy and accuracy",
+                paragraphs: [
+                  "Keep your phone number, receiver name, and delivery notes accurate before placing an order. Wrong delivery information can delay the seller, confuse riders, and create disputes that could have been avoided.",
+                  "Location coordinates and address details should only support delivery and order handling. They should not be treated as public profile information.",
+                ],
+              },
+            ]}
+          />
         )}
       </>
     );

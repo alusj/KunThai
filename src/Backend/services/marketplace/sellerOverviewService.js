@@ -62,7 +62,9 @@ export async function fetchSellerOverview() {
   const products = productsResult.data || [];
   const todaysOrders = orders.filter((order) => new Date(order.created_at) >= todayStart);
   const todaysCompletedOrders = todaysOrders.filter((order) => order.status === "completed");
-  const unreadMessages = messages.filter((message) => message.unread);
+  const unreadMessages = messages.filter(
+    (message) => message.unread && (message.sender_role || "buyer") === "buyer",
+  );
   const lowStockProducts = products.filter((product) => {
     const stock = Number(product.stock || 0);
     const alertAt = Number(product.low_stock_alert || 0);
