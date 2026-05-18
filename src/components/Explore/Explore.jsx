@@ -104,7 +104,7 @@ export default function Explore({ onScreenModeChange }) {
   }, [isSwipTab, navHidden]);
 
   useEffect(() => {
-    onScreenModeChange?.(exploreNav.isFullScreen || isSwipTab);
+    onScreenModeChange?.(exploreNav.isFullScreen || isSwipTab || Boolean(activeMenuScreen));
 
     stopAllExploreMedia();
 

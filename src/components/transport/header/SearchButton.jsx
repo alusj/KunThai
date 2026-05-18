@@ -26,7 +26,7 @@ function matchesSearch(fleet, query) {
     .some((item) => String(item).toLowerCase().includes(value));
 }
 
-export default function SearchButton({ onViewFleet }) {
+export default function SearchButton({ onOpenChange, onViewFleet }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [fleets, setFleets] = useState([]);
@@ -59,6 +59,11 @@ export default function SearchButton({ onViewFleet }) {
     };
   }, [open]);
 
+  useEffect(() => {
+    onOpenChange?.(open);
+    return () => onOpenChange?.(false);
+  }, [onOpenChange, open]);
+
   const results = useMemo(
     () => fleets.filter((fleet) => matchesSearch(fleet, query)).slice(0, 20),
     [fleets, query],
@@ -71,15 +76,15 @@ export default function SearchButton({ onViewFleet }) {
         aria-label="Search operator, code, plate, or fleet"
         title="Search operator, code, plate, or fleet"
         onClick={() => setOpen(true)}
-        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
+        className="kt-touchable flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition"
       >
         <FiSearch size={20} />
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/40 px-3 py-4 backdrop-blur-[2px]">
+        <div className="kt-backdrop fixed inset-0 z-50 px-3 py-4">
           <div className="mx-auto flex min-h-full w-full max-w-2xl items-start justify-center pt-10">
-            <section className="w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <section className="kt-modal-enter w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-green-700">
@@ -95,7 +100,7 @@ export default function SearchButton({ onViewFleet }) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
                   aria-label="Close transport search"
                 >
                   <FiX size={18} />
@@ -146,7 +151,7 @@ export default function SearchButton({ onViewFleet }) {
                             setOpen(false);
                             onViewFleet?.(fleet.id);
                           }}
-                          className="mt-3 h-10 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
+                          className="kt-touchable mt-3 h-10 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
                         >
                           View fleet profile
                         </button>

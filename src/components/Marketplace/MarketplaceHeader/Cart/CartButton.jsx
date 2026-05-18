@@ -6,8 +6,9 @@ import { ShoppingCart } from "lucide-react";
 export default function CartButton({ count, onClick }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-800 transition hover:bg-gray-200"
+      className="kt-touchable relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-800 transition hover:bg-gray-200"
       aria-label="Open cart"
     >
       <ShoppingCart size={19} />

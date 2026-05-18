@@ -10,6 +10,7 @@ import {
   LocateFixed,
   LockKeyhole,
   MapPin,
+  Plus,
   ReceiptText,
   Settings,
   ShieldAlert,
@@ -238,12 +239,12 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
         type="button"
         aria-label="Close transport passenger menu"
         onClick={closeDrawer}
-        className="absolute inset-0 bg-gray-950/45"
+        className="kt-backdrop absolute inset-0"
       />
 
       <aside
         className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ${
-          activeScreen ? "translate-x-full" : "translate-x-0"
+          activeScreen ? "translate-x-full" : "kt-panel-enter translate-x-0"
         }`}
       >
         <PassengerMenuHeader title="Passenger Menu" showBack={false} onClose={closeDrawer} />
@@ -273,7 +274,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
       </aside>
 
       {activeScreen ? (
-        <section className="absolute inset-0 flex h-full w-full flex-col bg-white shadow-2xl">
+        <section className="kt-panel-enter absolute inset-0 flex h-full w-full flex-col bg-white shadow-2xl">
           <PassengerMenuPageHeader
             title={activeTitle}
             eyebrow="Transport"
@@ -293,7 +294,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
 
 function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
   return (
-    <div className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
+    <div className="kt-header-glass flex h-16 items-center justify-between px-3 py-3 sm:px-4">
       {showBack ? (
         <AppBackTab
           onBack={onBack}
@@ -313,7 +314,7 @@ function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
       <button
         type="button"
         onClick={onClose}
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
+        className="kt-touchable flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
         aria-label="Close transport menu"
         title="Close"
       >
@@ -325,7 +326,7 @@ function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
 
 function PassengerMenuPageHeader({ title, eyebrow = "Transport", onBack }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+    <header className="kt-header-glass sticky top-0 z-30 px-4 py-3 sm:px-6">
       <div className="flex min-w-0 items-start gap-3">
         <AppBackTab
           onBack={onBack}
@@ -350,7 +351,7 @@ function PassengerSummaryCard({ onOpenWallet }) {
     <button
       type="button"
       onClick={onOpenWallet}
-      className="mx-4 mt-4 w-[calc(100%-2rem)] rounded-xl border border-gray-200 bg-gray-950 p-4 text-left text-white shadow-sm transition hover:bg-gray-900"
+      className="kt-touchable mx-4 mt-4 w-[calc(100%-2rem)] rounded-xl border border-gray-200 bg-gray-950 p-4 text-left text-white shadow-sm transition hover:bg-gray-900 hover:shadow-lg hover:shadow-gray-950/15"
     >
       <div className="flex items-center gap-3">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/10">
@@ -397,7 +398,7 @@ function PassengerDrawerNavItem({ icon, title, description, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-gray-300 hover:bg-gray-50"
+      className="kt-touchable flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-gray-300 hover:bg-gray-50 hover:shadow-md hover:shadow-slate-950/5"
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-800">
         {createElement(icon, { size: 20, strokeWidth: 2.2 })}
@@ -507,7 +508,7 @@ function TripTab({ label, count, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`h-11 rounded-xl text-sm font-black transition ${
+      className={`kt-touchable h-11 rounded-xl text-sm font-black transition ${
         active ? "bg-emerald-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
       }`}
     >
@@ -549,14 +550,14 @@ function TripCard({ trip, onViewFleet, onOpenSupport }) {
           type="button"
           onClick={onViewFleet}
           disabled={!trip.fleetId}
-          className="h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-500"
+          className="kt-touchable h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-500"
         >
           View fleet
         </button>
         <button
           type="button"
           onClick={onOpenSupport}
-          className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+          className="kt-touchable h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
         >
           Get support
         </button>
@@ -580,6 +581,7 @@ function SavedPlacesPage() {
   const [locationCandidate, setLocationCandidate] = useState(null);
   const [locationStatus, setLocationStatus] = useState("");
   const [message, setMessage] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
 
   function updatePlace(patch) {
     setPlace((current) => ({ ...current, ...patch }));
@@ -587,7 +589,25 @@ function SavedPlacesPage() {
 
   function editPlace(nextPlace) {
     setPlace({ ...createEmptyPlace(), ...nextPlace });
+    setLocationCandidate(null);
+    setLocationStatus("");
     setMessage("");
+    setFormOpen(true);
+  }
+
+  function openAddPlace() {
+    setPlace(createEmptyPlace());
+    setLocationCandidate(null);
+    setLocationStatus("");
+    setMessage("");
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setPlace(createEmptyPlace());
+    setLocationCandidate(null);
+    setLocationStatus("");
+    setFormOpen(false);
   }
 
   function savePlace() {
@@ -599,11 +619,17 @@ function SavedPlacesPage() {
     const savedPlace = saveTransportSavedPlace(place);
     setPlaces(getTransportSavedPlaces());
     setPlace(createEmptyPlace());
+    setLocationCandidate(null);
+    setLocationStatus("");
+    setFormOpen(false);
     setMessage(`${getPlaceLabel(savedPlace)} place saved for future passenger trips.`);
   }
 
   function removePlace(placeId) {
     setPlaces(removeTransportSavedPlace(placeId));
+    if (place.id === placeId) {
+      closeForm();
+    }
     setMessage("Saved place removed.");
   }
 
@@ -693,10 +719,10 @@ function SavedPlacesPage() {
           {places.map((item) => (
             <article
               key={item.id || `${item.category}-${item.street}`}
-              className="rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
+              className="kt-touchable rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
             >
               <div className="flex items-start justify-between gap-3">
-                <button type="button" onClick={() => editPlace(item)} className="min-w-0 flex-1 text-left">
+                <button type="button" onClick={() => editPlace(item)} className="kt-touchable min-w-0 flex-1 text-left">
                   <p className="text-sm font-black text-gray-950">{getPlaceLabel(item)} place</p>
                   <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
                     {item.street || item.detectedAddress}
@@ -705,7 +731,7 @@ function SavedPlacesPage() {
                 <button
                   type="button"
                   onClick={() => removePlace(item.id)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50"
+                  className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50"
                   aria-label="Remove saved place"
                 >
                   <X size={16} />
@@ -715,14 +741,14 @@ function SavedPlacesPage() {
                 <button
                   type="button"
                   onClick={() => editPlace(item)}
-                  className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+                  className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
                 >
                   Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => selectPlace(item)}
-                  className="h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
+                  className="kt-touchable h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
                 >
                   Use for next trip
                 </button>
@@ -732,7 +758,38 @@ function SavedPlacesPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      {!formOpen ? (
+        <button
+          type="button"
+          onClick={openAddPlace}
+          className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
+        >
+          <Plus size={17} />
+          {places.length ? "Add Another Location" : "Add Location"}
+        </button>
+      ) : null}
+
+      {formOpen ? (
+        <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-gray-950">
+                {place.id ? "Edit saved location" : "Add location"}
+              </p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
+                Save clear pickup, drop-off, or delivery details for future transport bookings.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeForm}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50"
+              aria-label="Close location form"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
         <label className="space-y-1">
           <span className="text-xs font-black uppercase text-gray-500">Location category</span>
           <select
@@ -801,7 +858,7 @@ function SavedPlacesPage() {
             <button
               type="button"
               onClick={locateMe}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
+              className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
             >
               <LocateFixed size={16} />
               Locate me
@@ -818,7 +875,7 @@ function SavedPlacesPage() {
               <button
                 type="button"
                 onClick={confirmDetectedLocation}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
+                className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
               >
                 <CheckCircle2 size={15} />
                 Correct, add location
@@ -826,7 +883,7 @@ function SavedPlacesPage() {
               <button
                 type="button"
                 onClick={rejectDetectedLocation}
-                className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+                className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
               >
                 Wrong, enter manually
               </button>
@@ -875,15 +932,18 @@ function SavedPlacesPage() {
           </p>
         ) : null}
         {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
-      </div>
+        </div>
+      ) : null}
 
-      <button
-        type="button"
-        onClick={savePlace}
-        className="h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
-      >
-        Save Transport Place
-      </button>
+      {formOpen ? (
+        <button
+          type="button"
+          onClick={savePlace}
+          className="kt-touchable h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
+        >
+          {place.id ? "Update Transport Place" : "Save Transport Place"}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -942,7 +1002,7 @@ function PaymentReadinessPage({ variant }) {
           <button
             type="button"
             onClick={savePaymentNote}
-            className="h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+            className="kt-touchable h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
           >
             Save Payment Note
           </button>
@@ -1024,7 +1084,7 @@ function SupportPage({ seed }) {
             key={title}
             type="button"
             onClick={() => updateForm({ topic: title })}
-            className={`rounded-2xl border p-4 text-left shadow-sm transition ${
+            className={`kt-touchable rounded-2xl border p-4 text-left shadow-sm transition ${
               form.topic === title ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:border-gray-300"
             }`}
           >
@@ -1098,7 +1158,7 @@ function SupportPage({ seed }) {
         <button
           type="button"
           onClick={prepareSupportRequest}
-          className="h-12 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+          className="kt-touchable h-12 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
         >
           Prepare Support Request
         </button>

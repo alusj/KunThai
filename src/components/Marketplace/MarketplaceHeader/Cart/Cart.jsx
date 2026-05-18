@@ -12,7 +12,7 @@ import { showToast } from "../../../../Backend/services/toastService";
 import CartButton from "./CartButton";
 import CartDrawer from "./CartDrawer";
 
-export default function Cart() {
+export default function Cart({ onOpenChange }) {
   const [open, setOpen] = useState(false);
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -41,6 +41,11 @@ export default function Cart() {
       window.removeEventListener("marketplace-cart-updated", loadCart);
     };
   }, []);
+
+  useEffect(() => {
+    onOpenChange?.(open);
+    return () => onOpenChange?.(false);
+  }, [onOpenChange, open]);
 
   async function updateQty(item, quantity) {
     try {

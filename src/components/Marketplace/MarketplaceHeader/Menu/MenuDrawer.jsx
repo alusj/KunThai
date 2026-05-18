@@ -1,7 +1,7 @@
 // MenuDrawer.jsx
 // Buyer-focused marketplace utility drawer
 
-import { useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Camera,
@@ -14,6 +14,7 @@ import {
   LocateFixed,
   MapPin,
   PackageCheck,
+  Plus,
   ReceiptText,
   RotateCcw,
   Settings,
@@ -165,7 +166,7 @@ function ProductMiniList({ products, emptyText, onProductSelect }) {
             key={product.id}
             type="button"
             onClick={() => onProductSelect?.(product)}
-            className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
+            className="kt-touchable flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
           >
             {product.imageUrl ? (
               <img src={product.imageUrl} alt="" className="h-12 w-12 rounded-lg bg-gray-100 object-cover" />
@@ -226,14 +227,14 @@ function OrderedItemsList({ orders, loading }) {
   );
 }
 
-function BuyerArticlePanel({ icon: Icon, tone = "emerald", title, summary, sections }) {
+function BuyerArticlePanel({ icon, tone = "emerald", title, summary, sections }) {
   const toneClass = tone === "amber" ? "bg-amber-50 text-amber-700" : tone === "blue" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700";
 
   return (
     <div className="space-y-4">
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${toneClass}`}>
-          <Icon size={24} />
+          {createElement(icon, { size: 24 })}
         </span>
         <h4 className="mt-4 text-xl font-black text-gray-950">{title}</h4>
         <p className="mt-2 text-sm font-semibold leading-7 text-gray-600">{summary}</p>
@@ -263,6 +264,7 @@ export default function MenuDrawer({ open, onClose }) {
   const [locationStatus, setLocationStatus] = useState("");
   const [payment, setPayment] = useState(() => readLocalValue(BUYER_PAYMENT_KEY));
   const [message, setMessage] = useState("");
+  const [addressFormOpen, setAddressFormOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -320,10 +322,36 @@ export default function MenuDrawer({ open, onClose }) {
       setMessage("Delivery address saved on this device. Apply the buyer address SQL table to sync it online.");
     }
     setAddress(createEmptyAddress());
+    setLocationCandidate(null);
+    setLocationStatus("");
+    setAddressFormOpen(false);
   }
 
   function updateAddress(patch) {
     setAddress((current) => ({ ...current, ...patch }));
+  }
+
+  function openAddAddress() {
+    setAddress(createEmptyAddress());
+    setLocationCandidate(null);
+    setLocationStatus("");
+    setMessage("");
+    setAddressFormOpen(true);
+  }
+
+  function editAddress(nextAddress) {
+    setAddress({ ...createEmptyAddress(), ...nextAddress });
+    setLocationCandidate(null);
+    setLocationStatus("");
+    setMessage("");
+    setAddressFormOpen(true);
+  }
+
+  function closeAddressForm() {
+    setAddress(createEmptyAddress());
+    setLocationCandidate(null);
+    setLocationStatus("");
+    setAddressFormOpen(false);
   }
 
   async function locateMe() {
@@ -439,8 +467,8 @@ export default function MenuDrawer({ open, onClose }) {
                   <button
                     key={item.id || `${item.category}-${item.street}`}
                     type="button"
-                    onClick={() => setAddress(item)}
-                    className="w-full rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
+                    onClick={() => editAddress(item)}
+                    className="kt-touchable w-full rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-black text-gray-950">{getAddressLabel(item)} address</p>
@@ -452,7 +480,38 @@ export default function MenuDrawer({ open, onClose }) {
               </div>
             ) : null}
 
-            <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            {!addressFormOpen ? (
+              <button
+                type="button"
+                onClick={openAddAddress}
+                className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
+              >
+                <Plus size={17} />
+                {savedAddresses.length ? "Add Another Address" : "Add Address"}
+              </button>
+            ) : null}
+
+            {addressFormOpen ? (
+              <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-gray-950">
+                      {address.id ? "Edit delivery address" : "Add delivery address"}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
+                      Save receiver, phone, street, and delivery notes for faster UrMall checkout.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeAddressForm}
+                    className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50"
+                    aria-label="Close delivery address form"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
               <label className="space-y-1">
                 <span className="text-xs font-black uppercase text-gray-500">Location category</span>
                 <select
@@ -511,7 +570,7 @@ export default function MenuDrawer({ open, onClose }) {
                   <button
                     type="button"
                     onClick={locateMe}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
+                    className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
                   >
                     <LocateFixed size={16} />
                     Locate me
@@ -528,7 +587,7 @@ export default function MenuDrawer({ open, onClose }) {
                     <button
                       type="button"
                       onClick={confirmDetectedLocation}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
+                      className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
                     >
                       <CheckCircle2 size={15} />
                       Correct, add location
@@ -536,7 +595,7 @@ export default function MenuDrawer({ open, onClose }) {
                     <button
                       type="button"
                       onClick={rejectDetectedLocation}
-                      className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+                      className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
                     >
                       Wrong, enter manually
                     </button>
@@ -585,14 +644,18 @@ export default function MenuDrawer({ open, onClose }) {
                 </p>
               ) : null}
               {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
-            </div>
+              </div>
+            ) : null}
 
-            <button
-              onClick={saveAddress}
-              className="h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
-            >
-              Save Delivery Address
-            </button>
+            {addressFormOpen ? (
+              <button
+                type="button"
+                onClick={saveAddress}
+                className="kt-touchable h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
+              >
+                {address.id ? "Update Delivery Address" : "Save Delivery Address"}
+              </button>
+            ) : null}
           </div>
         )}
 
@@ -628,7 +691,7 @@ export default function MenuDrawer({ open, onClose }) {
                 placeholder="KunThai Money, cash on pickup, bank transfer, or preferred method"
                 className="min-h-32 w-full rounded-xl border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
               />
-              <button onClick={savePayment} className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
+              <button type="button" onClick={savePayment} className="kt-touchable rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
                 Save Payment Preference
               </button>
             </div>
@@ -714,23 +777,23 @@ export default function MenuDrawer({ open, onClose }) {
 
   return (
     <>
-      {open && <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40" />}
+      {open && <button type="button" aria-label="Close buyer menu overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-40" />}
 
       <div
-        className={`fixed right-0 top-0 z-50 flex h-full w-full transform flex-col bg-white shadow-lg transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`fixed right-0 top-0 z-50 flex h-full w-full transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
+          open ? "kt-panel-enter translate-x-0" : "translate-x-full"
         }`}
       >
         {!active ? (
           <>
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4 sm:px-6">
+            <div className="kt-header-glass flex items-center justify-between px-4 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">UrMall</p>
                 <h3 className="mt-1 text-2xl font-black text-gray-950">Buyer Menu</h3>
               </div>
               <button
                 onClick={onClose}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200"
+                className="kt-touchable inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200"
                 aria-label="Close buyer menu"
               >
                 <X size={20} />
@@ -749,7 +812,7 @@ export default function MenuDrawer({ open, onClose }) {
                         setActive(item.id);
                         setMessage("");
                       }}
-                      className="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
+                      className="kt-touchable flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-md hover:shadow-emerald-950/5"
                     >
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-800">
                         <Icon size={20} />
@@ -768,11 +831,11 @@ export default function MenuDrawer({ open, onClose }) {
           </>
         ) : (
           <>
-            <div className="flex items-start gap-3 border-b border-gray-100 px-4 py-4 shadow-sm sm:px-6">
+            <div className="kt-header-glass flex items-start gap-3 px-4 py-4 sm:px-6">
               <button
                 type="button"
                 onClick={() => setActive(null)}
-                className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-800 hover:bg-gray-200"
+                className="kt-touchable mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-800 hover:bg-gray-200"
                 aria-label="Back to buyer menu"
               >
                 <ArrowLeft size={22} />

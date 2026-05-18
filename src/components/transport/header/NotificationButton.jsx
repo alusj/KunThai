@@ -6,7 +6,7 @@ import { FiBell, FiTruck, FiX } from "react-icons/fi";
 
 import { fetchTransportNotifications } from "../../services/transportHeaderService";
 
-export default function NotificationButton({ operatorAccount, onViewFleet }) {
+export default function NotificationButton({ operatorAccount, onOpenChange, onViewFleet }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,6 +43,11 @@ export default function NotificationButton({ operatorAccount, onViewFleet }) {
     };
   }, [open, operatorAccount]);
 
+  useEffect(() => {
+    onOpenChange?.(open);
+    return () => onOpenChange?.(false);
+  }, [onOpenChange, open]);
+
   return (
     <>
       <button
@@ -50,7 +55,7 @@ export default function NotificationButton({ operatorAccount, onViewFleet }) {
         onClick={() => setOpen(true)}
         aria-label="Open transport notifications"
         title="Open transport notifications"
-        className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
+        className="kt-touchable relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition"
       >
         <FiBell size={20} />
 
@@ -62,9 +67,9 @@ export default function NotificationButton({ operatorAccount, onViewFleet }) {
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/40 px-3 py-4 backdrop-blur-[2px]">
+        <div className="kt-backdrop fixed inset-0 z-50 px-3 py-4">
           <div className="mx-auto flex min-h-full w-full max-w-lg items-start justify-center pt-10">
-            <section className="w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <section className="kt-modal-enter w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-green-700">
@@ -80,7 +85,7 @@ export default function NotificationButton({ operatorAccount, onViewFleet }) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
                   aria-label="Close transport notifications"
                 >
                   <FiX size={18} />
@@ -130,7 +135,7 @@ export default function NotificationButton({ operatorAccount, onViewFleet }) {
                                   setOpen(false);
                                   onViewFleet?.(notification.fleetId);
                                 }}
-                                className="mt-3 text-sm font-black text-green-700 hover:text-green-800"
+                                className="kt-touchable mt-3 text-sm font-black text-green-700 hover:text-green-800"
                               >
                                 View fleet
                               </button>

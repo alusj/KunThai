@@ -13,7 +13,7 @@ import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import { getLegacyOperatorAccount, getOperatorAccount } from "../services/transportOperatorAccountService";
 
-export default function Transport() {
+export default function Transport({ onActivityChange }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [operatorAccount, setOperatorAccount] = useState(null);
   const [operatorLoading, setOperatorLoading] = useState(true);
@@ -27,6 +27,7 @@ export default function Transport() {
   const [savedOperatorsOpen, setSavedOperatorsOpen] = useState(false);
   const [verificationFleet, setVerificationFleet] = useState(null);
   const [bookingTarget, setBookingTarget] = useState(null);
+  const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
 
   function renderBookingDrawer() {
     return (
@@ -60,40 +61,77 @@ export default function Transport() {
     };
   }, []);
 
+  useEffect(() => {
+    onActivityChange?.(
+      registrationOpen ||
+        operatorDashboardOpen ||
+        Boolean(fleetSelection) ||
+        Boolean(activeFleetId) ||
+        activeTripsOpen ||
+        nearbyAreaOpen ||
+        savedOperatorsOpen ||
+        Boolean(verificationFleet) ||
+        Boolean(bookingTarget) ||
+        headerActivityOpen,
+    );
+
+    return () => onActivityChange?.(false);
+  }, [
+    activeFleetId,
+    activeTripsOpen,
+    bookingTarget,
+    fleetSelection,
+    headerActivityOpen,
+    nearbyAreaOpen,
+    onActivityChange,
+    operatorDashboardOpen,
+    registrationOpen,
+    savedOperatorsOpen,
+    verificationFleet,
+  ]);
+
   if (registrationOpen) {
     return (
-      <FleetRegistrationDrawer
-        onClose={() => setRegistrationOpen(false)}
-        onComplete={(account) => {
-          setOperatorAccount(account);
-          setRegistrationOpen(false);
-          setOperatorDashboardOpen(true);
-        }}
-      />
+      <div className="kt-route-transition min-h-screen">
+        <FleetRegistrationDrawer
+          onClose={() => setRegistrationOpen(false)}
+          onComplete={(account) => {
+            setOperatorAccount(account);
+            setRegistrationOpen(false);
+            setOperatorDashboardOpen(true);
+          }}
+        />
+      </div>
     );
   }
 
   if (operatorDashboardOpen && operatorAccount) {
     return (
-      <OperatorDashboardScreen
-        account={operatorAccount}
-        initialView={operatorDashboardView}
-        onBack={() => setOperatorDashboardOpen(false)}
-        onEditRegistration={() => {
-          setOperatorDashboardOpen(false);
-          setRegistrationOpen(true);
-        }}
-      />
+      <div className="kt-route-transition min-h-screen">
+        <OperatorDashboardScreen
+          account={operatorAccount}
+          initialView={operatorDashboardView}
+          onBack={() => setOperatorDashboardOpen(false)}
+          onEditRegistration={() => {
+            setOperatorDashboardOpen(false);
+            setRegistrationOpen(true);
+          }}
+        />
+      </div>
     );
   }
 
   if (nearbyAreaOpen) {
-    return <NearbyAreaScreen onBack={() => setNearbyAreaOpen(false)} />;
+    return (
+      <div className="kt-route-transition min-h-screen">
+        <NearbyAreaScreen onBack={() => setNearbyAreaOpen(false)} />
+      </div>
+    );
   }
 
   if (activeFleetId) {
     return (
-      <>
+      <div className="kt-route-transition min-h-screen">
         <FleetProfileScreen
           fleetId={activeFleetId}
           onBack={() => setActiveFleetId(null)}
@@ -106,13 +144,13 @@ export default function Transport() {
           onClose={() => setVerificationFleet(null)}
         />
         {renderBookingDrawer()}
-      </>
+      </div>
     );
   }
 
   if (activeTripsOpen) {
     return (
-      <>
+      <div className="kt-route-transition min-h-screen">
         <ActiveTripsScreen
           onBack={() => setActiveTripsOpen(false)}
           onViewFleet={setActiveFleetId}
@@ -124,13 +162,13 @@ export default function Transport() {
           onClose={() => setVerificationFleet(null)}
         />
         {renderBookingDrawer()}
-      </>
+      </div>
     );
   }
 
   if (savedOperatorsOpen) {
     return (
-      <>
+      <div className="kt-route-transition min-h-screen">
         <SavedOperatorsScreen
           onBack={() => setSavedOperatorsOpen(false)}
           onViewFleet={setActiveFleetId}
@@ -143,13 +181,13 @@ export default function Transport() {
           onClose={() => setVerificationFleet(null)}
         />
         {renderBookingDrawer()}
-      </>
+      </div>
     );
   }
 
   if (fleetSelection) {
     return (
-      <>
+      <div className="kt-route-transition min-h-screen">
         <FleetListScreen
           selection={fleetSelection}
           onBack={() => setFleetSelection(null)}
@@ -163,7 +201,7 @@ export default function Transport() {
           onClose={() => setVerificationFleet(null)}
         />
         {renderBookingDrawer()}
-      </>
+      </div>
     );
   }
 
@@ -172,6 +210,7 @@ export default function Transport() {
       <Header
         operatorAccount={operatorAccount}
         operatorLoading={operatorLoading}
+        onActivityChange={setHeaderActivityOpen}
         onViewFleet={setActiveFleetId}
         onRegisterFleet={() => {
           if (operatorAccount) {

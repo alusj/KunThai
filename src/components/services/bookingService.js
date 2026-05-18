@@ -35,6 +35,17 @@ function buildPassengerName(passenger, booking) {
   return String(booking.passengerName || passenger.name || "Passenger").trim();
 }
 
+function buildScheduledAt(booking) {
+  if (booking.pickupTime !== "schedule" || !booking.scheduledAt) return null;
+  const date = new Date(booking.scheduledAt);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function shouldTryLegacyTripPayload(error) {
+  const message = String(error?.message || "");
+  return /column|schema cache|could not find/i.test(message);
+}
+
 function readLocalJson(key, fallback) {
   if (typeof window === "undefined") return fallback;
   try {
@@ -68,27 +79,65 @@ export async function createTransportBooking(booking) {
   const tripType = normalizeTripType(booking.mode, fleet);
   const passengerName = buildPassengerName(passenger, booking);
   const now = new Date().toISOString();
+  const title = buildBookingTitle({ ...booking, mode: tripType, fleet });
 
   const payload = {
     passenger_id: passenger.id,
     passenger_name: passengerName,
     fleet_id: booking.fleetId || fleet.id,
     trip_type: tripType,
-    title: buildBookingTitle({ ...booking, mode: tripType, fleet }),
+    trip_mode: tripType,
+    title,
     pickup_label: String(booking.pickup || "").trim(),
     destination_label: String(booking.dropoff || booking.destination || "").trim(),
+    contact_phone: String(booking.phone || "").trim() || null,
+    package_description: tripType === "delivery" ? String(booking.packageDescription || "").trim() || null : null,
+    trip_note: String(booking.note || "").trim() || null,
     fare_amount: null,
     fare_currency: "SLE",
+    scheduled_at: buildScheduledAt(booking),
     status: "requested",
     created_at: now,
     updated_at: now,
   };
 
-  const { data, error } = await supabase
+  const legacyPayload = {
+    passenger_id: passenger.id,
+    fleet_id: booking.fleetId || fleet.id,
+    trip_mode: tripType,
+    pickup_label: payload.pickup_label,
+    destination_label: payload.destination_label,
+    fare_amount: null,
+    fare_currency: "SLE",
+    scheduled_at: payload.scheduled_at,
+    status: "requested",
+    created_at: now,
+    updated_at: now,
+  };
+
+  let { data, error } = await supabase
     .from("transport_trips")
     .insert(payload)
     .select()
     .maybeSingle();
+
+  if (error && shouldTryLegacyTripPayload(error)) {
+    const legacyResult = await supabase
+      .from("transport_trips")
+      .insert(legacyPayload)
+      .select()
+      .maybeSingle();
+
+    data = legacyResult.data
+      ? {
+          ...legacyResult.data,
+          passenger_name: passengerName,
+          trip_type: legacyResult.data.trip_type || legacyResult.data.trip_mode || tripType,
+          title: legacyResult.data.title || title,
+        }
+      : legacyResult.data;
+    error = legacyResult.error;
+  }
 
   if (error) {
     throw new Error(error.message || "Unable to send this booking to the operator.");

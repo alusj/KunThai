@@ -7,10 +7,11 @@ import Orders from "./Orders";
 import ParentTabs from "./ParentTabs";
 import AppBackTab from "../shared/AppBackTab";
 
-export default function Marketplace({ nav, setNav }) {
+export default function Marketplace({ nav, setNav, onActivityChange }) {
   const [activeTab, setActiveTab] = useState("new");
   const [activeUtility, setActiveUtility] = useState(null);
   const [productMode, setProductMode] = useState(false);
+  const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
 
   const setMarketplaceScreenMode = useCallback((enabled) => {
     setProductMode(enabled);
@@ -28,16 +29,23 @@ export default function Marketplace({ nav, setNav }) {
     }, 0);
   }
 
+  useEffect(() => {
+    onActivityChange?.(Boolean(activeUtility) || headerActivityOpen || productMode || Boolean(nav.sub));
+    return () => onActivityChange?.(false);
+  }, [activeUtility, headerActivityOpen, nav.sub, onActivityChange, productMode]);
+
   if (nav.sub === "business") {
     return (
-      <Business
-        onBack={() =>
-          setNav({
-            root: "marketplace",
-            sub: null,
-          })
-        }
-      />
+      <div className="kt-route-transition min-h-screen">
+        <Business
+          onBack={() =>
+            setNav({
+              root: "marketplace",
+              sub: null,
+            })
+          }
+        />
+      </div>
     );
   }
 
@@ -47,6 +55,7 @@ export default function Marketplace({ nav, setNav }) {
         <>
           <MarketplaceHeader
             activeUtility={activeUtility}
+            onActivityChange={setHeaderActivityOpen}
             onOrdersClick={() => setActiveUtility((current) => (current === "orders" ? null : "orders"))}
             onMessagesClick={() => setActiveUtility((current) => (current === "messages" ? null : "messages"))}
             onMyBizClick={() =>
@@ -106,13 +115,13 @@ function UtilityDrawer({ children, open, onClose, subtitle, title }) {
 
   return (
     <>
-      {open ? <button type="button" aria-label={`Close ${title}`} onClick={onClose} className="fixed inset-0 z-40 bg-gray-950/45" /> : null}
+      {open ? <button type="button" aria-label={`Close ${title}`} onClick={onClose} className="kt-backdrop fixed inset-0 z-40" /> : null}
       <aside
         className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-3xl transform flex-col overflow-hidden bg-gray-50 shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
+          open ? "kt-panel-enter translate-x-0" : "translate-x-full"
         }`}
       >
-        <header className="flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-3 sm:px-4">
+        <header className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
           <AppBackTab onBack={onClose} label={`Back to UrMall`} historyKey={`urmall-${title}`} useHistoryLayer={false} />
           <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">UrMall</p>

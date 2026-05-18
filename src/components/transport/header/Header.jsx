@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import OperatorButton from "./Operator/OperatorButton";
 import SearchButton from "./SearchButton";
@@ -7,13 +7,26 @@ import MenuButton from "./MenuButton";
 import Radar from "./Radar";
 import TransportMenuDrawer from "./TransportMenuDrawer";
 
-export default function Header({ operatorAccount, operatorLoading = false, onRegisterFleet, onViewFleet }) {
+export default function Header({
+  operatorAccount,
+  operatorLoading = false,
+  onActivityChange,
+  onRegisterFleet,
+  onViewFleet,
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const hasOperatorAccount = Boolean(operatorAccount);
+
+  useEffect(() => {
+    onActivityChange?.(menuOpen || searchOpen || notificationsOpen);
+    return () => onActivityChange?.(false);
+  }, [menuOpen, notificationsOpen, onActivityChange, searchOpen]);
 
   return (
     <>
-      <header className="w-full bg-white shadow-sm px-4 py-3 flex items-center justify-between">
+      <header className="kt-header-glass flex w-full items-center justify-between px-4 py-3">
 
         {/* Left Section */}
         <div className="flex items-center gap-3">
@@ -27,8 +40,12 @@ export default function Header({ operatorAccount, operatorLoading = false, onReg
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
-          <SearchButton onViewFleet={onViewFleet} />
-          <NotificationButton operatorAccount={operatorAccount} onViewFleet={onViewFleet} />
+          <SearchButton onOpenChange={setSearchOpen} onViewFleet={onViewFleet} />
+          <NotificationButton
+            operatorAccount={operatorAccount}
+            onOpenChange={setNotificationsOpen}
+            onViewFleet={onViewFleet}
+          />
           <MenuButton onClick={() => setMenuOpen(true)} />
         </div>
 

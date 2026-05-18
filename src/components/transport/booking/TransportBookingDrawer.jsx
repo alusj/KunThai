@@ -205,11 +205,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         type="button"
         aria-label="Close booking overlay"
         onClick={onClose}
-        className="absolute inset-0 bg-gray-950/45"
+        className="kt-backdrop absolute inset-0"
       />
 
-      <aside className="relative flex h-full w-full max-w-2xl flex-col bg-gray-50 shadow-2xl">
-        <header className="flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3 shadow-sm sm:px-5">
+      <aside className="kt-panel-enter relative flex h-full w-full max-w-2xl flex-col bg-gray-50 shadow-2xl">
+        <header className="kt-header-glass flex items-center justify-between px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
               Transport booking
@@ -221,7 +221,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+            className="kt-touchable flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             aria-label="Close booking"
           >
             <FiX size={20} />
@@ -318,7 +318,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                     key={place.id}
                     type="button"
                     onClick={() => updateForm({ pickup: place.street || place.detectedAddress || place.placeName })}
-                    className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-xs font-bold text-gray-600 hover:border-emerald-200 hover:bg-emerald-50"
+                    className="kt-touchable shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-xs font-bold text-gray-600 hover:border-emerald-200 hover:bg-emerald-50"
                   >
                     <span className="block text-gray-950">{getPlaceLabel(place)}</span>
                     <span className="mt-0.5 block max-w-[180px] truncate">{place.street || place.detectedAddress}</span>
@@ -444,7 +444,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               type="button"
               onClick={sendBooking}
               disabled={submitting || !selectedFleet || !isActiveFleet}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-500"
+              className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-500"
             >
               {submitting ? <FiClock size={17} /> : <FiSend size={17} />}
               {submitting ? "Sending..." : "Send Booking"}

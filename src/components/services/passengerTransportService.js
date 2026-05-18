@@ -152,11 +152,12 @@ async function getCurrentPassengerId() {
 }
 
 async function mapTrip(row) {
+  const tripType = row.trip_type || row.trip_mode;
   const fleet = row.fleet_id ? await fetchTransportFleetById(row.fleet_id) : null;
   return {
     id: row.id,
-    mode: row.trip_type === "delivery" ? "Delivery" : "Ride",
-    title: row.title || (row.trip_type === "delivery" ? "Delivery booking" : "Ride booking"),
+    mode: tripType === "delivery" ? "Delivery" : "Ride",
+    title: row.title || (tripType === "delivery" ? "Delivery booking" : "Ride booking"),
     fleetId: row.fleet_id,
     status: formatStatusLabel(row.status),
     rawStatus: row.status || "",
@@ -181,7 +182,7 @@ export async function fetchActiveTrips() {
     .from("transport_trips")
     .select("*")
     .eq("passenger_id", passengerId)
-    .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "in_progress"])
+    .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "in_progress"])
     .order("created_at", { ascending: false });
 
   if (error) {

@@ -129,8 +129,8 @@ export default function AppBackTab({
       type="button"
       onClick={handleBack}
       aria-label={label}
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-none bg-transparent text-black transition hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${className}`}
-      style={{ backgroundColor: "transparent", borderColor: "transparent", borderRadius: 0, ...style }}
+      className={`kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-transparent bg-transparent text-slate-900 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${className}`}
+      style={style}
     >
       <ChevronLeft size={iconSize} strokeWidth={4.5} absoluteStrokeWidth aria-hidden="true" />
     </button>

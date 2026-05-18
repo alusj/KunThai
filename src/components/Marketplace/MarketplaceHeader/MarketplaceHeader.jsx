@@ -5,11 +5,24 @@ import { fetchBuyerMessages, fetchBuyerOrders } from "../../../Backend/services/
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
-export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessagesClick, activeUtility }) {
+export default function MarketplaceHeader({
+  onMyBizClick,
+  onOrdersClick,
+  onMessagesClick,
+  activeUtility,
+  onActivityChange,
+}) {
   const { loading, hasBusiness } = useSellerBusinessStatus();
   const [orderCount, setOrderCount] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const businessLabel = hasBusiness ? "MyBiz" : "REGISTER";
+
+  useEffect(() => {
+    onActivityChange?.(cartOpen || menuOpen);
+    return () => onActivityChange?.(false);
+  }, [cartOpen, menuOpen, onActivityChange]);
 
   useEffect(() => {
     let alive = true;
@@ -55,7 +68,7 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
 
   if (loading) {
     return (
-      <header className="sticky top-0 z-20 border-b bg-white" aria-busy="true">
+      <header className="kt-header-glass sticky top-0 z-20" aria-busy="true">
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex h-10 w-[104px] animate-pulse items-center justify-center gap-2 rounded-lg bg-gray-100 text-gray-300">
             <Store size={18} />
@@ -86,12 +99,12 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b bg-white">
+    <header className="kt-header-glass sticky top-0 z-20">
       <div className="flex h-14 items-center justify-between px-4">
         <button
           type="button"
           onClick={onMyBizClick}
-          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-black shadow-sm transition ${
+          className={`kt-touchable inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-black shadow-sm transition ${
             hasBusiness
               ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
               : "border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700"
@@ -110,7 +123,7 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
           <button
             type="button"
             onClick={onOrdersClick}
-            className={`relative inline-flex h-10 w-10 items-center justify-center rounded-lg transition ${
+            className={`kt-touchable relative inline-flex h-10 w-10 items-center justify-center rounded-xl transition ${
               activeUtility === "orders" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
             }`}
             aria-label={`Open orders${orderCount ? `, ${orderCount} ordered item${orderCount === 1 ? "" : "s"}` : ""}`}
@@ -125,7 +138,7 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
           <button
             type="button"
             onClick={onMessagesClick}
-            className={`relative inline-flex h-10 w-10 items-center justify-center rounded-lg transition ${
+            className={`kt-touchable relative inline-flex h-10 w-10 items-center justify-center rounded-xl transition ${
               activeUtility === "messages" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
             }`}
             aria-label={`Open messages${messageCount ? `, ${messageCount} unread` : ""}`}
@@ -137,8 +150,8 @@ export default function MarketplaceHeader({ onMyBizClick, onOrdersClick, onMessa
               </span>
             ) : null}
           </button>
-          <Cart />
-          <Menu />
+          <Cart onOpenChange={setCartOpen} />
+          <Menu onOpenChange={setMenuOpen} />
         </div>
       </div>
     </header>

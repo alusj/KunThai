@@ -112,14 +112,14 @@ export default function CartDrawer({
 
   return (
     <>
-      {open && <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40" />}
+      {open && <button type="button" aria-label="Close cart overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-40" />}
 
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md transform bg-white shadow-lg transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md transform bg-white shadow-2xl transition-transform duration-300 ${
+          open ? "kt-panel-enter translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between border-b p-4">
+        <div className="kt-header-glass flex items-center justify-between p-4">
           <div>
             <h3 className="text-lg font-black text-gray-950">Checkout Cart</h3>
             <p className="text-xs font-bold text-gray-500">
@@ -128,7 +128,7 @@ export default function CartDrawer({
           </div>
           <button
             onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className="kt-touchable inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200"
             aria-label="Close cart"
           >
             <X size={18} />
@@ -140,7 +140,7 @@ export default function CartDrawer({
             <button
               type="button"
               onClick={() => setDeliveryMode("delivery")}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-xs font-black ${
+              className={`kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg text-xs font-black ${
                 deliveryMode === "delivery" ? "bg-white text-emerald-700 shadow-sm" : "text-gray-600"
               }`}
             >
@@ -150,7 +150,7 @@ export default function CartDrawer({
             <button
               type="button"
               onClick={() => setDeliveryMode("pickup")}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-xs font-black ${
+              className={`kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg text-xs font-black ${
                 deliveryMode === "pickup" ? "bg-white text-emerald-700 shadow-sm" : "text-gray-600"
               }`}
             >
@@ -169,7 +169,7 @@ export default function CartDrawer({
                     key={address.id || `${address.category}-${getAddressText(address)}`}
                     type="button"
                     onClick={() => setSelectedAddressId(address.id)}
-                    className={`flex w-full items-start gap-2 rounded-lg border p-3 text-left ${
+                    className={`kt-touchable flex w-full items-start gap-2 rounded-xl border p-3 text-left ${
                       selected ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white"
                     }`}
                   >
@@ -233,7 +233,7 @@ export default function CartDrawer({
             type="button"
             onClick={handleCheckout}
             disabled={!items.length || loading || !checkoutReady}
-            className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="kt-touchable w-full rounded-xl bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Review & Create Order
           </button>

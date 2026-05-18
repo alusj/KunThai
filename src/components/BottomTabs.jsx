@@ -29,23 +29,31 @@ export default function BottomTabs({ page, setPage }) {
     <button
       type="button"
       onClick={() => setPage(id)}
-      className={`flex min-h-[64px] flex-col items-center justify-center gap-1 py-2 text-xs select-none ${
-        page === id ? "text-blue-600 font-semibold" : "text-gray-600"
+      aria-current={page === id ? "page" : undefined}
+      className={`kt-touchable flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-black select-none ${
+        page === id ? "bg-slate-950 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
       }`}
     >
-      {createElement(icon, { size: 21 })}
+      <span
+        className={`grid h-8 w-8 place-items-center rounded-xl ${
+          page === id ? "bg-white/10" : "bg-white"
+        }`}
+      >
+        {createElement(icon, { size: 20 })}
+      </span>
       <span className="leading-tight">{label}</span>
     </button>
   );
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 bg-white border-t shadow-sm transition-transform duration-300 ${
-        hidden ? "translate-y-full" : "translate-y-0"
+      className={`fixed inset-x-3 bg-transparent transition-transform duration-300 sm:inset-x-6 ${
+        hidden ? "translate-y-[calc(100%+1.25rem)]" : "translate-y-0"
       }`}
-      style={{ zIndex: 50 }}
+      style={{ zIndex: 50, bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      aria-label="Main navigation"
     >
-      <div className="mx-auto grid max-w-5xl grid-cols-3">
+      <div className="mx-auto grid max-w-xl grid-cols-3 gap-1 rounded-[24px] border border-slate-200 bg-white/95 p-1.5 shadow-2xl shadow-slate-950/10 backdrop-blur-xl">
         {tabs.map((tab) => (
           <Btn key={tab.id} {...tab} />
         ))}

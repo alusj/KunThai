@@ -6,7 +6,7 @@ export default function MenuButton({ onClick }) {
       type="button"
       aria-label="Open transport menu"
       onClick={onClick}
-      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
+      className="kt-touchable flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition"
     >
       <FiMenu size={22} />
     </button>

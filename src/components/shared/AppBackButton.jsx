@@ -20,7 +20,7 @@ export default function AppBackButton({
       type="button"
       onClick={handleBack}
       aria-label={label}
-      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200 ${className}`}
+      className={`kt-icon-button kt-touchable flex h-10 w-10 shrink-0 rounded-xl ${className}`}
     >
       <HiOutlineArrowLeft size={iconSize} />
     </button>

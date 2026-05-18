@@ -83,9 +83,13 @@ export default function App() {
   });
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
+  const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
+  const [transportActivityOpen, setTransportActivityOpen] = useState(false);
 
   useEffect(() => {
     stopAllExploreMedia();
+    setMarketplaceActivityOpen(false);
+    setTransportActivityOpen(false);
     try {
       localStorage.setItem("kuntai-last-page", page);
     } catch {
@@ -124,13 +128,25 @@ export default function App() {
     return <OnboardingFlow profile={onboardingProfile} onComplete={refreshOnboarding} />;
   }
 
-  const bottomTabsHidden = exploreFullScreen || marketplaceNav.sub;
+  const bottomTabsHidden =
+    exploreFullScreen ||
+    Boolean(marketplaceNav.sub) ||
+    marketplaceActivityOpen ||
+    transportActivityOpen;
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100">
-      {page === "explore" && <Explore onScreenModeChange={setExploreFullScreen} />}
-      {page === "marketplace" && <Marketplace nav={marketplaceNav} setNav={setMarketplaceNav} />}
-      {page === "transport" && <Transport />}
+      <div key={page} className="kt-route-transition min-h-screen">
+        {page === "explore" && <Explore onScreenModeChange={setExploreFullScreen} />}
+        {page === "marketplace" && (
+          <Marketplace
+            nav={marketplaceNav}
+            setNav={setMarketplaceNav}
+            onActivityChange={setMarketplaceActivityOpen}
+          />
+        )}
+        {page === "transport" && <Transport onActivityChange={setTransportActivityOpen} />}
+      </div>
 
       {!bottomTabsHidden ? <BottomTabs page={page} setPage={setPage} /> : null}
     </div>
