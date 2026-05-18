@@ -101,11 +101,14 @@ function mapTrip(row) {
     id: row.id,
     passengerId: row.passenger_id,
     name: row.passenger_name || "Passenger",
+    pickup: row.pickup_label || "Pickup pending",
+    destination: row.destination_label || "Destination pending",
     route: [row.pickup_label, row.destination_label].filter(Boolean).join(" to ") || "Passenger request",
     time: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
     fare: row.fare_amount ? `${row.fare_currency || "SLE"} ${Number(row.fare_amount).toFixed(2)}` : "Fare pending",
     note: row.status || "Waiting for operator",
     status: row.status,
+    raw: row,
   };
 }
 
@@ -235,7 +238,7 @@ export async function fetchOperatorDashboard(operatorId = null) {
           .from("transport_trips")
           .select("*")
           .eq("fleet_id", fleetId)
-          .in("status", ["pending_confirmation", "waiting_operator", "requested"])
+          .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "in_progress"])
           .order("created_at", { ascending: false })
       : { data: [], error: null },
     fleetId
@@ -441,6 +444,23 @@ export async function markOperatorAlertRead(alertId) {
     .update({ status: "read", read_at: new Date().toISOString() })
     .eq("id", alertId);
   if (error) throw new Error(error.message);
+}
+
+export function subscribeOperatorTrips(fleetId, onChange) {
+  if (!fleetId || typeof onChange !== "function") return () => {};
+
+  const channel = supabase
+    .channel(`transport-operator-trips-${fleetId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "transport_trips", filter: `fleet_id=eq.${fleetId}` },
+      onChange,
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export async function clearOperatorAccount() {

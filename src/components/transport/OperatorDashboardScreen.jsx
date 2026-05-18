@@ -21,8 +21,10 @@ import {
   FiX,
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
+import { updateTransportTripStatus } from "../services/bookingService";
 import {
   fetchOperatorDashboard,
+  subscribeOperatorTrips,
   updateOperatorAvailability,
   updateTripControls,
 } from "../services/transportOperatorAccountService";
@@ -94,6 +96,7 @@ export default function OperatorDashboardScreen({
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
   const [dashboard, setDashboard] = useState(account?.dashboard || null);
   const [dashboardError, setDashboardError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [controlsSaving, setControlsSaving] = useState(false);
   const form = account?.form || {};
@@ -138,6 +141,11 @@ export default function OperatorDashboardScreen({
     if (account?.id) refreshDashboard();
   }, [account?.id, refreshDashboard]);
 
+  useEffect(() => {
+    if (!account?.fleetId) return undefined;
+    return subscribeOperatorTrips(account.fleetId, () => refreshDashboard());
+  }, [account?.fleetId, refreshDashboard]);
+
   async function handleAvailabilityToggle() {
     const nextActive = !isActive;
     setIsActive(nextActive);
@@ -162,6 +170,25 @@ export default function OperatorDashboardScreen({
     }
   }
 
+  async function handleTripStatusUpdate(trip, status, patch = {}) {
+    try {
+      setActionMessage("");
+      setDashboardError("");
+      await updateTransportTripStatus(trip.id, status, patch);
+      const statusCopy = {
+        accepted: "Trip accepted. The passenger can now see that you accepted the request.",
+        arrived: "Arrival marked. The passenger can see that you are at the pickup point.",
+        in_progress: "Trip started.",
+        completed: "Trip completed and moved into history.",
+        cancelled: "Trip declined or cancelled.",
+      };
+      setActionMessage(statusCopy[status] || "Trip updated.");
+      await refreshDashboard();
+    } catch (error) {
+      setDashboardError(error.message || "Unable to update trip.");
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
@@ -175,7 +202,7 @@ export default function OperatorDashboardScreen({
 
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-black text-gray-950">
-              {activeView === "waiting" ? "Waiting Passengers" : activeView === "history" ? "Trip History" : "Operator Dashboard"}
+              {activeView === "waiting" ? "Passenger Requests" : activeView === "history" ? "Trip History" : "Operator Dashboard"}
             </h1>
             <p className="truncate text-xs text-gray-500">
               {account?.displayCode} - {fleetName}
@@ -236,6 +263,18 @@ export default function OperatorDashboardScreen({
       </header>
 
       <main className="w-full px-3 py-4 sm:px-5 xl:px-8">
+        {dashboardError && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+            {dashboardError}
+          </div>
+        )}
+
+        {actionMessage && (
+          <div className="mb-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+            {actionMessage}
+          </div>
+        )}
+
         {activeView === "waiting" ? (
           <WaitingPassengersScreen
             passengers={waitingPassengers}
@@ -243,6 +282,7 @@ export default function OperatorDashboardScreen({
             isActive={isActive}
             availabilityText={availabilityText}
             onBack={() => setActiveView("dashboard")}
+            onUpdateTrip={handleTripStatusUpdate}
           />
         ) : activeView === "history" ? (
           <TripHistoryScreen
@@ -302,12 +342,6 @@ export default function OperatorDashboardScreen({
             </span>
           </button>
         </section>
-
-        {dashboardError && (
-          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-            {dashboardError}
-          </div>
-        )}
 
         <div className="grid gap-4 xl:grid-cols-2">
           <TodaysDemandContainer
@@ -771,7 +805,7 @@ function ActionRow({ icon, label, detail, onClick }) {
   );
 }
 
-function WaitingPassengersScreen({ passengers, fleetName, isActive, availabilityText, onBack }) {
+function WaitingPassengersScreen({ passengers, fleetName, isActive, availabilityText, onBack, onUpdateTrip }) {
   return (
     <section className="mx-auto max-w-5xl">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -795,7 +829,7 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-wide text-green-700">Live Demand</p>
-            <h2 className="mt-1 text-2xl font-black text-gray-950">Waiting passengers</h2>
+            <h2 className="mt-1 text-2xl font-black text-gray-950">Passenger requests</h2>
             <p className="mt-1 text-sm font-semibold text-gray-500">{fleetName}</p>
           </div>
           <div className="h-12 w-12 rounded-full bg-green-50 text-green-700 flex items-center justify-center">
@@ -804,36 +838,136 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
         </div>
 
         <div className="mt-5 grid gap-3">
-          {passengers.map((passenger) => (
-            <div
-              key={`${passenger.name}-${passenger.time}`}
-              className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="truncate text-base font-black text-gray-950">{passenger.name}</h3>
-                  <p className="mt-1 text-sm font-semibold text-gray-600">{passenger.route}</p>
-                  <p className="mt-1 text-xs font-semibold text-gray-500">{passenger.note}</p>
-                </div>
-                <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-gray-700">
-                  {passenger.time}
-                </span>
-              </div>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <span className="text-sm font-black text-gray-950">{passenger.fare}</span>
-                <button
-                  type="button"
-                  className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
-                  disabled={!isActive}
-                >
-                  Accept
-                </button>
-              </div>
+          {passengers.length ? passengers.map((passenger) => (
+            <OperatorTripRequestCard
+              key={passenger.id}
+              passenger={passenger}
+              isActive={isActive}
+              onUpdateTrip={onUpdateTrip}
+            />
+          )) : (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm font-bold text-gray-500">
+              New passenger requests and active trip steps will appear here.
             </div>
-          ))}
+          )}
         </div>
       </div>
     </section>
+  );
+}
+
+function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip }) {
+  const [fareAmount, setFareAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  const status = passenger.status || "requested";
+  const isWaiting = ["requested", "waiting_operator", "pending_confirmation"].includes(status);
+  const isAccepted = status === "accepted";
+  const isArrived = status === "arrived";
+  const isInProgress = status === "in_progress";
+
+  async function runAction(nextStatus, patch = {}) {
+    setBusy(true);
+    try {
+      await onUpdateTrip(passenger, nextStatus, patch);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <article className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-black text-gray-950">{passenger.name}</h3>
+          <p className="mt-1 text-sm font-semibold text-gray-600">{passenger.route}</p>
+          <p className="mt-1 text-xs font-semibold text-gray-500">{passenger.note}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-gray-700">
+          {passenger.time}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <MiniRow label="Pickup" value={passenger.pickup} />
+        <MiniRow label="Drop-off" value={passenger.destination} />
+        <MiniRow label="Fare" value={passenger.fare} />
+      </div>
+
+      {isWaiting ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+          <label className="block">
+            <span className="mb-1 block text-xs font-black uppercase tracking-wide text-gray-400">Confirmed fare optional</span>
+            <input
+              type="number"
+              min="0"
+              value={fareAmount}
+              onChange={(event) => setFareAmount(event.target.value)}
+              placeholder="SLE amount"
+              className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-bold outline-none focus:border-green-500"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => runAction("accepted", { fareAmount })}
+            className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
+            disabled={!isActive || busy}
+          >
+            Accept
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction("cancelled")}
+            className="h-10 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-black text-red-700 disabled:opacity-50"
+            disabled={busy}
+          >
+            Decline
+          </button>
+        </div>
+      ) : null}
+
+      {isAccepted ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => runAction("arrived")}
+            disabled={!isActive || busy}
+            className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
+          >
+            Mark arrived
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction("cancelled")}
+            disabled={busy}
+            className="h-10 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-black text-red-700"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {isArrived ? (
+        <button
+          type="button"
+          onClick={() => runAction("in_progress")}
+          disabled={!isActive || busy}
+          className="mt-4 h-10 w-full rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
+        >
+          Start trip
+        </button>
+      ) : null}
+
+      {isInProgress ? (
+        <button
+          type="button"
+          onClick={() => runAction("completed", { fareAmount })}
+          disabled={busy}
+          className="mt-4 h-10 w-full rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
+        >
+          Complete trip
+        </button>
+      ) : null}
+    </article>
   );
 }
 

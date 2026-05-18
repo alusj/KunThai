@@ -74,6 +74,7 @@ function mapLiveFleet(row) {
   return {
     id: row.id,
     fleetName: row.fleet_name || `${operator.full_name || "KunThai"} ${fleetType}`,
+    operatorRecordId: operator.id || row.operator_id || "",
     operatorName: operator.full_name || "Transport operator",
     operatorPhone: operator.phone || "",
     operatorCity: operator.city || "",
@@ -163,7 +164,7 @@ export function getTransportFleetById() {
 export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
   const { data, error } = await supabase
     .from("transport_fleets")
-    .select("*, transport_operators(full_name, phone, city, operator_code, display_code, verification_status)")
+    .select("*, transport_operators(id, full_name, phone, city, operator_code, display_code, verification_status)")
     .eq("is_visible_to_passengers", true)
     .order("updated_at", { ascending: false })
     .limit(50);
@@ -183,7 +184,7 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
 export async function fetchTransportFleetById(id) {
   const { data, error } = await supabase
     .from("transport_fleets")
-    .select("*, transport_operators(full_name, phone, city, operator_code, display_code, verification_status)")
+    .select("*, transport_operators(id, full_name, phone, city, operator_code, display_code, verification_status)")
     .eq("id", id)
     .maybeSingle();
 

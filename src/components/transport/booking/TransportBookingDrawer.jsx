@@ -52,6 +52,29 @@ function getPlaceLabel(place) {
   return place.category === "Other" ? place.customCategory || "Other" : place.category || "Saved";
 }
 
+function estimateFare(fleet, mode) {
+  if (!fleet) return "Choose an operator";
+  if (fleet.priceHint && !/confirmed on booking/i.test(fleet.priceHint)) return fleet.priceHint;
+
+  const distance = Math.max(1, Number(fleet.distanceKm || 2));
+  const type = fleet.fleetType;
+  const base =
+    mode === "delivery"
+      ? type === "Car"
+        ? 45
+        : type === "Tricycle"
+          ? 32
+          : 22
+      : type === "Car"
+        ? 35
+        : type === "Tricycle"
+          ? 25
+          : 15;
+  const perKm = mode === "delivery" ? 8 : type === "Car" ? 10 : 6;
+  const estimate = Math.round(base + distance * perKm);
+  return `Estimate SLE ${Math.max(10, estimate - 5)} - ${estimate + 8}`;
+}
+
 export default function TransportBookingDrawer({ open, target, onClose, onCreated }) {
   const initialSelection = useMemo(() => selectionFromTarget(target), [target]);
   const [selection, setSelection] = useState(initialSelection);
@@ -79,6 +102,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   );
   const bookingMode = modeForFleet(selectedFleet, selection.mode);
   const isActiveFleet = selectedFleet?.activeStatus === "active";
+  const fareEstimate = estimateFare(selectedFleet, bookingMode);
 
   useEffect(() => {
     if (!open) return;
@@ -265,9 +289,24 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 <InfoLine icon={FiTruck} label="Fleet" value={`${selectedFleet.fleetName} (${selectedFleet.plateNumber})`} />
                 <InfoLine icon={FiNavigation} label="Location" value={selectedFleet.currentLocation || selectedFleet.lastKnownLocation} />
                 <InfoLine icon={FiClock} label="Status" value={isActiveFleet ? "Active now" : selectedFleet.lastActive || "Offline"} />
-                <InfoLine icon={FiCreditCard} label="Fare" value={selectedFleet.priceHint || "Fare confirmed on booking"} />
+                <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
               </div>
             ) : null}
+          </section>
+
+          <section className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700">
+                <FiCreditCard size={19} />
+              </span>
+              <div>
+                <p className="text-sm font-black text-emerald-950">Fare guidance</p>
+                <p className="mt-1 text-sm font-black text-emerald-700">{fareEstimate}</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
+                  The operator can confirm the final fare after accepting. Built-in transport payments are still being prepared.
+                </p>
+              </div>
+            </div>
           </section>
 
           {savedPlaces.length ? (

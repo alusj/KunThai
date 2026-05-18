@@ -5,7 +5,7 @@ const TRANSPORT_SAVED_PLACES_KEY = "kuntai.transport.savedPlaces";
 const TRANSPORT_ACTIVE_PLACE_KEY = "kuntai.transport.activePlace";
 const TRANSPORT_SETTINGS_KEY = "kuntai.transport.passengerSettings";
 
-const pendingTripStatuses = ["pending_confirmation", "waiting_operator", "requested", "accepted", "in_progress"];
+const pendingTripStatuses = ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "in_progress"];
 const previousTripStatuses = ["completed", "cancelled"];
 
 function readLocalJson(key, fallback) {
@@ -110,9 +110,28 @@ function formatFare(row) {
 function formatTripStage(row) {
   if (row.eta_minutes) return `ETA ${row.eta_minutes} min`;
   if (row.status === "completed") return "Completed";
+  if (row.status === "cancelled") return "Cancelled";
+  if (row.status === "requested") return "Sent to operator";
+  if (row.status === "accepted") return "Operator accepted";
+  if (row.status === "arrived") return "Operator arrived";
   if (row.status === "pending_confirmation") return "Waiting for operator";
   if (row.status === "in_progress") return "Trip in progress";
   return row.status || "Active booking";
+}
+
+function getTripStep(status) {
+  const steps = {
+    requested: 1,
+    pending_confirmation: 1,
+    waiting_operator: 1,
+    accepted: 2,
+    arrived: 3,
+    in_progress: 4,
+    completed: 5,
+    cancelled: 0,
+  };
+
+  return steps[status] ?? 1;
 }
 
 function formatStatusLabel(status) {
@@ -147,6 +166,7 @@ async function mapTrip(row) {
     destination: row.destination_label || "Destination pending",
     fare: formatFare(row),
     priority: ["pending_confirmation", "waiting_operator", "requested"].includes(row.status) ? "pending" : "live",
+    step: getTripStep(row.status),
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || row.created_at || "",
     fleet,
@@ -188,6 +208,19 @@ export async function fetchPassengerTrips() {
   }
 
   return Promise.all((data || []).map(mapTrip));
+}
+
+export function subscribePassengerTrips(onChange) {
+  if (typeof onChange !== "function") return () => {};
+
+  const channel = supabase
+    .channel(`transport-passenger-trips-${Date.now()}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_trips" }, onChange)
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export async function fetchSavedOperators() {

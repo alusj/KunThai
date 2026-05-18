@@ -1,5 +1,7 @@
 import supabase from "../../Backend/lib/supabaseClient";
 
+const SUPPORT_DRAFTS_KEY = "kuntai.transport.supportDrafts";
+
 async function getCurrentPassenger(message = "Sign in to book transport.") {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user?.id) throw new Error(message);
@@ -31,6 +33,21 @@ function buildBookingTitle({ mode, fleet, passengers, packageDescription }) {
 
 function buildPassengerName(passenger, booking) {
   return String(booking.passengerName || passenger.name || "Passenger").trim();
+}
+
+function readLocalJson(key, fallback) {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const saved = window.localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key, value) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
 export async function createTransportBooking(booking) {
@@ -82,4 +99,100 @@ export async function createTransportBooking(booking) {
   }
 
   return data;
+}
+
+export async function updateTransportTripStatus(tripId, status, patch = {}) {
+  if (!tripId) throw new Error("Choose a trip to update.");
+  if (!status) throw new Error("Choose the next trip status.");
+
+  const payload = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (patch.fareAmount !== undefined && patch.fareAmount !== "") {
+    payload.fare_amount = Number(patch.fareAmount);
+    payload.fare_currency = patch.fareCurrency || "SLE";
+  }
+
+  const { data, error } = await supabase
+    .from("transport_trips")
+    .update(payload)
+    .eq("id", tripId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || "Unable to update this trip.");
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("transport-trip-updated", { detail: { trip: data } }));
+  }
+
+  return data;
+}
+
+export async function cancelTransportTrip(tripId) {
+  return updateTransportTripStatus(tripId, "cancelled");
+}
+
+export async function submitTransportSupportTicket(input) {
+  const passenger = await getCurrentPassenger("Sign in to prepare a support ticket.");
+  const ticket = {
+    id: `local-support-${Date.now()}`,
+    passengerId: passenger.id,
+    passengerName: passenger.name,
+    tripId: input.tripId || "",
+    fleetId: input.fleetId || "",
+    topic: input.topic || "Trip support",
+    priority: input.priority || "normal",
+    body: String(input.body || "").trim(),
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!ticket.body) throw new Error("Add a clear support message first.");
+
+  try {
+    const { data, error } = await supabase
+      .from("transport_support_tickets")
+      .insert({
+        passenger_id: ticket.passengerId,
+        passenger_name: ticket.passengerName,
+        trip_id: ticket.tripId || null,
+        fleet_id: ticket.fleetId || null,
+        topic: ticket.topic,
+        priority: ticket.priority,
+        body: ticket.body,
+        status: "open",
+        created_at: ticket.createdAt,
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    return { synced: true, ticket: data };
+  } catch {
+    const drafts = readLocalJson(SUPPORT_DRAFTS_KEY, []);
+    writeLocalJson(SUPPORT_DRAFTS_KEY, [ticket, ...(Array.isArray(drafts) ? drafts : [])]);
+    return { synced: false, ticket };
+  }
+}
+
+export async function submitTransportTripReview({ trip, rating, comment }) {
+  const passenger = await getCurrentPassenger("Sign in to review this trip.");
+  const score = Number(rating || 0);
+  if (!trip?.fleet?.operatorRecordId) throw new Error("Operator review record is not available yet.");
+  if (score < 1) throw new Error("Choose a rating before submitting.");
+
+  const { error } = await supabase.from("transport_operator_reviews").insert({
+    operator_id: trip.fleet.operatorRecordId,
+    passenger_name: passenger.name,
+    rating: score,
+    review_text: String(comment || "").trim(),
+    created_at: new Date().toISOString(),
+  });
+
+  if (error) throw new Error(error.message || "Unable to submit this review.");
+  return updateTransportTripStatus(trip.id, "completed");
 }

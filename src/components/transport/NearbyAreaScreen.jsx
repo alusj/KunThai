@@ -3,7 +3,6 @@ import {
   FiAlertTriangle,
   FiBookmark,
   FiChevronDown,
-  FiChevronUp,
   FiCrosshair,
   FiMapPin,
   FiPhone,
@@ -90,13 +89,30 @@ export default function NearbyAreaScreen({ onBack }) {
                 className="h-12 w-full rounded-2xl border border-white/10 bg-white/95 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
               />
             </label>
-            <button
-              type="button"
-              onClick={openAddLocation}
-              className="hidden h-12 rounded-2xl bg-green-600 px-4 text-sm font-bold text-white shadow-lg hover:bg-green-700 sm:block"
-            >
-              Add Location
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLocationPanelOpen((open) => !open)}
+                className={`flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold shadow-lg transition sm:w-auto sm:px-4 ${
+                  locationPanelOpen
+                    ? "bg-slate-950 text-white"
+                    : "bg-white/90 text-slate-900 hover:bg-white"
+                }`}
+                aria-label={locationPanelOpen ? "Hide nearby area card" : "Show nearby area card"}
+              >
+                <FiMapPin size={20} />
+                <span className="ml-2 hidden lg:inline">Area Card</span>
+              </button>
+              <button
+                type="button"
+                onClick={openAddLocation}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-600 text-sm font-bold text-white shadow-lg transition hover:bg-green-700 sm:w-auto sm:px-4"
+                aria-label="Add location"
+              >
+                <FiPlus size={20} />
+                <span className="ml-2 hidden sm:inline">Add Location</span>
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -118,18 +134,19 @@ export default function NearbyAreaScreen({ onBack }) {
         </header>
 
         <div className="absolute bottom-32 right-4 z-20 grid gap-3 sm:bottom-8">
-          <button className="h-12 w-12 rounded-full bg-slate-900/85 text-white shadow-lg flex items-center justify-center">
+          <button
+            type="button"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900/85 text-white shadow-lg"
+            aria-label="Use current area"
+          >
             <FiCrosshair size={21} />
-          </button>
-          <button className="h-12 w-12 rounded-full bg-white text-slate-900 shadow-lg flex items-center justify-center">
-            <FiBookmark size={21} />
           </button>
           <button
             type="button"
-            onClick={openAddLocation}
-            className="h-12 w-12 rounded-full bg-green-600 text-white shadow-lg flex items-center justify-center sm:hidden"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg"
+            aria-label="Save current area"
           >
-            <FiPlus size={22} />
+            <FiBookmark size={21} />
           </button>
         </div>
 
@@ -168,48 +185,39 @@ function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
   const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
 
   if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        className="absolute bottom-32 left-4 right-4 z-30 rounded-2xl border border-slate-200 bg-white p-3 text-left text-slate-950 shadow-2xl transition hover:bg-slate-50 sm:bottom-8 sm:left-5 sm:right-auto sm:w-[340px]"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Nearby Area</p>
-            <h2 className="mt-0.5 truncate text-base font-black">{activeLocation?.name}</h2>
-            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
-              {activeLocation?.type} - {activeLocation?.distance}
-            </p>
-          </div>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700">
-            <FiChevronUp size={20} />
-          </span>
-        </div>
-      </button>
-    );
+    return null;
   }
 
   return (
-    <aside className="absolute bottom-0 left-0 right-0 z-30 rounded-t-3xl bg-white p-4 text-slate-950 shadow-2xl sm:left-5 sm:right-auto sm:top-36 sm:bottom-5 sm:flex sm:w-[360px] sm:flex-col sm:rounded-3xl">
-      <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-slate-300 sm:hidden" />
+    <aside className="absolute left-3 right-3 top-40 z-30 max-h-[calc(100vh-11rem)] overflow-y-auto rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur transition-opacity sm:left-auto sm:right-5 sm:w-[390px]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Nearby Area</p>
           <h2 className="mt-1 text-xl font-black">{activeLocation?.name}</h2>
           <p className="mt-1 text-sm text-slate-500">{activeLocation?.type} - {activeLocation?.distance}</p>
         </div>
-        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${status.className}`}>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`hidden rounded-full border px-2.5 py-1 text-xs font-bold sm:inline-flex ${status.className}`}>
+            {status.label}
+          </span>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
+            aria-label="Collapse nearby area card"
+          >
+            <FiChevronDown size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold sm:hidden ${status.className}`}>
           {status.label}
         </span>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
-          aria-label="Collapse nearby area card"
-        >
-          <FiChevronDown size={18} />
-        </button>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+          Opened from Area Card
+        </span>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-slate-600">{activeLocation?.description}</p>
