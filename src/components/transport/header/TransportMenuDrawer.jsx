@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
+import AppPortal from "../../shared/AppPortal";
 import {
   fetchPassengerTrips,
   getPassengerTrips,
@@ -28,6 +29,7 @@ import {
   saveTransportPassengerSettings,
   saveTransportSavedPlace,
   selectTransportSavedPlace,
+  subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
@@ -234,7 +236,8 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <AppPortal>
+    <div className="fixed inset-0 z-[1200] overflow-hidden">
       <button
         type="button"
         aria-label="Close transport passenger menu"
@@ -242,36 +245,34 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
         className="kt-backdrop absolute inset-0"
       />
 
-      <aside
-        className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ${
-          activeScreen ? "translate-x-full" : "kt-panel-enter translate-x-0"
-        }`}
-      >
-        <PassengerMenuHeader title="Passenger Menu" showBack={false} onClose={closeDrawer} />
+      {!activeScreen ? (
+        <aside className="kt-panel-enter absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl">
+          <PassengerMenuHeader title="Passenger Menu" showBack={false} onClose={closeDrawer} />
 
-        <div className="flex-1 overflow-y-auto pb-6">
-          <PassengerSummaryCard onOpenWallet={() => setActiveScreen("wallet")} />
+          <div className="flex-1 overflow-y-auto pb-6">
+            <PassengerSummaryCard onOpenWallet={() => setActiveScreen("wallet")} />
 
-          <div className="space-y-5 px-4 pt-5">
-            {menuSections.map((section) => (
-              <PassengerDrawerSection key={section.title} title={section.title}>
-                {section.items.map((item) => (
-                  <PassengerDrawerNavItem
-                    key={item.id}
-                    icon={item.icon}
-                    title={item.title}
-                    description={item.description}
-                    onClick={() => {
-                      setSupportSeed(null);
-                      setActiveScreen(item.id);
-                    }}
-                  />
-                ))}
-              </PassengerDrawerSection>
-            ))}
+            <div className="space-y-5 px-4 pt-5">
+              {menuSections.map((section) => (
+                <PassengerDrawerSection key={section.title} title={section.title}>
+                  {section.items.map((item) => (
+                    <PassengerDrawerNavItem
+                      key={item.id}
+                      icon={item.icon}
+                      title={item.title}
+                      description={item.description}
+                      onClick={() => {
+                        setSupportSeed(null);
+                        setActiveScreen(item.id);
+                      }}
+                    />
+                  ))}
+                </PassengerDrawerSection>
+              ))}
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      ) : null}
 
       {activeScreen ? (
         <section className="kt-panel-enter absolute inset-0 flex h-full w-full flex-col bg-white shadow-2xl">
@@ -289,6 +290,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
         </section>
       ) : null}
     </div>
+    </AppPortal>
   );
 }
 
@@ -424,10 +426,12 @@ function MyTripsPage({ onViewFleet, onOpenSupport }) {
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError("");
 
-    fetchPassengerTrips()
+    function loadTrips({ quiet = false } = {}) {
+      if (!quiet) setLoading(true);
+      setError("");
+
+      return fetchPassengerTrips()
       .then((items) => {
         if (alive) setTrips(items);
       })
@@ -440,9 +444,27 @@ function MyTripsPage({ onViewFleet, onOpenSupport }) {
       .finally(() => {
         if (alive) setLoading(false);
       });
+    }
+
+    function refreshTrips() {
+      loadTrips({ quiet: true });
+    }
+
+    function refreshPendingTrips() {
+      setActiveTab("pending");
+      loadTrips({ quiet: true });
+    }
+
+    loadTrips();
+    const unsubscribe = subscribePassengerTrips(refreshTrips);
+    window.addEventListener("transport-booking-created", refreshPendingTrips);
+    window.addEventListener("transport-trip-updated", refreshTrips);
 
     return () => {
       alive = false;
+      unsubscribe();
+      window.removeEventListener("transport-booking-created", refreshPendingTrips);
+      window.removeEventListener("transport-trip-updated", refreshTrips);
     };
   }, []);
 

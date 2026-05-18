@@ -10,6 +10,8 @@ import Transport from "./components/transport/Transport";
 import Login from "./Login";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 
+const PAGE_ORDER = ["explore", "marketplace", "transport"];
+
 function AppLoading({ page = "explore" }) {
   return (
     <div className="min-h-screen bg-slate-100">
@@ -85,6 +87,7 @@ export default function App() {
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
+  const [pageSlideDirection, setPageSlideDirection] = useState("forward");
 
   useEffect(() => {
     stopAllExploreMedia();
@@ -134,9 +137,23 @@ export default function App() {
     marketplaceActivityOpen ||
     transportActivityOpen;
 
+  function changePage(nextPage) {
+    if (!nextPage || nextPage === page) {
+      return;
+    }
+
+    const currentIndex = PAGE_ORDER.indexOf(page);
+    const nextIndex = PAGE_ORDER.indexOf(nextPage);
+    setPageSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
+    setPage(nextPage);
+  }
+
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100">
-      <div key={page} className="kt-route-transition min-h-screen">
+      <div
+        key={page}
+        className={`${pageSlideDirection === "backward" ? "kt-main-slide-backward" : "kt-main-slide-forward"} min-h-screen`}
+      >
         {page === "explore" && <Explore onScreenModeChange={setExploreFullScreen} />}
         {page === "marketplace" && (
           <Marketplace
@@ -148,7 +165,7 @@ export default function App() {
         {page === "transport" && <Transport onActivityChange={setTransportActivityOpen} />}
       </div>
 
-      {!bottomTabsHidden ? <BottomTabs page={page} setPage={setPage} /> : null}
+      {!bottomTabsHidden ? <BottomTabs page={page} setPage={changePage} /> : null}
     </div>
   );
 }

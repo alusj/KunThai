@@ -13,6 +13,7 @@ import {
   FiX,
 } from "react-icons/fi";
 
+import AppPortal from "../../shared/AppPortal";
 import { createTransportBooking } from "../../services/bookingService";
 import { getTransportSavedPlaces } from "../../services/passengerTransportService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
@@ -75,6 +76,25 @@ function estimateFare(fleet, mode) {
   return `Estimate SLE ${Math.max(10, estimate - 5)} - ${estimate + 8}`;
 }
 
+function isFleetBookable(fleet) {
+  const status = String(fleet?.activeStatus || fleet?.status || "").trim().toLowerCase();
+  return ["active", "available", "online"].includes(status);
+}
+
+function hasText(value) {
+  return String(value || "").trim().length > 1;
+}
+
+function getBookingRequirementMessage(form, mode) {
+  if (!hasText(form.pickup)) return "Add a pickup point before sending this booking.";
+  if (!hasText(form.dropoff)) return "Add a drop-off point before sending this booking.";
+  if (!hasText(form.passengerName)) return "Add the passenger or sender name.";
+  if (!hasText(form.phone)) return "Add a phone number the operator can use.";
+  if (form.pickupTime === "schedule" && !form.scheduledAt) return "Choose the scheduled pickup time.";
+  if (mode === "delivery" && !hasText(form.packageDescription)) return "Add a package description for this delivery.";
+  return "";
+}
+
 export default function TransportBookingDrawer({ open, target, onClose, onCreated }) {
   const initialSelection = useMemo(() => selectionFromTarget(target), [target]);
   const [selection, setSelection] = useState(initialSelection);
@@ -100,9 +120,26 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     () => availableFleets.find((fleet) => String(fleet.id) === String(selectedFleetId)) || target?.fleet || null,
     [availableFleets, selectedFleetId, target],
   );
-  const bookingMode = modeForFleet(selectedFleet, selection.mode);
-  const isActiveFleet = selectedFleet?.activeStatus === "active";
-  const fareEstimate = estimateFare(selectedFleet, bookingMode);
+  const activeAvailableFleets = useMemo(() => availableFleets.filter(isFleetBookable), [availableFleets]);
+  const isSelectedFleetActive = isFleetBookable(selectedFleet);
+  const bookingFleet = useMemo(() => {
+    if (isSelectedFleetActive) return selectedFleet;
+    if (selectedFleetId && selectedFleet) return null;
+    return activeAvailableFleets[0] || null;
+  }, [activeAvailableFleets, isSelectedFleetActive, selectedFleet, selectedFleetId]);
+  const displayFleet = bookingFleet || selectedFleet;
+  const bookingMode = modeForFleet(bookingFleet || selectedFleet, selection.mode);
+  const fareEstimate = estimateFare(displayFleet, bookingMode);
+  const requirementMessage = getBookingRequirementMessage(form, bookingMode);
+  const fleetMessage = loadingFleets
+    ? "Checking active operators for this booking."
+    : !bookingFleet
+      ? selectedFleet
+        ? "The selected operator is not active right now. Choose another active operator."
+        : "No active operator matches this service and fleet type right now."
+      : "";
+  const sendBlockMessage = requirementMessage || fleetMessage;
+  const canSendBooking = !submitting && !sendBlockMessage;
 
   useEffect(() => {
     if (!open) return;
@@ -134,7 +171,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       .then((fleets) => {
         if (!alive) return;
 
-        const activeFleets = fleets.filter((fleet) => fleet.activeStatus === "active");
+        const activeFleets = fleets.filter(isFleetBookable);
         const nextFleets = target?.fleet
           ? [target.fleet, ...activeFleets.filter((fleet) => fleet.id !== target.fleet.id)]
           : activeFleets;
@@ -171,25 +208,28 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   async function sendBooking() {
     setStatus("");
 
-    if (!selectedFleet) {
-      setStatus("Choose an active operator before sending this booking.");
+    const nextRequirementMessage = getBookingRequirementMessage(form, bookingMode);
+    if (nextRequirementMessage) {
+      setStatus(nextRequirementMessage);
       return;
     }
 
-    if (!isActiveFleet) {
-      setStatus("This operator is not active right now. Choose an active nearby operator.");
+    if (!bookingFleet) {
+      setStatus(fleetMessage || "Choose an active operator before sending this booking.");
       return;
     }
 
     try {
       setSubmitting(true);
+      const nextBookingMode = modeForFleet(bookingFleet, selection.mode);
       const booking = await createTransportBooking({
         ...form,
-        fleet: selectedFleet,
-        mode: bookingMode,
+        fleet: bookingFleet,
+        mode: nextBookingMode,
         pickup: form.pickup,
         dropoff: form.dropoff,
       });
+      setSelectedFleetId(bookingFleet.id || "");
       setStatus("Booking sent. The operator will see this as a pending passenger request.");
       onCreated?.(booking);
     } catch (error) {
@@ -200,7 +240,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end">
+    <AppPortal>
+    <div className="fixed inset-0 z-[1200] flex justify-end">
       <button
         type="button"
         aria-label="Close booking overlay"
@@ -274,7 +315,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   onChange={(event) => setSelectedFleetId(event.target.value)}
                   className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
                 >
-                  <option value="">{loadingFleets ? "Loading operators..." : "Choose active operator"}</option>
+                  <option value="">
+                    {loadingFleets
+                      ? "Loading operators..."
+                      : activeAvailableFleets.length
+                        ? "Auto-match best active operator"
+                        : "No active operator available"}
+                  </option>
                   {availableFleets.map((fleet) => (
                     <option key={fleet.id} value={fleet.id}>
                       {fleet.fleetName} - {fleet.displayType}
@@ -284,11 +331,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               </label>
             </div>
 
-            {selectedFleet ? (
+            {displayFleet ? (
               <div className="mt-4 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-600 sm:grid-cols-2">
-                <InfoLine icon={FiTruck} label="Fleet" value={`${selectedFleet.fleetName} (${selectedFleet.plateNumber})`} />
-                <InfoLine icon={FiNavigation} label="Location" value={selectedFleet.currentLocation || selectedFleet.lastKnownLocation} />
-                <InfoLine icon={FiClock} label="Status" value={isActiveFleet ? "Active now" : selectedFleet.lastActive || "Offline"} />
+                <InfoLine icon={FiTruck} label={bookingFleet && !selectedFleetId ? "Auto-match" : "Fleet"} value={`${displayFleet.fleetName} (${displayFleet.plateNumber})`} />
+                <InfoLine icon={FiNavigation} label="Location" value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
+                <InfoLine icon={FiClock} label="Status" value={isFleetBookable(displayFleet) ? "Active now" : displayFleet.lastActive || "Offline"} />
                 <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
               </div>
             ) : null}
@@ -437,14 +484,18 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
         <footer className="border-t border-gray-100 bg-white px-4 py-3 sm:px-5">
           <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-            <p className="text-xs font-semibold leading-5 text-gray-500">
-              Sending creates a pending request for the selected active operator.
+            <p className={`text-xs font-semibold leading-5 ${sendBlockMessage ? "text-gray-500" : "text-emerald-700"}`}>
+              {sendBlockMessage || `Ready to send a pending ${bookingMode} request to ${bookingFleet?.fleetName}.`}
             </p>
             <button
               type="button"
               onClick={sendBooking}
-              disabled={submitting || !selectedFleet || !isActiveFleet}
-              className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-500"
+              disabled={!canSendBooking}
+              className={`kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-black transition ${
+                canSendBooking
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "bg-gray-200 text-gray-500"
+              }`}
             >
               {submitting ? <FiClock size={17} /> : <FiSend size={17} />}
               {submitting ? "Sending..." : "Send Booking"}
@@ -453,6 +504,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         </footer>
       </aside>
     </div>
+    </AppPortal>
   );
 }
 

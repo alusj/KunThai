@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MapPin, Radio, Target, X } from "lucide-react";
 
+import AppPortal from "../../shared/AppPortal";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 
@@ -29,7 +30,7 @@ function sortNearby(fleets) {
   });
 }
 
-export default function Radar({ onViewFleet }) {
+export default function Radar({ onOpenChange, onViewFleet }) {
   const [open, setOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [operators, setOperators] = useState([]);
@@ -67,10 +68,12 @@ export default function Radar({ onViewFleet }) {
   }
 
   useEffect(() => {
+    onOpenChange?.(open);
     if (!open) {
       setScanning(false);
     }
-  }, [open]);
+    return () => onOpenChange?.(false);
+  }, [onOpenChange, open]);
 
   return (
     <>
@@ -102,9 +105,10 @@ export default function Radar({ onViewFleet }) {
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/40 px-3 py-4 backdrop-blur-[2px]">
+        <AppPortal>
+        <div className="kt-backdrop fixed inset-0 z-[1200] px-3 py-4">
           <div className="mx-auto flex min-h-full w-full max-w-lg items-center justify-center">
-            <section className="w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <section className="kt-modal-enter w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-green-700">
@@ -207,6 +211,7 @@ export default function Radar({ onViewFleet }) {
             </section>
           </div>
         </div>
+        </AppPortal>
       ) : null}
     </>
   );

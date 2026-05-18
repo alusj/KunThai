@@ -21,6 +21,7 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
+import AppPortal from "../../../shared/AppPortal";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerDeliveryAddresses,
@@ -776,11 +777,11 @@ export default function MenuDrawer({ open, onClose }) {
   }
 
   return (
-    <>
-      {open && <button type="button" aria-label="Close buyer menu overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-40" />}
+    <AppPortal>
+      {open && <button type="button" aria-label="Close buyer menu overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-[1190]" />}
 
       <div
-        className={`fixed right-0 top-0 z-50 flex h-full w-full transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-[1200] flex h-full w-full transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
           open ? "kt-panel-enter translate-x-0" : "translate-x-full"
         }`}
       >
@@ -851,6 +852,6 @@ export default function MenuDrawer({ open, onClose }) {
           </>
         )}
         </div>
-    </>
+    </AppPortal>
   );
 }

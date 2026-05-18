@@ -12,6 +12,7 @@ const tabs = [
 export default function BottomTabs({ page, setPage }) {
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
+  const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === page));
 
   useEffect(() => {
     const onScroll = () => {
@@ -31,12 +32,12 @@ export default function BottomTabs({ page, setPage }) {
       onClick={() => setPage(id)}
       aria-current={page === id ? "page" : undefined}
       className={`kt-touchable flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-black select-none ${
-        page === id ? "bg-slate-950 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+        page === id ? "text-white" : "text-slate-500 hover:text-slate-950"
       }`}
     >
       <span
         className={`grid h-8 w-8 place-items-center rounded-xl ${
-          page === id ? "bg-white/10" : "bg-white"
+          page === id ? "bg-white/10" : "bg-white/80"
         }`}
       >
         {createElement(icon, { size: 20 })}
@@ -53,7 +54,15 @@ export default function BottomTabs({ page, setPage }) {
       style={{ zIndex: 50, bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       aria-label="Main navigation"
     >
-      <div className="mx-auto grid max-w-xl grid-cols-3 gap-1 rounded-[24px] border border-slate-200 bg-white/95 p-1.5 shadow-2xl shadow-slate-950/10 backdrop-blur-xl">
+      <div className="relative mx-auto grid max-w-xl grid-cols-3 gap-1 rounded-[24px] border border-slate-200 bg-white/95 p-1.5 shadow-2xl shadow-slate-950/10 backdrop-blur-xl">
+        <span
+          className="pointer-events-none absolute bottom-1.5 top-1.5 rounded-[20px] bg-slate-950 shadow-lg shadow-slate-950/15 transition-[left] duration-300 ease-out"
+          style={{
+            left: `calc(0.375rem + ${activeIndex} * ((100% - 1.25rem) / 3 + 0.25rem))`,
+            width: "calc((100% - 1.25rem) / 3)",
+          }}
+          aria-hidden="true"
+        />
         {tabs.map((tab) => (
           <Btn key={tab.id} {...tab} />
         ))}

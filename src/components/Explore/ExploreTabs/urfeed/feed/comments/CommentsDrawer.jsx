@@ -16,25 +16,22 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
       return undefined;
     }
 
-    const scrollY = window.scrollY;
     const previousBody = {
       overflow: document.body.style.overflow,
-      position: document.body.style.position,
-      top: document.body.style.top,
-      width: document.body.style.width,
+      overscrollBehavior: document.body.style.overscrollBehavior,
+    };
+    const previousHtml = {
+      overflow: document.documentElement.style.overflow,
     };
 
     document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
+    document.body.style.overscrollBehavior = "contain";
+    document.documentElement.style.overflow = "hidden";
 
     return () => {
       document.body.style.overflow = previousBody.overflow;
-      document.body.style.position = previousBody.position;
-      document.body.style.top = previousBody.top;
-      document.body.style.width = previousBody.width;
-      window.scrollTo(0, scrollY);
+      document.body.style.overscrollBehavior = previousBody.overscrollBehavior;
+      document.documentElement.style.overflow = previousHtml.overflow;
     };
   }, [open]);
 
@@ -64,14 +61,14 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   }
 
   return (
-    <div className="fixed inset-0 z-[65] flex min-w-0 items-end">
+    <div className="fixed inset-0 z-[1000] flex min-w-0 items-end">
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-slate-950/35 backdrop-blur-sm"
+        className="absolute inset-0 cursor-default bg-slate-950/35"
         onClick={onClose}
         aria-label="Close comments"
       />
-      <section className="relative z-10 flex h-[86dvh] max-h-[760px] min-h-[420px] w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:mx-auto sm:h-[78dvh] sm:max-w-2xl">
+      <section className="kt-sheet-enter relative z-10 flex h-[86dvh] max-h-[760px] min-h-[420px] w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:mx-auto sm:h-[78dvh] sm:max-w-2xl">
         <div className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Comments</p>

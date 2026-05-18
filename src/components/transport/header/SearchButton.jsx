@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiMapPin, FiSearch, FiX } from "react-icons/fi";
 
+import AppPortal from "../../shared/AppPortal";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 
@@ -82,7 +83,8 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
       </button>
 
       {open ? (
-        <div className="kt-backdrop fixed inset-0 z-50 px-3 py-4">
+        <AppPortal>
+        <div className="kt-backdrop fixed inset-0 z-[1200] px-3 py-4">
           <div className="mx-auto flex min-h-full w-full max-w-2xl items-start justify-center pt-10">
             <section className="kt-modal-enter w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4">
@@ -163,6 +165,7 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
             </section>
           </div>
         </div>
+        </AppPortal>
       ) : null}
     </>
   );

@@ -31,6 +31,8 @@ import ExploreTabs from "./ExploreTabs/ExploreTabs";
 import { postingStages } from "./ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
+const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
+
 function PlaceholderMenuScreen({ screen }) {
   return (
       <div className="px-4 py-4 sm:px-5">
@@ -63,6 +65,7 @@ export default function Explore({ onScreenModeChange }) {
   const [messageConversationActive, setMessageConversationActive] = useState(false);
   const [postingNotice, setPostingNotice] = useState(null);
   const [topChromeHeight, setTopChromeHeight] = useState(0);
+  const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const topChromeRef = useRef(null);
   const tabScrollRef = useRef({});
   const exploreNav = useExploreNavigation(MENU_SCREENS);
@@ -306,12 +309,27 @@ export default function Explore({ onScreenModeChange }) {
   }
 
   function switchExploreTab(tab) {
+    if (tab === activeTab) {
+      return;
+    }
+
+    const currentIndex = EXPLORE_TAB_ORDER.indexOf(activeTab);
+    const nextIndex = EXPLORE_TAB_ORDER.indexOf(tab);
+    setTabSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
     tabScrollRef.current[activeTab] = window.scrollY || 0;
     exploreNav.setActiveTab(tab);
     const nextScroll = tabScrollRef.current[tab] || 0;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.scrollTo({ top: nextScroll, behavior: "instant" }));
     });
+  }
+
+  function getParentTabPanelClass(tab) {
+    if (activeTab !== tab) {
+      return "hidden";
+    }
+
+    return `block ${tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`;
   }
 
   function renderMenuScreen() {
@@ -475,13 +493,13 @@ export default function Explore({ onScreenModeChange }) {
         {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
         {profileExists ? (
           <>
-            <div className={activeTab === "UrFeed" ? "block" : "hidden"} aria-hidden={activeTab !== "UrFeed"}>
+            <div className={getParentTabPanelClass("UrFeed")} aria-hidden={activeTab !== "UrFeed"}>
               <UrFeed profile={profile} onViewProfile={openViewedProfile} />
             </div>
-            <div className={activeTab === "Swip" ? "block" : "hidden"} aria-hidden={activeTab !== "Swip"}>
+            <div className={getParentTabPanelClass("Swip")} aria-hidden={activeTab !== "Swip"}>
               <Swip active={activeTab === "Swip" && !exploreNav.isFullScreen} currentUserId={profile.userId} onViewProfile={openViewedProfile} />
             </div>
-            <div className={activeTab === "Connections" ? "block" : "hidden"} aria-hidden={activeTab !== "Connections"}>
+            <div className={getParentTabPanelClass("Connections")} aria-hidden={activeTab !== "Connections"}>
               <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />
             </div>
           </>

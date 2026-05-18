@@ -17,12 +17,13 @@ export default function Header({
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [radarOpen, setRadarOpen] = useState(false);
   const hasOperatorAccount = Boolean(operatorAccount);
 
   useEffect(() => {
-    onActivityChange?.(menuOpen || searchOpen || notificationsOpen);
+    onActivityChange?.(menuOpen || searchOpen || notificationsOpen || radarOpen);
     return () => onActivityChange?.(false);
-  }, [menuOpen, notificationsOpen, onActivityChange, searchOpen]);
+  }, [menuOpen, notificationsOpen, onActivityChange, radarOpen, searchOpen]);
 
   return (
     <>
@@ -35,7 +36,7 @@ export default function Header({
           ) : (
             <OperatorButton hasOperatorAccount={hasOperatorAccount} onClick={onRegisterFleet} />
           )}
-          <Radar onViewFleet={onViewFleet} />
+          <Radar onOpenChange={setRadarOpen} onViewFleet={onViewFleet} />
         </div>
 
         {/* Right Section */}

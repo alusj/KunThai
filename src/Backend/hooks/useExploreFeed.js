@@ -141,6 +141,11 @@ function writeFeedMemory(scope, patch) {
   FEED_MEMORY.set(scope, { ...current, ...patch, savedAt: Date.now() });
 }
 
+function mergeStoredReactionSet(storageKey, remoteIds = []) {
+  const stored = readStoredSet(storageKey);
+  return new Set([...stored, ...(Array.isArray(remoteIds) ? remoteIds : [])]);
+}
+
 export function useExploreFeed(scope = "feed") {
   const memory = readFeedMemory(scope);
   const [posts, setPosts] = useState(() => memory?.posts || readStoredPosts(scope));
@@ -215,8 +220,8 @@ export function useExploreFeed(scope = "feed") {
       const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
       setCurrentUserId(currentProfile?.id || "");
 
-      const nextLikedPosts = new Set(reactions.likes);
-      const nextSavedPosts = new Set(reactions.saves);
+      const nextLikedPosts = mergeStoredReactionSet(LIKE_STORAGE_KEY, reactions.likes);
+      const nextSavedPosts = mergeStoredReactionSet(SAVE_STORAGE_KEY, reactions.saves);
 
       setLikedPosts(nextLikedPosts);
       setSavedPosts(nextSavedPosts);
@@ -248,8 +253,8 @@ export function useExploreFeed(scope = "feed") {
   async function refreshCurrentReactions() {
     try {
       const reactions = await fetchCurrentUserReactions();
-      const nextLikedPosts = new Set(reactions.likes);
-      const nextSavedPosts = new Set(reactions.saves);
+      const nextLikedPosts = mergeStoredReactionSet(LIKE_STORAGE_KEY, reactions.likes);
+      const nextSavedPosts = mergeStoredReactionSet(SAVE_STORAGE_KEY, reactions.saves);
       likedPostsRef.current = nextLikedPosts;
       savedPostsRef.current = nextSavedPosts;
       setLikedPosts(nextLikedPosts);
@@ -360,8 +365,8 @@ export function useExploreFeed(scope = "feed") {
         async onChange() {
           try {
             const reactions = await fetchCurrentUserReactions();
-            const nextLikedPosts = new Set(reactions.likes);
-            const nextSavedPosts = new Set(reactions.saves);
+            const nextLikedPosts = mergeStoredReactionSet(LIKE_STORAGE_KEY, reactions.likes);
+            const nextSavedPosts = mergeStoredReactionSet(SAVE_STORAGE_KEY, reactions.saves);
             setLikedPosts(nextLikedPosts);
             setSavedPosts(nextSavedPosts);
             writeStoredSet(LIKE_STORAGE_KEY, nextLikedPosts);

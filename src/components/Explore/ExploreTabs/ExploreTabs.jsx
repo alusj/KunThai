@@ -14,9 +14,19 @@ const TABS = [
 ];
 
 export default function ExploreTabs({ activeTab, setActiveTab }) {
+  const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.id === activeTab));
+
   return (
     <div className="border-b border-slate-200 bg-white">
-      <div className="grid w-full grid-cols-3 gap-1.5 px-2 py-3 sm:gap-2 sm:px-3">
+      <div className="relative grid w-full grid-cols-3 gap-1.5 px-2 py-3 sm:gap-2 sm:px-3">
+      <span
+        className="pointer-events-none absolute bottom-3 top-3 rounded-full bg-slate-950 shadow-sm transition-[left] duration-300 ease-out"
+        style={{
+          left: `calc(0.5rem + ${activeIndex} * ((100% - 1.75rem) / 3 + 0.375rem))`,
+          width: "calc((100% - 1.75rem) / 3)",
+        }}
+        aria-hidden="true"
+      />
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
@@ -26,10 +36,10 @@ export default function ExploreTabs({ activeTab, setActiveTab }) {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`
-              inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-2 text-[13px] font-black transition sm:gap-2 sm:px-3 sm:text-sm
+              kt-touchable relative z-10 inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-2 text-[13px] font-black transition sm:gap-2 sm:px-3 sm:text-sm
               ${
                 isActive
-                  ? "bg-slate-950 text-white shadow"
+                  ? "text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }
             `}

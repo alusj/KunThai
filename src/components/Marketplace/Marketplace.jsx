@@ -6,6 +6,7 @@ import Messages from "./Messages";
 import Orders from "./Orders";
 import ParentTabs from "./ParentTabs";
 import AppBackTab from "../shared/AppBackTab";
+import AppPortal from "../shared/AppPortal";
 
 export default function Marketplace({ nav, setNav, onActivityChange }) {
   const [activeTab, setActiveTab] = useState("new");
@@ -114,10 +115,10 @@ function UtilityDrawer({ children, open, onClose, subtitle, title }) {
   }, [onClose, open]);
 
   return (
-    <>
-      {open ? <button type="button" aria-label={`Close ${title}`} onClick={onClose} className="kt-backdrop fixed inset-0 z-40" /> : null}
+    <AppPortal>
+      {open ? <button type="button" aria-label={`Close ${title}`} onClick={onClose} className="kt-backdrop fixed inset-0 z-[1190]" /> : null}
       <aside
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-3xl transform flex-col overflow-hidden bg-gray-50 shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-[1200] flex h-full w-full max-w-3xl transform flex-col overflow-hidden bg-gray-50 shadow-2xl transition-transform duration-300 ${
           open ? "kt-panel-enter translate-x-0" : "translate-x-full"
         }`}
       >
@@ -131,6 +132,6 @@ function UtilityDrawer({ children, open, onClose, subtitle, title }) {
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </aside>
-    </>
+    </AppPortal>
   );
 }

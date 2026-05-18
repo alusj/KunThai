@@ -1,4 +1,5 @@
 import { FiCheckCircle, FiX } from "react-icons/fi";
+import AppPortal from "../../shared/AppPortal";
 import { verificationStatuses } from "./verificationStatus";
 
 export default function VerificationDetailsModal({ status, operatorName, onClose }) {
@@ -7,7 +8,8 @@ export default function VerificationDetailsModal({ status, operatorName, onClose
   const config = verificationStatuses[status] || verificationStatuses.pending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <AppPortal>
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center px-4">
       <button
         type="button"
         aria-label="Close verification details overlay"
@@ -64,5 +66,6 @@ export default function VerificationDetailsModal({ status, operatorName, onClose
         </div>
       </section>
     </div>
+    </AppPortal>
   );
 }

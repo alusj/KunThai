@@ -29,12 +29,23 @@ export default function Transport({ onActivityChange }) {
   const [bookingTarget, setBookingTarget] = useState(null);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
 
+  function handleBookingCreated() {
+    setBookingTarget(null);
+    setFleetSelection(null);
+    setActiveFleetId(null);
+    setNearbyAreaOpen(false);
+    setSavedOperatorsOpen(false);
+    setVerificationFleet(null);
+    setActiveTripsOpen(true);
+  }
+
   function renderBookingDrawer() {
     return (
       <TransportBookingDrawer
         open={Boolean(bookingTarget)}
         target={bookingTarget}
         onClose={() => setBookingTarget(null)}
+        onCreated={handleBookingCreated}
       />
     );
   }

@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, MapPin, PackageCheck, Truck, X } from "lucide-react";
+import AppPortal from "../../../shared/AppPortal";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { fetchBuyerDeliveryAddresses } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
 import CartItem from "./CartItem";
@@ -111,11 +112,11 @@ export default function CartDrawer({
   }
 
   return (
-    <>
-      {open && <button type="button" aria-label="Close cart overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-40" />}
+    <AppPortal>
+      {open && <button type="button" aria-label="Close cart overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-[1190]" />}
 
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md transform bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-[1200] h-full w-full max-w-md transform bg-white shadow-2xl transition-transform duration-300 ${
           open ? "kt-panel-enter translate-x-0" : "translate-x-full"
         }`}
       >
@@ -239,6 +240,6 @@ export default function CartDrawer({
           </button>
         </div>
       </div>
-    </>
+    </AppPortal>
   );
 }
