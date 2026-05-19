@@ -130,6 +130,16 @@
     animation: kt-fade-up 240ms var(--kt-ease-standard) backwards;
   }
 
+  .kt-route-zoom-open {
+    animation: kt-route-zoom-out 260ms var(--kt-ease-emphasized) backwards;
+    transform-origin: center top;
+  }
+
+  .kt-route-zoom-close {
+    animation: kt-route-zoom-in 240ms var(--kt-ease-emphasized) forwards;
+    transform-origin: center top;
+  }
+
   .kt-main-slide-forward {
     animation: kt-page-slide-forward 260ms var(--kt-ease-standard) backwards;
   }
@@ -206,6 +216,28 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes kt-route-zoom-out {
+  from {
+    opacity: 0.96;
+    transform: scale(1.035);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes kt-route-zoom-in {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.96;
+    transform: scale(1.035);
   }
 }
 

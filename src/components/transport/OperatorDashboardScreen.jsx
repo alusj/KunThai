@@ -88,6 +88,7 @@ export default function OperatorDashboardScreen({
   account,
   initialView = "dashboard",
   onBack,
+  onAccountUpdate,
   onEditRegistration,
 }) {
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
@@ -150,8 +151,29 @@ export default function OperatorDashboardScreen({
     const nextActive = !isActive;
     setIsActive(nextActive);
     try {
-      await updateOperatorAvailability(account?.fleetId, nextActive);
-      refreshDashboard();
+      const updatedFleet = await updateOperatorAvailability(account?.fleetId, nextActive);
+      const updatedActive = updatedFleet?.active_status === "active";
+      setIsActive(updatedActive);
+      onAccountUpdate?.((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          activeStatus: updatedFleet?.active_status || (updatedActive ? "active" : "offline"),
+          isVisibleToPassengers: Boolean(updatedFleet?.is_visible_to_passengers ?? updatedActive),
+          savedAt: updatedFleet?.updated_at || current.savedAt,
+          dashboard: current.dashboard
+            ? {
+                ...current.dashboard,
+                fleet: {
+                  ...(current.dashboard.fleet || {}),
+                  ...(updatedFleet || {}),
+                },
+              }
+            : current.dashboard,
+        };
+      });
+      await refreshDashboard();
     } catch (error) {
       setIsActive(!nextActive);
       setDashboardError(error.message || "Unable to update availability.");
@@ -198,6 +220,7 @@ export default function OperatorDashboardScreen({
             label="Back to transport"
             historyKey="transport-operator-dashboard"
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+            useHistoryLayer={false}
           />
 
           <div className="min-w-0 flex-1">

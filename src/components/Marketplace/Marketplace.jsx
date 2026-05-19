@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Browse from "./Browse/Browse";
 import MarketplaceHeader from "./MarketplaceHeader/MarketplaceHeader";
 import Business from "./MarketplaceHeader/Business/Business";
@@ -13,6 +13,8 @@ export default function Marketplace({ nav, setNav, onActivityChange }) {
   const [activeUtility, setActiveUtility] = useState(null);
   const [productMode, setProductMode] = useState(false);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
+  const [businessClosing, setBusinessClosing] = useState(false);
+  const businessCloseTimer = useRef(null);
 
   const setMarketplaceScreenMode = useCallback((enabled) => {
     setProductMode(enabled);
@@ -30,6 +32,43 @@ export default function Marketplace({ nav, setNav, onActivityChange }) {
     }, 0);
   }
 
+  function openMyBiz() {
+    if (businessCloseTimer.current) {
+      window.clearTimeout(businessCloseTimer.current);
+      businessCloseTimer.current = null;
+    }
+
+    setBusinessClosing(false);
+    setNav({
+      root: "marketplace",
+      sub: "business",
+    });
+  }
+
+  function closeMyBiz() {
+    if (businessCloseTimer.current) {
+      window.clearTimeout(businessCloseTimer.current);
+    }
+
+    setBusinessClosing(true);
+    businessCloseTimer.current = window.setTimeout(() => {
+      setNav({
+        root: "marketplace",
+        sub: null,
+      });
+      setBusinessClosing(false);
+      businessCloseTimer.current = null;
+    }, 240);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (businessCloseTimer.current) {
+        window.clearTimeout(businessCloseTimer.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     onActivityChange?.(Boolean(activeUtility) || headerActivityOpen || productMode || Boolean(nav.sub));
     return () => onActivityChange?.(false);
@@ -37,14 +76,9 @@ export default function Marketplace({ nav, setNav, onActivityChange }) {
 
   if (nav.sub === "business") {
     return (
-      <div className="kt-route-transition min-h-screen">
+      <div className={`${businessClosing ? "kt-route-zoom-close" : "kt-route-zoom-open"} min-h-screen`}>
         <Business
-          onBack={() =>
-            setNav({
-              root: "marketplace",
-              sub: null,
-            })
-          }
+          onBack={closeMyBiz}
         />
       </div>
     );
@@ -59,12 +93,7 @@ export default function Marketplace({ nav, setNav, onActivityChange }) {
             onActivityChange={setHeaderActivityOpen}
             onOrdersClick={() => setActiveUtility((current) => (current === "orders" ? null : "orders"))}
             onMessagesClick={() => setActiveUtility((current) => (current === "messages" ? null : "messages"))}
-            onMyBizClick={() =>
-              setNav({
-                root: "marketplace",
-                sub: "business",
-              })
-            }
+            onMyBizClick={openMyBiz}
           />
 
           <ParentTabs
@@ -118,8 +147,10 @@ function UtilityDrawer({ children, open, onClose, subtitle, title }) {
     <AppPortal>
       {open ? <button type="button" aria-label={`Close ${title}`} onClick={onClose} className="kt-backdrop fixed inset-0 z-[1190]" /> : null}
       <aside
+        aria-hidden={!open}
+        inert={open ? undefined : "true"}
         className={`fixed right-0 top-0 z-[1200] flex h-full w-full max-w-3xl transform flex-col overflow-hidden bg-gray-50 shadow-2xl transition-transform duration-300 ${
-          open ? "kt-panel-enter translate-x-0" : "translate-x-full"
+          open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <header className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">

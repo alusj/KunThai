@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Body from "./Body/Body";
 import ActiveTripsScreen from "./ActiveTripsScreen";
@@ -19,6 +19,7 @@ export default function Transport({ onActivityChange }) {
   const [operatorLoading, setOperatorLoading] = useState(true);
   const [operatorError, setOperatorError] = useState("");
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
+  const [operatorDashboardClosing, setOperatorDashboardClosing] = useState(false);
   const [operatorDashboardView, setOperatorDashboardView] = useState("dashboard");
   const [fleetSelection, setFleetSelection] = useState(null);
   const [activeFleetId, setActiveFleetId] = useState(null);
@@ -28,6 +29,7 @@ export default function Transport({ onActivityChange }) {
   const [verificationFleet, setVerificationFleet] = useState(null);
   const [bookingTarget, setBookingTarget] = useState(null);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
+  const operatorDashboardCloseTimer = useRef(null);
 
   function handleBookingCreated() {
     setBookingTarget(null);
@@ -37,6 +39,30 @@ export default function Transport({ onActivityChange }) {
     setSavedOperatorsOpen(false);
     setVerificationFleet(null);
     setActiveTripsOpen(true);
+  }
+
+  function openOperatorDashboard(view = "dashboard") {
+    if (operatorDashboardCloseTimer.current) {
+      window.clearTimeout(operatorDashboardCloseTimer.current);
+      operatorDashboardCloseTimer.current = null;
+    }
+
+    setOperatorDashboardClosing(false);
+    setOperatorDashboardView(view);
+    setOperatorDashboardOpen(true);
+  }
+
+  function closeOperatorDashboard() {
+    if (operatorDashboardCloseTimer.current) {
+      window.clearTimeout(operatorDashboardCloseTimer.current);
+    }
+
+    setOperatorDashboardClosing(true);
+    operatorDashboardCloseTimer.current = window.setTimeout(() => {
+      setOperatorDashboardOpen(false);
+      setOperatorDashboardClosing(false);
+      operatorDashboardCloseTimer.current = null;
+    }, 240);
   }
 
   function renderBookingDrawer() {
@@ -69,6 +95,14 @@ export default function Transport({ onActivityChange }) {
 
     return () => {
       alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (operatorDashboardCloseTimer.current) {
+        window.clearTimeout(operatorDashboardCloseTimer.current);
+      }
     };
   }, []);
 
@@ -118,11 +152,12 @@ export default function Transport({ onActivityChange }) {
 
   if (operatorDashboardOpen && operatorAccount) {
     return (
-      <div className="kt-route-transition min-h-screen">
+      <div className={`${operatorDashboardClosing ? "kt-route-zoom-close" : "kt-route-zoom-open"} min-h-screen`}>
         <OperatorDashboardScreen
           account={operatorAccount}
           initialView={operatorDashboardView}
-          onBack={() => setOperatorDashboardOpen(false)}
+          onBack={closeOperatorDashboard}
+          onAccountUpdate={setOperatorAccount}
           onEditRegistration={() => {
             setOperatorDashboardOpen(false);
             setRegistrationOpen(true);
@@ -225,8 +260,7 @@ export default function Transport({ onActivityChange }) {
         onViewFleet={setActiveFleetId}
         onRegisterFleet={() => {
           if (operatorAccount) {
-            setOperatorDashboardView("dashboard");
-            setOperatorDashboardOpen(true);
+            openOperatorDashboard("dashboard");
             return;
           }
 

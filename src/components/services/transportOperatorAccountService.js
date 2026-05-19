@@ -96,6 +96,23 @@ function mapOperatorAccount(row, fleet, extras = {}) {
   };
 }
 
+function patchStoredOperatorAccount(patch) {
+  if (typeof localStorage === "undefined") return;
+  const stored = safeParse(localStorage.getItem(LEGACY_ACCOUNT_KEY));
+  if (!stored) return;
+
+  localStorage.setItem(
+    LEGACY_ACCOUNT_KEY,
+    JSON.stringify({
+      ...stored,
+      ...patch,
+      dashboard: stored.dashboard && patch.dashboard
+        ? { ...stored.dashboard, ...patch.dashboard }
+        : patch.dashboard || stored.dashboard,
+    }),
+  );
+}
+
 function mapTrip(row) {
   return {
     id: row.id,
@@ -177,7 +194,7 @@ export async function getOperatorAccount() {
       .from("transport_fleets")
       .select("*")
       .eq("operator_id", operator.id)
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(1),
     fetchOperatorDashboard(operator.id),
   ]);
@@ -217,7 +234,7 @@ export async function fetchOperatorDashboard(operatorId = null) {
     .from("transport_fleets")
     .select("*")
     .eq("operator_id", operator.id)
-    .order("created_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .limit(1);
   if (fleetError) throw new Error(fleetError.message);
 
@@ -384,7 +401,6 @@ export async function saveOperatorAccount(account) {
         price_hint: form.priceHint?.trim() || "",
         safety_answers: account.answers || {},
         verification_status: verificationStatus,
-        active_status: "offline",
         accepts_ride: ["Transport", "Both"].includes(form.category),
         accepts_delivery: ["Delivery", "Both"].includes(form.category),
         updated_at: new Date().toISOString(),
@@ -405,18 +421,36 @@ export async function saveOperatorAccount(account) {
 
 export async function updateOperatorAvailability(fleetId, active, pauseReason = "") {
   if (!fleetId) throw new Error("Fleet profile is missing.");
-  const { error } = await supabase
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
     .from("transport_fleets")
     .update({
       active_status: active ? "active" : "offline",
       is_visible_to_passengers: Boolean(active),
       pause_reason: active ? "" : pauseReason,
-      last_active_at: active ? new Date().toISOString() : undefined,
-      updated_at: new Date().toISOString(),
+      last_active_at: now,
+      updated_at: now,
     })
-    .eq("id", fleetId);
+    .eq("id", fleetId)
+    .select("*")
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+
+  const activeStatus = data?.active_status || (active ? "active" : "offline");
+  patchStoredOperatorAccount({
+    activeStatus,
+    isVisibleToPassengers: Boolean(data?.is_visible_to_passengers ?? active),
+    savedAt: data?.updated_at || now,
+    dashboard: data ? { fleet: data } : undefined,
+  });
+
+  return data || {
+    id: fleetId,
+    active_status: activeStatus,
+    is_visible_to_passengers: Boolean(active),
+    updated_at: now,
+  };
 }
 
 export async function updateTripControls(fleetId, controls) {

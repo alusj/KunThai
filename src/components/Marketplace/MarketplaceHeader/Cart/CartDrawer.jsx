@@ -116,8 +116,10 @@ export default function CartDrawer({
       {open && <button type="button" aria-label="Close cart overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-[1190]" />}
 
       <div
+        aria-hidden={!open}
+        inert={open ? undefined : "true"}
         className={`fixed right-0 top-0 z-[1200] h-full w-full max-w-md transform bg-white shadow-2xl transition-transform duration-300 ${
-          open ? "kt-panel-enter translate-x-0" : "translate-x-full"
+          open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="kt-header-glass flex items-center justify-between p-4">

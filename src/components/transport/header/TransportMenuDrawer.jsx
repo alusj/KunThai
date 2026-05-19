@@ -185,11 +185,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
     };
   }, [activeScreen, onClose, open]);
 
-  if (!open) return null;
-
   function closeDrawer() {
-    setActiveScreen(null);
-    setSupportSeed(null);
     onClose?.();
   }
 
@@ -237,16 +233,27 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
 
   return (
     <AppPortal>
-    <div className="fixed inset-0 z-[1200] overflow-hidden">
+    <div
+      aria-hidden={!open}
+      inert={open ? undefined : "true"}
+      className={`fixed inset-0 z-[1200] overflow-hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+    >
       <button
         type="button"
         aria-label="Close transport passenger menu"
         onClick={closeDrawer}
-        className="kt-backdrop absolute inset-0"
+        tabIndex={open ? 0 : -1}
+        className={`absolute inset-0 border-0 bg-slate-950/45 p-0 backdrop-blur-sm transition-opacity duration-300 ${
+          open ? "opacity-100" : "opacity-0"
+        }`}
       />
 
       {!activeScreen ? (
-        <aside className="kt-panel-enter absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl">
+        <aside
+          className={`absolute right-0 top-0 flex h-full w-full max-w-md transform flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ${
+            open ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
           <PassengerMenuHeader title="Passenger Menu" showBack={false} onClose={closeDrawer} />
 
           <div className="flex-1 overflow-y-auto pb-6">
@@ -275,7 +282,11 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
       ) : null}
 
       {activeScreen ? (
-        <section className="kt-panel-enter absolute inset-0 flex h-full w-full flex-col bg-white shadow-2xl">
+        <section
+          className={`absolute inset-0 flex h-full w-full transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
+            open ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
           <PassengerMenuPageHeader
             title={activeTitle}
             eyebrow="Transport"

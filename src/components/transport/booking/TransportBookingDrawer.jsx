@@ -120,23 +120,35 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     () => availableFleets.find((fleet) => String(fleet.id) === String(selectedFleetId)) || target?.fleet || null,
     [availableFleets, selectedFleetId, target],
   );
+  const requiresLiveOperator = form.pickupTime !== "schedule";
   const activeAvailableFleets = useMemo(() => availableFleets.filter(isFleetBookable), [availableFleets]);
   const isSelectedFleetActive = isFleetBookable(selectedFleet);
   const bookingFleet = useMemo(() => {
+    if (!requiresLiveOperator) {
+      if (selectedFleetId && selectedFleet) return selectedFleet;
+      return selectedFleet || availableFleets[0] || null;
+    }
+
     if (isSelectedFleetActive) return selectedFleet;
     if (selectedFleetId && selectedFleet) return null;
     return activeAvailableFleets[0] || null;
-  }, [activeAvailableFleets, isSelectedFleetActive, selectedFleet, selectedFleetId]);
+  }, [activeAvailableFleets, availableFleets, isSelectedFleetActive, requiresLiveOperator, selectedFleet, selectedFleetId]);
   const displayFleet = bookingFleet || selectedFleet;
   const bookingMode = modeForFleet(bookingFleet || selectedFleet, selection.mode);
   const fareEstimate = estimateFare(displayFleet, bookingMode);
   const requirementMessage = getBookingRequirementMessage(form, bookingMode);
   const fleetMessage = loadingFleets
-    ? "Checking active operators for this booking."
+    ? requiresLiveOperator
+      ? "Checking active operators for this booking."
+      : "Checking matching operators for this scheduled booking."
     : !bookingFleet
       ? selectedFleet
-        ? "The selected operator is not active right now. Choose another active operator."
-        : "No active operator matches this service and fleet type right now."
+        ? requiresLiveOperator
+          ? "The selected operator is not active right now. Choose another active operator."
+          : "Choose another operator for this scheduled booking."
+        : requiresLiveOperator
+          ? "No active operator matches this service and fleet type right now."
+          : "No operator matches this service and fleet type."
       : "";
   const sendBlockMessage = requirementMessage || fleetMessage;
   const canSendBooking = !submitting && !sendBlockMessage;
@@ -171,10 +183,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       .then((fleets) => {
         if (!alive) return;
 
-        const activeFleets = fleets.filter(isFleetBookable);
         const nextFleets = target?.fleet
-          ? [target.fleet, ...activeFleets.filter((fleet) => fleet.id !== target.fleet.id)]
-          : activeFleets;
+          ? [target.fleet, ...fleets.filter((fleet) => fleet.id !== target.fleet.id)]
+          : fleets;
 
         setAvailableFleets(nextFleets);
         setSelectedFleetId((current) => current || nextFleets[0]?.id || "");
@@ -318,9 +329,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   <option value="">
                     {loadingFleets
                       ? "Loading operators..."
-                      : activeAvailableFleets.length
-                        ? "Auto-match best active operator"
-                        : "No active operator available"}
+                      : requiresLiveOperator
+                        ? activeAvailableFleets.length
+                          ? "Auto-match best active operator"
+                          : "No active operator available"
+                        : availableFleets.length
+                          ? "Auto-match best matching operator"
+                          : "No operator available"}
                   </option>
                   {availableFleets.map((fleet) => (
                     <option key={fleet.id} value={fleet.id}>
@@ -335,7 +350,19 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               <div className="mt-4 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-600 sm:grid-cols-2">
                 <InfoLine icon={FiTruck} label={bookingFleet && !selectedFleetId ? "Auto-match" : "Fleet"} value={`${displayFleet.fleetName} (${displayFleet.plateNumber})`} />
                 <InfoLine icon={FiNavigation} label="Location" value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
-                <InfoLine icon={FiClock} label="Status" value={isFleetBookable(displayFleet) ? "Active now" : displayFleet.lastActive || "Offline"} />
+                <InfoLine
+                  icon={FiClock}
+                  label={requiresLiveOperator ? "Status" : "Schedule"}
+                  value={
+                    requiresLiveOperator
+                      ? isFleetBookable(displayFleet)
+                        ? "Active now"
+                        : displayFleet.lastActive || "Offline"
+                      : isFleetBookable(displayFleet)
+                        ? "Active now; scheduled request allowed"
+                        : `${displayFleet.lastActive || "Offline"}; scheduled request allowed`
+                  }
+                />
                 <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
               </div>
             ) : null}
