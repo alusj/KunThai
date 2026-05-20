@@ -12,7 +12,7 @@ import {
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
 import NearbyAreaMap from "./area/NearbyAreaMap";
-import { searchLocations } from "../../backend/services/locationSearchService";
+import { searchLocations } from "../../Backend/services/locationSearchService";
 import {
   emergencyContacts,
   locationCategories,
