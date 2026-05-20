@@ -34,6 +34,37 @@ const osmRasterStyle = {
   ],
 };
 
+function createLabeledMarker(label, bgColor) {
+  const wrapper = document.createElement("div");
+  wrapper.style.display = "flex";
+  wrapper.style.flexDirection = "column";
+  wrapper.style.alignItems = "center";
+
+  const badge = document.createElement("div");
+  badge.textContent = label;
+  badge.style.background = bgColor;
+  badge.style.color = "white";
+  badge.style.fontSize = "10px";
+  badge.style.fontWeight = "900";
+  badge.style.padding = "4px 8px";
+  badge.style.borderRadius = "999px";
+  badge.style.marginBottom = "4px";
+  badge.style.boxShadow = "0 8px 18px rgba(0,0,0,0.25)";
+
+  const pin = document.createElement("div");
+  pin.style.width = "28px";
+  pin.style.height = "28px";
+  pin.style.borderRadius = "999px";
+  pin.style.background = bgColor;
+  pin.style.border = "4px solid white";
+  pin.style.boxShadow = "0 8px 18px rgba(0,0,0,0.25)";
+
+  wrapper.appendChild(badge);
+  wrapper.appendChild(pin);
+
+  return wrapper;
+}
+
 export default function NearbyAreaMap({
   children,
   onLocationResolved,
@@ -82,9 +113,11 @@ export default function NearbyAreaMap({
     mapRef.current = map;
     onMapReady?.(map);
 
-    userMarkerRef.current = new maplibregl.Marker({ color: "#16a34a" })
+    userMarkerRef.current = new maplibregl.Marker({
+      element: createLabeledMarker("START", "#16a34a"),
+      anchor: "bottom",
+    })
       .setLngLat([DEFAULT_CENTER.lng, DEFAULT_CENTER.lat])
-      .setPopup(new maplibregl.Popup({ offset: 25 }).setText("Starting point"))
       .addTo(map);
 
     return () => {
@@ -129,13 +162,7 @@ export default function NearbyAreaMap({
           essential: true,
         });
 
-        userMarkerRef.current
-          ?.setLngLat([nextCenter.lng, nextCenter.lat])
-          .setPopup(
-            new maplibregl.Popup({ offset: 25 }).setHTML(
-              "<strong>Starting point</strong><br/>Your current location"
-            )
-          );
+        userMarkerRef.current?.setLngLat([nextCenter.lng, nextCenter.lat]);
       },
       () => {
         setLocationStatus(`Showing ${DEFAULT_CENTER.label}`);
@@ -150,10 +177,9 @@ export default function NearbyAreaMap({
 
   useEffect(() => {
     async function drawRoute() {
-     if (!selectedLocation || !mapRef.current) return;
+      if (!selectedLocation || !mapRef.current) return;
 
       const routeStart = userLocation || DEFAULT_CENTER;
-
       const map = mapRef.current;
 
       setRouteError("");
@@ -162,14 +188,10 @@ export default function NearbyAreaMap({
       destinationMarkerRef.current?.remove();
 
       destinationMarkerRef.current = new maplibregl.Marker({
-        color: "#2563eb",
+        element: createLabeledMarker("END", "#2563eb"),
+        anchor: "bottom",
       })
         .setLngLat([selectedLocation.lng, selectedLocation.lat])
-        .setPopup(
-          new maplibregl.Popup({ offset: 25 }).setHTML(
-            `<strong>Ending point</strong><br/>${selectedLocation.name}`
-          )
-        )
         .addTo(map);
 
       const route = await getRouteBetweenPoints(routeStart, selectedLocation);
@@ -210,16 +232,16 @@ export default function NearbyAreaMap({
 
       map.fitBounds(bounds, {
         padding: {
-          top: 150,
-          bottom: 130,
-          left: 80,
-          right: 80,
+          top: 160,
+          bottom: 160,
+          left: 90,
+          right: 90,
         },
         duration: 1200,
       });
 
       setRouteInfo({
-        from: userLocation ? "Your current location" : DEFAULT_CENTER.label,
+        from: userLocation ? "Current Location" : DEFAULT_CENTER.label,
         to: selectedLocation.name,
         distance: formatDistance(route.distanceMeters),
         duration: formatDuration(route.durationSeconds),
@@ -263,12 +285,22 @@ export default function NearbyAreaMap({
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs font-bold text-slate-500">
-            <span className="h-3 w-3 rounded-full bg-green-600 mt-1" />
-            <span>Start: {routeInfo.from}</span>
+          <div className="mt-3 grid gap-2 text-xs font-bold text-slate-600">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 shrink-0 rounded-full bg-green-600" />
+              <span>
+                <strong className="text-slate-900">Start:</strong>{" "}
+                {routeInfo.from}
+              </span>
+            </div>
 
-            <span className="h-3 w-3 rounded-full bg-blue-600 mt-1" />
-            <span>End: {routeInfo.to}</span>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-600" />
+              <span className="line-clamp-2">
+                <strong className="text-slate-900">End:</strong>{" "}
+                {routeInfo.to}
+              </span>
+            </div>
           </div>
         </div>
       )}

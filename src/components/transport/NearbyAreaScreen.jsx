@@ -79,8 +79,13 @@ export default function NearbyAreaScreen({ onBack }) {
   function handleSelectSearchResult(result) {
   setSearchQuery(result.name);
   setSearchResults([]);
+  setSearching(false);
   setLocationPanelOpen(false);
   setSelectedSearchLocation(result);
+
+  if (document.activeElement) {
+    document.activeElement.blur();
+  }
 
   mapInstance?.flyTo({
     center: [result.lng, result.lat],
