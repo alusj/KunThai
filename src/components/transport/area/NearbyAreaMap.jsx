@@ -36,28 +36,43 @@ const osmRasterStyle = {
 
 function createLabeledMarker(label, bgColor) {
   const wrapper = document.createElement("div");
+  wrapper.style.position = "relative";
+  wrapper.style.width = "72px";
+  wrapper.style.height = "64px";
   wrapper.style.display = "flex";
-  wrapper.style.flexDirection = "column";
   wrapper.style.alignItems = "center";
+  wrapper.style.justifyContent = "center";
+  wrapper.style.pointerEvents = "auto";
 
   const badge = document.createElement("div");
   badge.textContent = label;
+  badge.style.position = "absolute";
+  badge.style.top = "0";
+  badge.style.left = "50%";
+  badge.style.transform = "translateX(-50%)";
   badge.style.background = bgColor;
   badge.style.color = "white";
-  badge.style.fontSize = "10px";
+  badge.style.fontSize = "11px";
   badge.style.fontWeight = "900";
-  badge.style.padding = "4px 8px";
+  badge.style.letterSpacing = "0.5px";
+  badge.style.padding = "4px 9px";
   badge.style.borderRadius = "999px";
-  badge.style.marginBottom = "4px";
-  badge.style.boxShadow = "0 8px 18px rgba(0,0,0,0.25)";
+  badge.style.whiteSpace = "nowrap";
+  badge.style.boxShadow = "0 8px 18px rgba(0,0,0,0.35)";
+  badge.style.zIndex = "2";
 
   const pin = document.createElement("div");
-  pin.style.width = "28px";
-  pin.style.height = "28px";
+  pin.style.position = "absolute";
+  pin.style.top = "26px";
+  pin.style.left = "50%";
+  pin.style.transform = "translateX(-50%)";
+  pin.style.width = "30px";
+  pin.style.height = "30px";
   pin.style.borderRadius = "999px";
   pin.style.background = bgColor;
   pin.style.border = "4px solid white";
-  pin.style.boxShadow = "0 8px 18px rgba(0,0,0,0.25)";
+  pin.style.boxShadow = "0 8px 18px rgba(0,0,0,0.35)";
+  pin.style.zIndex = "1";
 
   wrapper.appendChild(badge);
   wrapper.appendChild(pin);
@@ -115,7 +130,7 @@ export default function NearbyAreaMap({
 
     userMarkerRef.current = new maplibregl.Marker({
       element: createLabeledMarker("START", "#16a34a"),
-      anchor: "bottom",
+      anchor: "center",
     })
       .setLngLat([DEFAULT_CENTER.lng, DEFAULT_CENTER.lat])
       .addTo(map);
@@ -189,7 +204,7 @@ export default function NearbyAreaMap({
 
       destinationMarkerRef.current = new maplibregl.Marker({
         element: createLabeledMarker("END", "#2563eb"),
-        anchor: "bottom",
+        anchor: "center",
       })
         .setLngLat([selectedLocation.lng, selectedLocation.lat])
         .addTo(map);
