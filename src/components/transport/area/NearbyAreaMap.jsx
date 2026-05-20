@@ -150,7 +150,9 @@ export default function NearbyAreaMap({
 
   useEffect(() => {
     async function drawRoute() {
-      if (!selectedLocation || !mapRef.current || !userLocation) return;
+     if (!selectedLocation || !mapRef.current) return;
+
+      const routeStart = userLocation || DEFAULT_CENTER;
 
       const map = mapRef.current;
 
@@ -170,7 +172,7 @@ export default function NearbyAreaMap({
         )
         .addTo(map);
 
-      const route = await getRouteBetweenPoints(userLocation, selectedLocation);
+      const route = await getRouteBetweenPoints(routeStart, selectedLocation);
 
       if (map.getSource("route")) {
         if (map.getLayer("route-line")) map.removeLayer("route-line");
@@ -217,7 +219,7 @@ export default function NearbyAreaMap({
       });
 
       setRouteInfo({
-        from: "Your current location",
+        from: userLocation ? "Your current location" : DEFAULT_CENTER.label,
         to: selectedLocation.name,
         distance: formatDistance(route.distanceMeters),
         duration: formatDuration(route.durationSeconds),
@@ -241,7 +243,7 @@ export default function NearbyAreaMap({
       </div>
 
       {routeInfo && (
-        <div className="absolute bottom-6 left-4 z-30 w-[calc(100%-2rem)] max-w-md rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur">
+        <div className="absolute bottom-24 left-4 z-30 w-[calc(100%-2rem)] max-w-md rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-6">
           <p className="text-xs font-black uppercase tracking-wide text-green-600">
             Recommended Route
           </p>
