@@ -4,11 +4,15 @@ import {
   FiBookmark,
   FiChevronDown,
   FiCrosshair,
+  FiEye,
+  FiEyeOff,
+  FiLock,
   FiMapPin,
   FiPhone,
   FiPlus,
   FiSearch,
   FiShield,
+  FiUnlock,
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
 import NearbyAreaMap from "./area/NearbyAreaMap";
@@ -40,10 +44,13 @@ export default function NearbyAreaScreen({ onBack }) {
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [mapCenter, setMapCenter] = useState(null);
+  const [focusMode, setFocusMode] = useState(false);
+  const [mapLocked, setMapLocked] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [selectionLocked, setSelectionLocked] = useState(false);
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedSearchLocation, setSelectedSearchLocation] = useState(null);
 
@@ -54,6 +61,12 @@ export default function NearbyAreaScreen({ onBack }) {
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
+      if (selectionLocked) {
+        setSearchResults([]);
+        setSearching(false);
+        return;
+      }
+
       const text = searchQuery.trim();
 
       if (text.length < 2) {
@@ -69,7 +82,7 @@ export default function NearbyAreaScreen({ onBack }) {
     }, 450);
 
     return () => window.clearTimeout(timeout);
-  }, [searchQuery]);
+  }, [searchQuery, mapCenter, selectionLocked]);
 
   function openAddLocation() {
     setLocationPanelOpen(false);
@@ -77,56 +90,63 @@ export default function NearbyAreaScreen({ onBack }) {
   }
 
   function handleSelectSearchResult(result) {
-  setSearchQuery(result.name);
-  setSearchResults([]);
-  setSearching(false);
-  setLocationPanelOpen(false);
-  setSelectedSearchLocation(result);
+    setSelectionLocked(true);
+    setSearchQuery(result.name);
+    setSearchResults([]);
+    setSearching(false);
+    setLocationPanelOpen(false);
+    setSelectedSearchLocation(result);
 
-  if (document.activeElement) {
-    document.activeElement.blur();
+    if (document.activeElement) {
+      document.activeElement.blur();
+    }
+
+    mapInstance?.flyTo({
+      center: [result.lng, result.lat],
+      zoom: 15,
+      essential: true,
+    });
   }
-
-  mapInstance?.flyTo({
-    center: [result.lng, result.lat],
-    zoom: 15,
-    essential: true,
-  });
-}
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <section className="relative min-h-screen overflow-hidden">
         <NearbyAreaMap
-  onLocationResolved={setMapCenter}
-  onMapReady={setMapInstance}
-  selectedLocation={selectedSearchLocation}
->
+          onLocationResolved={setMapCenter}
+          onMapReady={setMapInstance}
+          selectedLocation={selectedSearchLocation}
+          focusMode={focusMode}
+        >
           <div className="pointer-events-none absolute inset-0 z-10">
-            <div className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-sky-200 bg-sky-300/30 shadow-[0_0_45px_rgba(125,211,252,0.6)] sm:h-72 sm:w-72" />
-            <div className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-blue-600 shadow-xl" />
-
-            {filteredLocations.map((location) => (
-              <MapPinButton
-                key={location.id}
-                location={location}
-                active={activeLocation?.id === location.id}
-                onClick={() => {
-                  setActiveLocation(location);
-                  setLocationPanelOpen(true);
-                }}
-              />
-            ))}
+            {!focusMode &&
+              filteredLocations.map((location) => (
+                <MapPinButton
+                  key={location.id}
+                  location={location}
+                  active={activeLocation?.id === location.id}
+                  onClick={() => {
+                    setActiveLocation(location);
+                    setLocationPanelOpen(true);
+                  }}
+                />
+              ))}
           </div>
         </NearbyAreaMap>
 
         <header className="absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
           <div className="flex items-center gap-3">
             <AppBackTab
-              onBack={onBack}
-              label="Back to transport"
+              onBack={() => {
+                if (mapLocked) return;
+                onBack?.();
+              }}
+              label={mapLocked ? "Map locked" : "Back to transport"}
               historyKey="transport-nearby-area"
-              className="h-11 w-11 rounded-full bg-white/95 text-slate-900 shadow-lg hover:bg-white"
+              className={`h-11 w-11 rounded-full shadow-lg ${
+                mapLocked
+                  ? "bg-slate-900 text-white opacity-70"
+                  : "bg-white/95 text-slate-900 hover:bg-white"
+              }`}
               iconSize={21}
             />
 
@@ -139,7 +159,10 @@ export default function NearbyAreaScreen({ onBack }) {
                 <input
                   type="search"
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(event) => {
+                    setSelectionLocked(false);
+                    setSearchQuery(event.target.value);
+                  }}
                   placeholder="Search street, shop, school, pickup point"
                   className="h-12 w-full rounded-2xl border border-white/10 bg-white/95 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
                 />
@@ -156,7 +179,10 @@ export default function NearbyAreaScreen({ onBack }) {
                       <button
                         key={result.id}
                         type="button"
-                        onClick={() => handleSelectSearchResult(result)}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          handleSelectSearchResult(result);
+                        }}
                         className="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                       >
                         {result.name}
@@ -170,16 +196,34 @@ export default function NearbyAreaScreen({ onBack }) {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
-                onClick={() => setLocationPanelOpen((open) => !open)}
+                onClick={() => setFocusMode((value) => !value)}
                 className={`flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold shadow-lg transition sm:w-auto sm:px-4 ${
-                  locationPanelOpen
+                  focusMode
                     ? "bg-slate-950 text-white"
                     : "bg-white/90 text-slate-900 hover:bg-white"
                 }`}
-                aria-label={locationPanelOpen ? "Hide nearby area card" : "Show nearby area card"}
+                aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"}
               >
-                <FiMapPin size={20} />
-                <span className="ml-2 hidden lg:inline">Area Card</span>
+                {focusMode ? <FiEyeOff size={20} /> : <FiEye size={20} />}
+                <span className="ml-2 hidden sm:inline">
+                  {focusMode ? "Show" : "Focus"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMapLocked((value) => !value)}
+                className={`flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold shadow-lg transition sm:w-auto sm:px-4 ${
+                  mapLocked
+                    ? "bg-green-600 text-white"
+                    : "bg-white/90 text-slate-900 hover:bg-white"
+                }`}
+                aria-label={mapLocked ? "Unlock map screen" : "Lock map screen"}
+              >
+                {mapLocked ? <FiLock size={20} /> : <FiUnlock size={20} />}
+                <span className="ml-2 hidden sm:inline">
+                  {mapLocked ? "Locked" : "Lock"}
+                </span>
               </button>
 
               <button
@@ -194,48 +238,54 @@ export default function NearbyAreaScreen({ onBack }) {
             </div>
           </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {locationCategories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => setActiveCategory(category)}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold shadow ${
-                  activeCategory === category
-                    ? "bg-green-600 text-white"
-                    : "bg-slate-900/75 text-white backdrop-blur"
-                }`}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
+          {!focusMode && (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {locationCategories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setActiveCategory(category)}
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold shadow ${
+                    activeCategory === category
+                      ? "bg-green-600 text-white"
+                      : "bg-slate-900/75 text-white backdrop-blur"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          )}
         </header>
 
-        <div className="absolute bottom-32 right-4 z-20 grid gap-3 sm:bottom-8">
-          <button
-            type="button"
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900/85 text-white shadow-lg"
-            aria-label="Use current area"
-          >
-            <FiCrosshair size={21} />
-          </button>
+        {!focusMode && (
+          <div className="absolute bottom-32 right-4 z-20 grid gap-3 sm:bottom-8">
+            <button
+              type="button"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900/85 text-white shadow-lg"
+              aria-label="Use current area"
+            >
+              <FiCrosshair size={21} />
+            </button>
 
-          <button
-            type="button"
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg"
-            aria-label="Save current area"
-          >
-            <FiBookmark size={21} />
-          </button>
-        </div>
+            <button
+              type="button"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg"
+              aria-label="Save current area"
+            >
+              <FiBookmark size={21} />
+            </button>
+          </div>
+        )}
 
-        <LocationPanel
-          activeLocation={activeLocation}
-          open={locationPanelOpen}
-          onToggle={() => setLocationPanelOpen((open) => !open)}
-          onAddLocation={openAddLocation}
-        />
+        {!focusMode && (
+          <LocationPanel
+            activeLocation={activeLocation}
+            open={locationPanelOpen}
+            onToggle={() => setLocationPanelOpen((open) => !open)}
+            onAddLocation={openAddLocation}
+          />
+        )}
 
         {adding && <AddLocationPanel onClose={() => setAdding(false)} />}
       </section>
@@ -265,7 +315,6 @@ function MapPinButton({ location, active, onClick }) {
     </button>
   );
 }
-
 function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
   const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
 

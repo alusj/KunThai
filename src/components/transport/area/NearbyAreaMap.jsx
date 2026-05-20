@@ -13,6 +13,24 @@ const DEFAULT_CENTER = {
   label: "Lumley, Freetown",
 };
 
+const ROUTE_STATUS = {
+  correct: {
+    label: "On recommended route",
+    color: "#16a34a",
+    className: "bg-green-100 text-green-700",
+  },
+  warning: {
+    label: "Slightly off route",
+    color: "#eab308",
+    className: "bg-yellow-100 text-yellow-700",
+  },
+  wrong: {
+    label: "Wrong route detected",
+    color: "#dc2626",
+    className: "bg-red-100 text-red-700",
+  },
+};
+
 const osmRasterStyle = {
   version: 8,
   sources: {
@@ -80,16 +98,65 @@ function createLabeledMarker(label, bgColor) {
   return wrapper;
 }
 
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function distanceInMeters(pointA, pointB) {
+  const earthRadius = 6371000;
+  const lat1 = toRadians(pointA.lat);
+  const lat2 = toRadians(pointB.lat);
+  const deltaLat = toRadians(pointB.lat - pointA.lat);
+  const deltaLng = toRadians(pointB.lng - pointA.lng);
+
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) *
+      Math.cos(lat2) *
+      Math.sin(deltaLng / 2) *
+      Math.sin(deltaLng / 2);
+
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getNearestRouteDistance(position, coordinates = []) {
+  if (!position || !coordinates.length) return Infinity;
+
+  return coordinates.reduce((nearest, coord) => {
+    const distance = distanceInMeters(position, {
+      lng: coord[0],
+      lat: coord[1],
+    });
+
+    return Math.min(nearest, distance);
+  }, Infinity);
+}
+
+function getRouteStatus(distanceFromRoute) {
+  if (distanceFromRoute <= 45) return "correct";
+  if (distanceFromRoute <= 120) return "warning";
+  return "wrong";
+}
+
+function setRouteLineColor(map, color) {
+  if (!map?.getLayer("route-line")) return;
+
+  map.setPaintProperty("route-line", "line-color", color);
+}
+
 export default function NearbyAreaMap({
   children,
   onLocationResolved,
   onMapReady,
   selectedLocation,
+  focusMode = false,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
   const destinationMarkerRef = useRef(null);
+  const watchIdRef = useRef(null);
+  const routeCoordinatesRef = useRef([]);
 
   const [locationStatus, setLocationStatus] = useState(
     `Showing ${DEFAULT_CENTER.label}`
@@ -97,6 +164,9 @@ export default function NearbyAreaMap({
   const [userLocation, setUserLocation] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
   const [routeError, setRouteError] = useState("");
+  const [routeStatusKey, setRouteStatusKey] = useState("correct");
+
+  const routeStatus = ROUTE_STATUS[routeStatusKey];
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -136,6 +206,10 @@ export default function NearbyAreaMap({
       .addTo(map);
 
     return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+
       userMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
 
@@ -148,12 +222,14 @@ export default function NearbyAreaMap({
       mapRef.current = null;
       userMarkerRef.current = null;
       destinationMarkerRef.current = null;
+      watchIdRef.current = null;
     };
   }, [onMapReady]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
       setLocationStatus(`Showing ${DEFAULT_CENTER.label}`);
+      setUserLocation(DEFAULT_CENTER);
       return;
     }
 
@@ -181,6 +257,8 @@ export default function NearbyAreaMap({
       },
       () => {
         setLocationStatus(`Showing ${DEFAULT_CENTER.label}`);
+        setUserLocation(DEFAULT_CENTER);
+        onLocationResolved?.(DEFAULT_CENTER);
       },
       {
         enableHighAccuracy: true,
@@ -199,6 +277,7 @@ export default function NearbyAreaMap({
 
       setRouteError("");
       setRouteInfo(null);
+      setRouteStatusKey("correct");
 
       destinationMarkerRef.current?.remove();
 
@@ -210,6 +289,8 @@ export default function NearbyAreaMap({
         .addTo(map);
 
       const route = await getRouteBetweenPoints(routeStart, selectedLocation);
+
+      routeCoordinatesRef.current = route.geometry.coordinates || [];
 
       if (map.getSource("route")) {
         if (map.getLayer("route-line")) map.removeLayer("route-line");
@@ -233,7 +314,7 @@ export default function NearbyAreaMap({
           "line-cap": "round",
         },
         paint: {
-          "line-color": "#16a34a",
+          "line-color": ROUTE_STATUS.correct.color,
           "line-width": 7,
           "line-opacity": 0.95,
         },
@@ -269,21 +350,85 @@ export default function NearbyAreaMap({
     });
   }, [selectedLocation, userLocation]);
 
+  useEffect(() => {
+    if (!navigator.geolocation || !mapRef.current) return;
+
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const livePosition = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          label: "Live current location",
+        };
+
+        setUserLocation(livePosition);
+        onLocationResolved?.(livePosition);
+        userMarkerRef.current?.setLngLat([livePosition.lng, livePosition.lat]);
+
+        if (focusMode) {
+          mapRef.current?.easeTo({
+            center: [livePosition.lng, livePosition.lat],
+            duration: 700,
+          });
+        }
+
+        if (routeCoordinatesRef.current.length) {
+          const nearestDistance = getNearestRouteDistance(
+            livePosition,
+            routeCoordinatesRef.current
+          );
+
+          const nextStatusKey = getRouteStatus(nearestDistance);
+          setRouteStatusKey(nextStatusKey);
+          setRouteLineColor(mapRef.current, ROUTE_STATUS[nextStatusKey].color);
+        }
+      },
+      () => {},
+      {
+        enableHighAccuracy: true,
+        maximumAge: 4000,
+        timeout: 12000,
+      }
+    );
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, [focusMode, onLocationResolved]);
+
   return (
     <div className="absolute inset-0 bg-slate-900">
       <div ref={mapContainerRef} className="absolute inset-0 h-full w-full" />
 
       <div className="pointer-events-none absolute inset-0 bg-slate-950/10" />
 
-      <div className="pointer-events-none absolute left-3 top-24 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow sm:left-5 sm:top-28">
-        {locationStatus}
-      </div>
+      {!focusMode && (
+        <div className="pointer-events-none absolute left-3 top-24 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow sm:left-5 sm:top-28">
+          {locationStatus}
+        </div>
+      )}
 
       {routeInfo && (
         <div className="absolute bottom-24 left-4 z-30 w-[calc(100%-2rem)] max-w-md rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-6">
-          <p className="text-xs font-black uppercase tracking-wide text-green-600">
-            Recommended Route
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-wide text-green-600">
+              Recommended Route
+            </p>
+
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-black ${routeStatus.className}`}
+            >
+              {routeStatus.label}
+            </span>
+          </div>
 
           <div className="mt-2 flex items-center justify-between gap-4">
             <div>
