@@ -62,10 +62,7 @@ function writeLocalJson(key, value) {
 }
 
 export async function createTransportBooking(booking) {
-  if (!booking?.fleet?.id && !booking?.fleetId) {
-    throw new Error("Choose an available operator before sending the booking.");
-  }
-
+ 
   if (!String(booking.pickup || "").trim()) {
     throw new Error("Add a pickup point before sending the booking.");
   }
@@ -84,7 +81,7 @@ export async function createTransportBooking(booking) {
   const payload = {
     passenger_id: passenger.id,
     passenger_name: passengerName,
-    fleet_id: booking.fleetId || fleet.id,
+    fleet_id: booking.fleetId || fleet.id || null,
     trip_type: tripType,
     trip_mode: tripType,
     title,
@@ -96,7 +93,7 @@ export async function createTransportBooking(booking) {
     fare_amount: null,
     fare_currency: "SLE",
     scheduled_at: buildScheduledAt(booking),
-    status: "requested",
+    status: booking.fleetId || fleet.id ? "requested" : "waiting_operator",
     created_at: now,
     updated_at: now,
   };

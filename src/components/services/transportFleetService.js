@@ -1,5 +1,36 @@
 import supabase from "../../Backend/lib/supabaseClient";
 
+export function subscribeToFleetUpdates(callback) {
+  const channel = supabase
+
+    .channel("transport-fleet-live")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "transport_fleets",
+      },
+      async () => {
+        try {
+          const fleets = await fetchTransportFleets({
+            mode: "topRated",
+            fleetType: null,
+          });
+
+          callback?.(fleets);
+        } catch (error) {
+          console.error("Realtime fleet refresh failed", error);
+        }
+      },
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 function displayCategory(value) {
   const map = { transport: "Transport", delivery: "Delivery", both: "Both" };
   return map[String(value || "").toLowerCase()] || value || "Transport";

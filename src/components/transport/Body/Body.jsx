@@ -13,7 +13,10 @@ import TourHistory from "./TourHistory";
 import Favorite from "./Favorite";
 import NearbyOperators from "./NearbyOperators";
 import { fetchActiveTrips, fetchSavedOperators, getTransportSavedPlaces } from "../../services/passengerTransportService";
-import { fetchTransportFleets } from "../../services/transportFleetService";
+import {
+  fetchTransportFleets,
+  subscribeToFleetUpdates,
+} from "../../services/transportFleetService";
 //import Radar from "./Radar";
 
 export default function Body({
@@ -70,10 +73,31 @@ export default function Body({
       }
     }
 
-    loadSummary();
+       loadSummary();
+
+    const unsubscribe = subscribeToFleetUpdates(async (fleets) => {
+      try {
+        const [trips, saved] = await Promise.all([
+          fetchActiveTrips(),
+          fetchSavedOperators(),
+        ]);
+
+        if (alive) {
+          setSummary({
+            loading: false,
+            topRatedCount: fleets.length,
+            activeTripsCount: trips.length,
+            savedOperatorsCount: saved.length,
+          });
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    });
 
     return () => {
       alive = false;
+      unsubscribe?.();
     };
   }, []);
 

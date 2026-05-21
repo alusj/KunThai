@@ -120,7 +120,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     () => availableFleets.find((fleet) => String(fleet.id) === String(selectedFleetId)) || target?.fleet || null,
     [availableFleets, selectedFleetId, target],
   );
-  const requiresLiveOperator = form.pickupTime !== "schedule";
+  const requiresLiveOperator = false;
   const activeAvailableFleets = useMemo(() => availableFleets.filter(isFleetBookable), [availableFleets]);
   const isSelectedFleetActive = isFleetBookable(selectedFleet);
   const bookingFleet = useMemo(() => {
@@ -151,7 +151,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           : "No operator matches this service and fleet type."
       : "";
   const sendBlockMessage = requirementMessage || fleetMessage;
-  const canSendBooking = !submitting && !sendBlockMessage;
+  const canSendBooking = !submitting && !requirementMessage;
 
   useEffect(() => {
     if (!open) return;
@@ -225,22 +225,18 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       return;
     }
 
-    if (!bookingFleet) {
-      setStatus(fleetMessage || "Choose an active operator before sending this booking.");
-      return;
-    }
-
     try {
       setSubmitting(true);
-      const nextBookingMode = modeForFleet(bookingFleet, selection.mode);
+      const nextBookingMode = modeForFleet(bookingFleet || null, selection.mode);
       const booking = await createTransportBooking({
         ...form,
-        fleet: bookingFleet,
+        fleet: bookingFleet || null,
+        fleetId: bookingFleet?.id || null,
         mode: nextBookingMode,
         pickup: form.pickup,
         dropoff: form.dropoff,
       });
-      setSelectedFleetId(bookingFleet.id || "");
+      setSelectedFleetId(bookingFleet?.id || "");
       setStatus("Booking sent. The operator will see this as a pending passenger request.");
       onCreated?.(booking);
     } catch (error) {
@@ -512,7 +508,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         <footer className="border-t border-gray-100 bg-white px-4 py-3 sm:px-5">
           <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
             <p className={`text-xs font-semibold leading-5 ${sendBlockMessage ? "text-gray-500" : "text-emerald-700"}`}>
-              {sendBlockMessage || `Ready to send a pending ${bookingMode} request to ${bookingFleet?.fleetName}.`}
+              {requirementMessage || fleetMessage || `Ready to send a pending ${bookingMode} request.`}
             </p>
             <button
               type="button"

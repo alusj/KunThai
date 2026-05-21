@@ -38,6 +38,40 @@ const addCategories = [
   "Other",
 ];
 
+function getDemoOperatorLocations(mapCenter) {
+  const center = mapCenter || {
+    lat: 8.4657,
+    lng: -13.2317,
+  };
+
+  return [
+    {
+      id: "operator-bike-1",
+      name: "Nearby Okada",
+      type: "bike",
+      available: true,
+      lat: center.lat + 0.0045,
+      lng: center.lng - 0.0038,
+    },
+    {
+      id: "operator-keke-1",
+      name: "Nearby Keke",
+      type: "keke",
+      available: true,
+      lat: center.lat - 0.0035,
+      lng: center.lng + 0.0042,
+    },
+    {
+      id: "operator-car-1",
+      name: "Nearby Driver",
+      type: "car",
+      available: false,
+      lat: center.lat + 0.0028,
+      lng: center.lng + 0.0052,
+    },
+  ];
+}
+
 export default function NearbyAreaScreen({ onBack }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
@@ -59,6 +93,10 @@ export default function NearbyAreaScreen({ onBack }) {
     return nearbyLocations.filter((location) => location.category === activeCategory);
   }, [activeCategory]);
 
+  const operatorLocations = useMemo(() => {
+    return getDemoOperatorLocations(mapCenter);
+  }, [mapCenter]);
+
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
       if (selectionLocked) {
@@ -76,9 +114,16 @@ export default function NearbyAreaScreen({ onBack }) {
       }
 
       setSearching(true);
-      const results = await searchLocations(text, mapCenter);
-      setSearchResults(results);
-      setSearching(false);
+
+      try {
+        const results = await searchLocations(text, mapCenter);
+        setSearchResults(results);
+      } catch (error) {
+        console.error(error);
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
     }, 450);
 
     return () => window.clearTimeout(timeout);
@@ -87,6 +132,16 @@ export default function NearbyAreaScreen({ onBack }) {
   function openAddLocation() {
     setLocationPanelOpen(false);
     setAdding(true);
+  }
+
+  function handleUseCurrentArea() {
+    if (!mapCenter || !mapInstance) return;
+
+    mapInstance.flyTo({
+      center: [mapCenter.lng, mapCenter.lat],
+      zoom: 16,
+      essential: true,
+    });
   }
 
   function handleSelectSearchResult(result) {
@@ -116,6 +171,7 @@ export default function NearbyAreaScreen({ onBack }) {
           onMapReady={setMapInstance}
           selectedLocation={selectedSearchLocation}
           focusMode={focusMode}
+          operatorLocations={operatorLocations}
         >
           <div className="pointer-events-none absolute inset-0 z-10">
             {!focusMode &&
@@ -262,6 +318,7 @@ export default function NearbyAreaScreen({ onBack }) {
           <div className="absolute bottom-32 right-4 z-20 grid gap-3 sm:bottom-8">
             <button
               type="button"
+              onClick={handleUseCurrentArea}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900/85 text-white shadow-lg"
               aria-label="Use current area"
             >
@@ -315,8 +372,10 @@ function MapPinButton({ location, active, onClick }) {
     </button>
   );
 }
+
 function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
-  const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
+  const status =
+    locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
 
   if (!open) return null;
 
@@ -324,7 +383,9 @@ function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
     <aside className="absolute left-3 right-3 top-40 z-30 max-h-[calc(100vh-11rem)] overflow-y-auto rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur transition-opacity sm:left-auto sm:right-5 sm:w-[390px]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Nearby Area</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+            Nearby Area
+          </p>
           <h2 className="mt-1 text-xl font-black">{activeLocation?.name}</h2>
           <p className="mt-1 text-sm text-slate-500">
             {activeLocation?.type} - {activeLocation?.distance}
@@ -332,7 +393,9 @@ function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span className={`hidden rounded-full border px-2.5 py-1 text-xs font-bold sm:inline-flex ${status.className}`}>
+          <span
+            className={`hidden rounded-full border px-2.5 py-1 text-xs font-bold sm:inline-flex ${status.className}`}
+          >
             {status.label}
           </span>
 
@@ -348,7 +411,9 @@ function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold sm:hidden ${status.className}`}>
+        <span
+          className={`rounded-full border px-2.5 py-1 text-xs font-bold sm:hidden ${status.className}`}
+        >
           {status.label}
         </span>
 

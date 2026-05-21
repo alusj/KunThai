@@ -1,6 +1,10 @@
 import { createElement, useEffect, useState } from "react";
 import { FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
-import { fetchTransportFleets, getTransportFleets } from "../services/transportFleetService";
+import {
+  fetchTransportFleets,
+  getTransportFleets,
+  subscribeToFleetUpdates,
+} from "../services/transportFleetService";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
@@ -9,8 +13,10 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
   const [fleets, setFleets] = useState(() => getTransportFleets(selection));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const modeLabel =
     selection.mode === "topRated" ? "All Fleets" : selection.mode === "ride" ? "Ride" : "Delivery";
+
   const helperText =
     selection.mode === "topRated"
       ? "Highest rated fleets are shown first across all categories."
@@ -18,25 +24,32 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError("");
 
-    fetchTransportFleets(selection)
-      .then((items) => {
+    async function loadFleets() {
+      try {
+        setLoading(true);
+        setError("");
+        const items = await fetchTransportFleets(selection);
         if (alive) setFleets(items);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (alive) {
           setError(err.message || "Unable to load fleets.");
           setFleets([]);
         }
-      })
-      .finally(() => {
+      } finally {
         if (alive) setLoading(false);
-      });
+      }
+    }
+
+    loadFleets();
+
+    const unsubscribe = subscribeToFleetUpdates(() => {
+      loadFleets();
+    });
 
     return () => {
       alive = false;
+      unsubscribe?.();
     };
   }, [selection]);
 
@@ -50,18 +63,17 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
             historyKey="transport-fleet-list"
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           />
+
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-bold text-gray-950">
-              {selection.label}
-            </h1>
-            <p className="truncate text-xs text-gray-500">
-              {helperText}
-            </p>
+            <h1 className="truncate text-lg font-bold text-gray-950">{selection.label}</h1>
+            <p className="truncate text-xs text-gray-500">{helperText}</p>
           </div>
+
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
               {fleets.length} found
             </span>
+
             <button
               type="button"
               onClick={() => onOpenBooking?.({ selection })}
@@ -90,17 +102,17 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
         ) : fleets.length === 0 ? (
           <EmptyState title="No fleets available" body="No visible operators match this transport sector yet." />
         ) : (
-        <div className="grid gap-3 2xl:grid-cols-2">
-          {fleets.map((fleet) => (
-            <FleetListCard
-              key={fleet.id}
-              fleet={fleet}
-              onViewFleet={() => onViewFleet(fleet.id)}
-              onShowVerification={() => onShowVerification(fleet)}
-              onOpenBooking={() => onOpenBooking?.({ fleet, selection })}
-            />
-          ))}
-        </div>
+          <div className="grid gap-3 2xl:grid-cols-2">
+            {fleets.map((fleet) => (
+              <FleetListCard
+                key={fleet.id}
+                fleet={fleet}
+                onViewFleet={() => onViewFleet(fleet.id)}
+                onShowVerification={() => onShowVerification(fleet)}
+                onOpenBooking={() => onOpenBooking?.({ fleet, selection })}
+              />
+            ))}
+          </div>
         )}
       </main>
     </div>
@@ -108,7 +120,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
 }
 
 function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }) {
-  const status = verificationStatuses[fleet.verificationStatus];
+  const status = verificationStatuses[fleet.verificationStatus] || verificationStatuses.pending;
   const isActive = fleet.activeStatus === "active";
 
   return (
@@ -124,6 +136,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
               {[fleet.serviceCategory, fleet.fleetType, fleet.color].filter(Boolean).join(" - ")}
             </p>
           </div>
+
           <div className="lg:mt-3">
             <StatusPill active={isActive} />
           </div>
@@ -144,7 +157,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
       <div className="grid gap-2 text-sm text-gray-600">
         {isActive ? (
           <>
-            <InfoLine icon={FiNavigation} text={`${fleet.distanceKm} km away - ETA ${fleet.etaMinutes} min`} />
+            <InfoLine icon={FiNavigation} text={`${fleet.distanceKm || 0} km away - ETA ${fleet.etaMinutes || "N/A"} min`} />
             <InfoLine icon={FiMapPin} text={fleet.currentLocation} />
           </>
         ) : (
@@ -153,15 +166,14 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
             <InfoLine icon={FiMapPin} text={`Last seen at ${fleet.lastKnownLocation}`} />
           </>
         )}
-        <InfoLine
-          icon={FiStar}
-          text={`${fleet.rating || "New"} rating - ${fleet.trips || 0} completed trips`}
-        />
+
+        <InfoLine icon={FiStar} text={`${fleet.rating || "New"} rating - ${fleet.trips || 0} completed trips`} />
         {fleet.operatorName ? <InfoLine icon={FiClock} text={`Operator: ${fleet.operatorName}`} /> : null}
       </div>
 
       <div className="flex flex-col gap-2 lg:items-end">
         <span className="text-sm font-bold text-gray-950 lg:text-right">{fleet.priceHint}</span>
+
         <button
           type="button"
           onClick={onOpenBooking}
@@ -170,6 +182,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
         >
           {isActive ? "Open booking" : "Offline"}
         </button>
+
         <button
           type="button"
           onClick={onViewFleet}
