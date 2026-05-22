@@ -16,27 +16,32 @@ const DEFAULT_CENTER = {
 const ROUTE_STATUS = {
   correct: {
     label: "On recommended route",
+    message: "You are moving correctly on the recommended route.",
     color: "#16a34a",
     className: "bg-green-100 text-green-700",
   },
   warning: {
     label: "Slightly off route",
+    message: "You may be moving away from the recommended route. Check the map carefully.",
     color: "#eab308",
     className: "bg-yellow-100 text-yellow-700",
   },
   wrong: {
     label: "Wrong route detected",
+    message: "You are far from the recommended route or moving backward. Consider rerouting.",
     color: "#dc2626",
     className: "bg-red-100 text-red-700",
   },
 };
 
 const GPS_SETTINGS = {
-  animationMs: 900,
-  ignoreAccuracyAboveMeters: 180,
+  animationMs: 1200,
+  ignoreAccuracyAboveMeters: 150,
   correctRouteMeters: 45,
   warningRouteMeters: 120,
   progressBacktrackSegments: 3,
+  ignoreTinyMoveMeters: 3,
+  jumpDistanceMeters: 250,
 };
 
 const osmRasterStyle = {
@@ -80,7 +85,6 @@ function createLabeledMarker(label, bgColor) {
   badge.style.color = "white";
   badge.style.fontSize = "11px";
   badge.style.fontWeight = "900";
-  badge.style.letterSpacing = "0.5px";
   badge.style.padding = "4px 9px";
   badge.style.borderRadius = "999px";
   badge.style.whiteSpace = "nowrap";
@@ -117,15 +121,15 @@ function createLiveUserMarker() {
 
   const pulse = document.createElement("div");
   pulse.style.position = "absolute";
-  pulse.style.width = "64px";
-  pulse.style.height = "64px";
+  pulse.style.width = "58px";
+  pulse.style.height = "58px";
   pulse.style.borderRadius = "999px";
-  pulse.style.background = "rgba(22, 163, 74, 0.20)";
-  pulse.style.border = "2px solid rgba(22, 163, 74, 0.28)";
+  pulse.style.background = "rgba(22, 163, 74, 0.18)";
+  pulse.style.border = "2px solid rgba(22, 163, 74, 0.24)";
 
   const dot = document.createElement("div");
-  dot.style.width = "26px";
-  dot.style.height = "26px";
+  dot.style.width = "24px";
+  dot.style.height = "24px";
   dot.style.borderRadius = "999px";
   dot.style.background = "#16a34a";
   dot.style.border = "4px solid white";
@@ -166,10 +170,8 @@ function createOperatorMarker(operator) {
   wrapper.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
   wrapper.style.color = "white";
   wrapper.style.fontSize = "20px";
-  wrapper.style.fontWeight = "900";
   wrapper.title = operator?.name || "Operator";
   wrapper.textContent = operator?.type === "keke" ? "🛺" : operator?.type === "car" ? "🚗" : "🏍️";
-
   return wrapper;
 }
 
@@ -203,10 +205,7 @@ function easeOutCubic(value) {
 }
 
 function normalizeRoutePoint(coord) {
-  return {
-    lng: coord[0],
-    lat: coord[1],
-  };
+  return { lng: coord[0], lat: coord[1] };
 }
 
 function projectToMeters(point, origin) {
@@ -232,13 +231,9 @@ function distanceToRouteSegment(position, startCoord, endCoord) {
   const segmentY = b.y - a.y;
   const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
 
-  if (!segmentLengthSquared) {
-    return distanceInMeters(position, start);
-  }
+  if (!segmentLengthSquared) return distanceInMeters(position, start);
 
-  const projection =
-    ((p.x - a.x) * segmentX + (p.y - a.y) * segmentY) / segmentLengthSquared;
-
+  const projection = ((p.x - a.x) * segmentX + (p.y - a.y) * segmentY) / segmentLengthSquared;
   const clampedProjection = Math.max(0, Math.min(1, projection));
 
   const nearest = {
@@ -254,21 +249,14 @@ function distanceToRouteSegment(position, startCoord, endCoord) {
 
 function getNearestRouteInfo(position, coordinates = []) {
   if (!position || coordinates.length < 2) {
-    return {
-      distance: Infinity,
-      segmentIndex: 0,
-    };
+    return { distance: Infinity, segmentIndex: 0 };
   }
 
   let nearestDistance = Infinity;
   let nearestSegmentIndex = 0;
 
   for (let index = 0; index < coordinates.length - 1; index += 1) {
-    const distance = distanceToRouteSegment(
-      position,
-      coordinates[index],
-      coordinates[index + 1]
-    );
+    const distance = distanceToRouteSegment(position, coordinates[index], coordinates[index + 1]);
 
     if (distance < nearestDistance) {
       nearestDistance = distance;
@@ -276,10 +264,7 @@ function getNearestRouteInfo(position, coordinates = []) {
     }
   }
 
-  return {
-    distance: nearestDistance,
-    segmentIndex: nearestSegmentIndex,
-  };
+  return { distance: nearestDistance, segmentIndex: nearestSegmentIndex };
 }
 
 function getRouteStatus(distanceFromRoute, isMovingBackward) {
@@ -291,7 +276,6 @@ function getRouteStatus(distanceFromRoute, isMovingBackward) {
 
 function setRouteLineColor(map, color) {
   if (!map?.getLayer("route-line")) return;
-
   map.setPaintProperty("route-line", "line-color", color);
 }
 
@@ -300,9 +284,10 @@ function getSmoothedPosition(previousPosition, nextPosition) {
 
   const distance = distanceInMeters(previousPosition, nextPosition);
 
-  if (distance <= 2) return previousPosition;
+  if (distance <= GPS_SETTINGS.ignoreTinyMoveMeters) return previousPosition;
+  if (distance >= GPS_SETTINGS.jumpDistanceMeters) return nextPosition;
 
-  const smoothingPower = distance > 80 ? 0.8 : distance > 35 ? 0.55 : 0.35;
+  const smoothingPower = distance > 80 ? 0.45 : distance > 35 ? 0.32 : 0.22;
 
   return {
     ...nextPosition,
@@ -326,9 +311,7 @@ function animateMarkerTo(marker, fromPosition, toPosition, duration = GPS_SETTIN
 
     marker.setLngLat([nextLng, nextLat]);
 
-    if (progress < 1) {
-      frameId = requestAnimationFrame(step);
-    }
+    if (progress < 1) frameId = requestAnimationFrame(step);
   }
 
   frameId = requestAnimationFrame(step);
@@ -345,6 +328,7 @@ export default function NearbyAreaMap({
   selectedLocation,
   focusMode = false,
   operatorLocations = [],
+  recenterSignal = 0,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -356,15 +340,15 @@ export default function NearbyAreaMap({
   const markerAnimationCancelRef = useRef(null);
   const lastRouteSegmentIndexRef = useRef(0);
   const operatorMarkersRef = useRef(new Map());
+  const routeStatusRef = useRef("correct");
 
-  const [locationStatus, setLocationStatus] = useState(
-    `Showing ${DEFAULT_CENTER.label}`
-  );
+  const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
   const [userLocation, setUserLocation] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
   const [routeError, setRouteError] = useState("");
   const [routeStatusKey, setRouteStatusKey] = useState("correct");
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
+  const [navigationMinimized, setNavigationMinimized] = useState(false);
 
   const routeStatus = ROUTE_STATUS[routeStatusKey];
 
@@ -381,19 +365,7 @@ export default function NearbyAreaMap({
       attributionControl: true,
     });
 
-    map.addControl(
-      new maplibregl.NavigationControl({ visualizePitch: true }),
-      "bottom-right"
-    );
-
-    map.addControl(
-      new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserHeading: true,
-      }),
-      "bottom-right"
-    );
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
 
     mapRef.current = map;
     onMapReady?.(map);
@@ -408,9 +380,7 @@ export default function NearbyAreaMap({
     return () => {
       markerAnimationCancelRef.current?.();
 
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
 
       operatorMarkersRef.current.forEach((marker) => marker.remove());
       operatorMarkersRef.current.clear();
@@ -457,7 +427,7 @@ export default function NearbyAreaMap({
 
         mapRef.current?.flyTo({
           center: [nextCenter.lng, nextCenter.lat],
-          zoom: 14,
+          zoom: 15,
           essential: true,
         });
 
@@ -473,9 +443,20 @@ export default function NearbyAreaMap({
         enableHighAccuracy: true,
         timeout: 8000,
         maximumAge: 60000,
-      }
+      },
     );
   }, [onLocationResolved]);
+
+  useEffect(() => {
+    const current = smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
+
+    mapRef.current?.easeTo({
+      center: [current.lng, current.lat],
+      zoom: Math.max(mapRef.current.getZoom(), 15),
+      duration: 600,
+      essential: true,
+    });
+  }, [recenterSignal]);
 
   useEffect(() => {
     async function drawRoute() {
@@ -487,6 +468,8 @@ export default function NearbyAreaMap({
       setRouteError("");
       setRouteInfo(null);
       setRouteStatusKey("correct");
+      routeStatusRef.current = "correct";
+      setNavigationMinimized(false);
       lastRouteSegmentIndexRef.current = 0;
 
       destinationMarkerRef.current?.remove();
@@ -531,19 +514,11 @@ export default function NearbyAreaMap({
       });
 
       const bounds = new maplibregl.LngLatBounds();
-
-      route.geometry.coordinates.forEach((coord) => {
-        bounds.extend(coord);
-      });
+      route.geometry.coordinates.forEach((coord) => bounds.extend(coord));
 
       map.fitBounds(bounds, {
-        padding: {
-          top: 160,
-          bottom: 160,
-          left: 90,
-          right: 90,
-        },
-        duration: 1200,
+        padding: { top: 140, bottom: 230, left: 70, right: 70 },
+        duration: 1000,
       });
 
       setRouteInfo({
@@ -558,7 +533,7 @@ export default function NearbyAreaMap({
       console.error(error);
       setRouteError("Route unavailable. Try another location.");
     });
-  }, [selectedLocation, userLocation]);
+  }, [selectedLocation]);
 
   useEffect(() => {
     if (!navigator.geolocation || !mapRef.current) return;
@@ -587,13 +562,14 @@ export default function NearbyAreaMap({
           speed: position.coords.speed,
         };
 
-        const previousSmoothedPosition =
-          smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
+        const previousSmoothedPosition = smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
+        const livePosition = getSmoothedPosition(previousSmoothedPosition, rawLivePosition);
+        const movedMeters = distanceInMeters(previousSmoothedPosition, livePosition);
 
-        const livePosition = getSmoothedPosition(
-          previousSmoothedPosition,
-          rawLivePosition
-        );
+        if (movedMeters <= GPS_SETTINGS.ignoreTinyMoveMeters) {
+          setGpsAccuracy(accuracy);
+          return;
+        }
 
         setGpsAccuracy(accuracy);
         setLocationStatus("Live tracking active");
@@ -604,10 +580,14 @@ export default function NearbyAreaMap({
         markerAnimationCancelRef.current = animateMarkerTo(
           userMarkerRef.current,
           previousSmoothedPosition,
-          livePosition
+          livePosition,
         );
 
         smoothedPositionRef.current = livePosition;
+
+        if (routeInfo && routeStatusRef.current === "correct") {
+          setNavigationMinimized(true);
+        }
 
         if (focusMode) {
           mapRef.current?.easeTo({
@@ -618,10 +598,7 @@ export default function NearbyAreaMap({
         }
 
         if (routeCoordinatesRef.current.length) {
-          const nearestRouteInfo = getNearestRouteInfo(
-            livePosition,
-            routeCoordinatesRef.current
-          );
+          const nearestRouteInfo = getNearestRouteInfo(livePosition, routeCoordinatesRef.current);
 
           const isMovingBackward =
             nearestRouteInfo.segmentIndex + GPS_SETTINGS.progressBacktrackSegments <
@@ -630,16 +607,21 @@ export default function NearbyAreaMap({
           if (!isMovingBackward) {
             lastRouteSegmentIndexRef.current = Math.max(
               lastRouteSegmentIndexRef.current,
-              nearestRouteInfo.segmentIndex
+              nearestRouteInfo.segmentIndex,
             );
           }
 
-          const nextStatusKey = getRouteStatus(
-            nearestRouteInfo.distance,
-            isMovingBackward
-          );
+          const nextStatusKey = getRouteStatus(nearestRouteInfo.distance, isMovingBackward);
 
-          setRouteStatusKey(nextStatusKey);
+          if (nextStatusKey !== routeStatusRef.current) {
+            routeStatusRef.current = nextStatusKey;
+            setRouteStatusKey(nextStatusKey);
+
+            if (nextStatusKey === "warning" || nextStatusKey === "wrong") {
+              setNavigationMinimized(false);
+            }
+          }
+
           setRouteLineColor(mapRef.current, ROUTE_STATUS[nextStatusKey].color);
         }
       },
@@ -648,9 +630,9 @@ export default function NearbyAreaMap({
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 2500,
+        maximumAge: 2000,
         timeout: 12000,
-      }
+      },
     );
 
     return () => {
@@ -659,7 +641,7 @@ export default function NearbyAreaMap({
         watchIdRef.current = null;
       }
     };
-  }, [focusMode, onLocationResolved, userLocation]);
+  }, [focusMode, onLocationResolved, routeInfo, userLocation]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -698,70 +680,89 @@ export default function NearbyAreaMap({
   return (
     <div className="absolute inset-0 bg-slate-900">
       <div ref={mapContainerRef} className="absolute inset-0 h-full w-full" />
-
       <div className="pointer-events-none absolute inset-0 bg-slate-950/10" />
 
       {!focusMode && (
-        <div className="pointer-events-none absolute left-3 top-24 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow sm:left-5 sm:top-28">
+        <div className="pointer-events-none absolute left-3 top-28 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow sm:left-5 sm:top-28">
           {locationStatus}
-          {gpsAccuracy ? (
-            <span className="ml-2 text-slate-400">GPS {gpsAccuracy}m</span>
-          ) : null}
+          {gpsAccuracy ? <span className="ml-2 text-slate-400">GPS {gpsAccuracy}m</span> : null}
         </div>
       )}
 
       {routeInfo && (
-        <div className="absolute bottom-24 left-4 z-30 w-[calc(100%-2rem)] max-w-md rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-6">
+        <div
+          className={`absolute left-3 right-3 z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur transition-all sm:left-5 sm:right-auto sm:max-w-md ${
+            navigationMinimized ? "bottom-24 p-3 sm:bottom-6" : "bottom-24 p-4 sm:bottom-6"
+          }`}
+        >
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-black uppercase tracking-wide text-green-600">
               Live Navigation
             </p>
 
-            <span
-              className={`rounded-full px-2.5 py-1 text-[11px] font-black ${routeStatus.className}`}
-            >
-              {routeStatus.label}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${routeStatus.className}`}>
+                {routeStatus.label}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setNavigationMinimized((value) => !value)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+                aria-label={navigationMinimized ? "Expand navigation" : "Minimize navigation"}
+              >
+                {navigationMinimized ? "＋" : "－"}
+              </button>
+            </div>
           </div>
 
-          <div className="mt-2 flex items-center justify-between gap-4">
-            <div>
+          {navigationMinimized ? (
+            <div className="mt-2 flex items-center justify-between gap-3">
               <h3 className="text-lg font-black">
                 {routeInfo.distance} • {routeInfo.duration}
               </h3>
-              <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">
-                To: {routeInfo.to}
+              <span className={`rounded-2xl px-3 py-2 text-xs font-black ${routeStatus.className}`}>
+                {routeStatusKey.toUpperCase()}
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-black sm:text-lg">
+                    {routeInfo.distance} • {routeInfo.duration}
+                  </h3>
+                  <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">
+                    To: {routeInfo.to}
+                  </p>
+                </div>
+
+                <div className={`rounded-2xl px-3 py-2 text-xs font-black ${routeStatus.className}`}>
+                  {routeStatusKey.toUpperCase()}
+                </div>
+              </div>
+
+              <p className="mt-3 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600">
+                {routeStatus.message}
               </p>
-            </div>
 
-            <div
-              className={`rounded-2xl px-3 py-2 text-xs font-black ${routeStatus.className}`}
-            >
-              {routeStatusKey.toUpperCase()}
-            </div>
-          </div>
+              <div className="mt-3 grid gap-2 text-xs font-bold text-slate-600">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-full bg-green-600" />
+                  <span>
+                    <strong className="text-slate-900">Start:</strong> {routeInfo.from}
+                  </span>
+                </div>
 
-          <div className="mt-3 grid gap-2 text-xs font-bold text-slate-600">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 shrink-0 rounded-full bg-green-600" />
-              <span>
-                <strong className="text-slate-900">Start:</strong>{" "}
-                {routeInfo.from}
-              </span>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-600" />
-              <span className="line-clamp-2">
-                <strong className="text-slate-900">End:</strong>{" "}
-                {routeInfo.to}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-3 rounded-2xl bg-slate-100 px-3 py-2 text-[11px] font-bold text-slate-500">
-            Green = correct route • Yellow = slight deviation • Red = wrong route
-          </div>
+                <div className="flex items-start gap-2">
+                  <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-600" />
+                  <span className="line-clamp-2">
+                    <strong className="text-slate-900">End:</strong> {routeInfo.to}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

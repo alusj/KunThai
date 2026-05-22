@@ -2,17 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import {
   FiAlertTriangle,
   FiBookmark,
-  FiChevronDown,
   FiCrosshair,
   FiEye,
   FiEyeOff,
   FiLock,
   FiMapPin,
+  FiNavigation,
   FiPhone,
   FiPlus,
   FiSearch,
   FiShield,
   FiUnlock,
+  FiX,
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
 import NearbyAreaMap from "./area/NearbyAreaMap";
@@ -38,11 +39,12 @@ const addCategories = [
   "Other",
 ];
 
+function getShortAddress(result) {
+  return result.address || result.fullAddress || result.placeName || "Freetown, Sierra Leone";
+}
+
 function getDemoOperatorLocations(mapCenter) {
-  const center = mapCenter || {
-    lat: 8.4657,
-    lng: -13.2317,
-  };
+  const center = mapCenter || { lat: 8.4657, lng: -13.2317 };
 
   return [
     {
@@ -80,22 +82,21 @@ export default function NearbyAreaScreen({ onBack }) {
   const [mapCenter, setMapCenter] = useState(null);
   const [focusMode, setFocusMode] = useState(false);
   const [mapLocked, setMapLocked] = useState(false);
-
+  const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [selectionLocked, setSelectionLocked] = useState(false);
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedSearchLocation, setSelectedSearchLocation] = useState(null);
+  const [recenterSignal, setRecenterSignal] = useState(0);
 
   const filteredLocations = useMemo(() => {
     if (activeCategory === "All") return nearbyLocations;
     return nearbyLocations.filter((location) => location.category === activeCategory);
   }, [activeCategory]);
 
-  const operatorLocations = useMemo(() => {
-    return getDemoOperatorLocations(mapCenter);
-  }, [mapCenter]);
+  const operatorLocations = useMemo(() => getDemoOperatorLocations(mapCenter), [mapCenter]);
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
@@ -117,14 +118,14 @@ export default function NearbyAreaScreen({ onBack }) {
 
       try {
         const results = await searchLocations(text, mapCenter);
-        setSearchResults(results);
+        setSearchResults(results || []);
       } catch (error) {
         console.error(error);
         setSearchResults([]);
       } finally {
         setSearching(false);
       }
-    }, 450);
+    }, 350);
 
     return () => window.clearTimeout(timeout);
   }, [searchQuery, mapCenter, selectionLocked]);
@@ -135,13 +136,17 @@ export default function NearbyAreaScreen({ onBack }) {
   }
 
   function handleUseCurrentArea() {
-    if (!mapCenter || !mapInstance) return;
+    setFocusMode(false);
+    setRecenterSignal((value) => value + 1);
+  }
 
-    mapInstance.flyTo({
-      center: [mapCenter.lng, mapCenter.lat],
-      zoom: 16,
-      essential: true,
-    });
+  function handleEmergencyOpen() {
+    setActiveCategory("Emergency");
+    const emergency = nearbyLocations.find((item) => item.category === "Emergency");
+    if (emergency) {
+      setActiveLocation(emergency);
+      setLocationPanelOpen(true);
+    }
   }
 
   function handleSelectSearchResult(result) {
@@ -150,15 +155,14 @@ export default function NearbyAreaScreen({ onBack }) {
     setSearchResults([]);
     setSearching(false);
     setLocationPanelOpen(false);
+    setSearchOverlayOpen(false);
     setSelectedSearchLocation(result);
 
-    if (document.activeElement) {
-      document.activeElement.blur();
-    }
+    if (document.activeElement) document.activeElement.blur();
 
     mapInstance?.flyTo({
       center: [result.lng, result.lat],
-      zoom: 15,
+      zoom: 15.5,
       essential: true,
     });
   }
@@ -172,6 +176,7 @@ export default function NearbyAreaScreen({ onBack }) {
           selectedLocation={selectedSearchLocation}
           focusMode={focusMode}
           operatorLocations={operatorLocations}
+          recenterSignal={recenterSignal}
         >
           <div className="pointer-events-none absolute inset-0 z-10">
             {!focusMode &&
@@ -190,7 +195,7 @@ export default function NearbyAreaScreen({ onBack }) {
         </NearbyAreaMap>
 
         <header className="absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <AppBackTab
               onBack={() => {
                 if (mapLocked) return;
@@ -198,100 +203,53 @@ export default function NearbyAreaScreen({ onBack }) {
               }}
               label={mapLocked ? "Map locked" : "Back to transport"}
               historyKey="transport-nearby-area"
-              className={`h-11 w-11 rounded-full shadow-lg ${
-                mapLocked
-                  ? "bg-slate-900 text-white opacity-70"
-                  : "bg-white/95 text-slate-900 hover:bg-white"
+              className={`h-12 w-12 rounded-2xl shadow-lg ${
+                mapLocked ? "bg-slate-900 text-white opacity-70" : "bg-white/95 text-slate-900 hover:bg-white"
               }`}
-              iconSize={21}
+              iconSize={22}
             />
 
-            <div className="relative min-w-0 flex-1">
-              <label className="relative block">
-                <FiSearch
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                  size={19}
-                />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => {
-                    setSelectionLocked(false);
-                    setSearchQuery(event.target.value);
-                  }}
-                  placeholder="Search street, shop, school, pickup point"
-                  className="h-12 w-full rounded-2xl border border-white/10 bg-white/95 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-                />
-              </label>
+            <button
+              type="button"
+              onClick={() => setSearchOverlayOpen(true)}
+              className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-2xl bg-white/95 px-4 text-left text-slate-900 shadow-lg"
+            >
+              <FiSearch className="shrink-0 text-slate-400" size={20} />
+              <span className="truncate text-sm font-black sm:text-base">
+                {searchQuery || "Search street, shop, school, pickup point"}
+              </span>
+            </button>
 
-              {(searching || searchResults.length > 0) && (
-                <div className="absolute left-0 right-0 top-14 z-50 overflow-hidden rounded-2xl bg-white text-slate-900 shadow-2xl">
-                  {searching ? (
-                    <div className="px-4 py-3 text-sm font-bold text-slate-500">
-                      Searching locations...
-                    </div>
-                  ) : (
-                    searchResults.map((result) => (
-                      <button
-                        key={result.id}
-                        type="button"
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          handleSelectSearchResult(result);
-                        }}
-                        className="block w-full border-b border-slate-100 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                      >
-                        {result.name}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => setFocusMode((value) => !value)}
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg transition ${
+                focusMode ? "bg-slate-950 text-white" : "bg-white/95 text-slate-900 hover:bg-white"
+              }`}
+              aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"}
+            >
+              {focusMode ? <FiEyeOff size={21} /> : <FiEye size={21} />}
+            </button>
 
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFocusMode((value) => !value)}
-                className={`flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold shadow-lg transition sm:w-auto sm:px-4 ${
-                  focusMode
-                    ? "bg-slate-950 text-white"
-                    : "bg-white/90 text-slate-900 hover:bg-white"
-                }`}
-                aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"}
-              >
-                {focusMode ? <FiEyeOff size={20} /> : <FiEye size={20} />}
-                <span className="ml-2 hidden sm:inline">
-                  {focusMode ? "Show" : "Focus"}
-                </span>
-              </button>
+            <button
+              type="button"
+              onClick={() => setMapLocked((value) => !value)}
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg transition ${
+                mapLocked ? "bg-green-600 text-white" : "bg-white/95 text-slate-900 hover:bg-white"
+              }`}
+              aria-label={mapLocked ? "Unlock map screen" : "Lock map screen"}
+            >
+              {mapLocked ? <FiLock size={21} /> : <FiUnlock size={21} />}
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setMapLocked((value) => !value)}
-                className={`flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold shadow-lg transition sm:w-auto sm:px-4 ${
-                  mapLocked
-                    ? "bg-green-600 text-white"
-                    : "bg-white/90 text-slate-900 hover:bg-white"
-                }`}
-                aria-label={mapLocked ? "Unlock map screen" : "Lock map screen"}
-              >
-                {mapLocked ? <FiLock size={20} /> : <FiUnlock size={20} />}
-                <span className="ml-2 hidden sm:inline">
-                  {mapLocked ? "Locked" : "Lock"}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={openAddLocation}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-600 text-sm font-bold text-white shadow-lg transition hover:bg-green-700 sm:w-auto sm:px-4"
-                aria-label="Add location"
-              >
-                <FiPlus size={20} />
-                <span className="ml-2 hidden sm:inline">Add Location</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={openAddLocation}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white shadow-lg transition hover:bg-green-700"
+              aria-label="Add location"
+            >
+              <FiPlus size={22} />
+            </button>
           </div>
 
           {!focusMode && (
@@ -301,10 +259,10 @@ export default function NearbyAreaScreen({ onBack }) {
                   key={category}
                   type="button"
                   onClick={() => setActiveCategory(category)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold shadow ${
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-black shadow ${
                     activeCategory === category
                       ? "bg-green-600 text-white"
-                      : "bg-slate-900/75 text-white backdrop-blur"
+                      : "bg-slate-900/80 text-white backdrop-blur"
                   }`}
                 >
                   {category}
@@ -315,22 +273,31 @@ export default function NearbyAreaScreen({ onBack }) {
         </header>
 
         {!focusMode && (
-          <div className="absolute bottom-32 right-4 z-20 grid gap-3 sm:bottom-8">
+          <div className="absolute bottom-32 right-4 z-30 grid gap-3 sm:bottom-8">
             <button
               type="button"
-              onClick={handleUseCurrentArea}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900/85 text-white shadow-lg"
-              aria-label="Use current area"
+              onClick={handleEmergencyOpen}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl"
+              aria-label="Emergency"
             >
-              <FiCrosshair size={21} />
+              <FiAlertTriangle size={22} />
             </button>
 
             <button
               type="button"
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg"
+              onClick={handleUseCurrentArea}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950/90 text-white shadow-xl"
+              aria-label="Return to current location"
+            >
+              <FiCrosshair size={22} />
+            </button>
+
+            <button
+              type="button"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-xl"
               aria-label="Save current area"
             >
-              <FiBookmark size={21} />
+              <FiBookmark size={22} />
             </button>
           </div>
         )}
@@ -339,12 +306,136 @@ export default function NearbyAreaScreen({ onBack }) {
           <LocationPanel
             activeLocation={activeLocation}
             open={locationPanelOpen}
-            onToggle={() => setLocationPanelOpen((open) => !open)}
+            onClose={() => setLocationPanelOpen(false)}
             onAddLocation={openAddLocation}
           />
         )}
 
+        {searchOverlayOpen && (
+          <SearchOverlay
+            query={searchQuery}
+            setQuery={(value) => {
+              setSelectionLocked(false);
+              setSearchQuery(value);
+            }}
+            searching={searching}
+            results={searchResults}
+            onClose={() => setSearchOverlayOpen(false)}
+            onSelect={handleSelectSearchResult}
+            onUseCurrentLocation={handleUseCurrentArea}
+          />
+        )}
+
         {adding && <AddLocationPanel onClose={() => setAdding(false)} />}
+      </section>
+    </div>
+  );
+}
+
+function SearchOverlay({
+  query,
+  setQuery,
+  searching,
+  results,
+  onClose,
+  onSelect,
+  onUseCurrentLocation,
+}) {
+  return (
+    <div className="fixed inset-0 z-[1400] bg-slate-950/70 backdrop-blur-sm">
+      <section className="mx-auto flex h-full w-full max-w-2xl flex-col bg-white text-slate-950 shadow-2xl sm:mt-4 sm:h-[calc(100vh-2rem)] sm:rounded-3xl">
+        <div className="border-b border-slate-100 px-4 pb-3 pt-4">
+          <div className="mx-auto mb-3 h-1.5 w-20 rounded-full bg-slate-300 sm:hidden" />
+
+          <div className="flex items-center gap-3">
+            <label className="relative min-w-0 flex-1">
+              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={23} />
+              <input
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search KunThai map"
+                className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-lg font-black text-slate-950 outline-none focus:border-green-500"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-slate-200 text-slate-700"
+                >
+                  <FiX size={18} />
+                </button>
+              ) : null}
+            </label>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900"
+              aria-label="Close search"
+            >
+              <FiX size={26} />
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          <button
+            type="button"
+            onClick={() => {
+              onUseCurrentLocation();
+              onClose();
+            }}
+            className="mb-3 flex w-full items-center gap-3 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-left"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+              <FiNavigation size={20} />
+            </span>
+            <span>
+              <span className="block text-base font-black text-slate-950">Use current location</span>
+              <span className="block text-sm font-bold text-slate-500">Return the map to your live position</span>
+            </span>
+          </button>
+
+          {searching ? (
+            <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-black text-slate-500">
+              Searching nearby places...
+            </div>
+          ) : results.length ? (
+            <div className="overflow-hidden rounded-3xl bg-white">
+              {results.map((result) => (
+                <button
+                  key={result.id}
+                  type="button"
+                  onClick={() => onSelect(result)}
+                  className="flex w-full gap-4 border-b border-slate-100 px-2 py-4 text-left hover:bg-slate-50"
+                >
+                  <span className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white">
+                    <FiMapPin size={21} />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-lg font-black text-slate-950">
+                      {result.name}
+                    </span>
+                    <span className="mt-1 block line-clamp-2 text-base font-bold text-slate-500">
+                      {result.distance ? `${result.distance} • ` : ""}
+                      {getShortAddress(result)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : query.trim().length >= 2 ? (
+            <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-black text-slate-500">
+              No clear result found. Try a street, landmark, business name, or area.
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-black text-slate-500">
+              Start typing to search for roads, shops, schools, pickup points, and landmarks.
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
@@ -358,14 +449,9 @@ function MapPinButton({ location, active, onClick }) {
       type="button"
       onClick={onClick}
       className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 p-2 shadow-lg transition duration-200 hover:scale-105 ${
-        active
-          ? "scale-110 border-white bg-green-600"
-          : "border-white/80 bg-slate-900"
+        active ? "scale-110 border-white bg-green-600" : "border-white/80 bg-slate-900"
       } ${isEmergency ? "text-red-300" : "text-white"}`}
-      style={{
-        left: location.position.left,
-        top: location.position.top,
-      }}
+      style={{ left: location.position.left, top: location.position.top }}
       aria-label={location.name}
     >
       {isEmergency ? <FiAlertTriangle size={18} /> : <FiMapPin size={18} />}
@@ -373,58 +459,39 @@ function MapPinButton({ location, active, onClick }) {
   );
 }
 
-function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
-  const status =
-    locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
+function LocationPanel({ activeLocation, open, onClose, onAddLocation }) {
+  const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
 
   if (!open) return null;
 
   return (
-    <aside className="absolute left-3 right-3 top-40 z-30 max-h-[calc(100vh-11rem)] overflow-y-auto rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur transition-opacity sm:left-auto sm:right-5 sm:w-[390px]">
+    <aside className="absolute left-3 right-3 top-36 z-30 max-h-[calc(100vh-10rem)] overflow-y-auto rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:left-auto sm:right-5 sm:w-[390px]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-            Nearby Area
-          </p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Nearby Area</p>
           <h2 className="mt-1 text-xl font-black">{activeLocation?.name}</h2>
           <p className="mt-1 text-sm text-slate-500">
             {activeLocation?.type} - {activeLocation?.distance}
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <span
-            className={`hidden rounded-full border px-2.5 py-1 text-xs font-bold sm:inline-flex ${status.className}`}
-          >
-            {status.label}
-          </span>
-
-          <button
-            type="button"
-            onClick={onToggle}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
-            aria-label="Collapse nearby area card"
-          >
-            <FiChevronDown size={18} />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
+          aria-label="Close location card"
+        >
+          <FiX size={18} />
+        </button>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span
-          className={`rounded-full border px-2.5 py-1 text-xs font-bold sm:hidden ${status.className}`}
-        >
+        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${status.className}`}>
           {status.label}
-        </span>
-
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
-          Opened from Area Card
         </span>
       </div>
 
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        {activeLocation?.description}
-      </p>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{activeLocation?.description}</p>
 
       <div className="mt-4 grid gap-2">
         <button className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white">
@@ -448,13 +515,8 @@ function LocationPanel({ activeLocation, open, onToggle, onAddLocation }) {
 
         <div className="grid gap-2">
           {emergencyContacts.map((contact) => (
-            <div
-              key={contact.id}
-              className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2"
-            >
-              <span className="text-sm font-semibold text-slate-700">
-                {contact.label}
-              </span>
+            <div key={contact.id} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
+              <span className="text-sm font-semibold text-slate-700">{contact.label}</span>
               <span className="flex items-center gap-1 text-xs font-bold text-slate-500">
                 <FiPhone size={13} />
                 {contact.value}
@@ -476,16 +538,10 @@ function AddLocationPanel({ onClose }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-black">Add Location</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Add local places that are missing from normal maps.
-            </p>
+            <p className="mt-1 text-sm text-slate-500">Add local places that are missing from normal maps.</p>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold"
-          >
+          <button type="button" onClick={onClose} className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold">
             Close
           </button>
         </div>
@@ -494,9 +550,7 @@ function AddLocationPanel({ onClose }) {
           <FormInput label="Place name" placeholder="Example: Musa Mini Mart" />
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">
-              Category
-            </span>
+            <span className="mb-2 block text-sm font-bold text-slate-700">Category</span>
             <select
               value={category}
               onChange={(event) => setCategory(event.target.value)}
@@ -509,10 +563,7 @@ function AddLocationPanel({ onClose }) {
           </label>
 
           {category === "Other" ? (
-            <FormInput
-              label="Category name"
-              placeholder="Example: Garage, mosque, office, junction..."
-            />
+            <FormInput label="Category name" placeholder="Example: Garage, mosque, office, junction..." />
           ) : null}
 
           <FormInput label="Street / address" placeholder="Street, junction, or area" />
@@ -522,9 +573,7 @@ function AddLocationPanel({ onClose }) {
         </div>
 
         <label className="mt-3 block">
-          <span className="mb-2 block text-sm font-bold text-slate-700">
-            Why is this place useful?
-          </span>
+          <span className="mb-2 block text-sm font-bold text-slate-700">Why is this place useful?</span>
           <textarea
             rows="3"
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none"
@@ -533,18 +582,11 @@ function AddLocationPanel({ onClose }) {
         </label>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-bold text-slate-700"
-          >
+          <button type="button" className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-bold text-slate-700">
             Drop Pin
           </button>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-11 rounded-2xl bg-green-600 px-4 text-sm font-bold text-white"
-          >
+          <button type="button" onClick={onClose} className="h-11 rounded-2xl bg-green-600 px-4 text-sm font-bold text-white">
             Submit for Review
           </button>
         </div>
