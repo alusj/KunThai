@@ -1,9 +1,7 @@
 import OpenAI from "openai";
 
 const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
 function json(res, status, payload) {
@@ -29,10 +27,7 @@ const LOCAL_BLOCK_WORDS = [
 
 function localTextFlags(text = "") {
   const clean = String(text || "").toLowerCase();
-
-  return LOCAL_BLOCK_WORDS.filter((word) =>
-    clean.includes(word)
-  );
+  return LOCAL_BLOCK_WORDS.filter((word) => clean.includes(word));
 }
 
 function getFlags(result) {
@@ -52,7 +47,6 @@ async function moderateText(body) {
     };
   }
 
-  // LOCAL HARD BLOCK
   const localFlags = localTextFlags(text);
 
   if (localFlags.length) {
@@ -63,29 +57,38 @@ async function moderateText(body) {
     };
   }
 
-  // OPENAI CHECK
   if (!openai) {
     return {
       ok: true,
       provider: "local-fallback",
       flags: [],
-      warning:
-        "OPENAI_API_KEY missing; local moderation only.",
+      warning: "OPENAI_API_KEY missing; local moderation only.",
     };
   }
 
-  const response = await openai.moderations.create({
-    model: "omni-moderation-latest",
-    input: text,
-  });
+  try {
+    const response = await openai.moderations.create({
+      model: "omni-moderation-latest",
+      input: text,
+    });
 
-  const result = response.results?.[0];
+    const result = response.results?.[0];
 
-  return {
-    ok: !result?.flagged,
-    provider: "openai",
-    flags: getFlags(result),
-  };
+    return {
+      ok: !result?.flagged,
+      provider: "openai",
+      flags: getFlags(result),
+    };
+  } catch (error) {
+    console.error("[OpenAI Moderation Failed]", error);
+
+    return {
+      ok: true,
+      provider: "local-fallback",
+      flags: [],
+      warning: "OpenAI moderation unavailable.",
+    };
+  }
 }
 
 export default async function handler(req, res) {
@@ -98,42 +101,21 @@ export default async function handler(req, res) {
 
   try {
     const { body = "", media = {} } = req.body || {};
-
     const results = [];
 
-    // TEXT MODERATION
     const textResult = await moderateText(body);
-
     results.push(textResult);
 
-    // BLOCK POST
     if (!textResult.ok) {
       return json(res, 200, {
         ok: false,
         decision: "blocked",
-        reason:
-          "This post cannot be published because it may violate KunThai safety rules.",
+        reason: "This post cannot be published because it may violate KunThai safety rules.",
         flags: textResult.flags,
         results,
       });
     }
 
-    // SAFE TEXT POSTS
-    if (
-      !media?.imageDataUrl &&
-      !media?.videoDataUrl &&
-      !media?.audioDataUrl
-    ) {
-      return json(res, 200, {
-        ok: true,
-        decision: "approved",
-        reason: "Post passed KunThai safety review.",
-        flags: [],
-        results,
-      });
-    }
-
-    // FUTURE MEDIA MODERATION
     return json(res, 200, {
       ok: true,
       decision: "approved",
@@ -142,23 +124,17 @@ export default async function handler(req, res) {
       results,
     });
   } catch (error) {
-    console.error(
-      "[KunThai Moderation Error]",
-      error
-    );
+    console.error("[KunThai Moderation Error]", error);
 
     return json(res, 200, {
       ok: false,
       decision: "review",
-      reason:
-        "KunThai could not complete the safety review. Please try again.",
+      reason: "KunThai could not complete the safety review. Please try again.",
       flags: ["moderation-error"],
       results: [
         {
           provider: "server-error",
-          message:
-            error.message ||
-            "Moderation temporarily unavailable.",
+          message: error.message || "Moderation temporarily unavailable.",
         },
       ],
     });
