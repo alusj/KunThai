@@ -1,7 +1,9 @@
 import OpenAI from "openai";
 
 const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  ? new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
   : null;
 
 function json(res, status, payload) {
@@ -10,18 +12,27 @@ function json(res, status, payload) {
 
 const LOCAL_BLOCK_WORDS = [
   "kill yourself",
-  "child abuse",
-  "explicit nude",
-  "porn",
-  "terror",
+  "kill everyone",
+  "kill everybody",
+  "i want to kill",
+  "i want to hurt",
+  "hurt everyone",
+  "hurt everybody",
   "banking password",
   "send me your otp",
   "otp now",
+  "explicit nude",
+  "porn",
+  "terror",
+  "child abuse",
 ];
 
 function localTextFlags(text = "") {
-  const clean = String(text).toLowerCase();
-  return LOCAL_BLOCK_WORDS.filter((word) => clean.includes(word));
+  const clean = String(text || "").toLowerCase();
+
+  return LOCAL_BLOCK_WORDS.filter((word) =>
+    clean.includes(word)
+  );
 }
 
 function getFlags(result) {
@@ -34,10 +45,16 @@ async function moderateText(body) {
   const text = String(body || "").trim();
 
   if (!text) {
-    return { ok: true, provider: "local", flags: [] };
+    return {
+      ok: true,
+      provider: "local",
+      flags: [],
+    };
   }
 
+  // LOCAL HARD BLOCK
   const localFlags = localTextFlags(text);
+
   if (localFlags.length) {
     return {
       ok: false,
@@ -46,12 +63,14 @@ async function moderateText(body) {
     };
   }
 
+  // OPENAI CHECK
   if (!openai) {
     return {
       ok: true,
       provider: "local-fallback",
       flags: [],
-      warning: "OPENAI_API_KEY missing; allowed after local safety check.",
+      warning:
+        "OPENAI_API_KEY missing; local moderation only.",
     };
   }
 
@@ -61,6 +80,7 @@ async function moderateText(body) {
   });
 
   const result = response.results?.[0];
+
   return {
     ok: !result?.flagged,
     provider: "openai",
@@ -78,24 +98,32 @@ export default async function handler(req, res) {
 
   try {
     const { body = "", media = {} } = req.body || {};
+
     const results = [];
 
+    // TEXT MODERATION
     const textResult = await moderateText(body);
+
     results.push(textResult);
 
+    // BLOCK POST
     if (!textResult.ok) {
       return json(res, 200, {
         ok: false,
         decision: "blocked",
-        reason: "This post cannot be published because it may violate KunThai safety rules.",
+        reason:
+          "This post cannot be published because it may violate KunThai safety rules.",
         flags: textResult.flags,
         results,
       });
     }
 
-    // For now, allow safe text-only posts.
-    // Image, video, and voice moderation will be strengthened next.
-    if (!media?.imageDataUrl && !media?.videoDataUrl && !media?.audioDataUrl) {
+    // SAFE TEXT POSTS
+    if (
+      !media?.imageDataUrl &&
+      !media?.videoDataUrl &&
+      !media?.audioDataUrl
+    ) {
       return json(res, 200, {
         ok: true,
         decision: "approved",
@@ -105,6 +133,7 @@ export default async function handler(req, res) {
       });
     }
 
+    // FUTURE MEDIA MODERATION
     return json(res, 200, {
       ok: true,
       decision: "approved",
@@ -113,17 +142,23 @@ export default async function handler(req, res) {
       results,
     });
   } catch (error) {
-    console.error("[KunThai Moderation Error]", error);
+    console.error(
+      "[KunThai Moderation Error]",
+      error
+    );
 
     return json(res, 200, {
-      ok: true,
-      decision: "approved-with-warning",
-      reason: "Post passed local safety review. Advanced safety review is temporarily unavailable.",
-      flags: [],
+      ok: false,
+      decision: "review",
+      reason:
+        "KunThai could not complete the safety review. Please try again.",
+      flags: ["moderation-error"],
       results: [
         {
-          provider: "server-error-fallback",
-          message: error.message || "Moderation temporarily unavailable.",
+          provider: "server-error",
+          message:
+            error.message ||
+            "Moderation temporarily unavailable.",
         },
       ],
     });
