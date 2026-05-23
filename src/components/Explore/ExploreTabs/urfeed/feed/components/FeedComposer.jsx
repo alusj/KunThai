@@ -187,7 +187,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           setOpen(true);
           setFeedback("");
           setTrimError("");
-          trimPendingVideo(file, 0);
           return;
         }
 

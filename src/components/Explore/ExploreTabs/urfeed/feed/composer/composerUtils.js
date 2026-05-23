@@ -1,5 +1,5 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile } from "@ffmpeg/util";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
 
 export const DRAFT_KEY = "explore-composer-draft";
 
@@ -7,23 +7,32 @@ const MAX_MEDIA_BYTES = 100 * 1024 * 1024;
 export const MAX_VIDEO_SECONDS = 15;
 
 let ffmpeg = null;
+let ffmpegLoading = null;
 
 async function getFFmpeg() {
   if (ffmpeg) return ffmpeg;
+  if (ffmpegLoading) return ffmpegLoading;
 
-  ffmpeg = new FFmpeg();
+  ffmpegLoading = (async () => {
+    const instance = new FFmpeg();
+    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
 
-  await ffmpeg.load({
-    coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
-  });
+    await instance.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+    });
 
-  return ffmpeg;
+    ffmpeg = instance;
+    return instance;
+  })();
+
+  return ffmpegLoading;
 }
 
 export function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     if (file?.size > MAX_MEDIA_BYTES) {
-      reject(new Error("This media is too large for the current uploader. Please choose a video under 100MB."));
+      reject(new Error("This media is too large. Please choose a video under 100MB."));
       return;
     }
 
@@ -54,50 +63,68 @@ export function getVideoDuration(file) {
 
 export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds = MAX_VIDEO_SECONDS) {
   try {
-    const ffmpeg = await getFFmpeg();
+    const instance = await getFFmpeg();
 
-    const inputName = "input.mp4";
-    const outputName = "output.mp4";
+    const inputName = `input-${Date.now()}.mp4`;
+    const outputName = `clip-${Date.now()}.mp4`;
+    const safeStart = Math.max(0, Number(startSeconds || 0));
+    const safeDuration = Math.max(1, Math.min(Number(durationSeconds || MAX_VIDEO_SECONDS), MAX_VIDEO_SECONDS));
 
-    await ffmpeg.writeFile(inputName, await fetchFile(file));
+    await instance.writeFile(inputName, await fetchFile(file));
 
-    await ffmpeg.exec([
-      "-ss",
-      String(startSeconds),
+    await instance.exec([
       "-i",
       inputName,
+      "-ss",
+      String(safeStart),
       "-t",
-      String(durationSeconds),
+      String(safeDuration),
+      "-map",
+      "0:v:0",
+      "-map",
+      "0:a?",
+      "-vf",
+      "scale='min(720,iw)':-2,format=yuv420p",
       "-c:v",
       "libx264",
       "-preset",
       "ultrafast",
+      "-crf",
+      "28",
       "-c:a",
       "aac",
       "-b:a",
       "128k",
+      "-ar",
+      "44100",
+      "-ac",
+      "2",
       "-movflags",
       "+faststart",
+      "-avoid_negative_ts",
+      "make_zero",
       outputName,
     ]);
 
-    const data = await ffmpeg.readFile(outputName);
+    const data = await instance.readFile(outputName);
+    const blob = new Blob([data.buffer], { type: "video/mp4" });
 
-    const blob = new Blob([data.buffer], {
-      type: "video/mp4",
-    });
+    try {
+      await instance.deleteFile(inputName);
+      await instance.deleteFile(outputName);
+    } catch {
+      // ignore cleanup errors
+    }
 
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
-
       reader.onload = () => resolve(String(reader.result || ""));
       reader.onerror = () => reject(new Error("Unable to save trimmed video."));
-
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error(error);
-    throw new Error("Unable to prepare this video. Please try another clip.");
+    console.error("[KunThai FFmpeg Trim Error]", error);
+    throw new Error("Unable to prepare this video. Please try another clip or choose a shorter video.");
   }
 }
 
@@ -150,7 +177,7 @@ export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           frames.push(canvas.toDataURL("image/jpeg", 0.82));
         } catch {
-          // skip bad frame
+          // skip frame
         }
 
         index += 1;
@@ -167,7 +194,6 @@ export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3) {
 
 export function parseTags(value) {
   const text = String(value || "");
-
   const hashtags = Array.from(new Set((text.match(/#[a-z0-9_]+/gi) || []).map((tag) => tag.slice(1).toLowerCase())));
   const mentions = Array.from(new Set((text.match(/@[a-z0-9_]+/gi) || []).map((tag) => tag.slice(1).toLowerCase())));
 
@@ -178,9 +204,7 @@ export function readDraft() {
   try {
     const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
 
-    if (!draft || typeof draft !== "object") {
-      return {};
-    }
+    if (!draft || typeof draft !== "object") return {};
 
     return {
       ...draft,
@@ -195,16 +219,17 @@ export function readDraft() {
 
 export function writeDraft(draft) {
   try {
-    const safeDraft = {
-      ...draft,
-      image_url: "",
-      video_url: "",
-      audio_url: "",
-    };
-
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(safeDraft));
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({
+        ...draft,
+        image_url: "",
+        video_url: "",
+        audio_url: "",
+      })
+    );
   } catch {
-    // Media can exceed browser storage limits, so drafts stay lightweight.
+    // ignore storage limit
   }
 }
 
