@@ -500,6 +500,8 @@ return fallbackPreview;
     publishPostingUpdate({ status: "posting", stage: "syncing", progress: 92 });
 
     const result = await onSubmit?.({
+      video_trim_start: postDraft.mediaMeta?.videoTrimStart || 0,
+      video_trim_end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
       body: postDraft.body,
       author_name: postDraft.author_name,
       author_username: postDraft.author_username,

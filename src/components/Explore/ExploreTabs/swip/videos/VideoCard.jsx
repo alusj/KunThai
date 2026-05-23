@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
@@ -7,6 +7,23 @@ import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from ".
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 import VideoProgress from "./VideoProgress";
+
+const MAX_SWIP_SECONDS = 15;
+
+function getClipWindow(post, realDuration = 0) {
+  const rawStart =
+    post?.video_trim_start ??
+    post?.videoTrimStart ??
+    post?.media_meta?.videoTrimStart ??
+    post?.mediaMeta?.videoTrimStart ??
+    0;
+
+  const start = Math.max(0, Number(rawStart || 0));
+  const duration = Number.isFinite(realDuration) && realDuration > 0 ? realDuration : 0;
+  const end = duration > 0 ? Math.min(duration, start + MAX_SWIP_SECONDS) : start + MAX_SWIP_SECONDS;
+
+  return { start, end, duration: Math.max(1, end - start) };
+}
 
 export default function VideoCard({
   post,
@@ -29,39 +46,44 @@ export default function VideoCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mediaError, setMediaError] = useState("");
-  const [progress, setProgress] = useState({ currentTime: 0, duration: 0 });
-
+  const [progress, setProgress] = useState({ currentTime: 0, duration: MAX_SWIP_SECONDS });
   const [message, setMessage] = useState("");
+
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
   const activeRef = useRef(false);
+
+  const clip = useMemo(() => getClipWindow(post, progress.realDuration || 0), [post, progress.realDuration]);
 
   useBrowserBack(commentOpen, () => setCommentOpen(false), `swip-comments-${post.id}`);
 
   useEffect(() => {
     setMediaError("");
-    setProgress({ currentTime: 0, duration: 0 });
+    setProgress({ currentTime: 0, duration: MAX_SWIP_SECONDS, realDuration: 0 });
   }, [post.video_url]);
 
-  useEffect(() => () => {
-    window.clearTimeout(holdTimerRef.current);
-    stopAllExploreMedia(null, { muteVideos: false });
-  }, []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(holdTimerRef.current);
+      stopAllExploreMedia(null, { muteVideos: false });
+    },
+    []
+  );
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) {
-      return;
-    }
+    if (!video) return;
 
     activeRef.current = active;
+
     if (active) {
+      video.currentTime = clip.start;
       requestActivePlayback();
       return;
     }
 
     pauseInactiveVideo(video);
-  }, [active, post.video_url]);
+  }, [active, post.video_url, clip.start]);
 
   useEffect(() => {
     function handleSwipActivePlay(event) {
@@ -72,7 +94,7 @@ export default function VideoCard({
 
     window.addEventListener("swip-active-play", handleSwipActivePlay);
     return () => window.removeEventListener("swip-active-play", handleSwipActivePlay);
-  }, [active, post.video_url]);
+  }, [active, post.video_url, clip.start]);
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
@@ -100,59 +122,90 @@ export default function VideoCard({
     video.muted = false;
     video.defaultMuted = false;
     video.volume = 1;
-    if (!Number.isNaN(video.currentTime)) {
-      video.currentTime = 0;
-    }
-    setProgress((current) => ({ ...current, currentTime: 0 }));
+    video.currentTime = clip.start;
+    setProgress((current) => ({
+      ...current,
+      currentTime: 0,
+      duration: MAX_SWIP_SECONDS,
+    }));
   }
 
   function updateVideoProgress(video) {
-    if (!video) {
+    if (!video) return;
+
+    const realDuration = Number.isFinite(video.duration) ? video.duration : 0;
+    const nextClip = getClipWindow(post, realDuration);
+
+    if (video.currentTime < nextClip.start || video.currentTime >= nextClip.end) {
+      video.currentTime = nextClip.start;
+    }
+
+    setProgress({
+      currentTime: Math.max(0, video.currentTime - nextClip.start),
+      duration: nextClip.duration,
+      realDuration,
+    });
+  }
+
+  function handleTimeUpdate(event) {
+    const video = event.currentTarget;
+    const realDuration = Number.isFinite(video.duration) ? video.duration : 0;
+    const nextClip = getClipWindow(post, realDuration);
+
+    if (video.currentTime >= nextClip.end) {
+      video.currentTime = nextClip.start;
+      video.play().catch(() => {});
+      setProgress({ currentTime: 0, duration: nextClip.duration, realDuration });
+      return;
+    }
+
+    if (video.currentTime < nextClip.start) {
+      video.currentTime = nextClip.start;
+      setProgress({ currentTime: 0, duration: nextClip.duration, realDuration });
       return;
     }
 
     setProgress({
-      currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
-      duration: Number.isFinite(video.duration) ? video.duration : 0,
+      currentTime: Math.max(0, video.currentTime - nextClip.start),
+      duration: nextClip.duration,
+      realDuration,
     });
   }
 
   function handleSeek(nextTime) {
     const video = videoRef.current;
-    if (!video || !Number.isFinite(nextTime)) {
-      return;
-    }
+    if (!video || !Number.isFinite(nextTime)) return;
 
-    const duration = Number.isFinite(video.duration) ? video.duration : 0;
-    const clampedTime = duration > 0 ? Math.min(Math.max(nextTime, 0), duration) : 0;
-    video.currentTime = clampedTime;
+    const realDuration = Number.isFinite(video.duration) ? video.duration : 0;
+    const nextClip = getClipWindow(post, realDuration);
+    const clampedRelative = Math.min(Math.max(nextTime, 0), nextClip.duration);
+
+    video.currentTime = nextClip.start + clampedRelative;
     video.muted = false;
     video.defaultMuted = false;
     video.volume = 1;
+
     setProgress({
-      currentTime: clampedTime,
-      duration,
+      currentTime: clampedRelative,
+      duration: nextClip.duration,
+      realDuration,
     });
   }
 
   async function requestActivePlayback() {
-    if (!activeRef.current) {
-      return;
-    }
+    if (!activeRef.current) return;
 
     const video = videoRef.current;
-    if (!video) {
-      return;
+    if (!video) return;
+
+    if (video.currentTime < clip.start || video.currentTime >= clip.end) {
+      video.currentTime = clip.start;
     }
 
-    if (!video.paused && !video.muted) {
-      return;
-    }
-
-    activeRef.current = true;
     video.muted = false;
     video.defaultMuted = false;
     video.volume = 1;
+
     try {
       await playExploreMedia(video, { muteVideos: false });
     } catch {
@@ -167,14 +220,10 @@ export default function VideoCard({
   }
 
   function handleVideoTap() {
-    if (!activeRef.current) {
-      return;
-    }
+    if (!activeRef.current) return;
 
     const video = videoRef.current;
-    if (!video) {
-      return;
-    }
+    if (!video) return;
 
     video.muted = false;
     video.defaultMuted = false;
@@ -189,32 +238,24 @@ export default function VideoCard({
   }
 
   function handlePointerDown(event) {
-    if (shouldIgnoreVideoGesture(event)) {
-      return;
-    }
-
+    if (shouldIgnoreVideoGesture(event)) return;
     window.clearTimeout(holdTimerRef.current);
   }
 
   function handlePointerUp(event) {
-    if (shouldIgnoreVideoGesture(event)) {
-      return;
-    }
-
+    if (shouldIgnoreVideoGesture(event)) return;
     window.clearTimeout(holdTimerRef.current);
   }
 
   useEffect(() => {
     const video = videoRef.current;
-
-    if (!video) {
-      return undefined;
-    }
+    if (!video) return undefined;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && active) {
           activeRef.current = true;
+          video.currentTime = clip.start;
           requestActivePlayback();
           return;
         }
@@ -222,17 +263,18 @@ export default function VideoCard({
         activeRef.current = false;
         pauseInactiveVideo(video);
       },
-      { threshold: 0.72 },
+      { threshold: 0.72 }
     );
 
     observer.observe(video);
+
     return () => {
       observer.disconnect();
       pauseInactiveVideo(video);
     };
-  }, [active, post.video_url]);
+  }, [active, post.video_url, clip.start]);
 
-  const content = (
+  return (
     <article
       id={`post-${post.id}`}
       onClick={(event) => {
@@ -252,7 +294,7 @@ export default function VideoCard({
         muted={false}
         defaultMuted={false}
         playsInline
-        loop
+        loop={false}
         onError={() => setMediaError("Video is still being prepared.")}
         onCanPlay={() => {
           updateVideoProgress(videoRef.current);
@@ -261,10 +303,11 @@ export default function VideoCard({
         onDurationChange={(event) => updateVideoProgress(event.currentTarget)}
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
-        onTimeUpdate={(event) => updateVideoProgress(event.currentTarget)}
+        onTimeUpdate={handleTimeUpdate}
         preload="auto"
         className="absolute inset-0 h-full w-full object-cover"
       />
+
       {mediaError ? <div className="absolute inset-0 z-[1] bg-slate-950" /> : null}
       <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
 
@@ -301,33 +344,26 @@ export default function VideoCard({
         onCountChange={onComment}
         onViewProfile={onViewProfile}
       />
-      {message && !fullscreen ? <p className="absolute left-4 top-16 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-sky-700">{message}</p> : null}
+
+      {message && !fullscreen ? (
+        <p className="absolute left-4 top-16 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-sky-700">
+          {message}
+        </p>
+      ) : null}
+
       {deleteOpen ? (
         <div className="absolute inset-0 z-30 flex items-end bg-slate-950/45 px-4 pb-5 backdrop-blur-sm" onClick={() => !deleting && setDeleteOpen(false)}>
-          <div
-            className="w-full rounded-[24px] border border-white/10 bg-white p-4 text-slate-950 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="w-full rounded-[24px] border border-white/10 bg-white p-4 text-slate-950 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">Delete Swip</p>
             <h3 className="mt-1 text-lg font-black">Remove this video?</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               This will remove the video from Swip and your profile feed.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => setDeleteOpen(false)}
-                className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 disabled:opacity-60"
-              >
+              <button type="button" disabled={deleting} onClick={() => setDeleteOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 disabled:opacity-60">
                 Cancel
               </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={confirmDelete}
-                className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60"
-              >
+              <button type="button" disabled={deleting} onClick={confirmDelete} className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
                 {deleting ? "Deleting" : "Delete"}
               </button>
             </div>
@@ -336,6 +372,4 @@ export default function VideoCard({
       ) : null}
     </article>
   );
-
-  return content;
 }
