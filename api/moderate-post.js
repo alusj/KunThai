@@ -185,7 +185,7 @@ async function moderateImageWithSightengine(imageDataUrl) {
     };
 
     const flags = Object.entries(checks)
-      .filter(([, score]) => Number(score || 0) >= 0.75)
+      .filter(([, score]) => Number(score || 0) >= 0.55)
       .map(([key]) => key);
 
     return {

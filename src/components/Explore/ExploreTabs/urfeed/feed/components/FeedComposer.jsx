@@ -466,8 +466,8 @@ return fallbackPreview;
       message: "Securing your draft before publishing.",
     });
     const videoFrameDataUrls = finalVideoPreview
-      ? await extractVideoFramesFromDataUrl(finalVideoPreview, 3)
-       : [];
+  ? await extractVideoFramesFromDataUrl(finalVideoPreview, 8)
+  : [];
     const review = await runPostReviewPipeline({
       body: postDraft.body,
       media: {
