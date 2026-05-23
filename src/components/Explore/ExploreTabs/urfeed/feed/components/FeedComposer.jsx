@@ -474,7 +474,7 @@ return fallbackPreview;
         ...postDraft.mediaMeta,
         hasMedia: Boolean(postDraft.image_url || postDraft.video_url || postDraft.audio_url),
         imageDataUrl: postDraft.image_url || "",
-        videoDataUrl: postDraft.video_url || "",
+        videoDataUrl: "",
         videoFrameDataUrls,
         audioDataUrl: postDraft.audio_url || "",
       },
