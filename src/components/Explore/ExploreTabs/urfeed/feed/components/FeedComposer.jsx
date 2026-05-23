@@ -268,8 +268,25 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     } catch (error) {
       if (trimRequestRef.current === 0) return "";
 
-      setTrimError(error.message || "Unable to prepare this clip. Try again or choose a shorter video.");
-      return "";
+      const fallbackPreview = await fileToDataUrl(fileToTrim);
+
+setVideoPreview(fallbackPreview);
+setImagePreview("");
+setMediaMeta((current) => ({
+  ...current,
+  videoName: fileToTrim.name || "swip-video.mp4",
+  videoType: fileToTrim.type || "video/mp4",
+  videoSize: fileToTrim.size || 0,
+  videoDuration: MAX_VIDEO_SECONDS,
+  videoTrimStart: startOverride,
+  videoTrimEnd: startOverride + MAX_VIDEO_SECONDS,
+  imageName: "",
+  imageType: "",
+}));
+
+setTrimError("");
+setFeedback("Clip selected. KunThai will play the selected 15 seconds.");
+return fallbackPreview;
     } finally {
       setTrimmingVideo(false);
     }
