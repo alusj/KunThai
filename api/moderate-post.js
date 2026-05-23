@@ -40,19 +40,21 @@ function isDataUrl(value) {
   return typeof value === "string" && value.startsWith("data:");
 }
 
-function dataUrlToBlob(dataUrl) {
+function dataUrlToFile(dataUrl, filename = "upload.bin") {
   const [meta, base64] = String(dataUrl || "").split(",");
-  const mime = meta?.match(/^data:(.*?);base64$/)?.[1] || "image/jpeg";
+  const mime = meta?.match(/^data:(.*?);base64$/)?.[1] || "application/octet-stream";
   const buffer = Buffer.from(base64 || "", "base64");
-  return new Blob([buffer], { type: mime });
+  return new File([buffer], filename, { type: mime });
 }
 
-async function moderateText(body) {
-  const text = String(body || "").trim();
+async function moderateSingleText(text, provider = "openai") {
+  const value = String(text || "").trim();
 
-  if (!text) return { ok: true, provider: "local", flags: [] };
+  if (!value) {
+    return { ok: true, provider, flags: [] };
+  }
 
-  const localFlags = localTextFlags(text);
+  const localFlags = localTextFlags(value);
   if (localFlags.length) {
     return { ok: false, provider: "local", flags: localFlags };
   }
@@ -64,19 +66,85 @@ async function moderateText(body) {
   try {
     const response = await openai.moderations.create({
       model: "omni-moderation-latest",
-      input: text,
+      input: value,
     });
 
     const result = response.results?.[0];
 
     return {
       ok: !result?.flagged,
-      provider: "openai",
+      provider,
       flags: getFlags(result),
     };
-  } catch {
+  } catch (error) {
+    console.error("[OpenAI Moderation Failed]", error);
     return { ok: true, provider: "local-fallback", flags: [] };
   }
+}
+
+async function translateToEnglish(text) {
+  const value = String(text || "").trim();
+
+  if (!value || !openai) return "";
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Translate the user's text to clear English for safety moderation. If it is already English, return it unchanged. Preserve threats, insults, sexual meaning, slang, and harmful intent. Do not censor.",
+        },
+        {
+          role: "user",
+          content: value,
+        },
+      ],
+      temperature: 0,
+    });
+
+    return response.choices?.[0]?.message?.content?.trim() || "";
+  } catch (error) {
+    console.error("[Translation Failed]", error);
+    return "";
+  }
+}
+
+async function moderateMultilingualText(text) {
+  const originalResult = await moderateSingleText(text, "openai-original");
+
+  if (!originalResult.ok) {
+    return {
+      ok: false,
+      flags: originalResult.flags,
+      results: [originalResult],
+    };
+  }
+
+  const translatedText = await translateToEnglish(text);
+
+  if (!translatedText || translatedText.toLowerCase() === String(text || "").trim().toLowerCase()) {
+    return {
+      ok: true,
+      flags: [],
+      results: [originalResult],
+    };
+  }
+
+  const translatedResult = await moderateSingleText(translatedText, "openai-translated-english");
+
+  return {
+    ok: translatedResult.ok,
+    flags: translatedResult.flags || [],
+    results: [
+      originalResult,
+      {
+        ...translatedResult,
+        translatedPreview: translatedText.slice(0, 180),
+      },
+    ],
+  };
 }
 
 async function moderateImageWithSightengine(imageDataUrl) {
@@ -94,11 +162,8 @@ async function moderateImageWithSightengine(imageDataUrl) {
   try {
     const form = new FormData();
 
-    form.append("media", dataUrlToBlob(imageDataUrl), "image.jpg");
-    form.append(
-      "models",
-      "nudity-2.1,weapon,recreational_drug,offensive,gore-2.0"
-    );
+    form.append("media", dataUrlToFile(imageDataUrl, "image.jpg"));
+    form.append("models", "nudity-2.1,weapon,recreational_drug,offensive,gore-2.0");
     form.append("api_user", apiUser);
     form.append("api_secret", apiSecret);
 
@@ -134,6 +199,24 @@ async function moderateImageWithSightengine(imageDataUrl) {
   }
 }
 
+async function transcribeAudio(audioDataUrl) {
+  if (!isDataUrl(audioDataUrl) || !openai) return "";
+
+  try {
+    const audioFile = dataUrlToFile(audioDataUrl, "voice-note.webm");
+
+    const transcript = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: "gpt-4o-mini-transcribe",
+    });
+
+    return transcript?.text || "";
+  } catch (error) {
+    console.error("[Audio Transcription Failed]", error);
+    return "";
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return json(res, 405, {
@@ -146,16 +229,15 @@ export default async function handler(req, res) {
     const { body = "", media = {} } = req.body || {};
     const results = [];
 
-    const textResult = await moderateText(body);
-    results.push(textResult);
+    const textReview = await moderateMultilingualText(body);
+    results.push(...textReview.results);
 
-    if (!textResult.ok) {
+    if (!textReview.ok) {
       return json(res, 200, {
         ok: false,
         decision: "blocked",
-        reason:
-          "This post cannot be published because it may violate KunThai safety rules.",
-        flags: textResult.flags,
+        reason: "This post cannot be published because it may violate KunThai safety rules.",
+        flags: textReview.flags,
         results,
       });
     }
@@ -168,11 +250,33 @@ export default async function handler(req, res) {
         return json(res, 200, {
           ok: false,
           decision: "blocked",
-          reason:
-            "This image cannot be published because it may violate KunThai safety rules.",
+          reason: "This image cannot be published because it may violate KunThai safety rules.",
           flags: imageResult.flags,
           results,
         });
+      }
+    }
+
+    if (media?.audioDataUrl) {
+      const transcript = await transcribeAudio(media.audioDataUrl);
+
+      if (transcript) {
+        const audioReview = await moderateMultilingualText(transcript);
+        results.push({
+          provider: "audio-transcript",
+          transcriptPreview: transcript.slice(0, 180),
+        });
+        results.push(...audioReview.results);
+
+        if (!audioReview.ok) {
+          return json(res, 200, {
+            ok: false,
+            decision: "blocked",
+            reason: "This voice note cannot be published because it may violate KunThai safety rules.",
+            flags: audioReview.flags,
+            results,
+          });
+        }
       }
     }
 
