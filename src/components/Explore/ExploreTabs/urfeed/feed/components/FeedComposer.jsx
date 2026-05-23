@@ -363,11 +363,21 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     });
 
     const review = await runPostReviewPipeline({
-      body: postDraft.body,
-      media: {
-        ...postDraft.mediaMeta,
-        hasMedia: Boolean(postDraft.image_url || postDraft.video_url || postDraft.audio_url),
-      },
+  body: postDraft.body,
+  media: {
+    ...postDraft.mediaMeta,
+
+    hasMedia: Boolean(
+      postDraft.image_url ||
+      postDraft.video_url ||
+      postDraft.audio_url
+    ),
+
+    imageDataUrl: postDraft.image_url || "",
+    videoDataUrl: postDraft.video_url || "",
+    audioDataUrl: postDraft.audio_url || "",
+  },
+
       onStage: (stage, progress) => {
         setPostingStage(stage);
         setPostingProgress(progress);
