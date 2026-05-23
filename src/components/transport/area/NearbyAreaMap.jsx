@@ -35,13 +35,14 @@ const ROUTE_STATUS = {
 };
 
 const GPS_SETTINGS = {
-  animationMs: 1200,
-  ignoreAccuracyAboveMeters: 150,
+  animationMs: 1400,
+  ignoreAccuracyAboveMeters: 120,
   correctRouteMeters: 45,
   warningRouteMeters: 120,
-  progressBacktrackSegments: 3,
-  ignoreTinyMoveMeters: 3,
-  jumpDistanceMeters: 250,
+  progressBacktrackSegments: 4,
+  ignoreTinyMoveMeters: 4,
+  jumpDistanceMeters: 180,
+  maxHumanSpeedMetersPerSecond: 34,
 };
 
 const osmRasterStyle = {
@@ -285,9 +286,11 @@ function getSmoothedPosition(previousPosition, nextPosition) {
   const distance = distanceInMeters(previousPosition, nextPosition);
 
   if (distance <= GPS_SETTINGS.ignoreTinyMoveMeters) return previousPosition;
-  if (distance >= GPS_SETTINGS.jumpDistanceMeters) return nextPosition;
 
-  const smoothingPower = distance > 80 ? 0.45 : distance > 35 ? 0.32 : 0.22;
+  // If GPS gives a sudden far-away jump, do not teleport the pointer.
+  // Move part of the way so the marker remains smooth while the phone regains accuracy.
+  const smoothingPower =
+    distance > GPS_SETTINGS.jumpDistanceMeters ? 0.18 : distance > 80 ? 0.35 : distance > 35 ? 0.28 : 0.2;
 
   return {
     ...nextPosition,
@@ -341,6 +344,9 @@ export default function NearbyAreaMap({
   const lastRouteSegmentIndexRef = useRef(0);
   const operatorMarkersRef = useRef(new Map());
   const routeStatusRef = useRef("correct");
+  const userLocationRef = useRef(null);
+  const lastRawPositionRef = useRef(null);
+  const lastRawTimestampRef = useRef(null);
 
   const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
   const [userLocation, setUserLocation] = useState(null);
@@ -405,7 +411,10 @@ export default function NearbyAreaMap({
     if (!navigator.geolocation) {
       setLocationStatus(`Showing ${DEFAULT_CENTER.label}`);
       setUserLocation(DEFAULT_CENTER);
+      userLocationRef.current = DEFAULT_CENTER;
       smoothedPositionRef.current = DEFAULT_CENTER;
+      lastRawPositionRef.current = DEFAULT_CENTER;
+      lastRawTimestampRef.current = Date.now();
       return;
     }
 
@@ -422,7 +431,10 @@ export default function NearbyAreaMap({
         setGpsAccuracy(Math.round(position.coords.accuracy || 0));
         setLocationStatus("Using your current area");
         setUserLocation(nextCenter);
+        userLocationRef.current = nextCenter;
         smoothedPositionRef.current = nextCenter;
+        lastRawPositionRef.current = nextCenter;
+        lastRawTimestampRef.current = Date.now();
         onLocationResolved?.(nextCenter);
 
         mapRef.current?.flyTo({
@@ -436,7 +448,10 @@ export default function NearbyAreaMap({
       () => {
         setLocationStatus(`Showing ${DEFAULT_CENTER.label}`);
         setUserLocation(DEFAULT_CENTER);
+        userLocationRef.current = DEFAULT_CENTER;
         smoothedPositionRef.current = DEFAULT_CENTER;
+        lastRawPositionRef.current = DEFAULT_CENTER;
+        lastRawTimestampRef.current = Date.now();
         onLocationResolved?.(DEFAULT_CENTER);
       },
       {
@@ -462,7 +477,7 @@ export default function NearbyAreaMap({
     async function drawRoute() {
       if (!selectedLocation || !mapRef.current) return;
 
-      const routeStart = smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
+      const routeStart = smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
       const map = mapRef.current;
 
       setRouteError("");
@@ -522,7 +537,7 @@ export default function NearbyAreaMap({
       });
 
       setRouteInfo({
-        from: userLocation ? "Current Location" : DEFAULT_CENTER.label,
+        from: userLocationRef.current ? "Current Location" : DEFAULT_CENTER.label,
         to: selectedLocation.name,
         distance: formatDistance(route.distanceMeters),
         duration: formatDuration(route.durationSeconds),
@@ -562,7 +577,26 @@ export default function NearbyAreaMap({
           speed: position.coords.speed,
         };
 
-        const previousSmoothedPosition = smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
+        const previousRawPosition = lastRawPositionRef.current;
+        const previousRawTimestamp = lastRawTimestampRef.current;
+        const now = Date.now();
+
+        if (previousRawPosition && previousRawTimestamp) {
+          const rawDistance = distanceInMeters(previousRawPosition, rawLivePosition);
+          const seconds = Math.max((now - previousRawTimestamp) / 1000, 1);
+          const rawSpeed = rawDistance / seconds;
+
+          if (rawDistance > GPS_SETTINGS.jumpDistanceMeters && rawSpeed > GPS_SETTINGS.maxHumanSpeedMetersPerSecond) {
+            setLocationStatus(`Filtering GPS jump - ${accuracy}m accuracy`);
+            setGpsAccuracy(accuracy);
+            return;
+          }
+        }
+
+        lastRawPositionRef.current = rawLivePosition;
+        lastRawTimestampRef.current = now;
+
+        const previousSmoothedPosition = smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
         const livePosition = getSmoothedPosition(previousSmoothedPosition, rawLivePosition);
         const movedMeters = distanceInMeters(previousSmoothedPosition, livePosition);
 
@@ -574,6 +608,7 @@ export default function NearbyAreaMap({
         setGpsAccuracy(accuracy);
         setLocationStatus("Live tracking active");
         setUserLocation(livePosition);
+        userLocationRef.current = livePosition;
         onLocationResolved?.(livePosition);
 
         markerAnimationCancelRef.current?.();
@@ -641,7 +676,7 @@ export default function NearbyAreaMap({
         watchIdRef.current = null;
       }
     };
-  }, [focusMode, onLocationResolved, routeInfo, userLocation]);
+  }, [focusMode, onLocationResolved, routeInfo]);
 
   useEffect(() => {
     if (!mapRef.current) return;
