@@ -90,7 +90,11 @@ export async function unblockExploreUser(targetUserId) {
     return next;
   }
 
-  const { error } = await supabase.from("explore_user_blocks").delete().eq("blocker_id", userId).eq("blocked_id", targetUserId);
+  const { error } = await supabase
+    .from("explore_user_blocks")
+    .delete()
+    .eq("blocker_id", userId)
+    .eq("blocked_id", targetUserId);
 
   if (error && !isMissingTable(error)) {
     throw error;
@@ -102,7 +106,9 @@ export async function unblockExploreUser(targetUserId) {
 export function readPrivacySettings() {
   try {
     const value = JSON.parse(localStorage.getItem(PRIVACY_SETTINGS_KEY) || "null");
-    return value && typeof value === "object" ? { ...DEFAULT_PRIVACY_SETTINGS, ...value } : DEFAULT_PRIVACY_SETTINGS;
+    return value && typeof value === "object"
+      ? { ...DEFAULT_PRIVACY_SETTINGS, ...value }
+      : DEFAULT_PRIVACY_SETTINGS;
   } catch {
     return DEFAULT_PRIVACY_SETTINGS;
   }
@@ -188,5 +194,42 @@ export function contentHasModerationFlags(value) {
     "scam",
     "terror",
   ];
+
   return patterns.filter((pattern) => text.includes(pattern));
+}
+
+export async function moderateExplorePost({ body = "", media = {} }) {
+  const response = await fetch("/api/moderate-post", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      body,
+      media,
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.reason || "Unable to complete safety review.");
+  }
+
+  return data;
+}
+
+export function buildModerationMediaPayload(media = {}) {
+  return {
+    hasMedia: Boolean(media.imageDataUrl || media.videoDataUrl || media.audioDataUrl),
+    imageDataUrl: media.imageDataUrl || "",
+    videoDataUrl: media.videoDataUrl || "",
+    audioDataUrl: media.audioDataUrl || "",
+    imageName: media.imageName || "",
+    videoName: media.videoName || "",
+    audioName: media.audioName || "",
+    imageType: media.imageType || "",
+    videoType: media.videoType || "",
+    audioType: media.audioType || "",
+  };
 }
