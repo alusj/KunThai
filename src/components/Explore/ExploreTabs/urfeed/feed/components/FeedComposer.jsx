@@ -8,6 +8,7 @@ import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
 import MediaPreview from "../composer/MediaPreview";
 import PostingProgress from "../composer/PostingProgress";
+import VoiceCapsuleRecorder from "../composer/VoiceCapsuleRecorder";
 import {
   clearDraft,
   fileToDataUrl,
@@ -23,6 +24,7 @@ import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 export default function FeedComposer({ profile, creating, onSubmit }) {
   const draft = readDraft();
   const privacySettings = readPrivacySettings();
+
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(draft.body || "");
   const [feedback, setFeedback] = useState("");
@@ -32,6 +34,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [audioDuration, setAudioDuration] = useState(draft.audio_duration_seconds || null);
   const [privacy, setPrivacy] = useState(draft.post_privacy || privacySettings.defaultPostPrivacy || "public");
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingPaused, setRecordingPaused] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [mediaMode, setMediaMode] = useState("image");
   const [mediaMeta, setMediaMeta] = useState(draft.media_meta || {});
   const [pendingVideoFile, setPendingVideoFile] = useState(null);
@@ -42,11 +46,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [trimError, setTrimError] = useState("");
   const [postingStage, setPostingStage] = useState("");
   const [postingProgress, setPostingProgress] = useState(0);
+
   const fileInputRef = useRef(null);
   const composerRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const trimRequestRef = useRef(0);
+  const recordingTimerRef = useRef(null);
 
   const hasContent = Boolean(value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
 
@@ -57,10 +63,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       if (recorderRef.current?.stream) {
         recorderRef.current.stream.getTracks().forEach((track) => track.stop());
       }
+
+      stopRecordingTimer();
+
       if (pendingVideoUrl) {
         URL.revokeObjectURL(pendingVideoUrl);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingVideoUrl]);
 
   useEffect(() => {
@@ -83,9 +93,61 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     window.addEventListener("explore-create-post", handleCreatePost);
     return () => window.removeEventListener("explore-create-post", handleCreatePost);
-    // openComposer uses local refs/state; this event subscription should be registered once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function startRecordingTimer() {
+    window.clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = window.setInterval(() => {
+      setRecordingSeconds((current) => current + 1);
+    }, 1000);
+  }
+
+  function stopRecordingTimer() {
+    window.clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = null;
+  }
+
+  function pauseVoiceRecording() {
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.pause();
+      setRecordingPaused(true);
+      stopRecordingTimer();
+    }
+  }
+
+  function resumeVoiceRecording() {
+    if (recorderRef.current?.state === "paused") {
+      recorderRef.current.resume();
+      setRecordingPaused(false);
+      startRecordingTimer();
+    }
+  }
+
+  function cancelVoiceRecording() {
+    stopRecordingTimer();
+
+    if (recorderRef.current?.state === "recording" || recorderRef.current?.state === "paused") {
+      recorderRef.current.stop();
+    }
+
+    recorderRef.current?.stream?.getTracks?.().forEach((track) => track.stop());
+    recorderRef.current = null;
+    chunksRef.current = [];
+
+    setIsRecording(false);
+    setRecordingPaused(false);
+    setRecordingSeconds(0);
+    setAudioPreview("");
+    setAudioDuration(null);
+    setMediaMeta((current) => ({
+      ...current,
+      audioName: "",
+      audioType: "",
+      audioSize: 0,
+    }));
+    setFeedback("");
+  }
 
   function openComposer(type = "text") {
     setOpen(true);
@@ -104,16 +166,17 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   async function handleMediaChange(event) {
     const file = event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     try {
       trimRequestRef.current += 1;
+
       if (file.type.startsWith("video/") || mediaMode === "video") {
         const duration = await getVideoDuration(file);
+
         if (duration > MAX_VIDEO_SECONDS) {
           if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
+
           setPendingVideoFile(file);
           setPendingVideoUrl(URL.createObjectURL(file));
           setVideoDuration(duration);
@@ -128,13 +191,16 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         }
 
         const nextPreview = await fileToDataUrl(file);
+
         setVideoPreview(nextPreview);
         setImagePreview("");
         setPendingVideoFile(null);
+
         if (pendingVideoUrl) {
           URL.revokeObjectURL(pendingVideoUrl);
           setPendingVideoUrl("");
         }
+
         setVideoDuration(duration);
         setTrimError("");
         setMediaMeta((current) => ({
@@ -147,6 +213,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         }));
       } else {
         const nextPreview = await fileToDataUrl(file);
+
         setImagePreview(nextPreview);
         setVideoPreview("");
         setMediaMeta((current) => ({
@@ -158,6 +225,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           videoType: "",
         }));
       }
+
       setOpen(true);
       setFeedback("");
     } catch (error) {
@@ -169,9 +237,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   async function trimPendingVideo(fileOverride = pendingVideoFile, startOverride = videoTrimStart) {
     const fileToTrim = fileOverride || pendingVideoFile;
-    if (!fileToTrim) {
-      return;
-    }
+
+    if (!fileToTrim) return "";
 
     try {
       const requestId = trimRequestRef.current + 1;
@@ -179,10 +246,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setTrimmingVideo(true);
       setTrimError("");
       setFeedback("");
+
       const trimmedPreview = await trimVideoFileToDataUrl(fileToTrim, startOverride, MAX_VIDEO_SECONDS);
-      if (requestId !== trimRequestRef.current) {
-        return "";
-      }
+
+      if (requestId !== trimRequestRef.current) return "";
+
       setVideoPreview(trimmedPreview);
       setImagePreview("");
       setMediaMeta((current) => ({
@@ -194,12 +262,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         imageName: "",
         imageType: "",
       }));
+
       setFeedback("");
       return trimmedPreview;
     } catch (error) {
-      if (trimRequestRef.current === 0) {
-        return "";
-      }
+      if (trimRequestRef.current === 0) return "";
+
       setTrimError(error.message || "Unable to prepare this clip. Try again or choose a shorter video.");
       return "";
     } finally {
@@ -219,6 +287,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setOpen(true);
 
     if (isRecording) {
+      stopRecordingTimer();
+      setRecordingPaused(false);
       recorderRef.current?.stop();
       return;
     }
@@ -231,6 +301,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
+
       chunksRef.current = [];
       recorderRef.current = recorder;
 
@@ -244,7 +315,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         try {
           const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
           const nextPreview = await fileToDataUrl(new File([blob], "voice-note.webm", { type: blob.type }));
-          const seconds = Math.max(1, Math.round(blob.size / 16000));
+          const seconds = Math.max(1, recordingSeconds || Math.round(blob.size / 16000));
+
           setAudioPreview(nextPreview);
           setAudioDuration(seconds);
           setMediaMeta((current) => ({
@@ -258,16 +330,23 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           setFeedback(error.message || "Unable to save voice note.");
         } finally {
           setIsRecording(false);
+          setRecordingPaused(false);
+          stopRecordingTimer();
           stream.getTracks().forEach((track) => track.stop());
         }
       };
 
       recorder.start();
       setIsRecording(true);
+      setRecordingPaused(false);
+      setRecordingSeconds(0);
+      startRecordingTimer();
       setFeedback("Recording voice note...");
     } catch (error) {
       setFeedback(error.message || "Unable to access microphone.");
       setIsRecording(false);
+      setRecordingPaused(false);
+      stopRecordingTimer();
     }
   }
 
@@ -301,15 +380,20 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAudioDuration(null);
     setMediaMeta({});
     setPendingVideoFile(null);
+
     if (pendingVideoUrl) {
       URL.revokeObjectURL(pendingVideoUrl);
       setPendingVideoUrl("");
     }
+
     setVideoDuration(0);
     setVideoTrimStart(0);
     setTrimError("");
     setPostingStage("");
     setPostingProgress(0);
+    setRecordingPaused(false);
+    setRecordingSeconds(0);
+    stopRecordingTimer();
     setPrivacy(privacySettings.defaultPostPrivacy || "public");
     clearDraft();
   }
@@ -328,8 +412,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     let finalVideoPreview = videoPreview;
+
     if (pendingVideoFile && !finalVideoPreview) {
       finalVideoPreview = await trimPendingVideo(pendingVideoFile, videoTrimStart);
+
       if (!finalVideoPreview) {
         setOpen(true);
         return;
@@ -355,6 +441,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setPostingProgress(5);
     setOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
+
     publishPostingUpdate({
       status: "posting",
       stage: "preparing",
@@ -363,21 +450,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     });
 
     const review = await runPostReviewPipeline({
-  body: postDraft.body,
-  media: {
-    ...postDraft.mediaMeta,
-
-    hasMedia: Boolean(
-      postDraft.image_url ||
-      postDraft.video_url ||
-      postDraft.audio_url
-    ),
-
-    imageDataUrl: postDraft.image_url || "",
-    videoDataUrl: postDraft.video_url || "",
-    audioDataUrl: postDraft.audio_url || "",
-  },
-
+      body: postDraft.body,
+      media: {
+        ...postDraft.mediaMeta,
+        hasMedia: Boolean(postDraft.image_url || postDraft.video_url || postDraft.audio_url),
+        imageDataUrl: postDraft.image_url || "",
+        videoDataUrl: postDraft.video_url || "",
+        audioDataUrl: postDraft.audio_url || "",
+      },
       onStage: (stage, progress) => {
         setPostingStage(stage);
         setPostingProgress(progress);
@@ -394,6 +474,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     const tags = parseTags(postDraft.body);
+
     setPostingStage("syncing");
     setPostingProgress(92);
     publishPostingUpdate({ status: "posting", stage: "syncing", progress: 92 });
@@ -416,15 +497,18 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (result?.ok) {
       setPostingStage("complete");
       setPostingProgress(100);
+
       if (postDraft.video_url) {
         window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip" } }));
       }
+
       publishPostingUpdate({
         status: "complete",
         stage: "complete",
         progress: 100,
         message: result.warning || "Your post is now live on Explore.",
       });
+
       resetComposer();
       return;
     }
@@ -461,10 +545,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
               >
                 <HiOutlineXMark />
               </button>
+
               <div className="text-center">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-700">Create</p>
                 <h2 className="text-base font-black text-slate-950">Explore Post</h2>
               </div>
+
               <button
                 type="submit"
                 disabled={creating || Boolean(postingStage) || !hasContent}
@@ -489,6 +575,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                   <HiOutlineSparkles />
                   Say it your way
                 </div>
+
                 <textarea
                   value={value}
                   onChange={(event) => {
@@ -500,6 +587,18 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                   className="min-h-[180px] w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 sm:min-h-[220px]"
                 />
               </div>
+
+              <VoiceCapsuleRecorder
+                isRecording={isRecording}
+                isPaused={recordingPaused}
+                duration={recordingSeconds || audioDuration || 0}
+                audioPreview={audioPreview}
+                onStart={handleAudioClick}
+                onStop={handleAudioClick}
+                onPause={pauseVoiceRecording}
+                onResume={resumeVoiceRecording}
+                onCancel={cancelVoiceRecording}
+              />
 
               <MediaPreview
                 imagePreview={imagePreview}
@@ -527,10 +626,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                   trimRequestRef.current += 1;
                   setVideoPreview("");
                   setPendingVideoFile(null);
+
                   if (pendingVideoUrl) {
                     URL.revokeObjectURL(pendingVideoUrl);
                     setPendingVideoUrl("");
                   }
+
                   setVideoDuration(0);
                   setVideoTrimStart(0);
                   setTrimError("");
@@ -539,6 +640,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 onRemoveAudio={() => {
                   setAudioPreview("");
                   setAudioDuration(null);
+                  setRecordingSeconds(0);
                   setMediaMeta((current) => ({ ...current, audioName: "", audioType: "", audioSize: 0 }));
                   setFeedback("");
                 }}
