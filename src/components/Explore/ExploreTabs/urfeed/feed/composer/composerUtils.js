@@ -1,6 +1,24 @@
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile } from "@ffmpeg/util";
+
 export const DRAFT_KEY = "explore-composer-draft";
+
 const MAX_MEDIA_BYTES = 100 * 1024 * 1024;
 export const MAX_VIDEO_SECONDS = 15;
+
+let ffmpeg = null;
+
+async function getFFmpeg() {
+  if (ffmpeg) return ffmpeg;
+
+  ffmpeg = new FFmpeg();
+
+  await ffmpeg.load({
+    coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
+  });
+
+  return ffmpeg;
+}
 
 export function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -34,126 +52,122 @@ export function getVideoDuration(file) {
   });
 }
 
-export function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds = MAX_VIDEO_SECONDS) {
-  return new Promise((resolve, reject) => {
-    if (typeof MediaRecorder === "undefined") {
-      reject(new Error("Video trimming is not supported on this browser. Please choose a video under 15 seconds."));
+export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds = MAX_VIDEO_SECONDS) {
+  try {
+    const ffmpeg = await getFFmpeg();
+
+    const inputName = "input.mp4";
+    const outputName = "output.mp4";
+
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+    await ffmpeg.exec([
+      "-ss",
+      String(startSeconds),
+      "-i",
+      inputName,
+      "-t",
+      String(durationSeconds),
+      "-c:v",
+      "libx264",
+      "-preset",
+      "ultrafast",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      "-movflags",
+      "+faststart",
+      outputName,
+    ]);
+
+    const data = await ffmpeg.readFile(outputName);
+
+    const blob = new Blob([data.buffer], {
+      type: "video/mp4",
+    });
+
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Unable to save trimmed video."));
+
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error(error);
+    throw new Error("Unable to prepare this video. Please try another clip.");
+  }
+}
+
+export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3) {
+  return new Promise((resolve) => {
+    if (!videoDataUrl) {
+      resolve([]);
       return;
     }
 
-    const mimeType = ["video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
-      .find((type) => MediaRecorder.isTypeSupported?.(type));
-
-    if (!mimeType) {
-      reject(new Error("Video trimming is not supported on this browser. Please choose a video under 15 seconds."));
-      return;
-    }
-
-    const url = URL.createObjectURL(file);
     const video = document.createElement("video");
     const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    const chunks = [];
-    let recorder = null;
-    let stopTimer = 0;
-    let animationFrame = 0;
-    let audioContext = null;
+    const ctx = canvas.getContext("2d");
+    const frames = [];
 
-    function cleanup() {
-      window.clearTimeout(stopTimer);
-      window.cancelAnimationFrame(animationFrame);
-      audioContext?.close?.().catch(() => {});
-      URL.revokeObjectURL(url);
-      video.pause();
-      video.src = "";
-    }
-
-    function drawFrame() {
-      if (!video.paused && !video.ended) {
-        context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        animationFrame = window.requestAnimationFrame(drawFrame);
-      }
-    }
-
-    video.muted = false;
-    video.volume = 0.01;
+    video.muted = true;
     video.playsInline = true;
-    video.preload = "auto";
+    video.preload = "metadata";
+
     video.onloadedmetadata = () => {
-      canvas.width = Math.min(video.videoWidth || 720, 1280);
+      const duration = video.duration || 0;
+
+      if (!duration || !ctx) {
+        resolve([]);
+        return;
+      }
+
+      canvas.width = Math.min(video.videoWidth || 720, 720);
       canvas.height = Math.round(canvas.width * ((video.videoHeight || 720) / (video.videoWidth || 720)));
-      video.currentTime = Math.max(0, Math.min(startSeconds, Math.max(0, video.duration - 0.5)));
-    };
-    video.onseeked = async () => {
-      try {
-        let stream = null;
-        if (typeof video.captureStream === "function") {
-          stream = video.captureStream();
-        } else if (typeof canvas.captureStream === "function") {
-          const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-          stream = canvas.captureStream(30);
 
-          if (AudioContextCtor) {
-            audioContext = new AudioContextCtor();
-            const source = audioContext.createMediaElementSource(video);
-            const destination = audioContext.createMediaStreamDestination();
-            source.connect(destination);
-            destination.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
-          }
-        }
+      const times = [
+        Math.max(0.3, duration * 0.15),
+        Math.max(0.6, duration * 0.5),
+        Math.max(0.9, duration * 0.85),
+      ].slice(0, count);
 
-        if (!stream) {
-          cleanup();
-          reject(new Error("This browser cannot prepare a 15 second clip. Try a shorter video."));
+      let index = 0;
+
+      function captureNext() {
+        if (index >= times.length) {
+          resolve(frames);
           return;
         }
 
-        recorder = new MediaRecorder(stream, { mimeType });
-
-        recorder.ondataavailable = (event) => {
-          if (event.data?.size) chunks.push(event.data);
-        };
-        recorder.onerror = () => {
-          cleanup();
-          reject(new Error("Unable to trim this video."));
-        };
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: mimeType.split(";")[0] || "video/webm" });
-          const reader = new FileReader();
-          reader.onload = () => {
-            cleanup();
-            resolve(String(reader.result || ""));
-          };
-          reader.onerror = () => {
-            cleanup();
-            reject(new Error("Unable to save trimmed video."));
-          };
-          reader.readAsDataURL(blob);
-        };
-
-        recorder.start();
-        await video.play();
-        if (typeof video.captureStream !== "function") {
-          drawFrame();
-        }
-        stopTimer = window.setTimeout(() => {
-          if (recorder?.state === "recording") recorder.stop();
-        }, durationSeconds * 1000);
-      } catch {
-        cleanup();
-        reject(new Error("Unable to trim this video."));
+        video.currentTime = Math.min(times[index], Math.max(0, duration - 0.2));
       }
+
+      video.onseeked = () => {
+        try {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL("image/jpeg", 0.82));
+        } catch {
+          // skip bad frame
+        }
+
+        index += 1;
+        captureNext();
+      };
+
+      captureNext();
     };
-    video.onerror = () => {
-      cleanup();
-      reject(new Error("Unable to load this video for trimming."));
-    };
-    video.src = url;
+
+    video.onerror = () => resolve([]);
+    video.src = videoDataUrl;
   });
 }
 
 export function parseTags(value) {
   const text = String(value || "");
+
   const hashtags = Array.from(new Set((text.match(/#[a-z0-9_]+/gi) || []).map((tag) => tag.slice(1).toLowerCase())));
   const mentions = Array.from(new Set((text.match(/@[a-z0-9_]+/gi) || []).map((tag) => tag.slice(1).toLowerCase())));
 
@@ -163,6 +177,7 @@ export function parseTags(value) {
 export function readDraft() {
   try {
     const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+
     if (!draft || typeof draft !== "object") {
       return {};
     }
@@ -186,6 +201,7 @@ export function writeDraft(draft) {
       video_url: "",
       audio_url: "",
     };
+
     localStorage.setItem(DRAFT_KEY, JSON.stringify(safeDraft));
   } catch {
     // Media can exceed browser storage limits, so drafts stay lightweight.

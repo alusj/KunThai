@@ -279,7 +279,25 @@ export default async function handler(req, res) {
         }
       }
     }
+if (Array.isArray(media?.videoFrameDataUrls) && media.videoFrameDataUrls.length) {
+  for (const frame of media.videoFrameDataUrls) {
+    const frameResult = await moderateImageWithSightengine(frame);
+    results.push({
+      ...frameResult,
+      provider: "sightengine-video-frame",
+    });
 
+    if (!frameResult.ok) {
+      return json(res, 200, {
+        ok: false,
+        decision: "blocked",
+        reason: "This video cannot be published because it may violate KunThai safety rules.",
+        flags: frameResult.flags,
+        results,
+      });
+    }
+  }
+}
     return json(res, 200, {
       ok: true,
       decision: "approved",

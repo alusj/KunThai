@@ -11,6 +11,7 @@ import PostingProgress from "../composer/PostingProgress";
 import VoiceCapsuleRecorder from "../composer/VoiceCapsuleRecorder";
 import {
   clearDraft,
+  extractVideoFramesFromDataUrl,
   fileToDataUrl,
   getVideoDuration,
   MAX_VIDEO_SECONDS,
@@ -448,7 +449,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       progress: 5,
       message: "Securing your draft before publishing.",
     });
-
+    const videoFrameDataUrls = finalVideoPreview
+      ? await extractVideoFramesFromDataUrl(finalVideoPreview, 3)
+       : [];
     const review = await runPostReviewPipeline({
       body: postDraft.body,
       media: {
@@ -456,6 +459,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         hasMedia: Boolean(postDraft.image_url || postDraft.video_url || postDraft.audio_url),
         imageDataUrl: postDraft.image_url || "",
         videoDataUrl: postDraft.video_url || "",
+        videoFrameDataUrls,
         audioDataUrl: postDraft.audio_url || "",
       },
       onStage: (stage, progress) => {

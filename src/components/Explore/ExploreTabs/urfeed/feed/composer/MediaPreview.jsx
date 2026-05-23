@@ -89,7 +89,7 @@ export default function MediaPreview({
             src={pendingVideoUrl}
             controls={false}
             autoPlay
-            muted={false}
+            muted
             playsInline
             loop
             onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
