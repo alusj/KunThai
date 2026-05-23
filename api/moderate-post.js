@@ -47,6 +47,72 @@ function dataUrlToFile(dataUrl, filename = "upload.bin") {
   return new File([buffer], filename, { type: mime });
 }
 
+function getHiveApiKey() {
+  return process.env.HIVE_API_KEY || process.env.HIVE_ACCESS_KEY || "";
+}
+
+function collectHiveClasses(value, found = []) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectHiveClasses(item, found));
+    return found;
+  }
+
+  if (!value || typeof value !== "object") {
+    return found;
+  }
+
+  if (typeof value.class === "string" && Number.isFinite(Number(value.score))) {
+    found.push({
+      name: value.class,
+      score: Number(value.score),
+    });
+  }
+
+  Object.values(value).forEach((item) => collectHiveClasses(item, found));
+  return found;
+}
+
+function isUnsafeHiveClass(name, score) {
+  const value = String(name || "").toLowerCase();
+
+  if (!value || value.startsWith("no_") || value.startsWith("not_") || value.startsWith("non_")) {
+    return false;
+  }
+
+  const unsafePatterns = [
+    "nsfw",
+    "sexual",
+    "suggestive",
+    "nudity",
+    "nude",
+    "explicit",
+    "gore",
+    "graphic",
+    "violence",
+    "weapon",
+    "gun",
+    "knife",
+    "drug",
+    "hate",
+    "self_harm",
+    "terror",
+    "child",
+  ];
+
+  if (!unsafePatterns.some((pattern) => value.includes(pattern))) {
+    return false;
+  }
+
+  const threshold = value.includes("suggestive") ? 0.9 : value.includes("spam") ? 0.95 : 0.65;
+  return Number(score || 0) >= threshold;
+}
+
+function getHiveFlags(data) {
+  return collectHiveClasses(data)
+    .filter((item) => isUnsafeHiveClass(item.name, item.score))
+    .map((item) => `${item.name}:${item.score.toFixed(2)}`);
+}
+
 async function moderateSingleText(text, provider = "openai") {
   const value = String(text || "").trim();
 
@@ -199,6 +265,49 @@ async function moderateImageWithSightengine(imageDataUrl) {
   }
 }
 
+async function moderateVisualWithHive(dataUrl, filename = "media.jpg") {
+  if (!isDataUrl(dataUrl)) {
+    return { ok: true, provider: "hive", flags: [] };
+  }
+
+  const apiKey = getHiveApiKey();
+
+  if (!apiKey) {
+    return { ok: true, provider: "hive-missing", flags: [] };
+  }
+
+  try {
+    const form = new FormData();
+    form.append("media", dataUrlToFile(dataUrl, filename));
+
+    const response = await fetch("https://api.thehive.ai/api/v2/task/sync", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        authorization: `token ${apiKey}`,
+      },
+      body: form,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(data?.message || data?.error || "Hive moderation failed");
+    }
+
+    const flags = getHiveFlags(data);
+
+    return {
+      ok: flags.length === 0,
+      provider: "hive",
+      flags,
+    };
+  } catch (error) {
+    console.error("[Hive Visual Moderation Failed]", error);
+    return { ok: true, provider: "hive-fallback", flags: [] };
+  }
+}
+
 async function transcribeAudio(audioDataUrl) {
   if (!isDataUrl(audioDataUrl) || !openai) return "";
 
@@ -255,49 +364,120 @@ export default async function handler(req, res) {
           results,
         });
       }
+
+      const hiveImageResult = await moderateVisualWithHive(media.imageDataUrl, "image.jpg");
+      results.push(hiveImageResult);
+
+      if (!hiveImageResult.ok) {
+        return json(res, 200, {
+          ok: false,
+          decision: "blocked",
+          reason: "This image cannot be published because it may violate KunThai safety rules.",
+          flags: hiveImageResult.flags,
+          results,
+        });
+      }
     }
 
     if (media?.audioDataUrl) {
       const transcript = await transcribeAudio(media.audioDataUrl);
 
-      if (transcript) {
-        const audioReview = await moderateMultilingualText(transcript);
-        results.push({
-          provider: "audio-transcript",
-          transcriptPreview: transcript.slice(0, 180),
+      if (!transcript) {
+        return json(res, 200, {
+          ok: false,
+          decision: "review",
+          reason: "KunThai could not complete the voice note safety review. Please try again.",
+          flags: ["audio-review-unavailable"],
+          results,
         });
-        results.push(...audioReview.results);
+      }
 
-        if (!audioReview.ok) {
+      const audioReview = await moderateMultilingualText(transcript);
+      results.push({
+        provider: "audio-transcript",
+        transcriptPreview: transcript.slice(0, 180),
+      });
+      results.push(...audioReview.results);
+
+      if (!audioReview.ok) {
+        return json(res, 200, {
+          ok: false,
+          decision: "blocked",
+          reason: "This voice note cannot be published because it may violate KunThai safety rules.",
+          flags: audioReview.flags,
+          results,
+        });
+      }
+    }
+
+    const videoFrames = Array.isArray(media?.videoFrameDataUrls)
+      ? media.videoFrameDataUrls.filter(isDataUrl)
+      : [];
+
+    if (media?.videoDataUrl || videoFrames.length) {
+      if (!videoFrames.length && !media.videoDataUrl) {
+        return json(res, 200, {
+          ok: false,
+          decision: "review",
+          reason: "KunThai could not complete the video safety review. Please try again.",
+          flags: ["video-review-unavailable"],
+          results,
+        });
+      }
+
+      if (media.videoDataUrl && !videoFrames.length) {
+        const hiveVideoResult = await moderateVisualWithHive(media.videoDataUrl, "video.mp4");
+        results.push({
+          ...hiveVideoResult,
+          provider: "hive-video",
+        });
+
+        if (!hiveVideoResult.ok) {
           return json(res, 200, {
             ok: false,
             decision: "blocked",
-            reason: "This voice note cannot be published because it may violate KunThai safety rules.",
-            flags: audioReview.flags,
+            reason: "This video cannot be published because it may violate KunThai safety rules.",
+            flags: hiveVideoResult.flags,
+            results,
+          });
+        }
+      }
+
+      for (const [index, frame] of videoFrames.entries()) {
+        const frameResult = await moderateImageWithSightengine(frame);
+        results.push({
+          ...frameResult,
+          provider: `sightengine-video-frame-${index + 1}`,
+        });
+
+        if (!frameResult.ok) {
+          return json(res, 200, {
+            ok: false,
+            decision: "blocked",
+            reason: "This video cannot be published because it may violate KunThai safety rules.",
+            flags: frameResult.flags,
+            results,
+          });
+        }
+
+        const hiveFrameResult = await moderateVisualWithHive(frame, `video-frame-${index + 1}.jpg`);
+        results.push({
+          ...hiveFrameResult,
+          provider: `hive-video-frame-${index + 1}`,
+        });
+
+        if (!hiveFrameResult.ok) {
+          return json(res, 200, {
+            ok: false,
+            decision: "blocked",
+            reason: "This video cannot be published because it may violate KunThai safety rules.",
+            flags: hiveFrameResult.flags,
             results,
           });
         }
       }
     }
-if (Array.isArray(media?.videoFrameDataUrls) && media.videoFrameDataUrls.length) {
-  for (const frame of media.videoFrameDataUrls) {
-    const frameResult = await moderateImageWithSightengine(frame);
-    results.push({
-      ...frameResult,
-      provider: "sightengine-video-frame",
-    });
 
-    if (!frameResult.ok) {
-      return json(res, 200, {
-        ok: false,
-        decision: "blocked",
-        reason: "This video cannot be published because it may violate KunThai safety rules.",
-        flags: frameResult.flags,
-        results,
-      });
-    }
-  }
-}
     return json(res, 200, {
       ok: true,
       decision: "approved",

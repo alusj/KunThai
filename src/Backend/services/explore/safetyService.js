@@ -224,6 +224,7 @@ export function buildModerationMediaPayload(media = {}) {
     hasMedia: Boolean(media.imageDataUrl || media.videoDataUrl || media.audioDataUrl),
     imageDataUrl: media.imageDataUrl || "",
     videoDataUrl: media.videoDataUrl || "",
+    videoFrameDataUrls: Array.isArray(media.videoFrameDataUrls) ? media.videoFrameDataUrls : [],
     audioDataUrl: media.audioDataUrl || "",
     imageName: media.imageName || "",
     videoName: media.videoName || "",

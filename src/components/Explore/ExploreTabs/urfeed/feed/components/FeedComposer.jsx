@@ -466,8 +466,22 @@ return fallbackPreview;
       message: "Securing your draft before publishing.",
     });
     const videoFrameDataUrls = finalVideoPreview
-  ? await extractVideoFramesFromDataUrl(finalVideoPreview, 8)
-  : [];
+      ? await extractVideoFramesFromDataUrl(finalVideoPreview, 8)
+      : [];
+
+    if (finalVideoPreview && !videoFrameDataUrls.length) {
+      setPostingStage("");
+      setPostingProgress(0);
+      setOpen(true);
+      setFeedback("KunThai could not capture frames for video safety review. Please try this clip again.");
+      publishPostingUpdate({
+        status: "error",
+        progress: 0,
+        message: "KunThai could not complete the video safety review.",
+      });
+      return;
+    }
+
     const review = await runPostReviewPipeline({
       body: postDraft.body,
       media: {

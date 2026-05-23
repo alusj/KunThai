@@ -35,14 +35,14 @@ const ROUTE_STATUS = {
 };
 
 const GPS_SETTINGS = {
-  animationMs: 1400,
-  ignoreAccuracyAboveMeters: 120,
+  animationMs: 1150,
+  ignoreAccuracyAboveMeters: 140,
   correctRouteMeters: 45,
   warningRouteMeters: 120,
   progressBacktrackSegments: 4,
-  ignoreTinyMoveMeters: 4,
-  jumpDistanceMeters: 180,
-  maxHumanSpeedMetersPerSecond: 34,
+  ignoreTinyMoveMeters: 2.5,
+  jumpDistanceMeters: 90,
+  maxHumanSpeedMetersPerSecond: 22,
 };
 
 const osmRasterStyle = {
@@ -276,30 +276,89 @@ function getRouteStatus(distanceFromRoute, isMovingBackward) {
 }
 
 function setRouteLineColor(map, color) {
-  if (!map?.getLayer("route-line")) return;
-  map.setPaintProperty("route-line", "line-color", color);
+  if (map?.getLayer("route-line-glow")) {
+    map.setPaintProperty("route-line-glow", "line-color", color);
+  }
+
+  if (map?.getLayer("route-line")) {
+    map.setPaintProperty("route-line", "line-color", color);
+  }
 }
 
-function getSmoothedPosition(previousPosition, nextPosition) {
+function getAccuracyWeight(accuracy) {
+  if (!accuracy) return 0.36;
+  if (accuracy <= 15) return 0.58;
+  if (accuracy <= 30) return 0.46;
+  if (accuracy <= 60) return 0.32;
+  if (accuracy <= 100) return 0.22;
+  return 0.14;
+}
+
+function clampPositionToward(previousPosition, nextPosition, maxMeters) {
+  const distance = distanceInMeters(previousPosition, nextPosition);
+
+  if (!distance || distance <= maxMeters) return nextPosition;
+
+  const ratio = maxMeters / distance;
+
+  return {
+    ...nextPosition,
+    lat: lerp(previousPosition.lat, nextPosition.lat, ratio),
+    lng: lerp(previousPosition.lng, nextPosition.lng, ratio),
+  };
+}
+
+function getSmoothedPosition(previousPosition, nextPosition, elapsedMs = 1000) {
   if (!previousPosition) return nextPosition;
 
   const distance = distanceInMeters(previousPosition, nextPosition);
 
   if (distance <= GPS_SETTINGS.ignoreTinyMoveMeters) return previousPosition;
 
-  // If GPS gives a sudden far-away jump, do not teleport the pointer.
-  // Move part of the way so the marker remains smooth while the phone regains accuracy.
-  const smoothingPower =
-    distance > GPS_SETTINGS.jumpDistanceMeters ? 0.18 : distance > 80 ? 0.35 : distance > 35 ? 0.28 : 0.2;
+  const elapsedSeconds = Math.max(elapsedMs / 1000, 0.8);
+  const accuracy = Number(nextPosition.accuracy || 0);
+  const maxTrustedMove = Math.max(12, elapsedSeconds * 18 + accuracy * 0.45);
+  const stableTarget = clampPositionToward(previousPosition, nextPosition, maxTrustedMove);
+  const stableDistance = distanceInMeters(previousPosition, stableTarget);
+  const accuracyWeight = getAccuracyWeight(accuracy);
+  const movementWeight = stableDistance > 45 ? 0.5 : stableDistance > 18 ? 0.42 : accuracyWeight;
+  const smoothingPower = Math.min(0.62, Math.max(0.16, Math.min(accuracyWeight, movementWeight)));
 
   return {
     ...nextPosition,
-    lat: lerp(previousPosition.lat, nextPosition.lat, smoothingPower),
-    lng: lerp(previousPosition.lng, nextPosition.lng, smoothingPower),
+    lat: lerp(previousPosition.lat, stableTarget.lat, smoothingPower),
+    lng: lerp(previousPosition.lng, stableTarget.lng, smoothingPower),
   };
 }
 
-function animateMarkerTo(marker, fromPosition, toPosition, duration = GPS_SETTINGS.animationMs) {
+function getMarkerPosition(marker, fallback) {
+  const lngLat = marker?.getLngLat?.();
+
+  if (!lngLat) return fallback || null;
+
+  return {
+    lat: lngLat.lat,
+    lng: lngLat.lng,
+  };
+}
+
+function waitForMapStyle(map) {
+  if (!map || map.isStyleLoaded()) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    map.once("load", resolve);
+  });
+}
+
+function clearRouteLayers(map) {
+  if (!map) return;
+
+  if (map.getLayer("route-line")) map.removeLayer("route-line");
+  if (map.getLayer("route-line-glow")) map.removeLayer("route-line-glow");
+  if (map.getSource("route")) map.removeSource("route");
+}
+
+function animateMarkerTo(marker, fromPosition, toPosition, duration = GPS_SETTINGS.animationMs, onFrame) {
   if (!marker || !fromPosition || !toPosition) return null;
 
   const startedAt = performance.now();
@@ -311,8 +370,10 @@ function animateMarkerTo(marker, fromPosition, toPosition, duration = GPS_SETTIN
 
     const nextLng = lerp(fromPosition.lng, toPosition.lng, easedProgress);
     const nextLat = lerp(fromPosition.lat, toPosition.lat, easedProgress);
+    const renderedPosition = { lng: nextLng, lat: nextLat };
 
-    marker.setLngLat([nextLng, nextLat]);
+    marker.setLngLat([renderedPosition.lng, renderedPosition.lat]);
+    onFrame?.(renderedPosition);
 
     if (progress < 1) frameId = requestAnimationFrame(step);
   }
@@ -340,10 +401,12 @@ export default function NearbyAreaMap({
   const watchIdRef = useRef(null);
   const routeCoordinatesRef = useRef([]);
   const smoothedPositionRef = useRef(null);
+  const markerRenderedPositionRef = useRef(null);
   const markerAnimationCancelRef = useRef(null);
   const lastRouteSegmentIndexRef = useRef(0);
   const operatorMarkersRef = useRef(new Map());
   const routeStatusRef = useRef("correct");
+  const routeInfoRef = useRef(null);
   const userLocationRef = useRef(null);
   const lastRawPositionRef = useRef(null);
   const lastRawTimestampRef = useRef(null);
@@ -352,11 +415,26 @@ export default function NearbyAreaMap({
   const [userLocation, setUserLocation] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
   const [routeError, setRouteError] = useState("");
+  const [routeLoading, setRouteLoading] = useState(false);
   const [routeStatusKey, setRouteStatusKey] = useState("correct");
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
   const [navigationMinimized, setNavigationMinimized] = useState(false);
 
   const routeStatus = ROUTE_STATUS[routeStatusKey];
+  const showNavigationCard = Boolean(routeLoading || routeInfo || routeError);
+  const routeCardStatus = routeError
+    ? {
+        label: "Route needs attention",
+        message: routeError,
+        className: "bg-red-100 text-red-700",
+      }
+    : routeLoading
+      ? {
+          label: "Calculating route",
+          message: "Getting the recommended route and live safety colors.",
+          className: "bg-blue-100 text-blue-700",
+        }
+      : routeStatus;
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -382,6 +460,7 @@ export default function NearbyAreaMap({
     })
       .setLngLat([DEFAULT_CENTER.lng, DEFAULT_CENTER.lat])
       .addTo(map);
+    markerRenderedPositionRef.current = DEFAULT_CENTER;
 
     return () => {
       markerAnimationCancelRef.current?.();
@@ -394,16 +473,14 @@ export default function NearbyAreaMap({
       userMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
 
-      if (map.getSource("route")) {
-        if (map.getLayer("route-line")) map.removeLayer("route-line");
-        map.removeSource("route");
-      }
+      clearRouteLayers(map);
 
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
       destinationMarkerRef.current = null;
       watchIdRef.current = null;
+      markerRenderedPositionRef.current = null;
     };
   }, [onMapReady]);
 
@@ -413,6 +490,7 @@ export default function NearbyAreaMap({
       setUserLocation(DEFAULT_CENTER);
       userLocationRef.current = DEFAULT_CENTER;
       smoothedPositionRef.current = DEFAULT_CENTER;
+      markerRenderedPositionRef.current = DEFAULT_CENTER;
       lastRawPositionRef.current = DEFAULT_CENTER;
       lastRawTimestampRef.current = Date.now();
       return;
@@ -433,6 +511,7 @@ export default function NearbyAreaMap({
         setUserLocation(nextCenter);
         userLocationRef.current = nextCenter;
         smoothedPositionRef.current = nextCenter;
+        markerRenderedPositionRef.current = nextCenter;
         lastRawPositionRef.current = nextCenter;
         lastRawTimestampRef.current = Date.now();
         onLocationResolved?.(nextCenter);
@@ -450,6 +529,7 @@ export default function NearbyAreaMap({
         setUserLocation(DEFAULT_CENTER);
         userLocationRef.current = DEFAULT_CENTER;
         smoothedPositionRef.current = DEFAULT_CENTER;
+        markerRenderedPositionRef.current = DEFAULT_CENTER;
         lastRawPositionRef.current = DEFAULT_CENTER;
         lastRawTimestampRef.current = Date.now();
         onLocationResolved?.(DEFAULT_CENTER);
@@ -463,7 +543,7 @@ export default function NearbyAreaMap({
   }, [onLocationResolved]);
 
   useEffect(() => {
-    const current = smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
+    const current = markerRenderedPositionRef.current || smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
 
     mapRef.current?.easeTo({
       center: [current.lng, current.lat],
@@ -474,6 +554,12 @@ export default function NearbyAreaMap({
   }, [recenterSignal]);
 
   useEffect(() => {
+    routeInfoRef.current = routeInfo;
+  }, [routeInfo]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function drawRoute() {
       if (!selectedLocation || !mapRef.current) return;
 
@@ -481,7 +567,13 @@ export default function NearbyAreaMap({
       const map = mapRef.current;
 
       setRouteError("");
-      setRouteInfo(null);
+      setRouteLoading(true);
+      setRouteInfo({
+        from: userLocationRef.current ? "Current Location" : DEFAULT_CENTER.label,
+        to: selectedLocation.name || "Selected destination",
+        distance: "Finding route",
+        duration: "...",
+      });
       setRouteStatusKey("correct");
       routeStatusRef.current = "correct";
       setNavigationMinimized(false);
@@ -496,20 +588,36 @@ export default function NearbyAreaMap({
         .setLngLat([selectedLocation.lng, selectedLocation.lat])
         .addTo(map);
 
+      await waitForMapStyle(map);
+
       const route = await getRouteBetweenPoints(routeStart, selectedLocation);
+
+      if (cancelled) return;
 
       routeCoordinatesRef.current = route.geometry.coordinates || [];
 
-      if (map.getSource("route")) {
-        if (map.getLayer("route-line")) map.removeLayer("route-line");
-        map.removeSource("route");
-      }
+      clearRouteLayers(map);
 
       map.addSource("route", {
         type: "geojson",
         data: {
           type: "Feature",
           geometry: route.geometry,
+        },
+      });
+
+      map.addLayer({
+        id: "route-line-glow",
+        type: "line",
+        source: "route",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": ROUTE_STATUS.correct.color,
+          "line-width": 15,
+          "line-opacity": 0.22,
         },
       });
 
@@ -542,12 +650,30 @@ export default function NearbyAreaMap({
         distance: formatDistance(route.distanceMeters),
         duration: formatDuration(route.durationSeconds),
       });
+      setRouteLoading(false);
     }
 
     drawRoute().catch((error) => {
       console.error(error);
-      setRouteError("Route unavailable. Try another location.");
+      if (cancelled) return;
+      routeCoordinatesRef.current = [];
+      clearRouteLayers(mapRef.current);
+      setRouteLoading(false);
+      setRouteStatusKey("wrong");
+      routeStatusRef.current = "wrong";
+      setRouteInfo({
+        from: userLocationRef.current ? "Current Location" : DEFAULT_CENTER.label,
+        to: selectedLocation?.name || "Selected destination",
+        distance: "Route unavailable",
+        duration: "Try again",
+      });
+      setNavigationMinimized(false);
+      setRouteError("Route unavailable. Check the route key or try another location.");
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedLocation]);
 
   useEffect(() => {
@@ -580,13 +706,17 @@ export default function NearbyAreaMap({
         const previousRawPosition = lastRawPositionRef.current;
         const previousRawTimestamp = lastRawTimestampRef.current;
         const now = Date.now();
+        const elapsedMs = previousRawTimestamp ? now - previousRawTimestamp : 1000;
 
         if (previousRawPosition && previousRawTimestamp) {
           const rawDistance = distanceInMeters(previousRawPosition, rawLivePosition);
-          const seconds = Math.max((now - previousRawTimestamp) / 1000, 1);
+          const seconds = Math.max(elapsedMs / 1000, 1);
           const rawSpeed = rawDistance / seconds;
 
-          if (rawDistance > GPS_SETTINGS.jumpDistanceMeters && rawSpeed > GPS_SETTINGS.maxHumanSpeedMetersPerSecond) {
+          if (
+            rawDistance > GPS_SETTINGS.jumpDistanceMeters &&
+            rawSpeed > GPS_SETTINGS.maxHumanSpeedMetersPerSecond
+          ) {
             setLocationStatus(`Filtering GPS jump - ${accuracy}m accuracy`);
             setGpsAccuracy(accuracy);
             return;
@@ -597,7 +727,7 @@ export default function NearbyAreaMap({
         lastRawTimestampRef.current = now;
 
         const previousSmoothedPosition = smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
-        const livePosition = getSmoothedPosition(previousSmoothedPosition, rawLivePosition);
+        const livePosition = getSmoothedPosition(previousSmoothedPosition, rawLivePosition, elapsedMs);
         const movedMeters = distanceInMeters(previousSmoothedPosition, livePosition);
 
         if (movedMeters <= GPS_SETTINGS.ignoreTinyMoveMeters) {
@@ -611,16 +741,25 @@ export default function NearbyAreaMap({
         userLocationRef.current = livePosition;
         onLocationResolved?.(livePosition);
 
+        const markerStartPosition =
+          markerRenderedPositionRef.current ||
+          getMarkerPosition(userMarkerRef.current, previousSmoothedPosition) ||
+          previousSmoothedPosition;
+
         markerAnimationCancelRef.current?.();
         markerAnimationCancelRef.current = animateMarkerTo(
           userMarkerRef.current,
-          previousSmoothedPosition,
+          markerStartPosition,
           livePosition,
+          GPS_SETTINGS.animationMs,
+          (renderedPosition) => {
+            markerRenderedPositionRef.current = renderedPosition;
+          },
         );
 
         smoothedPositionRef.current = livePosition;
 
-        if (routeInfo && routeStatusRef.current === "correct") {
+        if (routeInfoRef.current && routeStatusRef.current === "correct") {
           setNavigationMinimized(true);
         }
 
@@ -676,7 +815,7 @@ export default function NearbyAreaMap({
         watchIdRef.current = null;
       }
     };
-  }, [focusMode, onLocationResolved, routeInfo]);
+  }, [focusMode, onLocationResolved]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -724,7 +863,7 @@ export default function NearbyAreaMap({
         </div>
       )}
 
-      {routeInfo && (
+      {showNavigationCard && (
         <div
           className={`absolute left-3 right-3 z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur transition-all sm:left-5 sm:right-auto sm:max-w-md ${
             navigationMinimized ? "bottom-24 p-3 sm:bottom-6" : "bottom-24 p-4 sm:bottom-6"
@@ -736,8 +875,8 @@ export default function NearbyAreaMap({
             </p>
 
             <div className="flex items-center gap-2">
-              <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${routeStatus.className}`}>
-                {routeStatus.label}
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${routeCardStatus.className}`}>
+                {routeCardStatus.label}
               </span>
 
               <button
@@ -756,8 +895,8 @@ export default function NearbyAreaMap({
               <h3 className="text-lg font-black">
                 {routeInfo.distance} • {routeInfo.duration}
               </h3>
-              <span className={`rounded-2xl px-3 py-2 text-xs font-black ${routeStatus.className}`}>
-                {routeStatusKey.toUpperCase()}
+              <span className={`rounded-2xl px-3 py-2 text-xs font-black ${routeCardStatus.className}`}>
+                {routeError ? "CHECK" : routeLoading ? "WAIT" : routeStatusKey.toUpperCase()}
               </span>
             </div>
           ) : (
@@ -772,14 +911,18 @@ export default function NearbyAreaMap({
                   </p>
                 </div>
 
-                <div className={`rounded-2xl px-3 py-2 text-xs font-black ${routeStatus.className}`}>
-                  {routeStatusKey.toUpperCase()}
+                <div className={`rounded-2xl px-3 py-2 text-xs font-black ${routeCardStatus.className}`}>
+                  {routeError ? "CHECK" : routeLoading ? "WAIT" : routeStatusKey.toUpperCase()}
                 </div>
               </div>
 
-              <p className="mt-3 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600">
-                {routeStatus.message}
+              <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-bold ${
+                routeError ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600"
+              }`}>
+                {routeCardStatus.message}
               </p>
+
+              <RouteHealthLegend activeKey={routeError || routeLoading ? "" : routeStatusKey} />
 
               <div className="mt-3 grid gap-2 text-xs font-bold text-slate-600">
                 <div className="flex items-center gap-2">
@@ -801,13 +944,35 @@ export default function NearbyAreaMap({
         </div>
       )}
 
-      {routeError && (
+      {routeError && !showNavigationCard && (
         <div className="absolute bottom-6 left-4 z-30 rounded-2xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-xl">
           {routeError}
         </div>
       )}
 
       {children}
+    </div>
+  );
+}
+
+function RouteHealthLegend({ activeKey }) {
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-2">
+      {[
+        ["correct", "Green", "bg-green-600"],
+        ["warning", "Yellow", "bg-yellow-400"],
+        ["wrong", "Red", "bg-red-600"],
+      ].map(([key, label, colorClass]) => (
+        <span
+          key={key}
+          className={`flex items-center gap-2 rounded-2xl border px-2.5 py-2 text-[11px] font-black ${
+            activeKey === key ? "border-slate-300 bg-slate-100 text-slate-950" : "border-slate-100 bg-white text-slate-500"
+          }`}
+        >
+          <span className={`h-3 w-3 shrink-0 rounded-full ${colorClass}`} />
+          {label}
+        </span>
+      ))}
     </div>
   );
 }

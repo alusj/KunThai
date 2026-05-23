@@ -181,9 +181,6 @@ export default function VideoCard({
     const clampedRelative = Math.min(Math.max(nextTime, 0), nextClip.duration);
 
     video.currentTime = nextClip.start + clampedRelative;
-    video.muted = false;
-    video.defaultMuted = false;
-    video.volume = 1;
 
     setProgress({
       currentTime: clampedRelative,
@@ -192,7 +189,7 @@ export default function VideoCard({
     });
   }
 
-  async function requestActivePlayback() {
+  async function requestActivePlayback({ sound = true } = {}) {
     if (!activeRef.current) return;
 
     const video = videoRef.current;
@@ -204,7 +201,7 @@ export default function VideoCard({
 
     video.muted = false;
     video.defaultMuted = false;
-    video.volume = 1;
+    video.volume = sound ? 1 : 0;
 
     try {
       await playExploreMedia(video, { muteVideos: false });
@@ -225,12 +222,8 @@ export default function VideoCard({
     const video = videoRef.current;
     if (!video) return;
 
-    video.muted = false;
-    video.defaultMuted = false;
-    video.volume = 1;
-
     if (video.paused) {
-      requestActivePlayback();
+      requestActivePlayback({ sound: true });
       return;
     }
 

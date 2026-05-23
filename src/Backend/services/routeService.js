@@ -1,47 +1,166 @@
 const OPEN_ROUTE_SERVICE_KEY = import.meta.env.VITE_OPENROUTESERVICE_KEY;
+const ROUTE_API_PATH = "/api/route-directions";
 
-export async function getRouteBetweenPoints(start, end) {
-  if (!OPEN_ROUTE_SERVICE_KEY) {
-    throw new Error("Missing VITE_OPENROUTESERVICE_KEY");
-  }
+function hasValidPoint(point) {
+  return Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng));
+}
 
-  if (!start?.lat || !start?.lng || !end?.lat || !end?.lng) {
-    throw new Error("Start and destination are required");
-  }
+function normalizePoint(point) {
+  return {
+    lat: Number(point.lat),
+    lng: Number(point.lng),
+  };
+}
 
-  const response = await fetch(
-    "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
-    {
-      method: "POST",
-      headers: {
-        Authorization: OPEN_ROUTE_SERVICE_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        coordinates: [
-          [start.lng, start.lat],
-          [end.lng, end.lat],
-        ],
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Unable to calculate route");
-  }
-
-  const data = await response.json();
-  const feature = data.features?.[0];
-
-  if (!feature) {
-    throw new Error("No route found");
-  }
-
+function normalizeRouteFeature(feature) {
   return {
     geometry: feature.geometry,
     distanceMeters: feature.properties?.summary?.distance || 0,
     durationSeconds: feature.properties?.summary?.duration || 0,
   };
+}
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function distanceInMeters(start, end) {
+  const earthRadius = 6371000;
+  const lat1 = toRadians(start.lat);
+  const lat2 = toRadians(end.lat);
+  const deltaLat = toRadians(end.lat - start.lat);
+  const deltaLng = toRadians(end.lng - start.lng);
+
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) *
+      Math.cos(lat2) *
+      Math.sin(deltaLng / 2) *
+      Math.sin(deltaLng / 2);
+
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getApproximateRoute(start, end) {
+  const distanceMeters = distanceInMeters(start, end);
+
+  return {
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [start.lng, start.lat],
+        [end.lng, end.lat],
+      ],
+    },
+    distanceMeters,
+    durationSeconds: Math.max(60, distanceMeters / 8),
+    approximate: true,
+  };
+}
+
+async function parseRouteResponse(response) {
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.reason || data?.error || "Unable to calculate route");
+  }
+
+  if (data?.geometry) {
+    return data;
+  }
+
+  const feature = data?.features?.[0];
+
+  if (!feature) {
+    throw new Error("No route found");
+  }
+
+  return normalizeRouteFeature(feature);
+}
+
+async function getRouteFromServer(start, end) {
+  const response = await fetch(ROUTE_API_PATH, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ start, end }),
+  });
+
+  return parseRouteResponse(response);
+}
+
+async function getRouteFromOpenRouteService(start, end) {
+  if (!OPEN_ROUTE_SERVICE_KEY) {
+    throw new Error("Missing OPENROUTESERVICE_KEY");
+  }
+
+  const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
+    method: "POST",
+    headers: {
+      Authorization: OPEN_ROUTE_SERVICE_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      coordinates: [
+        [start.lng, start.lat],
+        [end.lng, end.lat],
+      ],
+    }),
+  });
+
+  return parseRouteResponse(response);
+}
+
+async function getRouteFromOsrm(start, end) {
+  const params = new URLSearchParams({
+    overview: "full",
+    geometries: "geojson",
+    steps: "false",
+  });
+  const response = await fetch(
+    `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?${params}`,
+  );
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok || data?.code !== "Ok" || !data.routes?.[0]?.geometry) {
+    throw new Error(data?.message || "Unable to calculate route");
+  }
+
+  const route = data.routes[0];
+
+  return {
+    geometry: route.geometry,
+    distanceMeters: route.distance || 0,
+    durationSeconds: route.duration || 0,
+  };
+}
+
+export async function getRouteBetweenPoints(start, end) {
+  if (!hasValidPoint(start) || !hasValidPoint(end)) {
+    throw new Error("Start and destination are required");
+  }
+
+  const normalizedStart = normalizePoint(start);
+  const normalizedEnd = normalizePoint(end);
+
+  const routeAttempts = [getRouteFromServer];
+
+  if (OPEN_ROUTE_SERVICE_KEY) {
+    routeAttempts.push(getRouteFromOpenRouteService);
+  }
+
+  routeAttempts.push(getRouteFromOsrm);
+
+  for (const attempt of routeAttempts) {
+    try {
+      return await attempt(normalizedStart, normalizedEnd);
+    } catch (error) {
+      console.warn("[KunThai Route Attempt Failed]", error);
+    }
+  }
+
+  return getApproximateRoute(normalizedStart, normalizedEnd);
 }
 
 export function formatDistance(meters) {
