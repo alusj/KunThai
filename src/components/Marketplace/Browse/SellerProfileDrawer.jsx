@@ -32,6 +32,7 @@ import {
   sendBuyerMarketplaceMessage,
   submitMarketplaceReview,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
 
 function StarRatingInput({ value, onChange }) {
   return (
@@ -315,6 +316,37 @@ function TabButton({ icon, label, active, onClick }) {
   );
 }
 
+function SellerActionIcon({ icon, label, active = false, disabled = false, href = "", onClick }) {
+  const IconComponent = icon;
+  const className = `inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-gray-800 shadow-sm transition sm:h-[52px] sm:w-[52px] ${
+    active
+      ? "border-rose-100 bg-rose-50 text-rose-700"
+      : disabled
+        ? "border-gray-100 bg-gray-50 text-gray-300"
+        : "border-gray-200 bg-white hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+  }`;
+  const content = (
+    <>
+      <IconComponent size={22} fill={active && IconComponent === Heart ? "currentColor" : "none"} />
+      <span className="sr-only">{label}</span>
+    </>
+  );
+
+  if (href && !disabled) {
+    return (
+      <a href={href} className={className} aria-label={label} title={label}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className={className} aria-label={label} title={label}>
+      {content}
+    </button>
+  );
+}
+
 function ProductCard({
   product,
   saved,
@@ -478,6 +510,7 @@ export default function SellerProfileDrawer({
   const [locationWarning, setLocationWarning] = useState("");
   const [buyerPosition, setBuyerPosition] = useState(null);
   const [messagePanelOpen, setMessagePanelOpen] = useState(false);
+  const [verificationOpen, setVerificationOpen] = useState(false);
   const safeSeller = useMemo(() => asObject(seller), [seller]);
   const safeCatalog = useMemo(() => asArray(catalog).filter((item) => item && typeof item === "object"), [catalog]);
   const safeReviews = useMemo(
@@ -763,13 +796,17 @@ export default function SellerProfileDrawer({
             {loadingProfile ? <SellerProfileSkeleton /> : null}
 
             <section className="w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-white px-3 py-2.5 sm:px-5">
+              <button
+                type="button"
+                onClick={() => setVerificationOpen(true)}
+                className="flex w-full items-center justify-between gap-3 border-b border-gray-100 bg-white px-3 py-2.5 text-left transition hover:bg-gray-50 sm:px-5"
+              >
                 <span className="text-[11px] font-black uppercase tracking-wide text-gray-400">Verification Status</span>
                 <span className={`inline-flex max-w-[70%] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${verificationStatus.className}`}>
                   <BadgeCheck size={14} />
                   <span className="truncate">{verificationStatus.label}</span>
                 </span>
-              </div>
+              </button>
 
               <div className="relative h-20 bg-gradient-to-r from-gray-950 via-emerald-900 to-emerald-700 sm:h-28">
                 {safeSeller.bannerUrl ? <img src={safeSeller.bannerUrl} alt="" className="h-full w-full object-cover opacity-75" /> : null}
@@ -777,58 +814,18 @@ export default function SellerProfileDrawer({
               </div>
 
               <div className="p-3 sm:p-5">
-                <div className="grid w-full max-w-full gap-4 md:grid-cols-[170px_minmax(0,1fr)]">
-                  <div className="mx-auto w-full max-w-[170px] md:mx-0">
-                    <div className="-mt-10 flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-gray-950 text-white shadow-lg sm:h-28 sm:w-28">
+                <div className="space-y-3">
+                  <div className="-mt-10 flex w-full max-w-full flex-wrap items-end gap-2 sm:gap-3">
+                    <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-gray-950 text-white shadow-lg sm:h-28 sm:w-28">
                       {safeSeller.logoUrl ? <img src={safeSeller.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={32} />}
                     </div>
 
-                    <div className="mt-3 grid w-full gap-2">
-                      {safeSeller.phone ? (
-                        <a
-                          href={`tel:${safeSeller.phone}`}
-                          className="inline-flex h-10 w-full max-w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 transition hover:bg-gray-50"
-                        >
-                          <Phone size={16} />
-                          Call
-                        </a>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={handleLocateStore}
-                        className="inline-flex h-11 w-full max-w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
-                      >
-                        <Navigation size={17} />
-                        Locate Store
-                      </button>
-                      <button
-                        type="button"
-                        onClick={openMessagePanel}
-                        className="inline-flex h-11 w-full max-w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 transition hover:bg-gray-50"
-                      >
-                        <MessageCircle size={17} />
-                        Message Seller
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveStore}
-                        className={`inline-flex h-10 w-full max-w-full items-center justify-center gap-2 rounded-lg border px-3 text-sm font-black transition ${
-                          sellerSaved
-                            ? "border-rose-100 bg-rose-50 text-rose-700"
-                            : "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
-                        }`}
-                      >
-                        <Heart size={16} fill={sellerSaved ? "currentColor" : "none"} />
-                        {sellerSaved ? "Saved" : "Save"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={shareSeller}
-                        className="inline-flex h-10 w-full max-w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 transition hover:bg-gray-50"
-                      >
-                        <Share2 size={16} />
-                        Share
-                      </button>
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 pb-1">
+                      <SellerActionIcon icon={Phone} label="Call seller" href={safeSeller.phone ? `tel:${safeSeller.phone}` : ""} disabled={!safeSeller.phone} />
+                      <SellerActionIcon icon={Navigation} label="Locate store" onClick={handleLocateStore} />
+                      <SellerActionIcon icon={MessageCircle} label="Message seller" onClick={openMessagePanel} />
+                      <SellerActionIcon icon={Heart} label={sellerSaved ? "Saved store" : "Save store"} active={sellerSaved} onClick={handleSaveStore} />
+                      <SellerActionIcon icon={Share2} label="Share store" onClick={shareSeller} />
                     </div>
                   </div>
 
@@ -1059,6 +1056,17 @@ export default function SellerProfileDrawer({
               </form>
             </section>
           </div>
+        ) : null}
+
+        {verificationOpen ? (
+          <MarketplaceVerificationModal
+            audience="buyer"
+            status={safeSeller.verificationStatus || safeSeller.verification_status}
+            verified={safeSeller.verified === true}
+            onClose={() => setVerificationOpen(false)}
+            onPrimaryAction={() => null}
+            onSecondaryAction={openMessagePanel}
+          />
         ) : null}
       </aside>
     </>,
