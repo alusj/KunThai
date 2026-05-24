@@ -53,7 +53,31 @@ function getShortAddress(result) {
   return result.address || result.fullAddress || result.placeName || "Freetown, Sierra Leone";
 }
 
-export default function NearbyAreaScreen({ onBack }) {
+function buildInitialMapDestination(destination) {
+  if (!destination) return null;
+  const lat = Number(destination.lat ?? destination.latitude);
+  const lng = Number(destination.lng ?? destination.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return {
+    id: destination.id || `destination-${lat}-${lng}`,
+    type: destination.type || "destination",
+    name: destination.name || destination.label || "Selected destination",
+    category: destination.category || (destination.type === "seller" ? "Seller" : "Destination"),
+    address: destination.address || destination.fullAddress || "",
+    distance: destination.distance || (destination.type === "seller" ? "Seller location" : "Selected location"),
+    status: destination.status || "verified",
+    description:
+      destination.description ||
+      (destination.type === "seller"
+        ? "Seller store location from UrMall."
+        : "Selected destination from KunThai."),
+    lat,
+    lng,
+  };
+}
+
+export default function NearbyAreaScreen({ onBack, initialDestination = null, autoRoute = false }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
@@ -99,6 +123,36 @@ export default function NearbyAreaScreen({ onBack }) {
     if (!mapCenter?.lat || !mapCenter?.lng) return "default";
     return `${mapCenter.lat.toFixed(2)},${mapCenter.lng.toFixed(2)}`;
   }, [mapCenter]);
+  const initialDestinationKey = useMemo(() => {
+    if (!initialDestination) return "";
+    return [
+      initialDestination.type,
+      initialDestination.id,
+      initialDestination.lat ?? initialDestination.latitude,
+      initialDestination.lng ?? initialDestination.longitude,
+      autoRoute ? "route" : "view",
+    ].join(":");
+  }, [autoRoute, initialDestination]);
+
+  useEffect(() => {
+    const destination = buildInitialMapDestination(initialDestination);
+    if (!destination) return;
+
+    setActiveLocation(destination);
+    setSearchQuery(destination.name);
+    setSelectionLocked(true);
+    setSearchResults([]);
+    setSearching(false);
+    setLocationPanelOpen(false);
+    setSearchOverlayOpen(false);
+    if (autoRoute) setSelectedSearchLocation(destination);
+
+    mapInstance?.flyTo({
+      center: [destination.lng, destination.lat],
+      zoom: 15.5,
+      essential: true,
+    });
+  }, [autoRoute, initialDestination, initialDestinationKey, mapInstance]);
 
   useEffect(() => {
     let mounted = true;

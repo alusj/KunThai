@@ -1257,8 +1257,10 @@ export default function NearbyAreaMap({
 
       destinationMarkerRef.current?.remove();
 
+      const destinationMarkerLabel = selectedLocation.type === "seller" ? "STORE" : "DESTINATION";
+
       destinationMarkerRef.current = new maplibregl.Marker({
-        element: createLabeledMarker("DESTINATION", "#2563eb"),
+        element: createLabeledMarker(destinationMarkerLabel, "#2563eb"),
         anchor: "center",
       })
         .setLngLat([selectedLocation.lng, selectedLocation.lat])

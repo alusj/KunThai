@@ -37,16 +37,28 @@ function mapBuyerProduct(product) {
       id: business.id || product.business_id,
       name: business.business_name || "UrMall seller",
       description: business.description || "",
+      category: product.category || "General Seller",
+      address: business.address || "",
       city: business.city || "",
       country: business.country || "",
       phone: business.phone || "",
       whatsappEnabled: Boolean(business.whatsapp_enabled),
       whatsapp: business.whatsapp || "",
       email: business.email || "",
+      website: business.website_url || "",
       logoUrl: business.logo_url || "",
       bannerUrl: business.banner_url || "",
+      latitude: business.latitude === null || business.latitude === undefined ? null : Number(business.latitude),
+      longitude: business.longitude === null || business.longitude === undefined ? null : Number(business.longitude),
+      businessType: business.business_type || "both",
+      deliveryEnabled: Boolean(business.delivery_enabled),
+      pickupEnabled: Boolean(business.pickup_enabled),
+      operatingDays: Array.isArray(business.operating_days) ? business.operating_days : [],
+      openTime: business.open_time || "",
+      closeTime: business.close_time || "",
       verificationStatus: business.verification_status || "pending",
       readinessScore: Number(business.readiness_score || 0),
+      joinedAt: business.created_at || "",
     },
   };
 }
@@ -56,8 +68,9 @@ const PRODUCT_SELECT = `
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
   delivery_time,allow_negotiation,
   marketplace_businesses (
-    id,business_name,description,city,country,phone,whatsapp_enabled,whatsapp,email,logo_url,banner_url,
-    verification_status,readiness_score
+    id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
+    latitude,longitude,business_type,delivery_enabled,pickup_enabled,operating_days,open_time,close_time,
+    logo_url,banner_url,verification_status,readiness_score,created_at
   )
 `;
 
@@ -67,8 +80,9 @@ const PRODUCT_DETAIL_SELECT = `
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
   delivery_time,allow_negotiation,
   marketplace_businesses (
-    id,business_name,description,city,country,phone,whatsapp_enabled,whatsapp,email,logo_url,banner_url,
-    verification_status,readiness_score
+    id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
+    latitude,longitude,business_type,delivery_enabled,pickup_enabled,operating_days,open_time,close_time,
+    logo_url,banner_url,verification_status,readiness_score,created_at
   )
 `;
 
@@ -382,6 +396,14 @@ export async function fetchSavedBuyerProductIds() {
   return new Set((data || []).map((item) => item.product_id));
 }
 
+export async function fetchSavedBuyerSellerIds() {
+  const buyerId = await getCurrentUserId("Sign in to view favorite stores.");
+  const { data, error } = await supabase.from("marketplace_saved_sellers").select("business_id").eq("buyer_id", buyerId);
+
+  if (error) throw new Error(error.message);
+  return new Set((data || []).map((item) => item.business_id));
+}
+
 export async function toggleSavedBuyerProduct(productId, currentlySaved) {
   const buyerId = await getCurrentUserId("Sign in to save products.");
 
@@ -398,6 +420,27 @@ export async function toggleSavedBuyerProduct(productId, currentlySaved) {
   const { error } = await supabase
     .from("marketplace_saved_products")
     .upsert({ buyer_id: buyerId, product_id: productId }, { onConflict: "buyer_id,product_id" });
+
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function toggleSavedBuyerSeller(businessId, currentlySaved) {
+  const buyerId = await getCurrentUserId("Sign in to save stores.");
+
+  if (currentlySaved) {
+    const { error } = await supabase
+      .from("marketplace_saved_sellers")
+      .delete()
+      .eq("buyer_id", buyerId)
+      .eq("business_id", businessId);
+    if (error) throw new Error(error.message);
+    return false;
+  }
+
+  const { error } = await supabase
+    .from("marketplace_saved_sellers")
+    .upsert({ buyer_id: buyerId, business_id: businessId }, { onConflict: "buyer_id,business_id" });
 
   if (error) throw new Error(error.message);
   return true;

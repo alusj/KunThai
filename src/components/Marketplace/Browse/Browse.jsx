@@ -8,8 +8,10 @@ import {
   fetchBuyerMarketplaceProducts,
   fetchBuyerProductDetail,
   fetchSavedBuyerProductIds,
+  fetchSavedBuyerSellerIds,
   sendBuyerMarketplaceMessage,
   toggleSavedBuyerProduct,
+  toggleSavedBuyerSeller,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { showToast } from "../../../Backend/services/toastService";
 
@@ -64,6 +66,7 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [savedIds, setSavedIds] = useState(new Set());
+  const [savedSellerIds, setSavedSellerIds] = useState(new Set());
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -114,13 +117,15 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
 
     async function loadOptions() {
       try {
-        const [discoveryOptions, saved] = await Promise.all([
+        const [discoveryOptions, saved, savedStores] = await Promise.all([
           fetchBuyerDiscoveryOptions(),
           fetchSavedBuyerProductIds().catch(() => new Set()),
+          fetchSavedBuyerSellerIds().catch(() => new Set()),
         ]);
         if (alive) {
           setOptions(discoveryOptions);
           setSavedIds(saved);
+          setSavedSellerIds(savedStores);
         }
       } catch {
         if (alive) setOptions({ categories: [], locations: [] });
@@ -236,6 +241,30 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
     }
   }
 
+  async function toggleSavedSeller(seller) {
+    if (!seller?.id) return;
+    const currentlySaved = savedSellerIds.has(seller.id);
+    setSavedSellerIds((current) => {
+      const next = new Set(current);
+      if (currentlySaved) next.delete(seller.id);
+      else next.add(seller.id);
+      return next;
+    });
+
+    try {
+      await toggleSavedBuyerSeller(seller.id, currentlySaved);
+      showNotice(currentlySaved ? "Store removed from favorites" : "Store saved to favorites");
+    } catch (err) {
+      setSavedSellerIds((current) => {
+        const next = new Set(current);
+        if (currentlySaved) next.add(seller.id);
+        else next.delete(seller.id);
+        return next;
+      });
+      showNotice(err.message || "Unable to update favorite store.", "danger");
+    }
+  }
+
   async function messageSeller(product, options = {}) {
     try {
       await sendBuyerMarketplaceMessage({
@@ -315,8 +344,10 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
         }}
         onAddToCart={addToCart}
         onToggleSaved={toggleSaved}
+        onToggleSavedSeller={toggleSavedSeller}
         onNotice={showNotice}
         savedIds={savedIds}
+        sellerSaved={selectedSeller ? savedSellerIds.has(selectedSeller.id) : false}
       />
 
     </div>

@@ -88,6 +88,7 @@ export default function App() {
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [pageSlideDirection, setPageSlideDirection] = useState("forward");
+  const [transportAreaRequest, setTransportAreaRequest] = useState(null);
 
   useEffect(() => {
     stopAllExploreMedia();
@@ -118,6 +119,26 @@ export default function App() {
       stopAllExploreMedia();
     };
   }, []);
+
+  useEffect(() => {
+    function handleOpenAreaView(event) {
+      const detail = event.detail || {};
+      if (!detail.destination) return;
+
+      setTransportAreaRequest({
+        ...detail,
+        requestedAt: Date.now(),
+      });
+
+      const currentIndex = PAGE_ORDER.indexOf(page);
+      const nextIndex = PAGE_ORDER.indexOf("transport");
+      setPageSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
+      setPage("transport");
+    }
+
+    window.addEventListener("kuntai-open-area-view", handleOpenAreaView);
+    return () => window.removeEventListener("kuntai-open-area-view", handleOpenAreaView);
+  }, [page]);
 
   if (loading || (user && onboardingLoading)) {
     return <AppLoading page={page} />;
@@ -162,7 +183,12 @@ export default function App() {
             onActivityChange={setMarketplaceActivityOpen}
           />
         )}
-        {page === "transport" && <Transport onActivityChange={setTransportActivityOpen} />}
+        {page === "transport" && (
+          <Transport
+            onActivityChange={setTransportActivityOpen}
+            areaViewRequest={transportAreaRequest}
+          />
+        )}
       </div>
 
       {!bottomTabsHidden ? <BottomTabs page={page} setPage={changePage} /> : null}

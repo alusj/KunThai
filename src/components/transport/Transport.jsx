@@ -13,7 +13,7 @@ import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import { getLegacyOperatorAccount, getOperatorAccount } from "../services/transportOperatorAccountService";
 
-export default function Transport({ onActivityChange }) {
+export default function Transport({ onActivityChange, areaViewRequest = null }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [operatorAccount, setOperatorAccount] = useState(null);
   const [operatorLoading, setOperatorLoading] = useState(true);
@@ -25,6 +25,7 @@ export default function Transport({ onActivityChange }) {
   const [activeFleetId, setActiveFleetId] = useState(null);
   const [activeTripsOpen, setActiveTripsOpen] = useState(false);
   const [nearbyAreaOpen, setNearbyAreaOpen] = useState(false);
+  const [nearbyAreaRequest, setNearbyAreaRequest] = useState(null);
   const [savedOperatorsOpen, setSavedOperatorsOpen] = useState(false);
   const [verificationFleet, setVerificationFleet] = useState(null);
   const [bookingTarget, setBookingTarget] = useState(null);
@@ -107,6 +108,26 @@ export default function Transport({ onActivityChange }) {
   }, []);
 
   useEffect(() => {
+    if (!areaViewRequest?.destination) return;
+
+    if (operatorDashboardCloseTimer.current) {
+      window.clearTimeout(operatorDashboardCloseTimer.current);
+      operatorDashboardCloseTimer.current = null;
+    }
+    setRegistrationOpen(false);
+    setOperatorDashboardOpen(false);
+    setOperatorDashboardClosing(false);
+    setFleetSelection(null);
+    setActiveFleetId(null);
+    setActiveTripsOpen(false);
+    setSavedOperatorsOpen(false);
+    setVerificationFleet(null);
+    setBookingTarget(null);
+    setNearbyAreaRequest(areaViewRequest);
+    setNearbyAreaOpen(true);
+  }, [areaViewRequest]);
+
+  useEffect(() => {
     onActivityChange?.(
       registrationOpen ||
         operatorDashboardOpen ||
@@ -170,7 +191,14 @@ export default function Transport({ onActivityChange }) {
   if (nearbyAreaOpen) {
     return (
       <div className="kt-route-transition min-h-screen">
-        <NearbyAreaScreen onBack={() => setNearbyAreaOpen(false)} />
+        <NearbyAreaScreen
+          onBack={() => {
+            setNearbyAreaOpen(false);
+            setNearbyAreaRequest(null);
+          }}
+          initialDestination={nearbyAreaRequest?.destination}
+          autoRoute={Boolean(nearbyAreaRequest?.autoRoute)}
+        />
       </div>
     );
   }
@@ -279,7 +307,10 @@ export default function Transport({ onActivityChange }) {
         onOpenTopRated={() => {
           setFleetSelection({ mode: "topRated", fleetType: null, label: "Top Rated Fleets" });
         }}
-        onOpenNearbyArea={() => setNearbyAreaOpen(true)}
+        onOpenNearbyArea={() => {
+          setNearbyAreaRequest(null);
+          setNearbyAreaOpen(true);
+        }}
         onOpenActiveTrips={() => setActiveTripsOpen(true)}
         onOpenSavedOperators={() => setSavedOperatorsOpen(true)}
         onViewFleet={setActiveFleetId}
