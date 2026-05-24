@@ -48,8 +48,7 @@ export async function searchLocations(query, center = null) {
       lat: Number(place.lat),
       lng: Number(place.lon),
     }));
-  } catch (error) {
-    console.error("Location search error:", error);
+  } catch {
     return [];
   }
 }

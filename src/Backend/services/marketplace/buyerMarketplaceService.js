@@ -80,7 +80,7 @@ const PRODUCT_SELECT = `
   delivery_time,allow_negotiation,
   marketplace_businesses (
     id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
-    latitude,longitude,business_type,delivery_enabled,pickup_enabled,operating_days,open_time,close_time,
+    latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,
     logo_url,banner_url,verification_status,readiness_score,created_at
   )
 `;
@@ -92,7 +92,7 @@ const PRODUCT_DETAIL_SELECT = `
   delivery_time,allow_negotiation,
   marketplace_businesses (
     id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
-    latitude,longitude,business_type,delivery_enabled,pickup_enabled,operating_days,open_time,close_time,
+    latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,
     logo_url,banner_url,verification_status,readiness_score,created_at
   )
 `;
@@ -128,6 +128,19 @@ function isRecoverableSelectError(error) {
     message.includes("does not exist") ||
     message.includes("failed to parse select")
   );
+}
+
+async function runRecoverableSelects(selectClauses, queryFactory, fallbackMessage) {
+  let lastError = null;
+
+  for (const selectClause of selectClauses) {
+    const { data, error } = await queryFactory(selectClause);
+    if (!error) return data;
+    if (!isRecoverableSelectError(error)) throw new Error(error.message || fallbackMessage);
+    lastError = error;
+  }
+
+  throw new Error(lastError?.message || fallbackMessage);
 }
 
 async function runProductListQuery({ filters = {}, businessId = null } = {}) {
@@ -371,13 +384,17 @@ function normalizeConversationLabel(label) {
 
 export async function fetchBuyerCart() {
   const buyerId = await getCurrentUserId("Sign in to view your cart.");
-  const { data, error } = await supabase
-    .from("marketplace_cart_items")
-    .select(`id,product_id,business_id,quantity,marketplace_products (${PRODUCT_SELECT})`)
-    .eq("buyer_id", buyerId)
-    .order("created_at", { ascending: false });
+  const data = await runRecoverableSelects(
+    PRODUCT_LIST_SELECTS,
+    (selectClause) =>
+      supabase
+        .from("marketplace_cart_items")
+        .select(`id,product_id,business_id,quantity,marketplace_products (${selectClause})`)
+        .eq("buyer_id", buyerId)
+        .order("created_at", { ascending: false }),
+    "Unable to load cart.",
+  );
 
-  if (error) throw new Error(error.message);
   return (data || []).map(mapCartItem);
 }
 
@@ -503,13 +520,17 @@ export async function toggleSavedBuyerSeller(businessId, currentlySaved) {
 
 export async function fetchSavedBuyerProducts() {
   const buyerId = await getCurrentUserId("Sign in to view saved products.");
-  const { data, error } = await supabase
-    .from("marketplace_saved_products")
-    .select(`id,created_at,marketplace_products (${PRODUCT_SELECT})`)
-    .eq("buyer_id", buyerId)
-    .order("created_at", { ascending: false });
+  const data = await runRecoverableSelects(
+    PRODUCT_LIST_SELECTS,
+    (selectClause) =>
+      supabase
+        .from("marketplace_saved_products")
+        .select(`id,created_at,marketplace_products (${selectClause})`)
+        .eq("buyer_id", buyerId)
+        .order("created_at", { ascending: false }),
+    "Unable to load saved products.",
+  );
 
-  if (error) throw new Error(error.message);
   return (data || [])
     .map((item) => (item.marketplace_products ? mapBuyerProduct(item.marketplace_products) : null))
     .filter(Boolean);
@@ -604,21 +625,25 @@ export async function fetchBuyerOrders() {
     .from("marketplace_buyer_hidden_orders")
     .select("order_id")
     .eq("buyer_id", buyerId);
+
   const hiddenIds = new Set((hiddenResult.data || []).map((item) => item.order_id));
 
-  const { data, error } = await supabase
-    .from("marketplace_orders")
-    .select(
-      `
+  const data = await runRecoverableSelects(
+    PRODUCT_LIST_SELECTS,
+    (selectClause) =>
+      supabase
+        .from("marketplace_orders")
+        .select(
+          `
         id,business_id,product_id,status,total_amount,item_count,preview,delivery_location,created_at,
-        marketplace_products (${PRODUCT_SELECT}),
+        marketplace_products (${selectClause}),
         marketplace_businesses (id,business_name,city,country,logo_url,verification_status)
       `,
-    )
-    .eq("buyer_id", buyerId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
+        )
+        .eq("buyer_id", buyerId)
+        .order("created_at", { ascending: false }),
+    "Unable to load orders.",
+  );
 
   return (data || []).filter((order) => !hiddenIds.has(order.id)).map((order) => {
     const business = order.marketplace_businesses || {};
@@ -647,18 +672,22 @@ export async function findBuyerOrderProduct(order) {
   const productName = String(order?.preview || "").split(" x")[0]?.trim();
   if (!productName && !order?.businessId) return null;
 
-  let query = supabase
-    .from("marketplace_products")
-    .select(PRODUCT_SELECT)
-    .eq("status", "active")
-    .limit(1);
+  for (const selectClause of PRODUCT_LIST_SELECTS) {
+    let query = supabase
+      .from("marketplace_products")
+      .select(selectClause)
+      .eq("status", "active")
+      .limit(1);
 
-  if (order?.businessId) query = query.eq("business_id", order.businessId);
-  if (productName) query = query.ilike("name", productName);
+    if (order?.businessId) query = query.eq("business_id", order.businessId);
+    if (productName) query = query.ilike("name", productName);
 
-  const { data, error } = await query.maybeSingle();
-  if (error || !data) return null;
-  return mapBuyerProduct(data);
+    const { data, error } = await query.maybeSingle();
+    if (!error) return data ? mapBuyerProduct(data) : null;
+    if (!isRecoverableSelectError(error)) return null;
+  }
+
+  return null;
 }
 
 export async function hideBuyerOrder(orderId) {

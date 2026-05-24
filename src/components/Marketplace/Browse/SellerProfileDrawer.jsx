@@ -808,25 +808,32 @@ export default function SellerProfileDrawer({
                 </span>
               </button>
 
-              <div className="relative h-20 bg-gradient-to-r from-gray-950 via-emerald-900 to-emerald-700 sm:h-28">
+              <div className="relative h-24 bg-gradient-to-r from-gray-950 via-emerald-900 to-emerald-700 sm:h-32">
                 {safeSeller.bannerUrl ? <img src={safeSeller.bannerUrl} alt="" className="h-full w-full object-cover opacity-75" /> : null}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                <div className="absolute bottom-3 right-3 flex max-w-[calc(100%-1.5rem)] items-center justify-end gap-2">
+                  <SellerActionIcon icon={MessageCircle} label="Message seller" onClick={openMessagePanel} />
+                  <SellerActionIcon icon={Heart} label={sellerSaved ? "Saved store" : "Save store"} active={sellerSaved} onClick={handleSaveStore} />
+                  <SellerActionIcon icon={Share2} label="Share store" onClick={shareSeller} />
+                  <SellerActionIcon icon={Phone} label="Call seller" href={safeSeller.phone ? `tel:${safeSeller.phone}` : ""} disabled={!safeSeller.phone} />
+                </div>
               </div>
 
               <div className="p-3 sm:p-5">
                 <div className="space-y-3">
-                  <div className="-mt-10 flex w-full max-w-full flex-wrap items-end gap-2 sm:gap-3">
+                  <div className="-mt-10 flex w-full max-w-full items-end gap-3">
                     <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-gray-950 text-white shadow-lg sm:h-28 sm:w-28">
                       {safeSeller.logoUrl ? <img src={safeSeller.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={32} />}
                     </div>
 
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 pb-1">
-                      <SellerActionIcon icon={Phone} label="Call seller" href={safeSeller.phone ? `tel:${safeSeller.phone}` : ""} disabled={!safeSeller.phone} />
-                      <SellerActionIcon icon={Navigation} label="Locate store" onClick={handleLocateStore} />
-                      <SellerActionIcon icon={MessageCircle} label="Message seller" onClick={openMessagePanel} />
-                      <SellerActionIcon icon={Heart} label={sellerSaved ? "Saved store" : "Save store"} active={sellerSaved} onClick={handleSaveStore} />
-                      <SellerActionIcon icon={Share2} label="Share store" onClick={shareSeller} />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLocateStore}
+                      className="mb-1 inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
+                    >
+                      <Navigation size={18} />
+                      <span className="truncate">Locate Store</span>
+                    </button>
                   </div>
 
                   <div className="min-w-0 pt-1">

@@ -70,6 +70,7 @@ export default function Explore({ onScreenModeChange }) {
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
   const [menuStackAction, setMenuStackAction] = useState("idle");
+  const [rootMenuEntering, setRootMenuEntering] = useState(false);
   const topChromeRef = useRef(null);
   const tabScrollRef = useRef({});
   const previousMenuStackRef = useRef([]);
@@ -122,6 +123,34 @@ export default function Explore({ onScreenModeChange }) {
       onScreenModeChange?.(false);
     };
   }, [menuOverlayVisible, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
+
+  useEffect(() => {
+    if (!menuOverlayVisible) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [menuOverlayVisible]);
+
+  useEffect(() => {
+    if (menuStack[0] !== "Menu") {
+      setRootMenuEntering(false);
+      return undefined;
+    }
+
+    if (!rootMenuEntering) {
+      return undefined;
+    }
+
+    const settleFrame = window.requestAnimationFrame(() => {
+      setRootMenuEntering(false);
+    });
+
+    return () => window.cancelAnimationFrame(settleFrame);
+  }, [menuStack, rootMenuEntering]);
 
   useEffect(() => {
     const previousStack = previousMenuStackRef.current;
@@ -344,8 +373,15 @@ export default function Explore({ onScreenModeChange }) {
   }
 
   function openMenuScreen(screen, options = {}) {
-    stopAllExploreMedia();
-    exploreNav.rememberScrollPosition();
+    if (!MENU_SCREENS[screen]) {
+      return;
+    }
+
+    window.clearTimeout(stackCleanupTimerRef.current);
+    setMenuStackAction("push");
+    if (screen === "Menu") {
+      setRootMenuEntering(true);
+    }
     if (screen === "Messages") {
       setMessageRecipient(null);
     }
@@ -490,47 +526,54 @@ export default function Explore({ onScreenModeChange }) {
   }
 
   function renderMenuStack() {
+    const previousStack = previousMenuStackRef.current;
+    const stackToRender =
+      menuStack.length > visibleMenuStack.length ||
+      (menuStack.length > 0 && menuStack.length >= visibleMenuStack.length && menuStack.join("|") !== visibleMenuStack.join("|"))
+        ? menuStack
+        : visibleMenuStack;
+    const stackAction =
+      menuStack.length > previousStack.length ||
+      (menuStack.length > 0 && menuStack.length === previousStack.length && menuStack.join("|") !== previousStack.join("|"))
+        ? "push"
+        : menuStack.length < previousStack.length
+          ? "pop"
+          : menuStackAction;
     const activeIndex = menuStack.length - 1;
 
-    return visibleMenuStack.map((screenKey, index) => {
+    return stackToRender.map((screenKey, index) => {
       const screen = MENU_SCREENS[screenKey];
       if (!screen) return null;
 
       const active = index === activeIndex;
       const exiting = index >= menuStack.length;
       const pushedBehind = index < activeIndex;
-      const isRootMenu = screenKey === "Menu" && index === 0;
-      const isDirectProfile = screenKey === "ViewedProfile" && index === 0;
       const hideScreenHeader = screenKey === "Messages" && messageConversationActive && active;
-      const enteringOnPush = active && menuStackAction === "push";
-      const returningOnPop = active && menuStackAction === "pop";
-      const leavingBehindOnPush = pushedBehind && menuStackAction === "push" && index === activeIndex - 1;
+      const enteringOnPush = active && stackAction === "push";
+      const rootMenuTransformEnter = screenKey === "Menu" && index === 0 && active && rootMenuEntering && !exiting;
       const motionClass = exiting
-        ? isRootMenu || isDirectProfile
-          ? "kt-explore-stack-leave-left"
-          : "kt-explore-stack-leave-right"
-        : leavingBehindOnPush
-          ? "kt-explore-stack-leave-right"
-          : enteringOnPush
-            ? isRootMenu
-              ? "kt-explore-stack-enter-left"
-              : "kt-explore-stack-enter"
-            : returningOnPop
-              ? "kt-explore-stack-enter"
-              : "";
+        ? "kt-explore-stack-leave-right"
+        : enteringOnPush && !rootMenuTransformEnter
+          ? "kt-explore-stack-enter"
+          : "";
       const placementClass = motionClass
         ? ""
-        : pushedBehind
-          ? "translate-x-full opacity-95"
-          : "translate-x-0 opacity-100";
+        : rootMenuTransformEnter
+          ? "translate-x-full opacity-100"
+          : pushedBehind
+          ? "translate-x-0 opacity-100"
+          : active
+            ? "translate-x-0 opacity-100"
+            : "translate-x-full opacity-100";
 
       return (
         <section
           key={`${screenKey}-${index}`}
           aria-hidden={!active || exiting}
-          className={`kt-explore-stack-panel absolute inset-0 flex h-full w-full flex-col bg-slate-100 shadow-2xl ${
+          className={`kt-urmall-screen-panel absolute inset-0 flex h-full w-full transform flex-col bg-slate-100 shadow-2xl ${
             placementClass
           } ${motionClass} ${active && !exiting ? "pointer-events-auto" : "pointer-events-none"}`}
+          style={{ zIndex: index + 1 }}
         >
           {hideScreenHeader ? null : (
             <SocialScreenHeader
@@ -582,7 +625,7 @@ export default function Explore({ onScreenModeChange }) {
           {!isSwipTab ? (
             <ExploreHeader
               currentProfile={profile}
-              onAlertsClick={() => exploreNav.openMenuScreen("Notifications")}
+              onAlertsClick={() => openMenuScreen("Notifications")}
               onNavigate={openMenuScreen}
               onCreateSelect={exploreNav.openComposer}
               onSearchResult={openSearchResult}

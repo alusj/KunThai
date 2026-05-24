@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiBookmark,
@@ -28,12 +28,14 @@ import {
   saveNearbySearchHistory,
   subscribeToAreaViewLiveData,
 } from "../../Backend/services/nearbyAreaLiveService";
+import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
 import {
   emergencyContacts,
   locationCategories,
   locationStatusStyles,
   nearbyLocations,
 } from "../services/nearbyAreaService";
+import EmergencySheet from "../emergency/EmergencySheet";
 
 const addCategories = [
   "Shop",
@@ -48,6 +50,9 @@ const addCategories = [
   "Market",
   "Other",
 ];
+
+const SOS_COUNTRY_CACHE_KEY = "kuntai-sos-country-code";
+const SOS_FALLBACK_COUNTRY = "SL";
 
 function getShortAddress(result) {
   return result.address || result.fullAddress || result.placeName || "Freetown, Sierra Leone";
@@ -77,12 +82,14 @@ function buildInitialMapDestination(destination) {
   };
 }
 
+
 export default function NearbyAreaScreen({ onBack, initialDestination = null, autoRoute = false }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [mapCenter, setMapCenter] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const [focusMode, setFocusMode] = useState(false);
   const [mapLocked, setMapLocked] = useState(false);
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
@@ -99,6 +106,10 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   const [trafficSnapshots, setTrafficSnapshots] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
   const [weatherCache, setWeatherCache] = useState(null);
+  const [sosOpen, setSosOpen] = useState(false);
+  const [detectedCountryCode, setDetectedCountryCode] = useState(SOS_FALLBACK_COUNTRY);
+  const [detectingSosCountry, setDetectingSosCountry] = useState(false);
+  const sosDetectionRequestRef = useRef(0);
 
   const displayLocations = useMemo(() => {
     const ids = new Set();
@@ -123,6 +134,10 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     if (!mapCenter?.lat || !mapCenter?.lng) return "default";
     return `${mapCenter.lat.toFixed(2)},${mapCenter.lng.toFixed(2)}`;
   }, [mapCenter]);
+  const weatherPosition = useMemo(() => {
+    if (!mapCenter?.lat || !mapCenter?.lng) return null;
+    return { lat: mapCenter.lat, lng: mapCenter.lng };
+  }, [mapCenter?.lat, mapCenter?.lng]);
   const initialDestinationKey = useMemo(() => {
     if (!initialDestination) return "";
     return [
@@ -133,6 +148,31 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       autoRoute ? "route" : "view",
     ].join(":");
   }, [autoRoute, initialDestination]);
+
+  function readCachedSosCountryCode() {
+    try {
+      return String(localStorage.getItem(SOS_COUNTRY_CACHE_KEY) || "").toUpperCase();
+    } catch {
+      return "";
+    }
+  }
+
+  function cacheSosCountryCode(countryCode) {
+    const normalizedCode = String(countryCode || "").toUpperCase();
+    if (!normalizedCode) return;
+
+    try {
+      localStorage.setItem(SOS_COUNTRY_CACHE_KEY, normalizedCode);
+    } catch {
+      // Local storage may be blocked; SOS should still work.
+    }
+  }
+
+  function handleMapLocationResolved(position) {
+    if (position?.lat == null || position?.lng == null) return;
+    setUserLocation(position);
+    setMapCenter(position);
+  }
 
   useEffect(() => {
     const destination = buildInitialMapDestination(initialDestination);
@@ -156,7 +196,6 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
 
   useEffect(() => {
     let mounted = true;
-
     async function loadLiveAreaData() {
       const [locations, operators, reports, traffic, history, weather] = await Promise.all([
         getApprovedNearbyLocations(),
@@ -164,7 +203,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
         getActiveAreaReports(),
         getActiveTrafficSnapshots(),
         getRecentSearchHistory(),
-        getNearbyWeatherCache(mapCenter),
+        getNearbyWeatherCache(weatherPosition),
       ]);
 
       if (!mounted) return;
@@ -179,7 +218,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     loadLiveAreaData();
 
     const unsubscribe = subscribeToAreaViewLiveData({
-      weatherPosition: mapCenter,
+      weatherPosition,
       onLocations: (locations) => mounted && setLiveLocations(locations),
       onOperators: (operators) => mounted && setLiveOperators(operators),
       onReports: (reports) => mounted && setLiveReports(reports),
@@ -191,7 +230,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       mounted = false;
       unsubscribe?.();
     };
-  }, [weatherPositionKey]);
+  }, [weatherPosition, weatherPositionKey]);
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
@@ -214,8 +253,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       try {
         const results = await searchLocations(text, mapCenter);
         setSearchResults(results || []);
-      } catch (error) {
-        console.error(error);
+      } catch {
         setSearchResults([]);
       } finally {
         setSearching(false);
@@ -235,12 +273,62 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     setRecenterSignal((value) => value + 1);
   }
 
-  function handleEmergencyOpen() {
-    setActiveCategory("Emergency");
-    const emergency = nearbyLocations.find((item) => item.category === "Emergency");
-    if (emergency) {
-      setActiveLocation(emergency);
-      setLocationPanelOpen(true);
+  async function openEmergencyMode() {
+    const requestId = sosDetectionRequestRef.current + 1;
+    sosDetectionRequestRef.current = requestId;
+    setSosOpen(true);
+
+    const cachedCountryCode = readCachedSosCountryCode();
+    if (cachedCountryCode) {
+      setDetectedCountryCode(cachedCountryCode);
+      setDetectingSosCountry(false);
+      return;
+    }
+
+    const position = userLocation || mapCenter;
+    if (position?.lat == null || position?.lng == null) {
+      setDetectedCountryCode(SOS_FALLBACK_COUNTRY);
+      setDetectingSosCountry(false);
+      return;
+    }
+
+    setDetectingSosCountry(true);
+
+    const detected = await detectCountryFromCoords(position.lat, position.lng);
+    const nextCountryCode = String(detected?.countryCode || SOS_FALLBACK_COUNTRY).toUpperCase();
+
+    if (sosDetectionRequestRef.current !== requestId) {
+      return;
+    }
+
+    setDetectedCountryCode(nextCountryCode);
+    cacheSosCountryCode(nextCountryCode);
+    setDetectingSosCountry(false);
+  }
+
+  function handleEmergencyNearbySearch(type) {
+    const searchMap = {
+      hospital: "hospital near me",
+      police: "police station near me",
+      pharmacy: "pharmacy near me",
+      fire: "fire station near me",
+    };
+
+    const query = searchMap[type] || `${type} near me`;
+
+    setSosOpen(false);
+    setSelectionLocked(false);
+    setSearchResults([]);
+    setSearching(false);
+    setSearchQuery(query);
+    setSearchOverlayOpen(true);
+  }
+
+  function handleEmergencySheetClose() {
+    sosDetectionRequestRef.current += 1;
+    setSosOpen(false);
+    if (detectingSosCountry) {
+      setDetectingSosCountry(false);
     }
   }
 
@@ -296,7 +384,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     <div className="min-h-screen bg-slate-950 text-white">
       <section className="relative min-h-screen overflow-hidden">
         <NearbyAreaMap
-          onLocationResolved={setMapCenter}
+          onLocationResolved={handleMapLocationResolved}
           onMapReady={setMapInstance}
           selectedLocation={selectedSearchLocation}
           focusMode={focusMode}
@@ -407,9 +495,9 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           <div className="absolute bottom-32 right-4 z-30 grid gap-3 sm:bottom-8">
             <button
               type="button"
-              onClick={handleEmergencyOpen}
+              onClick={openEmergencyMode}
               className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl"
-              aria-label="Emergency"
+              aria-label="Open KunThai SOS"
             >
               <FiAlertTriangle size={22} />
             </button>
@@ -459,6 +547,14 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
         )}
 
         {adding && <AddLocationPanel onClose={() => setAdding(false)} />}
+
+        <EmergencySheet
+          open={sosOpen}
+          onClose={handleEmergencySheetClose}
+          countryCode={detectedCountryCode}
+          detectingCountry={detectingSosCountry}
+          onNavigateNearby={handleEmergencyNearbySearch}
+        />
       </section>
     </div>
   );
@@ -631,7 +727,6 @@ function MapPinButton({ location, active, onClick }) {
     </button>
   );
 }
-
 function LocationPanel({ activeLocation, open, onClose, onAddLocation }) {
   const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
 
@@ -767,7 +862,6 @@ function AddLocationPanel({ onClose }) {
     </div>
   );
 }
-
 function FormInput({ label, placeholder }) {
   return (
     <label className="block">
