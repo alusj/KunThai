@@ -1,7 +1,18 @@
 import supabase from "../../lib/supabaseClient";
 
-function mapBuyerProduct(product) {
-  const business = product.marketplace_businesses || {};
+function toOptionalNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function normalizeNestedBusiness(value) {
+  if (Array.isArray(value)) return value[0] || {};
+  return value && typeof value === "object" ? value : {};
+}
+
+function mapBuyerProduct(product = {}) {
+  const business = normalizeNestedBusiness(product.marketplace_businesses);
   const imageUrls = Array.isArray(product.image_urls) ? product.image_urls : [];
 
   return {
@@ -48,8 +59,8 @@ function mapBuyerProduct(product) {
       website: business.website_url || "",
       logoUrl: business.logo_url || "",
       bannerUrl: business.banner_url || "",
-      latitude: business.latitude === null || business.latitude === undefined ? null : Number(business.latitude),
-      longitude: business.longitude === null || business.longitude === undefined ? null : Number(business.longitude),
+      latitude: toOptionalNumber(business.latitude),
+      longitude: toOptionalNumber(business.longitude),
       businessType: business.business_type || "both",
       deliveryEnabled: Boolean(business.delivery_enabled),
       pickupEnabled: Boolean(business.pickup_enabled),
@@ -85,6 +96,81 @@ const PRODUCT_DETAIL_SELECT = `
     logo_url,banner_url,verification_status,readiness_score,created_at
   )
 `;
+
+const BASE_PRODUCT_SELECT = `
+  id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
+  main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
+  delivery_time,allow_negotiation,
+  marketplace_businesses (
+    id,business_name,description,city,country,phone,whatsapp_enabled,whatsapp,email,
+    logo_url,banner_url,verification_status,readiness_score
+  )
+`;
+
+const MINIMAL_PRODUCT_SELECT = `
+  id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
+  main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
+  delivery_time,allow_negotiation
+`;
+
+const PRODUCT_LIST_SELECTS = [PRODUCT_SELECT, BASE_PRODUCT_SELECT, MINIMAL_PRODUCT_SELECT];
+const PRODUCT_DETAIL_SELECTS = [PRODUCT_DETAIL_SELECT, PRODUCT_SELECT, BASE_PRODUCT_SELECT, MINIMAL_PRODUCT_SELECT];
+
+function isRecoverableSelectError(error) {
+  const message = String(error?.message || error?.details || error?.hint || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+  return (
+    code === "PGRST200" ||
+    code === "PGRST204" ||
+    code === "42703" ||
+    message.includes("schema cache") ||
+    message.includes("could not find") ||
+    message.includes("does not exist") ||
+    message.includes("failed to parse select")
+  );
+}
+
+async function runProductListQuery({ filters = {}, businessId = null } = {}) {
+  let lastError = null;
+
+  for (const selectClause of PRODUCT_LIST_SELECTS) {
+    let query = supabase
+      .from("marketplace_products")
+      .select(selectClause)
+      .eq("status", "active")
+      .gt("stock", 0);
+
+    if (businessId) query = query.eq("business_id", businessId);
+    query = applyProductFilters(query, filters);
+
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (!error) return data || [];
+    if (!isRecoverableSelectError(error)) throw new Error(error.message);
+    lastError = error;
+  }
+
+  throw new Error(lastError?.message || "Unable to load marketplace products.");
+}
+
+async function runProductDetailQuery(productId) {
+  let lastError = null;
+
+  for (const selectClause of PRODUCT_DETAIL_SELECTS) {
+    const { data, error } = await supabase
+      .from("marketplace_products")
+      .select(selectClause)
+      .eq("id", productId)
+      .eq("status", "active")
+      .gt("stock", 0)
+      .maybeSingle();
+
+    if (!error) return data;
+    if (!isRecoverableSelectError(error)) throw new Error(error.message);
+    lastError = error;
+  }
+
+  throw new Error(lastError?.message || "Unable to load product details.");
+}
 
 async function getCurrentUserId(message = "Sign in to continue.") {
   const { data, error } = await supabase.auth.getUser();
@@ -215,18 +301,7 @@ export async function saveBuyerDeliveryAddress(address) {
 }
 
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
-  const query = applyProductFilters(
-    supabase
-      .from("marketplace_products")
-      .select(PRODUCT_SELECT)
-      .eq("status", "active")
-      .gt("stock", 0),
-    filters,
-  );
-
-  const { data, error } = await query.order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-
+  const data = await runProductListQuery({ filters });
   const products = sortProducts((data || []).map(mapBuyerProduct), filters.sort);
 
   return {
@@ -242,27 +317,7 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
 export async function fetchBuyerProductDetail(productId) {
   if (!productId) throw new Error("Choose a product to view.");
 
-  let { data, error } = await supabase
-    .from("marketplace_products")
-    .select(PRODUCT_DETAIL_SELECT)
-    .eq("id", productId)
-    .eq("status", "active")
-    .gt("stock", 0)
-    .maybeSingle();
-
-  if (error && String(error.message || "").toLowerCase().includes("product_attributes")) {
-    const fallback = await supabase
-      .from("marketplace_products")
-      .select(PRODUCT_SELECT)
-      .eq("id", productId)
-      .eq("status", "active")
-      .gt("stock", 0)
-      .maybeSingle();
-    data = fallback.data;
-    error = fallback.error;
-  }
-
-  if (error) throw new Error(error.message);
+  const data = await runProductDetailQuery(productId);
   if (!data) throw new Error("This product is no longer available.");
 
   try {
@@ -729,15 +784,7 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
 export async function fetchSellerCatalog(businessId) {
   if (!businessId) throw new Error("Choose a seller to view.");
 
-  const { data, error } = await supabase
-    .from("marketplace_products")
-    .select(PRODUCT_SELECT)
-    .eq("business_id", businessId)
-    .eq("status", "active")
-    .gt("stock", 0)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
+  const data = await runProductListQuery({ businessId });
   return (data || []).map(mapBuyerProduct);
 }
 

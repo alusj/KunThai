@@ -242,7 +242,10 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
   }
 
   async function toggleSavedSeller(seller) {
-    if (!seller?.id) return;
+    if (!seller?.id) {
+      showNotice("This store cannot be saved yet.", "danger");
+      return;
+    }
     const currentlySaved = savedSellerIds.has(seller.id);
     setSavedSellerIds((current) => {
       const next = new Set(current);

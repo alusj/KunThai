@@ -54,28 +54,54 @@ function StarRatingInput({ value, onChange }) {
 
 function productLink(product) {
   const base = `${window.location.origin}${window.location.pathname}`;
-  return `${base}#marketplace-product-${encodeURIComponent(product.id)}`;
+  return `${base}#marketplace-product-${encodeURIComponent(product?.id || "unknown")}`;
 }
 
 function sellerLink(seller) {
   const base = `${window.location.origin}${window.location.pathname}`;
-  return `${base}#marketplace-seller-${encodeURIComponent(seller.id)}`;
+  return `${base}#marketplace-seller-${encodeURIComponent(seller?.id || "unknown")}`;
 }
 
-function getSellerName(seller = {}) {
-  return seller.businessName || seller.business_name || seller.name || seller.full_name || "UrMall seller";
+function asObject(value) {
+  return value && typeof value === "object" ? value : {};
 }
 
-function getSellerCategory(seller = {}, catalog = []) {
-  return seller.category || seller.businessCategory || seller.business_type || catalog[0]?.category || "General Seller";
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
-function getFullAddress(seller = {}) {
-  return [seller.address, seller.city, seller.country].filter(Boolean).join(", ") || "Address not added yet";
+function toSafeNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
-function isVerifiedSeller(seller = {}) {
-  return ["verified", "approved"].includes(String(seller.verificationStatus || seller.verification_status || "").toLowerCase());
+function toOptionalCoordinate(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function getSellerName(seller) {
+  const safeSeller = asObject(seller);
+  return safeSeller.businessName || safeSeller.business_name || safeSeller.name || safeSeller.full_name || "UrMall seller";
+}
+
+function getSellerCategory(seller, catalog) {
+  const safeSeller = asObject(seller);
+  const safeCatalog = asArray(catalog);
+  return safeSeller.category || safeSeller.businessCategory || safeSeller.business_type || safeCatalog[0]?.category || "General Seller";
+}
+
+function getFullAddress(seller) {
+  const safeSeller = asObject(seller);
+  return [safeSeller.address, safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || "Address not added yet";
+}
+
+function isVerifiedSeller(seller) {
+  const safeSeller = asObject(seller);
+  return ["verified", "approved", "true"].includes(
+    String(safeSeller.verificationStatus || safeSeller.verification_status || safeSeller.verified || "").toLowerCase(),
+  );
 }
 
 function parseTimeToMinutes(value) {
@@ -96,9 +122,13 @@ function formatClock(value) {
   return `${displayHour}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
-function getStoreStatus(seller = {}) {
-  const openMinutes = parseTimeToMinutes(seller.openTime || seller.open_time);
-  const closeMinutes = parseTimeToMinutes(seller.closeTime || seller.close_time);
+function getStoreStatus(seller) {
+  const safeSeller = asObject(seller);
+  const hours = asObject(safeSeller.business_hours || safeSeller.businessHours);
+  const openTime = safeSeller.openTime || safeSeller.open_time || hours.open || hours.open_time;
+  const closeTime = safeSeller.closeTime || safeSeller.close_time || hours.close || hours.close_time;
+  const openMinutes = parseTimeToMinutes(openTime);
+  const closeMinutes = parseTimeToMinutes(closeTime);
 
   if (openMinutes == null || closeMinutes == null) {
     return {
@@ -109,9 +139,7 @@ function getStoreStatus(seller = {}) {
     };
   }
 
-  const operatingDays = Array.isArray(seller.operatingDays || seller.operating_days)
-    ? seller.operatingDays || seller.operating_days
-    : [];
+  const operatingDays = asArray(safeSeller.operatingDays || safeSeller.operating_days || hours.days);
   const today = new Intl.DateTimeFormat("en", { weekday: "long" }).format(new Date()).toLowerCase();
   const worksToday =
     !operatingDays.length ||
@@ -130,25 +158,31 @@ function getStoreStatus(seller = {}) {
 
   return {
     label: open ? "Open Now" : "Closed Now",
-    detail: `${formatClock(seller.openTime || seller.open_time)} - ${formatClock(seller.closeTime || seller.close_time)}`,
+    detail: `${formatClock(openTime)} - ${formatClock(closeTime)}`,
     open,
     neutral: false,
   };
 }
 
-function getResponseTime(seller = {}) {
-  return seller.responseTime || seller.response_time || "Usually responds in 5 mins";
+function getResponseTime(seller) {
+  const safeSeller = asObject(seller);
+  return safeSeller.responseTime || safeSeller.response_time || "Usually responds in 5 mins";
 }
 
-function getDeliveryMethods(seller = {}, catalog = []) {
+function getDeliveryMethods(seller, catalog) {
+  const safeSeller = asObject(seller);
+  const safeCatalog = asArray(catalog);
   const methods = [];
-  if (seller.deliveryEnabled || seller.delivery_enabled || catalog.some((item) => item.deliveryAvailable)) methods.push("Delivery");
-  if (seller.pickupEnabled || seller.pickup_enabled || catalog.some((item) => item.pickupAvailable)) methods.push("Pickup");
+  if (safeSeller.deliveryEnabled || safeSeller.delivery_enabled || safeSeller.delivery_available || safeCatalog.some((item) => item?.deliveryAvailable)) {
+    methods.push("Delivery");
+  }
+  if (safeSeller.pickupEnabled || safeSeller.pickup_enabled || safeCatalog.some((item) => item?.pickupAvailable)) methods.push("Pickup");
   return methods.length ? methods.join(", ") : "Delivery methods not added yet";
 }
 
-function getPaymentOptions(seller = {}) {
-  const options = seller.paymentOptions || seller.payment_options;
+function getPaymentOptions(seller) {
+  const safeSeller = asObject(seller);
+  const options = safeSeller.paymentOptions || safeSeller.payment_options;
   if (Array.isArray(options) && options.length) return options.join(", ");
   if (typeof options === "string" && options.trim()) return options;
   return "Payment options not added yet";
@@ -163,6 +197,9 @@ function formatJoinedDate(value) {
 
 function distanceInKm(from, to) {
   if (!from || !to) return null;
+  if (!Number.isFinite(from.lat) || !Number.isFinite(from.lng) || !Number.isFinite(to.lat) || !Number.isFinite(to.lng)) {
+    return null;
+  }
   const earthRadiusKm = 6371;
   const toRadians = (value) => (value * Math.PI) / 180;
   const dLat = toRadians(to.lat - from.lat);
@@ -306,9 +343,13 @@ function ProductCard({
   onCopy,
   onShare,
 }) {
-  const hasDiscount = product.discountPrice && product.discountPrice < product.price;
-  const displayPrice = hasDiscount ? product.discountPrice : product.price;
-  const stockLabel = product.stock > 0 ? `${product.stock} in stock` : "Out of stock";
+  const productName = product?.name || "Unnamed product";
+  const productPrice = toSafeNumber(product?.price, 0);
+  const productDiscountPrice = product?.discountPrice === null || product?.discountPrice === undefined ? null : toSafeNumber(product.discountPrice, 0);
+  const hasDiscount = productDiscountPrice !== null && productDiscountPrice < productPrice;
+  const displayPrice = hasDiscount ? productDiscountPrice : productPrice;
+  const productStock = toSafeNumber(product?.stock, 0);
+  const stockLabel = productStock > 0 ? `${productStock} in stock` : "Out of stock";
 
   return (
     <article
@@ -325,7 +366,7 @@ function ProductCard({
     >
       <div className="relative overflow-hidden rounded-lg bg-gray-100">
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
+          <img src={product.imageUrl} alt={productName} className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
         ) : (
           <div className="flex aspect-square w-full items-center justify-center text-xs font-black text-gray-400">
             Product
@@ -342,18 +383,18 @@ function ProductCard({
       <div className="min-w-0 pr-10">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="line-clamp-2 text-sm font-black text-gray-950 sm:text-base">{product.name}</h3>
+            <h3 className="line-clamp-2 text-sm font-black text-gray-950 sm:text-base">{productName}</h3>
             <p className="mt-1 truncate text-xs font-bold text-gray-500">{product.category || "General"}</p>
           </div>
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <p className="text-lg font-black text-gray-950">{formatCurrency(displayPrice)}</p>
-          {hasDiscount ? <p className="text-xs font-black text-gray-400 line-through">{formatCurrency(product.price)}</p> : null}
+          {hasDiscount ? <p className="text-xs font-black text-gray-400 line-through">{formatCurrency(productPrice)}</p> : null}
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-black">
-          <span className={product.stock > 0 ? "rounded-full bg-emerald-50 px-2 py-1 text-emerald-700" : "rounded-full bg-red-50 px-2 py-1 text-red-700"}>
+          <span className={productStock > 0 ? "rounded-full bg-emerald-50 px-2 py-1 text-emerald-700" : "rounded-full bg-red-50 px-2 py-1 text-red-700"}>
             {stockLabel}
           </span>
           {product.rating ? (
@@ -381,7 +422,7 @@ function ProductCard({
           className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition ${
             saved ? "border-rose-100 bg-rose-50 text-rose-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
           }`}
-          aria-label={saved ? `Unsave ${product.name}` : `Save ${product.name}`}
+          aria-label={saved ? `Unsave ${productName}` : `Save ${productName}`}
         >
           <Heart size={17} fill={saved ? "currentColor" : "none"} />
         </button>
@@ -393,7 +434,7 @@ function ProductCard({
               onOpenMenu();
             }}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
-            aria-label={`Open actions for ${product.name}`}
+            aria-label={`Open actions for ${productName}`}
           >
             <MoreHorizontal size={17} />
           </button>
@@ -452,24 +493,38 @@ export default function SellerProfileDrawer({
   const [copiedProductId, setCopiedProductId] = useState(null);
   const [locationWarning, setLocationWarning] = useState("");
   const [buyerPosition, setBuyerPosition] = useState(null);
+  const safeSeller = useMemo(() => asObject(seller), [seller]);
+  const safeCatalog = useMemo(() => asArray(catalog).filter((item) => item && typeof item === "object"), [catalog]);
+  const safeReviews = useMemo(
+    () => ({
+      rating: toSafeNumber(reviews?.rating, 0),
+      reviewCount: toSafeNumber(reviews?.reviewCount ?? reviews?.reviews_count, 0),
+      reviews: asArray(reviews?.reviews),
+    }),
+    [reviews],
+  );
 
   useEffect(() => {
     let alive = true;
 
     async function loadSeller() {
-      if (!open || !seller?.id) return;
+      if (!open || !safeSeller.id) return;
       setLoadingProfile(true);
       setLocationWarning("");
       setOpenActionProductId(null);
 
       try {
         const [catalogItems, marketplaceReviews] = await Promise.all([
-          fetchSellerCatalog(seller.id),
-          fetchBuyerReviews({ businessId: seller.id, reviewType: "marketplace" }),
+          fetchSellerCatalog(safeSeller.id),
+          fetchBuyerReviews({ businessId: safeSeller.id, reviewType: "marketplace" }),
         ]);
         if (alive) {
-          setCatalog(catalogItems);
-          setReviews(marketplaceReviews);
+          setCatalog(asArray(catalogItems));
+          setReviews({
+            rating: toSafeNumber(marketplaceReviews?.rating, 0),
+            reviewCount: toSafeNumber(marketplaceReviews?.reviewCount, 0),
+            reviews: asArray(marketplaceReviews?.reviews),
+          });
         }
       } catch (err) {
         if (alive) onNotice?.(err.message || "Unable to load seller profile.", "danger");
@@ -483,7 +538,7 @@ export default function SellerProfileDrawer({
     return () => {
       alive = false;
     };
-  }, [open, seller?.id, onNotice]);
+  }, [open, safeSeller.id, onNotice]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -503,7 +558,9 @@ export default function SellerProfileDrawer({
   }, [onClose, open]);
 
   useEffect(() => {
-    if (!open || !seller?.latitude || !seller?.longitude || !navigator.geolocation) return undefined;
+    const lat = toOptionalCoordinate(safeSeller.latitude ?? safeSeller.lat);
+    const lng = toOptionalCoordinate(safeSeller.longitude ?? safeSeller.lng);
+    if (!open || lat === null || lng === null || !navigator.geolocation) return undefined;
 
     let cancelled = false;
     navigator.geolocation.getCurrentPosition(
@@ -523,23 +580,34 @@ export default function SellerProfileDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, seller?.latitude, seller?.longitude]);
+  }, [open, safeSeller.latitude, safeSeller.lat, safeSeller.longitude, safeSeller.lng]);
 
-  const sellerName = useMemo(() => getSellerName(seller), [seller]);
-  const sellerCategory = useMemo(() => getSellerCategory(seller, catalog), [catalog, seller]);
-  const fullAddress = useMemo(() => getFullAddress(seller), [seller]);
-  const verified = useMemo(() => isVerifiedSeller(seller), [seller]);
-  const storeStatus = useMemo(() => getStoreStatus(seller), [seller]);
-  const deliveryAvailable = Boolean(seller?.deliveryEnabled || seller?.delivery_enabled || catalog.some((item) => item.deliveryAvailable));
-  const ratingValue = Number(reviews.rating || seller?.rating || 0);
-  const reviewCount = Number(reviews.reviewCount || seller?.reviewCount || 0);
-  const salesCount = catalog.reduce((sum, product) => sum + Number(product.sales || 0), 0);
+  const sellerName = useMemo(() => getSellerName(safeSeller), [safeSeller]);
+  const sellerCategory = useMemo(() => getSellerCategory(safeSeller, safeCatalog), [safeCatalog, safeSeller]);
+  const fullAddress = useMemo(() => getFullAddress(safeSeller), [safeSeller]);
+  const verified = useMemo(() => isVerifiedSeller(safeSeller), [safeSeller]);
+  const storeStatus = useMemo(() => getStoreStatus(safeSeller), [safeSeller]);
+  const deliveryAvailable = Boolean(
+    safeSeller.deliveryEnabled ||
+      safeSeller.delivery_enabled ||
+      safeSeller.delivery_available ||
+      safeCatalog.some((item) => item?.deliveryAvailable),
+  );
+  const ratingValue = toSafeNumber(
+    safeReviews.rating || safeSeller.rating || safeSeller.average_rating || safeSeller.rating_average,
+    0,
+  );
+  const reviewCount = toSafeNumber(
+    safeReviews.reviewCount || safeSeller.reviewCount || safeSeller.reviews_count || safeSeller.review_count,
+    0,
+  );
+  const salesCount = safeCatalog.reduce((sum, product) => sum + toSafeNumber(product?.sales, 0), 0);
   const sellerDestination = useMemo(() => {
-    const lat = Number(seller?.latitude);
-    const lng = Number(seller?.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const lat = toOptionalCoordinate(safeSeller.latitude ?? safeSeller.lat);
+    const lng = toOptionalCoordinate(safeSeller.longitude ?? safeSeller.lng);
+    if (lat === null || lng === null) return null;
     return { lat, lng };
-  }, [seller?.latitude, seller?.longitude]);
+  }, [safeSeller.latitude, safeSeller.lat, safeSeller.longitude, safeSeller.lng]);
   const distanceLabel = useMemo(
     () => formatDistanceLabel(distanceInKm(buyerPosition, sellerDestination)),
     [buyerPosition, sellerDestination],
@@ -551,11 +619,16 @@ export default function SellerProfileDrawer({
     event.preventDefault();
 
     try {
-      await submitMarketplaceReview(seller, rating, comment);
+      if (!safeSeller.id) throw new Error("Choose a valid seller.");
+      await submitMarketplaceReview({ ...safeSeller, name: sellerName }, rating, comment);
       setComment("");
       onNotice?.("UrMall review submitted.");
-      const nextReviews = await fetchBuyerReviews({ businessId: seller.id, reviewType: "marketplace" });
-      setReviews(nextReviews);
+      const nextReviews = await fetchBuyerReviews({ businessId: safeSeller.id, reviewType: "marketplace" });
+      setReviews({
+        rating: toSafeNumber(nextReviews?.rating, 0),
+        reviewCount: toSafeNumber(nextReviews?.reviewCount, 0),
+        reviews: asArray(nextReviews?.reviews),
+      });
     } catch (err) {
       onNotice?.(err.message || "Unable to submit UrMall review.", "danger");
     }
@@ -567,7 +640,7 @@ export default function SellerProfileDrawer({
 
     try {
       await sendBuyerMarketplaceMessage({
-        seller,
+        seller: { ...safeSeller, name: sellerName },
         topic: `Message for ${sellerName}`,
         message: messageText,
       });
@@ -593,9 +666,10 @@ export default function SellerProfileDrawer({
 
   async function shareProduct(product) {
     const link = productLink(product);
+    const productName = product?.name || "this product";
     const sharePayload = {
-      title: product.name,
-      text: `View ${product.name} on KunThai UrMall`,
+      title: productName,
+      text: `View ${productName} on KunThai UrMall`,
       url: link,
     };
 
@@ -613,7 +687,7 @@ export default function SellerProfileDrawer({
   }
 
   async function shareSeller() {
-    const link = sellerLink(seller);
+    const link = sellerLink(safeSeller);
     const payload = {
       title: sellerName,
       text: `View ${sellerName} on KunThai UrMall`,
@@ -654,7 +728,7 @@ export default function SellerProfileDrawer({
           autoRoute: true,
           destination: {
             type: "seller",
-            id: seller.id,
+            id: safeSeller.id,
             name: sellerName,
             address: fullAddress,
             category: sellerCategory,
@@ -694,7 +768,7 @@ export default function SellerProfileDrawer({
 
             <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="relative h-24 bg-gradient-to-r from-gray-950 via-emerald-900 to-emerald-700 sm:h-32">
-                {seller.bannerUrl ? <img src={seller.bannerUrl} alt="" className="h-full w-full object-cover opacity-75" /> : null}
+                {safeSeller.bannerUrl ? <img src={safeSeller.bannerUrl} alt="" className="h-full w-full object-cover opacity-75" /> : null}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
               </div>
 
@@ -702,7 +776,7 @@ export default function SellerProfileDrawer({
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="flex min-w-0 gap-4">
                     <div className="-mt-12 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-gray-950 text-white shadow-lg">
-                      {seller.logoUrl ? <img src={seller.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={32} />}
+                      {safeSeller.logoUrl ? <img src={safeSeller.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={32} />}
                     </div>
 
                     <div className="min-w-0 pt-1">
@@ -719,7 +793,7 @@ export default function SellerProfileDrawer({
                       <p className="mt-1 text-sm font-black text-gray-700">{sellerCategory}</p>
                       <p className="mt-1 break-words text-sm font-semibold text-gray-500">{fullAddress}</p>
                       <p className="mt-0.5 text-sm font-semibold text-gray-500">
-                        {[seller.city, seller.country].filter(Boolean).join(", ") || "City and country not added yet"}
+                        {[safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || "City and country not added yet"}
                       </p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -788,11 +862,22 @@ export default function SellerProfileDrawer({
                 <div className="mt-5 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
                   <QuickActionButton icon={Navigation} label="Locate" onClick={handleLocateStore} />
                   <QuickActionButton icon={MessageCircle} label="Message" onClick={() => setActiveView("messages")} />
-                  <QuickActionButton icon={Heart} label={sellerSaved ? "Saved" : "Save"} active={sellerSaved} onClick={() => onToggleSavedSeller?.(seller)} />
+                  <QuickActionButton
+                    icon={Heart}
+                    label={sellerSaved ? "Saved" : "Save"}
+                    active={sellerSaved}
+                    onClick={() => {
+                      if (!safeSeller.id) {
+                        onNotice?.("This store cannot be saved yet.", "danger");
+                        return;
+                      }
+                      onToggleSavedSeller?.({ ...safeSeller, name: sellerName });
+                    }}
+                  />
                   <QuickActionButton icon={Share2} label="Share" onClick={shareSeller} />
-                  {seller.phone ? (
+                  {safeSeller.phone ? (
                     <a
-                      href={`tel:${seller.phone}`}
+                      href={`tel:${safeSeller.phone}`}
                       className="inline-flex h-11 min-w-[108px] flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 transition hover:border-emerald-200 hover:bg-emerald-50"
                     >
                       <Phone size={17} />
@@ -806,10 +891,10 @@ export default function SellerProfileDrawer({
             <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <StatCard label="Products" value={catalog.length} />
+                  <StatCard label="Products" value={safeCatalog.length} />
                   <StatCard label="Reviews" value={reviewCount} />
                   <StatCard label="Sales" value={salesCount || "Not tracked"} />
-                  <StatCard label="Response Rate" value={seller.responseRate || seller.response_rate || "Not tracked"} />
+                  <StatCard label="Response Rate" value={safeSeller.responseRate || safeSeller.response_rate || "Not tracked"} />
                 </div>
 
                 <div className="sticky top-0 z-10 -mx-3 border-y border-gray-100 bg-gray-50/95 px-3 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
@@ -829,11 +914,11 @@ export default function SellerProfileDrawer({
                           <SkeletonBlock key={item} className="h-36" />
                         ))}
                       </div>
-                    ) : catalog.length ? (
+                    ) : safeCatalog.length ? (
                       <div className="grid gap-3 md:grid-cols-2">
-                        {catalog.map((product) => (
+                        {safeCatalog.map((product, index) => (
                           <ProductCard
-                            key={product.id}
+                            key={product.id || `seller-product-${index}`}
                             product={product}
                             saved={savedIds.has(product.id)}
                             copied={copiedProductId === product.id}
@@ -900,9 +985,9 @@ export default function SellerProfileDrawer({
                       </button>
                     </form>
 
-                    {reviews.reviews.length ? (
+                    {safeReviews.reviews.length ? (
                       <div className="space-y-3">
-                        {reviews.reviews.map((review) => (
+                        {safeReviews.reviews.map((review) => (
                           <div key={review.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="flex items-center justify-between gap-3">
                               <p className="font-black text-gray-950">{review.buyerName}</p>
@@ -926,19 +1011,19 @@ export default function SellerProfileDrawer({
                     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                       <h3 className="font-black text-gray-950">About {sellerName}</h3>
                       <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-                        {seller.description || "This seller has not added a business description yet."}
+                        {safeSeller.description || "This seller has not added a business description yet."}
                       </p>
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <InfoRow icon={MapPin} label="Full Address" value={fullAddress} />
                       <InfoRow icon={Clock} label="Opening Hours" value={storeStatus.detail} />
-                      <InfoRow icon={Phone} label="Phone Number" value={seller.phone || "Phone number not added yet"} />
-                      <InfoRow icon={CalendarDays} label="Joined" value={formatJoinedDate(seller.joinedAt || seller.created_at)} />
+                      <InfoRow icon={Phone} label="Phone Number" value={safeSeller.phone || "Phone number not added yet"} />
+                      <InfoRow icon={CalendarDays} label="Joined" value={formatJoinedDate(safeSeller.joinedAt || safeSeller.created_at)} />
                       <InfoRow icon={Store} label="Business Category" value={sellerCategory} />
                       <InfoRow icon={Truck} label="Delivery Methods" value={getDeliveryMethods(seller, catalog)} />
                       <InfoRow icon={CreditCard} label="Payment Options" value={getPaymentOptions(seller)} />
-                      <InfoRow icon={Mail} label="Email" value={seller.email || "Email not added yet"} />
+                      <InfoRow icon={Mail} label="Email" value={safeSeller.email || "Email not added yet"} />
                     </div>
                   </section>
                 ) : null}
@@ -989,12 +1074,12 @@ export default function SellerProfileDrawer({
                   <div className="mt-3 space-y-3 text-sm font-bold text-gray-600">
                     <div className="flex items-center justify-between gap-3">
                       <span>Readiness</span>
-                      <span className="font-black text-gray-950">{Math.round(Number(seller.readinessScore || 0))}%</span>
+                      <span className="font-black text-gray-950">{Math.round(toSafeNumber(safeSeller.readinessScore, 0))}%</span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                       <div
                         className="h-full rounded-full bg-emerald-600"
-                        style={{ width: `${Math.min(100, Math.max(0, Number(seller.readinessScore || 0)))}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, toSafeNumber(safeSeller.readinessScore, 0)))}%` }}
                       />
                     </div>
                     <div className="flex items-center justify-between gap-3">
@@ -1033,7 +1118,13 @@ export default function SellerProfileDrawer({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onToggleSavedSeller?.(seller)}
+                      onClick={() => {
+                        if (!safeSeller.id) {
+                          onNotice?.("This store cannot be saved yet.", "danger");
+                          return;
+                        }
+                        onToggleSavedSeller?.({ ...safeSeller, name: sellerName });
+                      }}
                       className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-black transition ${
                         sellerSaved
                           ? "border-rose-100 bg-rose-50 text-rose-700"
