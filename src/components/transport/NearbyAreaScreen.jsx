@@ -23,6 +23,7 @@ import {
   getActiveTrafficSnapshots,
   getActiveTransportOperators,
   getApprovedNearbyLocations,
+  getNearbyWeatherCache,
   getRecentSearchHistory,
   saveNearbySearchHistory,
   subscribeToAreaViewLiveData,
@@ -52,37 +53,6 @@ function getShortAddress(result) {
   return result.address || result.fullAddress || result.placeName || "Freetown, Sierra Leone";
 }
 
-function getDemoOperatorLocations(mapCenter) {
-  const center = mapCenter || { lat: 8.4657, lng: -13.2317 };
-
-  return [
-    {
-      id: "operator-bike-1",
-      name: "Nearby Okada",
-      type: "bike",
-      available: true,
-      lat: center.lat + 0.0045,
-      lng: center.lng - 0.0038,
-    },
-    {
-      id: "operator-keke-1",
-      name: "Nearby Keke",
-      type: "keke",
-      available: true,
-      lat: center.lat - 0.0035,
-      lng: center.lng + 0.0042,
-    },
-    {
-      id: "operator-car-1",
-      name: "Nearby Driver",
-      type: "car",
-      available: false,
-      lat: center.lat + 0.0028,
-      lng: center.lng + 0.0052,
-    },
-  ];
-}
-
 export default function NearbyAreaScreen({ onBack }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
@@ -104,6 +74,7 @@ export default function NearbyAreaScreen({ onBack }) {
   const [liveReports, setLiveReports] = useState([]);
   const [trafficSnapshots, setTrafficSnapshots] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
+  const [weatherCache, setWeatherCache] = useState(null);
 
   const displayLocations = useMemo(() => {
     const ids = new Set();
@@ -119,21 +90,27 @@ export default function NearbyAreaScreen({ onBack }) {
     return displayLocations.filter((location) => location.category === activeCategory);
   }, [activeCategory, displayLocations]);
 
-  const operatorLocations = useMemo(() => {
-    return liveOperators.length ? liveOperators : getDemoOperatorLocations(mapCenter);
-  }, [liveOperators, mapCenter]);
-
+  const operatorLocations = useMemo(() => liveOperators, [liveOperators]);
+  const filteredMapLocations = useMemo(
+    () => filteredLocations.filter((location) => location?.lat != null && location?.lng != null),
+    [filteredLocations],
+  );
+  const weatherPositionKey = useMemo(() => {
+    if (!mapCenter?.lat || !mapCenter?.lng) return "default";
+    return `${mapCenter.lat.toFixed(2)},${mapCenter.lng.toFixed(2)}`;
+  }, [mapCenter]);
 
   useEffect(() => {
     let mounted = true;
 
     async function loadLiveAreaData() {
-      const [locations, operators, reports, traffic, history] = await Promise.all([
+      const [locations, operators, reports, traffic, history, weather] = await Promise.all([
         getApprovedNearbyLocations(),
         getActiveTransportOperators(),
         getActiveAreaReports(),
         getActiveTrafficSnapshots(),
         getRecentSearchHistory(),
+        getNearbyWeatherCache(mapCenter),
       ]);
 
       if (!mounted) return;
@@ -142,21 +119,25 @@ export default function NearbyAreaScreen({ onBack }) {
       setLiveReports(reports);
       setTrafficSnapshots(traffic);
       setRecentSearches(history);
+      setWeatherCache(weather);
     }
 
     loadLiveAreaData();
 
     const unsubscribe = subscribeToAreaViewLiveData({
+      weatherPosition: mapCenter,
+      onLocations: (locations) => mounted && setLiveLocations(locations),
       onOperators: (operators) => mounted && setLiveOperators(operators),
       onReports: (reports) => mounted && setLiveReports(reports),
       onTraffic: (traffic) => mounted && setTrafficSnapshots(traffic),
+      onWeather: (weather) => mounted && setWeatherCache(weather),
     });
 
     return () => {
       mounted = false;
       unsubscribe?.();
     };
-  }, []);
+  }, [weatherPositionKey]);
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
@@ -179,7 +160,6 @@ export default function NearbyAreaScreen({ onBack }) {
       try {
         const results = await searchLocations(text, mapCenter);
         setSearchResults(results || []);
-        saveNearbySearchHistory({ query: text, result: results?.[0], selected: false });
       } catch (error) {
         console.error(error);
         setSearchResults([]);
@@ -211,7 +191,9 @@ export default function NearbyAreaScreen({ onBack }) {
   }
 
   function handleSelectSearchResult(result) {
-    saveNearbySearchHistory({ query: searchQuery || result.name, result, selected: true });
+    saveNearbySearchHistory({ query: searchQuery || result.name, result, selected: true }).then(() => {
+      getRecentSearchHistory().then(setRecentSearches);
+    });
     setSelectionLocked(true);
     setSearchQuery(result.name);
     setSearchResults([]);
@@ -265,9 +247,10 @@ export default function NearbyAreaScreen({ onBack }) {
           selectedLocation={selectedSearchLocation}
           focusMode={focusMode}
           operatorLocations={operatorLocations}
-          nearbyMapLocations={liveLocations}
+          nearbyMapLocations={filteredMapLocations}
           reportLocations={liveReports}
           trafficSnapshots={trafficSnapshots}
+          weatherCache={weatherCache}
           onMapLocationSelect={handleSelectLiveLocation}
           onReportSelect={handleSelectReport}
           recenterSignal={recenterSignal}
@@ -576,6 +559,8 @@ function SearchOverlay({
 }
 
 function MapPinButton({ location, active, onClick }) {
+  if (!location?.position) return null;
+
   const isEmergency = location.category === "Emergency";
 
   return (

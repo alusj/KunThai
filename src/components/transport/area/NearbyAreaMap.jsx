@@ -37,8 +37,14 @@ const ROUTE_STATUS = {
 const GPS_SETTINGS = {
   animationMs: 1150,
   ignoreAccuracyAboveMeters: 140,
+  lowAccuracyWarningMeters: 75,
   correctRouteMeters: 45,
   warningRouteMeters: 120,
+  rerouteRouteMeters: 165,
+  arrivalMeters: 34,
+  rerouteCooldownMs: 14000,
+  rerouteConfirmMs: 2600,
+  cameraThrottleMs: 680,
   progressBacktrackSegments: 4,
   ignoreTinyMoveMeters: 2.5,
   jumpDistanceMeters: 90,
@@ -253,6 +259,92 @@ function createOperatorMarker(operator) {
   return wrapper;
 }
 
+function createSmartReportMarker(report) {
+  const wrapper = document.createElement("button");
+  const isDanger = ["critical", "high"].includes(report?.severity);
+  const icon = {
+    accident: "!",
+    road_block: "X",
+    flooding: "~",
+    police_checkpoint: "P",
+    traffic: "!",
+    bad_road: "!",
+    danger: "!",
+    emergency: "!",
+  }[report?.type || "traffic"] || "!";
+
+  wrapper.type = "button";
+  wrapper.style.width = "42px";
+  wrapper.style.height = "42px";
+  wrapper.style.borderRadius = "999px";
+  wrapper.style.display = "grid";
+  wrapper.style.placeItems = "center";
+  wrapper.style.background = isDanger ? "#dc2626" : "#f97316";
+  wrapper.style.border = "3px solid white";
+  wrapper.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
+  wrapper.style.color = "white";
+  wrapper.style.fontSize = "17px";
+  wrapper.style.fontWeight = "900";
+  wrapper.style.cursor = "pointer";
+  wrapper.title = report?.title || "Road report";
+  wrapper.textContent = icon;
+  return wrapper;
+}
+
+function createSmartOperatorMarker(operator) {
+  const wrapper = document.createElement("div");
+  const icon = {
+    bike: "🏍️",
+    keke: "🛺",
+    car: "🚗",
+    van: "🚐",
+  }[operator?.type] || "🏍️";
+
+  wrapper.style.width = "48px";
+  wrapper.style.height = "48px";
+  wrapper.style.borderRadius = "999px";
+  wrapper.style.display = "grid";
+  wrapper.style.placeItems = "center";
+  wrapper.style.background = operator?.available ? "#2563eb" : "#64748b";
+  wrapper.style.border = "3px solid white";
+  wrapper.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
+  wrapper.style.color = "white";
+  wrapper.style.fontSize = "20px";
+  wrapper.title = operator?.name || "Operator";
+
+  const iconNode = document.createElement("span");
+  iconNode.dataset.operatorIcon = "true";
+  iconNode.textContent = icon;
+  iconNode.style.display = "inline-block";
+  iconNode.style.transformOrigin = "center";
+
+  wrapper.appendChild(iconNode);
+  updateOperatorMarkerElement(wrapper, operator);
+  return wrapper;
+}
+
+function updateOperatorMarkerElement(element, operator) {
+  if (!element) return;
+
+  const iconNode = element.querySelector("[data-operator-icon='true']");
+  const icon = {
+    bike: "🏍️",
+    keke: "🛺",
+    car: "🚗",
+    van: "🚐",
+  }[operator?.type] || "🏍️";
+
+  element.style.background = operator?.available ? "#2563eb" : "#64748b";
+  element.title = operator?.name || "Operator";
+
+  if (iconNode) {
+    iconNode.textContent = icon;
+    iconNode.style.transform = Number.isFinite(Number(operator?.heading))
+      ? `rotate(${Number(operator.heading)}deg)`
+      : "none";
+  }
+}
+
 function toRadians(value) {
   return (value * Math.PI) / 180;
 }
@@ -311,6 +403,29 @@ function getNextRouteBearing(position, coordinates = [], segmentIndex = 0) {
   return bearingBetweenPoints(position, target);
 }
 
+function getRouteLookAheadPoint(coordinates = [], segmentIndex = 0, destination = null) {
+  if (coordinates.length >= 2) {
+    const safeIndex = Math.max(0, Math.min(segmentIndex, coordinates.length - 2));
+    const lookAheadIndex = Math.max(safeIndex + 1, Math.min(safeIndex + 7, coordinates.length - 1));
+    return normalizeRoutePoint(coordinates[lookAheadIndex]);
+  }
+
+  return destination?.lat && destination?.lng ? destination : null;
+}
+
+function getSmartCameraCenter(position, destination, coordinates = [], segmentIndex = 0, mode = "smart") {
+  if (!position) return null;
+  if (mode !== "smart") return position;
+
+  const lookAhead = getRouteLookAheadPoint(coordinates, segmentIndex, destination);
+  if (!lookAhead) return position;
+
+  return {
+    lat: lerp(position.lat, lookAhead.lat, 0.38),
+    lng: lerp(position.lng, lookAhead.lng, 0.38),
+  };
+}
+
 function getTrafficLevel(route, routeStatusKey) {
   if (!route?.distanceMeters || !route?.durationSeconds) {
     return { label: "Traffic checking", detail: "Waiting for movement data", className: "bg-slate-100 text-slate-600" };
@@ -329,6 +444,30 @@ function getTrafficLevel(route, routeStatusKey) {
   }
 
   return { label: "Traffic looks normal", detail: "Route movement is currently clear", className: "bg-green-100 text-green-700" };
+}
+
+function getLiveTrafficInsight(trafficSnapshots = [], route, routeStatusKey) {
+  const activeSnapshots = trafficSnapshots.filter((snapshot) => snapshot?.status && snapshot.status !== "green");
+  const redSnapshot = activeSnapshots.find((snapshot) => snapshot.status === "red");
+  const yellowSnapshot = activeSnapshots.find((snapshot) => snapshot.status === "yellow");
+
+  if (redSnapshot) {
+    return {
+      label: "Traffic danger nearby",
+      detail: redSnapshot.message || redSnapshot.roadName || "High-risk road condition reported",
+      className: "bg-red-100 text-red-700",
+    };
+  }
+
+  if (yellowSnapshot) {
+    return {
+      label: "Traffic caution nearby",
+      detail: yellowSnapshot.message || yellowSnapshot.roadName || "Use caution around this area",
+      className: "bg-yellow-100 text-yellow-700",
+    };
+  }
+
+  return getTrafficLevel(route, routeStatusKey);
 }
 
 function getWeatherMessage(currentWeather) {
@@ -351,6 +490,70 @@ function getWeatherMessage(currentWeather) {
   }
 
   return { label: `${temperature}°C • Weather clear`, detail: `Good travel condition. Wind ${wind} km/h`, className: "bg-sky-100 text-sky-700" };
+}
+
+function getSmartWeatherMessage(currentWeather) {
+  if (!currentWeather) {
+    return {
+      label: "Weather checking",
+      detail: "Live weather will appear shortly",
+      className: "bg-slate-100 text-slate-600",
+      relevant: false,
+    };
+  }
+
+  const code = Number(currentWeather.weather_code ?? currentWeather.weathercode ?? 0);
+  const temperature = Math.round(
+    currentWeather.temperatureC ??
+      currentWeather.temperature_c ??
+      currentWeather.temperature_2m ??
+      currentWeather.temperature ??
+      0,
+  );
+  const windMps = Number(currentWeather.windSpeedMps ?? currentWeather.wind_speed_mps ?? 0);
+  const wind = Math.round(currentWeather.wind_speed_10m ?? currentWeather.windspeed ?? windMps * 3.6);
+  const rainMm = Number(currentWeather.rain1hMm ?? currentWeather.rain_1h_mm ?? 0);
+  const visibility = Number(currentWeather.visibilityMeters ?? currentWeather.visibility_meters ?? 0);
+  const riskLevel = String(currentWeather.riskLevel ?? currentWeather.risk_level ?? "normal").toLowerCase();
+  const message = currentWeather.message || currentWeather.description || "";
+  const isRain = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(code);
+  const isFog = [45, 48].includes(code);
+  const hasRainRisk = isRain || rainMm > 0.4 || ["risky", "danger"].includes(riskLevel);
+  const hasVisibilityRisk = isFog || (visibility > 0 && visibility < 2500);
+
+  if (riskLevel === "danger") {
+    return {
+      label: `${temperature}°C • Road danger`,
+      detail: message || "Weather may make road movement unsafe",
+      className: "bg-red-100 text-red-700",
+      relevant: true,
+    };
+  }
+
+  if (hasRainRisk) {
+    return {
+      label: `${temperature}°C • Rain risk`,
+      detail: message || `Roads may be slippery. Wind ${wind} km/h`,
+      className: "bg-blue-100 text-blue-700",
+      relevant: true,
+    };
+  }
+
+  if (hasVisibilityRisk || riskLevel === "caution") {
+    return {
+      label: `${temperature}°C • Visibility caution`,
+      detail: message || `Use extra caution. Wind ${wind} km/h`,
+      className: "bg-yellow-100 text-yellow-700",
+      relevant: true,
+    };
+  }
+
+  return {
+    label: `${temperature}°C • Weather clear`,
+    detail: message || `Good travel condition. Wind ${wind} km/h`,
+    className: "bg-sky-100 text-sky-700",
+    relevant: false,
+  };
 }
 
 async function getCurrentWeather(position) {
@@ -521,6 +724,140 @@ function clearRouteLayers(map) {
   if (map.getSource("route")) map.removeSource("route");
 }
 
+function upsertRouteLayers(map, geometry, color = ROUTE_STATUS.correct.color) {
+  if (!map || !geometry) return;
+
+  const data = {
+    type: "Feature",
+    geometry,
+  };
+
+  if (map.getSource("route")) {
+    map.getSource("route").setData(data);
+    setRouteLineColor(map, color);
+    return;
+  }
+
+  map.addSource("route", {
+    type: "geojson",
+    data,
+  });
+
+  map.addLayer({
+    id: "route-line-glow",
+    type: "line",
+    source: "route",
+    layout: {
+      "line-join": "round",
+      "line-cap": "round",
+    },
+    paint: {
+      "line-color": color,
+      "line-width": 15,
+      "line-opacity": 0.22,
+    },
+  });
+
+  map.addLayer({
+    id: "route-line",
+    type: "line",
+    source: "route",
+    layout: {
+      "line-join": "round",
+      "line-cap": "round",
+    },
+    paint: {
+      "line-color": color,
+      "line-width": 7,
+      "line-opacity": 0.95,
+    },
+  });
+}
+
+function buildTrafficOverlayGeoJson(trafficSnapshots = []) {
+  return {
+    type: "FeatureCollection",
+    features: trafficSnapshots
+      .filter((snapshot) => snapshot?.lat != null && snapshot?.lng != null && snapshot.status !== "green")
+      .map((snapshot) => ({
+        type: "Feature",
+        properties: {
+          id: snapshot.id,
+          status: snapshot.status,
+          message: snapshot.message || "",
+          pixelRadius: Math.max(26, Math.min(86, Number(snapshot.radiusMeters || 500) / 10)),
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [snapshot.lng, snapshot.lat],
+        },
+      })),
+  };
+}
+
+function upsertTrafficOverlayLayers(map, trafficSnapshots = []) {
+  if (!map) return;
+
+  const data = buildTrafficOverlayGeoJson(trafficSnapshots);
+
+  if (map.getSource("traffic-zones")) {
+    map.getSource("traffic-zones").setData(data);
+    return;
+  }
+
+  map.addSource("traffic-zones", {
+    type: "geojson",
+    data,
+  });
+
+  map.addLayer({
+    id: "traffic-zone-fill",
+    type: "circle",
+    source: "traffic-zones",
+    paint: {
+      "circle-radius": ["get", "pixelRadius"],
+      "circle-color": [
+        "match",
+        ["get", "status"],
+        "red",
+        "#dc2626",
+        "yellow",
+        "#eab308",
+        "#16a34a",
+      ],
+      "circle-opacity": 0.12,
+    },
+  });
+
+  map.addLayer({
+    id: "traffic-zone-ring",
+    type: "circle",
+    source: "traffic-zones",
+    paint: {
+      "circle-radius": ["get", "pixelRadius"],
+      "circle-color": "rgba(255,255,255,0)",
+      "circle-stroke-width": 2,
+      "circle-stroke-color": [
+        "match",
+        ["get", "status"],
+        "red",
+        "#dc2626",
+        "yellow",
+        "#eab308",
+        "#16a34a",
+      ],
+      "circle-stroke-opacity": 0.28,
+    },
+  });
+}
+
+function clearTrafficOverlayLayers(map) {
+  if (!map) return;
+  if (map.getLayer("traffic-zone-ring")) map.removeLayer("traffic-zone-ring");
+  if (map.getLayer("traffic-zone-fill")) map.removeLayer("traffic-zone-fill");
+  if (map.getSource("traffic-zones")) map.removeSource("traffic-zones");
+}
+
 function animateMarkerTo(marker, fromPosition, toPosition, duration = GPS_SETTINGS.animationMs, onFrame) {
   if (!marker || !fromPosition || !toPosition) return null;
 
@@ -558,6 +895,7 @@ export default function NearbyAreaMap({
   nearbyMapLocations = [],
   reportLocations = [],
   trafficSnapshots = [],
+  weatherCache = null,
   onMapLocationSelect,
   onReportSelect,
   recenterSignal = 0,
@@ -573,11 +911,18 @@ export default function NearbyAreaMap({
   const markerAnimationCancelRef = useRef(null);
   const lastRouteSegmentIndexRef = useRef(0);
   const operatorMarkersRef = useRef(new Map());
+  const operatorAnimationCancelRef = useRef(new Map());
   const areaLocationMarkersRef = useRef(new Map());
   const reportMarkersRef = useRef(new Map());
   const trafficMarkersRef = useRef(new Map());
+  const trafficSnapshotsRef = useRef([]);
   const routeStatusRef = useRef("correct");
   const routeInfoRef = useRef(null);
+  const routeStartOverrideRef = useRef(null);
+  const rerouteTimerRef = useRef(null);
+  const lastRerouteAtRef = useRef(0);
+  const arrivalReachedRef = useRef(false);
+  const lastCameraMoveRef = useRef(0);
   const userLocationRef = useRef(null);
   const lastRawPositionRef = useRef(null);
   const lastRawTimestampRef = useRef(null);
@@ -598,16 +943,18 @@ export default function NearbyAreaMap({
   const [weather, setWeather] = useState(null);
   const [weatherError, setWeatherError] = useState("");
   const [trafficInsight, setTrafficInsight] = useState(() => getTrafficLevel(null, "correct"));
+  const [rerouteKey, setRerouteKey] = useState(0);
 
   const routeStatus = ROUTE_STATUS[routeStatusKey];
   const showNavigationCard = Boolean(routeLoading || routeInfo || routeError);
   const canUseHeading = headingMode !== "north";
-  const weatherInsight = getWeatherMessage(weather);
+  const weatherInsight = getSmartWeatherMessage(weather);
+  const showWeatherBadge = Boolean(weatherError || weatherInsight.relevant);
 
   function getCameraBearing(position, destination, routeSegmentIndex = lastRouteSegmentIndexRef.current) {
     if (headingMode === "north") return 0;
 
-    if (headingMode === "heading" && headingRef.current != null) {
+    if (headingMode === "compass" && headingRef.current != null) {
       return headingRef.current;
     }
 
@@ -617,15 +964,26 @@ export default function NearbyAreaMap({
     return headingRef.current || mapRef.current?.getBearing?.() || 0;
   }
 
-  function applySmartCamera(position, destination = selectedLocation, routeSegmentIndex) {
+  function applySmartCamera(position, destination = selectedLocation, routeSegmentIndex, options = {}) {
     const map = mapRef.current;
     if (!map || !position || !smartCameraRef.current) return;
 
+    const now = performance.now();
+    if (!options.force && now - lastCameraMoveRef.current < GPS_SETTINGS.cameraThrottleMs) return;
+    lastCameraMoveRef.current = now;
+
     const hasDestination = Boolean(destination?.lat && destination?.lng);
     const bearing = getCameraBearing(position, destination, routeSegmentIndex);
+    const cameraCenter = getSmartCameraCenter(
+      position,
+      destination,
+      routeCoordinatesRef.current,
+      routeSegmentIndex,
+      headingMode,
+    );
 
     map.easeTo({
-      center: [position.lng, position.lat],
+      center: [cameraCenter.lng, cameraCenter.lat],
       zoom: Math.max(map.getZoom(), hasDestination ? 16.2 : 15.2),
       pitch: hasDestination || canUseHeading ? 58 : 35,
       bearing,
@@ -643,6 +1001,38 @@ export default function NearbyAreaMap({
     } catch (error) {
       console.warn("Compass permission request failed", error);
     }
+  }
+
+  function clearPendingReroute() {
+    if (rerouteTimerRef.current) {
+      window.clearTimeout(rerouteTimerRef.current);
+      rerouteTimerRef.current = null;
+    }
+  }
+
+  function scheduleRerouteFrom(position, distanceFromRoute) {
+    if (!selectedLocation?.lat || !selectedLocation?.lng || routeLoading || arrivalReachedRef.current) return;
+
+    const now = Date.now();
+    if (rerouteTimerRef.current || now - lastRerouteAtRef.current < GPS_SETTINGS.rerouteCooldownMs) return;
+
+    setLocationStatus(`Off route - checking better route (${Math.round(distanceFromRoute)}m)`);
+
+    rerouteTimerRef.current = window.setTimeout(() => {
+      rerouteTimerRef.current = null;
+      lastRerouteAtRef.current = Date.now();
+      routeStartOverrideRef.current = position;
+      setRouteInfo((current) =>
+        current
+          ? {
+              ...current,
+              distance: "Rerouting",
+              duration: "...",
+            }
+          : current,
+      );
+      setRerouteKey((value) => value + 1);
+    }, GPS_SETTINGS.rerouteConfirmMs);
   }
 
   const routeCardStatus = routeError
@@ -695,6 +1085,9 @@ export default function NearbyAreaMap({
 
     return () => {
       markerAnimationCancelRef.current?.();
+      operatorAnimationCancelRef.current.forEach((cancel) => cancel?.());
+      operatorAnimationCancelRef.current.clear();
+      if (rerouteTimerRef.current) window.clearTimeout(rerouteTimerRef.current);
 
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
 
@@ -711,6 +1104,7 @@ export default function NearbyAreaMap({
       destinationMarkerRef.current?.remove();
 
       clearRouteLayers(map);
+      clearTrafficOverlayLayers(map);
 
       map.remove();
       mapRef.current = null;
@@ -736,7 +1130,7 @@ export default function NearbyAreaMap({
       headingRef.current = nextHeading;
       setHeading(Math.round(nextHeading));
 
-      if (headingMode === "heading" && userLocationRef.current && !routeCoordinatesRef.current.length) {
+      if (headingMode === "compass" && userLocationRef.current && !routeCoordinatesRef.current.length) {
         applySmartCamera(userLocationRef.current, null);
       }
     }
@@ -823,7 +1217,7 @@ export default function NearbyAreaMap({
   useEffect(() => {
     const current = markerRenderedPositionRef.current || smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
 
-applySmartCamera(current, selectedLocation);
+    applySmartCamera(current, selectedLocation, lastRouteSegmentIndexRef.current, { force: true });
   }, [recenterSignal]);
 
   useEffect(() => {
@@ -831,18 +1225,26 @@ applySmartCamera(current, selectedLocation);
   }, [routeInfo]);
 
   useEffect(() => {
+    trafficSnapshotsRef.current = trafficSnapshots;
+    setTrafficInsight((current) => {
+      const next = getLiveTrafficInsight(trafficSnapshots, routeInfoRef.current?.raw || null, routeStatusRef.current);
+      return next.label === current?.label && next.detail === current?.detail ? current : next;
+    });
+  }, [trafficSnapshots, routeStatusKey]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function drawRoute() {
       if (!selectedLocation || !mapRef.current) return;
 
-      const routeStart = smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
+      const routeStart = routeStartOverrideRef.current || smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
       const map = mapRef.current;
 
       setRouteError("");
       setRouteLoading(true);
       setRouteInfo({
-        from: userLocationRef.current ? "Current Location" : DEFAULT_CENTER.label,
+        from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
         to: selectedLocation.name || "Selected destination",
         distance: "Finding route",
         duration: "...",
@@ -851,6 +1253,7 @@ applySmartCamera(current, selectedLocation);
       routeStatusRef.current = "correct";
       setNavigationMinimized(false);
       lastRouteSegmentIndexRef.current = 0;
+      arrivalReachedRef.current = false;
 
       destinationMarkerRef.current?.remove();
 
@@ -869,45 +1272,7 @@ applySmartCamera(current, selectedLocation);
 
       routeCoordinatesRef.current = route.geometry.coordinates || [];
 
-      clearRouteLayers(map);
-
-      map.addSource("route", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          geometry: route.geometry,
-        },
-      });
-
-      map.addLayer({
-        id: "route-line-glow",
-        type: "line",
-        source: "route",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": ROUTE_STATUS.correct.color,
-          "line-width": 15,
-          "line-opacity": 0.22,
-        },
-      });
-
-      map.addLayer({
-        id: "route-line",
-        type: "line",
-        source: "route",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": ROUTE_STATUS.correct.color,
-          "line-width": 7,
-          "line-opacity": 0.95,
-        },
-      });
+      upsertRouteLayers(map, route.geometry, ROUTE_STATUS.correct.color);
 
       const bounds = new maplibregl.LngLatBounds();
       route.geometry.coordinates.forEach((coord) => bounds.extend(coord));
@@ -918,30 +1283,32 @@ applySmartCamera(current, selectedLocation);
       });
 
       window.setTimeout(() => {
-        if (!cancelled) applySmartCamera(routeStart, selectedLocation, 0);
+        if (!cancelled) applySmartCamera(routeStart, selectedLocation, 0, { force: true });
       }, 950);
 
       setRouteInfo({
-        from: userLocationRef.current ? "Current Location" : DEFAULT_CENTER.label,
+        from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
         to: selectedLocation.name,
         distance: formatDistance(route.distanceMeters),
         duration: formatDuration(route.durationSeconds),
         raw: route,
       });
-      setTrafficInsight(getTrafficLevel(route, "correct"));
+      setTrafficInsight(getLiveTrafficInsight(trafficSnapshotsRef.current, route, "correct"));
       setRouteLoading(false);
+      routeStartOverrideRef.current = null;
     }
 
     drawRoute().catch((error) => {
       console.error(error);
       if (cancelled) return;
+      routeStartOverrideRef.current = null;
       routeCoordinatesRef.current = [];
       clearRouteLayers(mapRef.current);
       setRouteLoading(false);
       setRouteStatusKey("wrong");
       routeStatusRef.current = "wrong";
       setRouteInfo({
-        from: userLocationRef.current ? "Current Location" : DEFAULT_CENTER.label,
+        from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
         to: selectedLocation?.name || "Selected destination",
         distance: "Route unavailable",
         duration: "Try again",
@@ -953,7 +1320,7 @@ applySmartCamera(current, selectedLocation);
     return () => {
       cancelled = true;
     };
-  }, [selectedLocation]);
+  }, [selectedLocation, rerouteKey]);
 
   useEffect(() => {
     if (!navigator.geolocation || !mapRef.current) return;
@@ -1021,7 +1388,11 @@ applySmartCamera(current, selectedLocation);
         }
 
         setGpsAccuracy(accuracy);
-        setLocationStatus("Live tracking active");
+        setLocationStatus(
+          accuracy > GPS_SETTINGS.lowAccuracyWarningMeters
+            ? `Low GPS accuracy - ${accuracy}m`
+            : "Live tracking active",
+        );
         setUserLocation(livePosition);
         userLocationRef.current = livePosition;
         onLocationResolved?.(livePosition);
@@ -1054,6 +1425,29 @@ applySmartCamera(current, selectedLocation);
 
         if (routeCoordinatesRef.current.length) {
           const nearestRouteInfo = getNearestRouteInfo(livePosition, routeCoordinatesRef.current);
+          const distanceToDestination = selectedLocation?.lat
+            ? distanceInMeters(livePosition, selectedLocation)
+            : Infinity;
+
+          if (distanceToDestination <= GPS_SETTINGS.arrivalMeters && !arrivalReachedRef.current) {
+            arrivalReachedRef.current = true;
+            clearPendingReroute();
+            routeStatusRef.current = "correct";
+            setRouteStatusKey("correct");
+            setRouteLineColor(mapRef.current, ROUTE_STATUS.correct.color);
+            setLocationStatus("Arrived at destination");
+            setNavigationMinimized(false);
+            setRouteInfo((current) =>
+              current
+                ? {
+                    ...current,
+                    distance: "0 m",
+                    duration: "Arrived",
+                  }
+                : current,
+            );
+            return;
+          }
 
           const isMovingBackward =
             nearestRouteInfo.segmentIndex + GPS_SETTINGS.progressBacktrackSegments <
@@ -1077,9 +1471,16 @@ applySmartCamera(current, selectedLocation);
             }
           }
 
+          if (nextStatusKey === "correct" || nearestRouteInfo.distance <= GPS_SETTINGS.warningRouteMeters) {
+            clearPendingReroute();
+          } else if (nearestRouteInfo.distance >= GPS_SETTINGS.rerouteRouteMeters) {
+            scheduleRerouteFrom(livePosition, nearestRouteInfo.distance);
+          }
+
           setRouteLineColor(mapRef.current, ROUTE_STATUS[nextStatusKey].color);
           setTrafficInsight((current) => {
-            const next = getTrafficLevel(
+            const next = getLiveTrafficInsight(
+              trafficSnapshotsRef.current,
               routeInfoRef.current?.raw || null,
               nextStatusKey,
             );
@@ -1107,7 +1508,14 @@ applySmartCamera(current, selectedLocation);
   }, [focusMode, headingMode, onLocationResolved, selectedLocation]);
 
   useEffect(() => {
+    if (!weatherCache) return;
+    setWeather(weatherCache);
+    setWeatherError("");
+  }, [weatherCache]);
+
+  useEffect(() => {
     const current = userLocation || userLocationRef.current;
+    if (weatherCache) return;
     if (!current?.lat || !current?.lng) return;
 
     const now = Date.now();
@@ -1131,7 +1539,7 @@ applySmartCamera(current, selectedLocation);
     return () => {
       cancelled = true;
     };
-  }, [userLocation?.lat, userLocation?.lng]);
+  }, [userLocation?.lat, userLocation?.lng, weatherCache]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -1141,6 +1549,8 @@ applySmartCamera(current, selectedLocation);
 
     operatorMarkersRef.current.forEach((marker, id) => {
       if (!nextIds.has(id)) {
+        operatorAnimationCancelRef.current.get(id)?.();
+        operatorAnimationCancelRef.current.delete(id);
         marker.remove();
         operatorMarkersRef.current.delete(id);
       }
@@ -1152,12 +1562,20 @@ applySmartCamera(current, selectedLocation);
       const existingMarker = operatorMarkersRef.current.get(operator.id);
 
       if (existingMarker) {
-        existingMarker.setLngLat([operator.lng, operator.lat]);
+        const fromPosition = getMarkerPosition(existingMarker, operator);
+        operatorAnimationCancelRef.current.get(operator.id)?.();
+        operatorAnimationCancelRef.current.set(
+          operator.id,
+          animateMarkerTo(existingMarker, fromPosition, operator, 900, () => {
+            updateOperatorMarkerElement(existingMarker.getElement(), operator);
+          }),
+        );
+        updateOperatorMarkerElement(existingMarker.getElement(), operator);
         return;
       }
 
       const marker = new maplibregl.Marker({
-        element: createOperatorMarker(operator),
+        element: createSmartOperatorMarker(operator),
         anchor: "center",
       })
         .setLngLat([operator.lng, operator.lat])
@@ -1224,7 +1642,7 @@ applySmartCamera(current, selectedLocation);
         return;
       }
 
-      const element = createReportMarker(report);
+      const element = createSmartReportMarker(report);
       element.addEventListener("click", () => onReportSelect?.(report));
 
       const marker = new maplibregl.Marker({ element, anchor: "center" })
@@ -1239,6 +1657,7 @@ applySmartCamera(current, selectedLocation);
     if (!mapRef.current) return;
 
     const map = mapRef.current;
+    let cancelled = false;
     const nextIds = new Set(trafficSnapshots.map((snapshot) => snapshot.id));
 
     trafficMarkersRef.current.forEach((marker, id) => {
@@ -1263,6 +1682,14 @@ applySmartCamera(current, selectedLocation);
 
       trafficMarkersRef.current.set(snapshot.id, marker);
     });
+
+    waitForMapStyle(map).then(() => {
+      if (!cancelled) upsertTrafficOverlayLayers(map, trafficSnapshots);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [trafficSnapshots]);
 
 
@@ -1285,15 +1712,15 @@ applySmartCamera(current, selectedLocation);
             onClick={async () => {
               await requestCompassPermissionIfNeeded();
               setHeadingMode((value) => {
-                if (value === "smart") return "heading";
-                if (value === "heading") return "north";
+                if (value === "smart") return "compass";
+                if (value === "compass") return "north";
                 return "smart";
               });
             }}
             className="rounded-full bg-slate-950/90 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-white shadow-xl"
             aria-label="Toggle map direction mode"
           >
-            {headingMode === "smart" ? "Smart" : headingMode === "heading" ? "Compass" : "North"}
+            {headingMode === "smart" ? "Smart" : headingMode === "compass" ? "Compass" : "North"}
             {heading != null && headingMode !== "north" ? <span className="ml-1 text-white/60">{heading}°</span> : null}
           </button>
         </div>
@@ -1360,11 +1787,13 @@ applySmartCamera(current, selectedLocation);
 
               <RouteHealthLegend activeKey={routeError || routeLoading ? "" : routeStatusKey} />
 
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <div className={`rounded-2xl px-3 py-2 text-xs font-black ${weatherError ? "bg-red-50 text-red-700" : weatherInsight.className}`}>
-                  <span className="block">{weatherError || weatherInsight.label}</span>
-                  <span className="mt-1 block font-bold opacity-80">{weatherError || weatherInsight.detail}</span>
-                </div>
+              <div className={`mt-3 grid gap-2 ${showWeatherBadge ? "sm:grid-cols-2" : ""}`}>
+                {showWeatherBadge ? (
+                  <div className={`rounded-2xl px-3 py-2 text-xs font-black ${weatherError ? "bg-red-50 text-red-700" : weatherInsight.className}`}>
+                    <span className="block">{weatherError || weatherInsight.label}</span>
+                    <span className="mt-1 block font-bold opacity-80">{weatherError || weatherInsight.detail}</span>
+                  </div>
+                ) : null}
                 <div className={`rounded-2xl px-3 py-2 text-xs font-black ${trafficInsight.className}`}>
                   <span className="block">{trafficInsight.label}</span>
                   <span className="mt-1 block font-bold opacity-80">{trafficInsight.detail}</span>
@@ -1375,14 +1804,14 @@ applySmartCamera(current, selectedLocation);
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 shrink-0 rounded-full bg-green-600" />
                   <span>
-                    <strong className="text-slate-900">Current Location:</strong> {routeInfo.from}
+                    <strong className="text-slate-900">CURRENT LOCATION:</strong> {routeInfo.from}
                   </span>
                 </div>
 
                 <div className="flex items-start gap-2">
                   <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-600" />
                   <span className="line-clamp-2">
-                    <strong className="text-slate-900">Destination:</strong> {routeInfo.to}
+                    <strong className="text-slate-900">DESTINATION:</strong> {routeInfo.to}
                   </span>
                 </div>
               </div>
