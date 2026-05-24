@@ -19,7 +19,6 @@ import {
   Phone,
   Send,
   Share2,
-  ShieldCheck,
   ShoppingCart,
   Star,
   Store,
@@ -97,11 +96,37 @@ function getFullAddress(seller) {
   return [safeSeller.address, safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || "Address not added yet";
 }
 
-function isVerifiedSeller(seller) {
+function getVerificationStatus(seller) {
   const safeSeller = asObject(seller);
-  return ["verified", "approved", "true"].includes(
-    String(safeSeller.verificationStatus || safeSeller.verification_status || safeSeller.verified || "").toLowerCase(),
-  );
+  const rawStatus = String(
+    safeSeller.verificationStatus || safeSeller.verification_status || safeSeller.verified || "pending",
+  ).toLowerCase();
+
+  if (["verified", "approved", "true"].includes(rawStatus)) {
+    return {
+      label: "Verified Seller",
+      className: "border-emerald-100 bg-emerald-50 text-emerald-700",
+    };
+  }
+
+  if (["rejected", "declined", "failed"].includes(rawStatus)) {
+    return {
+      label: "Verification Needs Attention",
+      className: "border-red-100 bg-red-50 text-red-700",
+    };
+  }
+
+  if (["submitted", "review", "in_review", "under_review"].includes(rawStatus)) {
+    return {
+      label: "Verification In Review",
+      className: "border-sky-100 bg-sky-50 text-sky-700",
+    };
+  }
+
+  return {
+    label: "Verification Pending",
+    className: "border-amber-100 bg-amber-50 text-amber-700",
+  };
 }
 
 function parseTimeToMinutes(value) {
@@ -255,47 +280,6 @@ function SellerProfileSkeleton() {
         </div>
       </div>
       <SkeletonBlock className="h-40" />
-    </div>
-  );
-}
-
-function QuickActionButton({ icon, label, active, className = "", onClick }) {
-  const IconComponent = icon;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex h-11 min-w-[108px] flex-1 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-black transition ${
-        active
-          ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
-          : "border-gray-200 bg-white text-gray-800 hover:border-emerald-200 hover:bg-emerald-50"
-      } ${className}`}
-    >
-      <IconComponent size={17} fill={active && IconComponent === Heart ? "currentColor" : "none"} />
-      <span className="truncate">{label}</span>
-    </button>
-  );
-}
-
-function TrustBadge({ icon, label, active = true }) {
-  const IconComponent = icon;
-  return (
-    <div
-      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black ${
-        active ? "border-emerald-100 bg-emerald-50 text-emerald-800" : "border-gray-200 bg-gray-50 text-gray-500"
-      }`}
-    >
-      <IconComponent size={15} />
-      <span className="truncate">{label}</span>
-    </div>
-  );
-}
-
-function StatCard({ label, value }) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-      <p className="text-xs font-black uppercase text-gray-400">{label}</p>
-      <p className="mt-1 truncate text-xl font-black text-gray-950">{value}</p>
     </div>
   );
 }
@@ -493,6 +477,7 @@ export default function SellerProfileDrawer({
   const [copiedProductId, setCopiedProductId] = useState(null);
   const [locationWarning, setLocationWarning] = useState("");
   const [buyerPosition, setBuyerPosition] = useState(null);
+  const [messagePanelOpen, setMessagePanelOpen] = useState(false);
   const safeSeller = useMemo(() => asObject(seller), [seller]);
   const safeCatalog = useMemo(() => asArray(catalog).filter((item) => item && typeof item === "object"), [catalog]);
   const safeReviews = useMemo(
@@ -585,7 +570,15 @@ export default function SellerProfileDrawer({
   const sellerName = useMemo(() => getSellerName(safeSeller), [safeSeller]);
   const sellerCategory = useMemo(() => getSellerCategory(safeSeller, safeCatalog), [safeCatalog, safeSeller]);
   const fullAddress = useMemo(() => getFullAddress(safeSeller), [safeSeller]);
-  const verified = useMemo(() => isVerifiedSeller(safeSeller), [safeSeller]);
+  const cityCountry = useMemo(
+    () => [safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || "City and country not added yet",
+    [safeSeller],
+  );
+  const hasFullAddress = Boolean(String(safeSeller.address || "").trim());
+  const showFullAddress =
+    hasFullAddress &&
+    fullAddress.toLowerCase().replace(/\s+/g, " ").trim() !== cityCountry.toLowerCase().replace(/\s+/g, " ").trim();
+  const verificationStatus = useMemo(() => getVerificationStatus(safeSeller), [safeSeller]);
   const storeStatus = useMemo(() => getStoreStatus(safeSeller), [safeSeller]);
   const deliveryAvailable = Boolean(
     safeSeller.deliveryEnabled ||
@@ -601,7 +594,6 @@ export default function SellerProfileDrawer({
     safeReviews.reviewCount || safeSeller.reviewCount || safeSeller.reviews_count || safeSeller.review_count,
     0,
   );
-  const salesCount = safeCatalog.reduce((sum, product) => sum + toSafeNumber(product?.sales, 0), 0);
   const sellerDestination = useMemo(() => {
     const lat = toOptionalCoordinate(safeSeller.latitude ?? safeSeller.lat);
     const lng = toOptionalCoordinate(safeSeller.longitude ?? safeSeller.lng);
@@ -645,6 +637,7 @@ export default function SellerProfileDrawer({
         message: messageText,
       });
       setMessageText("");
+      setMessagePanelOpen(false);
       onNotice?.("Message sent to seller.");
     } catch (err) {
       onNotice?.(err.message || "Unable to message seller.", "danger");
@@ -741,14 +734,17 @@ export default function SellerProfileDrawer({
     onClose?.();
   }
 
-  const trustBadges = [
-    { label: verified ? "Verified Seller" : "Verification pending", icon: BadgeCheck, active: verified },
-    { label: "Buyer Protection", icon: ShieldCheck, active: true },
-    { label: "Fast Response", icon: Clock, active: true },
-    { label: "Delivery Available", icon: Truck, active: deliveryAvailable },
-    { label: "Top Rated", icon: Star, active: ratingValue >= 4.6 && reviewCount > 0 },
-    { label: "New Seller", icon: Store, active: reviewCount < 3 },
-  ];
+  function openMessagePanel() {
+    setMessagePanelOpen(true);
+  }
+
+  function handleSaveStore() {
+    if (!safeSeller.id) {
+      onNotice?.("This store cannot be saved yet.", "danger");
+      return;
+    }
+    onToggleSavedSeller?.({ ...safeSeller, name: sellerName });
+  }
 
   return createPortal(
     <>
@@ -762,94 +758,125 @@ export default function SellerProfileDrawer({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-8">
-          <div className="mx-auto w-full max-w-6xl space-y-4">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-5 lg:px-8">
+          <div className="mx-auto w-full max-w-5xl space-y-4 overflow-x-hidden">
             {loadingProfile ? <SellerProfileSkeleton /> : null}
 
-            <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="relative h-24 bg-gradient-to-r from-gray-950 via-emerald-900 to-emerald-700 sm:h-32">
+            <section className="w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-white px-3 py-2.5 sm:px-5">
+                <span className="text-[11px] font-black uppercase tracking-wide text-gray-400">Verification Status</span>
+                <span className={`inline-flex max-w-[70%] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${verificationStatus.className}`}>
+                  <BadgeCheck size={14} />
+                  <span className="truncate">{verificationStatus.label}</span>
+                </span>
+              </div>
+
+              <div className="relative h-20 bg-gradient-to-r from-gray-950 via-emerald-900 to-emerald-700 sm:h-28">
                 {safeSeller.bannerUrl ? <img src={safeSeller.bannerUrl} alt="" className="h-full w-full object-cover opacity-75" /> : null}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
               </div>
 
-              <div className="p-4 sm:p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="flex min-w-0 gap-4">
-                    <div className="-mt-12 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-gray-950 text-white shadow-lg">
+              <div className="p-3 sm:p-5">
+                <div className="grid w-full max-w-full gap-4 md:grid-cols-[170px_minmax(0,1fr)]">
+                  <div className="mx-auto w-full max-w-[170px] md:mx-0">
+                    <div className="-mt-10 flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-gray-950 text-white shadow-lg sm:h-28 sm:w-28">
                       {safeSeller.logoUrl ? <img src={safeSeller.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={32} />}
                     </div>
 
-                    <div className="min-w-0 pt-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h1 className="break-words text-2xl font-black text-gray-950 sm:text-3xl">{sellerName}</h1>
-                        {verified ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
-                            <BadgeCheck size={15} />
-                            Verified
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <p className="mt-1 text-sm font-black text-gray-700">{sellerCategory}</p>
-                      <p className="mt-1 break-words text-sm font-semibold text-gray-500">{fullAddress}</p>
-                      <p className="mt-0.5 text-sm font-semibold text-gray-500">
-                        {[safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || "City and country not added yet"}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">
-                          <Star size={14} fill="currentColor" />
-                          {ratingValue ? ratingValue.toFixed(1) : "0.0"} from {reviewCount} review{reviewCount === 1 ? "" : "s"}
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black ${
-                            storeStatus.neutral
-                              ? "bg-gray-100 text-gray-600"
-                              : storeStatus.open
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-red-50 text-red-700"
-                          }`}
+                    <div className="mt-3 grid w-full gap-2">
+                      {safeSeller.phone ? (
+                        <a
+                          href={`tel:${safeSeller.phone}`}
+                          className="inline-flex h-10 w-full max-w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 transition hover:bg-gray-50"
                         >
-                          <Clock size={14} />
-                          {storeStatus.label}
-                        </span>
-                        {deliveryAvailable ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-                            <Truck size={14} />
-                            Delivery Available
-                          </span>
-                        ) : null}
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-700">
-                          <MessageCircle size={14} />
-                          {getResponseTime(seller)}
-                        </span>
-                        {distanceLabel ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-black text-sky-700">
-                            <Navigation size={14} />
-                            {distanceLabel}
-                          </span>
-                        ) : null}
-                      </div>
+                          <Phone size={16} />
+                          Call
+                        </a>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={handleLocateStore}
+                        className="inline-flex h-11 w-full max-w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
+                      >
+                        <Navigation size={17} />
+                        Locate Store
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openMessagePanel}
+                        className="inline-flex h-11 w-full max-w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 transition hover:bg-gray-50"
+                      >
+                        <MessageCircle size={17} />
+                        Message Seller
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveStore}
+                        className={`inline-flex h-10 w-full max-w-full items-center justify-center gap-2 rounded-lg border px-3 text-sm font-black transition ${
+                          sellerSaved
+                            ? "border-rose-100 bg-rose-50 text-rose-700"
+                            : "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
+                        }`}
+                      >
+                        <Heart size={16} fill={sellerSaved ? "currentColor" : "none"} />
+                        {sellerSaved ? "Saved" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={shareSeller}
+                        className="inline-flex h-10 w-full max-w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 transition hover:bg-gray-50"
+                      >
+                        <Share2 size={16} />
+                        Share
+                      </button>
                     </div>
                   </div>
 
-                  <div className="grid w-full gap-2 sm:grid-cols-2 md:w-auto md:min-w-[260px] md:grid-cols-1">
-                    <button
-                      type="button"
-                      onClick={handleLocateStore}
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
-                    >
-                      <Navigation size={18} />
-                      Locate Store
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveView("messages")}
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-black text-gray-800 transition hover:bg-gray-50"
-                    >
-                      <MessageCircle size={18} />
-                      Message Seller
-                    </button>
+                  <div className="min-w-0 pt-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <h1 className="min-w-0 break-words text-2xl font-black leading-tight text-gray-950 sm:text-3xl">{sellerName}</h1>
+                    </div>
+
+                    <div className="mt-2 space-y-1">
+                      <p className="break-words text-sm font-black text-gray-800">{sellerCategory}</p>
+                      <p className="break-words text-sm font-semibold text-gray-500">{cityCountry}</p>
+                      {showFullAddress ? <p className="break-words text-sm font-semibold text-gray-500">{fullAddress}</p> : null}
+                    </div>
+
+                    <div className="mt-3 flex max-w-full flex-wrap gap-2">
+                      <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">
+                        <Star size={14} fill="currentColor" />
+                        <span className="truncate">{ratingValue ? ratingValue.toFixed(1) : "0.0"} from {reviewCount} review{reviewCount === 1 ? "" : "s"}</span>
+                      </span>
+                      <span
+                        className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black ${
+                          storeStatus.neutral
+                            ? "bg-gray-100 text-gray-600"
+                            : storeStatus.open
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-red-50 text-red-700"
+                        }`}
+                      >
+                        <Clock size={14} />
+                        <span className="truncate">{storeStatus.label}</span>
+                      </span>
+                      {deliveryAvailable ? (
+                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                          <Truck size={14} />
+                          <span className="truncate">Delivery Available</span>
+                        </span>
+                      ) : null}
+                      <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-700">
+                        <MessageCircle size={14} />
+                        <span className="truncate">{getResponseTime(safeSeller)}</span>
+                      </span>
+                      {distanceLabel ? (
+                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-black text-sky-700">
+                          <Navigation size={14} />
+                          <span className="truncate">{distanceLabel}</span>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
@@ -859,54 +886,19 @@ export default function SellerProfileDrawer({
                   </div>
                 ) : null}
 
-                <div className="mt-5 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
-                  <QuickActionButton icon={Navigation} label="Locate" onClick={handleLocateStore} />
-                  <QuickActionButton icon={MessageCircle} label="Message" onClick={() => setActiveView("messages")} />
-                  <QuickActionButton
-                    icon={Heart}
-                    label={sellerSaved ? "Saved" : "Save"}
-                    active={sellerSaved}
-                    onClick={() => {
-                      if (!safeSeller.id) {
-                        onNotice?.("This store cannot be saved yet.", "danger");
-                        return;
-                      }
-                      onToggleSavedSeller?.({ ...safeSeller, name: sellerName });
-                    }}
-                  />
-                  <QuickActionButton icon={Share2} label="Share" onClick={shareSeller} />
-                  {safeSeller.phone ? (
-                    <a
-                      href={`tel:${safeSeller.phone}`}
-                      className="inline-flex h-11 min-w-[108px] flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 transition hover:border-emerald-200 hover:bg-emerald-50"
-                    >
-                      <Phone size={17} />
-                      Call
-                    </a>
-                  ) : null}
-                </div>
               </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <StatCard label="Products" value={safeCatalog.length} />
-                  <StatCard label="Reviews" value={reviewCount} />
-                  <StatCard label="Sales" value={salesCount || "Not tracked"} />
-                  <StatCard label="Response Rate" value={safeSeller.responseRate || safeSeller.response_rate || "Not tracked"} />
+            <section className="w-full max-w-full space-y-4 overflow-x-hidden">
+              <div className="sticky top-0 z-10 -mx-3 border-y border-gray-100 bg-gray-50/95 px-3 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
+                <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+                  <TabButton icon={PackageSearch} label="Catalog" active={activeView === "catalog"} onClick={() => setActiveView("catalog")} />
+                  <TabButton icon={Star} label="Reviews" active={activeView === "reviews"} onClick={() => setActiveView("reviews")} />
+                  <TabButton icon={Info} label="About" active={activeView === "about"} onClick={() => setActiveView("about")} />
                 </div>
+              </div>
 
-                <div className="sticky top-0 z-10 -mx-3 border-y border-gray-100 bg-gray-50/95 px-3 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    <TabButton icon={PackageSearch} label="Catalog" active={activeView === "catalog"} onClick={() => setActiveView("catalog")} />
-                    <TabButton icon={Star} label="Reviews" active={activeView === "reviews"} onClick={() => setActiveView("reviews")} />
-                    <TabButton icon={Info} label="About" active={activeView === "about"} onClick={() => setActiveView("about")} />
-                    <TabButton icon={MessageCircle} label="Messages" active={activeView === "messages"} onClick={() => setActiveView("messages")} />
-                  </div>
-                </div>
-
-                {activeView === "catalog" ? (
+              {activeView === "catalog" ? (
                   <section className="space-y-3">
                     {loadingProfile ? (
                       <div className="grid gap-3 md:grid-cols-2">
@@ -948,9 +940,9 @@ export default function SellerProfileDrawer({
                       <EmptyState icon={PackageSearch} title="No products listed yet." text={`${sellerName} has not published active catalog products yet.`} />
                     )}
                   </section>
-                ) : null}
+              ) : null}
 
-                {activeView === "reviews" ? (
+              {activeView === "reviews" ? (
                   <section className="space-y-4">
                     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1004,9 +996,9 @@ export default function SellerProfileDrawer({
                       <EmptyState icon={Star} title="No reviews yet." text="Buyer reviews will appear here after marketplace orders and feedback." />
                     )}
                   </section>
-                ) : null}
+              ) : null}
 
-                {activeView === "about" ? (
+              {activeView === "about" ? (
                   <section className="space-y-4">
                     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                       <h3 className="font-black text-gray-950">About {sellerName}</h3>
@@ -1021,125 +1013,53 @@ export default function SellerProfileDrawer({
                       <InfoRow icon={Phone} label="Phone Number" value={safeSeller.phone || "Phone number not added yet"} />
                       <InfoRow icon={CalendarDays} label="Joined" value={formatJoinedDate(safeSeller.joinedAt || safeSeller.created_at)} />
                       <InfoRow icon={Store} label="Business Category" value={sellerCategory} />
-                      <InfoRow icon={Truck} label="Delivery Methods" value={getDeliveryMethods(seller, catalog)} />
-                      <InfoRow icon={CreditCard} label="Payment Options" value={getPaymentOptions(seller)} />
+                      <InfoRow icon={Truck} label="Delivery Methods" value={getDeliveryMethods(safeSeller, safeCatalog)} />
+                      <InfoRow icon={CreditCard} label="Payment Options" value={getPaymentOptions(safeSeller)} />
                       <InfoRow icon={Mail} label="Email" value={safeSeller.email || "Email not added yet"} />
                     </div>
                   </section>
-                ) : null}
-
-                {activeView === "messages" ? (
-                  <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                        <MessageCircle size={20} />
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="font-black text-gray-950">Message {sellerName}</h3>
-                        <p className="mt-1 text-sm font-semibold text-gray-500">{getResponseTime(seller)}</p>
-                      </div>
-                    </div>
-
-                    <form onSubmit={sendMessage} className="mt-4 space-y-3">
-                      <textarea
-                        value={messageText}
-                        onChange={(event) => setMessageText(event.target.value)}
-                        placeholder="Ask about availability, pickup, delivery, or price"
-                        className="min-h-32 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        type="submit"
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
-                      >
-                        <Send size={17} />
-                        Send Message
-                      </button>
-                    </form>
-                  </section>
-                ) : null}
-              </div>
-
-              <aside className="space-y-4">
-                <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                  <h3 className="font-black text-gray-950">Trust Signals</h3>
-                  <div className="mt-3 grid gap-2">
-                    {trustBadges.map((badge) => (
-                      <TrustBadge key={badge.label} {...badge} />
-                    ))}
-                  </div>
-                </section>
-
-                <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                  <h3 className="font-black text-gray-950">Store Snapshot</h3>
-                  <div className="mt-3 space-y-3 text-sm font-bold text-gray-600">
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Readiness</span>
-                      <span className="font-black text-gray-950">{Math.round(toSafeNumber(safeSeller.readinessScore, 0))}%</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full bg-emerald-600"
-                        style={{ width: `${Math.min(100, Math.max(0, toSafeNumber(safeSeller.readinessScore, 0)))}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Hours</span>
-                      <span className="text-right font-black text-gray-950">{storeStatus.detail}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Delivery</span>
-                      <span className="font-black text-gray-950">{deliveryAvailable ? "Available" : "Not added"}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Location</span>
-                      <span className="font-black text-gray-950">{sellerDestination ? "Map ready" : "Missing"}</span>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                  <h3 className="font-black text-gray-950">Buyer Actions</h3>
-                  <div className="mt-3 grid gap-2">
-                    <button
-                      type="button"
-                      onClick={handleLocateStore}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
-                    >
-                      <Navigation size={17} />
-                      Open Area View
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveView("messages")}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-black text-gray-800 transition hover:bg-gray-50"
-                    >
-                      <MessageCircle size={17} />
-                      Message Store
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!safeSeller.id) {
-                          onNotice?.("This store cannot be saved yet.", "danger");
-                          return;
-                        }
-                        onToggleSavedSeller?.({ ...safeSeller, name: sellerName });
-                      }}
-                      className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-black transition ${
-                        sellerSaved
-                          ? "border-rose-100 bg-rose-50 text-rose-700"
-                          : "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
-                      }`}
-                    >
-                      <Heart size={17} fill={sellerSaved ? "currentColor" : "none"} />
-                      {sellerSaved ? "Saved Store" : "Save Store"}
-                    </button>
-                  </div>
-                </section>
-              </aside>
+              ) : null}
             </section>
           </div>
         </div>
+
+        {messagePanelOpen ? (
+          <div className="absolute inset-0 z-[1001] flex items-end bg-black/35 p-3 sm:items-center sm:justify-center">
+            <section className="w-full max-w-lg rounded-lg border border-gray-200 bg-white p-4 shadow-2xl">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase text-emerald-700">Message seller</p>
+                  <h3 className="truncate text-lg font-black text-gray-950">{sellerName}</h3>
+                  <p className="mt-1 text-sm font-semibold text-gray-500">{getResponseTime(safeSeller)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMessagePanelOpen(false)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
+                  aria-label="Close message composer"
+                >
+                  x
+                </button>
+              </div>
+
+              <form onSubmit={sendMessage} className="mt-4 space-y-3">
+                <textarea
+                  value={messageText}
+                  onChange={(event) => setMessageText(event.target.value)}
+                  placeholder="Ask about availability, pickup, delivery, or price"
+                  className="min-h-32 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+                >
+                  <Send size={17} />
+                  Send Message
+                </button>
+              </form>
+            </section>
+          </div>
+        ) : null}
       </aside>
     </>,
     document.body,
