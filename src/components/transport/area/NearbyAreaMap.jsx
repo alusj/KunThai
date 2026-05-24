@@ -45,6 +45,9 @@ const GPS_SETTINGS = {
   maxHumanSpeedMetersPerSecond: 22,
 };
 
+const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY;
+const MAPTILER_STYLE_ID = import.meta.env.VITE_MAPTILER_STYLE_ID || "streets-v2";
+
 const osmRasterStyle = {
   version: 8,
   sources: {
@@ -65,6 +68,21 @@ const osmRasterStyle = {
     },
   ],
 };
+
+function getMapTilerStyleUrl(styleId = MAPTILER_STYLE_ID) {
+  if (!MAPTILER_KEY) return null;
+  return `https://api.maptiler.com/maps/${styleId}/style.json?key=${MAPTILER_KEY}`;
+}
+
+function getInitialMapStyle() {
+  return getMapTilerStyleUrl() || osmRasterStyle;
+}
+
+function isMapTilerRequestError(event) {
+  const url = event?.error?.url || event?.sourceId || "";
+  const status = event?.error?.status || event?.error?.statusCode;
+  return String(url).includes("api.maptiler.com") || status === 401 || status === 403;
+}
 
 function createLabeledMarker(label, bgColor) {
   const wrapper = document.createElement("div");
@@ -138,7 +156,7 @@ function createLiveUserMarker() {
   dot.style.zIndex = "2";
 
   const label = document.createElement("div");
-  label.textContent = "START";
+  label.textContent = "CURRENT LOCATION";
   label.style.position = "absolute";
   label.style.top = "-2px";
   label.style.left = "50%";
@@ -441,15 +459,23 @@ export default function NearbyAreaMap({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: osmRasterStyle,
+      style: getInitialMapStyle(),
       center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
       zoom: 13,
       pitch: 0,
       bearing: 0,
       attributionControl: true,
+      maxZoom: 20,
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: "metric" }), "bottom-left");
+
+    map.on("error", (event) => {
+      if (!MAPTILER_KEY || !isMapTilerRequestError(event) || map.getSource("osm-tiles")) return;
+      console.warn("MapTiler style could not load. Falling back to OpenStreetMap raster tiles.", event?.error);
+      map.setStyle(osmRasterStyle);
+    });
 
     mapRef.current = map;
     onMapReady?.(map);
@@ -582,7 +608,7 @@ export default function NearbyAreaMap({
       destinationMarkerRef.current?.remove();
 
       destinationMarkerRef.current = new maplibregl.Marker({
-        element: createLabeledMarker("END", "#2563eb"),
+        element: createLabeledMarker("DESTINATION", "#2563eb"),
         anchor: "center",
       })
         .setLngLat([selectedLocation.lng, selectedLocation.lat])

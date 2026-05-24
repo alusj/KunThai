@@ -7,6 +7,10 @@ export const MENU_SCREENS = {
     title: "Profile",
     subtitle: "Your public social identity across Explore, posts, comments, and connections.",
   },
+  EditProfile: {
+    title: "Edit Profile",
+    subtitle: "Update your photo, cover, bio, links, and public Explore details.",
+  },
   MyPosts: {
     title: "My Posts",
     subtitle: "Posts you have shared on Explore.",

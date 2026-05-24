@@ -5,8 +5,11 @@ import ConnectionsSummary from "./components/ConnectionsSummary";
 import Discover from "./discover/Discover";
 import MyCircle from "./myCircle/MyCircle";
 
+const CONNECTION_TAB_ORDER = ["mycircle", "followers", "discover"];
+
 export default function Connections({ currentUserId = "", onViewProfile }) {
   const [tab, setTab] = useState("mycircle");
+  const [slideDirection, setSlideDirection] = useState("forward");
   const circle = useExploreConnections("mycircle", currentUserId);
   const followers = useExploreConnections("followers", currentUserId);
   const discover = useExploreConnections("discover", currentUserId);
@@ -21,22 +24,37 @@ export default function Connections({ currentUserId = "", onViewProfile }) {
   );
   const loading = circle.loading || followers.loading || discover.loading;
 
+  function switchConnectionTab(nextTab) {
+    if (nextTab === tab) return;
+
+    const currentIndex = CONNECTION_TAB_ORDER.indexOf(tab);
+    const nextIndex = CONNECTION_TAB_ORDER.indexOf(nextTab);
+    setSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
+    setTab(nextTab);
+  }
+
+  function getChildTabClass(panelTab) {
+    if (tab !== panelTab) return "hidden";
+    return `block ${slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`;
+  }
+
   return (
     <div className="w-full space-y-4 px-4 pt-4 sm:px-5 lg:px-8">
       <ConnectionsSummary
         activeTab={tab}
         counts={counts}
         loading={loading && !circle.items.length && !followers.items.length && !discover.items.length}
-        onSelect={setTab}
+        onSelect={switchConnectionTab}
+        slideDirection={slideDirection}
       />
 
-      <div className={tab === "mycircle" ? "block" : "hidden"} aria-hidden={tab !== "mycircle"}>
+      <div className={getChildTabClass("mycircle")} aria-hidden={tab !== "mycircle"}>
         <MyCircle connectionState={circle} onViewProfile={onViewProfile} />
       </div>
-      <div className={tab === "followers" ? "block" : "hidden"} aria-hidden={tab !== "followers"}>
+      <div className={getChildTabClass("followers")} aria-hidden={tab !== "followers"}>
         <MyCircle connectionState={followers} kind="followers" onViewProfile={onViewProfile} />
       </div>
-      <div className={tab === "discover" ? "block" : "hidden"} aria-hidden={tab !== "discover"}>
+      <div className={getChildTabClass("discover")} aria-hidden={tab !== "discover"}>
         <Discover connectionState={discover} onViewProfile={onViewProfile} />
       </div>
     </div>

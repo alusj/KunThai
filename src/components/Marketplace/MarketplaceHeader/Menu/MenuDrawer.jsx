@@ -3,7 +3,6 @@
 
 import { createElement, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Camera,
   CheckCircle2,
   CreditCard,
@@ -22,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import AppPortal from "../../../shared/AppPortal";
+import AppBackTab from "../../../shared/AppBackTab";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerDeliveryAddresses,
@@ -289,6 +289,8 @@ export default function MenuDrawer({ open, onClose }) {
   useEffect(() => {
     if (!open) return undefined;
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         if (active) {
@@ -300,7 +302,10 @@ export default function MenuDrawer({ open, onClose }) {
     }
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [active, onClose, open]);
 
   const activeTitle = useMemo(() => menuItems.find((item) => item.id === active)?.label || "Buyer Menu", [active]);
@@ -778,29 +783,21 @@ export default function MenuDrawer({ open, onClose }) {
 
   return (
     <AppPortal>
-      {open && <button type="button" aria-label="Close buyer menu overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-[1190]" />}
-
       <div
         aria-hidden={!open}
         inert={open ? undefined : "true"}
-        className={`fixed right-0 top-0 z-[1200] flex h-full w-full transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
+        className={`kt-urmall-screen-panel fixed inset-0 z-[1200] flex h-dvh w-screen transform flex-col bg-white shadow-2xl ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {!active ? (
           <>
-            <div className="kt-header-glass flex items-center justify-between px-4 py-4 sm:px-6">
-              <div>
+            <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
+              <AppBackTab onBack={onClose} label="Back to UrMall" historyKey="urmall-buyer-menu" useHistoryLayer={false} />
+              <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">UrMall</p>
-                <h3 className="mt-1 text-2xl font-black text-gray-950">Buyer Menu</h3>
+                <h3 className="truncate text-lg font-black text-gray-950">Buyer Menu</h3>
               </div>
-              <button
-                onClick={onClose}
-                className="kt-touchable inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200"
-                aria-label="Close buyer menu"
-              >
-                <X size={20} />
-              </button>
             </div>
 
             <nav className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
@@ -834,18 +831,11 @@ export default function MenuDrawer({ open, onClose }) {
           </>
         ) : (
           <>
-            <div className="kt-header-glass flex items-start gap-3 px-4 py-4 sm:px-6">
-              <button
-                type="button"
-                onClick={() => setActive(null)}
-                className="kt-touchable mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-800 hover:bg-gray-200"
-                aria-label="Back to buyer menu"
-              >
-                <ArrowLeft size={22} />
-              </button>
+            <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
+              <AppBackTab onBack={() => setActive(null)} label="Back to buyer menu" historyKey="urmall-buyer-menu-item" useHistoryLayer={false} />
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Buyer Menu</p>
-                <h3 className="mt-1 truncate text-2xl font-black text-gray-950">{activeTitle}</h3>
+                <h3 className="truncate text-lg font-black text-gray-950">{activeTitle}</h3>
               </div>
             </div>
             <section className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">

@@ -7,12 +7,13 @@ import {
   LockKeyhole,
   UserRound,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import MenuHeader from "./MenuHeader";
 import SellerDrawerNavItem from "./SellerDrawerNavItem";
 import SellerDrawerProfile from "./SellerDrawerProfile";
 import SellerDrawerSection from "./SellerDrawerSection";
+import AppPortal from "../../../../../shared/AppPortal";
 
 import BusinessSettings from "./MyBizPages/BusinessSettings/BusinessSettings";
 import HelpSupport from "./MyBizPages/HelpSupport/HelpSupport";
@@ -21,6 +22,8 @@ import Payments from "./MyBizPages/PaymentsPayouts/Payments";
 import ProfileSettings from "./MyBizPages/ProfileSettings/ProfileSettings";
 import Security from "./MyBizPages/Security/Security";
 import SellerBoard from "./MyBizPages/SellerBoard/SellerBoard";
+
+const SELLER_MENU_ANIMATION_MS = 360;
 
 function getDrawerScreen(key, props = {}) {
   const screens = {
@@ -57,61 +60,153 @@ export default function MyBizMenu({
   profileInitialView = "menu",
 }) {
   const [activeScreenKey, setActiveScreenKey] = useState(initialScreenKey);
-  const activeScreen = activeScreenKey
-    ? getDrawerScreen(activeScreenKey, {
+  const [visibleScreenKey, setVisibleScreenKey] = useState(initialScreenKey);
+  const [screenAction, setScreenAction] = useState("idle");
+  const [rendered, setRendered] = useState(isOpen);
+  const menuTimerRef = useRef(null);
+  const screenTimerRef = useRef(null);
+  const activeScreen = visibleScreenKey
+    ? getDrawerScreen(visibleScreenKey, {
         profileInitialView,
-        onBack: () => setActiveScreenKey(null),
+        onBack: closeActiveScreen,
       })
     : null;
 
-  useEffect(() => {
-    if (isOpen) {
-      setActiveScreenKey(initialScreenKey);
+  function clearMenuTimer() {
+    if (menuTimerRef.current) {
+      window.clearTimeout(menuTimerRef.current);
+      menuTimerRef.current = null;
     }
+  }
+
+  function clearScreenTimer() {
+    if (screenTimerRef.current) {
+      window.clearTimeout(screenTimerRef.current);
+      screenTimerRef.current = null;
+    }
+  }
+
+  function openActiveScreen(screenKey) {
+    clearScreenTimer();
+    setVisibleScreenKey(screenKey);
+    setActiveScreenKey(screenKey);
+    setScreenAction("push");
+    screenTimerRef.current = window.setTimeout(() => {
+      setScreenAction("idle");
+      screenTimerRef.current = null;
+    }, SELLER_MENU_ANIMATION_MS);
+  }
+
+  function closeActiveScreen() {
+    if (!visibleScreenKey) return;
+
+    clearScreenTimer();
+    setActiveScreenKey(null);
+    setScreenAction("pop");
+    screenTimerRef.current = window.setTimeout(() => {
+      setVisibleScreenKey(null);
+      setScreenAction("idle");
+      screenTimerRef.current = null;
+    }, SELLER_MENU_ANIMATION_MS);
+  }
+
+  useEffect(() => {
+    clearMenuTimer();
+    clearScreenTimer();
+
+    if (isOpen) {
+      setRendered(true);
+      setActiveScreenKey(initialScreenKey);
+      setVisibleScreenKey(initialScreenKey);
+      setScreenAction(initialScreenKey ? "push" : "idle");
+      if (initialScreenKey) {
+        screenTimerRef.current = window.setTimeout(() => {
+          setScreenAction("idle");
+          screenTimerRef.current = null;
+        }, SELLER_MENU_ANIMATION_MS);
+      }
+      return undefined;
+    }
+
+    if (rendered) {
+      menuTimerRef.current = window.setTimeout(() => {
+        setRendered(false);
+        setActiveScreenKey(null);
+        setVisibleScreenKey(null);
+        setScreenAction("idle");
+        menuTimerRef.current = null;
+      }, SELLER_MENU_ANIMATION_MS);
+    }
+
+    return undefined;
   }, [initialScreenKey, isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return undefined;
+    if (!rendered) return undefined;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
+    function handleKeyDown(event) {
+      if (event.key !== "Escape") return;
+      if (activeScreenKey) {
+        closeActiveScreen();
+        return;
+      }
+      closeDrawer();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
+      window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen]);
+  }, [activeScreenKey, rendered]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    return () => {
+      clearMenuTimer();
+      clearScreenTimer();
+    };
+  }, []);
+
+  if (!rendered) return null;
 
   function closeDrawer() {
     setActiveScreenKey(null);
+    setVisibleScreenKey(null);
+    setScreenAction("idle");
     onClose();
   }
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
-      <button
-        type="button"
-        className="absolute inset-0 bg-gray-950/45"
-        onClick={closeDrawer}
-        aria-label="Close seller menu"
-      />
+  const activePanelClass = screenAction === "push"
+    ? "kt-explore-stack-enter"
+    : screenAction === "pop"
+      ? "kt-explore-stack-leave-right"
+      : "translate-x-0";
 
+  return (
+    <AppPortal>
+    <div className="fixed inset-0 z-[1200] overflow-hidden">
       <aside
-        className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ${
-          activeScreen ? "translate-x-full" : "translate-x-0"
-        }`}
+        aria-hidden={!isOpen}
+        inert={isOpen ? undefined : "true"}
+        className="kt-urmall-screen-panel fixed inset-0 flex h-dvh w-screen flex-col bg-gray-50 shadow-2xl"
+        style={{ transform: isOpen ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)" }}
       >
         <MenuHeader
           title="Seller Menu"
-          showBack={false}
-          onBack={null}
-          onClose={closeDrawer}
+          onBack={closeDrawer}
         />
 
-        <div className="flex-1 overflow-y-auto pb-6">
+        <div
+          aria-hidden={Boolean(activeScreen)}
+          inert={activeScreen ? "true" : undefined}
+          className="min-h-0 flex-1 overflow-y-auto pb-6"
+        >
               <SellerDrawerProfile
-                onOpenProfile={() => setActiveScreenKey("profile")}
+                onOpenProfile={() => openActiveScreen("profile")}
               />
 
               <div className="space-y-5 px-4 pt-5">
@@ -120,19 +215,19 @@ export default function MyBizMenu({
                     icon={LayoutDashboard}
                     title="Seller Board"
                     description="Orders, messages, products, delivery, verification, reports, security, and policies."
-                    onClick={() => setActiveScreenKey("board")}
+                    onClick={() => openActiveScreen("board")}
                   />
                   <SellerDrawerNavItem
                     icon={UserRound}
                     title="Profile"
                     description="Owner profile, public seller details, and business identity."
-                    onClick={() => setActiveScreenKey("profile")}
+                    onClick={() => openActiveScreen("profile")}
                   />
                   <SellerDrawerNavItem
                     icon={BriefcaseBusiness}
                     title="Store Settings"
                     description="Store details, categories, pickup, delivery, and operating hours."
-                    onClick={() => setActiveScreenKey("business")}
+                    onClick={() => openActiveScreen("business")}
                   />
                 </SellerDrawerSection>
 
@@ -141,13 +236,13 @@ export default function MyBizMenu({
                     icon={CreditCard}
                     title="Payments & Payouts"
                     description="Bank details, payout history, transactions, and withdrawals."
-                    onClick={() => setActiveScreenKey("payments")}
+                    onClick={() => openActiveScreen("payments")}
                   />
                   <SellerDrawerNavItem
                     icon={LockKeyhole}
                     title="Security"
                     description="Password, login activity, and two-factor authentication."
-                    onClick={() => setActiveScreenKey("security")}
+                    onClick={() => openActiveScreen("security")}
                   />
                 </SellerDrawerSection>
 
@@ -156,13 +251,13 @@ export default function MyBizMenu({
                     icon={BadgeHelp}
                     title="Help & Support"
                     description="Contact support, help guides, and seller questions."
-                    onClick={() => setActiveScreenKey("support")}
+                    onClick={() => openActiveScreen("support")}
                   />
                   <SellerDrawerNavItem
                     icon={FileText}
                     title="Privacy & Legal"
                     description="Privacy policy, terms, data usage, and community guidelines."
-                    onClick={() => setActiveScreenKey("legal")}
+                    onClick={() => openActiveScreen("legal")}
                   />
                 </SellerDrawerSection>
               </div>
@@ -170,12 +265,13 @@ export default function MyBizMenu({
       </aside>
 
       {activeScreen ? (
-        <section className="absolute inset-0 flex h-full w-full flex-col bg-white shadow-2xl">
+        <section className={`absolute inset-0 z-10 flex h-dvh w-screen flex-col bg-white shadow-2xl ${activePanelClass}`}>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {activeScreen.component}
           </div>
         </section>
       ) : null}
     </div>
+    </AppPortal>
   );
 }

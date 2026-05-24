@@ -2,8 +2,9 @@
 // Slide-in drawer showing cart items
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, MapPin, PackageCheck, Truck, X } from "lucide-react";
+import { CheckCircle2, MapPin, PackageCheck, Truck } from "lucide-react";
 import AppPortal from "../../../shared/AppPortal";
+import AppBackTab from "../../../shared/AppBackTab";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { fetchBuyerDeliveryAddresses } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
 import CartItem from "./CartItem";
@@ -79,12 +80,17 @@ export default function CartDrawer({
   useEffect(() => {
     if (!open) return undefined;
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     function handleKeyDown(event) {
       if (event.key === "Escape") onClose?.();
     }
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [onClose, open]);
 
   async function handleCheckout() {
@@ -113,32 +119,24 @@ export default function CartDrawer({
 
   return (
     <AppPortal>
-      {open && <button type="button" aria-label="Close cart overlay" onClick={onClose} className="kt-backdrop fixed inset-0 z-[1190]" />}
-
       <div
         aria-hidden={!open}
         inert={open ? undefined : "true"}
-        className={`fixed right-0 top-0 z-[1200] h-full w-full max-w-md transform bg-white shadow-2xl transition-transform duration-300 ${
+        className={`kt-urmall-screen-panel fixed inset-0 z-[1200] flex h-dvh w-screen transform flex-col bg-white shadow-2xl ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="kt-header-glass flex items-center justify-between p-4">
-          <div>
+        <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
+          <AppBackTab onBack={onClose} label="Back to UrMall" historyKey="urmall-cart" useHistoryLayer={false} />
+          <div className="min-w-0">
             <h3 className="text-lg font-black text-gray-950">Checkout Cart</h3>
             <p className="text-xs font-bold text-gray-500">
               {itemCount} item{itemCount === 1 ? "" : "s"} from {items.length} product{items.length === 1 ? "" : "s"}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="kt-touchable inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200"
-            aria-label="Close cart"
-          >
-            <X size={18} />
-          </button>
         </div>
 
-        <div className="h-[calc(100%-22rem)] space-y-3 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
           <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
             <button
               type="button"
@@ -204,7 +202,7 @@ export default function CartDrawer({
           {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
         </div>
 
-        <div className="space-y-3 border-t p-4">
+        <div className="shrink-0 space-y-3 border-t p-4">
           <input
             value={deliveryLocation}
             onChange={(event) => setDeliveryLocation(event.target.value)}

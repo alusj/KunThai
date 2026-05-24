@@ -27,9 +27,10 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
         <div className="flex w-full items-center gap-3">
             <AppBackTab
               onBack={onCancel}
-              label="Back"
+              label="Back to seller dashboard"
               historyKey="marketplace-product-form"
               className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+              useHistoryLayer={false}
             />
             <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">{editing ? "Edit Listing" : "Add Product"}</p>

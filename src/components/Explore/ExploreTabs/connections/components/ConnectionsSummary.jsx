@@ -1,6 +1,6 @@
 import { HiOutlineSparkles, HiOutlineUserGroup, HiOutlineUsers } from "react-icons/hi2";
 
-export default function ConnectionsSummary({ activeTab = "mycircle", counts, loading = false, onSelect }) {
+export default function ConnectionsSummary({ activeTab = "mycircle", counts, loading = false, onSelect, slideDirection = "forward" }) {
   const items = [
     { id: "mycircle", label: "My Circle", value: counts.circle, icon: HiOutlineUserGroup },
     { id: "followers", label: "Followers", value: counts.followers, icon: HiOutlineUsers },
@@ -8,7 +8,11 @@ export default function ConnectionsSummary({ activeTab = "mycircle", counts, loa
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Connections sections">
+    <div
+      className={`grid grid-cols-3 gap-2 ${slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`}
+      role="tablist"
+      aria-label="Connections sections"
+    >
       {items.map((item) => {
         const Icon = item.icon;
         const active = activeTab === item.id;

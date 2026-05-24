@@ -17,6 +17,7 @@ import HelpCenterScreen from "./SocialMenu/help/HelpCenterScreen";
 import MessagesScreen from "./SocialMenu/messages/MessagesScreen";
 import MyPostsScreen from "./SocialMenu/myPosts/MyPostsScreen";
 import PrivacyScreen from "./SocialMenu/privacy/PrivacyScreen";
+import ProfileEditScreen from "./SocialMenu/profile/ProfileEditScreen";
 import ProfileScreen from "./SocialMenu/profile/ProfileScreen";
 import SavedPostsScreen from "./SocialMenu/savedPosts/SavedPostsScreen";
 import SettingsScreen from "./SocialMenu/settings/SettingsScreen";
@@ -32,6 +33,7 @@ import { postingStages } from "./ExploreTabs/urfeed/feed/composer/postReviewPipe
 import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
+const EXPLORE_STACK_ANIMATION_MS = 360;
 
 function PlaceholderMenuScreen({ screen }) {
   return (
@@ -66,18 +68,23 @@ export default function Explore({ onScreenModeChange }) {
   const [postingNotice, setPostingNotice] = useState(null);
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
+  const [visibleMenuStack, setVisibleMenuStack] = useState([]);
+  const [menuStackAction, setMenuStackAction] = useState("idle");
   const topChromeRef = useRef(null);
   const tabScrollRef = useRef({});
+  const previousMenuStackRef = useRef([]);
+  const stackCleanupTimerRef = useRef(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
   const { user, loading: authLoading } = useAuth();
   const authProfile = buildExploreProfileFromUser(user);
   const profile = profileOverride;
   const currentUserId = profile?.userId || user?.id || "";
-  const { activeTab, activeMenuScreen, menuScreen } = exploreNav;
+  const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   const isSwipTab = activeTab === "Swip";
   const profileExists = !authLoading && profileFetched && Boolean(profile);
   const showProfileSkeleton = authLoading || profileLoading || !profileFetched;
+  const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
   const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, {
@@ -107,14 +114,51 @@ export default function Explore({ onScreenModeChange }) {
   }, [isSwipTab, navHidden]);
 
   useEffect(() => {
-    onScreenModeChange?.(exploreNav.isFullScreen || isSwipTab || Boolean(activeMenuScreen));
+    onScreenModeChange?.(menuOverlayVisible || isSwipTab || Boolean(activeMenuScreen));
 
     stopAllExploreMedia();
 
     return () => {
       onScreenModeChange?.(false);
     };
-  }, [exploreNav.isFullScreen, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
+  }, [menuOverlayVisible, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
+
+  useEffect(() => {
+    const previousStack = previousMenuStackRef.current;
+    const nextStack = menuStack;
+
+    window.clearTimeout(stackCleanupTimerRef.current);
+
+    if (nextStack.length > previousStack.length) {
+      setMenuStackAction("push");
+      setVisibleMenuStack(nextStack);
+      stackCleanupTimerRef.current = window.setTimeout(() => {
+        setMenuStackAction("idle");
+      }, EXPLORE_STACK_ANIMATION_MS);
+    } else if (nextStack.length < previousStack.length) {
+      const closingScreens = previousStack.slice(nextStack.length);
+      setMenuStackAction("pop");
+      setVisibleMenuStack([...nextStack, ...closingScreens]);
+
+      stackCleanupTimerRef.current = window.setTimeout(() => {
+        setVisibleMenuStack(nextStack);
+        setMenuStackAction("idle");
+      }, EXPLORE_STACK_ANIMATION_MS);
+    } else if (nextStack.join("|") !== previousStack.join("|")) {
+      setMenuStackAction("push");
+      setVisibleMenuStack(nextStack);
+      stackCleanupTimerRef.current = window.setTimeout(() => {
+        setMenuStackAction("idle");
+      }, EXPLORE_STACK_ANIMATION_MS);
+    } else {
+      setMenuStackAction("idle");
+      setVisibleMenuStack(nextStack);
+    }
+
+    previousMenuStackRef.current = nextStack;
+
+    return () => window.clearTimeout(stackCleanupTimerRef.current);
+  }, [menuStack]);
 
   useEffect(() => {
     function handleVisibilityChange() {
@@ -332,12 +376,12 @@ export default function Explore({ onScreenModeChange }) {
     return `block ${tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`;
   }
 
-  function renderMenuScreen() {
-    if (!activeMenuScreen) {
+  function renderMenuScreen(screenKey) {
+    if (!screenKey) {
       return null;
     }
 
-    if (activeMenuScreen === "Menu") {
+    if (screenKey === "Menu") {
       return (
         <div className="min-h-[calc(100vh-72px)] bg-slate-100">
           <aside className="flex min-h-[calc(100vh-72px)] w-full flex-col bg-white shadow-sm">
@@ -347,7 +391,7 @@ export default function Explore({ onScreenModeChange }) {
       );
     }
 
-    if (activeMenuScreen === "Profile") {
+    if (screenKey === "Profile") {
       return (
         <ProfileScreen
           profile={profile}
@@ -358,6 +402,7 @@ export default function Explore({ onScreenModeChange }) {
           loading={profileLoading}
           loadError={profileError}
           profileFetched={profileFetched}
+          onEditProfile={() => openMenuScreen("EditProfile")}
           onOpenNotification={openNotificationTarget}
           onProfileUpdate={setProfileOverride}
           onStartChat={startChat}
@@ -365,7 +410,18 @@ export default function Explore({ onScreenModeChange }) {
       );
     }
 
-    if (activeMenuScreen === "ViewedProfile") {
+    if (screenKey === "EditProfile") {
+      return (
+        <ProfileEditScreen
+          authProfile={authProfile}
+          currentUserId={currentUserId}
+          onProfileUpdate={setProfileOverride}
+          profile={profile}
+        />
+      );
+    }
+
+    if (screenKey === "ViewedProfile") {
       return (
         <ProfileScreen
           profile={viewedProfile || profile}
@@ -382,23 +438,23 @@ export default function Explore({ onScreenModeChange }) {
       );
     }
 
-    if (activeMenuScreen === "MyPosts") {
+    if (screenKey === "MyPosts") {
       return <MyPostsScreen currentUserId={currentUserId} hideHeader />;
     }
 
-    if (activeMenuScreen === "SavedPosts") {
+    if (screenKey === "SavedPosts") {
       return <SavedPostsScreen currentUserId={currentUserId} hideHeader />;
     }
 
-    if (activeMenuScreen === "Activity") {
+    if (screenKey === "Activity") {
       return <ActivityScreen hideHeader onOpenNotification={openNotificationTarget} />;
     }
 
-    if (activeMenuScreen === "Notifications") {
+    if (screenKey === "Notifications") {
       return <Notifications currentUserId={currentUserId} onOpenNotification={openNotificationTarget} />;
     }
 
-    if (activeMenuScreen === "Messages") {
+    if (screenKey === "Messages") {
       return (
         <MessagesScreen
           currentProfile={profile}
@@ -410,33 +466,91 @@ export default function Explore({ onScreenModeChange }) {
       );
     }
 
-    if (activeMenuScreen === "Connections") {
+    if (screenKey === "Connections") {
       return <Connections currentUserId={currentUserId} onViewProfile={openViewedProfile} />;
     }
 
-    if (activeMenuScreen === "Privacy") {
+    if (screenKey === "Privacy") {
       return <PrivacyScreen hideHeader />;
     }
 
-    if (activeMenuScreen === "Settings") {
+    if (screenKey === "Settings") {
       return <SettingsScreen hideHeader />;
     }
 
-    if (activeMenuScreen === "HelpCenter") {
+    if (screenKey === "HelpCenter") {
       return <HelpCenterScreen hideHeader />;
     }
 
-    if (activeMenuScreen === "TermsPolicies") {
+    if (screenKey === "TermsPolicies") {
       return <TermsPoliciesScreen hideHeader />;
     }
 
-    return <PlaceholderMenuScreen screen={menuScreen} />;
+    return <PlaceholderMenuScreen screen={MENU_SCREENS[screenKey]} />;
+  }
+
+  function renderMenuStack() {
+    const activeIndex = menuStack.length - 1;
+
+    return visibleMenuStack.map((screenKey, index) => {
+      const screen = MENU_SCREENS[screenKey];
+      if (!screen) return null;
+
+      const active = index === activeIndex;
+      const exiting = index >= menuStack.length;
+      const pushedBehind = index < activeIndex;
+      const isRootMenu = screenKey === "Menu" && index === 0;
+      const isDirectProfile = screenKey === "ViewedProfile" && index === 0;
+      const hideScreenHeader = screenKey === "Messages" && messageConversationActive && active;
+      const enteringOnPush = active && menuStackAction === "push";
+      const returningOnPop = active && menuStackAction === "pop";
+      const leavingBehindOnPush = pushedBehind && menuStackAction === "push" && index === activeIndex - 1;
+      const motionClass = exiting
+        ? isRootMenu || isDirectProfile
+          ? "kt-explore-stack-leave-left"
+          : "kt-explore-stack-leave-right"
+        : leavingBehindOnPush
+          ? "kt-explore-stack-leave-right"
+          : enteringOnPush
+            ? isRootMenu
+              ? "kt-explore-stack-enter-left"
+              : "kt-explore-stack-enter"
+            : returningOnPop
+              ? "kt-explore-stack-enter"
+              : "";
+      const placementClass = motionClass
+        ? ""
+        : pushedBehind
+          ? "translate-x-full opacity-95"
+          : "translate-x-0 opacity-100";
+
+      return (
+        <section
+          key={`${screenKey}-${index}`}
+          aria-hidden={!active || exiting}
+          className={`kt-explore-stack-panel absolute inset-0 flex h-full w-full flex-col bg-slate-100 shadow-2xl ${
+            placementClass
+          } ${motionClass} ${active && !exiting ? "pointer-events-auto" : "pointer-events-none"}`}
+        >
+          {hideScreenHeader ? null : (
+            <SocialScreenHeader
+              title={screen.title}
+              subtitle={screen.subtitle}
+              onBack={active || exiting ? (active ? goBackFullScreen : () => {}) : undefined}
+            />
+          )}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {renderMenuScreen(screenKey)}
+          </div>
+        </section>
+      );
+    });
   }
 
   return (
     <>
     <div
-      className={`${exploreNav.isFullScreen ? "hidden" : "block"} min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
+      className={`block min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
       style={{ "--explore-top-chrome-height": `${topChromeHeight}px` }}
     >
       {postingNotice ? <PostingStatusBanner notice={postingNotice} /> : null}
@@ -482,6 +596,7 @@ export default function Explore({ onScreenModeChange }) {
         <ExploreTabs
           activeTab={activeTab}
           setActiveTab={switchExploreTab}
+          slideDirection={tabSlideDirection}
         />
       </div>
 
@@ -507,19 +622,12 @@ export default function Explore({ onScreenModeChange }) {
       </div>
 
     </div>
-    {exploreNav.isFullScreen ? (
+    {menuOverlayVisible ? (
       <div
         ref={fullScreenSwipeRef}
-        className="min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 kuntai-safe-bottom"
+        className="fixed inset-0 z-[80] h-screen min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-hidden bg-transparent kuntai-safe-bottom"
       >
-        {activeMenuScreen === "Messages" && messageConversationActive ? null : (
-          <SocialScreenHeader
-            title={menuScreen.title}
-            subtitle={menuScreen.subtitle}
-            onBack={goBackFullScreen}
-          />
-        )}
-        {renderMenuScreen()}
+        {renderMenuStack()}
       </div>
     ) : null}
     </>

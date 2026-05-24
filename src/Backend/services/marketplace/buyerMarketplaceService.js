@@ -296,6 +296,10 @@ function buildConversationKey(businessId, productId, topic = "") {
   return [businessId, productId || "marketplace", topic || "general"].join(":");
 }
 
+function normalizeConversationLabel(label) {
+  return String(label || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export async function fetchBuyerCart() {
   const buyerId = await getCurrentUserId("Sign in to view your cart.");
   const { data, error } = await supabase
@@ -600,14 +604,16 @@ export async function fetchBuyerMessages() {
 
   const grouped = (data || []).reduce((acc, message) => {
     const business = message.marketplace_businesses || {};
-    const key = message.conversation_key || buildConversationKey(message.business_id, message.product_id, message.topic);
+    const sellerName = business.business_name || "UrMall seller";
+    const messageConversationKey = message.conversation_key || buildConversationKey(message.business_id, message.product_id, message.topic);
+    const key = normalizeConversationLabel(sellerName) || message.business_id || messageConversationKey;
     if (!acc[key]) {
       acc[key] = {
         id: key,
-        conversationKey: key,
+        conversationKey: messageConversationKey,
         businessId: message.business_id,
         productId: message.product_id,
-        sellerName: business.business_name || "UrMall seller",
+        sellerName,
         sellerLocation: [business.city, business.country].filter(Boolean).join(", "),
         sellerLogoUrl: business.logo_url || "",
         topic: message.topic || message.product_name || "UrMall message",
@@ -625,6 +631,8 @@ export async function fetchBuyerMessages() {
       id: message.id,
       from: message.sender_role || "buyer",
       text: message.preview || "",
+      topic: message.topic || message.product_name || "UrMall message",
+      productName: message.product_name || "",
       createdAt: message.created_at,
     });
     acc[key].unread = acc[key].unread || Boolean(message.unread && message.sender_role === "seller");
@@ -632,6 +640,11 @@ export async function fetchBuyerMessages() {
     if (new Date(message.created_at).getTime() >= new Date(acc[key].createdAt).getTime()) {
       acc[key].createdAt = message.created_at;
       acc[key].preview = message.preview || "";
+      acc[key].conversationKey = messageConversationKey;
+      acc[key].productId = message.product_id;
+      acc[key].topic = message.topic || message.product_name || "UrMall message";
+      acc[key].productName = message.product_name || "";
+      acc[key].type = message.message_type || "message";
     }
 
     return acc;

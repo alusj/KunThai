@@ -48,6 +48,7 @@ export default function ProfileScreen({
   hideHeader = false,
   loading = false,
   loadError = "",
+  onEditProfile,
   onOpenNotification,
   onProfileUpdate,
   onStartChat,
@@ -244,7 +245,14 @@ export default function ProfileScreen({
           onBlock={blockProfile}
           onCoverChange={handleCoverChange}
           onCoverPreset={(preset) => updateField("coverUrl", `preset:${preset}`)}
-          onEdit={() => (editing ? saveProfile() : setEditing(true))}
+          onEdit={() => {
+            if (!editing && onEditProfile) {
+              onEditProfile();
+              return;
+            }
+
+            editing ? saveProfile() : setEditing(true);
+          }}
           onFollow={followProfile}
           onMessage={() => onStartChat?.(values)}
           onReport={reportProfile}

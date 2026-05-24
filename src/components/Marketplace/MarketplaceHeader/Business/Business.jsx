@@ -23,34 +23,43 @@ import ProductSuccessToast from "./ProductSuccessToast";
 //import RecentMessages from "./RecentMessages";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppBackTab from "../../../shared/AppBackTab";
+import AppPortal from "../../../shared/AppPortal";
 import BusinessSkeleton from "./BusinessSkeleton";
 
-function SellerFullScreen({ eyebrow, title, subtitle, onBack, children }) {
-  return (
-    <section className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
-        <div className="flex w-full items-center gap-3">
-          <AppBackTab
-            onBack={onBack}
-            label="Back to seller dashboard"
-            historyKey={`marketplace-seller-${title}`}
-            className="mt-0.5 flex-none"
-            useHistoryLayer={false}
-          />
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase text-emerald-700">{eyebrow}</p>
-            <h1 className="truncate text-lg font-black text-gray-950">{title}</h1>
-            {subtitle ? <p className="truncate text-xs text-gray-500">{subtitle}</p> : null}
-          </div>
-        </div>
-      </header>
+const SELLER_SCREEN_ANIMATION_MS = 360;
 
-      <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
-        {children}
-      </main>
-    </section>
+function SellerFullScreen({ children, hideHeader = false, eyebrow, onBack, open, subtitle, title }) {
+  return (
+    <AppPortal>
+      <section
+        aria-hidden={!open}
+        inert={open ? undefined : "true"}
+        className="kt-urmall-screen-panel fixed inset-0 z-[1150] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50 shadow-2xl"
+        style={{ transform: open ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)" }}
+      >
+        {!hideHeader ? (
+          <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
+            <AppBackTab
+              onBack={onBack}
+              label="Back to seller dashboard"
+              historyKey={`marketplace-seller-${title}`}
+              useHistoryLayer={false}
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase text-emerald-700">{eyebrow}</p>
+              <h1 className="truncate text-lg font-black text-gray-950">{title}</h1>
+              {subtitle ? <p className="truncate text-xs text-gray-500">{subtitle}</p> : null}
+            </div>
+          </header>
+        ) : null}
+
+        <main className={`min-h-0 flex-1 overflow-y-auto ${hideHeader ? "" : "px-4 py-5 sm:px-6 lg:px-8"}`}>
+          {children}
+        </main>
+      </section>
+    </AppPortal>
   );
 }
 
@@ -64,6 +73,37 @@ export default function Business({ onBack }) {
   const [menuInitialScreen, setMenuInitialScreen] = useState(null);
   const [profileInitialView, setProfileInitialView] = useState("menu");
   const [editingProduct, setEditingProduct] = useState(null);
+  const [visibleScreen, setVisibleScreen] = useState("dashboard");
+  const [screenPanelOpen, setScreenPanelOpen] = useState(false);
+  const sellerScreenTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (sellerScreenTimerRef.current) {
+      window.clearTimeout(sellerScreenTimerRef.current);
+      sellerScreenTimerRef.current = null;
+    }
+
+    if (activeScreen === "dashboard") {
+      setScreenPanelOpen(false);
+      sellerScreenTimerRef.current = window.setTimeout(() => {
+        setVisibleScreen("dashboard");
+        sellerScreenTimerRef.current = null;
+      }, SELLER_SCREEN_ANIMATION_MS);
+      return undefined;
+    }
+
+    setVisibleScreen(activeScreen);
+    window.requestAnimationFrame(() => setScreenPanelOpen(true));
+    return undefined;
+  }, [activeScreen]);
+
+  useEffect(() => {
+    return () => {
+      if (sellerScreenTimerRef.current) {
+        window.clearTimeout(sellerScreenTimerRef.current);
+      }
+    };
+  }, []);
 
   function openProfileEditor() {
     setMenuInitialScreen("profile");
@@ -97,6 +137,81 @@ export default function Business({ onBack }) {
     });
   }
 
+  function renderSellerScreen() {
+    if (visibleScreen === "addProduct") {
+      return (
+        <SellerFullScreen hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
+          <AddProductForm
+            mode={editingProduct ? "edit" : "create"}
+            product={editingProduct}
+            onCancel={goBackSellerScreen}
+            onComplete={() => {
+              const wasEditing = Boolean(editingProduct);
+              replaceSellerScreen("dashboard");
+              setActiveTab("store");
+              setEditingProduct(null);
+              setToastMessage(wasEditing ? "Product listing updated successfully" : "Product added successfully");
+              setTimeout(() => setToastMessage(""), 4500);
+            }}
+          />
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "messages") {
+      return (
+        <SellerFullScreen
+          eyebrow="Messages"
+          title="Buyer Messages"
+          subtitle="Reply to potential customers, product inquiries, and UrMall messages."
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <CustomerCare />
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "orders") {
+      return (
+        <SellerFullScreen
+          eyebrow="Orders"
+          title="Seller Orders"
+          subtitle="Track pending, completed, cancelled, and refunded UrMall orders."
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <BusinessStats initialView="orders" />
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "notifications") {
+      return (
+        <SellerFullScreen
+          eyebrow="Notifications"
+          title="Seller Notifications"
+          subtitle="Review items that need attention and recent activity from your store."
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <div className="space-y-6">
+            <BusinessAttention
+              onAction={(item) => {
+                if (item.id === "add-first-product") openSellerScreen("addProduct");
+                if (item.type === "payout") replaceSellerScreen("dashboard");
+                if (item.type === "profile") replaceSellerScreen("dashboard");
+              }}
+            />
+            <BusinessActivity />
+          </div>
+        </SellerFullScreen>
+      );
+    }
+
+    return null;
+  }
+
   if (loading) return <BusinessSkeleton />;
 
   return (
@@ -106,7 +221,7 @@ export default function Business({ onBack }) {
       {/* =========================
           MyBiz Header (ONLY PLACE)
       ========================= */}
-      {hasBusiness && activeScreen === "dashboard" ? (
+      {hasBusiness ? (
         <MyBizHeader
           onBack={onBack}
           onAddProduct={() => {
@@ -137,56 +252,6 @@ export default function Business({ onBack }) {
 
       {!hasBusiness ? (
         <BusinessRegistration onComplete={() => setHasBusiness(true)} />
-      ) : activeScreen === "addProduct" ? (
-        <AddProductForm
-          mode={editingProduct ? "edit" : "create"}
-          product={editingProduct}
-          onCancel={goBackSellerScreen}
-          onComplete={() => {
-            const wasEditing = Boolean(editingProduct);
-            replaceSellerScreen("dashboard");
-            setActiveTab("store");
-            setEditingProduct(null);
-            setToastMessage(wasEditing ? "Product listing updated successfully" : "Product added successfully");
-            setTimeout(() => setToastMessage(""), 4500);
-          }}
-        />
-      ) : activeScreen === "messages" ? (
-        <SellerFullScreen
-          eyebrow="Messages"
-          title="Buyer Messages"
-          subtitle="Reply to potential customers, product inquiries, and UrMall messages."
-          onBack={goBackSellerScreen}
-        >
-          <CustomerCare />
-        </SellerFullScreen>
-      ) : activeScreen === "orders" ? (
-        <SellerFullScreen
-          eyebrow="Orders"
-          title="Seller Orders"
-          subtitle="Track pending, completed, cancelled, and refunded UrMall orders."
-          onBack={goBackSellerScreen}
-        >
-          <BusinessStats initialView="orders" />
-        </SellerFullScreen>
-      ) : activeScreen === "notifications" ? (
-        <SellerFullScreen
-          eyebrow="Notifications"
-          title="Seller Notifications"
-          subtitle="Review items that need attention and recent activity from your store."
-          onBack={goBackSellerScreen}
-        >
-          <div className="space-y-6">
-            <BusinessAttention
-              onAction={(item) => {
-                if (item.id === "add-first-product") openSellerScreen("addProduct");
-                if (item.type === "payout") replaceSellerScreen("dashboard");
-                if (item.type === "profile") replaceSellerScreen("dashboard");
-              }}
-            />
-            <BusinessActivity />
-          </div>
-        </SellerFullScreen>
       ) : (
         <>
 
@@ -234,6 +299,8 @@ export default function Business({ onBack }) {
       </div>
         </>
       )}
+
+      {hasBusiness && visibleScreen !== "dashboard" ? renderSellerScreen() : null}
 
     </div>
   );

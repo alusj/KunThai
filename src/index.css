@@ -160,6 +160,40 @@
     animation: kt-slide-in-right 260ms var(--kt-ease-emphasized) backwards;
   }
 
+  .kt-explore-stack-enter {
+    animation: kt-explore-stack-enter-right 360ms var(--kt-ease-emphasized) both;
+    will-change: transform, opacity;
+  }
+
+  .kt-explore-stack-enter-left {
+    animation: kt-explore-stack-enter-left 360ms var(--kt-ease-emphasized) both;
+    will-change: transform, opacity;
+  }
+
+  .kt-explore-stack-leave-right {
+    animation: kt-explore-stack-leave-right 360ms var(--kt-ease-emphasized) both;
+    will-change: transform, opacity;
+  }
+
+  .kt-explore-stack-leave-left {
+    animation: kt-explore-stack-leave-left 360ms var(--kt-ease-emphasized) both;
+    will-change: transform, opacity;
+  }
+
+  .kt-explore-stack-panel {
+    transition-duration: 360ms;
+    transition-property: opacity, transform;
+    transition-timing-function: var(--kt-ease-emphasized);
+    will-change: transform, opacity;
+  }
+
+  .kt-urmall-screen-panel {
+    transition-duration: 360ms;
+    transition-property: transform;
+    transition-timing-function: var(--kt-ease-emphasized);
+    will-change: transform;
+  }
+
   .kt-sheet-enter {
     animation: kt-slide-up 240ms var(--kt-ease-emphasized) backwards;
   }
@@ -293,6 +327,50 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes kt-explore-stack-enter-right {
+  from {
+    opacity: 0.99;
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes kt-explore-stack-enter-left {
+  from {
+    opacity: 0.99;
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes kt-explore-stack-leave-right {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0.99;
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+@keyframes kt-explore-stack-leave-left {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0.99;
+    transform: translate3d(-100%, 0, 0);
   }
 }
 

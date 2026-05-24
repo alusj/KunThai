@@ -40,6 +40,7 @@ export function useExploreNavigation(menuScreens) {
   return useMemo(
     () => ({
       activeTab: PARENT_TABS.has(navigation.activeTab) ? navigation.activeTab : "UrFeed",
+      menuStack: navigation.menuStack,
       activeMenuScreen,
       menuScreen,
       isFullScreen: Boolean(activeMenuScreen && menuScreen),
@@ -91,6 +92,6 @@ export function useExploreNavigation(menuScreens) {
         }, 80);
       },
     }),
-    [activeMenuScreen, menuScreen, menuScreens, navigation.activeTab, rememberScrollPosition, restoreScrollPosition],
+    [activeMenuScreen, menuScreen, menuScreens, navigation.activeTab, navigation.menuStack, rememberScrollPosition, restoreScrollPosition],
   );
 }

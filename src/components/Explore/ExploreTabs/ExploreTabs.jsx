@@ -13,12 +13,16 @@ const TABS = [
   { id: "Connections", label: "Connections", icon: HiOutlineUserGroup },
 ];
 
-export default function ExploreTabs({ activeTab, setActiveTab }) {
+export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = "forward" }) {
   const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.id === activeTab));
 
   return (
     <div className="border-b border-slate-200 bg-white">
-      <div className="relative grid w-full grid-cols-3 gap-1.5 px-2 py-3 sm:gap-2 sm:px-3">
+      <div
+        className={`relative grid w-full grid-cols-3 gap-1.5 px-2 py-3 sm:gap-2 sm:px-3 ${
+          slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"
+        }`}
+      >
       <span
         className="pointer-events-none absolute bottom-3 top-3 rounded-full bg-slate-950 shadow-sm transition-[left] duration-300 ease-out"
         style={{
