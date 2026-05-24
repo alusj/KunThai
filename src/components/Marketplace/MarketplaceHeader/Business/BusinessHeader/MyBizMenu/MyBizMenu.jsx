@@ -63,6 +63,7 @@ export default function MyBizMenu({
   const [visibleScreenKey, setVisibleScreenKey] = useState(initialScreenKey);
   const [screenAction, setScreenAction] = useState("idle");
   const [rendered, setRendered] = useState(isOpen);
+  const [panelOpen, setPanelOpen] = useState(isOpen);
   const menuTimerRef = useRef(null);
   const screenTimerRef = useRef(null);
   const activeScreen = visibleScreenKey
@@ -116,6 +117,7 @@ export default function MyBizMenu({
 
     if (isOpen) {
       setRendered(true);
+      setPanelOpen(true);
       setActiveScreenKey(initialScreenKey);
       setVisibleScreenKey(initialScreenKey);
       setScreenAction(initialScreenKey ? "push" : "idle");
@@ -129,6 +131,7 @@ export default function MyBizMenu({
     }
 
     if (rendered) {
+      setPanelOpen(false);
       menuTimerRef.current = window.setTimeout(() => {
         setRendered(false);
         setActiveScreenKey(null);
@@ -177,6 +180,7 @@ export default function MyBizMenu({
     setActiveScreenKey(null);
     setVisibleScreenKey(null);
     setScreenAction("idle");
+    setPanelOpen(false);
     onClose();
   }
 
@@ -191,9 +195,10 @@ export default function MyBizMenu({
     <div className="fixed inset-0 z-[1200] overflow-hidden">
       <aside
         aria-hidden={!isOpen}
-        inert={isOpen ? undefined : "true"}
-        className="kt-urmall-screen-panel fixed inset-0 flex h-dvh w-screen flex-col bg-gray-50 shadow-2xl"
-        style={{ transform: isOpen ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)" }}
+        inert={isOpen && panelOpen ? undefined : "true"}
+        className={`kt-urmall-screen-panel fixed inset-0 flex h-dvh w-screen flex-col bg-gray-50 shadow-2xl ${
+          panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
+        }`}
       >
         <MenuHeader
           title="Seller Menu"

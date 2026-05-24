@@ -36,8 +36,9 @@ function SellerFullScreen({ children, hideHeader = false, eyebrow, onBack, open,
       <section
         aria-hidden={!open}
         inert={open ? undefined : "true"}
-        className="kt-urmall-screen-panel fixed inset-0 z-[1150] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50 shadow-2xl"
-        style={{ transform: open ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)" }}
+        className={`kt-urmall-screen-panel fixed inset-0 z-[1150] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50 shadow-2xl ${
+          open ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
+        }`}
       >
         {!hideHeader ? (
           <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
@@ -93,7 +94,7 @@ export default function Business({ onBack }) {
     }
 
     setVisibleScreen(activeScreen);
-    window.requestAnimationFrame(() => setScreenPanelOpen(true));
+    setScreenPanelOpen(true);
     return undefined;
   }, [activeScreen]);
 
@@ -140,7 +141,7 @@ export default function Business({ onBack }) {
   function renderSellerScreen() {
     if (visibleScreen === "addProduct") {
       return (
-        <SellerFullScreen hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
+        <SellerFullScreen key="addProduct" hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
           <AddProductForm
             mode={editingProduct ? "edit" : "create"}
             product={editingProduct}
@@ -161,6 +162,7 @@ export default function Business({ onBack }) {
     if (visibleScreen === "messages") {
       return (
         <SellerFullScreen
+          key="messages"
           eyebrow="Messages"
           title="Buyer Messages"
           subtitle="Reply to potential customers, product inquiries, and UrMall messages."
@@ -175,6 +177,7 @@ export default function Business({ onBack }) {
     if (visibleScreen === "orders") {
       return (
         <SellerFullScreen
+          key="orders"
           eyebrow="Orders"
           title="Seller Orders"
           subtitle="Track pending, completed, cancelled, and refunded UrMall orders."
@@ -189,6 +192,7 @@ export default function Business({ onBack }) {
     if (visibleScreen === "notifications") {
       return (
         <SellerFullScreen
+          key="notifications"
           eyebrow="Notifications"
           title="Seller Notifications"
           subtitle="Review items that need attention and recent activity from your store."

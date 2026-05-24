@@ -19,6 +19,15 @@ import AppBackTab from "../shared/AppBackTab";
 import NearbyAreaMap from "./area/NearbyAreaMap";
 import { searchLocations } from "../../Backend/services/locationSearchService";
 import {
+  getActiveAreaReports,
+  getActiveTrafficSnapshots,
+  getActiveTransportOperators,
+  getApprovedNearbyLocations,
+  getRecentSearchHistory,
+  saveNearbySearchHistory,
+  subscribeToAreaViewLiveData,
+} from "../../Backend/services/nearbyAreaLiveService";
+import {
   emergencyContacts,
   locationCategories,
   locationStatusStyles,
@@ -90,13 +99,64 @@ export default function NearbyAreaScreen({ onBack }) {
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedSearchLocation, setSelectedSearchLocation] = useState(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
+  const [liveLocations, setLiveLocations] = useState([]);
+  const [liveOperators, setLiveOperators] = useState([]);
+  const [liveReports, setLiveReports] = useState([]);
+  const [trafficSnapshots, setTrafficSnapshots] = useState([]);
+  const [recentSearches, setRecentSearches] = useState([]);
+
+  const displayLocations = useMemo(() => {
+    const ids = new Set();
+    return [...nearbyLocations, ...liveLocations].filter((location) => {
+      if (!location?.id || ids.has(location.id)) return false;
+      ids.add(location.id);
+      return true;
+    });
+  }, [liveLocations]);
 
   const filteredLocations = useMemo(() => {
-    if (activeCategory === "All") return nearbyLocations;
-    return nearbyLocations.filter((location) => location.category === activeCategory);
-  }, [activeCategory]);
+    if (activeCategory === "All") return displayLocations;
+    return displayLocations.filter((location) => location.category === activeCategory);
+  }, [activeCategory, displayLocations]);
 
-  const operatorLocations = useMemo(() => getDemoOperatorLocations(mapCenter), [mapCenter]);
+  const operatorLocations = useMemo(() => {
+    return liveOperators.length ? liveOperators : getDemoOperatorLocations(mapCenter);
+  }, [liveOperators, mapCenter]);
+
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadLiveAreaData() {
+      const [locations, operators, reports, traffic, history] = await Promise.all([
+        getApprovedNearbyLocations(),
+        getActiveTransportOperators(),
+        getActiveAreaReports(),
+        getActiveTrafficSnapshots(),
+        getRecentSearchHistory(),
+      ]);
+
+      if (!mounted) return;
+      setLiveLocations(locations);
+      setLiveOperators(operators);
+      setLiveReports(reports);
+      setTrafficSnapshots(traffic);
+      setRecentSearches(history);
+    }
+
+    loadLiveAreaData();
+
+    const unsubscribe = subscribeToAreaViewLiveData({
+      onOperators: (operators) => mounted && setLiveOperators(operators),
+      onReports: (reports) => mounted && setLiveReports(reports),
+      onTraffic: (traffic) => mounted && setTrafficSnapshots(traffic),
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe?.();
+    };
+  }, []);
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
@@ -119,6 +179,7 @@ export default function NearbyAreaScreen({ onBack }) {
       try {
         const results = await searchLocations(text, mapCenter);
         setSearchResults(results || []);
+        saveNearbySearchHistory({ query: text, result: results?.[0], selected: false });
       } catch (error) {
         console.error(error);
         setSearchResults([]);
@@ -150,6 +211,7 @@ export default function NearbyAreaScreen({ onBack }) {
   }
 
   function handleSelectSearchResult(result) {
+    saveNearbySearchHistory({ query: searchQuery || result.name, result, selected: true });
     setSelectionLocked(true);
     setSearchQuery(result.name);
     setSearchResults([]);
@@ -167,6 +229,33 @@ export default function NearbyAreaScreen({ onBack }) {
     });
   }
 
+  function handleSelectLiveLocation(location) {
+    setActiveLocation(location);
+    setLocationPanelOpen(true);
+    setSelectedSearchLocation(location);
+
+    mapInstance?.flyTo({
+      center: [location.lng, location.lat],
+      zoom: 15.5,
+      essential: true,
+    });
+  }
+
+  function handleSelectReport(report) {
+    setActiveLocation({
+      id: report.id,
+      name: report.title,
+      type: report.type,
+      category: "Emergency",
+      distance: report.roadName || "Live report",
+      status: report.severity === "critical" || report.severity === "high" ? "urgent" : "community",
+      description: report.description,
+      lat: report.lat,
+      lng: report.lng,
+    });
+    setLocationPanelOpen(true);
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <section className="relative min-h-screen overflow-hidden">
@@ -176,6 +265,11 @@ export default function NearbyAreaScreen({ onBack }) {
           selectedLocation={selectedSearchLocation}
           focusMode={focusMode}
           operatorLocations={operatorLocations}
+          nearbyMapLocations={liveLocations}
+          reportLocations={liveReports}
+          trafficSnapshots={trafficSnapshots}
+          onMapLocationSelect={handleSelectLiveLocation}
+          onReportSelect={handleSelectReport}
           recenterSignal={recenterSignal}
         >
           <div className="pointer-events-none absolute inset-0 z-10">
@@ -323,6 +417,7 @@ export default function NearbyAreaScreen({ onBack }) {
             onClose={() => setSearchOverlayOpen(false)}
             onSelect={handleSelectSearchResult}
             onUseCurrentLocation={handleUseCurrentArea}
+            recentSearches={recentSearches}
           />
         )}
 
@@ -340,6 +435,7 @@ function SearchOverlay({
   onClose,
   onSelect,
   onUseCurrentLocation,
+  recentSearches = [],
 }) {
   return (
     <div className="fixed inset-0 z-[1400] bg-slate-950/70 backdrop-blur-sm">
@@ -380,6 +476,44 @@ function SearchOverlay({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {!query.trim() && recentSearches.length ? (
+            <section className="mb-3 rounded-3xl bg-slate-50 p-3">
+              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Recent searches</p>
+              <div className="grid gap-2">
+                {recentSearches.slice(0, 5).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      onSelect({
+                        id: item.id,
+                        name: item.place_name || item.search_text,
+                        address: item.place_address,
+                        category: item.category,
+                        lat: item.lat,
+                        lng: item.lng,
+                      })
+                    }
+                    disabled={item.lat == null || item.lng == null}
+                    className="flex w-full items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left disabled:opacity-50"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+                      <FiSearch size={16} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-black text-slate-950">
+                        {item.place_name || item.search_text}
+                      </span>
+                      <span className="block truncate text-xs font-bold text-slate-500">
+                        {item.place_address || "Recent Area View search"}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <button
             type="button"
             onClick={() => {
