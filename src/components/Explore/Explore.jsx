@@ -70,7 +70,6 @@ export default function Explore({ onScreenModeChange }) {
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
   const [menuStackAction, setMenuStackAction] = useState("idle");
-  const [rootMenuEntering, setRootMenuEntering] = useState(false);
   const topChromeRef = useRef(null);
   const tabScrollRef = useRef({});
   const previousMenuStackRef = useRef([]);
@@ -134,23 +133,6 @@ export default function Explore({ onScreenModeChange }) {
       document.body.style.overflow = previousOverflow;
     };
   }, [menuOverlayVisible]);
-
-  useEffect(() => {
-    if (menuStack[0] !== "Menu") {
-      setRootMenuEntering(false);
-      return undefined;
-    }
-
-    if (!rootMenuEntering) {
-      return undefined;
-    }
-
-    const settleFrame = window.requestAnimationFrame(() => {
-      setRootMenuEntering(false);
-    });
-
-    return () => window.cancelAnimationFrame(settleFrame);
-  }, [menuStack, rootMenuEntering]);
 
   useEffect(() => {
     const previousStack = previousMenuStackRef.current;
@@ -377,11 +359,12 @@ export default function Explore({ onScreenModeChange }) {
       return;
     }
 
+    if (menuStack.at(-1) === screen) {
+      return;
+    }
+
     window.clearTimeout(stackCleanupTimerRef.current);
     setMenuStackAction("push");
-    if (screen === "Menu") {
-      setRootMenuEntering(true);
-    }
     if (screen === "Messages") {
       setMessageRecipient(null);
     }
@@ -550,17 +533,14 @@ export default function Explore({ onScreenModeChange }) {
       const pushedBehind = index < activeIndex;
       const hideScreenHeader = screenKey === "Messages" && messageConversationActive && active;
       const enteringOnPush = active && stackAction === "push";
-      const rootMenuTransformEnter = screenKey === "Menu" && index === 0 && active && rootMenuEntering && !exiting;
       const motionClass = exiting
         ? "kt-explore-stack-leave-right"
-        : enteringOnPush && !rootMenuTransformEnter
+        : enteringOnPush
           ? "kt-explore-stack-enter"
           : "";
       const placementClass = motionClass
         ? ""
-        : rootMenuTransformEnter
-          ? "translate-x-full opacity-100"
-          : pushedBehind
+        : pushedBehind
           ? "translate-x-0 opacity-100"
           : active
             ? "translate-x-0 opacity-100"

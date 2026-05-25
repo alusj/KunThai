@@ -95,7 +95,7 @@ function getBookingRequirementMessage(form, mode) {
   return "";
 }
 
-export default function TransportBookingDrawer({ open, target, onClose, onCreated }) {
+export default function TransportBookingDrawer({ open, target, onClose, onCreated, onLocateArea }) {
   const initialSelection = useMemo(() => selectionFromTarget(target), [target]);
   const [selection, setSelection] = useState(initialSelection);
   const [availableFleets, setAvailableFleets] = useState([]);
@@ -214,6 +214,43 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   function updateSelection(patch) {
     setSelection((current) => ({ ...current, ...patch }));
     setSelectedFleetId("");
+  }
+
+  function buildBookingAreaDestination(kind) {
+    const pickupText = form.pickup.trim();
+    const dropoffText = form.dropoff.trim();
+    const areaText = kind === "pickup" ? pickupText : dropoffText || pickupText;
+
+    if (!areaText) return null;
+
+    return {
+      id: `booking-${kind}-${Date.now()}`,
+      type: "transport-booking",
+      name: areaText,
+      label: areaText,
+      address: areaText,
+      category: kind === "pickup" ? "Pickup" : "Destination",
+      status: "community",
+      description:
+        kind === "pickup"
+          ? "Passenger pickup area from transport booking."
+          : `Transport route from ${pickupText || "current location"} to ${dropoffText || areaText}.`,
+      searchQuery: areaText,
+      pickup: pickupText,
+      destination: dropoffText,
+      fleetId: bookingFleet?.id || selectedFleet?.id || null,
+    };
+  }
+
+  function handleLocateArea(kind) {
+    const destination = buildBookingAreaDestination(kind);
+
+    if (!destination) {
+      setStatus(kind === "pickup" ? "Add a pickup point before locating it." : "Add a drop-off point before routing.");
+      return;
+    }
+
+    onLocateArea?.(destination, { autoRoute: true });
   }
 
   async function sendBooking() {
@@ -430,6 +467,24 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               />
             </div>
 
+            <div className="grid gap-2 sm:grid-cols-2">
+              <LocateAreaButton
+                icon={FiMapPin}
+                label="Locate pickup"
+                detail="Open pickup in Area View"
+                disabled={!hasText(form.pickup)}
+                onClick={() => handleLocateArea("pickup")}
+              />
+              <LocateAreaButton
+                icon={FiNavigation}
+                label="Route drop-off"
+                detail="Open smart Area View route"
+                disabled={!hasText(form.dropoff)}
+                onClick={() => handleLocateArea("dropoff")}
+                primary
+              />
+            </div>
+
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1">
                 <span className="text-xs font-black uppercase text-gray-500">Pickup time</span>
@@ -528,6 +583,33 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       </aside>
     </div>
     </AppPortal>
+  );
+}
+
+function LocateAreaButton({ icon, label, detail, disabled, onClick, primary = false }) {
+  const enabledClass = primary
+    ? "border-emerald-200 bg-slate-950 text-white shadow-sm shadow-slate-200/70 hover:bg-slate-900"
+    : "border-emerald-100 bg-emerald-50 text-emerald-800 hover:border-emerald-200 hover:bg-emerald-100";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`kt-touchable flex min-h-14 items-center gap-3 rounded-2xl border px-3 py-2 text-left transition ${
+        disabled ? "border-gray-200 bg-gray-100 text-gray-400" : enabledClass
+      }`}
+    >
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${primary && !disabled ? "bg-white/10" : "bg-white"}`}>
+        {createElement(icon, { size: 18 })}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-black">{label}</span>
+        <span className={`block truncate text-xs font-bold ${primary && !disabled ? "text-white/70" : "text-current opacity-70"}`}>
+          {detail}
+        </span>
+      </span>
+    </button>
   );
 }
 

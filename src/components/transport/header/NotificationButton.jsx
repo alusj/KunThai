@@ -2,8 +2,9 @@
 // Displays operator or passenger transport notifications.
 
 import { useEffect, useMemo, useState } from "react";
-import { FiBell, FiTruck, FiX } from "react-icons/fi";
+import { FiBell, FiTruck } from "react-icons/fi";
 
+import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
 import { fetchTransportNotifications } from "../../services/transportHeaderService";
 
@@ -101,7 +102,7 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
           />
 
           <section
-            className={`absolute right-0 top-0 flex h-full w-full max-w-md transform flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ${
+            className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-md transform flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ${
               open ? "translate-x-0" : "translate-x-full"
             }`}
           >
@@ -117,14 +118,13 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
                   Passenger trip updates and operator fleet alerts.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
-                aria-label="Close transport notifications"
-              >
-                <FiX size={18} />
-              </button>
+              <AppBackTab
+                onBack={() => setOpen(false)}
+                label="Back to transport"
+                historyKey="transport-notifications"
+                className="shrink-0 rounded-full border border-slate-200 bg-white hover:bg-slate-50"
+                useHistoryLayer={false}
+              />
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4">

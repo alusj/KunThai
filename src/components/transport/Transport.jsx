@@ -66,6 +66,32 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     }, 240);
   }
 
+  function openNearbyAreaRoute(destination = null, options = {}) {
+    if (operatorDashboardCloseTimer.current) {
+      window.clearTimeout(operatorDashboardCloseTimer.current);
+      operatorDashboardCloseTimer.current = null;
+    }
+
+    setRegistrationOpen(false);
+    setOperatorDashboardOpen(false);
+    setOperatorDashboardClosing(false);
+    setFleetSelection(null);
+    setActiveFleetId(null);
+    setActiveTripsOpen(false);
+    setSavedOperatorsOpen(false);
+    setVerificationFleet(null);
+    setBookingTarget(null);
+    setNearbyAreaRequest(
+      destination
+        ? {
+            destination,
+            autoRoute: options.autoRoute ?? true,
+          }
+        : null,
+    );
+    setNearbyAreaOpen(true);
+  }
+
   function renderBookingDrawer() {
     return (
       <TransportBookingDrawer
@@ -73,6 +99,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         target={bookingTarget}
         onClose={() => setBookingTarget(null)}
         onCreated={handleBookingCreated}
+        onLocateArea={openNearbyAreaRoute}
       />
     );
   }
@@ -179,6 +206,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           initialView={operatorDashboardView}
           onBack={closeOperatorDashboard}
           onAccountUpdate={setOperatorAccount}
+          onLocateArea={openNearbyAreaRoute}
           onEditRegistration={() => {
             setOperatorDashboardOpen(false);
             setRegistrationOpen(true);
@@ -211,6 +239,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onBack={() => setActiveFleetId(null)}
           onShowVerification={setVerificationFleet}
           onOpenBooking={(target) => setBookingTarget(target)}
+          onLocateArea={openNearbyAreaRoute}
         />
         <VerificationDetailsModal
           status={verificationFleet?.verificationStatus}
@@ -308,13 +337,13 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           setFleetSelection({ mode: "topRated", fleetType: null, label: "Top Rated Fleets" });
         }}
         onOpenNearbyArea={() => {
-          setNearbyAreaRequest(null);
-          setNearbyAreaOpen(true);
+          openNearbyAreaRoute();
         }}
         onOpenActiveTrips={() => setActiveTripsOpen(true)}
         onOpenSavedOperators={() => setSavedOperatorsOpen(true)}
         onViewFleet={setActiveFleetId}
         onOpenBooking={(target) => setBookingTarget(target)}
+        onLocateArea={openNearbyAreaRoute}
       />
       {renderBookingDrawer()}
     </div>

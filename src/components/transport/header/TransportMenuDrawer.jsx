@@ -20,6 +20,7 @@ import {
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
+import { SlidePanel, useSlidePanel } from "../../shared/SlideTransition";
 import {
   fetchPassengerTrips,
   getPassengerTrips,
@@ -152,7 +153,11 @@ function findMenuItem(screenId) {
 export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
   const [activeScreen, setActiveScreen] = useState(null);
   const [supportSeed, setSupportSeed] = useState(null);
-  const activeTitle = useMemo(() => findMenuItem(activeScreen)?.title || "Passenger Menu", [activeScreen]);
+  const { visibleKey: visibleScreen, action: screenAction } = useSlidePanel(activeScreen);
+  const activeTitle = useMemo(
+    () => findMenuItem(visibleScreen || activeScreen)?.title || "Passenger Menu",
+    [activeScreen, visibleScreen],
+  );
 
   useEffect(() => {
     if (!open) {
@@ -203,28 +208,28 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
     setActiveScreen("support");
   }
 
-  function renderActiveScreen() {
-    if (activeScreen === "trips") {
+  function renderActiveScreen(screenId = visibleScreen) {
+    if (screenId === "trips") {
       return <MyTripsPage onViewFleet={openFleet} onOpenSupport={openSupportFromTrip} />;
     }
 
-    if (activeScreen === "places") {
+    if (screenId === "places") {
       return <SavedPlacesPage />;
     }
 
-    if (activeScreen === "wallet") {
+    if (screenId === "wallet") {
       return <PaymentReadinessPage variant="wallet" />;
     }
 
-    if (activeScreen === "paymentSafety") {
+    if (screenId === "paymentSafety") {
       return <PaymentReadinessPage variant="safety" />;
     }
 
-    if (activeScreen === "support") {
+    if (screenId === "support") {
       return <SupportPage seed={supportSeed} />;
     }
 
-    if (activeScreen === "settings") {
+    if (screenId === "settings") {
       return <TransportSettingsPage />;
     }
 
@@ -248,44 +253,44 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
         }`}
       />
 
-      {!activeScreen ? (
-        <aside
-          className={`absolute right-0 top-0 flex h-full w-full max-w-md transform flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ${
-            open ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <PassengerMenuHeader title="Passenger Menu" showBack={false} onClose={closeDrawer} />
+      <aside
+        aria-hidden={Boolean(visibleScreen)}
+        inert={visibleScreen ? "true" : undefined}
+        className={`absolute right-0 top-0 flex h-full w-full max-w-md transform flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <PassengerMenuHeader title="Passenger Menu" showBack={false} onClose={closeDrawer} />
 
-          <div className="flex-1 overflow-y-auto pb-6">
-            <PassengerSummaryCard onOpenWallet={() => setActiveScreen("wallet")} />
+        <div className="flex-1 overflow-y-auto pb-6">
+          <PassengerSummaryCard onOpenWallet={() => setActiveScreen("wallet")} />
 
-            <div className="space-y-5 px-4 pt-5">
-              {menuSections.map((section) => (
-                <PassengerDrawerSection key={section.title} title={section.title}>
-                  {section.items.map((item) => (
-                    <PassengerDrawerNavItem
-                      key={item.id}
-                      icon={item.icon}
-                      title={item.title}
-                      description={item.description}
-                      onClick={() => {
-                        setSupportSeed(null);
-                        setActiveScreen(item.id);
-                      }}
-                    />
-                  ))}
-                </PassengerDrawerSection>
-              ))}
-            </div>
+          <div className="space-y-5 px-4 pt-5">
+            {menuSections.map((section) => (
+              <PassengerDrawerSection key={section.title} title={section.title}>
+                {section.items.map((item) => (
+                  <PassengerDrawerNavItem
+                    key={item.id}
+                    icon={item.icon}
+                    title={item.title}
+                    description={item.description}
+                    onClick={() => {
+                      setSupportSeed(null);
+                      setActiveScreen(item.id);
+                    }}
+                  />
+                ))}
+              </PassengerDrawerSection>
+            ))}
           </div>
-        </aside>
-      ) : null}
+        </div>
+      </aside>
 
-      {activeScreen ? (
-        <section
-          className={`absolute inset-0 flex h-full w-full transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
-            open ? "translate-x-0" : "translate-x-full"
-          }`}
+      {visibleScreen ? (
+        <SlidePanel
+          action={screenAction}
+          className="bg-white"
+          zIndex={10}
         >
           <PassengerMenuPageHeader
             title={activeTitle}
@@ -296,9 +301,9 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
             }}
           />
           <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
-            {renderActiveScreen()}
+            {renderActiveScreen(visibleScreen)}
           </div>
-        </section>
+        </SlidePanel>
       ) : null}
     </div>
     </AppPortal>
@@ -306,12 +311,15 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
 }
 
 function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
+  const backHandler = showBack ? onBack : onClose;
+  const backLabel = showBack ? "Back to passenger menu" : "Back to transport";
+
   return (
     <div className="kt-header-glass flex h-16 items-center justify-between px-3 py-3 sm:px-4">
-      {showBack ? (
+      {backHandler ? (
         <AppBackTab
-          onBack={onBack}
-          label="Back to passenger menu"
+          onBack={backHandler}
+          label={backLabel}
           historyKey="transport-passenger-menu"
           className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           useHistoryLayer={false}
@@ -324,15 +332,7 @@ function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
         {title}
       </h2>
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="kt-touchable flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
-        aria-label="Close transport menu"
-        title="Close"
-      >
-        <X size={20} strokeWidth={2.3} />
-      </button>
+      <div className="h-10 w-10" />
     </div>
   );
 }

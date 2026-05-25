@@ -2,6 +2,7 @@ import { CircleHelp, Headphones, LifeBuoy } from "lucide-react";
 import { useState } from "react";
 
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
+import SellerSubPagePanel from "../SellerSubPagePanel";
 import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import ContactSupport from "./ContactSupport/ContactSupport";
 import FAQ from "./FAQ/FAQ";
@@ -34,23 +35,14 @@ export default function HelpSupport({ onBack }) {
         />
       </div>
 
-      {currentView === "contact" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <ContactSupport onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "help" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <HelpHome onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "faq" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <FAQ onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
+      <SellerSubPagePanel currentView={currentView}>
+        {(view) => {
+          if (view === "contact") return <ContactSupport onBack={() => setCurrentView("menu")} />;
+          if (view === "help") return <HelpHome onBack={() => setCurrentView("menu")} />;
+          if (view === "faq") return <FAQ onBack={() => setCurrentView("menu")} />;
+          return null;
+        }}
+      </SellerSubPagePanel>
     </div>
   );
 }

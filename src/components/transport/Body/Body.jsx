@@ -27,6 +27,7 @@ export default function Body({
   onOpenSavedOperators,
   onViewFleet,
   onOpenBooking,
+  onLocateArea,
 }) {
   const [destination, setDestination] = useState("");
   const [pickup, setPickup] = useState("");
@@ -153,6 +154,41 @@ export default function Body({
     };
   }
 
+  function handleLocateArea() {
+    const destinationText = destination.trim();
+    const pickupText = pickup.trim();
+    const areaText = destinationText || pickupText;
+
+    if (!areaText) {
+      onOpenNearbyArea?.();
+      return;
+    }
+
+    if (!onLocateArea) {
+      onOpenNearbyArea?.();
+      return;
+    }
+
+    onLocateArea?.(
+      {
+        id: `passenger-area-${Date.now()}`,
+        type: "passenger-area",
+        name: areaText,
+        label: areaText,
+        address: areaText,
+        category: destinationText ? "Destination" : "Pickup",
+        status: "community",
+        description: pickupText
+          ? `Passenger route from ${pickupText} to ${destinationText || areaText}.`
+          : "Passenger selected address or area.",
+        searchQuery: areaText,
+        pickup: pickupText,
+        destination: destinationText,
+      },
+      { autoRoute: true },
+    );
+  }
+
   return (
     <div className="relative px-3 pt-5 pb-24">
       <LocationSearch
@@ -169,6 +205,7 @@ export default function Body({
         onTogglePickupPanel={() => setPickupPanelOpen((open) => !open)}
         onToggleFilterPanel={() => setFilterPanelOpen((open) => !open)}
         onFilterChange={updateMovementFilters}
+        onLocateArea={handleLocateArea}
         onOpenBooking={() => onOpenBooking?.({
           selection: getMovementSelection(),
           movement: { pickup, destination },

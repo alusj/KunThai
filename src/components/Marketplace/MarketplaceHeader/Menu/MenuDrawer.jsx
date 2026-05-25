@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import AppPortal from "../../../shared/AppPortal";
 import AppBackTab from "../../../shared/AppBackTab";
+import { SlidePanel, useSlidePanel } from "../../../shared/SlideTransition";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerDeliveryAddresses,
@@ -257,6 +258,7 @@ function BuyerArticlePanel({ icon, tone = "emerald", title, summary, sections })
 
 export default function MenuDrawer({ open, onClose }) {
   const [active, setActive] = useState(null);
+  const { visibleKey: visibleActive, action: activeAction } = useSlidePanel(active);
   const [savedProducts, setSavedProducts] = useState([]);
   const [recentProducts, setRecentProducts] = useState([]);
   const [address, setAddress] = useState(readBuyerAddress);
@@ -308,7 +310,7 @@ export default function MenuDrawer({ open, onClose }) {
     };
   }, [active, onClose, open]);
 
-  const activeTitle = useMemo(() => menuItems.find((item) => item.id === active)?.label || "Buyer Menu", [active]);
+  const activeTitle = useMemo(() => menuItems.find((item) => item.id === visibleActive)?.label || "Buyer Menu", [visibleActive]);
 
   async function saveAddress() {
     const localId = address.id || `local-address-${Date.now()}`;
@@ -441,14 +443,14 @@ export default function MenuDrawer({ open, onClose }) {
     window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product } }));
   }
 
-  function renderActiveContent() {
+  function renderActiveContent(screenKey = visibleActive) {
     return (
       <>
         {message && <p className="mb-3 rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p>}
 
-        {active === "orders" && <Orders compact onProductOpen={openProduct} />}
+        {screenKey === "orders" && <Orders compact onProductOpen={openProduct} />}
 
-        {active === "saved" && (
+        {screenKey === "saved" && (
           <ProductMiniList
             products={savedProducts}
             emptyText="Saved products will appear here when you tap the heart on a listing."
@@ -456,7 +458,7 @@ export default function MenuDrawer({ open, onClose }) {
           />
         )}
 
-        {active === "recent" && (
+        {screenKey === "recent" && (
           <ProductMiniList
             products={recentProducts}
             emptyText="Recently viewed products will appear here after opening product details."
@@ -464,7 +466,7 @@ export default function MenuDrawer({ open, onClose }) {
           />
         )}
 
-        {active === "address" && (
+        {screenKey === "address" && (
           <div className="space-y-4">
             {savedAddresses.length ? (
               <div className="space-y-2">
@@ -665,7 +667,7 @@ export default function MenuDrawer({ open, onClose }) {
           </div>
         )}
 
-        {active === "payments" && (
+        {screenKey === "payments" && (
           <div className="space-y-4">
             <BuyerArticlePanel
               icon={CreditCard}
@@ -704,7 +706,7 @@ export default function MenuDrawer({ open, onClose }) {
           </div>
         )}
 
-        {active === "returns" && (
+        {screenKey === "returns" && (
           <BuyerArticlePanel
             icon={ShieldAlert}
             tone="amber"
@@ -729,7 +731,7 @@ export default function MenuDrawer({ open, onClose }) {
           />
         )}
 
-        {active === "support" && (
+        {screenKey === "support" && (
           <BuyerArticlePanel
             icon={HelpCircle}
             title="Help & support"
@@ -753,7 +755,7 @@ export default function MenuDrawer({ open, onClose }) {
           />
         )}
 
-        {active === "settings" && (
+        {screenKey === "settings" && (
           <BuyerArticlePanel
             icon={Settings}
             tone="blue"
@@ -790,8 +792,11 @@ export default function MenuDrawer({ open, onClose }) {
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {!active ? (
-          <>
+        <div
+          aria-hidden={Boolean(visibleActive)}
+          inert={visibleActive ? "true" : undefined}
+          className="flex min-h-0 flex-1 flex-col"
+        >
             <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
               <AppBackTab onBack={onClose} label="Back to UrMall" historyKey="urmall-buyer-menu" useHistoryLayer={false} />
               <div className="min-w-0">
@@ -828,9 +833,10 @@ export default function MenuDrawer({ open, onClose }) {
                 })}
               </div>
             </nav>
-          </>
-        ) : (
-          <>
+        </div>
+
+        {visibleActive ? (
+          <SlidePanel action={activeAction} className="bg-gray-50">
             <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
               <AppBackTab onBack={() => setActive(null)} label="Back to buyer menu" historyKey="urmall-buyer-menu-item" useHistoryLayer={false} />
               <div className="min-w-0">
@@ -839,10 +845,10 @@ export default function MenuDrawer({ open, onClose }) {
               </div>
             </div>
             <section className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
-              {renderActiveContent()}
+              {renderActiveContent(visibleActive)}
             </section>
-          </>
-        )}
+          </SlidePanel>
+        ) : null}
         </div>
     </AppPortal>
   );

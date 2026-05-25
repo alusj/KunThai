@@ -60,6 +60,10 @@ export function useExploreNavigation(menuScreens) {
 
         rememberScrollPosition();
         setNavigation((current) => {
+          if (current.menuStack.at(-1) === screen) {
+            return current;
+          }
+
           const stack = options.fromMenu && current.menuStack.at(-1) !== "Menu"
             ? [...current.menuStack, "Menu", screen]
             : [...current.menuStack, screen];

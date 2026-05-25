@@ -2,6 +2,7 @@ import { Landmark, ReceiptText, ShieldCheck, WalletCards } from "lucide-react";
 import { useState } from "react";
 
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
+import SellerSubPagePanel from "../SellerSubPagePanel";
 import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import BankDetails from "./BankDetails/BankDetails";
 import Transactions from "./Transaction/Transactions";
@@ -48,23 +49,14 @@ export default function Payments({ onBack }) {
         />
       </div>
 
-      {currentView === "bank" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <BankDetails onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "transactions" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <Transactions onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "history" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <WithdrawalHistory onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
+      <SellerSubPagePanel currentView={currentView}>
+        {(view) => {
+          if (view === "bank") return <BankDetails onBack={() => setCurrentView("menu")} />;
+          if (view === "transactions") return <Transactions onBack={() => setCurrentView("menu")} />;
+          if (view === "history") return <WithdrawalHistory onBack={() => setCurrentView("menu")} />;
+          return null;
+        }}
+      </SellerSubPagePanel>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { Clock3, Layers3, Store } from "lucide-react";
 import { useState } from "react";
 
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
+import SellerSubPagePanel from "../SellerSubPagePanel";
 import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import Categories from "./Categories/Categories";
 import OperatingHours from "./OperatingHours/OperatingHours";
@@ -34,23 +35,14 @@ export default function BusinessSettings({ onBack }) {
         />
       </div>
 
-      {currentView === "details" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <StoreDetails onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "categories" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <Categories onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "hours" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <OperatingHours onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
+      <SellerSubPagePanel currentView={currentView}>
+        {(view) => {
+          if (view === "details") return <StoreDetails onBack={() => setCurrentView("menu")} />;
+          if (view === "categories") return <Categories onBack={() => setCurrentView("menu")} />;
+          if (view === "hours") return <OperatingHours onBack={() => setCurrentView("menu")} />;
+          return null;
+        }}
+      </SellerSubPagePanel>
     </div>
   );
 }

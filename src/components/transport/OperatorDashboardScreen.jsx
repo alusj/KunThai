@@ -10,6 +10,7 @@ import {
   FiMap,
   FiMapPin,
   FiMoreVertical,
+  FiNavigation,
   FiRefreshCw,
   FiRadio,
   FiShield,
@@ -84,17 +85,26 @@ const operatorVerificationStatuses = {
   },
 };
 
+const OPERATOR_DRAWER_TRANSITION_MS = 360;
+
+function isUsableAreaText(value) {
+  const text = String(value || "").trim();
+  return Boolean(text && !/not added|pending|unknown/i.test(text));
+}
+
 export default function OperatorDashboardScreen({
   account,
   initialView = "dashboard",
   onBack,
   onAccountUpdate,
+  onLocateArea,
   onEditRegistration,
 }) {
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
   const [activeView, setActiveView] = useState(initialView);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
+  const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
   const [dashboard, setDashboard] = useState(account?.dashboard || null);
   const [dashboardError, setDashboardError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
@@ -121,6 +131,28 @@ export default function OperatorDashboardScreen({
   const reviews = dashboard?.reviews || {};
   const alerts = dashboard?.alerts || [];
   const tripHistory = dashboard?.tripHistory || [];
+
+  function openOperatorArea(areaText, kind = "operating-area") {
+    const cleanText = String(areaText || "").trim();
+    if (!isUsableAreaText(cleanText)) return;
+
+    onLocateArea?.(
+      {
+        id: `operator-${kind}-${account?.fleetId || account?.id || Date.now()}`,
+        type: "transport-operator",
+        name: cleanText,
+        label: cleanText,
+        address: cleanText,
+        category: kind === "home-base" ? "Home Base" : "Operating Area",
+        status: verificationStatus,
+        description: `${fleetName} ${kind === "home-base" ? "home base" : "operating area"} for live navigation.`,
+        searchQuery: cleanText,
+        fleetId: account?.fleetId || null,
+        operatorId: account?.id || null,
+      },
+      { autoRoute: true },
+    );
+  }
 
   const refreshDashboard = useCallback(async () => {
     try {
@@ -267,7 +299,8 @@ export default function OperatorDashboardScreen({
           <button
             type="button"
             aria-label="Operator notifications"
-            className="relative h-10 w-10 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"
+            onClick={() => setOperatorAlertsOpen(true)}
+            className="kt-touchable relative h-10 w-10 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"
           >
             <FiBell size={18} />
             <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
@@ -350,8 +383,24 @@ export default function OperatorDashboardScreen({
 
           <div className="mt-4 grid gap-2">
             <FleetSummaryLine icon={FiUser} value={operatorName} />
-            <FleetSummaryLine icon={FiMapPin} value={operatingArea} />
-            <FleetSummaryLine icon={FiHome} value={homeBase} />
+            <FleetSummaryLine
+              icon={FiMapPin}
+              value={operatingArea}
+              action={
+                isUsableAreaText(operatingArea) ? (
+                  <LocateAreaIconButton label="Locate operating area" onClick={() => openOperatorArea(operatingArea)} />
+                ) : null
+              }
+            />
+            <FleetSummaryLine
+              icon={FiHome}
+              value={homeBase}
+              action={
+                isUsableAreaText(homeBase) ? (
+                  <LocateAreaIconButton label="Locate home base" onClick={() => openOperatorArea(homeBase, "home-base")} />
+                ) : null
+              }
+            />
           </div>
 
           <button
@@ -415,6 +464,22 @@ export default function OperatorDashboardScreen({
         onClose={() => setVerificationOpen(false)}
       />
 
+      <OperatorAlertsDrawer
+        open={operatorAlertsOpen}
+        alerts={alerts}
+        fleetName={fleetName}
+        operatorName={operatorName}
+        onClose={() => setOperatorAlertsOpen(false)}
+        onOpenWaiting={hasWaitingPassengers ? () => {
+          setActiveView("waiting");
+          setOperatorAlertsOpen(false);
+        } : undefined}
+        onOpenHistory={() => {
+          setActiveView("history");
+          setOperatorAlertsOpen(false);
+        }}
+      />
+
       <OperatorMenuDrawer
         open={operatorMenuOpen}
         account={account}
@@ -449,27 +514,84 @@ export default function OperatorDashboardScreen({
           setOperatorMenuOpen(false);
           onEditRegistration?.();
         }}
+        onLocateArea={(areaText, kind) => {
+          setOperatorMenuOpen(false);
+          openOperatorArea(areaText, kind);
+        }}
       />
     </div>
   );
 }
 
-function ProfileItem({ icon, label, value }) {
+function ProfileItem({ icon, label, value, action }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition hover:border-green-100 hover:bg-green-50/40">
-      {createElement(icon, { size: 18, className: "text-green-700" })}
+      <div className="flex items-start justify-between gap-3">
+        {createElement(icon, { size: 18, className: "text-green-700" })}
+        {action}
+      </div>
       <p className="mt-2 text-xs font-black uppercase tracking-wide text-gray-400">{label}</p>
       <p className="mt-1 break-words text-sm font-black text-gray-950">{value}</p>
     </div>
   );
 }
 
-function FleetSummaryLine({ icon, value }) {
+function useDrawerTransition(open, duration = OPERATOR_DRAWER_TRANSITION_MS) {
+  const [rendered, setRendered] = useState(open);
+  const [panelOpen, setPanelOpen] = useState(open);
+
+  useEffect(() => {
+    let frameId = null;
+    let timerId = null;
+
+    if (open) {
+      setRendered(true);
+      if (!rendered) {
+        setPanelOpen(false);
+        frameId = window.requestAnimationFrame(() => setPanelOpen(true));
+      } else {
+        setPanelOpen(true);
+      }
+      return () => {
+        if (frameId) window.cancelAnimationFrame(frameId);
+      };
+    }
+
+    if (rendered) {
+      setPanelOpen(false);
+      timerId = window.setTimeout(() => setRendered(false), duration);
+    }
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      if (timerId) window.clearTimeout(timerId);
+    };
+  }, [duration, open, rendered]);
+
+  return { rendered, panelOpen };
+}
+
+function FleetSummaryLine({ icon, value, action }) {
   return (
     <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3">
       {createElement(icon, { size: 19, className: "shrink-0 text-green-700" })}
-      <span className="truncate text-base font-black text-gray-700">{value}</span>
+      <span className="min-w-0 flex-1 truncate text-base font-black text-gray-700">{value}</span>
+      {action}
     </div>
+  );
+}
+
+function LocateAreaIconButton({ label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-slate-950 text-white shadow-sm transition hover:bg-slate-900"
+    >
+      <FiNavigation size={17} />
+    </button>
   );
 }
 
@@ -719,6 +841,104 @@ function OperatorAlertsContainer({ alerts }) {
         )}
       </div>
     </DashboardContainer>
+  );
+}
+
+function OperatorAlertsDrawer({
+  open,
+  alerts,
+  fleetName,
+  operatorName,
+  onClose,
+  onOpenWaiting,
+  onOpenHistory,
+}) {
+  const { rendered, panelOpen } = useDrawerTransition(open);
+
+  useEffect(() => {
+    if (!rendered) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose?.();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose, rendered]);
+
+  if (!rendered) return null;
+
+  return (
+    <div className={`fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+      <button
+        type="button"
+        aria-label="Close operator notifications overlay"
+        onClick={onClose}
+        className={`absolute inset-0 border-0 bg-slate-950/35 p-0 transition-opacity duration-300 ${
+          panelOpen ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
+      <section
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-hidden bg-white shadow-2xl ${
+          panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
+        }`}
+      >
+        <header className="kt-header-glass flex items-start justify-between gap-4 px-4 py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator Alerts</p>
+            <h2 className="mt-1 truncate text-xl font-black text-gray-950">Notifications</h2>
+            <p className="mt-1 text-sm font-semibold text-gray-500">
+              {fleetName} - {operatorName}
+            </p>
+          </div>
+          <AppBackTab
+            onBack={onClose}
+            label="Back to operator"
+            historyKey="transport-operator-alerts"
+            className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+            useHistoryLayer={false}
+          />
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4">
+          <div className="space-y-3">
+            {alerts.length ? alerts.map((alert) => (
+              <article key={alert.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                <p className="text-sm font-black text-gray-950">{alert.title}</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-gray-600">{alert.body}</p>
+              </article>
+            )) : (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center">
+                <p className="text-sm font-black text-gray-950">No operator alerts</p>
+                <p className="mt-1 text-sm font-semibold text-gray-500">Verification, demand, and fleet notices will appear here.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-2">
+            <ActionRow
+              icon={FiUsers}
+              label="Waiting passengers"
+              detail={onOpenWaiting ? "Review live passenger demand" : "No passengers waiting now"}
+              onClick={onOpenWaiting}
+            />
+            <ActionRow
+              icon={FiMap}
+              label="Trip history"
+              detail="View completed routes and delivery work"
+              onClick={onOpenHistory}
+            />
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -998,14 +1218,13 @@ function TripHistoryScreen({ trips, fleetName, onBack }) {
   return (
     <section className="space-y-4">
       <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <button
-          type="button"
-          onClick={onBack}
-          className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50"
-          aria-label="Back to dashboard"
-        >
-          <FiX size={18} />
-        </button>
+        <AppBackTab
+          onBack={onBack}
+          label="Back to dashboard"
+          historyKey="transport-operator-history"
+          className="mb-4 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+          useHistoryLayer={false}
+        />
         <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator History</p>
         <h2 className="mt-1 text-2xl font-black text-gray-950">Trip and delivery history</h2>
         <p className="mt-1 text-sm font-semibold text-gray-500">{fleetName}</p>
@@ -1056,10 +1275,36 @@ function OperatorMenuDrawer({
   onOpenWaiting,
   onShowVerification,
   onEditProfile,
+  onLocateArea,
 }) {
-  if (!open) return null;
+  const { rendered, panelOpen } = useDrawerTransition(open);
+
+  useEffect(() => {
+    if (!rendered) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose?.();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose, rendered]);
+
+  if (!rendered) return null;
 
   const actions = [
+    {
+      icon: FiNavigation,
+      label: "Locate Area",
+      detail: isUsableAreaText(operatingArea) ? operatingArea : "Add operating area first",
+      onClick: isUsableAreaText(operatingArea) ? () => onLocateArea?.(operatingArea, "operating-area") : undefined,
+    },
     {
       icon: FiTruck,
       label: "Fleet dashboard",
@@ -1103,15 +1348,21 @@ function OperatorMenuDrawer({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className={`fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label="Close operator menu overlay"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950/30"
+        className={`absolute inset-0 border-0 bg-slate-950/30 p-0 transition-opacity duration-300 ${
+          panelOpen ? "opacity-100" : "opacity-0"
+        }`}
       />
 
-      <aside className="relative h-full w-full max-w-sm bg-white shadow-2xl flex flex-col">
+      <aside
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-sm flex-col bg-white shadow-2xl ${
+          panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator Menu</p>
@@ -1120,14 +1371,13 @@ function OperatorMenuDrawer({
               {account?.displayCode} - {operatorName}
             </p>
           </div>
-          <button
-            type="button"
-            aria-label="Close operator menu"
-            onClick={onClose}
-            className="h-10 w-10 shrink-0 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50"
-          >
-            <FiMoreVertical size={19} />
-          </button>
+          <AppBackTab
+            onBack={onClose}
+            label="Back to operator"
+            historyKey="transport-operator-menu"
+            className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+            useHistoryLayer={false}
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
@@ -1146,8 +1396,26 @@ function OperatorMenuDrawer({
             <h3 className="text-xs font-black uppercase tracking-wide text-gray-400">Fleet profile</h3>
             <div className="grid gap-3">
               <ProfileItem icon={FiUser} label="Operator" value={operatorName} />
-              <ProfileItem icon={FiMapPin} label="Operating Area" value={operatingArea} />
-              <ProfileItem icon={FiHome} label="Home Base" value={homeBase} />
+              <ProfileItem
+                icon={FiMapPin}
+                label="Operating Area"
+                value={operatingArea}
+                action={
+                  isUsableAreaText(operatingArea) ? (
+                    <LocateAreaIconButton label="Locate operating area" onClick={() => onLocateArea?.(operatingArea, "operating-area")} />
+                  ) : null
+                }
+              />
+              <ProfileItem
+                icon={FiHome}
+                label="Home Base"
+                value={homeBase}
+                action={
+                  isUsableAreaText(homeBase) ? (
+                    <LocateAreaIconButton label="Locate home base" onClick={() => onLocateArea?.(homeBase, "home-base")} />
+                  ) : null
+                }
+              />
               <ProfileItem icon={FiTruck} label="Fleet Type" value={fleetType} />
               <ProfileItem icon={FiShield} label="Verification" value={verification.label} />
               <ProfileItem icon={FiFileText} label="Documents" value={documents} />

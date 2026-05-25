@@ -2,6 +2,7 @@ import { Activity, KeyRound, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
+import SellerSubPagePanel from "../SellerSubPagePanel";
 import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import ChangePassword from "./ChangePassword/ChangePassword";
 import LoginActivity from "./LoginActivity/LoginActivity";
@@ -34,23 +35,14 @@ export default function Security({ onBack }) {
         />
       </div>
 
-      {currentView === "password" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <ChangePassword onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "login" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <LoginActivity onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "2fa" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <TwoFactorAuth onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
+      <SellerSubPagePanel currentView={currentView}>
+        {(view) => {
+          if (view === "password") return <ChangePassword onBack={() => setCurrentView("menu")} />;
+          if (view === "login") return <LoginActivity onBack={() => setCurrentView("menu")} />;
+          if (view === "2fa") return <TwoFactorAuth onBack={() => setCurrentView("menu")} />;
+          return null;
+        }}
+      </SellerSubPagePanel>
     </div>
   );
 }

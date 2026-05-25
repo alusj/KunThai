@@ -2,6 +2,7 @@ import { FileCheck2, FileText, Scale, Shield } from "lucide-react";
 import { useState } from "react";
 
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
+import SellerSubPagePanel from "../../SellerSubPagePanel";
 import SettingsSubMenuItem from "../../SettingsSubMenuItem";
 import CommunityGuidelines from "./CommunityGuidelines/CommunityGuidelines";
 import DataUsage from "./DataUsage/DataUsage";
@@ -41,29 +42,15 @@ export default function Privacy({ onBack }) {
         />
       </div>
 
-      {currentView === "privacy" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <PrivacyPolicy onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "data" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <DataUsage onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "guidelines" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <CommunityGuidelines onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "service" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <TermsOfService onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
+      <SellerSubPagePanel currentView={currentView}>
+        {(view) => {
+          if (view === "privacy") return <PrivacyPolicy onBack={() => setCurrentView("menu")} />;
+          if (view === "data") return <DataUsage onBack={() => setCurrentView("menu")} />;
+          if (view === "guidelines") return <CommunityGuidelines onBack={() => setCurrentView("menu")} />;
+          if (view === "service") return <TermsOfService onBack={() => setCurrentView("menu")} />;
+          return null;
+        }}
+      </SellerSubPagePanel>
     </div>
   );
 }

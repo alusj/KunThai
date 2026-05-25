@@ -1,11 +1,41 @@
 import { createElement, useEffect, useState } from "react";
-import { FiBox, FiClock, FiMapPin, FiMessageCircle, FiPhone, FiShield, FiStar, FiTruck, FiUser } from "react-icons/fi";
+import { FiBox, FiClock, FiMapPin, FiMessageCircle, FiNavigation, FiPhone, FiShield, FiStar, FiTruck, FiUser } from "react-icons/fi";
 import { fetchTransportFleetById } from "../services/transportFleetService";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
-export default function FleetProfileScreen({ fleetId, onBack, onShowVerification, onOpenBooking }) {
+function cleanAreaText(value) {
+  const text = String(value || "").trim();
+  if (!text || /^(area pending|location pending|not added|pending)$/i.test(text)) return "";
+  return text;
+}
+
+function buildFleetAreaDestination(fleet) {
+  const areaText =
+    cleanAreaText(fleet?.currentLocation) ||
+    cleanAreaText(fleet?.operatingArea) ||
+    cleanAreaText(fleet?.lastKnownLocation) ||
+    cleanAreaText(fleet?.homeBaseLocation);
+
+  if (!areaText) return null;
+
+  return {
+    id: `fleet-area-${fleet.id}`,
+    type: "operator-fleet",
+    name: areaText,
+    label: areaText,
+    address: areaText,
+    category: fleet.serviceCategory || "Operator",
+    status: fleet.verificationStatus || "community",
+    description: `${fleet.fleetName} service area for ${fleet.displayType || "transport"}.`,
+    searchQuery: areaText,
+    fleetId: fleet.id,
+    operatorId: fleet.operatorId,
+  };
+}
+
+export default function FleetProfileScreen({ fleetId, onBack, onShowVerification, onOpenBooking, onLocateArea }) {
   const [fleet, setFleet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,6 +98,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
 
   const status = verificationStatuses[fleet.verificationStatus] || verificationStatuses.pending;
   const isActive = fleet.activeStatus === "active";
+  const fleetAreaDestination = buildFleetAreaDestination(fleet);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -163,6 +194,16 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
               )}
               <InfoLine icon={FiStar} text={fleet.priceHint} />
             </div>
+            {fleetAreaDestination ? (
+              <button
+                type="button"
+                onClick={() => onLocateArea?.(fleetAreaDestination, { autoRoute: true })}
+                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-slate-950 px-4 text-sm font-black text-white shadow-sm shadow-slate-200/70 transition hover:bg-slate-900"
+              >
+                <FiNavigation size={18} />
+                Locate Area
+              </button>
+            ) : null}
           </section>
 
           <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">

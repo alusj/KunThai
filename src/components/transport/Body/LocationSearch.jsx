@@ -1,4 +1,4 @@
-import { FiMapPin, FiNavigation, FiSearch, FiSend, FiSliders } from "react-icons/fi";
+import { FiMap, FiMapPin, FiNavigation, FiSearch, FiSend, FiSliders } from "react-icons/fi";
 
 const fleetTypes = [
   { value: "", label: "Any fleet" },
@@ -25,6 +25,7 @@ export default function LocationSearch({
   onTogglePickupPanel,
   onToggleFilterPanel,
   onFilterChange,
+  onLocateArea,
   onOpenBooking,
 }) {
   return (
@@ -55,7 +56,7 @@ export default function LocationSearch({
           </label>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 sm:flex">
+        <div className="grid grid-cols-5 gap-2 sm:flex">
           <button
             type="button"
             onClick={onUseNearby}
@@ -84,6 +85,16 @@ export default function LocationSearch({
           >
             <FiSliders size={17} />
             <span className="hidden sm:inline">Filters</span>
+          </button>
+          <button
+            type="button"
+            onClick={onLocateArea}
+            aria-label="Locate address in Area View"
+            title="Locate address in Area View"
+            className="h-12 rounded-2xl border border-emerald-200 bg-slate-950 px-3 text-sm font-black text-white shadow-sm shadow-slate-200/70 transition hover:bg-slate-900 flex items-center justify-center gap-2"
+          >
+            <FiMap size={17} />
+            <span className="hidden sm:inline">Locate</span>
           </button>
           <button
             type="button"

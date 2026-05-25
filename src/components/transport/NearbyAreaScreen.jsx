@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiBookmark,
@@ -23,9 +23,10 @@ import {
   getActiveTrafficSnapshots,
   getActiveTransportOperators,
   getApprovedNearbyLocations,
-  getNearbyWeatherCache,
+  deleteNearbySearchHistory,
+  getWeatherCacheNearArea,
   getRecentSearchHistory,
-  saveNearbySearchHistory,
+  saveSearchHistory,
   subscribeToAreaViewLiveData,
 } from "../../Backend/services/nearbyAreaLiveService";
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
@@ -53,6 +54,44 @@ const addCategories = [
 
 const SOS_COUNTRY_CACHE_KEY = "kuntai-sos-country-code";
 const SOS_FALLBACK_COUNTRY = "SL";
+const MAP_CENTER_PUBLISH_METERS = 35;
+const MAP_CENTER_PUBLISH_DEBOUNCE_MS = 450;
+const WEATHER_REFRESH_METERS = 1200;
+const WEATHER_REFRESH_MS = 1000 * 60 * 16;
+const WEATHER_REFRESH_DEBOUNCE_MS = 900;
+const LIVE_AREA_REFRESH_METERS = 1600;
+const LIVE_AREA_REFRESH_MS = 1000 * 60 * 2;
+const LIVE_AREA_RADIUS_KM = 25;
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function distanceInMeters(pointA, pointB) {
+  if (!pointA || !pointB) return Infinity;
+
+  const earthRadius = 6371000;
+  const lat1 = toRadians(pointA.lat);
+  const lat2 = toRadians(pointB.lat);
+  const deltaLat = toRadians(pointB.lat - pointA.lat);
+  const deltaLng = toRadians(pointB.lng - pointA.lng);
+
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) *
+      Math.cos(lat2) *
+      Math.sin(deltaLng / 2) *
+      Math.sin(deltaLng / 2);
+
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalizePosition(position) {
+  const lat = Number(position?.lat);
+  const lng = Number(position?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { ...position, lat, lng };
+}
 
 function getShortAddress(result) {
   return result.address || result.fullAddress || result.placeName || "Freetown, Sierra Leone";
@@ -82,6 +121,118 @@ function buildInitialMapDestination(destination) {
   };
 }
 
+function getInitialDestinationSearchText(destination) {
+  return String(
+    destination?.searchQuery ||
+      destination?.query ||
+      destination?.name ||
+      destination?.label ||
+      destination?.address ||
+      destination?.fullAddress ||
+      "",
+  ).trim();
+}
+
+function isFutureOrMissing(value) {
+  if (!value) return true;
+  const timestamp = new Date(value).getTime();
+  return !Number.isFinite(timestamp) || timestamp > Date.now();
+}
+
+function uniqueById(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    if (!item?.id || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function getTrafficStatusFromReport(report) {
+  const severity = String(report?.severity || "").toLowerCase();
+  if (["critical", "high", "danger", "red"].includes(severity)) return "red";
+  if (["medium", "moderate", "warning", "yellow"].includes(severity)) return "yellow";
+  return report?.type === "traffic" ? "yellow" : "green";
+}
+
+function getReportRadius(report) {
+  if (report?.type === "accident" || report?.type === "road_block" || report?.type === "emergency") return 520;
+  if (report?.type === "traffic" || report?.type === "flooding" || report?.type === "bad_road") return 420;
+  return 320;
+}
+
+function buildReportTrafficSignals(reports = []) {
+  return reports
+    .filter((report) => report?.lat != null && report?.lng != null && isFutureOrMissing(report.expiresAt))
+    .map((report) => ({
+      id: `report-traffic-${report.id}`,
+      status: getTrafficStatusFromReport(report),
+      source: "report",
+      roadName: report.roadName || report.areaName || "",
+      areaName: report.areaName || "",
+      message: report.title || report.description || "Road report",
+      lat: report.lat,
+      lng: report.lng,
+      radiusMeters: getReportRadius(report),
+      confidenceScore: report.verified ? 0.86 : 0.62,
+      expiresAt: report.expiresAt,
+      linkedReportId: report.id,
+    }))
+    .filter((snapshot) => snapshot.status !== "green");
+}
+
+function buildOperatorTrafficSignals(operators = []) {
+  const slowOperators = operators.filter((operator) => {
+    const speed = Number(operator?.speedMps);
+    return operator?.lat != null && operator?.lng != null && Number.isFinite(speed) && speed >= 0 && speed <= 3.8;
+  });
+  const visited = new Set();
+  const clusters = [];
+
+  slowOperators.forEach((operator) => {
+    if (visited.has(operator.id)) return;
+    const cluster = slowOperators.filter((candidate) => {
+      if (visited.has(candidate.id)) return false;
+      return distanceInMeters(operator, candidate) <= 180;
+    });
+
+    if (cluster.length < 3) return;
+    cluster.forEach((item) => visited.add(item.id));
+
+    const avgSpeed =
+      cluster.reduce((sum, item) => sum + Math.max(0, Number(item.speedMps || 0)), 0) / Math.max(cluster.length, 1);
+    const center = cluster.reduce(
+      (sum, item) => ({ lat: sum.lat + item.lat / cluster.length, lng: sum.lng + item.lng / cluster.length }),
+      { lat: 0, lng: 0 },
+    );
+
+    clusters.push({
+      id: `operator-slow-${cluster.map((item) => item.id).sort().join("-")}`,
+      status: cluster.length >= 5 || avgSpeed <= 1.8 ? "red" : "yellow",
+      source: "operators",
+      roadName: "",
+      areaName: "Live operator movement",
+      message: `${cluster.length} nearby operators moving slowly`,
+      averageSpeedMps: avgSpeed,
+      confidenceScore: Math.min(0.9, 0.48 + cluster.length * 0.08),
+      lat: center.lat,
+      lng: center.lng,
+      radiusMeters: cluster.length >= 5 ? 620 : 460,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 8).toISOString(),
+    });
+  });
+
+  return clusters.slice(0, 12);
+}
+
+function buildTrafficIntelligence({ snapshots = [], reports = [], operators = [] }) {
+  return uniqueById([
+    ...snapshots.filter((snapshot) => isFutureOrMissing(snapshot.expiresAt)),
+    ...buildReportTrafficSignals(reports),
+    ...buildOperatorTrafficSignals(operators),
+  ]).slice(0, 120);
+}
+
 
 export default function NearbyAreaScreen({ onBack, initialDestination = null, autoRoute = false }) {
   const [activeCategory, setActiveCategory] = useState("All");
@@ -109,7 +260,19 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   const [sosOpen, setSosOpen] = useState(false);
   const [detectedCountryCode, setDetectedCountryCode] = useState(SOS_FALLBACK_COUNTRY);
   const [detectingSosCountry, setDetectingSosCountry] = useState(false);
+  const mapCenterRef = useRef(null);
+  const userLocationRef = useRef(null);
+  const lastPublishedCenterRef = useRef(null);
+  const mapCenterPublishTimerRef = useRef(null);
+  const weatherPositionRef = useRef(null);
+  const lastWeatherRefreshAtRef = useRef(0);
+  const weatherRefreshTimerRef = useRef(null);
+  const liveAreaPositionRef = useRef(null);
+  const liveAreaRefreshTimerRef = useRef(null);
+  const lastLiveAreaRefreshAtRef = useRef(0);
+  const searchRequestRef = useRef(0);
   const sosDetectionRequestRef = useRef(0);
+  const initialDestinationHandledRef = useRef("");
 
   const displayLocations = useMemo(() => {
     const ids = new Set();
@@ -126,23 +289,25 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   }, [activeCategory, displayLocations]);
 
   const operatorLocations = useMemo(() => liveOperators, [liveOperators]);
+  const smartTrafficSnapshots = useMemo(
+    () =>
+      buildTrafficIntelligence({
+        snapshots: trafficSnapshots,
+        reports: liveReports,
+        operators: liveOperators,
+      }),
+    [liveOperators, liveReports, trafficSnapshots],
+  );
   const filteredMapLocations = useMemo(
     () => filteredLocations.filter((location) => location?.lat != null && location?.lng != null),
     [filteredLocations],
   );
-  const weatherPositionKey = useMemo(() => {
-    if (!mapCenter?.lat || !mapCenter?.lng) return "default";
-    return `${mapCenter.lat.toFixed(2)},${mapCenter.lng.toFixed(2)}`;
-  }, [mapCenter]);
-  const weatherPosition = useMemo(() => {
-    if (!mapCenter?.lat || !mapCenter?.lng) return null;
-    return { lat: mapCenter.lat, lng: mapCenter.lng };
-  }, [mapCenter?.lat, mapCenter?.lng]);
   const initialDestinationKey = useMemo(() => {
     if (!initialDestination) return "";
     return [
       initialDestination.type,
       initialDestination.id,
+      getInitialDestinationSearchText(initialDestination),
       initialDestination.lat ?? initialDestination.latitude,
       initialDestination.lng ?? initialDestination.longitude,
       autoRoute ? "route" : "view",
@@ -168,15 +333,111 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     }
   }
 
-  function handleMapLocationResolved(position) {
-    if (position?.lat == null || position?.lng == null) return;
-    setUserLocation(position);
-    setMapCenter(position);
-  }
+  const handleMapLocationResolved = useCallback((position) => {
+    const nextPosition = normalizePosition(position);
+    if (!nextPosition) return;
+
+    userLocationRef.current = nextPosition;
+    mapCenterRef.current = nextPosition;
+
+    const previousPosition = lastPublishedCenterRef.current;
+    const movedMeters = distanceInMeters(previousPosition, nextPosition);
+    if (previousPosition && movedMeters < MAP_CENTER_PUBLISH_METERS) return;
+
+    if (mapCenterPublishTimerRef.current) {
+      window.clearTimeout(mapCenterPublishTimerRef.current);
+    }
+
+    mapCenterPublishTimerRef.current = window.setTimeout(() => {
+      lastPublishedCenterRef.current = nextPosition;
+      setUserLocation(nextPosition);
+      setMapCenter(nextPosition);
+      mapCenterPublishTimerRef.current = null;
+    }, MAP_CENTER_PUBLISH_DEBOUNCE_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (mapCenterPublishTimerRef.current) window.clearTimeout(mapCenterPublishTimerRef.current);
+      if (weatherRefreshTimerRef.current) window.clearTimeout(weatherRefreshTimerRef.current);
+      if (liveAreaRefreshTimerRef.current) window.clearTimeout(liveAreaRefreshTimerRef.current);
+      searchRequestRef.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     const destination = buildInitialMapDestination(initialDestination);
-    if (!destination) return;
+    const searchText = getInitialDestinationSearchText(initialDestination);
+    if (!destination && !searchText) return;
+    if (initialDestinationHandledRef.current === initialDestinationKey) return;
+
+    initialDestinationHandledRef.current = initialDestinationKey;
+
+    if (!destination) {
+      setSearchQuery(searchText);
+      setSelectionLocked(false);
+      setSearchResults([]);
+      setSearching(true);
+      setLocationPanelOpen(false);
+      setSearchOverlayOpen(false);
+
+      let cancelled = false;
+      const searchCenter = mapCenterRef.current || userLocationRef.current;
+
+      searchLocations(searchText, searchCenter)
+        .then((results) => {
+          if (cancelled) return;
+
+          const result = Array.isArray(results) ? results[0] : null;
+          if (!Number.isFinite(Number(result?.lat)) || !Number.isFinite(Number(result?.lng))) {
+            setSearchResults([]);
+            setSearchOverlayOpen(true);
+            return;
+          }
+
+          const resolvedDestination = {
+            ...result,
+            id: result.id || `destination-${result.lat}-${result.lng}`,
+            type: initialDestination?.type || "destination",
+            name: result.name || searchText,
+            category: initialDestination?.category || "Destination",
+            address: result.address || result.name || searchText,
+            distance: initialDestination?.distance || "Resolved from Area View search",
+            status: initialDestination?.status || "verified",
+            description: initialDestination?.description || "Selected destination from KunThai transport.",
+          };
+
+          setActiveLocation(resolvedDestination);
+          setSearchQuery(resolvedDestination.name);
+          setSelectionLocked(true);
+          setSearchResults([]);
+          setLocationPanelOpen(false);
+          setSearchOverlayOpen(false);
+          if (autoRoute) setSelectedSearchLocation(resolvedDestination);
+
+          saveSearchHistory({ query: searchText, result: resolvedDestination, selected: true }).then(() => {
+            getRecentSearchHistory().then(setRecentSearches);
+          });
+
+          mapInstance?.flyTo({
+            center: [resolvedDestination.lng, resolvedDestination.lat],
+            zoom: 15.5,
+            essential: true,
+          });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSearchResults([]);
+          setSearchOverlayOpen(true);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
 
     setActiveLocation(destination);
     setSearchQuery(destination.name);
@@ -196,14 +457,17 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
 
   useEffect(() => {
     let mounted = true;
+
     async function loadLiveAreaData() {
+      const initialWeatherPosition = mapCenterRef.current || userLocationRef.current || null;
+      const areaOptions = { center: initialWeatherPosition, radiusKm: LIVE_AREA_RADIUS_KM };
       const [locations, operators, reports, traffic, history, weather] = await Promise.all([
-        getApprovedNearbyLocations(),
-        getActiveTransportOperators(),
-        getActiveAreaReports(),
-        getActiveTrafficSnapshots(),
+        getApprovedNearbyLocations(areaOptions),
+        getActiveTransportOperators(areaOptions),
+        getActiveAreaReports(areaOptions),
+        getActiveTrafficSnapshots(areaOptions),
         getRecentSearchHistory(),
-        getNearbyWeatherCache(weatherPosition),
+        getWeatherCacheNearArea(initialWeatherPosition),
       ]);
 
       if (!mounted) return;
@@ -213,65 +477,154 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       setTrafficSnapshots(traffic);
       setRecentSearches(history);
       setWeatherCache(weather);
+      weatherPositionRef.current = initialWeatherPosition;
+      liveAreaPositionRef.current = initialWeatherPosition;
+      lastLiveAreaRefreshAtRef.current = Date.now();
+      lastWeatherRefreshAtRef.current = Date.now();
     }
 
     loadLiveAreaData();
 
     const unsubscribe = subscribeToAreaViewLiveData({
-      weatherPosition,
       onLocations: (locations) => mounted && setLiveLocations(locations),
       onOperators: (operators) => mounted && setLiveOperators(operators),
       onReports: (reports) => mounted && setLiveReports(reports),
       onTraffic: (traffic) => mounted && setTrafficSnapshots(traffic),
       onWeather: (weather) => mounted && setWeatherCache(weather),
+      getArea: () => ({
+        center: mapCenterRef.current || userLocationRef.current || liveAreaPositionRef.current,
+        radiusKm: LIVE_AREA_RADIUS_KM,
+      }),
     });
 
     return () => {
       mounted = false;
       unsubscribe?.();
     };
-  }, [weatherPosition, weatherPositionKey]);
+  }, []);
 
   useEffect(() => {
+    const expiryTimer = window.setInterval(() => {
+      setLiveReports((items) => items.filter((item) => isFutureOrMissing(item.expiresAt)));
+      setTrafficSnapshots((items) => items.filter((item) => isFutureOrMissing(item.expiresAt)));
+    }, 60000);
+
+    return () => window.clearInterval(expiryTimer);
+  }, []);
+
+  useEffect(() => {
+    const nextPosition = normalizePosition(mapCenter);
+    if (!nextPosition) return;
+
+    const previousWeatherPosition = weatherPositionRef.current;
+    const movedMeters = distanceInMeters(previousWeatherPosition, nextPosition);
+    const now = Date.now();
+    const recentlyRefreshed = now - lastWeatherRefreshAtRef.current < WEATHER_REFRESH_MS;
+    const previousLiveAreaPosition = liveAreaPositionRef.current;
+    const liveAreaMovedMeters = distanceInMeters(previousLiveAreaPosition, nextPosition);
+    const liveAreaRefreshDue = now - lastLiveAreaRefreshAtRef.current >= LIVE_AREA_REFRESH_MS;
+    const shouldRefreshLiveArea =
+      !previousLiveAreaPosition || liveAreaMovedMeters >= LIVE_AREA_REFRESH_METERS || liveAreaRefreshDue;
+
+    if (shouldRefreshLiveArea && !liveAreaRefreshTimerRef.current) {
+      liveAreaRefreshTimerRef.current = window.setTimeout(async () => {
+        const areaOptions = { center: nextPosition, radiusKm: LIVE_AREA_RADIUS_KM };
+        const [locations, operators, reports, traffic] = await Promise.all([
+          getApprovedNearbyLocations(areaOptions),
+          getActiveTransportOperators(areaOptions),
+          getActiveAreaReports(areaOptions),
+          getActiveTrafficSnapshots(areaOptions),
+        ]);
+
+        setLiveLocations(locations);
+        setLiveOperators(operators);
+        setLiveReports(reports);
+        setTrafficSnapshots(traffic);
+        liveAreaPositionRef.current = nextPosition;
+        lastLiveAreaRefreshAtRef.current = Date.now();
+        liveAreaRefreshTimerRef.current = null;
+      }, 1200);
+    }
+
+    if (previousWeatherPosition && movedMeters < WEATHER_REFRESH_METERS && recentlyRefreshed) return;
+
+    if (weatherRefreshTimerRef.current) {
+      window.clearTimeout(weatherRefreshTimerRef.current);
+    }
+
+    weatherRefreshTimerRef.current = window.setTimeout(async () => {
+      const weather = await getWeatherCacheNearArea(nextPosition);
+      setWeatherCache(weather);
+      weatherPositionRef.current = nextPosition;
+      lastWeatherRefreshAtRef.current = Date.now();
+      weatherRefreshTimerRef.current = null;
+    }, WEATHER_REFRESH_DEBOUNCE_MS);
+
+    return () => {
+      if (weatherRefreshTimerRef.current) {
+        window.clearTimeout(weatherRefreshTimerRef.current);
+        weatherRefreshTimerRef.current = null;
+      }
+    };
+  }, [mapCenter]);
+
+  useEffect(() => {
+    const requestId = searchRequestRef.current + 1;
+    searchRequestRef.current = requestId;
+
     const timeout = window.setTimeout(async () => {
+      if (!searchOverlayOpen) {
+        if (searchRequestRef.current === requestId) setSearching(false);
+        return;
+      }
+
       if (selectionLocked) {
-        setSearchResults([]);
-        setSearching(false);
+        if (searchRequestRef.current === requestId) {
+          setSearchResults([]);
+          setSearching(false);
+        }
         return;
       }
 
       const text = searchQuery.trim();
 
       if (text.length < 2) {
-        setSearchResults([]);
-        setSearching(false);
+        if (searchRequestRef.current === requestId) {
+          setSearchResults([]);
+          setSearching(false);
+        }
         return;
       }
 
       setSearching(true);
 
       try {
-        const results = await searchLocations(text, mapCenter);
+        const searchCenter = mapCenterRef.current || userLocationRef.current;
+        const results = await searchLocations(text, searchCenter);
+        if (searchRequestRef.current !== requestId) return;
         setSearchResults(results || []);
       } catch {
+        if (searchRequestRef.current !== requestId) return;
         setSearchResults([]);
       } finally {
-        setSearching(false);
+        if (searchRequestRef.current === requestId) {
+          setSearching(false);
+        }
       }
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [searchQuery, mapCenter, selectionLocked]);
+  }, [searchOverlayOpen, searchQuery, selectionLocked]);
 
-  function openAddLocation() {
+  const openAddLocation = useCallback(() => {
     setLocationPanelOpen(false);
     setAdding(true);
-  }
+  }, []);
 
-  function handleUseCurrentArea() {
+  const handleUseCurrentArea = useCallback(() => {
     setFocusMode(false);
     setRecenterSignal((value) => value + 1);
-  }
+  }, []);
 
   async function openEmergencyMode() {
     const requestId = sosDetectionRequestRef.current + 1;
@@ -285,7 +638,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       return;
     }
 
-    const position = userLocation || mapCenter;
+    const position = userLocationRef.current || mapCenterRef.current || userLocation || mapCenter;
     if (position?.lat == null || position?.lng == null) {
       setDetectedCountryCode(SOS_FALLBACK_COUNTRY);
       setDetectingSosCountry(false);
@@ -306,7 +659,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     setDetectingSosCountry(false);
   }
 
-  function handleEmergencyNearbySearch(type) {
+  const handleEmergencyNearbySearch = useCallback((type) => {
     const searchMap = {
       hospital: "hospital near me",
       police: "police station near me",
@@ -322,7 +675,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     setSearching(false);
     setSearchQuery(query);
     setSearchOverlayOpen(true);
-  }
+  }, []);
 
   function handleEmergencySheetClose() {
     sosDetectionRequestRef.current += 1;
@@ -332,8 +685,8 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     }
   }
 
-  function handleSelectSearchResult(result) {
-    saveNearbySearchHistory({ query: searchQuery || result.name, result, selected: true }).then(() => {
+  const handleSelectSearchResult = useCallback((result) => {
+    saveSearchHistory({ query: searchQuery || result.name, result, selected: true }).then(() => {
       getRecentSearchHistory().then(setRecentSearches);
     });
     setSelectionLocked(true);
@@ -351,9 +704,17 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       zoom: 15.5,
       essential: true,
     });
-  }
+  }, [mapInstance, searchQuery]);
 
-  function handleSelectLiveLocation(location) {
+  const handleDeleteRecentSearch = useCallback(async (historyId) => {
+    setRecentSearches((items) => items.filter((item) => item.id !== historyId));
+    const deleted = await deleteNearbySearchHistory(historyId);
+    if (!deleted) {
+      getRecentSearchHistory().then(setRecentSearches);
+    }
+  }, []);
+
+  const handleSelectLiveLocation = useCallback((location) => {
     setActiveLocation(location);
     setLocationPanelOpen(true);
     setSelectedSearchLocation(location);
@@ -363,9 +724,9 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       zoom: 15.5,
       essential: true,
     });
-  }
+  }, [mapInstance]);
 
-  function handleSelectReport(report) {
+  const handleSelectReport = useCallback((report) => {
     setActiveLocation({
       id: report.id,
       name: report.title,
@@ -378,7 +739,12 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       lng: report.lng,
     });
     setLocationPanelOpen(true);
-  }
+  }, []);
+
+  const handlePinnedLocationSelect = useCallback((location) => {
+    setActiveLocation(location);
+    setLocationPanelOpen(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -391,7 +757,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           operatorLocations={operatorLocations}
           nearbyMapLocations={filteredMapLocations}
           reportLocations={liveReports}
-          trafficSnapshots={trafficSnapshots}
+          trafficSnapshots={smartTrafficSnapshots}
           weatherCache={weatherCache}
           onMapLocationSelect={handleSelectLiveLocation}
           onReportSelect={handleSelectReport}
@@ -404,17 +770,14 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
                   key={location.id}
                   location={location}
                   active={activeLocation?.id === location.id}
-                  onClick={() => {
-                    setActiveLocation(location);
-                    setLocationPanelOpen(true);
-                  }}
+                  onSelect={handlePinnedLocationSelect}
                 />
               ))}
           </div>
         </NearbyAreaMap>
 
-        <header className="absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
-          <div className="flex items-center gap-2 sm:gap-3">
+        <header className="pointer-events-none absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
+          <div className="pointer-events-auto flex items-center gap-2 sm:gap-3">
             <AppBackTab
               onBack={() => {
                 if (mapLocked) return;
@@ -472,7 +835,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           </div>
 
           {!focusMode && (
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <div className="pointer-events-auto mt-3 flex gap-2 overflow-x-auto pb-1">
               {locationCategories.map((category) => (
                 <button
                   key={category}
@@ -543,6 +906,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
             onSelect={handleSelectSearchResult}
             onUseCurrentLocation={handleUseCurrentArea}
             recentSearches={recentSearches}
+            onDeleteRecentSearch={handleDeleteRecentSearch}
           />
         )}
 
@@ -569,6 +933,7 @@ function SearchOverlay({
   onSelect,
   onUseCurrentLocation,
   recentSearches = [],
+  onDeleteRecentSearch,
 }) {
   return (
     <div className="fixed inset-0 z-[1400] bg-slate-950/70 backdrop-blur-sm">
@@ -613,36 +978,50 @@ function SearchOverlay({
             <section className="mb-3 rounded-3xl bg-slate-50 p-3">
               <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Recent searches</p>
               <div className="grid gap-2">
-                {recentSearches.slice(0, 5).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() =>
-                      onSelect({
-                        id: item.id,
-                        name: item.place_name || item.search_text,
-                        address: item.place_address,
-                        category: item.category,
-                        lat: item.lat,
-                        lng: item.lng,
-                      })
-                    }
-                    disabled={item.lat == null || item.lng == null}
-                    className="flex w-full items-center gap-3 rounded-2xl bg-white px-3 py-3 text-left disabled:opacity-50"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
-                      <FiSearch size={16} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-black text-slate-950">
-                        {item.place_name || item.search_text}
-                      </span>
-                      <span className="block truncate text-xs font-bold text-slate-500">
-                        {item.place_address || "Recent Area View search"}
-                      </span>
-                    </span>
-                  </button>
-                ))}
+                {recentSearches.slice(0, 5).map((item) => {
+                  const label = item.place_name || item.search_text;
+
+                  return (
+                    <div key={item.id} className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onSelect({
+                            id: item.id,
+                            name: label,
+                            address: item.place_address,
+                            category: item.category,
+                            lat: item.lat,
+                            lng: item.lng,
+                          })
+                        }
+                        disabled={item.lat == null || item.lng == null}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-50"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+                          <FiSearch size={16} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-black text-slate-950">
+                            {label}
+                          </span>
+                          <span className="block truncate text-xs font-bold text-slate-500">
+                            {item.place_address || "Recent Area View search"}
+                          </span>
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onDeleteRecentSearch?.(item.id)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Delete ${label} from recent searches`}
+                      >
+                        <FiX size={17} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ) : null}
@@ -708,7 +1087,7 @@ function SearchOverlay({
   );
 }
 
-function MapPinButton({ location, active, onClick }) {
+const MapPinButton = memo(function MapPinButton({ location, active, onSelect }) {
   if (!location?.position) return null;
 
   const isEmergency = location.category === "Emergency";
@@ -716,7 +1095,7 @@ function MapPinButton({ location, active, onClick }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => onSelect(location)}
       className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 p-2 shadow-lg transition duration-200 hover:scale-105 ${
         active ? "scale-110 border-white bg-green-600" : "border-white/80 bg-slate-900"
       } ${isEmergency ? "text-red-300" : "text-white"}`}
@@ -726,7 +1105,7 @@ function MapPinButton({ location, active, onClick }) {
       {isEmergency ? <FiAlertTriangle size={18} /> : <FiMapPin size={18} />}
     </button>
   );
-}
+});
 function LocationPanel({ activeLocation, open, onClose, onAddLocation }) {
   const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
 

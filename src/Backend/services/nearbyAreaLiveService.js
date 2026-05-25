@@ -2,16 +2,18 @@ import supabase from "../lib/supabaseClient";
 
 const OPERATOR_STALE_MINUTES = 10;
 const ACTIVE_OPERATOR_WINDOW_MS = OPERATOR_STALE_MINUTES * 60 * 1000;
-const LIVE_REFRESH_DEBOUNCE_MS = 450;
+const LIVE_REFRESH_DEBOUNCE_MS = 650;
+const DEFAULT_AREA_RADIUS_KM = 25;
+const MAX_AREA_RADIUS_KM = 60;
 
 const TRANSPORT_TYPES = new Set(["bike", "keke", "car", "van"]);
 const TRAFFIC_STATUSES = new Set(["green", "yellow", "red"]);
 const ACTIVE_REPORT_TYPES = new Set([
+  "traffic",
   "accident",
   "road_block",
-  "flooding",
   "police_checkpoint",
-  "traffic",
+  "flooding",
   "bad_road",
   "danger",
   "emergency",
@@ -45,6 +47,67 @@ function getLatLng(row) {
   return { lat, lng };
 }
 
+function normalizeAreaOptions(options = {}) {
+  const area = typeof options === "function" ? options() : options;
+  const center = area?.center || area?.position || area;
+  const lat = toNumber(center?.lat);
+  const lng = toNumber(center?.lng);
+
+  if (lat == null || lng == null) {
+    return {
+      bounds: null,
+      limit: Number(area?.limit || options?.limit || 120),
+    };
+  }
+
+  const requestedRadius =
+    toNumber(area?.radiusKm) ??
+    (toNumber(area?.radiusMeters) != null ? toNumber(area.radiusMeters) / 1000 : null) ??
+    DEFAULT_AREA_RADIUS_KM;
+  const radiusKm = Math.min(MAX_AREA_RADIUS_KM, Math.max(1, requestedRadius));
+  const latDelta = radiusKm / 111.32;
+  const lngDelta = radiusKm / Math.max(38, 111.32 * Math.cos((lat * Math.PI) / 180));
+
+  return {
+    bounds: {
+      minLat: lat - latDelta,
+      maxLat: lat + latDelta,
+      minLng: lng - lngDelta,
+      maxLng: lng + lngDelta,
+    },
+    limit: Number(area?.limit || options?.limit || 120),
+  };
+}
+
+function applyLatLngBounds(query, bounds) {
+  if (!bounds) return query;
+  return query
+    .gte("lat", bounds.minLat)
+    .lte("lat", bounds.maxLat)
+    .gte("lng", bounds.minLng)
+    .lte("lng", bounds.maxLng);
+}
+
+async function executeBoundedQuery(createQuery, options = {}) {
+  const { bounds } = normalizeAreaOptions(options);
+
+  try {
+    const bounded = await createQuery(bounds);
+    if (!bounded.error) return bounded.data || [];
+
+    const missingCoordinateColumn =
+      bounded.error.code === "42703" &&
+      /lat|lng|latitude|longitude/i.test(bounded.error.message || "");
+
+    if (!missingCoordinateColumn || !bounds) throw bounded.error;
+  } catch (error) {
+    if (!bounds) return [];
+  }
+
+  const fallback = await createQuery(null);
+  return fallback.error ? [] : fallback.data || [];
+}
+
 function normalizeTransportType(value) {
   const type = String(value || "bike").toLowerCase().trim();
 
@@ -75,19 +138,18 @@ function normalizeOperator(row) {
   if (!row || !point || !isFreshOperator(row)) return null;
 
   const type = normalizeTransportType(row.transport_type || row.type || row.vehicle_type);
-  if (!TRANSPORT_TYPES.has(type)) return null;
 
   return {
     id: String(row.operator_id || row.id),
     operatorId: row.operator_id || row.id,
-    name: row.display_name || row.name || "Nearby operator",
+    name: row.display_name || row.name || row.full_name || "Nearby operator",
     type,
-    available: row.available !== false,
+    available: row.available !== false && row.is_available !== false,
     status: row.status || "online",
     lat: point.lat,
     lng: point.lng,
     heading: toNumber(row.heading),
-    speedMps: toNumber(row.speed_mps),
+    speedMps: toNumber(row.speed_mps ?? row.speed),
     accuracyMeters: toNumber(row.accuracy_meters),
     batteryPercent: toNumber(row.battery_percent),
     lastSeenAt: row.last_seen_at || row.updated_at || row.created_at,
@@ -101,10 +163,10 @@ function normalizeNearbyLocation(row) {
 
   return {
     id: String(row.id),
-    name: row.name || "Nearby location",
+    name: row.name || row.place_name || "Nearby location",
     category: normalizeLocationCategory(row.category),
     type: row.type || row.category || "Nearby place",
-    status: row.status === "approved" ? "verified" : row.status || "community",
+    status: "verified",
     visibility: row.visibility || "public",
     description: row.description || row.landmark || row.address || "Approved KunThai Area View location.",
     distance: row.address || row.landmark || "Live location",
@@ -122,11 +184,11 @@ function getReportTitle(type, title) {
   if (title) return title;
 
   const labels = {
+    traffic: "Traffic congestion",
     accident: "Accident reported",
     road_block: "Road block ahead",
-    flooding: "Flooding warning",
     police_checkpoint: "Police checkpoint",
-    traffic: "Traffic congestion",
+    flooding: "Flooding warning",
     bad_road: "Bad road warning",
     danger: "Road danger",
     emergency: "Emergency report",
@@ -137,8 +199,7 @@ function getReportTitle(type, title) {
 
 function normalizeReport(row) {
   const point = getLatLng(row);
-  if (!row || !point) return null;
-  if (isExpired(row.expires_at)) return null;
+  if (!row || !point || isExpired(row.expires_at)) return null;
 
   const type = String(row.report_type || row.type || "traffic").toLowerCase();
   if (!ACTIVE_REPORT_TYPES.has(type)) return null;
@@ -148,22 +209,25 @@ function normalizeReport(row) {
     type,
     title: getReportTitle(type, row.title),
     description: row.description || row.message || "",
-    severity: row.severity || "medium",
+    severity: String(row.severity || "medium").toLowerCase(),
     status: row.status || "verified",
+    verified: row.verified !== false,
     lat: point.lat,
     lng: point.lng,
     roadName: row.road_name || row.roadName || row.area_name || "",
+    areaName: row.area_name || row.areaName || "",
     expiresAt: row.expires_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
     raw: row,
   };
 }
 
 function normalizeTrafficSnapshot(row) {
   const point = getLatLng(row);
-  if (!row || !point) return null;
-  if (isExpired(row.expires_at)) return null;
+  if (!row || !point || isExpired(row.expires_at)) return null;
 
-  const status = String(row.status || "green").toLowerCase();
+  const status = String(row.status || row.traffic_status || "green").toLowerCase();
 
   return {
     id: String(row.id),
@@ -176,8 +240,9 @@ function normalizeTrafficSnapshot(row) {
     confidenceScore: toNumber(row.confidence_score) ?? 0.5,
     lat: point.lat,
     lng: point.lng,
-    radiusMeters: toNumber(row.radius_meters) || 500,
+    radiusMeters: toNumber(row.radius_meters) || 420,
     expiresAt: row.expires_at,
+    updatedAt: row.updated_at,
     raw: row,
   };
 }
@@ -187,7 +252,7 @@ function normalizeWeatherCache(row) {
   const point = getLatLng(row) || {};
 
   return {
-    id: String(row.id || row.area_key),
+    id: String(row.id || row.area_key || row.area_name || "weather-cache"),
     areaKey: row.area_key || "",
     areaName: row.area_name || "Nearby area",
     lat: point.lat ?? null,
@@ -222,90 +287,95 @@ function distanceInMeters(pointA, pointB) {
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function dedupeById(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    if (!item?.id || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
 async function getCurrentUserId() {
   try {
-    const { data, error } = await supabase.auth.getUser();
-    if (error) return "";
+    const { data } = await supabase.auth.getUser();
     return data?.user?.id || "";
   } catch {
     return "";
   }
 }
 
-export async function getApprovedNearbyLocations() {
-  try {
-    const { data, error } = await supabase
+export async function getApprovedNearbyLocations(options = {}) {
+  const { limit } = normalizeAreaOptions(options);
+  const rows = await executeBoundedQuery((bounds) => {
+    let query = supabase
       .from("nearby_area_locations")
       .select("*")
       .eq("status", "approved")
       .eq("visibility", "public")
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .limit(limit);
 
-    if (error) throw error;
+    query = applyLatLngBounds(query, bounds);
+    return query;
+  }, options);
 
-    return (data || []).map(normalizeNearbyLocation).filter(Boolean);
-  } catch (error) {
-    console.error("getApprovedNearbyLocations", error);
-    return [];
-  }
+  return dedupeById(rows.map(normalizeNearbyLocation).filter(Boolean));
 }
 
-export async function getActiveTransportOperators() {
-  try {
-    const staleCutoff = new Date(Date.now() - ACTIVE_OPERATOR_WINDOW_MS).toISOString();
-    const { data, error } = await supabase
+export async function getLiveOperators(options = {}) {
+  const { limit } = normalizeAreaOptions(options);
+  const staleCutoff = new Date(Date.now() - ACTIVE_OPERATOR_WINDOW_MS).toISOString();
+  const rows = await executeBoundedQuery((bounds) => {
+    let query = supabase
       .from("transport_operator_locations")
       .select("*")
-      .eq("available", true)
-      .in("status", ["online", "busy"])
       .gte("last_seen_at", staleCutoff)
-      .order("last_seen_at", { ascending: false });
+      .order("last_seen_at", { ascending: false })
+      .limit(limit);
 
-    if (error) throw error;
+    query = applyLatLngBounds(query, bounds);
+    return query;
+  }, options);
 
-    return (data || []).map(normalizeOperator).filter(Boolean);
-  } catch (error) {
-    console.error("getActiveTransportOperators", error);
-    return [];
-  }
+  return dedupeById(rows.map(normalizeOperator).filter(Boolean));
 }
 
-export async function getActiveAreaReports() {
-  try {
-    const { data, error } = await supabase
+export async function getNearbyReports(options = {}) {
+  const { limit } = normalizeAreaOptions(options);
+  const rows = await executeBoundedQuery((bounds) => {
+    let query = supabase
       .from("nearby_area_reports")
       .select("*")
-      .in("status", ["verified", "submitted"])
+      .in("status", ["verified", "submitted", "active"])
       .order("created_at", { ascending: false })
-      .limit(80);
+      .limit(limit);
 
-    if (error) throw error;
+    query = applyLatLngBounds(query, bounds);
+    return query;
+  }, options);
 
-    return (data || []).map(normalizeReport).filter(Boolean);
-  } catch (error) {
-    console.error("getActiveAreaReports", error);
-    return [];
-  }
+  return dedupeById(rows.map(normalizeReport).filter(Boolean));
 }
 
-export async function getActiveTrafficSnapshots() {
-  try {
-    const { data, error } = await supabase
+export async function getTrafficSnapshots(options = {}) {
+  const { limit } = normalizeAreaOptions(options);
+  const rows = await executeBoundedQuery((bounds) => {
+    let query = supabase
       .from("nearby_area_traffic_snapshots")
       .select("*")
+      .gt("expires_at", new Date().toISOString())
       .order("updated_at", { ascending: false })
-      .limit(80);
+      .limit(limit);
 
-    if (error) throw error;
+    query = applyLatLngBounds(query, bounds);
+    return query;
+  }, options);
 
-    return (data || []).map(normalizeTrafficSnapshot).filter(Boolean);
-  } catch (error) {
-    console.error("getActiveTrafficSnapshots", error);
-    return [];
-  }
+  return dedupeById(rows.map(normalizeTrafficSnapshot).filter(Boolean));
 }
 
-export async function getNearbyWeatherCache(position = null) {
+export async function getWeatherCacheNearArea(position = null) {
   try {
     const { data, error } = await supabase
       .from("nearby_area_weather_cache")
@@ -314,21 +384,24 @@ export async function getNearbyWeatherCache(position = null) {
       .order("fetched_at", { ascending: false })
       .limit(25);
 
-    if (error) throw error;
+    if (error) return null;
 
     const weatherItems = (data || []).map(normalizeWeatherCache).filter(Boolean);
     if (!position?.lat || !position?.lng) return weatherItems[0] || null;
 
-    return weatherItems
-      .map((item) => ({ item, distance: distanceInMeters(position, item) }))
-      .sort((a, b) => a.distance - b.distance)[0]?.item || weatherItems[0] || null;
-  } catch (error) {
-    console.error("getNearbyWeatherCache", error);
+    return (
+      weatherItems
+        .map((item) => ({ item, distance: distanceInMeters(position, item) }))
+        .sort((a, b) => a.distance - b.distance)[0]?.item ||
+      weatherItems[0] ||
+      null
+    );
+  } catch {
     return null;
   }
 }
 
-export async function getRecentSearchHistory() {
+export async function getRecentSearchHistory(limit = 12) {
   const userId = await getCurrentUserId();
   if (!userId) return [];
 
@@ -339,24 +412,25 @@ export async function getRecentSearchHistory() {
       .eq("user_id", userId)
       .eq("selected", true)
       .order("searched_at", { ascending: false })
-      .limit(12);
+      .limit(limit);
 
-    if (error) throw error;
+    if (error) return [];
 
     const seen = new Set();
     return (data || []).filter((item) => {
       const key = `${item.place_name || item.search_text}|${item.lat}|${item.lng}`;
       if (seen.has(key)) return false;
       seen.add(key);
+      item.lat = toNumber(item.lat);
+      item.lng = toNumber(item.lng);
       return true;
     });
-  } catch (error) {
-    console.error("getRecentSearchHistory", error);
+  } catch {
     return [];
   }
 }
 
-export async function saveNearbySearchHistory({ query, result, selected = true }) {
+export async function saveSearchHistory({ query, result, selected = true }) {
   const userId = await getCurrentUserId();
   const searchText = String(query || result?.name || "").trim();
 
@@ -385,11 +459,26 @@ export async function saveNearbySearchHistory({ query, result, selected = true }
       .select()
       .maybeSingle();
 
-    if (error) throw error;
-    return data || null;
-  } catch (error) {
-    console.error("saveNearbySearchHistory", error);
+    return error ? null : data || null;
+  } catch {
     return null;
+  }
+}
+
+export async function deleteNearbySearchHistory(historyId) {
+  const userId = await getCurrentUserId();
+  if (!userId || !historyId) return false;
+
+  try {
+    const { error } = await supabase
+      .from("nearby_area_search_history")
+      .delete()
+      .eq("id", historyId)
+      .eq("user_id", userId);
+
+    return !error;
+  } catch {
+    return false;
   }
 }
 
@@ -402,38 +491,20 @@ function scheduleLiveRefresh(timers, key, refresh) {
   }, LIVE_REFRESH_DEBOUNCE_MS);
 }
 
-export function subscribeToAreaViewLiveData({
-  onLocations,
-  onOperators,
-  onReports,
-  onTraffic,
-  onWeather,
-  weatherPosition = null,
-} = {}) {
+function getRuntimeOptions({ area, getArea, weatherPosition } = {}) {
+  const runtimeArea = typeof getArea === "function" ? getArea() : area;
+  return runtimeArea || { center: weatherPosition || null, radiusKm: DEFAULT_AREA_RADIUS_KM };
+}
+
+function subscribeToTable({ table, key, fetcher, callback, area, getArea }) {
+  if (!callback) return () => {};
+
   const timers = {};
-
-  const refreshLocations = () => getApprovedNearbyLocations().then((items) => onLocations?.(items));
-  const refreshOperators = () => getActiveTransportOperators().then((items) => onOperators?.(items));
-  const refreshReports = () => getActiveAreaReports().then((items) => onReports?.(items));
-  const refreshTraffic = () => getActiveTrafficSnapshots().then((items) => onTraffic?.(items));
-  const refreshWeather = () => getNearbyWeatherCache(weatherPosition).then((item) => onWeather?.(item));
-
+  const refresh = () => fetcher(getRuntimeOptions({ area, getArea })).then((items) => callback(items));
   const channel = supabase
-    .channel(`area-view-live-${Math.random().toString(36).slice(2)}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_locations" }, () => {
-      scheduleLiveRefresh(timers, "locations", refreshLocations);
-    })
-    .on("postgres_changes", { event: "*", schema: "public", table: "transport_operator_locations" }, () => {
-      scheduleLiveRefresh(timers, "operators", refreshOperators);
-    })
-    .on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_reports" }, () => {
-      scheduleLiveRefresh(timers, "reports", refreshReports);
-    })
-    .on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_traffic_snapshots" }, () => {
-      scheduleLiveRefresh(timers, "traffic", refreshTraffic);
-    })
-    .on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_weather_cache" }, () => {
-      scheduleLiveRefresh(timers, "weather", refreshWeather);
+    .channel(`area-view-${key}-${Math.random().toString(36).slice(2)}`)
+    .on("postgres_changes", { event: "*", schema: "public", table }, () => {
+      scheduleLiveRefresh(timers, key, refresh);
     })
     .subscribe();
 
@@ -445,19 +516,98 @@ export function subscribeToAreaViewLiveData({
   };
 }
 
-export const getLiveOperators = getActiveTransportOperators;
-export const getTrafficSnapshots = getActiveTrafficSnapshots;
-export const getNearbyReports = getActiveAreaReports;
-export const saveSearchHistory = saveNearbySearchHistory;
+export function subscribeToAreaViewLiveData({
+  onLocations,
+  onOperators,
+  onReports,
+  onTraffic,
+  onWeather,
+  weatherPosition = null,
+  area = null,
+  getArea = null,
+} = {}) {
+  const timers = {};
+  const runtime = () => getRuntimeOptions({ area, getArea, weatherPosition });
+  const refreshLocations = () => getApprovedNearbyLocations(runtime()).then((items) => onLocations?.(items));
+  const refreshOperators = () => getLiveOperators(runtime()).then((items) => onOperators?.(items));
+  const refreshReports = () => getNearbyReports(runtime()).then((items) => onReports?.(items));
+  const refreshTraffic = () => getTrafficSnapshots(runtime()).then((items) => onTraffic?.(items));
+  const refreshWeather = () => getWeatherCacheNearArea(weatherPosition).then((item) => onWeather?.(item));
 
-export function subscribeToOperators(callback) {
-  return subscribeToAreaViewLiveData({ onOperators: callback });
+  let channel = supabase.channel(`area-view-live-${Math.random().toString(36).slice(2)}`);
+
+  if (onLocations) {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_locations" }, () => {
+      scheduleLiveRefresh(timers, "locations", refreshLocations);
+    });
+  }
+
+  if (onOperators) {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: "transport_operator_locations" }, () => {
+      scheduleLiveRefresh(timers, "operators", refreshOperators);
+    });
+  }
+
+  if (onReports) {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_reports" }, () => {
+      scheduleLiveRefresh(timers, "reports", refreshReports);
+    });
+  }
+
+  if (onTraffic) {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_traffic_snapshots" }, () => {
+      scheduleLiveRefresh(timers, "traffic", refreshTraffic);
+    });
+  }
+
+  if (onWeather) {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_weather_cache" }, () => {
+      scheduleLiveRefresh(timers, "weather", refreshWeather);
+    });
+  }
+
+  channel.subscribe();
+
+  return () => {
+    Object.values(timers).forEach((timer) => {
+      if (timer) window.clearTimeout(timer);
+    });
+    supabase.removeChannel(channel);
+  };
 }
 
-export function subscribeToTraffic(callback) {
-  return subscribeToAreaViewLiveData({ onTraffic: callback });
+export function subscribeToOperators(callback, options = {}) {
+  return subscribeToTable({
+    table: "transport_operator_locations",
+    key: "operators",
+    fetcher: getLiveOperators,
+    callback,
+    ...options,
+  });
 }
 
-export function subscribeToReports(callback) {
-  return subscribeToAreaViewLiveData({ onReports: callback });
+export function subscribeToReports(callback, options = {}) {
+  return subscribeToTable({
+    table: "nearby_area_reports",
+    key: "reports",
+    fetcher: getNearbyReports,
+    callback,
+    ...options,
+  });
 }
+
+export function subscribeToTraffic(callback, options = {}) {
+  return subscribeToTable({
+    table: "nearby_area_traffic_snapshots",
+    key: "traffic",
+    fetcher: getTrafficSnapshots,
+    callback,
+    ...options,
+  });
+}
+
+export const getActiveTransportOperators = getLiveOperators;
+export const getActiveAreaReports = getNearbyReports;
+export const getActiveTrafficSnapshots = getTrafficSnapshots;
+export const getNearbyWeatherCache = getWeatherCacheNearArea;
+export const saveNearbySearchHistory = saveSearchHistory;

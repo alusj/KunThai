@@ -19,6 +19,7 @@ import BusinessStats from "../../../../BusinessStats/BusinessStats";
 import CustomerCare from "../../../../CustomerCare/CustomerCare";
 import SellerArticlePage from "../SellerArticlePage";
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
+import SellerSubPagePanel from "../SellerSubPagePanel";
 import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import DeliverySettings from "./pages/DeliverySettings";
 import DisputesReports from "./pages/DisputesReports";
@@ -190,75 +191,51 @@ export default function SellerBoard({ onBack }) {
         </section>
       </div>
 
-      {currentView === "verification" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <VerificationCenter onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "orders" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <BoardShell title="Orders" onBack={() => setCurrentView("menu")}>
-            <BusinessStats initialView="orders" />
-          </BoardShell>
-        </div>
-      ) : null}
-
-      {currentView === "messages" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <BoardShell title="Messages & Customer Care" onBack={() => setCurrentView("menu")}>
-            <CustomerCare />
-          </BoardShell>
-        </div>
-      ) : null}
-
-      {currentView === "products" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <BoardShell title="Product Management" onBack={() => setCurrentView("menu")}>
-            <BusinessCatalog mode="store" />
-          </BoardShell>
-        </div>
-      ) : null}
-
-      {currentView === "delivery" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <DeliverySettings onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "promotions" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <BoardShell title="Promotions" onBack={() => setCurrentView("menu")}>
-            <BusinessPromotions />
-          </BoardShell>
-        </div>
-      ) : null}
-
-      {currentView === "performance" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <BoardShell title="Store Performance" onBack={() => setCurrentView("menu")}>
-            <BusinessInsights />
-          </BoardShell>
-        </div>
-      ) : null}
-
-      {currentView === "reports" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <DisputesReports onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "security" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <AccountRecovery onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "policy" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <SellerPolicyCenter onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
+      <SellerSubPagePanel currentView={currentView}>
+        {(view) => {
+          if (view === "verification") return <VerificationCenter onBack={() => setCurrentView("menu")} />;
+          if (view === "orders") {
+            return (
+              <BoardShell title="Orders" onBack={() => setCurrentView("menu")}>
+                <BusinessStats initialView="orders" />
+              </BoardShell>
+            );
+          }
+          if (view === "messages") {
+            return (
+              <BoardShell title="Messages & Customer Care" onBack={() => setCurrentView("menu")}>
+                <CustomerCare />
+              </BoardShell>
+            );
+          }
+          if (view === "products") {
+            return (
+              <BoardShell title="Product Management" onBack={() => setCurrentView("menu")}>
+                <BusinessCatalog mode="store" />
+              </BoardShell>
+            );
+          }
+          if (view === "delivery") return <DeliverySettings onBack={() => setCurrentView("menu")} />;
+          if (view === "promotions") {
+            return (
+              <BoardShell title="Promotions" onBack={() => setCurrentView("menu")}>
+                <BusinessPromotions />
+              </BoardShell>
+            );
+          }
+          if (view === "performance") {
+            return (
+              <BoardShell title="Store Performance" onBack={() => setCurrentView("menu")}>
+                <BusinessInsights />
+              </BoardShell>
+            );
+          }
+          if (view === "reports") return <DisputesReports onBack={() => setCurrentView("menu")} />;
+          if (view === "security") return <AccountRecovery onBack={() => setCurrentView("menu")} />;
+          if (view === "policy") return <SellerPolicyCenter onBack={() => setCurrentView("menu")} />;
+          return null;
+        }}
+      </SellerSubPagePanel>
     </div>
   );
 }

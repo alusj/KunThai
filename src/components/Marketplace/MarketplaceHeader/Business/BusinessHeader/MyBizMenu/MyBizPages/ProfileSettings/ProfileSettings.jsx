@@ -2,6 +2,7 @@ import { Building2, KeyRound, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
+import SellerSubPagePanel from "../SellerSubPagePanel";
 import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import BusinessInfo from "./BusinessInfo/BusinessInfo";
 import ChangePassword from "./ChangePassword/ChangePassword";
@@ -38,23 +39,14 @@ export default function ProfileSettings({ initialView = "menu", onBack }) {
         />
       </div>
 
-      {currentView === "edit" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <EditProfile onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "business" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <BusinessInfo onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
-
-      {currentView === "password" ? (
-        <div className="absolute inset-0 z-40 overflow-y-auto bg-white">
-          <ChangePassword onBack={() => setCurrentView("menu")} />
-        </div>
-      ) : null}
+      <SellerSubPagePanel currentView={currentView}>
+        {(view) => {
+          if (view === "edit") return <EditProfile onBack={() => setCurrentView("menu")} />;
+          if (view === "business") return <BusinessInfo onBack={() => setCurrentView("menu")} />;
+          if (view === "password") return <ChangePassword onBack={() => setCurrentView("menu")} />;
+          return null;
+        }}
+      </SellerSubPagePanel>
     </div>
   );
 }
