@@ -238,6 +238,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       searchQuery: areaText,
       pickup: pickupText,
       destination: dropoffText,
+      routeMode: bookingMode,
+      passengerName: form.passengerName.trim(),
       fleetId: bookingFleet?.id || selectedFleet?.id || null,
     };
   }

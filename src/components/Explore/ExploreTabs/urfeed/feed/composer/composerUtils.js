@@ -9,6 +9,26 @@ export const MAX_VIDEO_SECONDS = 15;
 let ffmpeg = null;
 let ffmpegLoading = null;
 
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isMobileBrowser() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+}
+
+function getRecordingMimeType() {
+  if (typeof MediaRecorder === "undefined") return "";
+
+  return [
+    "video/mp4;codecs=h264",
+    "video/mp4",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+  ].find((type) => MediaRecorder.isTypeSupported?.(type)) || "";
+}
+
 async function getFFmpeg() {
   if (ffmpeg) return ffmpeg;
   if (ffmpegLoading) return ffmpegLoading;
@@ -62,6 +82,16 @@ export function getVideoDuration(file) {
 }
 
 export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds = MAX_VIDEO_SECONDS) {
+  const shouldTryNativeFirst = isMobileBrowser();
+
+  if (shouldTryNativeFirst) {
+    try {
+      return await trimVideoWithNativeRecorder(file, startSeconds, durationSeconds);
+    } catch (error) {
+      console.warn("[KunThai Native Trim Attempt Failed]", error);
+    }
+  }
+
   try {
     const instance = await getFFmpeg();
 
@@ -124,7 +154,140 @@ export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSec
     });
   } catch (error) {
     console.error("[KunThai FFmpeg Trim Error]", error);
+
+    if (!shouldTryNativeFirst) {
+      try {
+        return await trimVideoWithNativeRecorder(file, startSeconds, durationSeconds);
+      } catch (nativeError) {
+        console.warn("[KunThai Native Trim Attempt Failed]", nativeError);
+      }
+    }
+
     throw new Error("Unable to prepare this video. Please try another clip or choose a shorter video.");
+  }
+}
+
+async function trimVideoWithNativeRecorder(file, startSeconds = 0, durationSeconds = MAX_VIDEO_SECONDS) {
+  if (typeof MediaRecorder === "undefined") {
+    throw new Error("Native video recording is unavailable.");
+  }
+
+  const mimeType = getRecordingMimeType();
+  if (!mimeType) throw new Error("No supported video recording format.");
+
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const safeStart = Math.max(0, Number(startSeconds || 0));
+  const safeDuration = Math.max(1, Math.min(Number(durationSeconds || MAX_VIDEO_SECONDS), MAX_VIDEO_SECONDS));
+  let stream = null;
+  let recorder = null;
+  let frameId = null;
+
+  if (!ctx || typeof canvas.captureStream !== "function") {
+    URL.revokeObjectURL(objectUrl);
+    throw new Error("Video canvas capture is unavailable.");
+  }
+
+  video.src = objectUrl;
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.crossOrigin = "anonymous";
+
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = window.setTimeout(() => reject(new Error("Video metadata timed out.")), 8000);
+      video.onloadedmetadata = () => {
+        window.clearTimeout(timer);
+        resolve();
+      };
+      video.onerror = () => {
+        window.clearTimeout(timer);
+        reject(new Error("Unable to read selected video."));
+      };
+      video.load();
+    });
+
+    canvas.width = Math.min(video.videoWidth || 720, 720);
+    canvas.height = Math.max(2, Math.round(canvas.width * ((video.videoHeight || 720) / (video.videoWidth || 720))));
+
+    video.currentTime = Math.min(safeStart, Math.max(0, (video.duration || safeDuration) - 0.2));
+    await new Promise((resolve) => {
+      const timer = window.setTimeout(resolve, 1200);
+      video.onseeked = () => {
+        window.clearTimeout(timer);
+        resolve();
+      };
+    });
+
+    stream = canvas.captureStream(24);
+    const chunks = [];
+    recorder = new MediaRecorder(stream, { mimeType });
+    const recorded = new Promise((resolve, reject) => {
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size) chunks.push(event.data);
+      };
+      recorder.onerror = () => reject(new Error("Unable to record trimmed video."));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType.split(";")[0] || "video/webm" }));
+    });
+
+    let stopped = false;
+    const startedAt = performance.now();
+    const stopAt = Math.min(video.duration || safeStart + safeDuration, safeStart + safeDuration);
+
+    function drawFrame() {
+      if (stopped) return;
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      } catch {
+        // A skipped frame is better than failing the prepared clip.
+      }
+
+      const elapsedSeconds = (performance.now() - startedAt) / 1000;
+      if (video.currentTime >= stopAt || elapsedSeconds >= safeDuration + 0.35) {
+        stopped = true;
+        video.pause();
+        if (recorder.state !== "inactive") recorder.stop();
+        return;
+      }
+
+      frameId = requestAnimationFrame(drawFrame);
+    }
+
+    recorder.start(250);
+    await video.play();
+    drawFrame();
+    await sleep((safeDuration + 0.6) * 1000);
+    if (!stopped && recorder.state !== "inactive") {
+      stopped = true;
+      video.pause();
+      recorder.stop();
+    }
+
+    const blob = await recorded;
+
+    if (!blob.size) throw new Error("The trimmed video was empty.");
+
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Unable to save trimmed video."));
+      reader.readAsDataURL(blob);
+    });
+  } finally {
+    if (frameId) cancelAnimationFrame(frameId);
+    if (recorder?.state && recorder.state !== "inactive") {
+      try {
+        recorder.stop();
+      } catch {
+        // Recorder may already be stopped.
+      }
+    }
+    stream?.getTracks?.().forEach((track) => track.stop());
+    video.pause();
+    URL.revokeObjectURL(objectUrl);
   }
 }
 

@@ -258,35 +258,27 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         videoName: `trimmed-${fileToTrim.name || "swip-video.webm"}`,
         videoType: trimmedPreview.startsWith("data:video/mp4") ? "video/mp4" : "video/webm",
         videoSize: 0,
-        videoDuration: MAX_VIDEO_SECONDS,
+        videoDuration: Math.min(MAX_VIDEO_SECONDS, Math.max(1, videoDuration - startOverride || MAX_VIDEO_SECONDS)),
+        videoTrimStart: startOverride,
+        videoTrimEnd: startOverride + MAX_VIDEO_SECONDS,
         imageName: "",
         imageType: "",
       }));
+
+      setPendingVideoFile(null);
+      if (pendingVideoUrl) {
+        URL.revokeObjectURL(pendingVideoUrl);
+        setPendingVideoUrl("");
+      }
 
       setFeedback("");
       return trimmedPreview;
     } catch (error) {
       if (trimRequestRef.current === 0) return "";
-
-      const fallbackPreview = await fileToDataUrl(fileToTrim);
-
-setVideoPreview(fallbackPreview);
-setImagePreview("");
-setMediaMeta((current) => ({
-  ...current,
-  videoName: fileToTrim.name || "swip-video.mp4",
-  videoType: fileToTrim.type || "video/mp4",
-  videoSize: fileToTrim.size || 0,
-  videoDuration: MAX_VIDEO_SECONDS,
-  videoTrimStart: startOverride,
-  videoTrimEnd: startOverride + MAX_VIDEO_SECONDS,
-  imageName: "",
-  imageType: "",
-}));
-
-setTrimError("");
-setFeedback("Clip selected. KunThai will play the selected 15 seconds.");
-return fallbackPreview;
+      const message = error.message || "Unable to prepare this clip. Try a shorter section or another video.";
+      setTrimError(message);
+      setFeedback(message);
+      return "";
     } finally {
       setTrimmingVideo(false);
     }
@@ -410,6 +402,7 @@ return fallbackPreview;
     setPostingProgress(0);
     setRecordingPaused(false);
     setRecordingSeconds(0);
+    setOpen(false);
     stopRecordingTimer();
     setPrivacy(privacySettings.defaultPostPrivacy || "public");
     clearDraft();
@@ -428,6 +421,7 @@ return fallbackPreview;
       return;
     }
 
+    try {
     let finalVideoPreview = videoPreview;
 
     if (pendingVideoFile && !finalVideoPreview) {
@@ -456,7 +450,6 @@ return fallbackPreview;
     setFeedback("");
     setPostingStage("preparing");
     setPostingProgress(5);
-    setOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     publishPostingUpdate({
@@ -553,6 +546,14 @@ return fallbackPreview;
     setPostingProgress(0);
     setFeedback(result?.error || "Unable to publish post.");
     publishPostingUpdate({ status: "error", progress: 0, message: result?.error || "Unable to publish post." });
+    } catch (error) {
+      const message = error.message || "Unable to publish this post. Your draft is still here.";
+      setPostingStage("");
+      setPostingProgress(0);
+      setOpen(true);
+      setFeedback(message);
+      publishPostingUpdate({ status: "error", progress: 0, message });
+    }
   }
 
   return (

@@ -133,6 +133,86 @@ function getInitialDestinationSearchText(destination) {
   ).trim();
 }
 
+function getRoutePointText(point) {
+  return String(point?.searchQuery || point?.query || point?.name || point?.label || point?.address || point || "").trim();
+}
+
+function normalizeRoutePoint(point, fallback = {}) {
+  const lat = Number(point?.lat ?? point?.latitude);
+  const lng = Number(point?.lng ?? point?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const name = getRoutePointText(point) || fallback.name || "Route point";
+  return {
+    ...fallback,
+    ...point,
+    id: point?.id || fallback.id || `route-point-${lat}-${lng}`,
+    name,
+    label: point?.label || name,
+    address: point?.address || point?.fullAddress || name,
+    lat,
+    lng,
+  };
+}
+
+function buildRoutePreviewSource(destination, routePreview) {
+  const source = routePreview || destination;
+  if (!source) return null;
+
+  const pickup = source.pickupPoint || source.pickupLocation || source.pickupCoords || null;
+  const dropoff = source.dropoffPoint || source.destinationPoint || source.dropoffLocation || null;
+  const pickupText = getRoutePointText(pickup) || String(source.pickup || source.pickupLabel || "").trim();
+  const dropoffText =
+    getRoutePointText(dropoff) ||
+    String(source.dropoff || source.dropoffLabel || source.destination || source.destinationLabel || "").trim();
+
+  if (!pickupText || !dropoffText || pickupText.toLowerCase() === dropoffText.toLowerCase()) return null;
+
+  const mode = String(source.routeMode || source.mode || source.bookingMode || "").toLowerCase() === "delivery" ? "delivery" : "ride";
+  const passengerName = String(source.passengerName || source.name || "").trim();
+
+  return {
+    mode,
+    passengerName,
+    pickup: normalizeRoutePoint(pickup, {
+      id: `pickup-${pickupText}`,
+      type: mode === "delivery" ? "delivery-pickup" : "passenger-pickup",
+      name: pickupText,
+      address: pickupText,
+      searchQuery: pickupText,
+      category: mode === "delivery" ? "Pick up location" : "Passenger location",
+    }) || {
+      id: `pickup-${pickupText}`,
+      type: mode === "delivery" ? "delivery-pickup" : "passenger-pickup",
+      name: pickupText,
+      address: pickupText,
+      searchQuery: pickupText,
+      category: mode === "delivery" ? "Pick up location" : "Passenger location",
+    },
+    dropoff: normalizeRoutePoint(dropoff, {
+      id: `dropoff-${dropoffText}`,
+      type: mode === "delivery" ? "delivery-dropoff" : "passenger-destination",
+      name: dropoffText,
+      address: dropoffText,
+      searchQuery: dropoffText,
+      category: mode === "delivery" ? "Drop off location" : "Passenger destination",
+    }) || {
+      id: `dropoff-${dropoffText}`,
+      type: mode === "delivery" ? "delivery-dropoff" : "passenger-destination",
+      name: dropoffText,
+      address: dropoffText,
+      searchQuery: dropoffText,
+      category: mode === "delivery" ? "Drop off location" : "Passenger destination",
+    },
+    labels: {
+      current: "Current Location",
+      pickup: mode === "delivery" ? "Pick up location" : "Passenger's location",
+      dropoff: mode === "delivery" ? "Drop off location" : "Passenger's destination",
+      summary: mode === "delivery" ? "Delivery route" : "Passenger route",
+    },
+  };
+}
+
 function isFutureOrMissing(value) {
   if (!value) return true;
   const timestamp = new Date(value).getTime();
@@ -234,7 +314,7 @@ function buildTrafficIntelligence({ snapshots = [], reports = [], operators = []
 }
 
 
-export default function NearbyAreaScreen({ onBack, initialDestination = null, autoRoute = false }) {
+export default function NearbyAreaScreen({ onBack, initialDestination = null, autoRoute = false, routePreview = null }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
@@ -257,6 +337,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   const [trafficSnapshots, setTrafficSnapshots] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
   const [weatherCache, setWeatherCache] = useState(null);
+  const [resolvedRoutePreview, setResolvedRoutePreview] = useState(null);
   const [sosOpen, setSosOpen] = useState(false);
   const [detectedCountryCode, setDetectedCountryCode] = useState(SOS_FALLBACK_COUNTRY);
   const [detectingSosCountry, setDetectingSosCountry] = useState(false);
@@ -310,9 +391,12 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       getInitialDestinationSearchText(initialDestination),
       initialDestination.lat ?? initialDestination.latitude,
       initialDestination.lng ?? initialDestination.longitude,
+      initialDestination.pickup,
+      initialDestination.destination,
       autoRoute ? "route" : "view",
+      routePreview ? JSON.stringify(routePreview) : "",
     ].join(":");
-  }, [autoRoute, initialDestination]);
+  }, [autoRoute, initialDestination, routePreview]);
 
   function readCachedSosCountryCode() {
     try {
@@ -454,6 +538,78 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       essential: true,
     });
   }, [autoRoute, initialDestination, initialDestinationKey, mapInstance]);
+
+  useEffect(() => {
+    if (!autoRoute) {
+      setResolvedRoutePreview(null);
+      return undefined;
+    }
+
+    const source = buildRoutePreviewSource(initialDestination, routePreview);
+    if (!source) {
+      setResolvedRoutePreview(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function resolvePoint(point, fallbackCategory) {
+      const normalized = normalizeRoutePoint(point);
+      if (normalized) return normalized;
+
+      const searchText = getRoutePointText(point);
+      if (!searchText) return null;
+
+      const searchCenter = mapCenterRef.current || userLocationRef.current;
+      const results = await searchLocations(searchText, searchCenter);
+      const result = Array.isArray(results) ? results[0] : null;
+      const resolved = normalizeRoutePoint(result, {
+        id: point.id,
+        type: point.type,
+        name: result?.name || searchText,
+        address: result?.address || searchText,
+        searchQuery: searchText,
+        category: fallbackCategory,
+      });
+      return resolved;
+    }
+
+    Promise.all([
+      resolvePoint(source.pickup, source.pickup.category),
+      resolvePoint(source.dropoff, source.dropoff.category),
+    ])
+      .then(([pickup, dropoff]) => {
+        if (cancelled || !pickup || !dropoff) return;
+
+        const nextPreview = {
+          ...source,
+          pickup,
+          dropoff,
+        };
+        setResolvedRoutePreview(nextPreview);
+        setActiveLocation(dropoff);
+        setSearchQuery(dropoff.name);
+        setSelectionLocked(true);
+        setSearchResults([]);
+        setSearching(false);
+        setLocationPanelOpen(false);
+        setSearchOverlayOpen(false);
+        setSelectedSearchLocation({
+          ...dropoff,
+          type: dropoff.type || "destination",
+          category: dropoff.category || "Destination",
+          status: "community",
+          description: `${nextPreview.labels.summary} from ${pickup.name} to ${dropoff.name}.`,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedRoutePreview(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoRoute, initialDestination, initialDestinationKey, routePreview]);
 
   useEffect(() => {
     let mounted = true;
@@ -759,6 +915,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           reportLocations={liveReports}
           trafficSnapshots={smartTrafficSnapshots}
           weatherCache={weatherCache}
+          routePreview={resolvedRoutePreview}
           onMapLocationSelect={handleSelectLiveLocation}
           onReportSelect={handleSelectReport}
           recenterSignal={recenterSignal}

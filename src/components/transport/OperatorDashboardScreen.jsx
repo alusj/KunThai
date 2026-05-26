@@ -339,6 +339,7 @@ export default function OperatorDashboardScreen({
             availabilityText={availabilityText}
             onBack={() => setActiveView("dashboard")}
             onUpdateTrip={handleTripStatusUpdate}
+            onLocateArea={(destination) => onLocateArea?.(destination, { autoRoute: true })}
           />
         ) : activeView === "history" ? (
           <TripHistoryScreen
@@ -1048,7 +1049,7 @@ function ActionRow({ icon, label, detail, onClick }) {
   );
 }
 
-function WaitingPassengersScreen({ passengers, fleetName, isActive, availabilityText, onBack, onUpdateTrip }) {
+function WaitingPassengersScreen({ passengers, fleetName, isActive, availabilityText, onBack, onUpdateTrip, onLocateArea }) {
   return (
     <section className="mx-auto max-w-5xl">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -1087,6 +1088,7 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
               passenger={passenger}
               isActive={isActive}
               onUpdateTrip={onUpdateTrip}
+              onLocateArea={onLocateArea}
             />
           )) : (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm font-bold text-gray-500">
@@ -1099,7 +1101,7 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
   );
 }
 
-function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip }) {
+function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip, onLocateArea }) {
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const status = passenger.status || "requested";
@@ -1115,6 +1117,36 @@ function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleLocatePassengerRoute() {
+    const pickupText = String(passenger.pickup || "").trim();
+    const destinationText = String(passenger.destination || "").trim();
+    const routeMode =
+      /delivery|package|parcel|sender/i.test(`${passenger.route || ""} ${passenger.note || ""} ${passenger.raw?.service_type || ""}`)
+        ? "delivery"
+        : "ride";
+    const targetText = destinationText || pickupText;
+    if (!targetText) return;
+
+    onLocateArea?.({
+      id: `operator-passenger-route-${passenger.id || Date.now()}`,
+      type: routeMode === "delivery" ? "operator-delivery-route" : "operator-passenger-route",
+      name: targetText,
+      label: targetText,
+      address: targetText,
+      category: routeMode === "delivery" ? "Delivery route" : "Passenger route",
+      status,
+      description:
+        routeMode === "delivery"
+          ? `Delivery route from ${pickupText || "pickup"} to ${destinationText || "drop-off"}.`
+          : `Passenger route from ${pickupText || "pickup"} to ${destinationText || "destination"}.`,
+      searchQuery: targetText,
+      pickup: pickupText,
+      destination: destinationText,
+      passengerName: passenger.name,
+      routeMode,
+    });
   }
 
   return (
@@ -1135,6 +1167,16 @@ function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip }) {
         <MiniRow label="Drop-off" value={passenger.destination} />
         <MiniRow label="Fare" value={passenger.fare} />
       </div>
+
+      <button
+        type="button"
+        onClick={handleLocatePassengerRoute}
+        disabled={!passenger.pickup && !passenger.destination}
+        className="kt-pressable mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:bg-gray-200 disabled:text-gray-500"
+      >
+        <FiNavigation size={17} />
+        Locate route
+      </button>
 
       {isWaiting ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">

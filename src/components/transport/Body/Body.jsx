@@ -184,6 +184,7 @@ export default function Body({
         searchQuery: areaText,
         pickup: pickupText,
         destination: destinationText,
+        routeMode: movementFilters.mode === "delivery" ? "delivery" : "ride",
       },
       { autoRoute: true },
     );
