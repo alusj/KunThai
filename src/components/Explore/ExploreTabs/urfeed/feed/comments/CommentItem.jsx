@@ -9,6 +9,26 @@ import { formatRelativeTime } from "../../../../../../Backend/services/exploreSe
 import Avatar from "../../../../shared/Avatar";
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 
+function isPlaceholderName(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return !normalized || normalized === "profile";
+}
+
+function getAuthorName(comment) {
+  const authorProfile = comment.authorProfile || {};
+  const displayName = authorProfile.displayName || comment.author_name || "";
+  const username = authorProfile.username || comment.author_username || "";
+
+  if (!isPlaceholderName(displayName)) return displayName;
+  if (username && username.toLowerCase() !== "user") return username;
+  return comment.user_id ? `User ${String(comment.user_id).slice(0, 4)}` : "User";
+}
+
+function getAuthorUsername(comment) {
+  const authorProfile = comment.authorProfile || {};
+  return authorProfile.username || comment.author_username || "user";
+}
+
 export default function CommentItem({
   comment,
   currentUserId,
@@ -22,31 +42,36 @@ export default function CommentItem({
   onReport,
   replies = [],
 }) {
-  function viewCommentProfile() {
+  const authorName = getAuthorName(comment);
+  const authorUsername = getAuthorUsername(comment);
+
+  function viewCommentProfile(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
     const authorProfile = comment.authorProfile || {};
     onViewProfile?.({
       userId: authorProfile.userId || comment.user_id || "",
-      displayName: authorProfile.displayName || comment.author_name || "",
-      username: authorProfile.username || comment.author_username || "",
+      displayName: authorName,
+      username: authorUsername,
       avatarUrl: authorProfile.avatarUrl || comment.author_avatar_url || "",
       accountType: authorProfile.accountType || "personal",
     });
   }
 
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${comment.pending ? "kt-comment-item-pending" : ""}`}>
       <div className="flex min-w-0 gap-3">
-        <button type="button" onClick={viewCommentProfile} className="flex-none self-start" aria-label={`View ${comment.author_name || "user"} profile`}>
-          <Avatar name={comment.author_name || "Profile"} src={comment.author_avatar_url} size="sm" />
+        <button type="button" onClick={viewCommentProfile} className="kt-pressable flex-none self-start rounded-full" aria-label={`View ${authorName} profile`}>
+          <Avatar name={authorName} src={comment.author_avatar_url} size="sm" />
         </button>
         <div className="min-w-0 flex-1 rounded-[20px] bg-slate-50 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <button type="button" onClick={viewCommentProfile} className="block max-w-full truncate text-left text-sm font-black text-slate-950 hover:text-sky-700">
-                {comment.author_name || "Profile"}
+              <button type="button" onClick={viewCommentProfile} className="kt-pressable block max-w-full truncate rounded-lg text-left text-sm font-black text-slate-950 hover:text-sky-700">
+                {authorName}
               </button>
-              <button type="button" onClick={viewCommentProfile} className="block max-w-full truncate text-left text-xs font-semibold text-slate-400 hover:text-sky-700">
-                @{comment.author_username || "user"} - {comment.pending ? "Sending..." : formatRelativeTime(comment.created_at)}
+              <button type="button" onClick={viewCommentProfile} className="kt-pressable block max-w-full truncate rounded-lg text-left text-xs font-semibold text-slate-400 hover:text-sky-700">
+                @{authorUsername} - {comment.pending ? "Sending..." : formatRelativeTime(comment.created_at)}
               </button>
             </div>
           </div>
@@ -62,23 +87,23 @@ export default function CommentItem({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-black text-slate-500">
-            <button type="button" disabled={comment.pending} onClick={() => onLike(comment.id)} className={`inline-flex items-center gap-1 disabled:opacity-60 ${liked ? "text-sky-700" : ""}`}>
+            <button type="button" disabled={comment.pending} onClick={() => onLike(comment.id)} className={`kt-pressable inline-flex items-center gap-1 rounded-lg disabled:opacity-60 ${liked ? "text-sky-700" : ""}`}>
               <HiOutlineHandThumbUp />
               {comment.likes_count || 0}
             </button>
-            <button type="button" disabled={comment.pending} onClick={() => onReply(comment)} className="inline-flex items-center gap-1 disabled:opacity-60">
+            <button type="button" disabled={comment.pending} onClick={() => onReply(comment)} className="kt-pressable inline-flex items-center gap-1 rounded-lg disabled:opacity-60">
               <HiOutlineChatBubbleLeftRight />
               Reply
             </button>
             {comment.pending ? (
               <span className="inline-flex items-center gap-1 text-sky-700">Posting</span>
             ) : isOwner ? (
-              <button type="button" onClick={() => onDelete(comment.id)} className="inline-flex items-center gap-1 text-rose-600">
+              <button type="button" onClick={() => onDelete(comment.id)} className="kt-pressable inline-flex items-center gap-1 rounded-lg text-rose-600">
                 <HiOutlineTrash />
                 Delete
               </button>
             ) : (
-              <button type="button" onClick={() => onReport(comment.id)} className="inline-flex items-center gap-1 text-rose-600">
+              <button type="button" onClick={() => onReport(comment.id)} className="kt-pressable inline-flex items-center gap-1 rounded-lg text-rose-600">
                 <HiOutlineFlag />
                 Report
               </button>

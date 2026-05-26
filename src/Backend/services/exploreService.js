@@ -16,6 +16,7 @@ export {
 export {
   createExploreComment,
   deleteExploreComment,
+  fetchCurrentUserCommentLikes,
   fetchExploreComments,
   reportExploreComment,
   syncExploreCommentLike,
@@ -406,23 +407,16 @@ export async function syncExploreReaction(postId, reactionType, active) {
   const userId = await getCurrentUserId();
 
   if (!userId) {
-    return;
+    throw new Error("Sign in to react to posts.");
   }
 
   const tableName = reactionType === "like" ? "explore_post_likes" : "explore_post_saves";
 
   if (active) {
-    const existing = await supabase.from(tableName).select("post_id").eq("post_id", postId).eq("user_id", userId).maybeSingle();
-
-    if (existing.error && !isMissingTable(existing.error)) {
-      throw existing.error;
-    }
-
-    if (existing.data) {
-      return { active: true, changed: false };
-    }
-
-    const { error } = await supabase.from(tableName).insert({ post_id: postId, user_id: userId });
+    const { data, error } = await supabase
+      .from(tableName)
+      .upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true })
+      .select("post_id");
 
     if (error && !isMissingTable(error)) {
       if (error.code === "23505") {
@@ -431,7 +425,7 @@ export async function syncExploreReaction(postId, reactionType, active) {
       throw error;
     }
 
-    return { active: true, changed: !error };
+    return { active: true, changed: Boolean(data?.length) };
   }
 
   const { data, error } = await supabase.from(tableName).delete().eq("post_id", postId).eq("user_id", userId).select("post_id");

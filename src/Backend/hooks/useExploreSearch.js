@@ -4,6 +4,7 @@ import {
   clearRecentSearches,
   getSuggestedSearches,
   readRecentSearches,
+  removeRecentSearch,
   saveRecentSearch,
   searchExplore,
 } from "../services/explore/searchService";
@@ -57,6 +58,10 @@ export function useExploreSearch() {
     setRecent([]);
   }
 
+  function removeRecent(value) {
+    setRecent(removeRecentSearch(value));
+  }
+
   function reset() {
     setQuery("");
     setFilter("all");
@@ -75,6 +80,7 @@ export function useExploreSearch() {
     loading,
     error,
     clearRecent,
+    removeRecent,
     remember,
     reset,
   };

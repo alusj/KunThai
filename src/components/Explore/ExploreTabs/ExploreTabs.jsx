@@ -5,12 +5,12 @@
   Strong visual weight.
 */
 
-import { HiOutlineSparkles, HiOutlineUserGroup, HiOutlineVideoCamera } from "react-icons/hi2";
+import { Sparkles, Users, Video } from "lucide-react";
 
 const TABS = [
-  { id: "UrFeed", label: "UrFeed", icon: HiOutlineSparkles },
-  { id: "Swip", label: "Swip", icon: HiOutlineVideoCamera },
-  { id: "Connections", label: "Connections", icon: HiOutlineUserGroup },
+  { id: "UrFeed", label: "UrFeed", icon: Sparkles },
+  { id: "Swip", label: "Swip", icon: Video },
+  { id: "Connections", label: "Connections", icon: Users },
 ];
 
 export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = "forward" }) {
@@ -38,6 +38,7 @@ export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = 
         return (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id)}
             className={`
               kt-touchable relative z-10 inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-2 text-[13px] font-black transition sm:gap-2 sm:px-3 sm:text-sm
@@ -48,7 +49,7 @@ export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = 
               }
             `}
           >
-            <Icon className="flex-none text-sm sm:text-base" />
+            <Icon className="flex-none" size={16} strokeWidth={2.25} absoluteStrokeWidth />
             <span className="whitespace-nowrap">{tab.label}</span>
           </button>
         );

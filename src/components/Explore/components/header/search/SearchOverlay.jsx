@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { HiOutlineMagnifyingGlass, HiOutlineXMark } from "react-icons/hi2";
+import { Search, X } from "lucide-react";
 
 import { useExploreSearch } from "../../../../../Backend/hooks/useExploreSearch";
 import SearchFilters from "./SearchFilters";
@@ -49,7 +49,7 @@ export default function SearchOverlay({ onClose, onOpenResult, open }) {
         <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center gap-2 p-2">
             <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl bg-slate-100 px-3 text-slate-500">
-              <HiOutlineMagnifyingGlass className="flex-none text-lg" />
+              <Search className="flex-none text-slate-400" size={18} strokeWidth={2.25} />
               <input
                 ref={inputRef}
                 type="text"
@@ -69,7 +69,7 @@ export default function SearchOverlay({ onClose, onOpenResult, open }) {
               className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
               aria-label="Minimize search"
             >
-              <HiOutlineXMark />
+              <X size={19} strokeWidth={2.25} />
             </button>
           </div>
 
@@ -88,14 +88,26 @@ export default function SearchOverlay({ onClose, onOpenResult, open }) {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {search.recent.map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => search.setQuery(item)}
-                          className="rounded-2xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600"
-                        >
-                          {item}
-                        </button>
+                        <span key={item} className="inline-flex max-w-full items-center overflow-hidden rounded-2xl bg-slate-100 text-sm font-bold text-slate-600">
+                          <button
+                            type="button"
+                            onClick={() => search.setQuery(item)}
+                            className="kt-pressable min-w-0 truncate px-3 py-2 text-left"
+                          >
+                            {item}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              search.removeRecent(item);
+                            }}
+                            className="kt-pressable flex h-9 w-9 shrink-0 items-center justify-center text-slate-400 hover:text-rose-600"
+                            aria-label={`Remove ${item} from recent searches`}
+                          >
+                            <X size={14} strokeWidth={2.5} />
+                          </button>
+                        </span>
                       ))}
                     </div>
                   </section>

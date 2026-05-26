@@ -782,7 +782,7 @@ export default function SellerProfileDrawer({
   return createPortal(
     <>
       <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
-      <aside className="fixed inset-0 z-[999] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50">
+      <aside className="kt-page-fade-slide fixed inset-0 z-[999] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50">
         <header className="flex h-16 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 shadow-sm">
           <AppBackTab onBack={onClose} label="Back to product" historyKey="marketplace-seller-profile" />
           <div className="min-w-0">

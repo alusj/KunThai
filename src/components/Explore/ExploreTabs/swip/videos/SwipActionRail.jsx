@@ -31,7 +31,8 @@ function RailButton({ active, children, label, title, onClick, danger = false, e
     <button
       type="button"
       onClick={handleClick}
-      className={`group flex w-12 flex-col items-center gap-0.5 text-white ${danger ? "text-rose-100" : ""}`}
+      onPointerDown={(event) => event.stopPropagation()}
+      className={`kt-pressable group flex w-12 flex-col items-center gap-0.5 text-white ${danger ? "text-rose-100" : ""}`}
       aria-label={title || String(label || "Swip action")}
       title={title}
     >
@@ -44,10 +45,8 @@ function RailButton({ active, children, label, title, onClick, danger = false, e
               : "text-white/92 group-hover:bg-white/12"
         }`}
         style={{
-          transform: tapped ? `scale(${emphasis === "like" ? 1.16 : 0.94})` : "scale(1)",
-          transition: emphasis === "like"
-            ? "transform 260ms cubic-bezier(.2,1.6,.35,1), background-color 160ms ease, color 160ms ease"
-            : "transform 150ms ease, background-color 160ms ease, color 160ms ease",
+          transform: tapped ? "scale(0.94)" : "scale(1)",
+          transition: "transform 140ms ease, background-color 160ms ease, color 160ms ease",
         }}
       >
         {children}

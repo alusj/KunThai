@@ -4,7 +4,16 @@ import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlineXMark } from "rea
 import { fileToDataUrl } from "../composer/composerUtils";
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 
-export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelReply }) {
+function getReplyName(comment) {
+  const authorName = String(comment?.author_name || comment?.authorProfile?.displayName || "").trim();
+  const username = String(comment?.author_username || comment?.authorProfile?.username || "").trim();
+
+  if (authorName && authorName.toLowerCase() !== "profile") return authorName;
+  if (username && username.toLowerCase() !== "user") return username;
+  return "this comment";
+}
+
+export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyingTo, onCancelReply }) {
   const [value, setValue] = useState("");
   const [audioPreview, setAudioPreview] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -51,12 +60,15 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
       return;
     }
 
-    setPendingSignature(signature);
-    const submitPromise = onSubmit?.({
+    const payload = {
       body,
       audio_url: audioPreview,
       parent_comment_id: replyingTo?.id || null,
-    });
+    };
+
+    setPendingSignature(signature);
+    onSendPreview?.(payload);
+    const submitPromise = onSubmit?.(payload);
     setValue("");
     setAudioPreview("");
     onCancelReply?.();
@@ -64,11 +76,11 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
   }
 
   return (
-    <form onSubmit={handleSubmit} className="kuntai-safe-bottom border-t border-slate-200 bg-white p-3">
+    <form onSubmit={handleSubmit} className="kt-comment-composer kuntai-safe-bottom border-t border-slate-200 bg-white p-3">
       {replyingTo ? (
-        <div className="mb-2 flex min-w-0 items-center justify-between gap-2 rounded-2xl bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
-          <span className="truncate">Replying to {replyingTo.author_name || "comment"}</span>
-          <button type="button" onClick={onCancelReply} className="flex-none" aria-label="Cancel reply">
+        <div className="kt-comment-reply-chip mb-2 flex min-w-0 items-center justify-between gap-2 rounded-2xl bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
+          <span className="truncate">Replying to {getReplyName(replyingTo)}</span>
+          <button type="button" onClick={onCancelReply} className="kt-pressable flex-none rounded-lg" aria-label="Cancel reply">
             <HiOutlineXMark />
           </button>
         </div>
@@ -93,12 +105,12 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder="Comment with text, @mention, or voice..."
-          className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none"
+          className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none transition-colors duration-150 focus:bg-slate-50 focus:ring-2 focus:ring-sky-100"
         />
         <button
           type="button"
           onClick={toggleRecording}
-          className={`flex h-11 w-11 items-center justify-center rounded-2xl text-lg ${isRecording ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-600"}`}
+          className={`kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl text-lg ${isRecording ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-600"}`}
           aria-label={isRecording ? "Stop recording" : "Record voice comment"}
         >
           <HiOutlineMicrophone />
@@ -106,7 +118,7 @@ export default function CommentDrawerComposer({ onSubmit, replyingTo, onCancelRe
         <button
           type="submit"
           disabled={(!value.trim() && !audioPreview) || pendingSignature === [replyingTo?.id || "", value.trim(), audioPreview || ""].join("|")}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white disabled:bg-slate-200 disabled:text-slate-400"
+          className="kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm shadow-slate-950/10 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
           aria-label="Send comment"
         >
           <HiOutlinePaperAirplane />

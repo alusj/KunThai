@@ -2,10 +2,11 @@
 // Displays operator or passenger transport notifications.
 
 import { useEffect, useMemo, useState } from "react";
-import { FiBell, FiTruck } from "react-icons/fi";
+import { Bell, Truck } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
+import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import { fetchTransportNotifications } from "../../services/transportHeaderService";
 
 export default function NotificationButton({ operatorAccount, onOpenChange, onViewFleet }) {
@@ -69,21 +70,13 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
 
   return (
     <>
-      <button
-        type="button"
+      <PremiumHeaderButton
+        badge={unreadCount}
+        icon={Bell}
+        label="Open transport notifications"
         onClick={() => setOpen(true)}
-        aria-label="Open transport notifications"
         title="Open transport notifications"
-        className="kt-touchable relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition"
-      >
-        <FiBell size={20} />
-
-        {unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-red-500 px-1 text-[10px] font-black leading-4 text-white">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        ) : null}
-      </button>
+      />
 
       <AppPortal>
         <div
@@ -106,8 +99,16 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
               open ? "translate-x-0" : "translate-x-full"
             }`}
           >
-            <header className="kt-header-glass flex items-start justify-between gap-4 px-4 py-4">
-              <div className="min-w-0">
+            <header className="kt-header-glass flex items-start gap-3 px-4 py-4">
+              <AppBackTab
+                onBack={() => setOpen(false)}
+                label="Back to transport"
+                historyKey="transport-notifications"
+                iconSize={30}
+                className="mt-0.5 shrink-0 rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+                useHistoryLayer={false}
+              />
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-black uppercase tracking-wide text-green-700">
                   Transport Alerts
                 </p>
@@ -118,13 +119,6 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
                   Passenger trip updates and operator fleet alerts.
                 </p>
               </div>
-              <AppBackTab
-                onBack={() => setOpen(false)}
-                label="Back to transport"
-                historyKey="transport-notifications"
-                className="shrink-0 rounded-full border border-slate-200 bg-white hover:bg-slate-50"
-                useHistoryLayer={false}
-              />
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4">
@@ -147,7 +141,7 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
                     >
                       <div className="flex items-start gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-green-700 shadow-sm">
-                          <FiTruck size={18} />
+                          <Truck size={18} />
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import supabase from "../lib/supabaseClient";
 import { subscribeToCurrentUserCommentLikes, subscribeToExploreComments } from "../services/explore/realtimeService";
@@ -6,10 +6,12 @@ import {
   createExploreComment,
   createExploreNotification,
   deleteExploreComment,
+  fetchCurrentUserCommentLikes,
   fetchExploreComments,
   getCurrentUserProfile,
   reportExploreComment,
   syncExploreCommentLike,
+  updateExploreCommentCounts,
   updateExplorePostCounts,
 } from "../services/exploreService";
 import { showToast } from "../services/toastService";
@@ -25,23 +27,41 @@ function getCommentMediaType(post) {
   return "post";
 }
 
-export function useExploreComments(postId, currentUserId = "", post = null) {
+function isPlaceholderName(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return !normalized || normalized === "profile";
+}
+
+function getReadableAuthorName(profile, userId = "") {
+  const displayName = String(profile?.name || profile?.displayName || "").trim();
+  const username = String(profile?.username || "").trim();
+
+  if (!isPlaceholderName(displayName)) return displayName;
+  if (username && username.toLowerCase() !== "user") return username;
+  return userId ? `User ${String(userId).slice(0, 4)}` : "User";
+}
+
+export function useExploreComments(postId, currentUserId = "", post = null, enabled = true) {
   const [comments, setComments] = useState([]);
   const [likedComments, setLikedComments] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [currentProfile, setCurrentProfile] = useState(null);
   const [pendingKeys, setPendingKeys] = useState(new Set());
+  const pendingLikeRef = useRef(new Set());
 
   async function load() {
-    if (!postId) {
+    if (!postId || !enabled) {
       return;
     }
 
     try {
       setLoading(true);
       setError("");
-      setComments(await fetchExploreComments(postId));
+      const nextComments = await fetchExploreComments(postId);
+      setComments(nextComments);
+      const likedIds = await fetchCurrentUserCommentLikes(nextComments.map((comment) => comment.id)).catch(() => []);
+      setLikedComments(new Set(likedIds));
     } catch (err) {
       setError(err.message || "Unable to load comments.");
     } finally {
@@ -50,12 +70,14 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
   }
 
   useEffect(() => {
+    if (!enabled) return undefined;
     load();
     // load is intentionally scoped to postId and local hook state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postId]);
+  }, [postId, enabled]);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     let active = true;
 
     getCurrentUserProfile()
@@ -69,9 +91,10 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
     return () => {
       active = false;
     };
-  }, [currentUserId]);
+  }, [currentUserId, enabled]);
 
   useEffect(() => {
+    if (!enabled || !postId) return undefined;
     return subscribeToExploreComments(postId, {
       onInsert(payload) {
         if (!payload.new) return;
@@ -108,9 +131,10 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
         setComments((current) => current.filter((comment) => comment.id !== deletedId && comment.parent_comment_id !== deletedId));
       },
     });
-  }, [postId]);
+  }, [postId, enabled]);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     let active = true;
     let unsubscribe = () => {};
 
@@ -141,7 +165,7 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
       active = false;
       unsubscribe();
     };
-  }, []);
+  }, [enabled]);
 
   const thread = useMemo(() => {
     const byId = new Map();
@@ -176,18 +200,21 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
 
     const tempId = `pending-comment-${Date.now()}`;
     const now = new Date().toISOString();
+    const userId = currentUserId || currentProfile?.id || "";
+    const authorName = getReadableAuthorName(currentProfile, userId);
+    const username = currentProfile?.username || (userId ? `user_${String(userId).slice(0, 6)}` : "user");
     const optimisticComment = {
       id: tempId,
       post_id: postId,
       parent_comment_id: payload.parent_comment_id || null,
-      user_id: currentUserId || currentProfile?.id || "",
-      author_name: currentProfile?.name || currentProfile?.displayName || "Profile",
-      author_username: currentProfile?.username || "user",
+      user_id: userId,
+      author_name: authorName,
+      author_username: username,
       author_avatar_url: currentProfile?.avatar_url || currentProfile?.avatarUrl || "",
       authorProfile: {
-        userId: currentUserId || currentProfile?.id || "",
-        displayName: currentProfile?.name || currentProfile?.displayName || "Profile",
-        username: currentProfile?.username || "user",
+        userId,
+        displayName: authorName,
+        username,
         avatarUrl: currentProfile?.avatar_url || currentProfile?.avatarUrl || "",
         accountType: "personal",
       },
@@ -232,7 +259,7 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
     } catch (err) {
       setComments((current) => current.filter((comment) => comment.id !== tempId));
       setError("Comment failed. Try again.");
-      showToast("Comment failed. Try again.", "error");
+      showToast("Comment failed. Try again.", "danger");
       return { ok: false, error: err.message || "Comment failed. Try again." };
     } finally {
       setPendingKeys((current) => {
@@ -256,6 +283,11 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
   }
 
   async function toggleCommentLike(commentId) {
+    if (pendingLikeRef.current.has(commentId)) {
+      return;
+    }
+
+    pendingLikeRef.current.add(commentId);
     const active = !likedComments.has(commentId);
     const target = comments.find((comment) => comment.id === commentId);
     const previousLikedComments = likedComments;
@@ -278,11 +310,14 @@ export function useExploreComments(postId, currentUserId = "", post = null) {
 
     try {
       await syncExploreCommentLike(commentId, active);
+      updateExploreCommentCounts(commentId, { likes_count: nextCount }).catch(() => null);
     } catch (err) {
       setLikedComments(previousLikedComments);
       setComments(previousComments);
       setError(err.message || "Unable to update comment like.");
-      showToast(err.message || "Unable to update comment like.", "error");
+      showToast(err.message || "Unable to update comment like.", "danger");
+    } finally {
+      pendingLikeRef.current.delete(commentId);
     }
   }
 

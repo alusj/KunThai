@@ -1,9 +1,10 @@
 // Opens transport identity search for operators, codes, plates, and fleet types.
 
 import { useEffect, useMemo, useState } from "react";
-import { FiMapPin, FiSearch, FiX } from "react-icons/fi";
+import { MapPin, Search, X } from "lucide-react";
 
 import AppPortal from "../../shared/AppPortal";
+import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 
@@ -72,15 +73,12 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Search operator, code, plate, or fleet"
-        title="Search operator, code, plate, or fleet"
+      <PremiumHeaderButton
+        icon={Search}
+        label="Search operator, code, plate, or fleet"
         onClick={() => setOpen(true)}
-        className="kt-touchable flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition"
-      >
-        <FiSearch size={20} />
-      </button>
+        title="Search operator, code, plate, or fleet"
+      />
 
       {open ? (
         <AppPortal>
@@ -105,13 +103,13 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                   className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
                   aria-label="Close transport search"
                 >
-                  <FiX size={18} />
+                  <X size={18} />
                 </button>
               </header>
 
               <div className="p-4">
                 <label className="relative block">
-                  <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input
                     type="search"
                     value={query}
@@ -143,7 +141,7 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                         </div>
 
                         <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                          <FiMapPin size={14} />
+                          <MapPin size={14} />
                           <span className="truncate">{fleet.currentLocation || fleet.lastKnownLocation}</span>
                         </div>
 

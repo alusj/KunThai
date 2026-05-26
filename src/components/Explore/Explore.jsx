@@ -33,7 +33,7 @@ import { postingStages } from "./ExploreTabs/urfeed/feed/composer/postReviewPipe
 import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
-const EXPLORE_STACK_ANIMATION_MS = 360;
+const EXPLORE_STACK_ANIMATION_MS = 280;
 
 function PlaceholderMenuScreen({ screen }) {
   return (
@@ -57,7 +57,7 @@ function PlaceholderMenuScreen({ screen }) {
   - Decides which page to show
 */
 
-export default function Explore({ onScreenModeChange }) {
+export default function Explore({ active = true, onScreenModeChange }) {
   const [profileOverride, setProfileOverride] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
@@ -114,14 +114,20 @@ export default function Explore({ onScreenModeChange }) {
   }, [isSwipTab, navHidden]);
 
   useEffect(() => {
-    onScreenModeChange?.(menuOverlayVisible || isSwipTab || Boolean(activeMenuScreen));
+    onScreenModeChange?.(active && (menuOverlayVisible || isSwipTab || Boolean(activeMenuScreen)));
 
     stopAllExploreMedia();
 
     return () => {
       onScreenModeChange?.(false);
     };
-  }, [menuOverlayVisible, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
+  }, [active, menuOverlayVisible, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
+
+  useEffect(() => {
+    if (!active) {
+      stopAllExploreMedia();
+    }
+  }, [active]);
 
   useEffect(() => {
     if (!menuOverlayVisible) return undefined;

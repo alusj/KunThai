@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Truck } from "lucide-react";
 
 import OperatorButton from "./Operator/OperatorButton";
 import SearchButton from "./SearchButton";
@@ -6,6 +7,7 @@ import NotificationButton from "./NotificationButton"
 import MenuButton from "./MenuButton";
 import Radar from "./Radar";
 import TransportMenuDrawer from "./TransportMenuDrawer";
+import PremiumHeader from "../../shared/PremiumHeader";
 
 export default function Header({
   operatorAccount,
@@ -27,30 +29,32 @@ export default function Header({
 
   return (
     <>
-      <header className="kt-header-glass flex w-full items-center justify-between px-4 py-3">
-
-        {/* Left Section */}
-        <div className="flex items-center gap-3">
-          {operatorLoading ? (
-            <div className="h-10 w-10 animate-pulse rounded-2xl bg-gray-100" aria-label="Loading operator account" />
-          ) : (
-            <OperatorButton hasOperatorAccount={hasOperatorAccount} onClick={onRegisterFleet} />
-          )}
-          <Radar onOpenChange={setRadarOpen} onViewFleet={onViewFleet} />
-        </div>
-
-        {/* Right Section */}
-        <div className="flex items-center gap-4">
-          <SearchButton onOpenChange={setSearchOpen} onViewFleet={onViewFleet} />
-          <NotificationButton
-            operatorAccount={operatorAccount}
-            onOpenChange={setNotificationsOpen}
-            onViewFleet={onViewFleet}
-          />
-          <MenuButton onClick={() => setMenuOpen(true)} />
-        </div>
-
-      </header>
+      <PremiumHeader
+        accent="emerald"
+        centerIcon={Truck}
+        title="Transport"
+        left={(
+          <>
+            {operatorLoading ? (
+              <div className="h-11 w-28 animate-pulse rounded-2xl bg-gray-100" aria-label="Loading operator account" />
+            ) : (
+              <OperatorButton hasOperatorAccount={hasOperatorAccount} onClick={onRegisterFleet} />
+            )}
+            <Radar onOpenChange={setRadarOpen} onViewFleet={onViewFleet} />
+          </>
+        )}
+        right={(
+          <>
+            <SearchButton onOpenChange={setSearchOpen} onViewFleet={onViewFleet} />
+            <NotificationButton
+              operatorAccount={operatorAccount}
+              onOpenChange={setNotificationsOpen}
+              onViewFleet={onViewFleet}
+            />
+            <MenuButton onClick={() => setMenuOpen(true)} />
+          </>
+        )}
+      />
 
       <TransportMenuDrawer
         open={menuOpen}

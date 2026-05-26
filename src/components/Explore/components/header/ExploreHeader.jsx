@@ -1,19 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  HiOutlineMicrophone,
-  HiOutlinePencilSquare,
-  HiOutlinePhoto,
-  HiOutlinePlayCircle,
-} from "react-icons/hi2";
+  Bell,
+  Image,
+  Menu,
+  MessageCircle,
+  Mic,
+  PenSquare,
+  Plus,
+  Search,
+  Video,
+  X,
+} from "lucide-react";
 
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
 import { useExploreMessageStatus } from "../../../../Backend/hooks/useExploreMessageStatus";
-import MenuButton from "./MenuButton";
-import MessageButton from "./MessageButton";
-import SearchButton from "./SearchButton";
-import CreateButton from "./CreateButton";
-import AlertButton from "./AlertButton";
+import PremiumHeader, { PremiumHeaderButton } from "../../../shared/PremiumHeader";
 import SearchOverlay from "./search/SearchOverlay";
 
 export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult }) {
@@ -23,6 +25,26 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   const messageStatus = useExploreMessageStatus(currentProfile?.userId || "");
   const latestMessage = notifications.find((item) => item.type !== "message")?.message || "";
 
+  useEffect(() => {
+    if (!createOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setCreateOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [createOpen]);
+
   function selectCreateType(type) {
     setCreateOpen(false);
     onCreateSelect?.(type);
@@ -30,48 +52,91 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
 
   return (
     <>
-      <header className="w-full max-w-full overflow-x-clip border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="w-full max-w-full overflow-x-clip">
         <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onOpenResult={onSearchResult} />
-        <div className="grid h-16 w-full max-w-full grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:px-5">
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-            <MenuButton onClick={() => onNavigate?.("Menu")} />
-            <MessageButton
-              active={messageStatus.active}
-              activity={messageStatus.activity}
-              count={messageStatus.unreadCount}
-              onClick={() => onNavigate?.("Messages")}
-            />
-          </div>
-
-          <div className="min-w-0 text-center leading-none">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-700 sm:text-[11px]">KunThai</p>
-            <h1 className="mt-1 text-[14px] font-semibold text-slate-900 sm:text-[15px]">Explore</h1>
-          </div>
-
-          <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2">
-            <SearchButton onClick={() => setSearchOpen(true)} />
-            <CreateButton onClick={() => setCreateOpen((current) => !current)} />
-            <AlertButton onClick={onAlertsClick} count={unreadCount} latestMessage={latestMessage} />
-          </div>
-        </div>
-      </header>
+        <PremiumHeader
+          accent="sky"
+          title="Explore"
+          left={(
+            <>
+              <PremiumHeaderButton icon={Menu} label="Open Explore menu" onClick={() => onNavigate?.("Menu")} />
+              <PremiumHeaderButton
+                active={messageStatus.active}
+                accent="sky"
+                badge={messageStatus.unreadCount}
+                icon={MessageCircle}
+                label={messageStatus.activity ? "Messages active now" : "Messages"}
+                onClick={() => onNavigate?.("Messages")}
+              />
+            </>
+          )}
+          right={(
+            <>
+              <PremiumHeaderButton
+                icon={Search}
+                label="Search Explore"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setSearchOpen(true);
+                }}
+              />
+              <PremiumHeaderButton
+                active
+                accent="sky"
+                icon={createOpen ? X : Plus}
+                label={createOpen ? "Close create menu" : "Create"}
+                onClick={() => setCreateOpen((current) => !current)}
+              />
+              <PremiumHeaderButton
+                badge={unreadCount}
+                icon={Bell}
+                label="Notifications"
+                onClick={onAlertsClick}
+                title={latestMessage || "Notifications"}
+              />
+            </>
+          )}
+        />
+      </div>
 
       {createOpen
         ? createPortal(
-            <>
+            <div className="fixed inset-0 z-[90] flex items-start justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-[calc(env(safe-area-inset-top)+5.25rem)] sm:items-center sm:pt-4">
               <button
                 type="button"
                 aria-label="Close create menu"
-                className="fixed inset-0 z-[80] cursor-default bg-transparent"
+                className="kt-create-popup-backdrop absolute inset-0 cursor-default"
                 onClick={() => setCreateOpen(false)}
               />
-              <div className="fixed right-3 top-16 z-[90] w-48 rounded-[18px] border border-slate-200 bg-white p-2 text-left shadow-xl sm:right-5">
-                <CreateMenuItem icon={HiOutlinePencilSquare} label="Text post" onClick={() => selectCreateType("text")} />
-                <CreateMenuItem icon={HiOutlinePhoto} label="Image" onClick={() => selectCreateType("image")} />
-                <CreateMenuItem icon={HiOutlineMicrophone} label="Voice post" onClick={() => selectCreateType("voice")} />
-                <CreateMenuItem icon={HiOutlinePlayCircle} label="Video" onClick={() => selectCreateType("video")} />
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Create"
+                className="kt-create-popup-panel relative z-10 w-full max-w-sm rounded-[28px] border border-white/80 bg-white/95 p-3 text-left shadow-2xl shadow-slate-950/20"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-2 pb-3 pt-1">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700">KunThai</p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">Create</h2>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Close create menu"
+                    className="kt-pressable grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-slate-300 hover:text-slate-950"
+                    onClick={() => setCreateOpen(false)}
+                  >
+                    <X size={18} strokeWidth={2.35} absoluteStrokeWidth />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <CreateMenuItem accent="sky" icon={PenSquare} label="Text" onClick={() => selectCreateType("text")} />
+                  <CreateMenuItem accent="emerald" icon={Image} label="Photo" onClick={() => selectCreateType("image")} />
+                  <CreateMenuItem accent="violet" icon={Mic} label="Voice" onClick={() => selectCreateType("voice")} />
+                  <CreateMenuItem accent="rose" icon={Video} label="Video" onClick={() => selectCreateType("video")} />
+                </div>
               </div>
-            </>,
+            </div>,
             document.body,
           )
         : null}
@@ -79,17 +144,26 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   );
 }
 
-function CreateMenuItem({ icon, label, onClick }) {
-  const menuIcon = icon ? icon({ className: "text-lg" }) : null;
+const createItemAccent = {
+  emerald: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  rose: "bg-rose-50 text-rose-700 ring-rose-100",
+  sky: "bg-sky-50 text-sky-700 ring-sky-100",
+  violet: "bg-violet-50 text-violet-700 ring-violet-100",
+};
+
+function CreateMenuItem({ accent = "sky", icon, label, onClick }) {
+  const Icon = icon;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-[14px] px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+      className="kt-create-popup-item kt-pressable flex min-h-24 w-full flex-col items-start justify-between rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm shadow-slate-950/[0.04] hover:border-slate-300 hover:bg-slate-50"
     >
-      {menuIcon}
-      {label}
+      <span className={`grid h-11 w-11 place-items-center rounded-2xl ring-1 ${createItemAccent[accent] || createItemAccent.sky}`}>
+        {Icon ? <Icon size={20} strokeWidth={2.3} absoluteStrokeWidth /> : null}
+      </span>
+      <span className="text-base font-black text-slate-950">{label}</span>
     </button>
   );
 }

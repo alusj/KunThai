@@ -18,6 +18,20 @@ function getCommentMediaType(post) {
   return "post";
 }
 
+function isPlaceholderName(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return !normalized || normalized === "profile";
+}
+
+function getReadableAuthorName(name, username, userId = "") {
+  const cleanName = String(name || "").trim();
+  const cleanUsername = String(username || "").trim();
+
+  if (!isPlaceholderName(cleanName)) return cleanName;
+  if (cleanUsername && cleanUsername.toLowerCase() !== "user") return cleanUsername;
+  return userId ? `User ${String(userId).slice(0, 4)}` : "User";
+}
+
 function getNotificationPriority(type) {
   if (["comment", "reply", "mention", "creator_reply", "thread_reply"].includes(type)) return "high";
   if (["like", "share", "save", "reaction"].includes(type)) return "medium";
@@ -136,6 +150,30 @@ export async function fetchExploreComments(postId) {
   return hydrateCommentAuthors(data || []);
 }
 
+export async function fetchCurrentUserCommentLikes(commentIds = []) {
+  const userId = await getCurrentUserId();
+  const ids = Array.from(new Set((commentIds || []).filter(Boolean)));
+
+  if (!userId || !ids.length) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("explore_comment_likes")
+    .select("comment_id")
+    .eq("user_id", userId)
+    .in("comment_id", ids);
+
+  if (error) {
+    if (isMissingTable(error)) {
+      return [];
+    }
+    throw error;
+  }
+
+  return (data || []).map((item) => item.comment_id).filter(Boolean);
+}
+
 async function hydrateCommentAuthors(comments) {
   const userIds = Array.from(new Set(comments.map((comment) => comment.user_id).filter(Boolean)));
   if (!userIds.length) return comments;
@@ -154,7 +192,7 @@ async function hydrateCommentAuthors(comments) {
       profile.user_id,
       {
         userId: profile.user_id,
-        displayName: profile.display_name || "",
+        displayName: getReadableAuthorName(profile.display_name, profile.username, profile.user_id),
         username: profile.username || "",
         avatarUrl: profile.avatar_url || "",
         accountType: profile.account_type || "personal",
@@ -165,7 +203,7 @@ async function hydrateCommentAuthors(comments) {
   return comments.map((comment) => {
     const authorProfile = profilesByUserId.get(comment.user_id) || {
       userId: comment.user_id || "",
-      displayName: comment.author_name || "",
+      displayName: getReadableAuthorName(comment.author_name, comment.author_username, comment.user_id),
       username: comment.author_username || "",
       avatarUrl: comment.author_avatar_url || "",
       accountType: "personal",
@@ -199,12 +237,13 @@ export async function createExploreComment(input) {
   }
 
   const profile = await getCurrentUserProfile();
+  const authorName = getReadableAuthorName(profile?.name || profile?.displayName, profile?.username, userId);
   const audioUrl = payload.audio_url ? await uploadMediaDataUrl(payload.audio_url, "comment-audio", userId) : "";
   const draft = {
     post_id: payload.post_id,
     parent_comment_id: payload.parent_comment_id || null,
     user_id: userId,
-    author_name: profile?.name || profile?.displayName || "Profile",
+    author_name: authorName,
     author_username: profile?.username || "user",
     author_avatar_url: profile?.avatar_url || "",
     body: trimmedBody,

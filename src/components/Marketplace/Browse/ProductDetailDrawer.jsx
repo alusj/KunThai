@@ -409,7 +409,7 @@ export default function ProductDetailDrawer({
   return createPortal(
     <>
       <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
-      <aside className="fixed inset-0 z-[999] flex h-dvh w-screen flex-col bg-white">
+      <aside className="kt-page-fade-slide fixed inset-0 z-[999] flex h-dvh w-screen flex-col bg-white">
         <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
           <AppBackTab
             onBack={onClose}

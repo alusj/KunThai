@@ -1,12 +1,12 @@
 // web/src/components/BottomTabs.jsx
 
 import { createElement, useEffect, useRef, useState } from "react";
-import { FiCompass, FiShoppingBag, FiTruck } from "react-icons/fi";
+import { Compass, ShoppingBag, Truck } from "lucide-react";
 
 const tabs = [
-  { id: "explore", label: "Explore", icon: FiCompass },
-  { id: "marketplace", label: "UrMall", icon: FiShoppingBag },
-  { id: "transport", label: "Transport", icon: FiTruck },
+  { id: "explore", label: "Explore", icon: Compass },
+  { id: "marketplace", label: "UrMall", icon: ShoppingBag },
+  { id: "transport", label: "Transport", icon: Truck },
 ];
 
 export default function BottomTabs({ page, setPage }) {
@@ -31,7 +31,7 @@ export default function BottomTabs({ page, setPage }) {
       type="button"
       onClick={() => setPage(id)}
       aria-current={page === id ? "page" : undefined}
-      className={`kt-touchable flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-black select-none ${
+      className={`kt-pressable flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-black select-none ${
         page === id ? "text-white" : "text-slate-500 hover:text-slate-950"
       }`}
     >
@@ -40,7 +40,7 @@ export default function BottomTabs({ page, setPage }) {
           page === id ? "bg-white/10" : "bg-white/80"
         }`}
       >
-        {createElement(icon, { size: 20 })}
+        {createElement(icon, { size: 20, strokeWidth: 2.25, absoluteStrokeWidth: true })}
       </span>
       <span className="leading-tight">{label}</span>
     </button>

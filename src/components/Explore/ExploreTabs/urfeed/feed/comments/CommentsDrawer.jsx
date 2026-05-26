@@ -6,13 +6,48 @@ import ErrorState from "../../../../shared/ErrorState";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
 
+const EXIT_MS = 260;
+
 export default function CommentsDrawer({ currentUserId, onClose, onCountChange, onViewProfile, open, post }) {
   const [replyingTo, setReplyingTo] = useState(null);
+  const [rendered, setRendered] = useState(open);
+  const [closing, setClosing] = useState(false);
+  const [sendPreview, setSendPreview] = useState(null);
   const listRef = useRef(null);
-  const comments = useExploreComments(post?.id, currentUserId, post);
+  const sendPreviewTimerRef = useRef(null);
+  const comments = useExploreComments(post?.id, currentUserId, post, open || rendered);
+  const isSwip = Boolean(post?.video_url || String(post?.feed_scope || "").toLowerCase() === "swip");
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(sendPreviewTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setRendered(true);
+      setClosing(false);
+      return undefined;
+    }
+
+    if (!rendered) {
+      return undefined;
+    }
+
+    setClosing(true);
+    const timeoutId = window.setTimeout(() => {
+      setRendered(false);
+      setClosing(false);
+      setReplyingTo(null);
+    }, EXIT_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [open, rendered]);
+
+  useEffect(() => {
+    if (!rendered) {
       return undefined;
     }
 
@@ -33,17 +68,33 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
       document.body.style.overscrollBehavior = previousBody.overscrollBehavior;
       document.documentElement.style.overflow = previousHtml.overflow;
     };
-  }, [open]);
+  }, [rendered]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!rendered || closing) return;
     const node = listRef.current;
     if (!node) return;
     node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
-  }, [comments.comments.length, open]);
+  }, [comments.comments.length, rendered, closing]);
 
-  if (!open) {
+  if (!rendered) {
     return null;
+  }
+
+  function requestClose() {
+    onClose?.();
+  }
+
+  function previewSend(payload) {
+    const text = String(payload?.body || "").trim() || (payload?.audio_url ? "Voice comment" : "");
+    if (!text) return;
+
+    window.clearTimeout(sendPreviewTimerRef.current);
+    const id = Date.now();
+    setSendPreview({ id, text });
+    sendPreviewTimerRef.current = window.setTimeout(() => {
+      setSendPreview((current) => (current?.id === id ? null : current));
+    }, 620);
   }
 
   async function addComment(payload) {
@@ -56,33 +107,52 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   }
 
   function viewProfile(profile) {
-    onClose?.();
+    requestClose();
     onViewProfile?.(profile);
   }
 
+  const shellClass = isSwip
+    ? "fixed inset-0 z-[1000] flex min-w-0 items-end justify-end sm:items-stretch"
+    : "fixed inset-0 z-[1000] flex min-w-0 items-end justify-center";
+  const panelMotionClass = isSwip
+    ? closing ? "kt-comments-swip-exit" : "kt-comments-swip-enter"
+    : closing ? "kt-comments-feed-exit" : "kt-comments-feed-enter";
+  const panelSizeClass = isSwip
+    ? "h-[84dvh] max-h-[760px] min-h-[420px] w-full rounded-t-[28px] sm:h-full sm:max-h-none sm:max-w-md sm:rounded-l-[28px] sm:rounded-r-none sm:rounded-t-none"
+    : "h-[86dvh] max-h-[760px] min-h-[420px] w-full rounded-t-[28px] sm:h-[78dvh] sm:max-w-2xl";
+  const backdropClass = closing ? "kt-comments-backdrop-exit" : "kt-comments-backdrop-enter";
+
   return (
-    <div className="fixed inset-0 z-[1000] flex min-w-0 items-end">
+    <div className={shellClass}>
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-slate-950/35"
-        onClick={onClose}
+        className={`absolute inset-0 cursor-default bg-slate-950/35 ${backdropClass}`}
+        onClick={requestClose}
         aria-label="Close comments"
       />
-      <section className="kt-sheet-enter relative z-10 flex h-[86dvh] max-h-[760px] min-h-[420px] w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:mx-auto sm:h-[78dvh] sm:max-w-2xl">
+      <section className={`relative z-10 flex ${panelSizeClass} min-w-0 flex-col overflow-hidden bg-white shadow-2xl ${panelMotionClass}`}>
         <div className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Comments</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{isSwip ? "Swip comments" : "Comments"}</p>
             <h3 className="truncate text-lg font-black text-slate-950">{post?.comments_count || comments.comments.length || 0} responses</h3>
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
+            onClick={requestClose}
+            className="kt-pressable flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700 hover:bg-slate-200"
             aria-label="Close comments"
           >
             <HiOutlineXMark />
           </button>
         </div>
+
+        {sendPreview ? (
+          <div key={sendPreview.id} className="kt-comment-send-flight pointer-events-none absolute bottom-[5.4rem] left-4 right-4 z-20 flex justify-center">
+            <span className="max-w-[82%] truncate rounded-2xl bg-slate-950 px-4 py-2 text-sm font-black text-white shadow-xl shadow-slate-950/20">
+              {sendPreview.text}
+            </span>
+          </div>
+        ) : null}
 
         <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 kuntai-scrollbar-none">
           {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
@@ -113,7 +183,12 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           ))}
         </div>
 
-        <CommentDrawerComposer replyingTo={replyingTo} onCancelReply={() => setReplyingTo(null)} onSubmit={addComment} />
+        <CommentDrawerComposer
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+          onSendPreview={previewSend}
+          onSubmit={addComment}
+        />
       </section>
     </div>
   );

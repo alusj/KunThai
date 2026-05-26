@@ -8,6 +8,7 @@ import Marketplace from "./components/Marketplace/Marketplace";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import Transport from "./components/transport/Transport";
 import Login from "./Login";
+import { PageTransition } from "./components/shared/motion";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
@@ -153,10 +154,9 @@ export default function App() {
   }
 
   const bottomTabsHidden =
-    exploreFullScreen ||
-    Boolean(marketplaceNav.sub) ||
-    marketplaceActivityOpen ||
-    transportActivityOpen;
+    (page === "explore" && exploreFullScreen) ||
+    (page === "marketplace" && (Boolean(marketplaceNav.sub) || marketplaceActivityOpen)) ||
+    (page === "transport" && transportActivityOpen);
 
   function changePage(nextPage) {
     if (!nextPage || nextPage === page) {
@@ -169,27 +169,38 @@ export default function App() {
     setPage(nextPage);
   }
 
+  function pagePanelClass(targetPage) {
+    if (page !== targetPage) {
+      return "hidden";
+    }
+
+    return `${pageSlideDirection === "backward" ? "kt-main-slide-backward" : "kt-main-slide-forward"} block min-h-screen`;
+  }
+
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100">
-      <div
-        key={page}
-        className={`${pageSlideDirection === "backward" ? "kt-main-slide-backward" : "kt-main-slide-forward"} min-h-screen`}
-      >
-        {page === "explore" && <Explore onScreenModeChange={setExploreFullScreen} />}
-        {page === "marketplace" && (
+      <PageTransition active className="min-h-screen">
+        <section className={pagePanelClass("explore")} aria-hidden={page !== "explore"}>
+          <Explore active={page === "explore"} onScreenModeChange={setExploreFullScreen} />
+        </section>
+
+        <section className={pagePanelClass("marketplace")} aria-hidden={page !== "marketplace"}>
           <Marketplace
             nav={marketplaceNav}
             setNav={setMarketplaceNav}
             onActivityChange={setMarketplaceActivityOpen}
+            active={page === "marketplace"}
           />
-        )}
-        {page === "transport" && (
+        </section>
+
+        <section className={pagePanelClass("transport")} aria-hidden={page !== "transport"}>
           <Transport
             onActivityChange={setTransportActivityOpen}
             areaViewRequest={transportAreaRequest}
+            active={page === "transport"}
           />
-        )}
-      </div>
+        </section>
+      </PageTransition>
 
       {!bottomTabsHidden ? <BottomTabs page={page} setPage={changePage} /> : null}
     </div>

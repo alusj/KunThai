@@ -108,6 +108,15 @@ export function clearRecentSearches() {
   localStorage.removeItem(RECENT_SEARCHES_KEY);
 }
 
+export function removeRecentSearch(query) {
+  const value = String(query || "").trim().toLowerCase();
+  if (!value) return readRecentSearches();
+
+  const next = readRecentSearches().filter((item) => item.toLowerCase() !== value);
+  localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+  return next;
+}
+
 export function getSuggestedSearches() {
   const posts = readCachedPosts();
   const tags = getHashtagResults(posts, "").slice(0, 4).map((item) => item.title);

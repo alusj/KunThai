@@ -39,6 +39,12 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]) {
     cursor: pointer;
@@ -81,20 +87,59 @@
     box-shadow: 0 1px 0 rgb(15 23 42 / 0.04), 0 14px 30px rgb(15 23 42 / 0.06);
   }
 
+  .kt-premium-header {
+    @apply border-b border-slate-200/80 bg-white/95 shadow-sm;
+    box-shadow: 0 1px 0 rgb(15 23 42 / 0.04), 0 12px 26px rgb(15 23 42 / 0.055);
+  }
+
+  @supports (backdrop-filter: blur(12px)) {
+    .kt-premium-header {
+      @apply bg-white/[0.92] backdrop-blur-xl;
+    }
+  }
+
   .kt-soft-card {
     @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
     box-shadow: 0 12px 30px rgb(15 23 42 / 0.06);
   }
 
   .kt-touchable {
-    transition-duration: 180ms;
+    transition-duration: 150ms;
     transition-property: background-color, border-color, box-shadow, color, opacity, transform;
     transition-timing-function: var(--kt-ease-standard);
-    will-change: transform;
   }
 
   .kt-touchable:not(:disabled):active {
     transform: translateY(1px) scale(0.985);
+  }
+
+  .kt-pressable {
+    touch-action: manipulation;
+    transition-duration: 140ms;
+    transition-property: background-color, border-color, box-shadow, color, opacity, transform;
+    transition-timing-function: var(--kt-ease-standard);
+  }
+
+  .kt-pressable:not(:disabled):active {
+    transform: translateY(1px) scale(0.972);
+  }
+
+  .kt-premium-icon-button {
+    @apply relative inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border shadow-sm;
+    min-height: 2.75rem;
+    box-shadow: 0 8px 18px rgb(15 23 42 / 0.055);
+  }
+
+  .kt-premium-icon-button:disabled {
+    @apply opacity-50;
+  }
+
+  .kt-motion-card {
+    @apply transition-shadow duration-200;
+  }
+
+  .kt-motion-card:hover {
+    box-shadow: 0 16px 36px rgb(15 23 42 / 0.08);
   }
 
   .kt-icon-button {
@@ -130,6 +175,10 @@
     animation: kt-fade-up 240ms var(--kt-ease-standard) backwards;
   }
 
+  .kt-page-fade-slide {
+    animation: kt-fade-slide 260ms var(--kt-ease-standard) backwards;
+  }
+
   .kt-route-zoom-open {
     animation: kt-route-zoom-out 260ms var(--kt-ease-emphasized) backwards;
     transform-origin: center top;
@@ -161,45 +210,116 @@
   }
 
   .kt-explore-stack-enter {
-    animation: kt-explore-stack-enter-right 360ms var(--kt-ease-emphasized) both;
-    will-change: transform, opacity;
+    animation: kt-explore-stack-enter-right 280ms var(--kt-ease-emphasized) both;
   }
 
   .kt-explore-stack-enter-left {
-    animation: kt-explore-stack-enter-left 360ms var(--kt-ease-emphasized) both;
-    will-change: transform, opacity;
+    animation: kt-explore-stack-enter-left 280ms var(--kt-ease-emphasized) both;
   }
 
   .kt-explore-stack-leave-right {
-    animation: kt-explore-stack-leave-right 360ms var(--kt-ease-emphasized) both;
-    will-change: transform, opacity;
+    animation: kt-explore-stack-leave-right 280ms var(--kt-ease-emphasized) both;
   }
 
   .kt-explore-stack-leave-left {
-    animation: kt-explore-stack-leave-left 360ms var(--kt-ease-emphasized) both;
-    will-change: transform, opacity;
+    animation: kt-explore-stack-leave-left 280ms var(--kt-ease-emphasized) both;
   }
 
   .kt-explore-stack-panel {
-    transition-duration: 360ms;
+    transition-duration: 280ms;
     transition-property: opacity, transform;
     transition-timing-function: var(--kt-ease-emphasized);
-    will-change: transform, opacity;
   }
 
   .kt-urmall-screen-panel {
-    transition-duration: 360ms;
+    transition-duration: 280ms;
     transition-property: transform;
     transition-timing-function: var(--kt-ease-emphasized);
-    will-change: transform;
   }
 
   .kt-sheet-enter {
-    animation: kt-slide-up 240ms var(--kt-ease-emphasized) backwards;
+    animation: kt-slide-up 280ms var(--kt-ease-emphasized) backwards;
+  }
+
+  .kt-bottom-sheet-transition {
+    animation: kt-slide-up 300ms var(--kt-ease-emphasized) backwards;
   }
 
   .kt-modal-enter {
     animation: kt-soft-pop 200ms var(--kt-ease-standard) backwards;
+  }
+
+  .kt-create-popup-backdrop {
+    background:
+      radial-gradient(circle at 50% 0%, rgb(14 165 233 / 0.14), transparent 32rem),
+      rgb(15 23 42 / 0.34);
+    backdrop-filter: blur(6px);
+    animation: kt-backdrop-in 160ms var(--kt-ease-standard) backwards;
+  }
+
+  .kt-create-popup-panel {
+    transform-origin: top center;
+    animation: kt-create-pop 240ms var(--kt-ease-emphasized) backwards;
+  }
+
+  .kt-create-popup-item {
+    animation: kt-create-item-in 220ms var(--kt-ease-standard) backwards;
+  }
+
+  .kt-create-popup-item:nth-child(2) {
+    animation-delay: 35ms;
+  }
+
+  .kt-create-popup-item:nth-child(3) {
+    animation-delay: 70ms;
+  }
+
+  .kt-create-popup-item:nth-child(4) {
+    animation-delay: 105ms;
+  }
+
+  .kt-comments-backdrop-enter {
+    animation: kt-backdrop-in 160ms var(--kt-ease-standard) backwards;
+  }
+
+  .kt-comments-backdrop-exit {
+    animation: kt-backdrop-out 220ms var(--kt-ease-standard) forwards;
+  }
+
+  .kt-comments-feed-enter {
+    transform-origin: center bottom;
+    animation: kt-comments-feed-up 280ms var(--kt-ease-emphasized) backwards;
+  }
+
+  .kt-comments-feed-exit {
+    transform-origin: center bottom;
+    animation: kt-comments-feed-down 240ms var(--kt-ease-standard) forwards;
+  }
+
+  .kt-comments-swip-enter {
+    transform-origin: right center;
+    animation: kt-comments-swip-out 280ms var(--kt-ease-emphasized) backwards;
+  }
+
+  .kt-comments-swip-exit {
+    transform-origin: right center;
+    animation: kt-comments-swip-in 240ms var(--kt-ease-standard) forwards;
+  }
+
+  .kt-comment-composer {
+    box-shadow: 0 -10px 26px rgb(15 23 42 / 0.045);
+  }
+
+  .kt-comment-reply-chip {
+    animation: kt-comment-chip-in 180ms var(--kt-ease-standard) backwards;
+  }
+
+  .kt-comment-send-flight {
+    animation: kt-comment-send-flight 620ms var(--kt-ease-emphasized) forwards;
+  }
+
+  .kt-comment-item-pending {
+    animation: kt-comment-item-in 260ms var(--kt-ease-standard) backwards;
   }
 
   .kuntai-scrollbar-none {
@@ -242,10 +362,26 @@
   to { opacity: 1; }
 }
 
+@keyframes kt-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 @keyframes kt-fade-up {
   from {
     opacity: 0;
     transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-fade-slide {
+  from {
+    opacity: 0.96;
+    transform: translate3d(0, 10px, 0);
   }
   to {
     opacity: 1;
@@ -389,6 +525,112 @@
   from {
     opacity: 0;
     transform: translate3d(0, 8px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-create-pop {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-create-item-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-comments-feed-up {
+  from {
+    opacity: 0.98;
+    transform: translate3d(0, 34px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-comments-feed-down {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0.98;
+    transform: translate3d(0, 38px, 0) scale(0.99);
+  }
+}
+
+@keyframes kt-comments-swip-out {
+  from {
+    opacity: 0.98;
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-comments-swip-in {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0.98;
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+@keyframes kt-comment-chip-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-comment-send-flight {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0) scale(0.96);
+  }
+  16% {
+    opacity: 1;
+  }
+  74% {
+    opacity: 0.96;
+    transform: translate3d(0, -72px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -92px, 0) scale(0.98);
+  }
+}
+
+@keyframes kt-comment-item-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
   }
   to {
     opacity: 1;

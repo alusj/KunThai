@@ -141,9 +141,8 @@ function writeFeedMemory(scope, patch) {
   FEED_MEMORY.set(scope, { ...current, ...patch, savedAt: Date.now() });
 }
 
-function mergeStoredReactionSet(storageKey, remoteIds = []) {
-  const stored = readStoredSet(storageKey);
-  return new Set([...stored, ...(Array.isArray(remoteIds) ? remoteIds : [])]);
+function buildRemoteReactionSet(remoteIds = []) {
+  return new Set(Array.isArray(remoteIds) ? remoteIds.filter(Boolean) : []);
 }
 
 export function useExploreFeed(scope = "feed") {
@@ -160,6 +159,7 @@ export function useExploreFeed(scope = "feed") {
   const likedPostsRef = useRef(likedPosts);
   const savedPostsRef = useRef(savedPosts);
   const loadIdRef = useRef(0);
+  const pendingReactionRef = useRef(new Set());
 
   useEffect(() => {
     postsRef.current = posts;
@@ -220,8 +220,8 @@ export function useExploreFeed(scope = "feed") {
       const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
       setCurrentUserId(currentProfile?.id || "");
 
-      const nextLikedPosts = mergeStoredReactionSet(LIKE_STORAGE_KEY, reactions.likes);
-      const nextSavedPosts = mergeStoredReactionSet(SAVE_STORAGE_KEY, reactions.saves);
+      const nextLikedPosts = buildRemoteReactionSet(reactions.likes);
+      const nextSavedPosts = buildRemoteReactionSet(reactions.saves);
 
       setLikedPosts(nextLikedPosts);
       setSavedPosts(nextSavedPosts);
@@ -253,8 +253,8 @@ export function useExploreFeed(scope = "feed") {
   async function refreshCurrentReactions() {
     try {
       const reactions = await fetchCurrentUserReactions();
-      const nextLikedPosts = mergeStoredReactionSet(LIKE_STORAGE_KEY, reactions.likes);
-      const nextSavedPosts = mergeStoredReactionSet(SAVE_STORAGE_KEY, reactions.saves);
+      const nextLikedPosts = buildRemoteReactionSet(reactions.likes);
+      const nextSavedPosts = buildRemoteReactionSet(reactions.saves);
       likedPostsRef.current = nextLikedPosts;
       savedPostsRef.current = nextSavedPosts;
       setLikedPosts(nextLikedPosts);
@@ -365,8 +365,8 @@ export function useExploreFeed(scope = "feed") {
         async onChange() {
           try {
             const reactions = await fetchCurrentUserReactions();
-            const nextLikedPosts = mergeStoredReactionSet(LIKE_STORAGE_KEY, reactions.likes);
-            const nextSavedPosts = mergeStoredReactionSet(SAVE_STORAGE_KEY, reactions.saves);
+            const nextLikedPosts = buildRemoteReactionSet(reactions.likes);
+            const nextSavedPosts = buildRemoteReactionSet(reactions.saves);
             setLikedPosts(nextLikedPosts);
             setSavedPosts(nextSavedPosts);
             writeStoredSet(LIKE_STORAGE_KEY, nextLikedPosts);
@@ -470,6 +470,13 @@ export function useExploreFeed(scope = "feed") {
   }
 
   async function toggleReaction(postId, type) {
+    const pendingKey = `${type}:${postId}`;
+    if (pendingReactionRef.current.has(pendingKey)) {
+      return;
+    }
+
+    pendingReactionRef.current.add(pendingKey);
+
     const stateSetter = type === "like" ? setLikedPosts : setSavedPosts;
     const stateRef = type === "like" ? likedPostsRef : savedPostsRef;
     const storageKey = type === "like" ? LIKE_STORAGE_KEY : SAVE_STORAGE_KEY;
@@ -526,6 +533,7 @@ export function useExploreFeed(scope = "feed") {
           writeStoredPosts(scope, correctedPosts);
           return correctedPosts;
         });
+        refreshPostCounts([postId]);
         return;
       }
 
@@ -551,7 +559,9 @@ export function useExploreFeed(scope = "feed") {
         window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope, postId, type: `${type}-rollback` } }));
       }
       setError(err.message || `Unable to update ${type}.`);
-      showToast(err.message || `Unable to update ${type}.`, "error");
+      showToast(err.message || `Unable to update ${type}.`, "danger");
+    } finally {
+      pendingReactionRef.current.delete(pendingKey);
     }
   }
 

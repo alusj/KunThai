@@ -2,6 +2,7 @@ import { MessageCircle, PackageCheck, ShoppingBag, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
 import { fetchBuyerMessages, fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
@@ -68,92 +69,65 @@ export default function MarketplaceHeader({
 
   if (loading) {
     return (
-      <header className="kt-header-glass sticky top-0 z-20" aria-busy="true">
-        <div className="flex h-14 items-center justify-between px-4">
-          <div className="flex h-10 w-[104px] animate-pulse items-center justify-center gap-2 rounded-lg bg-gray-100 text-gray-300">
-            <Store size={18} />
-            <span className="h-3 w-12 rounded-full bg-gray-200" />
-          </div>
-
-          <span className="flex flex-col items-center leading-tight text-blue-700">
-            <span className="text-[11px] font-black uppercase tracking-[0.38em]">KUNTHAI</span>
-            <span className="flex items-center gap-1.5 text-base font-black text-gray-900">
-              <ShoppingBag size={17} />
-              UrMall
-            </span>
-          </span>
-
-          <div className="flex items-center gap-2" aria-hidden="true">
+      <PremiumHeader
+        accent="emerald"
+        centerIcon={ShoppingBag}
+        title="UrMall"
+        className="z-20"
+        left={<div className="h-11 w-28 animate-pulse rounded-2xl bg-slate-100" />}
+        right={(
+          <>
             {[PackageCheck, MessageCircle, ShoppingBag, Store].map((Icon, index) => (
-              <span
-                key={index}
-                className="flex h-10 w-10 animate-pulse items-center justify-center rounded-lg bg-gray-100 text-gray-300"
-              >
+              <span key={index} className="grid h-11 w-11 animate-pulse place-items-center rounded-2xl bg-slate-100 text-slate-300">
                 <Icon size={18} />
               </span>
             ))}
-          </div>
-        </div>
-      </header>
+          </>
+        )}
+      />
     );
   }
 
   return (
-    <header className="kt-header-glass sticky top-0 z-20">
-      <div className="flex h-14 items-center justify-between px-4">
-        <button
-          type="button"
+    <PremiumHeader
+      accent="emerald"
+      centerIcon={ShoppingBag}
+      title="UrMall"
+      className="z-20"
+      left={(
+        <PremiumHeaderButton
+          active={!hasBusiness}
+          accent="emerald"
+          icon={Store}
+          label={businessLabel}
           onClick={onMyBizClick}
-          className={`kt-touchable inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-black shadow-sm transition ${
-            hasBusiness
-              ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
-              : "border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700"
-          }`}
+          wide
         >
-          <Store size={17} />
           {businessLabel}
-        </button>
-
-        <span className="inline-flex items-center gap-1.5 text-sm font-black text-gray-700">
-          <ShoppingBag size={16} className="text-emerald-700" />
-          UrMall
-        </span>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
+        </PremiumHeaderButton>
+      )}
+      right={(
+        <>
+          <PremiumHeaderButton
+            active={activeUtility === "orders"}
+            accent="emerald"
+            badge={orderCount}
+            icon={PackageCheck}
+            label="Open orders"
             onClick={onOrdersClick}
-            className={`kt-touchable relative inline-flex h-10 w-10 items-center justify-center rounded-xl transition ${
-              activeUtility === "orders" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-            }`}
-            aria-label={`Open orders${orderCount ? `, ${orderCount} ordered item${orderCount === 1 ? "" : "s"}` : ""}`}
-          >
-            <PackageCheck size={18} />
-            {orderCount ? (
-              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-black leading-none text-white">
-                {orderCount > 99 ? "99+" : orderCount}
-              </span>
-            ) : null}
-          </button>
-          <button
-            type="button"
+          />
+          <PremiumHeaderButton
+            active={activeUtility === "messages"}
+            accent="emerald"
+            badge={messageCount}
+            icon={MessageCircle}
+            label="Open messages"
             onClick={onMessagesClick}
-            className={`kt-touchable relative inline-flex h-10 w-10 items-center justify-center rounded-xl transition ${
-              activeUtility === "messages" ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-            }`}
-            aria-label={`Open messages${messageCount ? `, ${messageCount} unread` : ""}`}
-          >
-            <MessageCircle size={18} />
-            {messageCount ? (
-              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-black leading-none text-white">
-                {messageCount > 99 ? "99+" : messageCount}
-              </span>
-            ) : null}
-          </button>
+          />
           <Cart onOpenChange={setCartOpen} />
           <Menu onOpenChange={setMenuOpen} />
-        </div>
-      </div>
-    </header>
+        </>
+      )}
+    />
   );
 }

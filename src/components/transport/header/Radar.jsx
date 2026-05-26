@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MapPin, Radio, Target, X } from "lucide-react";
 
 import AppPortal from "../../shared/AppPortal";
+import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 
@@ -77,32 +78,14 @@ export default function Radar({ onOpenChange, onViewFleet }) {
 
   return (
     <>
-      <button
-        type="button"
+      <PremiumHeaderButton
+        active
+        accent="emerald"
+        className={scanning ? "after:absolute after:inset-0 after:rounded-2xl after:bg-emerald-300/40 after:content-[''] after:animate-ping" : ""}
+        icon={Target}
+        label="Scan nearby operators"
         onClick={runScan}
-        aria-label="Scan nearby operators"
-        title="Scan nearby operators"
-        className="
-          relative
-          flex
-          h-10
-          w-10
-          items-center
-          justify-center
-          rounded-full
-          bg-green-600
-          text-white
-          shadow-md
-          transition
-          hover:scale-105
-          active:scale-95
-        "
-      >
-        {scanning ? (
-          <span className="absolute inset-0 rounded-full bg-green-400 opacity-60 animate-ping" />
-        ) : null}
-        <Target size={18} className={scanning ? "animate-pulse" : ""} />
-      </button>
+      />
 
       {open ? (
         <AppPortal>

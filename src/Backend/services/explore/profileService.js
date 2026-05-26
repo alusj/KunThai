@@ -22,6 +22,17 @@ function toAppProfile(row, fallback = {}) {
   };
 }
 
+function getReadableProfileName(profile = {}, user = {}) {
+  const displayName = String(profile.displayName || "").trim();
+  const username = String(profile.username || "").trim();
+  const email = String(profile.email || user?.email || "").trim();
+
+  if (displayName && displayName.toLowerCase() !== "profile") return displayName;
+  if (username && username.toLowerCase() !== "user") return username;
+  if (email) return email.split("@")[0] || email;
+  return "User";
+}
+
 async function getAuthUser() {
   const {
     data: { user },
@@ -150,7 +161,7 @@ export async function getCurrentUserProfile() {
 
   return {
     id: user.id,
-    name: profile.displayName,
+    name: getReadableProfileName(profile, user),
     username: profile.username,
     avatar_url: profile.avatarUrl,
   };

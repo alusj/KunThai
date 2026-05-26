@@ -10,10 +10,15 @@ import {
   LocateFixed,
   LockKeyhole,
   MapPin,
+  MoreHorizontal,
+  Navigation,
+  Pencil,
   Plus,
   ReceiptText,
   Settings,
+  Share2,
   ShieldAlert,
+  Trash2,
   UserRound,
   X,
 } from "lucide-react";
@@ -139,6 +144,13 @@ function createEmptyPlace() {
 
 function getPlaceLabel(place) {
   return place.category === "Other" ? place.customCategory || "Other" : place.category || "Home";
+}
+
+function getPlaceShareText(place) {
+  const label = getPlaceLabel(place);
+  const address = place.street || place.detectedAddress || "Address pending";
+  const note = place.note ? `\nNote: ${place.note}` : "";
+  return `${label} saved place\n${address}${note}`;
 }
 
 function formatDate(value) {
@@ -608,6 +620,21 @@ function TripLine({ label, value }) {
   );
 }
 
+function SavedPlaceMenuAction({ danger = false, icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`kt-touchable flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-black ${
+        danger ? "text-rose-600 hover:bg-rose-50" : "text-gray-700 hover:bg-gray-50 hover:text-gray-950"
+      }`}
+    >
+      {createElement(icon, { size: 17, strokeWidth: 2.3, absoluteStrokeWidth: true })}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </button>
+  );
+}
+
 function SavedPlacesPage() {
   const [places, setPlaces] = useState(() => getTransportSavedPlaces());
   const [place, setPlace] = useState(createEmptyPlace);
@@ -615,12 +642,14 @@ function SavedPlacesPage() {
   const [locationStatus, setLocationStatus] = useState("");
   const [message, setMessage] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [actionMenuId, setActionMenuId] = useState("");
 
   function updatePlace(patch) {
     setPlace((current) => ({ ...current, ...patch }));
   }
 
   function editPlace(nextPlace) {
+    setActionMenuId("");
     setPlace({ ...createEmptyPlace(), ...nextPlace });
     setLocationCandidate(null);
     setLocationStatus("");
@@ -629,6 +658,7 @@ function SavedPlacesPage() {
   }
 
   function openAddPlace() {
+    setActionMenuId("");
     setPlace(createEmptyPlace());
     setLocationCandidate(null);
     setLocationStatus("");
@@ -637,6 +667,7 @@ function SavedPlacesPage() {
   }
 
   function closeForm() {
+    setActionMenuId("");
     setPlace(createEmptyPlace());
     setLocationCandidate(null);
     setLocationStatus("");
@@ -659,6 +690,7 @@ function SavedPlacesPage() {
   }
 
   function removePlace(placeId) {
+    setActionMenuId("");
     setPlaces(removeTransportSavedPlace(placeId));
     if (place.id === placeId) {
       closeForm();
@@ -667,8 +699,35 @@ function SavedPlacesPage() {
   }
 
   function selectPlace(nextPlace) {
+    setActionMenuId("");
     selectTransportSavedPlace(nextPlace);
     setMessage(`${getPlaceLabel(nextPlace)} selected for your next transport search.`);
+  }
+
+  async function sharePlace(nextPlace) {
+    setActionMenuId("");
+    const text = getPlaceShareText(nextPlace);
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${getPlaceLabel(nextPlace)} saved place`,
+          text,
+        });
+        setMessage("Saved place ready to share.");
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setMessage("Saved place details copied.");
+        return;
+      }
+
+      setMessage(text);
+    } catch {
+      setMessage("Unable to share this place right now.");
+    }
   }
 
   async function locateMe() {
@@ -745,14 +804,25 @@ function SavedPlacesPage() {
   return (
     <div className="space-y-4">
       {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p> : null}
+      {actionMenuId ? (
+        <button
+          type="button"
+          aria-label="Close saved place actions"
+          className="fixed inset-0 z-10 cursor-default bg-transparent"
+          onClick={() => setActionMenuId("")}
+        />
+      ) : null}
 
       {places.length ? (
         <div className="space-y-2">
           <p className="text-sm font-black text-gray-950">Saved places</p>
-          {places.map((item) => (
+          {places.map((item) => {
+            const actionKey = item.id || `${item.category}-${item.street || item.detectedAddress || "place"}`;
+
+            return (
             <article
-              key={item.id || `${item.category}-${item.street}`}
-              className="kt-touchable rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
+              key={actionKey}
+              className="kt-touchable relative rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
             >
               <div className="flex items-start justify-between gap-3">
                 <button type="button" onClick={() => editPlace(item)} className="kt-touchable min-w-0 flex-1 text-left">
@@ -763,31 +833,28 @@ function SavedPlacesPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => removePlace(item.id)}
-                  className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50"
-                  aria-label="Remove saved place"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setActionMenuId((current) => (current === actionKey ? "" : actionKey));
+                  }}
+                  className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-950"
+                  aria-label={`${getPlaceLabel(item)} place actions`}
+                  aria-expanded={actionMenuId === actionKey}
                 >
-                  <X size={16} />
+                  <MoreHorizontal size={18} />
                 </button>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => editPlace(item)}
-                  className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectPlace(item)}
-                  className="kt-touchable h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
-                >
-                  Use for next trip
-                </button>
-              </div>
+              {actionMenuId === actionKey ? (
+                <div className="kt-modal-enter absolute right-3 top-12 z-30 w-56 overflow-hidden rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl shadow-slate-950/10">
+                  <SavedPlaceMenuAction icon={Navigation} label="Use for next trip" onClick={() => selectPlace(item)} />
+                  <SavedPlaceMenuAction icon={Pencil} label="Edit place" onClick={() => editPlace(item)} />
+                  <SavedPlaceMenuAction icon={Share2} label="Share details" onClick={() => sharePlace(item)} />
+                  <SavedPlaceMenuAction danger icon={Trash2} label="Delete place" onClick={() => removePlace(item.id)} />
+                </div>
+              ) : null}
             </article>
-          ))}
+            );
+          })}
         </div>
       ) : null}
 

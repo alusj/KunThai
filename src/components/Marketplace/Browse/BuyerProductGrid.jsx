@@ -150,7 +150,7 @@ export default function BuyerProductGrid({
   onToggleSaved,
   savedIds = new Set(),
 }) {
-  if (loading) {
+  if (loading && !products.length) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {Array.from({ length: 8 }).map((_, index) => (
@@ -179,17 +179,24 @@ export default function BuyerProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {products.map((product) => (
-        <BuyerProductCard
-          key={product.id}
-          product={product}
-          onProductSelect={onProductSelect}
-          onAddToCart={onAddToCart}
-          onToggleSaved={onToggleSaved}
-          saved={savedIds.has(product.id)}
-        />
-      ))}
+    <div className="space-y-3">
+      {loading ? (
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+          Refreshing products...
+        </div>
+      ) : null}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {products.map((product) => (
+          <BuyerProductCard
+            key={product.id}
+            product={product}
+            onProductSelect={onProductSelect}
+            onAddToCart={onAddToCart}
+            onToggleSaved={onToggleSaved}
+            saved={savedIds.has(product.id)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
