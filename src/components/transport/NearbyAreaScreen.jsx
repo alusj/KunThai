@@ -855,11 +855,11 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
         </header>
 
         {!focusMode && (
-          <div className="absolute bottom-32 right-4 z-30 grid gap-3 sm:bottom-8">
+          <div className="area-view-side-actions absolute right-3 z-30 grid gap-3 sm:right-5">
             <button
               type="button"
               onClick={openEmergencyMode}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl"
+              className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl"
               aria-label="Open KunThai SOS"
             >
               <FiAlertTriangle size={22} />
@@ -868,7 +868,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
             <button
               type="button"
               onClick={handleUseCurrentArea}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950/90 text-white shadow-xl"
+              className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full bg-slate-950/90 text-white shadow-xl"
               aria-label="Return to current location"
             >
               <FiCrosshair size={22} />
@@ -876,7 +876,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
 
             <button
               type="button"
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-xl"
+              className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-xl"
               aria-label="Save current area"
             >
               <FiBookmark size={22} />

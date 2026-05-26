@@ -104,6 +104,36 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     );
   }
 
+  function handleViewVerificationProfile() {
+    if (!verificationFleet?.id) return;
+    setActiveFleetId(verificationFleet.id);
+    setFleetSelection(null);
+    setActiveTripsOpen(false);
+    setSavedOperatorsOpen(false);
+  }
+
+  function handleChooseVerifiedOperators() {
+    setVerificationFleet(null);
+    setActiveFleetId(null);
+    setActiveTripsOpen(false);
+    setSavedOperatorsOpen(false);
+    setFleetSelection({
+      mode: "topRated",
+      fleetType: null,
+      label: "Verified Operators",
+      verifiedOnly: true,
+    });
+  }
+
+  function handleContinueWithVerification() {
+    setVerificationFleet(null);
+  }
+
+  function handleBookVerificationFleet() {
+    if (!verificationFleet) return;
+    setBookingTarget({ fleet: verificationFleet });
+  }
+
   useEffect(() => {
     let alive = true;
 
@@ -245,6 +275,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           status={verificationFleet?.verificationStatus}
           operatorName={verificationFleet?.fleetName}
           onClose={() => setVerificationFleet(null)}
+          onViewProfile={handleViewVerificationProfile}
+          onContinue={handleContinueWithVerification}
+          onChooseVerified={handleChooseVerifiedOperators}
+          onBookOperator={handleBookVerificationFleet}
         />
         {renderBookingDrawer()}
       </div>
@@ -263,6 +297,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           status={verificationFleet?.verificationStatus}
           operatorName={verificationFleet?.fleetName}
           onClose={() => setVerificationFleet(null)}
+          onViewProfile={handleViewVerificationProfile}
+          onContinue={handleContinueWithVerification}
+          onChooseVerified={handleChooseVerifiedOperators}
+          onBookOperator={handleBookVerificationFleet}
         />
         {renderBookingDrawer()}
       </div>
@@ -282,6 +320,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           status={verificationFleet?.verificationStatus}
           operatorName={verificationFleet?.fleetName}
           onClose={() => setVerificationFleet(null)}
+          onViewProfile={handleViewVerificationProfile}
+          onContinue={handleContinueWithVerification}
+          onChooseVerified={handleChooseVerifiedOperators}
+          onBookOperator={handleBookVerificationFleet}
         />
         {renderBookingDrawer()}
       </div>
@@ -302,6 +344,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           status={verificationFleet?.verificationStatus}
           operatorName={verificationFleet?.fleetName}
           onClose={() => setVerificationFleet(null)}
+          onViewProfile={handleViewVerificationProfile}
+          onContinue={handleContinueWithVerification}
+          onChooseVerified={handleChooseVerifiedOperators}
+          onBookOperator={handleBookVerificationFleet}
         />
         {renderBookingDrawer()}
       </div>

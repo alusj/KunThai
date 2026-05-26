@@ -31,7 +31,7 @@ export default function BottomTabs({ page, setPage }) {
       type="button"
       onClick={() => setPage(id)}
       aria-current={page === id ? "page" : undefined}
-      className={`kt-pressable flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-black select-none ${
+      className={`kt-pressable flex min-h-[58px] w-full flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-black select-none ${
         page === id ? "text-white" : "text-slate-500 hover:text-slate-950"
       }`}
     >
@@ -56,7 +56,7 @@ export default function BottomTabs({ page, setPage }) {
     >
       <div className="relative mx-auto grid max-w-xl grid-cols-3 gap-1 rounded-[24px] border border-slate-200 bg-white/95 p-1.5 shadow-2xl shadow-slate-950/10 backdrop-blur-xl">
         <span
-          className="pointer-events-none absolute bottom-1.5 top-1.5 rounded-[20px] bg-slate-950 shadow-lg shadow-slate-950/15 transition-[left] duration-300 ease-out"
+          className="pointer-events-none absolute bottom-1.5 top-1.5 z-0 rounded-[20px] bg-slate-950 shadow-lg shadow-slate-950/15 transition-[left] duration-300 ease-out"
           style={{
             left: `calc(0.375rem + ${activeIndex} * ((100% - 1.25rem) / 3 + 0.25rem))`,
             width: "calc((100% - 1.25rem) / 3)",
@@ -64,7 +64,9 @@ export default function BottomTabs({ page, setPage }) {
           aria-hidden="true"
         />
         {tabs.map((tab) => (
-          <Btn key={tab.id} {...tab} />
+          <div key={tab.id} className="relative z-10 min-w-0">
+            <Btn {...tab} />
+          </div>
         ))}
       </div>
     </nav>

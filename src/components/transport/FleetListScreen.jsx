@@ -10,7 +10,12 @@ import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
 export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification, onOpenBooking }) {
-  const [fleets, setFleets] = useState(() => getTransportFleets(selection));
+  const [fleets, setFleets] = useState(() => {
+    const items = getTransportFleets(selection);
+    return selection.verifiedOnly
+      ? items.filter((fleet) => ["verified", "recommended"].includes(fleet.verificationStatus))
+      : items;
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -30,7 +35,10 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
         setLoading(true);
         setError("");
         const items = await fetchTransportFleets(selection);
-        if (alive) setFleets(items);
+        const visibleItems = selection.verifiedOnly
+          ? items.filter((fleet) => ["verified", "recommended"].includes(fleet.verificationStatus))
+          : items;
+        if (alive) setFleets(visibleItems);
       } catch (err) {
         if (alive) {
           setError(err.message || "Unable to load fleets.");
@@ -92,7 +100,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
             value={selection.mode === "topRated" ? "Rating, trips, active status" : "Active and closest first"}
           />
           <SummaryItem label="Type" value={selection.mode === "topRated" ? "All fleet types" : selection.label} />
-          <SummaryItem label="Mode" value={modeLabel} />
+          <SummaryItem label="Mode" value={selection.verifiedOnly ? "Verified only" : modeLabel} />
         </div>
 
         {error ? (

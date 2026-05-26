@@ -30,7 +30,7 @@ function applyOperatorFilters(items, filters, destination) {
     .filter((operator) => matchesQuery(operator, destination));
 }
 
-export default function NearbyOperators({ filters, destination, pickup, onViewAll, onViewFleet, onOpenBooking }) {
+export default function NearbyOperators({ filters, destination, pickup, onChooseVerified, onViewAll, onViewFleet, onOpenBooking }) {
   const [activeOperator, setActiveOperator] = useState(null);
   const [operators, setOperators] = useState(() => getTransportFleets({ mode: "topRated", fleetType: null }).slice(0, 4));
   const [loading, setLoading] = useState(true);
@@ -161,6 +161,22 @@ export default function NearbyOperators({ filters, destination, pickup, onViewAl
         status={activeOperator?.verificationStatus}
         operatorName={activeOperator?.fleetName}
         onClose={() => setActiveOperator(null)}
+        onViewProfile={() => onViewFleet?.(activeOperator?.id)}
+        onContinue={() => setActiveOperator(null)}
+        onChooseVerified={onChooseVerified}
+        onBookOperator={() =>
+          activeOperator &&
+          onOpenBooking?.({
+            fleet: activeOperator,
+            pickup,
+            destination,
+            selection: {
+              mode: activeOperator.serviceCategory === "Delivery" ? "delivery" : "ride",
+              fleetType: activeOperator.fleetType,
+              label: activeOperator.displayType,
+            },
+          })
+        }
       />
     </section>
   );

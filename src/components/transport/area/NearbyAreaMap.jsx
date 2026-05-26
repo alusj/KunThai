@@ -1144,6 +1144,7 @@ export default function NearbyAreaMap({
   const lastParentLocationAtRef = useRef(0);
   const gpsUiRef = useRef({ status: `Showing ${DEFAULT_CENTER.label}`, accuracy: null, time: 0 });
   const headingUiRef = useRef({ heading: null, time: 0 });
+  const navigationDragRef = useRef(null);
 
   const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
   const [userLocation, setUserLocation] = useState(null);
@@ -1152,7 +1153,7 @@ export default function NearbyAreaMap({
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeStatusKey, setRouteStatusKey] = useState("correct");
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
-  const [navigationMinimized, setNavigationMinimized] = useState(false);
+  const [navigationSnap, setNavigationSnap] = useState("half");
   const [headingMode, setHeadingMode] = useState("smart");
   const [heading, setHeading] = useState(null);
   const [weather, setWeather] = useState(null);
@@ -1166,9 +1167,47 @@ export default function NearbyAreaMap({
 
   const routeStatus = ROUTE_STATUS[routeStatusKey];
   const showNavigationCard = Boolean(routeLoading || routeInfo || routeError);
+  const navigationCollapsed = navigationSnap === "collapsed";
+  const routeDistanceLabel = routeInfo?.distance || (routeLoading ? "Finding route" : "Route");
+  const routeDurationLabel = routeInfo?.duration || (routeError ? "Check route" : "");
+  const routeSummaryLabel = routeDurationLabel ? `${routeDistanceLabel} - ${routeDurationLabel}` : routeDistanceLabel;
+  const routeFromLabel = routeInfo?.from || "Current location";
+  const routeToLabel = routeInfo?.to || selectedLocation?.name || selectedLocation?.label || "selected location";
   const canUseHeading = headingMode !== "north";
   const weatherInsight = getSmartWeatherMessage(weather);
   const showWeatherBadge = Boolean(weatherError || weatherInsight.relevant);
+
+  function setNextNavigationSnap(direction) {
+    const snaps = ["collapsed", "half", "expanded"];
+    setNavigationSnap((current) => {
+      const index = Math.max(0, snaps.indexOf(current));
+      const nextIndex = direction === "up"
+        ? Math.min(snaps.length - 1, index + 1)
+        : Math.max(0, index - 1);
+      return snaps[nextIndex];
+    });
+  }
+
+  function handleNavigationDragStart(event) {
+    if (!showNavigationCard) return;
+    navigationDragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleNavigationDragEnd(event) {
+    const drag = navigationDragRef.current;
+    navigationDragRef.current = null;
+    if (!drag) return;
+
+    event.currentTarget.releasePointerCapture?.(drag.pointerId);
+    const deltaY = event.clientY - drag.startY;
+    if (Math.abs(deltaY) < 34) return;
+
+    setNextNavigationSnap(deltaY < 0 ? "up" : "down");
+  }
 
   function publishGpsUi(status, accuracy, options = {}) {
     const now = performance.now();
@@ -2123,7 +2162,7 @@ export default function NearbyAreaMap({
 
 
   return (
-    <div className="absolute inset-0 bg-slate-900" style={{ touchAction: "pan-x pan-y", overscrollBehavior: "none" }}>
+    <div className="nearby-area-map absolute inset-0 bg-slate-900" style={{ touchAction: "pan-x pan-y", overscrollBehavior: "none" }}>
       <div
         ref={mapContainerRef}
         className="absolute inset-0 h-full w-full"
@@ -2161,14 +2200,29 @@ export default function NearbyAreaMap({
 
       {showNavigationCard && (
         <div
-          className={`absolute left-3 right-3 z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur transition-all sm:left-5 sm:right-auto sm:max-w-md ${
-            navigationMinimized ? "bottom-24 p-3 sm:bottom-6" : "bottom-24 p-4 sm:bottom-6"
-          }`}
+          className={`area-route-sheet absolute z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur ${navigationSnap}`}
         >
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-black uppercase tracking-wide text-green-600">
+          <div
+            className="area-route-sheet-handle flex cursor-grab touch-none flex-col items-center px-4 pt-3 active:cursor-grabbing"
+            onPointerDown={handleNavigationDragStart}
+            onPointerUp={handleNavigationDragEnd}
+            onPointerCancel={() => {
+              navigationDragRef.current = null;
+            }}
+          >
+            <span className="h-1.5 w-16 rounded-full bg-slate-300 shadow-sm" />
+            <span className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">Drag</span>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-1">
+            <button
+              type="button"
+              onClick={() => setNextNavigationSnap(navigationCollapsed ? "up" : "down")}
+              className="kt-pressable rounded-full bg-green-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-green-700"
+              aria-label={navigationCollapsed ? "Expand navigation sheet" : "Collapse navigation sheet"}
+            >
               Live Navigation
-            </p>
+            </button>
 
             <div className="flex items-center gap-2">
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${routeCardStatus.className}`}>
@@ -2177,33 +2231,33 @@ export default function NearbyAreaMap({
 
               <button
                 type="button"
-                onClick={() => setNavigationMinimized((value) => !value)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700"
-                aria-label={navigationMinimized ? "Expand navigation" : "Minimize navigation"}
+                onClick={() => setNextNavigationSnap(navigationCollapsed ? "up" : "down")}
+                className="kt-pressable flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+                aria-label={navigationCollapsed ? "Expand navigation" : "Collapse navigation"}
               >
-                {navigationMinimized ? "＋" : "－"}
+                {navigationCollapsed ? "+" : "-"}
               </button>
             </div>
           </div>
 
-          {navigationMinimized ? (
-            <div className="mt-2 flex items-center justify-between gap-3">
+          {navigationCollapsed ? (
+            <div className="flex items-center justify-between gap-3 px-4 pb-4">
               <h3 className="text-lg font-black">
-                {routeInfo.distance} • {routeInfo.duration}
+                {routeSummaryLabel}
               </h3>
               <span className={`rounded-2xl px-3 py-2 text-xs font-black ${routeCardStatus.className}`}>
                 {routeError ? "CHECK" : routeLoading ? "WAIT" : routeStatusKey.toUpperCase()}
               </span>
             </div>
           ) : (
-            <>
+            <div className="area-route-sheet-body overflow-y-auto px-4 pb-4">
               <div className="mt-2 flex items-center justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-black sm:text-lg">
-                    {routeInfo.distance} • {routeInfo.duration}
+                    {routeSummaryLabel}
                   </h3>
                   <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">
-                    To: {routeInfo.to}
+                    To: {routeToLabel}
                   </p>
                 </div>
 
@@ -2283,18 +2337,18 @@ export default function NearbyAreaMap({
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 shrink-0 rounded-full bg-green-600" />
                   <span>
-                    <strong className="text-slate-900">CURRENT LOCATION:</strong> {routeInfo.from}
+                    <strong className="text-slate-900">CURRENT LOCATION:</strong> {routeFromLabel}
                   </span>
                 </div>
 
                 <div className="flex items-start gap-2">
                   <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-600" />
                   <span className="line-clamp-2">
-                    <strong className="text-slate-900">DESTINATION:</strong> {routeInfo.to}
+                    <strong className="text-slate-900">DESTINATION:</strong> {routeToLabel}
                   </span>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

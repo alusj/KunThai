@@ -1,15 +1,67 @@
+import { useState } from "react";
 import { FiCheckCircle, FiX } from "react-icons/fi";
 import AppPortal from "../../shared/AppPortal";
 import { verificationStatuses } from "./verificationStatus";
 
-export default function VerificationDetailsModal({ status, operatorName, onClose }) {
+export default function VerificationDetailsModal({
+  status,
+  operatorName,
+  onBookOperator,
+  onChooseVerified,
+  onClose,
+  onContinue,
+  onReportConcern,
+  onViewProfile,
+}) {
+  const [busyAction, setBusyAction] = useState("");
+
   if (!status) return null;
 
   const config = verificationStatuses[status] || verificationStatuses.pending;
 
+  async function handleAction(action) {
+    if (busyAction) return;
+    setBusyAction(action);
+
+    try {
+      if (action === "View profile") {
+        await onViewProfile?.();
+        onClose?.();
+        return;
+      }
+
+      if (action === "Continue carefully") {
+        await onContinue?.();
+        onClose?.();
+        return;
+      }
+
+      if (action === "Choose verified operators" || action === "Choose verified sellers") {
+        await onChooseVerified?.();
+        onClose?.();
+        return;
+      }
+
+      if (action === "Book operator") {
+        await onBookOperator?.();
+        onClose?.();
+        return;
+      }
+
+      if (action === "Report concern") {
+        await onReportConcern?.();
+        return;
+      }
+
+      onClose?.();
+    } finally {
+      setBusyAction("");
+    }
+  }
+
   return (
     <AppPortal>
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center px-4 py-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)]">
       <button
         type="button"
         aria-label="Close verification details overlay"
@@ -17,7 +69,7 @@ export default function VerificationDetailsModal({ status, operatorName, onClose
         className="absolute inset-0 bg-slate-950/40"
       />
 
-      <section className="relative w-full max-w-md rounded-3xl bg-white shadow-2xl">
+      <section className="kt-modal-enter relative flex max-h-[min(88dvh,42rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className={`rounded-t-3xl border-b px-5 py-4 ${config.panelClass}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -36,7 +88,7 @@ export default function VerificationDetailsModal({ status, operatorName, onClose
           </div>
         </div>
 
-        <div className="space-y-4 px-5 py-5">
+        <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-5">
           <p className="text-sm leading-6 text-gray-700">{config.detail}</p>
 
           <div className="space-y-2">
@@ -48,18 +100,20 @@ export default function VerificationDetailsModal({ status, operatorName, onClose
             ))}
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="grid gap-2 pt-1 sm:grid-cols-2">
             {config.actions.map((action, index) => (
               <button
                 key={action}
                 type="button"
-                className={`h-10 rounded-2xl px-4 text-sm font-semibold transition ${
+                onClick={() => handleAction(action)}
+                disabled={Boolean(busyAction)}
+                className={`kt-pressable min-h-11 rounded-2xl px-4 text-sm font-semibold transition disabled:opacity-60 ${
                   index === 0
                     ? "bg-gray-950 text-white hover:bg-gray-800"
                     : "border border-gray-200 text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                {action}
+                {busyAction === action ? "Working..." : action}
               </button>
             ))}
           </div>

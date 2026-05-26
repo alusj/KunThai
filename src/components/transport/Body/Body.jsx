@@ -233,6 +233,7 @@ export default function Body({
         filters={movementFilters}
         destination={destination}
         pickup={pickup}
+        onChooseVerified={() => updateMovementFilters({ verifiedOnly: true })}
         onViewAll={() => {
           const selection = getMovementSelection();
           if (selection.mode === "topRated") {

@@ -331,6 +331,9 @@ export default function ProductDetailDrawer({
   async function openOrderForm() {
     const localAddresses = readSavedAddresses();
     setSavedAddresses(localAddresses);
+    setOrderForm({ ...readDefaultAddress(), quantity: 1, fulfillment: product.deliveryAvailable ? "delivery" : "pickup" });
+    setOrderOpen(true);
+
     try {
       const remoteAddresses = await fetchBuyerDeliveryAddresses();
       if (remoteAddresses.length) {
@@ -340,9 +343,6 @@ export default function ProductDetailDrawer({
     } catch {
       // Keep local suggestions if the address table has not been applied yet.
     }
-
-    setOrderForm({ ...readDefaultAddress(), quantity: 1, fulfillment: product.deliveryAvailable ? "delivery" : "pickup" });
-    setOrderOpen(true);
   }
 
   async function handleProductReviewSubmit(event) {
@@ -422,7 +422,7 @@ export default function ProductDetailDrawer({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-28 sm:p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-36 sm:p-6 sm:pb-28">
           <div className="grid w-full gap-5 md:grid-cols-[0.9fr_1.1fr]">
             <div className="space-y-3">
               <Gallery product={product} onOpenImage={setActiveImageIndex} />
@@ -574,11 +574,12 @@ export default function ProductDetailDrawer({
           </div>
         </div>
 
-        <footer className="fixed inset-x-0 bottom-0 z-10 flex gap-2 overflow-x-auto border-t border-gray-200 bg-white p-4">
+        <footer className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white/95 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-12px_28px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 sm:grid-cols-[3rem_repeat(4,minmax(0,1fr))]">
           <button
             type="button"
             onClick={() => onToggleSaved?.(product)}
-            className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border ${
+            className={`kt-pressable row-span-2 inline-flex h-full min-h-[6.5rem] w-12 shrink-0 items-center justify-center rounded-2xl border sm:row-span-1 sm:min-h-12 ${
               saved ? "border-red-600 bg-red-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             }`}
             aria-label={saved ? `Unsave ${product.name}` : `Save ${product.name}`}
@@ -588,35 +589,36 @@ export default function ProductDetailDrawer({
           <button
             type="button"
             onClick={() => setMessageOpen(true)}
-            className="inline-flex h-12 min-w-[150px] flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-black text-gray-900 hover:bg-gray-50"
+            className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-black text-gray-900 hover:bg-gray-50 sm:text-sm"
           >
             <MessageCircle size={17} />
-            Message Seller
+            <span className="truncate">Message Seller</span>
           </button>
           <button
             type="button"
             onClick={() => onAddToCart?.(product)}
-            className="inline-flex h-12 min-w-[140px] flex-1 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 text-sm font-black text-emerald-700 hover:bg-emerald-50"
+            className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 sm:text-sm"
           >
             <ShoppingCart size={17} />
-            Add to Cart
+            <span className="truncate">Add to Cart</span>
           </button>
           <button
             type="button"
             onClick={openOrderForm}
-            className="inline-flex h-12 min-w-[130px] flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+            className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700 sm:text-sm"
           >
             <PackageCheck size={17} />
-            Order
+            <span className="truncate">Order</span>
           </button>
           <button
             type="button"
             onClick={() => setReviewOpen(true)}
-            className="inline-flex h-12 min-w-[150px] flex-1 items-center justify-center gap-2 rounded-lg bg-gray-950 px-4 text-sm font-black text-white hover:bg-emerald-700"
+            className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl bg-gray-950 px-3 text-xs font-black text-white hover:bg-gray-800 sm:text-sm"
           >
             <Star size={17} />
-            Product Review
+            <span className="truncate">Product Review</span>
           </button>
+          </div>
         </footer>
 
         {orderOpen && (
