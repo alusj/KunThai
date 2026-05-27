@@ -22,11 +22,13 @@ const privacyOptions = [
   { value: "circle", label: "Circle", icon: HiOutlineLockClosed },
 ];
 
-export default function ComposerActions({ privacy, setPrivacy, isRecording, onTool }) {
+export default function ComposerActions({ privacy, setPrivacy, isRecording, hasVideoAttachment = false, onTool }) {
+  const visibleTools = hasVideoAttachment ? tools.filter((tool) => tool.type !== "voice") : tools;
+
   return (
     <>
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {tools.map((tool) => {
+        {visibleTools.map((tool) => {
           const Icon = tool.icon;
           const active = tool.type === "voice" && isRecording;
           return (

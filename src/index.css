@@ -416,10 +416,6 @@
     bottom: calc(env(safe-area-inset-bottom) + 8.5rem);
   }
 
-  .area-route-intro {
-    animation: kt-route-intro-focus 900ms var(--kt-ease-emphasized) both;
-  }
-
   @media (min-width: 640px) {
     .area-route-sheet {
       left: 1.25rem;
@@ -791,22 +787,6 @@
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes kt-route-intro-focus {
-  0% {
-    opacity: 0;
-    transform: translate3d(-50%, -10px, 0) scale(0.96);
-  }
-  18%,
-  78% {
-    opacity: 1;
-    transform: translate3d(-50%, 0, 0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(-50%, -6px, 0) scale(0.98);
   }
 }
 

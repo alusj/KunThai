@@ -1,4 +1,11 @@
-import { HiOutlinePlay, HiOutlineXMark } from "react-icons/hi2";
+import {
+  HiOutlineCheck,
+  HiOutlinePause,
+  HiOutlinePlay,
+  HiOutlineSpeakerWave,
+  HiOutlineSpeakerXMark,
+  HiOutlineXMark,
+} from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
 
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
@@ -23,6 +30,74 @@ function formatTime(seconds = 0) {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
+function waitForVideoEvent(video, eventName, timeoutMs = 4000) {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Video preview timed out."));
+    }, timeoutMs);
+
+    function cleanup() {
+      window.clearTimeout(timer);
+      video.removeEventListener(eventName, handleSuccess);
+      video.removeEventListener("error", handleError);
+    }
+
+    function handleSuccess() {
+      cleanup();
+      resolve();
+    }
+
+    function handleError() {
+      cleanup();
+      reject(new Error("Unable to preview video."));
+    }
+
+    video.addEventListener(eventName, handleSuccess, { once: true });
+    video.addEventListener("error", handleError, { once: true });
+  });
+}
+
+async function captureVideoThumbnails(videoUrl, count = 12) {
+  if (!videoUrl) return [];
+
+  const video = document.createElement("video");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const thumbnails = [];
+
+  if (!ctx) return thumbnails;
+
+  video.src = videoUrl;
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+
+  await waitForVideoEvent(video, "loadedmetadata", 7000);
+
+  const duration = Math.max(0.1, video.duration || 0.1);
+  const ratio = (video.videoHeight || 16) / Math.max(1, video.videoWidth || 9);
+  canvas.width = 96;
+  canvas.height = Math.max(54, Math.round(canvas.width * ratio));
+
+  for (let index = 0; index < count; index += 1) {
+    const targetTime = Math.min(Math.max(0.05, duration - 0.12), (duration * (index + 0.5)) / count);
+    video.currentTime = targetTime;
+    await waitForVideoEvent(video, "seeked", 2500).catch(() => {});
+
+    try {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      thumbnails.push(canvas.toDataURL("image/jpeg", 0.58));
+    } catch {
+      // Skip frames the browser cannot decode quickly.
+    }
+  }
+
+  video.removeAttribute("src");
+  video.load();
+  return thumbnails;
+}
+
 export default function MediaPreview({
   imagePreview,
   videoPreview,
@@ -43,6 +118,8 @@ export default function MediaPreview({
 }) {
   const pendingVideoRef = useRef(null);
   const [playing, setPlaying] = useState(true);
+  const [soundOn, setSoundOn] = useState(false);
+  const [thumbnails, setThumbnails] = useState([]);
 
   const clipEnd = Math.min(videoDuration, videoTrimStart + maxVideoSeconds);
   const maxStart = Math.max(0, Math.floor(videoDuration - maxVideoSeconds));
@@ -57,6 +134,40 @@ export default function MediaPreview({
       video.currentTime = nextTime;
     }
   }, [pendingVideoUrl, videoDuration, videoTrimStart]);
+
+  useEffect(() => {
+    const video = pendingVideoRef.current;
+    if (!video || !pendingVideoUrl) return;
+
+    video.muted = !soundOn;
+    video.volume = soundOn ? 1 : 0;
+
+    if (playing) {
+      video.play().catch(() => {});
+    }
+  }, [pendingVideoUrl, playing, soundOn]);
+
+  useEffect(() => {
+    if (!pendingVideoUrl) {
+      setThumbnails([]);
+      return undefined;
+    }
+
+    let alive = true;
+    setThumbnails([]);
+
+    captureVideoThumbnails(pendingVideoUrl)
+      .then((nextThumbnails) => {
+        if (alive) setThumbnails(nextThumbnails);
+      })
+      .catch(() => {
+        if (alive) setThumbnails([]);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [pendingVideoUrl]);
 
   function handlePreviewTime(event) {
     const video = event.currentTarget;
@@ -77,6 +188,18 @@ export default function MediaPreview({
     } else {
       video.pause();
       setPlaying(false);
+    }
+  }
+
+  function toggleSound() {
+    const nextSound = !soundOn;
+    setSoundOn(nextSound);
+
+    const video = pendingVideoRef.current;
+    if (video) {
+      video.muted = !nextSound;
+      video.volume = nextSound ? 1 : 0;
+      video.play().catch(() => {});
     }
   }
 
@@ -110,86 +233,115 @@ export default function MediaPreview({
       ) : null}
 
       {pendingVideoUrl ? (
-        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-          <div className="relative bg-slate-950">
+        <div className="fixed inset-0 z-[95] flex flex-col overflow-hidden bg-black text-white">
+          <div className="flex h-[calc(env(safe-area-inset-top)+76px)] flex-none items-end justify-between px-5 pb-3 pt-[env(safe-area-inset-top)]">
+            <button
+              type="button"
+              onClick={onRemoveVideo}
+              disabled={trimmingVideo}
+              className="kt-pressable h-11 rounded-full border border-white/30 bg-white/10 px-4 text-base font-black text-white shadow-lg shadow-black/30 backdrop-blur disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <div className="pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top)+42px)] -translate-x-1/2 text-center">
+              <p className="text-sm font-black uppercase tracking-[0.22em] text-white/55">Video</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => (trimError ? onRetryTrim?.() : onTrimVideo?.())}
+              disabled={trimmingVideo}
+              className="kt-pressable inline-flex h-11 items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 text-base font-black text-white shadow-lg shadow-black/30 backdrop-blur disabled:text-white/45"
+            >
+              {trimmingVideo ? "Preparing" : "Done"}
+              {!trimmingVideo ? <HiOutlineCheck className="text-lg" /> : null}
+            </button>
+          </div>
+
+          <div className="relative min-h-0 flex-1">
             <video
               ref={pendingVideoRef}
               src={pendingVideoUrl}
               autoPlay
-              muted
+              muted={!soundOn}
               playsInline
-              loop
-              onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
+              loop={false}
+              onClick={togglePendingPreview}
+              onPause={() => setPlaying(false)}
+              onPlay={(event) => {
+                setPlaying(true);
+                pauseOtherExploreMedia(event.currentTarget);
+              }}
               onTimeUpdate={handlePreviewTime}
-              className="max-h-[420px] w-full object-contain"
+              className="h-full w-full object-contain"
             />
 
-            <RemoveButton onClick={onRemoveVideo} />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/70 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent" />
 
-            <button
-              type="button"
-              onClick={togglePendingPreview}
-              className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-xl text-slate-950 shadow"
-            >
-              <HiOutlinePlay />
-            </button>
+            <div className="absolute left-5 top-3 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={toggleSound}
+                className="kt-pressable grid h-14 w-14 place-items-center rounded-full border border-white/25 bg-black/35 text-3xl shadow-xl backdrop-blur"
+                aria-label={soundOn ? "Mute preview" : "Unmute preview"}
+              >
+                {soundOn ? <HiOutlineSpeakerWave /> : <HiOutlineSpeakerXMark />}
+              </button>
+            </div>
 
-            <div className="absolute bottom-4 left-4 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-slate-900">
-              Previewing {formatTime(videoTrimStart)}–{formatTime(clipEnd)}
+            <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+112px)] left-5 rounded-full bg-white/12 px-3 py-1 text-xs font-black text-white/85 backdrop-blur">
+              {formatTime(videoTrimStart)} to {formatTime(clipEnd)}
             </div>
           </div>
 
-          <div className="space-y-4 bg-white p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-black text-slate-950">KunThai Smart Clip</p>
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  Drag the yellow clip window. We’ll publish only {maxVideoSeconds}s to Swip.
-                </p>
+          <div className="flex flex-none flex-col gap-4 px-4 pb-[calc(env(safe-area-inset-bottom)+20px)]">
+            {trimError ? (
+              <div className="rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm font-bold text-rose-100">
+                {trimError}
               </div>
+            ) : null}
 
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-900">
-                {formatTime(videoTrimStart)}–{formatTime(clipEnd)}
-              </span>
-            </div>
+            <div className="flex items-center gap-2 rounded-xl bg-white/45 p-1.5 shadow-2xl shadow-black/50 backdrop-blur">
+              <button
+                type="button"
+                onClick={togglePendingPreview}
+                className="kt-pressable grid h-14 w-14 flex-none place-items-center rounded-lg bg-white/20 text-3xl text-white"
+                aria-label={playing ? "Pause preview" : "Play preview"}
+              >
+                {playing ? <HiOutlinePause /> : <HiOutlinePlay />}
+              </button>
 
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                ["Start", 0],
-                ["Middle", Math.max(0, (videoDuration - maxVideoSeconds) / 2)],
-                ["Ending", Math.max(0, videoDuration - maxVideoSeconds)],
-              ].map(([label, start]) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => onTrimPreset?.(Number(start))}
-                  className="h-10 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-black text-slate-700 active:scale-[0.98]"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-3">
-              <div className="relative h-16 overflow-hidden rounded-2xl bg-slate-300">
+              <div className="relative h-14 min-w-0 flex-1 overflow-hidden rounded-lg bg-slate-800">
                 <div className="absolute inset-0 flex">
-                  {Array.from({ length: 12 }).map((_, index) => (
-                    <span
-                      key={index}
-                      className="h-full flex-1 border-r border-white/30 bg-gradient-to-br from-slate-500 to-slate-800"
-                    />
-                  ))}
+                  {thumbnails.length
+                    ? thumbnails.map((thumbnail, index) => (
+                        <img
+                          key={index}
+                          src={thumbnail}
+                          alt=""
+                          className="h-full min-w-0 flex-1 object-cover"
+                          draggable={false}
+                        />
+                      ))
+                    : Array.from({ length: 12 }).map((_, index) => (
+                        <span
+                          key={index}
+                          className="h-full flex-1 animate-pulse border-r border-white/10 bg-gradient-to-br from-slate-500 to-slate-900"
+                        />
+                      ))}
                 </div>
 
                 <div
-                  className="absolute inset-y-0 rounded-xl border-4 border-amber-400 bg-amber-300/35 shadow-[0_0_0_999px_rgba(15,23,42,0.42)]"
+                  className="absolute inset-y-0 rounded-md border-[3px] border-white bg-white/10 shadow-[0_0_0_999px_rgba(0,0,0,0.48)]"
                   style={{
                     left: `${Math.max(0, (videoTrimStart / Math.max(videoDuration, 1)) * 100)}%`,
                     width: `${Math.min(100, (maxVideoSeconds / Math.max(videoDuration, 1)) * 100)}%`,
                   }}
                 >
-                  <span className="absolute -left-3 top-1/2 h-12 w-5 -translate-y-1/2 rounded-full bg-amber-400 shadow" />
-                  <span className="absolute -right-3 top-1/2 h-12 w-5 -translate-y-1/2 rounded-full bg-amber-400 shadow" />
+                  <span className="absolute -left-1.5 top-0 h-full w-2 rounded-full bg-white shadow-lg" />
+                  <span className="absolute -right-1.5 top-0 h-full w-2 rounded-full bg-white shadow-lg" />
                 </div>
 
                 <input
@@ -202,27 +354,25 @@ export default function MediaPreview({
                   aria-label="Choose clip start"
                 />
               </div>
-
-              <div className="mt-2 flex items-center justify-between text-xs font-black text-slate-500">
-                <span>0:00</span>
-                <span>{formatTime(videoDuration)}</span>
-              </div>
             </div>
 
-            {trimError ? (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-                {trimError}
-              </div>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={trimError ? onRetryTrim : onTrimVideo}
-              disabled={trimmingVideo}
-              className="h-12 w-full rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition active:scale-[0.98] disabled:bg-slate-300"
-            >
-              {trimmingVideo ? "Preparing synced clip..." : trimError ? "Try again" : "Done — Use this clip"}
-            </button>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                ["Start", 0],
+                ["Middle", Math.max(0, (videoDuration - maxVideoSeconds) / 2)],
+                ["End", Math.max(0, videoDuration - maxVideoSeconds)],
+              ].map(([label, start]) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => onTrimPreset?.(Number(start))}
+                  disabled={trimmingVideo}
+                  className="kt-pressable h-10 rounded-full border border-white/18 bg-white/10 text-xs font-black text-white/85 backdrop-blur disabled:opacity-50"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}

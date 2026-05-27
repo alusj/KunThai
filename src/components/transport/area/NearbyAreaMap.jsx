@@ -1099,7 +1099,6 @@ export default function NearbyAreaMap({
   reportLocations = [],
   trafficSnapshots = [],
   weatherCache = null,
-  routePreview = null,
   onMapLocationSelect,
   onReportSelect,
   recenterSignal = 0,
@@ -1108,7 +1107,6 @@ export default function NearbyAreaMap({
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
   const destinationMarkerRef = useRef(null);
-  const journeyMarkersRef = useRef([]);
   const watchIdRef = useRef(null);
   const routeCoordinatesRef = useRef([]);
   const smoothedPositionRef = useRef(null);
@@ -1147,7 +1145,6 @@ export default function NearbyAreaMap({
   const gpsUiRef = useRef({ status: `Showing ${DEFAULT_CENTER.label}`, accuracy: null, time: 0 });
   const headingUiRef = useRef({ heading: null, time: 0 });
   const navigationDragRef = useRef(null);
-  const routeIntroTimerRef = useRef(null);
 
   const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
   const [userLocation, setUserLocation] = useState(null);
@@ -1167,7 +1164,6 @@ export default function NearbyAreaMap({
   const [alternativeLoading, setAlternativeLoading] = useState(false);
   const [alternativeError, setAlternativeError] = useState("");
   const [rerouteKey, setRerouteKey] = useState(0);
-  const [routeIntro, setRouteIntro] = useState(null);
 
   const routeStatus = ROUTE_STATUS[routeStatusKey];
   const showNavigationCard = Boolean(routeLoading || routeInfo || routeError);
@@ -1190,65 +1186,6 @@ export default function NearbyAreaMap({
         : Math.max(0, index - 1);
       return snaps[nextIndex];
     });
-  }
-
-  function clearJourneyMarkers() {
-    journeyMarkersRef.current.forEach((marker) => marker.remove());
-    journeyMarkersRef.current = [];
-  }
-
-  function addJourneyMarker(point, label, color) {
-    if (!mapRef.current || !point?.lat || !point?.lng) return;
-    const marker = new maplibregl.Marker({
-      element: createLabeledMarker(label, color),
-      anchor: "center",
-    })
-      .setLngLat([point.lng, point.lat])
-      .addTo(mapRef.current);
-    journeyMarkersRef.current.push(marker);
-  }
-
-  function showRouteIntro(label, detail = "") {
-    if (routeIntroTimerRef.current) window.clearTimeout(routeIntroTimerRef.current);
-    setRouteIntro({ label, detail });
-    routeIntroTimerRef.current = window.setTimeout(() => setRouteIntro(null), 1400);
-  }
-
-  function wait(ms) {
-    return new Promise((resolve) => window.setTimeout(resolve, ms));
-  }
-
-  async function runRouteIntroSequence({ current, pickup, dropoff, bounds, labels }) {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const steps = [
-      { point: current, label: labels?.current || "Current Location", detail: "Starting from here", zoom: 16.4 },
-      { point: pickup, label: labels?.pickup || "Pick up location", detail: pickup?.name || pickup?.address || "", zoom: 17 },
-      { point: dropoff, label: labels?.dropoff || "Drop off location", detail: dropoff?.name || dropoff?.address || "", zoom: 17 },
-    ];
-
-    for (const step of steps) {
-      if (!step.point?.lat || !step.point?.lng) continue;
-      showRouteIntro(step.label, step.detail);
-      map.easeTo({
-        center: [step.point.lng, step.point.lat],
-        zoom: step.zoom,
-        pitch: 58,
-        duration: 760,
-        essential: true,
-      });
-      await wait(920);
-    }
-
-    if (bounds) {
-      showRouteIntro(labels?.summary || "Route ready", "Showing the full journey");
-      map.fitBounds(bounds, {
-        padding: { top: 150, bottom: 260, left: 70, right: 90 },
-        duration: 920,
-        essential: true,
-      });
-    }
   }
 
   function handleNavigationDragStart(event) {
@@ -1616,7 +1553,6 @@ export default function NearbyAreaMap({
       map.off("rotateend", markUserInteractionEnd);
       map.off("pitchend", markUserInteractionEnd);
       if (userInteractionIdleTimerRef.current) window.clearTimeout(userInteractionIdleTimerRef.current);
-      if (routeIntroTimerRef.current) window.clearTimeout(routeIntroTimerRef.current);
       markerAnimationCancelRef.current?.();
       operatorAnimations.forEach((cancel) => cancel?.());
       operatorAnimations.clear();
@@ -1635,8 +1571,6 @@ export default function NearbyAreaMap({
 
       userMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
-      journeyMarkersRef.current.forEach((marker) => marker.remove());
-      journeyMarkersRef.current = [];
 
       clearRouteLayers(map);
       clearTrafficOverlayLayers(map);
@@ -1778,9 +1712,7 @@ export default function NearbyAreaMap({
     let cancelled = false;
 
     async function drawRoute() {
-      const journey = routePreview?.pickup?.lat && routePreview?.dropoff?.lat ? routePreview : null;
-      const activeDestination = journey?.dropoff || selectedLocation;
-      if (!activeDestination || !mapRef.current) return;
+      if (!selectedLocation || !mapRef.current) return;
 
       const routeStart = routeStartOverrideRef.current || smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
       const map = mapRef.current;
@@ -1788,9 +1720,8 @@ export default function NearbyAreaMap({
       setRouteError("");
       setRouteLoading(true);
       setRouteInfo({
-        from: journey?.labels?.current || (userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label),
-        via: journey?.pickup?.name || "",
-        to: activeDestination.name || "Selected destination",
+        from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
+        to: selectedLocation.name || "Selected destination",
         distance: "Finding route",
         duration: "...",
       });
@@ -1805,78 +1736,19 @@ export default function NearbyAreaMap({
       arrivalReachedRef.current = false;
 
       destinationMarkerRef.current?.remove();
-      destinationMarkerRef.current = null;
-      clearJourneyMarkers();
 
-      if (journey) {
-        addJourneyMarker(routeStart, "CURRENT", "#16a34a");
-        addJourneyMarker(journey.pickup, journey.mode === "delivery" ? "PICKUP" : "PASSENGER", "#0f172a");
-        addJourneyMarker(journey.dropoff, journey.mode === "delivery" ? "DROP-OFF" : "DESTINATION", "#2563eb");
-
-        await waitForMapStyle(map);
-
-        const [firstLeg, secondLeg] = await Promise.all([
-          getRouteBetweenPoints(routeStart, journey.pickup),
-          getRouteBetweenPoints(journey.pickup, journey.dropoff),
-        ]);
-
-        if (cancelled) return;
-
-        const firstCoordinates = firstLeg.geometry?.coordinates || [];
-        const secondCoordinates = secondLeg.geometry?.coordinates || [];
-        const coordinates = [
-          ...firstCoordinates,
-          ...secondCoordinates.slice(firstCoordinates.length ? 1 : 0),
-        ];
-        const route = {
-          geometry: { type: "LineString", coordinates },
-          distanceMeters: Number(firstLeg.distanceMeters || 0) + Number(secondLeg.distanceMeters || 0),
-          durationSeconds: Number(firstLeg.durationSeconds || 0) + Number(secondLeg.durationSeconds || 0),
-          legs: [firstLeg, secondLeg],
-          journey,
-        };
-
-        routeCoordinatesRef.current = coordinates;
-        originalRouteRef.current = route;
-        upsertRouteLayers(map, route.geometry, ROUTE_STATUS.correct.color);
-
-        const bounds = new maplibregl.LngLatBounds();
-        coordinates.forEach((coord) => bounds.extend(coord));
-        await runRouteIntroSequence({
-          current: routeStart,
-          pickup: journey.pickup,
-          dropoff: journey.dropoff,
-          bounds,
-          labels: journey.labels,
-        });
-
-        setRouteInfo({
-          from: journey.labels?.current || "Current Location",
-          via: journey.pickup.name,
-          to: journey.dropoff.name,
-          distance: formatDistance(route.distanceMeters),
-          duration: formatDuration(route.durationSeconds),
-          raw: route,
-        });
-        setTrafficInsight(getLiveTrafficInsight(trafficSnapshotsRef.current, route, "correct"));
-        evaluateTrafficAhead({ force: true });
-        setRouteLoading(false);
-        routeStartOverrideRef.current = null;
-        return;
-      }
-
-      const destinationMarkerLabel = activeDestination.type === "seller" ? "STORE" : "DESTINATION";
+      const destinationMarkerLabel = selectedLocation.type === "seller" ? "STORE" : "DESTINATION";
 
       destinationMarkerRef.current = new maplibregl.Marker({
         element: createLabeledMarker(destinationMarkerLabel, "#2563eb"),
         anchor: "center",
       })
-        .setLngLat([activeDestination.lng, activeDestination.lat])
+        .setLngLat([selectedLocation.lng, selectedLocation.lat])
         .addTo(map);
 
       await waitForMapStyle(map);
 
-      const route = await getRouteBetweenPoints(routeStart, activeDestination);
+      const route = await getRouteBetweenPoints(routeStart, selectedLocation);
 
       if (cancelled) return;
 
@@ -1894,12 +1766,12 @@ export default function NearbyAreaMap({
       });
 
       window.setTimeout(() => {
-        if (!cancelled) applySmartCamera(routeStart, activeDestination, 0, { force: true });
+        if (!cancelled) applySmartCamera(routeStart, selectedLocation, 0, { force: true });
       }, 950);
 
       setRouteInfo({
         from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
-        to: activeDestination.name,
+        to: selectedLocation.name,
         distance: formatDistance(route.distanceMeters),
         duration: formatDuration(route.durationSeconds),
         raw: route,
@@ -1918,13 +1790,12 @@ export default function NearbyAreaMap({
       publishTrafficAhead(null, { force: true });
       clearAlternativeRouteLayer(mapRef.current);
       clearRouteLayers(mapRef.current);
-      clearJourneyMarkers();
       setRouteLoading(false);
       setRouteStatusKey("wrong");
       routeStatusRef.current = "wrong";
       setRouteInfo({
         from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
-        to: routePreview?.dropoff?.name || selectedLocation?.name || "Selected destination",
+        to: selectedLocation?.name || "Selected destination",
         distance: "Route unavailable",
         duration: "Try again",
       });
@@ -1936,7 +1807,7 @@ export default function NearbyAreaMap({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- route drawing is keyed by destination/reroute only; camera helpers read current refs.
-  }, [routePreview, selectedLocation, rerouteKey]);
+  }, [selectedLocation, rerouteKey]);
 
   useEffect(() => {
     if (!navigator.geolocation || !mapRef.current) return;
@@ -2327,14 +2198,6 @@ export default function NearbyAreaMap({
         </div>
       )}
 
-      {routeIntro ? (
-        <div className="area-route-intro pointer-events-none absolute left-1/2 top-28 z-40 w-[min(82vw,22rem)] -translate-x-1/2 rounded-3xl border border-white/50 bg-white/95 px-5 py-4 text-center text-slate-950 shadow-2xl backdrop-blur">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700">Area View</p>
-          <h3 className="mt-1 text-lg font-black">{routeIntro.label}</h3>
-          {routeIntro.detail ? <p className="mt-1 truncate text-xs font-bold text-slate-500">{routeIntro.detail}</p> : null}
-        </div>
-      ) : null}
-
       {showNavigationCard && (
         <div
           className={`area-route-sheet absolute z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur ${navigationSnap}`}
@@ -2396,11 +2259,6 @@ export default function NearbyAreaMap({
                   <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">
                     To: {routeToLabel}
                   </p>
-                  {routeInfo?.via ? (
-                    <p className="mt-1 line-clamp-1 text-xs font-black uppercase tracking-wide text-emerald-700">
-                      Via: {routeInfo.via}
-                    </p>
-                  ) : null}
                 </div>
 
                 <div className={`rounded-2xl px-3 py-2 text-xs font-black ${routeCardStatus.className}`}>

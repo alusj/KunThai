@@ -14,6 +14,7 @@ function sleep(ms) {
 }
 
 function isMobileBrowser() {
+  if (typeof navigator === "undefined") return false;
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
 }
 
@@ -21,12 +22,50 @@ function getRecordingMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
 
   return [
-    "video/mp4;codecs=h264",
+    "video/mp4;codecs=h264,aac",
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
     "video/mp4",
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=vp8",
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
     "video/webm",
   ].find((type) => MediaRecorder.isTypeSupported?.(type)) || "";
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Unable to save trimmed video."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function waitForMediaEvent(target, eventName, timeoutMs, failureEventName = "error") {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Video processing timed out."));
+    }, timeoutMs);
+
+    function cleanup() {
+      window.clearTimeout(timer);
+      target.removeEventListener(eventName, handleSuccess);
+      target.removeEventListener(failureEventName, handleFailure);
+    }
+
+    function handleSuccess() {
+      cleanup();
+      resolve();
+    }
+
+    function handleFailure() {
+      cleanup();
+      reject(new Error("Unable to read selected video."));
+    }
+
+    target.addEventListener(eventName, handleSuccess, { once: true });
+    target.addEventListener(failureEventName, handleFailure, { once: true });
+  });
 }
 
 async function getFFmpeg() {
@@ -82,9 +121,9 @@ export function getVideoDuration(file) {
 }
 
 export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSeconds = MAX_VIDEO_SECONDS) {
-  const shouldTryNativeFirst = isMobileBrowser();
+  const preferNative = isMobileBrowser();
 
-  if (shouldTryNativeFirst) {
+  if (preferNative) {
     try {
       return await trimVideoWithNativeRecorder(file, startSeconds, durationSeconds);
     } catch (error) {
@@ -103,6 +142,7 @@ export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSec
     await instance.writeFile(inputName, await fetchFile(file));
 
     await instance.exec([
+      "-y",
       "-i",
       inputName,
       "-ss",
@@ -145,17 +185,11 @@ export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSec
     } catch {
       // ignore cleanup errors
     }
-
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(new Error("Unable to save trimmed video."));
-      reader.readAsDataURL(blob);
-    });
+    return await blobToDataUrl(blob);
   } catch (error) {
     console.error("[KunThai FFmpeg Trim Error]", error);
 
-    if (!shouldTryNativeFirst) {
+    if (!preferNative) {
       try {
         return await trimVideoWithNativeRecorder(file, startSeconds, durationSeconds);
       } catch (nativeError) {
@@ -173,7 +207,9 @@ async function trimVideoWithNativeRecorder(file, startSeconds = 0, durationSecon
   }
 
   const mimeType = getRecordingMimeType();
-  if (!mimeType) throw new Error("No supported video recording format.");
+  if (!mimeType) {
+    throw new Error("No supported video recording format.");
+  }
 
   const objectUrl = URL.createObjectURL(file);
   const video = document.createElement("video");
@@ -184,11 +220,7 @@ async function trimVideoWithNativeRecorder(file, startSeconds = 0, durationSecon
   let stream = null;
   let recorder = null;
   let frameId = null;
-
-  if (!ctx || typeof canvas.captureStream !== "function") {
-    URL.revokeObjectURL(objectUrl);
-    throw new Error("Video canvas capture is unavailable.");
-  }
+  let stopTimer = null;
 
   video.src = objectUrl;
   video.muted = true;
@@ -197,32 +229,29 @@ async function trimVideoWithNativeRecorder(file, startSeconds = 0, durationSecon
   video.crossOrigin = "anonymous";
 
   try {
-    await new Promise((resolve, reject) => {
-      const timer = window.setTimeout(() => reject(new Error("Video metadata timed out.")), 8000);
-      video.onloadedmetadata = () => {
-        window.clearTimeout(timer);
-        resolve();
-      };
-      video.onerror = () => {
-        window.clearTimeout(timer);
-        reject(new Error("Unable to read selected video."));
-      };
-      video.load();
-    });
+    video.load();
+    await waitForMediaEvent(video, "loadedmetadata", 10000);
 
-    canvas.width = Math.min(video.videoWidth || 720, 720);
-    canvas.height = Math.max(2, Math.round(canvas.width * ((video.videoHeight || 720) / (video.videoWidth || 720))));
+    const videoWidth = video.videoWidth || 720;
+    const videoHeight = video.videoHeight || 1280;
+    const maxWidth = 720;
+    canvas.width = Math.min(videoWidth, maxWidth);
+    canvas.height = Math.max(2, Math.round(canvas.width * (videoHeight / videoWidth)));
 
-    video.currentTime = Math.min(safeStart, Math.max(0, (video.duration || safeDuration) - 0.2));
-    await new Promise((resolve) => {
-      const timer = window.setTimeout(resolve, 1200);
-      video.onseeked = () => {
-        window.clearTimeout(timer);
-        resolve();
-      };
-    });
+    const endTime = Math.min(video.duration || safeStart + safeDuration, safeStart + safeDuration);
+    video.currentTime = Math.min(safeStart, Math.max(0, (video.duration || safeDuration) - 0.25));
+    await waitForMediaEvent(video, "seeked", 6000).catch(() => {});
 
-    stream = canvas.captureStream(24);
+    const captureStream = video.captureStream?.bind(video) || video.mozCaptureStream?.bind(video);
+    stream = captureStream?.();
+
+    if (!stream?.getVideoTracks?.().length) {
+      if (!ctx || typeof canvas.captureStream !== "function") {
+        throw new Error("Video capture is unavailable.");
+      }
+      stream = canvas.captureStream(24);
+    }
+
     const chunks = [];
     recorder = new MediaRecorder(stream, { mimeType });
     const recorded = new Promise((resolve, reject) => {
@@ -234,22 +263,23 @@ async function trimVideoWithNativeRecorder(file, startSeconds = 0, durationSecon
     });
 
     let stopped = false;
-    const startedAt = performance.now();
-    const stopAt = Math.min(video.duration || safeStart + safeDuration, safeStart + safeDuration);
+    function stopRecording() {
+      if (stopped) return;
+      stopped = true;
+      video.pause();
+      if (recorder?.state && recorder.state !== "inactive") recorder.stop();
+    }
 
     function drawFrame() {
-      if (stopped) return;
+      if (stopped || !ctx) return;
       try {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       } catch {
-        // A skipped frame is better than failing the prepared clip.
+        // A dropped frame should not fail the final clip.
       }
 
-      const elapsedSeconds = (performance.now() - startedAt) / 1000;
-      if (video.currentTime >= stopAt || elapsedSeconds >= safeDuration + 0.35) {
-        stopped = true;
-        video.pause();
-        if (recorder.state !== "inactive") recorder.stop();
+      if (video.currentTime >= endTime) {
+        stopRecording();
         return;
       }
 
@@ -258,25 +288,26 @@ async function trimVideoWithNativeRecorder(file, startSeconds = 0, durationSecon
 
     recorder.start(250);
     await video.play();
-    drawFrame();
-    await sleep((safeDuration + 0.6) * 1000);
-    if (!stopped && recorder.state !== "inactive") {
-      stopped = true;
-      video.pause();
-      recorder.stop();
+    if (!stream.getVideoTracks?.().length || stream.getVideoTracks()[0]?.label?.toLowerCase?.().includes("canvas")) {
+      drawFrame();
+    } else if (ctx) {
+      drawFrame();
     }
 
+    stopTimer = window.setTimeout(stopRecording, (safeDuration + 0.45) * 1000);
+    await Promise.race([
+      recorded,
+      sleep((safeDuration + 1) * 1000).then(() => {
+        stopRecording();
+        return recorded;
+      }),
+    ]);
+
     const blob = await recorded;
-
     if (!blob.size) throw new Error("The trimmed video was empty.");
-
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(new Error("Unable to save trimmed video."));
-      reader.readAsDataURL(blob);
-    });
+    return await blobToDataUrl(blob);
   } finally {
+    window.clearTimeout(stopTimer);
     if (frameId) cancelAnimationFrame(frameId);
     if (recorder?.state && recorder.state !== "inactive") {
       try {

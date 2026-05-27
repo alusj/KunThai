@@ -84,7 +84,6 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setNearbyAreaRequest(
       destination
         ? {
-            ...options,
             destination,
             autoRoute: options.autoRoute ?? true,
           }
@@ -257,7 +256,6 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           }}
           initialDestination={nearbyAreaRequest?.destination}
           autoRoute={Boolean(nearbyAreaRequest?.autoRoute)}
-          routePreview={nearbyAreaRequest?.routePreview}
         />
       </div>
     );

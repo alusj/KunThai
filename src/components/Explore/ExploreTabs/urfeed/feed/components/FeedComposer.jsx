@@ -54,8 +54,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const chunksRef = useRef([]);
   const trimRequestRef = useRef(0);
   const recordingTimerRef = useRef(null);
+  const discardRecordingRef = useRef(false);
+  const trimmedVideoMetaRef = useRef(null);
 
   const hasContent = Boolean(value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
+  const hasVideoAttachment = Boolean(videoPreview || pendingVideoFile || pendingVideoUrl);
 
   useBrowserBack(open, () => setOpen(false), "explore-composer");
 
@@ -109,6 +112,18 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     recordingTimerRef.current = null;
   }
 
+  function clearAudioState() {
+    setAudioPreview("");
+    setAudioDuration(null);
+    setRecordingSeconds(0);
+    setMediaMeta((current) => ({
+      ...current,
+      audioName: "",
+      audioType: "",
+      audioSize: 0,
+    }));
+  }
+
   function pauseVoiceRecording() {
     if (recorderRef.current?.state === "recording") {
       recorderRef.current.pause();
@@ -126,6 +141,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function cancelVoiceRecording() {
+    discardRecordingRef.current = true;
     stopRecordingTimer();
 
     if (recorderRef.current?.state === "recording" || recorderRef.current?.state === "paused") {
@@ -138,15 +154,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     setIsRecording(false);
     setRecordingPaused(false);
-    setRecordingSeconds(0);
-    setAudioPreview("");
-    setAudioDuration(null);
-    setMediaMeta((current) => ({
-      ...current,
-      audioName: "",
-      audioType: "",
-      audioSize: 0,
-    }));
+    clearAudioState();
     setFeedback("");
   }
 
@@ -171,8 +179,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     try {
       trimRequestRef.current += 1;
+      trimmedVideoMetaRef.current = null;
 
       if (file.type.startsWith("video/") || mediaMode === "video") {
+        cancelVoiceRecording();
         const duration = await getVideoDuration(file);
 
         if (duration > MAX_VIDEO_SECONDS) {
@@ -191,10 +201,25 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         }
 
         const nextPreview = await fileToDataUrl(file);
+        const nextVideoMeta = {
+          ...mediaMeta,
+          videoName: file.name,
+          videoType: file.type,
+          videoSize: file.size,
+          videoDuration: duration,
+          videoTrimStart: 0,
+          videoTrimEnd: Math.min(duration || MAX_VIDEO_SECONDS, MAX_VIDEO_SECONDS),
+          imageName: "",
+          imageType: "",
+          audioName: "",
+          audioType: "",
+          audioSize: 0,
+        };
 
         setVideoPreview(nextPreview);
         setImagePreview("");
         setPendingVideoFile(null);
+        trimmedVideoMetaRef.current = nextVideoMeta;
 
         if (pendingVideoUrl) {
           URL.revokeObjectURL(pendingVideoUrl);
@@ -203,19 +228,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
         setVideoDuration(duration);
         setTrimError("");
-        setMediaMeta((current) => ({
-          ...current,
-          videoName: file.name,
-          videoType: file.type,
-          videoSize: file.size,
-          imageName: "",
-          imageType: "",
-        }));
+        setMediaMeta(nextVideoMeta);
       } else {
         const nextPreview = await fileToDataUrl(file);
 
         setImagePreview(nextPreview);
         setVideoPreview("");
+        trimmedVideoMetaRef.current = null;
         setMediaMeta((current) => ({
           ...current,
           imageName: file.name,
@@ -247,31 +266,43 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setTrimError("");
       setFeedback("");
 
-      const trimmedPreview = await trimVideoFileToDataUrl(fileToTrim, startOverride, MAX_VIDEO_SECONDS);
+      const safeStart = Math.max(0, Number(startOverride || 0));
+      const trimmedPreview = await trimVideoFileToDataUrl(fileToTrim, safeStart, MAX_VIDEO_SECONDS);
 
       if (requestId !== trimRequestRef.current) return "";
 
-      setVideoPreview(trimmedPreview);
-      setImagePreview("");
-      setMediaMeta((current) => ({
-        ...current,
-        videoName: `trimmed-${fileToTrim.name || "swip-video.webm"}`,
+      const nextVideoMeta = {
+        ...mediaMeta,
+        videoName: `trimmed-${fileToTrim.name || "swip-video.mp4"}`,
         videoType: trimmedPreview.startsWith("data:video/mp4") ? "video/mp4" : "video/webm",
         videoSize: 0,
-        videoDuration: Math.min(MAX_VIDEO_SECONDS, Math.max(1, videoDuration - startOverride || MAX_VIDEO_SECONDS)),
-        videoTrimStart: startOverride,
-        videoTrimEnd: startOverride + MAX_VIDEO_SECONDS,
+        videoDuration: MAX_VIDEO_SECONDS,
+        videoTrimStart: 0,
+        videoTrimEnd: MAX_VIDEO_SECONDS,
+        sourceVideoTrimStart: safeStart,
+        sourceVideoTrimEnd: safeStart + MAX_VIDEO_SECONDS,
         imageName: "",
         imageType: "",
-      }));
+        audioName: "",
+        audioType: "",
+        audioSize: 0,
+      };
 
+      setVideoPreview(trimmedPreview);
+      setImagePreview("");
       setPendingVideoFile(null);
+      trimmedVideoMetaRef.current = nextVideoMeta;
+      setMediaMeta(nextVideoMeta);
+
       if (pendingVideoUrl) {
         URL.revokeObjectURL(pendingVideoUrl);
         setPendingVideoUrl("");
       }
 
-      setFeedback("");
+      setVideoDuration(MAX_VIDEO_SECONDS);
+      setVideoTrimStart(0);
+      clearAudioState();
+      setFeedback("Swip clip ready.");
       return trimmedPreview;
     } catch (error) {
       if (trimRequestRef.current === 0) return "";
@@ -287,6 +318,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   function chooseTrimPreset(start) {
     const nextStart = Math.max(0, Math.min(start, Math.max(0, videoDuration - MAX_VIDEO_SECONDS)));
     trimRequestRef.current += 1;
+    trimmedVideoMetaRef.current = null;
     setVideoTrimStart(nextStart);
     setVideoPreview("");
     setTrimError("");
@@ -295,7 +327,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   async function handleAudioClick() {
     setOpen(true);
 
+    if (hasVideoAttachment) {
+      setFeedback("Remove the Swip video before adding a voice note.");
+      return;
+    }
+
     if (isRecording) {
+      discardRecordingRef.current = false;
       stopRecordingTimer();
       setRecordingPaused(false);
       recorderRef.current?.stop();
@@ -311,6 +349,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
 
+      discardRecordingRef.current = false;
       chunksRef.current = [];
       recorderRef.current = recorder;
 
@@ -322,6 +361,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
       recorder.onstop = async () => {
         try {
+          if (discardRecordingRef.current) {
+            discardRecordingRef.current = false;
+            chunksRef.current = [];
+            setFeedback("");
+            return;
+          }
+
           const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
           const nextPreview = await fileToDataUrl(new File([blob], "voice-note.webm", { type: blob.type }));
           const seconds = Math.max(1, recordingSeconds || Math.round(blob.size / 16000));
@@ -367,6 +413,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     if (type === "voice") {
+      if (hasVideoAttachment) {
+        setFeedback("Remove the Swip video before adding a voice note.");
+        return;
+      }
       handleAudioClick();
       return;
     }
@@ -381,6 +431,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   function resetComposer() {
     trimRequestRef.current += 1;
+    trimmedVideoMetaRef.current = null;
     setValue("");
     setFeedback("");
     setImagePreview("");
@@ -402,7 +453,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setPostingProgress(0);
     setRecordingPaused(false);
     setRecordingSeconds(0);
-    setOpen(false);
     stopRecordingTimer();
     setPrivacy(privacySettings.defaultPostPrivacy || "public");
     clearDraft();
@@ -422,130 +472,139 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     try {
-    let finalVideoPreview = videoPreview;
+      let finalVideoPreview = videoPreview;
 
-    if (pendingVideoFile && !finalVideoPreview) {
-      finalVideoPreview = await trimPendingVideo(pendingVideoFile, videoTrimStart);
+      if (pendingVideoFile && !finalVideoPreview) {
+        finalVideoPreview = await trimPendingVideo(pendingVideoFile, videoTrimStart);
 
-      if (!finalVideoPreview) {
+        if (!finalVideoPreview) {
+          setOpen(true);
+          return;
+        }
+      }
+
+      const finalMediaMeta = trimmedVideoMetaRef.current || mediaMeta;
+      const finalAudioPreview = finalVideoPreview ? "" : audioPreview;
+      const finalAudioDuration = finalVideoPreview ? null : audioDuration;
+
+      const postDraft = {
+        body: value,
+        author_name: profile?.displayName || "Profile",
+        author_username: profile?.username || "user",
+        author_avatar_url: profile?.avatarUrl || "",
+        user_id: profile?.userId || "",
+        image_url: finalVideoPreview ? "" : imagePreview,
+        audio_url: finalAudioPreview,
+        video_url: finalVideoPreview,
+        audio_duration_seconds: finalAudioDuration,
+        post_privacy: privacy,
+        mediaMeta: finalMediaMeta,
+      };
+
+      setFeedback("");
+      setPostingStage("preparing");
+      setPostingProgress(5);
+      setOpen(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      publishPostingUpdate({
+        status: "posting",
+        stage: "preparing",
+        progress: 5,
+        message: "Securing your draft before publishing.",
+      });
+
+      const videoFrameDataUrls = finalVideoPreview
+        ? await extractVideoFramesFromDataUrl(finalVideoPreview, 8)
+        : [];
+
+      if (finalVideoPreview && !videoFrameDataUrls.length) {
+        setPostingStage("");
+        setPostingProgress(0);
         setOpen(true);
+        setFeedback("KunThai could not capture frames for video safety review. Please try this clip again.");
+        publishPostingUpdate({
+          status: "error",
+          progress: 0,
+          message: "KunThai could not complete the video safety review.",
+        });
         return;
       }
-    }
 
-    const postDraft = {
-      body: value,
-      author_name: profile?.displayName || "Profile",
-      author_username: profile?.username || "user",
-      author_avatar_url: profile?.avatarUrl || "",
-      user_id: profile?.userId || "",
-      image_url: imagePreview,
-      audio_url: audioPreview,
-      video_url: finalVideoPreview,
-      audio_duration_seconds: audioDuration,
-      post_privacy: privacy,
-      mediaMeta,
-    };
+      const review = await runPostReviewPipeline({
+        body: postDraft.body,
+        media: {
+          ...postDraft.mediaMeta,
+          hasMedia: Boolean(postDraft.image_url || postDraft.video_url || postDraft.audio_url),
+          imageDataUrl: postDraft.image_url || "",
+          videoDataUrl: "",
+          videoFrameDataUrls,
+          audioDataUrl: postDraft.audio_url || "",
+        },
+        onStage: (stage, progress) => {
+          setPostingStage(stage);
+          setPostingProgress(progress);
+          publishPostingUpdate({ status: "posting", stage, progress });
+        },
+      });
 
-    setFeedback("");
-    setPostingStage("preparing");
-    setPostingProgress(5);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+      if (!review.ok) {
+        setPostingStage("");
+        setPostingProgress(0);
+        setOpen(true);
+        setFeedback(review.reason);
+        publishPostingUpdate({ status: "error", progress: 0, message: review.reason });
+        return;
+      }
 
-    publishPostingUpdate({
-      status: "posting",
-      stage: "preparing",
-      progress: 5,
-      message: "Securing your draft before publishing.",
-    });
-    const videoFrameDataUrls = finalVideoPreview
-      ? await extractVideoFramesFromDataUrl(finalVideoPreview, 8)
-      : [];
+      const tags = parseTags(postDraft.body);
 
-    if (finalVideoPreview && !videoFrameDataUrls.length) {
+      setPostingStage("syncing");
+      setPostingProgress(92);
+      publishPostingUpdate({ status: "posting", stage: "syncing", progress: 92 });
+
+      const result = await onSubmit?.({
+        video_trim_start: postDraft.mediaMeta?.videoTrimStart || 0,
+        video_trim_end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
+        body: postDraft.body,
+        author_name: postDraft.author_name,
+        author_username: postDraft.author_username,
+        author_avatar_url: postDraft.author_avatar_url,
+        user_id: postDraft.user_id,
+        image_url: postDraft.image_url,
+        audio_url: postDraft.audio_url,
+        video_url: postDraft.video_url,
+        audio_duration_seconds: postDraft.audio_duration_seconds,
+        post_privacy: postDraft.post_privacy,
+        hashtags: tags.hashtags,
+        mentions: tags.mentions,
+      });
+
+      if (result?.ok) {
+        setPostingStage("complete");
+        setPostingProgress(100);
+
+        if (postDraft.video_url) {
+          window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip" } }));
+        }
+
+        publishPostingUpdate({
+          status: "complete",
+          stage: "complete",
+          progress: 100,
+          message: result.warning || "Your post is now live on Explore.",
+        });
+
+        resetComposer();
+        return;
+      }
+
+      const message = result?.error || "Unable to publish post.";
       setPostingStage("");
       setPostingProgress(0);
       setOpen(true);
-      setFeedback("KunThai could not capture frames for video safety review. Please try this clip again.");
-      publishPostingUpdate({
-        status: "error",
-        progress: 0,
-        message: "KunThai could not complete the video safety review.",
-      });
-      return;
-    }
-
-    const review = await runPostReviewPipeline({
-      body: postDraft.body,
-      media: {
-        ...postDraft.mediaMeta,
-        hasMedia: Boolean(postDraft.image_url || postDraft.video_url || postDraft.audio_url),
-        imageDataUrl: postDraft.image_url || "",
-        videoDataUrl: "",
-        videoFrameDataUrls,
-        audioDataUrl: postDraft.audio_url || "",
-      },
-      onStage: (stage, progress) => {
-        setPostingStage(stage);
-        setPostingProgress(progress);
-        publishPostingUpdate({ status: "posting", stage, progress });
-      },
-    });
-
-    if (!review.ok) {
-      setPostingStage("");
-      setPostingProgress(0);
-      setFeedback(review.reason);
-      publishPostingUpdate({ status: "error", progress: 0, message: review.reason });
-      return;
-    }
-
-    const tags = parseTags(postDraft.body);
-
-    setPostingStage("syncing");
-    setPostingProgress(92);
-    publishPostingUpdate({ status: "posting", stage: "syncing", progress: 92 });
-
-    const result = await onSubmit?.({
-      video_trim_start: postDraft.mediaMeta?.videoTrimStart || 0,
-      video_trim_end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
-      body: postDraft.body,
-      author_name: postDraft.author_name,
-      author_username: postDraft.author_username,
-      author_avatar_url: postDraft.author_avatar_url,
-      user_id: postDraft.user_id,
-      image_url: postDraft.image_url,
-      audio_url: postDraft.audio_url,
-      video_url: postDraft.video_url,
-      audio_duration_seconds: postDraft.audio_duration_seconds,
-      post_privacy: postDraft.post_privacy,
-      hashtags: tags.hashtags,
-      mentions: tags.mentions,
-    });
-
-    if (result?.ok) {
-      setPostingStage("complete");
-      setPostingProgress(100);
-
-      if (postDraft.video_url) {
-        window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip" } }));
-      }
-
-      publishPostingUpdate({
-        status: "complete",
-        stage: "complete",
-        progress: 100,
-        message: result.warning || "Your post is now live on Explore.",
-      });
-
-      resetComposer();
-      return;
-    }
-
-    setPostingStage("");
-    setPostingProgress(0);
-    setFeedback(result?.error || "Unable to publish post.");
-    publishPostingUpdate({ status: "error", progress: 0, message: result?.error || "Unable to publish post." });
+      setFeedback(message);
+      publishPostingUpdate({ status: "error", progress: 0, message });
     } catch (error) {
       const message = error.message || "Unable to publish this post. Your draft is still here.";
       setPostingStage("");
@@ -625,17 +684,19 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 />
               </div>
 
-              <VoiceCapsuleRecorder
-                isRecording={isRecording}
-                isPaused={recordingPaused}
-                duration={recordingSeconds || audioDuration || 0}
-                audioPreview={audioPreview}
-                onStart={handleAudioClick}
-                onStop={handleAudioClick}
-                onPause={pauseVoiceRecording}
-                onResume={resumeVoiceRecording}
-                onCancel={cancelVoiceRecording}
-              />
+              {!hasVideoAttachment ? (
+                <VoiceCapsuleRecorder
+                  isRecording={isRecording}
+                  isPaused={recordingPaused}
+                  duration={recordingSeconds || audioDuration || 0}
+                  audioPreview={audioPreview}
+                  onStart={handleAudioClick}
+                  onStop={handleAudioClick}
+                  onPause={pauseVoiceRecording}
+                  onResume={resumeVoiceRecording}
+                  onCancel={cancelVoiceRecording}
+                />
+              ) : null}
 
               <MediaPreview
                 imagePreview={imagePreview}
@@ -661,6 +722,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 }}
                 onRemoveVideo={() => {
                   trimRequestRef.current += 1;
+                  trimmedVideoMetaRef.current = null;
                   setVideoPreview("");
                   setPendingVideoFile(null);
 
@@ -693,7 +755,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             </div>
 
             <div className="flex-none space-y-3 border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
-              <ComposerActions privacy={privacy} setPrivacy={setPrivacy} isRecording={isRecording} onTool={handleTool} />
+              <ComposerActions
+                privacy={privacy}
+                setPrivacy={setPrivacy}
+                isRecording={isRecording}
+                hasVideoAttachment={hasVideoAttachment}
+                onTool={handleTool}
+              />
             </div>
 
             <input

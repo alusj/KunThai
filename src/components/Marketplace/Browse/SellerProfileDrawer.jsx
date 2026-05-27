@@ -741,9 +741,7 @@ export default function SellerProfileDrawer({
   function handleLocateStore() {
     setLocationWarning("");
 
-    const searchText = [fullAddress, cityCountry, sellerName].filter(Boolean).join(", ");
-
-    if (!sellerDestination && !searchText.trim()) {
+    if (!sellerDestination) {
       const message = "Location is not available for this seller.";
       setLocationWarning(message);
       onNotice?.(message, "danger");
@@ -760,10 +758,8 @@ export default function SellerProfileDrawer({
             name: sellerName,
             address: fullAddress,
             category: sellerCategory,
-            lat: sellerDestination?.lat,
-            lng: sellerDestination?.lng,
-            searchQuery: searchText,
-            description: `${sellerName} store location from UrMall.`,
+            lat: sellerDestination.lat,
+            lng: sellerDestination.lng,
           },
         },
       }),

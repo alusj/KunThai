@@ -462,8 +462,21 @@ export function useExploreFeed(scope = "feed") {
       await load({ force: true });
       return { ok: true };
     } catch (err) {
-      setError(err.message || "Unable to sync post to backend right now.");
-      return { ok: true, warning: err.message || "Saved locally for now." };
+      const message = err.message || "Unable to sync post to backend right now.";
+      const hasMediaUpload = Boolean(postInput?.image_url || postInput?.audio_url || postInput?.video_url);
+
+      setError(message);
+
+      if (hasMediaUpload) {
+        setPosts((current) => {
+          const nextPosts = current.filter((post) => post.id !== localId);
+          writeStoredPosts(scope, nextPosts);
+          return nextPosts;
+        });
+        return { ok: false, error: message };
+      }
+
+      return { ok: true, warning: message || "Saved locally for now." };
     } finally {
       setCreating(false);
     }
