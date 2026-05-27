@@ -17,7 +17,6 @@ import {
   MAX_VIDEO_SECONDS,
   parseTags,
   readDraft,
-  trimVideoFileToDataUrl,
   writeDraft,
 } from "../composer/composerUtils";
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
@@ -261,18 +260,24 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setFeedback("");
 
       const { start: safeStart, end: safeEnd, seconds: clipSeconds } = clampTrimWindow(startOverride, endOverride);
-      const trimmedPreview = await trimVideoFileToDataUrl(fileToTrim, safeStart, clipSeconds);
+
+      // IMPORTANT MOBILE FIX:
+      // Do not run a heavy browser-side ffmpeg/canvas export here. On iPhone/Safari,
+      // exporting long videos can crash the tab and cause the blank/reload bug.
+      // We keep the original video data and save the selected trim window as metadata;
+      // the Swip player then loops only the selected range.
+      const sourcePreview = await fileToDataUrl(fileToTrim);
 
       if (requestId !== trimRequestRef.current) return "";
 
       const nextVideoMeta = {
         ...mediaMeta,
-        videoName: `trimmed-${fileToTrim.name || "swip-video.mp4"}`,
-        videoType: trimmedPreview.startsWith("data:video/mp4") ? "video/mp4" : "video/webm",
-        videoSize: 0,
-        videoDuration: clipSeconds,
-        videoTrimStart: 0,
-        videoTrimEnd: clipSeconds,
+        videoName: fileToTrim.name || "swip-video.mp4",
+        videoType: fileToTrim.type || "video/mp4",
+        videoSize: fileToTrim.size || 0,
+        videoDuration: videoDuration || clipSeconds,
+        videoTrimStart: safeStart,
+        videoTrimEnd: safeEnd,
         sourceVideoTrimStart: safeStart,
         sourceVideoTrimEnd: safeEnd,
         imageName: "",
@@ -282,7 +287,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         audioSize: 0,
       };
 
-      setVideoPreview(trimmedPreview);
+      setVideoPreview(sourcePreview);
       setImagePreview("");
       setPendingVideoFile(null);
       trimmedVideoMetaRef.current = nextVideoMeta;
@@ -293,12 +298,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         setPendingVideoUrl("");
       }
 
-      setVideoDuration(clipSeconds);
-      setVideoTrimStart(0);
-      setVideoTrimEnd(clipSeconds);
+      setVideoTrimStart(safeStart);
+      setVideoTrimEnd(safeEnd);
       clearAudioState();
-      setFeedback("Swip clip ready.");
-      return trimmedPreview;
+      setFeedback(`Swip clip ready: ${clipSeconds.toFixed(1)}s selected.`);
+      return sourcePreview;
     } catch (error) {
       if (trimRequestRef.current === 0) return "";
       const message = error.message || "Unable to prepare this clip. Try a shorter section or another video.";
@@ -501,8 +505,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setFeedback("");
       setPostingStage("preparing");
       setPostingProgress(5);
-      setOpen(false);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setOpen(true);
 
       publishPostingUpdate({
         status: "posting",
@@ -592,6 +595,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           message: result.warning || "Your post is now live on Explore.",
         });
 
+        setOpen(false);
         resetComposer();
         return;
       }
