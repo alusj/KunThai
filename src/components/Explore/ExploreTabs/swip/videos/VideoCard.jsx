@@ -8,7 +8,7 @@ import {
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
 
-import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { pauseOtherExploreMedia } from "../../../shared/singleMediaPlayback";
 
 function RemoveButton({ onClick }) {
   return (
