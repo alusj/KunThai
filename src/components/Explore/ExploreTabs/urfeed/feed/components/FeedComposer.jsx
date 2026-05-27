@@ -224,6 +224,30 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
   }
 
+  function clampTrimWindow(startValue, endValue) {
+    const duration = Math.max(0, Number(videoDuration || 0));
+    const maxEnd = duration > 0 ? duration : MAX_VIDEO_SECONDS;
+    let start = Math.max(0, Math.min(Number(startValue || 0), Math.max(0, maxEnd - 0.5)));
+    let end = Math.max(start + 0.5, Number(endValue || start + Math.min(MAX_VIDEO_SECONDS, maxEnd - start)));
+
+    end = Math.min(maxEnd, end);
+
+    if (end - start > MAX_VIDEO_SECONDS) {
+      const movingEnd = Number(endValue) !== Number(videoTrimEnd);
+      if (movingEnd) {
+        start = Math.max(0, end - MAX_VIDEO_SECONDS);
+      } else {
+        end = Math.min(maxEnd, start + MAX_VIDEO_SECONDS);
+      }
+    }
+
+    if (end <= start) {
+      end = Math.min(maxEnd, start + 0.5);
+    }
+
+    return { start, end, seconds: Math.max(0.5, end - start) };
+  }
+
   async function trimPendingVideo(fileOverride = pendingVideoFile, startOverride = videoTrimStart, endOverride = videoTrimEnd) {
     const fileToTrim = fileOverride || pendingVideoFile;
 
@@ -236,10 +260,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setTrimError("");
       setFeedback("");
 
-      const safeStart = Math.max(0, Number(startOverride || 0));
-      const requestedEnd = Math.max(safeStart + 1, Number(endOverride || safeStart + MAX_VIDEO_SECONDS));
-      const safeEnd = Math.min(videoDuration || requestedEnd, requestedEnd, safeStart + MAX_VIDEO_SECONDS);
-      const clipSeconds = Math.max(1, Math.min(MAX_VIDEO_SECONDS, safeEnd - safeStart));
+      const { start: safeStart, end: safeEnd, seconds: clipSeconds } = clampTrimWindow(startOverride, endOverride);
       const trimmedPreview = await trimVideoFileToDataUrl(fileToTrim, safeStart, clipSeconds);
 
       if (requestId !== trimRequestRef.current) return "";
@@ -253,7 +274,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         videoTrimStart: 0,
         videoTrimEnd: clipSeconds,
         sourceVideoTrimStart: safeStart,
-        sourceVideoTrimEnd: safeStart + clipSeconds,
+        sourceVideoTrimEnd: safeEnd,
         imageName: "",
         imageType: "",
         audioName: "",
@@ -290,8 +311,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function chooseTrimPreset(start) {
-    const nextStart = Math.max(0, Math.min(start, Math.max(0, videoDuration - 1)));
-    const nextEnd = Math.min(videoDuration, nextStart + MAX_VIDEO_SECONDS);
+    const { start: nextStart, end: nextEnd } = clampTrimWindow(start, Number(start) + Math.min(MAX_VIDEO_SECONDS, videoDuration || MAX_VIDEO_SECONDS));
     trimRequestRef.current += 1;
     trimmedVideoMetaRef.current = null;
     setVideoTrimStart(nextStart);
@@ -687,22 +707,16 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 trimmingVideo={trimmingVideo}
                 trimError={trimError}
                 onTrimStartChange={(start) => {
-                  const nextStart = Math.max(0, Math.min(start, Math.max(0, videoDuration - 1)));
-                  const nextEnd = Math.min(videoDuration, Math.max(videoTrimEnd, nextStart + 1, nextStart + Math.min(MAX_VIDEO_SECONDS, videoTrimEnd - videoTrimStart)));
+                  const { start: nextStart, end: nextEnd } = clampTrimWindow(start, videoTrimEnd);
                   setVideoTrimStart(nextStart);
-                  setVideoTrimEnd(Math.min(nextEnd, nextStart + MAX_VIDEO_SECONDS));
+                  setVideoTrimEnd(nextEnd);
                   setVideoPreview("");
                   setTrimError("");
                 }}
                 onTrimEndChange={(end) => {
-                  const nextEnd = Math.min(videoDuration, Math.max(end, 1));
-                  const nextStart = Math.max(0, Math.min(videoTrimStart, nextEnd - 1));
+                  const { start: nextStart, end: nextEnd } = clampTrimWindow(videoTrimStart, end);
+                  setVideoTrimStart(nextStart);
                   setVideoTrimEnd(nextEnd);
-                  if (nextEnd - nextStart > MAX_VIDEO_SECONDS) {
-                    setVideoTrimStart(Math.max(0, nextEnd - MAX_VIDEO_SECONDS));
-                  } else if (nextStart !== videoTrimStart) {
-                    setVideoTrimStart(nextStart);
-                  }
                   setVideoPreview("");
                   setTrimError("");
                 }}

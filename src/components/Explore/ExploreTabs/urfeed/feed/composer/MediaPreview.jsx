@@ -120,13 +120,13 @@ export default function MediaPreview({
 }) {
   const pendingVideoRef = useRef(null);
   const [playing, setPlaying] = useState(true);
-  const [soundOn, setSoundOn] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
   const [thumbnails, setThumbnails] = useState([]);
 
   const safeDuration = Math.max(1, videoDuration || 1);
-  const safeTrimStart = Math.max(0, Math.min(videoTrimStart, Math.max(0, safeDuration - 1)));
-  const safeTrimEnd = Math.min(safeDuration, Math.max(safeTrimStart + 1, videoTrimEnd));
-  const clipSeconds = Math.max(1, Math.min(maxVideoSeconds, safeTrimEnd - safeTrimStart));
+  const safeTrimStart = Math.max(0, Math.min(videoTrimStart, Math.max(0, safeDuration - 0.5)));
+  const safeTrimEnd = Math.min(safeDuration, Math.max(safeTrimStart + 0.5, Math.min(videoTrimEnd, safeTrimStart + maxVideoSeconds)));
+  const clipSeconds = Math.max(0.5, Math.min(maxVideoSeconds, safeTrimEnd - safeTrimStart));
   const clipEnd = safeTrimStart + clipSeconds;
   const selectedLeft = Math.max(0, (safeTrimStart / safeDuration) * 100);
   const selectedWidth = Math.max(4, (clipSeconds / safeDuration) * 100);
@@ -299,7 +299,7 @@ export default function MediaPreview({
             </div>
 
             <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+112px)] left-5 rounded-full bg-white/12 px-3 py-1 text-xs font-black text-white/85 backdrop-blur">
-              {formatTime(safeTrimStart)} to {formatTime(clipEnd)} - {formatTime(clipSeconds)}
+              {formatTime(safeTrimStart)} to {formatTime(clipEnd)} • {formatTime(clipSeconds)} / max {formatTime(maxVideoSeconds)}
             </div>
           </div>
 
@@ -354,7 +354,7 @@ export default function MediaPreview({
                 <input
                   type="range"
                   min="0"
-                  max={Math.max(0, safeDuration - 1)}
+                  max={Math.max(0, safeTrimEnd - 0.5)}
                   step="0.1"
                   value={safeTrimStart}
                   onChange={(event) => onTrimStartChange?.(Number(event.target.value))}
@@ -363,8 +363,8 @@ export default function MediaPreview({
                 />
                 <input
                   type="range"
-                  min={Math.min(safeDuration, safeTrimStart + 1)}
-                  max={safeDuration}
+                  min={Math.min(safeDuration, safeTrimStart + 0.5)}
+                  max={Math.min(safeDuration, safeTrimStart + maxVideoSeconds)}
                   step="0.1"
                   value={safeTrimEnd}
                   onChange={(event) => onTrimEndChange?.(Number(event.target.value))}
