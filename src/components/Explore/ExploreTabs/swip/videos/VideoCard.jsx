@@ -88,7 +88,7 @@ export default function VideoCard({
   useEffect(() => {
     function handleSwipActivePlay(event) {
       if (activeRef.current || active) {
-        requestActivePlayback({ sound: Boolean(event.detail?.sound) });
+        requestActivePlayback({ sound: event.detail?.sound !== false });
       }
     }
 
@@ -202,6 +202,7 @@ export default function VideoCard({
     video.muted = false;
     video.defaultMuted = false;
     video.volume = sound ? 1 : 0;
+    video.autoplay = true;
 
     try {
       await playExploreMedia(video, { muteVideos: false });
@@ -209,6 +210,9 @@ export default function VideoCard({
       video.muted = false;
       video.defaultMuted = false;
       video.volume = 1;
+      requestAnimationFrame(() => {
+        video.play().catch(() => {});
+      });
     }
   }
 

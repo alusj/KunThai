@@ -43,6 +43,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [pendingVideoUrl, setPendingVideoUrl] = useState("");
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoTrimStart, setVideoTrimStart] = useState(0);
+  const [videoTrimEnd, setVideoTrimEnd] = useState(MAX_VIDEO_SECONDS);
   const [trimmingVideo, setTrimmingVideo] = useState(false);
   const [trimError, setTrimError] = useState("");
   const [postingStage, setPostingStage] = useState("");
@@ -185,50 +186,19 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         cancelVoiceRecording();
         const duration = await getVideoDuration(file);
 
-        if (duration > MAX_VIDEO_SECONDS) {
-          if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
+        if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
 
-          setPendingVideoFile(file);
-          setPendingVideoUrl(URL.createObjectURL(file));
-          setVideoDuration(duration);
-          setVideoTrimStart(0);
-          setVideoPreview("");
-          setImagePreview("");
-          setOpen(true);
-          setFeedback("");
-          setTrimError("");
-          return;
-        }
-
-        const nextPreview = await fileToDataUrl(file);
-        const nextVideoMeta = {
-          ...mediaMeta,
-          videoName: file.name,
-          videoType: file.type,
-          videoSize: file.size,
-          videoDuration: duration,
-          videoTrimStart: 0,
-          videoTrimEnd: Math.min(duration || MAX_VIDEO_SECONDS, MAX_VIDEO_SECONDS),
-          imageName: "",
-          imageType: "",
-          audioName: "",
-          audioType: "",
-          audioSize: 0,
-        };
-
-        setVideoPreview(nextPreview);
-        setImagePreview("");
-        setPendingVideoFile(null);
-        trimmedVideoMetaRef.current = nextVideoMeta;
-
-        if (pendingVideoUrl) {
-          URL.revokeObjectURL(pendingVideoUrl);
-          setPendingVideoUrl("");
-        }
-
+        setPendingVideoFile(file);
+        setPendingVideoUrl(URL.createObjectURL(file));
         setVideoDuration(duration);
+        setVideoTrimStart(0);
+        setVideoTrimEnd(Math.min(duration || MAX_VIDEO_SECONDS, MAX_VIDEO_SECONDS));
+        setVideoPreview("");
+        setImagePreview("");
+        setOpen(true);
+        setFeedback("");
         setTrimError("");
-        setMediaMeta(nextVideoMeta);
+        return;
       } else {
         const nextPreview = await fileToDataUrl(file);
 
@@ -254,7 +224,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
   }
 
-  async function trimPendingVideo(fileOverride = pendingVideoFile, startOverride = videoTrimStart) {
+  async function trimPendingVideo(fileOverride = pendingVideoFile, startOverride = videoTrimStart, endOverride = videoTrimEnd) {
     const fileToTrim = fileOverride || pendingVideoFile;
 
     if (!fileToTrim) return "";
@@ -267,7 +237,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setFeedback("");
 
       const safeStart = Math.max(0, Number(startOverride || 0));
-      const trimmedPreview = await trimVideoFileToDataUrl(fileToTrim, safeStart, MAX_VIDEO_SECONDS);
+      const requestedEnd = Math.max(safeStart + 1, Number(endOverride || safeStart + MAX_VIDEO_SECONDS));
+      const safeEnd = Math.min(videoDuration || requestedEnd, requestedEnd, safeStart + MAX_VIDEO_SECONDS);
+      const clipSeconds = Math.max(1, Math.min(MAX_VIDEO_SECONDS, safeEnd - safeStart));
+      const trimmedPreview = await trimVideoFileToDataUrl(fileToTrim, safeStart, clipSeconds);
 
       if (requestId !== trimRequestRef.current) return "";
 
@@ -276,11 +249,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         videoName: `trimmed-${fileToTrim.name || "swip-video.mp4"}`,
         videoType: trimmedPreview.startsWith("data:video/mp4") ? "video/mp4" : "video/webm",
         videoSize: 0,
-        videoDuration: MAX_VIDEO_SECONDS,
+        videoDuration: clipSeconds,
         videoTrimStart: 0,
-        videoTrimEnd: MAX_VIDEO_SECONDS,
+        videoTrimEnd: clipSeconds,
         sourceVideoTrimStart: safeStart,
-        sourceVideoTrimEnd: safeStart + MAX_VIDEO_SECONDS,
+        sourceVideoTrimEnd: safeStart + clipSeconds,
         imageName: "",
         imageType: "",
         audioName: "",
@@ -299,8 +272,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         setPendingVideoUrl("");
       }
 
-      setVideoDuration(MAX_VIDEO_SECONDS);
+      setVideoDuration(clipSeconds);
       setVideoTrimStart(0);
+      setVideoTrimEnd(clipSeconds);
       clearAudioState();
       setFeedback("Swip clip ready.");
       return trimmedPreview;
@@ -316,10 +290,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function chooseTrimPreset(start) {
-    const nextStart = Math.max(0, Math.min(start, Math.max(0, videoDuration - MAX_VIDEO_SECONDS)));
+    const nextStart = Math.max(0, Math.min(start, Math.max(0, videoDuration - 1)));
+    const nextEnd = Math.min(videoDuration, nextStart + MAX_VIDEO_SECONDS);
     trimRequestRef.current += 1;
     trimmedVideoMetaRef.current = null;
     setVideoTrimStart(nextStart);
+    setVideoTrimEnd(nextEnd);
     setVideoPreview("");
     setTrimError("");
   }
@@ -448,6 +424,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     setVideoDuration(0);
     setVideoTrimStart(0);
+    setVideoTrimEnd(MAX_VIDEO_SECONDS);
     setTrimError("");
     setPostingStage("");
     setPostingProgress(0);
@@ -475,7 +452,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       let finalVideoPreview = videoPreview;
 
       if (pendingVideoFile && !finalVideoPreview) {
-        finalVideoPreview = await trimPendingVideo(pendingVideoFile, videoTrimStart);
+        finalVideoPreview = await trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd);
 
         if (!finalVideoPreview) {
           setOpen(true);
@@ -705,17 +682,33 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 pendingVideoUrl={pendingVideoUrl}
                 videoDuration={videoDuration}
                 videoTrimStart={videoTrimStart}
+                videoTrimEnd={videoTrimEnd}
                 maxVideoSeconds={MAX_VIDEO_SECONDS}
                 trimmingVideo={trimmingVideo}
                 trimError={trimError}
                 onTrimStartChange={(start) => {
-                  setVideoTrimStart(start);
+                  const nextStart = Math.max(0, Math.min(start, Math.max(0, videoDuration - 1)));
+                  const nextEnd = Math.min(videoDuration, Math.max(videoTrimEnd, nextStart + 1, nextStart + Math.min(MAX_VIDEO_SECONDS, videoTrimEnd - videoTrimStart)));
+                  setVideoTrimStart(nextStart);
+                  setVideoTrimEnd(Math.min(nextEnd, nextStart + MAX_VIDEO_SECONDS));
+                  setVideoPreview("");
+                  setTrimError("");
+                }}
+                onTrimEndChange={(end) => {
+                  const nextEnd = Math.min(videoDuration, Math.max(end, 1));
+                  const nextStart = Math.max(0, Math.min(videoTrimStart, nextEnd - 1));
+                  setVideoTrimEnd(nextEnd);
+                  if (nextEnd - nextStart > MAX_VIDEO_SECONDS) {
+                    setVideoTrimStart(Math.max(0, nextEnd - MAX_VIDEO_SECONDS));
+                  } else if (nextStart !== videoTrimStart) {
+                    setVideoTrimStart(nextStart);
+                  }
                   setVideoPreview("");
                   setTrimError("");
                 }}
                 onTrimPreset={chooseTrimPreset}
-                onTrimVideo={trimPendingVideo}
-                onRetryTrim={() => trimPendingVideo(pendingVideoFile, videoTrimStart)}
+                onTrimVideo={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
+                onRetryTrim={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
                 onRemoveImage={() => {
                   setImagePreview("");
                   setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
@@ -733,6 +726,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
                   setVideoDuration(0);
                   setVideoTrimStart(0);
+                  setVideoTrimEnd(MAX_VIDEO_SECONDS);
                   setTrimError("");
                   setMediaMeta((current) => ({ ...current, videoName: "", videoType: "", videoSize: 0 }));
                 }}

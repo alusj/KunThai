@@ -29,7 +29,7 @@ export default function Swip({ active = true, currentUserId = "", onViewProfile 
     document.documentElement.style.height = "100dvh";
 
     const playTimer = window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("swip-active-play"));
+      window.dispatchEvent(new CustomEvent("swip-active-play", { detail: { sound: true } }));
     }, 120);
 
     return () => {

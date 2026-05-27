@@ -105,10 +105,12 @@ export default function MediaPreview({
   pendingVideoUrl,
   videoDuration = 0,
   videoTrimStart = 0,
+  videoTrimEnd = 15,
   maxVideoSeconds = 15,
   trimmingVideo = false,
   trimError = "",
   onTrimStartChange,
+  onTrimEndChange,
   onTrimPreset,
   onTrimVideo,
   onRetryTrim,
@@ -121,19 +123,24 @@ export default function MediaPreview({
   const [soundOn, setSoundOn] = useState(false);
   const [thumbnails, setThumbnails] = useState([]);
 
-  const clipEnd = Math.min(videoDuration, videoTrimStart + maxVideoSeconds);
-  const maxStart = Math.max(0, Math.floor(videoDuration - maxVideoSeconds));
+  const safeDuration = Math.max(1, videoDuration || 1);
+  const safeTrimStart = Math.max(0, Math.min(videoTrimStart, Math.max(0, safeDuration - 1)));
+  const safeTrimEnd = Math.min(safeDuration, Math.max(safeTrimStart + 1, videoTrimEnd));
+  const clipSeconds = Math.max(1, Math.min(maxVideoSeconds, safeTrimEnd - safeTrimStart));
+  const clipEnd = safeTrimStart + clipSeconds;
+  const selectedLeft = Math.max(0, (safeTrimStart / safeDuration) * 100);
+  const selectedWidth = Math.max(4, (clipSeconds / safeDuration) * 100);
 
   useEffect(() => {
     const video = pendingVideoRef.current;
     if (!video || !pendingVideoUrl) return;
 
-    const nextTime = Math.max(0, Math.min(videoTrimStart, Math.max(0, videoDuration - 0.25)));
+    const nextTime = Math.max(0, Math.min(safeTrimStart, Math.max(0, safeDuration - 0.25)));
 
     if (Number.isFinite(nextTime)) {
       video.currentTime = nextTime;
     }
-  }, [pendingVideoUrl, videoDuration, videoTrimStart]);
+  }, [pendingVideoUrl, safeDuration, safeTrimStart]);
 
   useEffect(() => {
     const video = pendingVideoRef.current;
@@ -173,7 +180,7 @@ export default function MediaPreview({
     const video = event.currentTarget;
 
     if (video.currentTime >= clipEnd) {
-      video.currentTime = videoTrimStart;
+      video.currentTime = safeTrimStart;
       video.play().catch(() => {});
     }
   }
@@ -292,7 +299,7 @@ export default function MediaPreview({
             </div>
 
             <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+112px)] left-5 rounded-full bg-white/12 px-3 py-1 text-xs font-black text-white/85 backdrop-blur">
-              {formatTime(videoTrimStart)} to {formatTime(clipEnd)}
+              {formatTime(safeTrimStart)} to {formatTime(clipEnd)} - {formatTime(clipSeconds)}
             </div>
           </div>
 
@@ -336,8 +343,8 @@ export default function MediaPreview({
                 <div
                   className="absolute inset-y-0 rounded-md border-[3px] border-white bg-white/10 shadow-[0_0_0_999px_rgba(0,0,0,0.48)]"
                   style={{
-                    left: `${Math.max(0, (videoTrimStart / Math.max(videoDuration, 1)) * 100)}%`,
-                    width: `${Math.min(100, (maxVideoSeconds / Math.max(videoDuration, 1)) * 100)}%`,
+                    left: `${selectedLeft}%`,
+                    width: `${selectedWidth}%`,
                   }}
                 >
                   <span className="absolute -left-1.5 top-0 h-full w-2 rounded-full bg-white shadow-lg" />
@@ -347,12 +354,32 @@ export default function MediaPreview({
                 <input
                   type="range"
                   min="0"
-                  max={maxStart}
-                  value={videoTrimStart}
+                  max={Math.max(0, safeDuration - 1)}
+                  step="0.1"
+                  value={safeTrimStart}
                   onChange={(event) => onTrimStartChange?.(Number(event.target.value))}
-                  className="absolute inset-0 h-full w-full cursor-ew-resize opacity-0"
+                  className="absolute left-0 top-0 h-1/2 w-full cursor-ew-resize opacity-0"
                   aria-label="Choose clip start"
                 />
+                <input
+                  type="range"
+                  min={Math.min(safeDuration, safeTrimStart + 1)}
+                  max={safeDuration}
+                  step="0.1"
+                  value={safeTrimEnd}
+                  onChange={(event) => onTrimEndChange?.(Number(event.target.value))}
+                  className="absolute bottom-0 left-0 h-1/2 w-full cursor-ew-resize opacity-0"
+                  aria-label="Choose clip end"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-white/60">
+              <div className="rounded-full border border-white/15 bg-white/10 px-3 py-2">
+                Start {formatTime(safeTrimStart)}
+              </div>
+              <div className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-right">
+                End {formatTime(clipEnd)}
               </div>
             </div>
 
