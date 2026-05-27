@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { sharePost } from "../../urfeed/feed/post/postUtils";
-import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 import VideoProgress from "./VideoProgress";
