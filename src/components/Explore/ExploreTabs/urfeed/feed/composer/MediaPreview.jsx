@@ -119,6 +119,8 @@ export default function MediaPreview({
   onRemoveAudio,
 }) {
   const pendingVideoRef = useRef(null);
+  const timelineRef = useRef(null);
+  const dragRef = useRef(null);
   const [playing, setPlaying] = useState(true);
   const [soundOn, setSoundOn] = useState(true);
   const [thumbnails, setThumbnails] = useState([]);
@@ -208,6 +210,86 @@ export default function MediaPreview({
       video.volume = nextSound ? 1 : 0;
       video.play().catch(() => {});
     }
+  }
+
+
+  function clampSelection(start, end) {
+    const minClipSeconds = 0.5;
+    const maxEnd = safeDuration;
+    let nextStart = Math.max(0, Math.min(Number(start || 0), Math.max(0, maxEnd - minClipSeconds)));
+    let nextEnd = Math.max(nextStart + minClipSeconds, Math.min(Number(end || nextStart + minClipSeconds), maxEnd));
+
+    if (nextEnd - nextStart > maxVideoSeconds) {
+      if (dragRef.current?.type === "left") {
+        nextEnd = Math.min(maxEnd, nextStart + maxVideoSeconds);
+      } else {
+        nextStart = Math.max(0, nextEnd - maxVideoSeconds);
+      }
+    }
+
+    return { start: nextStart, end: nextEnd };
+  }
+
+  function secondsFromPointer(clientX) {
+    const rect = timelineRef.current?.getBoundingClientRect();
+    if (!rect?.width) return 0;
+    const percent = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    return percent * safeDuration;
+  }
+
+  function applyDrag(clientX) {
+    if (!dragRef.current) return;
+
+    const pointerSeconds = secondsFromPointer(clientX);
+    const drag = dragRef.current;
+
+    if (drag.type === "left") {
+      const { start, end } = clampSelection(pointerSeconds, safeTrimEnd);
+      onTrimStartChange?.(start);
+      onTrimEndChange?.(end);
+      return;
+    }
+
+    if (drag.type === "right") {
+      const { start, end } = clampSelection(safeTrimStart, pointerSeconds);
+      onTrimStartChange?.(start);
+      onTrimEndChange?.(end);
+      return;
+    }
+
+    const delta = pointerSeconds - drag.anchorSeconds;
+    const clipLength = drag.end - drag.start;
+    const nextStart = Math.max(0, Math.min(drag.start + delta, Math.max(0, safeDuration - clipLength)));
+    const nextEnd = Math.min(safeDuration, nextStart + clipLength);
+    onTrimStartChange?.(nextStart);
+    onTrimEndChange?.(nextEnd);
+  }
+
+  function beginDrag(type, event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const pointerSeconds = secondsFromPointer(event.clientX);
+    dragRef.current = {
+      type,
+      anchorSeconds: pointerSeconds,
+      start: safeTrimStart,
+      end: safeTrimEnd,
+    };
+
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    applyDrag(event.clientX);
+  }
+
+  function moveDrag(event) {
+    if (!dragRef.current) return;
+    event.preventDefault();
+    applyDrag(event.clientX);
+  }
+
+  function endDrag(event) {
+    dragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   }
 
   if (!imagePreview && !videoPreview && !audioPreview && !pendingVideoUrl) {
@@ -320,7 +402,10 @@ export default function MediaPreview({
                 {playing ? <HiOutlinePause /> : <HiOutlinePlay />}
               </button>
 
-              <div className="relative h-14 min-w-0 flex-1 overflow-hidden rounded-lg bg-slate-800">
+              <div
+                ref={timelineRef}
+                className="relative h-14 min-w-0 flex-1 touch-none overflow-hidden rounded-lg bg-slate-800"
+              >
                 <div className="absolute inset-0 flex">
                   {thumbnails.length
                     ? thumbnails.map((thumbnail, index) => (
@@ -341,36 +426,41 @@ export default function MediaPreview({
                 </div>
 
                 <div
-                  className="absolute inset-y-0 rounded-md border-[3px] border-white bg-white/10 shadow-[0_0_0_999px_rgba(0,0,0,0.48)]"
+                  className="absolute inset-y-0 touch-none rounded-md border-[3px] border-white bg-white/10 shadow-[0_0_0_999px_rgba(0,0,0,0.48)]"
                   style={{
                     left: `${selectedLeft}%`,
                     width: `${selectedWidth}%`,
                   }}
+                  onPointerDown={(event) => beginDrag("move", event)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  role="slider"
+                  aria-label="Move selected clip"
+                  aria-valuemin={0}
+                  aria-valuemax={safeDuration}
+                  aria-valuenow={safeTrimStart}
                 >
-                  <span className="absolute -left-1.5 top-0 h-full w-2 rounded-full bg-white shadow-lg" />
-                  <span className="absolute -right-1.5 top-0 h-full w-2 rounded-full bg-white shadow-lg" />
+                  <button
+                    type="button"
+                    onPointerDown={(event) => beginDrag("left", event)}
+                    onPointerMove={moveDrag}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                    className="absolute -left-4 top-1/2 h-14 w-8 -translate-y-1/2 touch-none rounded-full bg-white shadow-lg"
+                    aria-label="Drag clip start"
+                  />
+                  <button
+                    type="button"
+                    onPointerDown={(event) => beginDrag("right", event)}
+                    onPointerMove={moveDrag}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                    className="absolute -right-4 top-1/2 h-14 w-8 -translate-y-1/2 touch-none rounded-full bg-white shadow-lg"
+                    aria-label="Drag clip end"
+                  />
+                  <span className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/70 bg-white/20" />
                 </div>
-
-                <input
-                  type="range"
-                  min="0"
-                  max={Math.max(0, safeTrimEnd - 0.5)}
-                  step="0.1"
-                  value={safeTrimStart}
-                  onChange={(event) => onTrimStartChange?.(Number(event.target.value))}
-                  className="absolute left-0 top-0 h-1/2 w-full cursor-ew-resize opacity-0"
-                  aria-label="Choose clip start"
-                />
-                <input
-                  type="range"
-                  min={Math.min(safeDuration, safeTrimStart + 0.5)}
-                  max={Math.min(safeDuration, safeTrimStart + maxVideoSeconds)}
-                  step="0.1"
-                  value={safeTrimEnd}
-                  onChange={(event) => onTrimEndChange?.(Number(event.target.value))}
-                  className="absolute bottom-0 left-0 h-1/2 w-full cursor-ew-resize opacity-0"
-                  aria-label="Choose clip end"
-                />
               </div>
             </div>
 

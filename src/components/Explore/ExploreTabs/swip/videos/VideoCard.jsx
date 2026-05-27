@@ -57,7 +57,7 @@ export default function VideoCard({
   const [mediaError, setMediaError] = useState("");
   const [progress, setProgress] = useState({ currentTime: 0, duration: MAX_SWIP_SECONDS });
   const [message, setMessage] = useState("");
-  const [soundBlocked, setSoundBlocked] = useState(false);
+  const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
 
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
@@ -69,7 +69,7 @@ export default function VideoCard({
 
   useEffect(() => {
     setMediaError("");
-    setSoundBlocked(false);
+    setNeedsSoundUnlock(false);
     setProgress({ currentTime: 0, duration: MAX_SWIP_SECONDS, realDuration: 0 });
   }, [post.video_url]);
 
@@ -210,6 +210,9 @@ export default function VideoCard({
       video.currentTime = clip.start;
     }
 
+    // First choice: autoplay with sound. Some iOS/Safari builds block this
+    // until a user gesture, so the fallback keeps the video moving silently
+    // without showing a large "Tap for sound" overlay.
     video.muted = false;
     video.defaultMuted = false;
     video.volume = sound ? 1 : 0;
@@ -220,17 +223,17 @@ export default function VideoCard({
       video.muted = false;
       video.defaultMuted = false;
       video.volume = sound ? 1 : 0;
-      setSoundBlocked(false);
+      setNeedsSoundUnlock(false);
     } catch {
-      video.muted = false;
-      video.defaultMuted = false;
-      video.volume = 1;
-      requestAnimationFrame(() => {
-        video
-          .play()
-          .then(() => setSoundBlocked(false))
-          .catch(() => setSoundBlocked(true));
-      });
+      try {
+        video.muted = true;
+        video.defaultMuted = true;
+        video.volume = 0;
+        await video.play();
+        setNeedsSoundUnlock(true);
+      } catch {
+        setNeedsSoundUnlock(true);
+      }
     }
   }
 
@@ -244,12 +247,12 @@ export default function VideoCard({
     const video = videoRef.current;
     if (!video) return;
 
-    if (soundBlocked || video.muted || video.volume === 0) {
+    if (needsSoundUnlock || video.muted || video.volume === 0) {
       video.muted = false;
       video.defaultMuted = false;
       video.volume = 1;
-      setSoundBlocked(false);
-      video.play().catch(() => setSoundBlocked(true));
+      setNeedsSoundUnlock(false);
+      video.play().catch(() => setNeedsSoundUnlock(true));
       return;
     }
 
@@ -298,6 +301,27 @@ export default function VideoCard({
     };
   }, [active, post.video_url, clip.start]);
 
+
+
+  useEffect(() => {
+    function unlockSoundOnGesture() {
+      const video = videoRef.current;
+      if (!video || !activeRef.current || !needsSoundUnlock) return;
+
+      video.muted = false;
+      video.defaultMuted = false;
+      video.volume = 1;
+      video.play().then(() => setNeedsSoundUnlock(false)).catch(() => {});
+    }
+
+    window.addEventListener("pointerdown", unlockSoundOnGesture, { passive: true });
+    window.addEventListener("touchstart", unlockSoundOnGesture, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", unlockSoundOnGesture);
+      window.removeEventListener("touchstart", unlockSoundOnGesture);
+    };
+  }, [needsSoundUnlock]);
   return (
     <article
       id={`post-${post.id}`}
@@ -313,13 +337,13 @@ export default function VideoCard({
       <video
         ref={videoRef}
         src={post.video_url}
-        autoPlay
+        autoPlay={active}
         controls={false}
         muted={false}
         defaultMuted={false}
         playsInline
         loop={false}
-        onError={() => setMediaError("Video is still being prepared.")}
+        onError={() => setMediaError("Video could not load yet. It may still be uploading.")}
         onCanPlay={() => {
           updateVideoProgress(videoRef.current);
           if (activeRef.current || active) requestActivePlayback();
@@ -328,24 +352,17 @@ export default function VideoCard({
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
         onTimeUpdate={handleTimeUpdate}
-        preload="auto"
+        preload={active ? "auto" : "metadata"}
         className="absolute inset-0 h-full w-full object-cover"
       />
 
       {mediaError ? <div className="absolute inset-0 z-[1] bg-slate-950" /> : null}
       <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
 
-      {soundBlocked ? (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            handleVideoTap();
-          }}
-          className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 px-5 py-3 text-sm font-black text-slate-950 shadow-2xl"
-        >
-          Tap for sound
-        </button>
+      {needsSoundUnlock ? (
+        <div className="pointer-events-none absolute left-4 top-16 z-20 rounded-full bg-black/35 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-white/75 backdrop-blur">
+          Sound will resume after interaction
+        </div>
       ) : null}
 
       <SwipActionRail

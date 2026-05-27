@@ -21,6 +21,9 @@ import {
 } from "../composer/composerUtils";
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 
+const MAX_LOCAL_VIDEO_BYTES = 150 * 1024 * 1024;
+const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
+
 export default function FeedComposer({ profile, creating, onSubmit }) {
   const draft = readDraft();
   const privacySettings = readPrivacySettings();
@@ -183,6 +186,16 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
       if (file.type.startsWith("video/") || mediaMode === "video") {
         cancelVoiceRecording();
+
+        const isSupportedVideo = file.type.startsWith("video/") && (!file.type || SUPPORTED_VIDEO_TYPES.includes(file.type));
+        if (!isSupportedVideo) {
+          throw new Error("This video format is not supported. Please use MP4, MOV, or WebM.");
+        }
+
+        if (file.size > MAX_LOCAL_VIDEO_BYTES) {
+          throw new Error("This video is too large for mobile posting. Please compress it below 150MB and try again.");
+        }
+
         const duration = await getVideoDuration(file);
 
         if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
@@ -266,9 +279,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       // exporting long videos can crash the tab and cause the blank/reload bug.
       // We keep the original video data and save the selected trim window as metadata;
       // the Swip player then loops only the selected range.
-      const sourcePreview = await fileToDataUrl(fileToTrim);
+      const sourcePreview = pendingVideoUrl || URL.createObjectURL(fileToTrim);
 
-      if (requestId !== trimRequestRef.current) return "";
+      if (requestId !== trimRequestRef.current) {
+        if (sourcePreview && sourcePreview !== pendingVideoUrl) URL.revokeObjectURL(sourcePreview);
+        return "";
+      }
 
       const nextVideoMeta = {
         ...mediaMeta,
@@ -293,10 +309,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       trimmedVideoMetaRef.current = nextVideoMeta;
       setMediaMeta(nextVideoMeta);
 
-      if (pendingVideoUrl) {
-        URL.revokeObjectURL(pendingVideoUrl);
-        setPendingVideoUrl("");
-      }
+      // Keep the same object URL for the local preview. Revoking it here can break
+      // Safari playback before the post is handed to the upload layer.
+      setPendingVideoUrl("");
 
       setVideoTrimStart(safeStart);
       setVideoTrimEnd(safeEnd);
@@ -435,6 +450,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setValue("");
     setFeedback("");
     setImagePreview("");
+    if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
     setVideoPreview("");
     setAudioPreview("");
     setAudioDuration(null);
@@ -505,7 +521,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setFeedback("");
       setPostingStage("preparing");
       setPostingProgress(5);
-      setOpen(true);
+
+      // Move the user back to UrFeed immediately. Review/upload continues below
+      // and the app shell can show the small floating publishing card.
+      setOpen(false);
+      window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "UrFeed" } }));
 
       publishPostingUpdate({
         status: "posting",
@@ -515,13 +535,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       });
 
       const videoFrameDataUrls = finalVideoPreview
-        ? await extractVideoFramesFromDataUrl(finalVideoPreview, 8)
+        ? await extractVideoFramesFromDataUrl(finalVideoPreview, 4)
         : [];
 
       if (finalVideoPreview && !videoFrameDataUrls.length) {
         setPostingStage("");
         setPostingProgress(0);
-        setOpen(true);
         setFeedback("KunThai could not capture frames for video safety review. Please try this clip again.");
         publishPostingUpdate({
           status: "error",
