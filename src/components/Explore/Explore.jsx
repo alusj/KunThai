@@ -1,6 +1,6 @@
 // src/Explore/Explore.jsx
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useAuth } from "../../Backend/hooks/useAuth";
+//import { useAuth } from "../../Backend/hooks/useAuth";
 import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
@@ -57,7 +57,7 @@ function PlaceholderMenuScreen({ screen }) {
   - Decides which page to show
 */
 
-export default function Explore({ active = true, onScreenModeChange }) {
+export default function Explore({ active = true, onScreenModeChange, user = null, authLoading = false }) {
   const [profileOverride, setProfileOverride] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
@@ -76,14 +76,13 @@ export default function Explore({ active = true, onScreenModeChange }) {
   const stackCleanupTimerRef = useRef(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
-  const { user, loading: authLoading } = useAuth();
   const authProfile = buildExploreProfileFromUser(user);
   const profile = profileOverride;
   const currentUserId = profile?.userId || user?.id || "";
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   const isSwipTab = activeTab === "Swip";
   const profileExists = !authLoading && profileFetched && Boolean(profile);
-  const showProfileSkeleton = authLoading || profileLoading || !profileFetched;
+  const showProfileSkeleton = authLoading || (!profile && (profileLoading || !profileFetched));
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
@@ -193,12 +192,8 @@ export default function Explore({ active = true, onScreenModeChange }) {
 
   useEffect(() => {
     if (authLoading) {
-      setProfileOverride(null);
-      setProfileLoading(true);
-      setProfileError("");
-      setProfileFetched(false);
-      return undefined;
-    }
+  return undefined;
+}
 
     if (!user?.id) {
       setProfileOverride(null);
@@ -208,9 +203,12 @@ export default function Explore({ active = true, onScreenModeChange }) {
     }
 
     let alive = true;
-    setProfileLoading(true);
-    setProfileError("");
-    setProfileFetched(false);
+    if (!profileOverride) {
+  setProfileLoading(true);
+  setProfileFetched(false);
+}
+
+setProfileError("");
 
     ensureExploreProfile(user)
       .then((profileData) => {

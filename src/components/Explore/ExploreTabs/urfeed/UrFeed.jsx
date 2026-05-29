@@ -42,7 +42,7 @@ export default function UrFeed({ profile, onViewProfile }) {
       />
       <FeedList
         posts={posts}
-        loading={feed.loading || circleFeed.loading}
+        loading={(feed.loading || circleFeed.loading) && posts.length === 0}
         error={feed.error || circleFeed.error}
         onRetry={() => Promise.all([feed.reload(), circleFeed.reload()])}
         currentUserId={profile?.userId}

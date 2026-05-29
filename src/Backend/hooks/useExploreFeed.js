@@ -125,7 +125,7 @@ function applyCurrentProfileToPost(post, profile) {
 }
 
 const FEED_MEMORY = new Map();
-const FEED_MEMORY_TTL = 120_000;
+const FEED_MEMORY_TTL = 900_000;
 
 function readFeedMemory(scope) {
   const cached = FEED_MEMORY.get(scope);
@@ -330,7 +330,15 @@ export function useExploreFeed(scope = "feed") {
             return;
           }
 
-          load({ force: true });
+          setPosts((current) => {
+  if (!nextPost?.id || current.some((post) => post.id === nextPost.id)) {
+    return current;
+  }
+
+  const nextPosts = mergePosts([nextPost], current);
+  writeStoredPosts(scope, nextPosts);
+  return nextPosts;
+});
       },
       onUpdate(payload) {
           const nextPost = payload.new;
@@ -345,7 +353,14 @@ export function useExploreFeed(scope = "feed") {
             return;
           }
 
-          load({ force: true });
+          setPosts((current) => {
+  const nextPosts = current.map((post) =>
+    post.id === nextPost.id ? { ...post, ...nextPost } : post
+  );
+
+  writeStoredPosts(scope, nextPosts);
+  return nextPosts;
+});
       },
     });
     // load captures optimistic feed state; realtime should reuse the current scope handler.
@@ -459,7 +474,9 @@ export function useExploreFeed(scope = "feed") {
         ),
       );
       window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope: created.feed_scope || scope, postId: created.id, type: "post-created" } }));
-      await load({ force: true });
+     writeFeedMemory(created.feed_scope || scope, {
+  posts: postsRef.current,
+});
       return { ok: true };
     } catch (err) {
       const message = err.message || "Unable to sync post to backend right now.";

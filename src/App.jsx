@@ -181,7 +181,12 @@ export default function App() {
     <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100">
       <PageTransition active className="min-h-screen">
         <section className={pagePanelClass("explore")} aria-hidden={page !== "explore"}>
-          <Explore active={page === "explore"} onScreenModeChange={setExploreFullScreen} />
+          <Explore
+  active={page === "explore"}
+  onScreenModeChange={setExploreFullScreen}
+  user={user}
+  authLoading={loading}
+/>
         </section>
 
         <section className={pagePanelClass("marketplace")} aria-hidden={page !== "marketplace"}>

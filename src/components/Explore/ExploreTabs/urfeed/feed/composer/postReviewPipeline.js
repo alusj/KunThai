@@ -4,8 +4,6 @@ import {
   moderateExplorePost,
 } from "../../../../../../Backend/services/explore/safetyService";
 
-const MEDIA_WARNING_WORDS = ["nude", "naked", "sex", "porn", "abuse", "violent"];
-
 export const postingStages = [
   { key: "preparing", label: "Securing draft" },
   { key: "text-scan", label: "Scanning for policy violations" },
@@ -17,22 +15,6 @@ export const postingStages = [
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function findLocalMediaFlags(media = {}) {
-  const values = [
-    media.imageName,
-    media.videoName,
-    media.audioName,
-    media.imageType,
-    media.videoType,
-    media.audioType,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return MEDIA_WARNING_WORDS.filter((word) => values.includes(word));
 }
 
 function isLikelyLocalDev() {
@@ -62,16 +44,6 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
 
   onStage?.("media-scan", 62);
   await wait(media?.hasMedia ? 260 : 160);
-
-  const localMediaFlags = findLocalMediaFlags(media);
-
-  if (localMediaFlags.length) {
-    return {
-      ok: false,
-      reason: "This post was stopped because the attached media appears unsafe for Explore.",
-      flags: localMediaFlags,
-    };
-  }
 
   try {
     const moderationPayload = buildModerationMediaPayload(media);

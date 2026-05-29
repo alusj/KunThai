@@ -352,7 +352,7 @@ export default function VideoCard({
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
         onTimeUpdate={handleTimeUpdate}
-        preload={active ? "auto" : "metadata"}
+        preload="metadata"
         className="absolute inset-0 h-full w-full object-cover"
       />
 
