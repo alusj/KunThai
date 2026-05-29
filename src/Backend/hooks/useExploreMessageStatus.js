@@ -12,21 +12,40 @@ import { readExploreSettings } from "../services/explore/preferencesService";
 function isFreshActivity(item) {
   return Date.now() - new Date(item.updatedAt || 0).getTime() < 15000;
 }
-
+ const MESSAGE_STATUS_CACHE = {
+  conversations: [],
+  loadedAt: 0,
+};
 export function useExploreMessageStatus(currentUserId = "") {
-  const [conversations, setConversations] = useState([]);
+ 
+const [conversations, setConversations] = useState(
+  MESSAGE_STATUS_CACHE.conversations
+);
   const [activity, setActivity] = useState(() => fetchExploreMessageActivity());
 
   useEffect(() => {
     function reloadMessages() {
-      fetchExploreConversations(currentUserId).then(setConversations).catch(() => setConversations([]));
+     fetchExploreConversations(currentUserId)
+  .then((items) => {
+    MESSAGE_STATUS_CACHE.conversations = items;
+    MESSAGE_STATUS_CACHE.loadedAt = Date.now();
+    setConversations(items);
+  })
+  .catch(() => {
+    setConversations(MESSAGE_STATUS_CACHE.conversations || []);
+  });
     }
 
     function reloadActivity() {
       setActivity(fetchExploreMessageActivity());
     }
 
-    reloadMessages();
+    if (
+  !MESSAGE_STATUS_CACHE.conversations.length ||
+  Date.now() - MESSAGE_STATUS_CACHE.loadedAt > 120000
+) {
+  reloadMessages();
+}
     reloadActivity();
     const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, reloadMessages);
     window.addEventListener(EXPLORE_MESSAGE_EVENT, reloadMessages);

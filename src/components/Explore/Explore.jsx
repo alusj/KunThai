@@ -77,12 +77,12 @@ export default function Explore({ active = true, onScreenModeChange, user = null
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
   const authProfile = buildExploreProfileFromUser(user);
-  const profile = profileOverride;
+  const profile = profileOverride || authProfile;
   const currentUserId = profile?.userId || user?.id || "";
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   const isSwipTab = activeTab === "Swip";
-  const profileExists = !authLoading && profileFetched && Boolean(profile);
-  const showProfileSkeleton = authLoading || (!profile && (profileLoading || !profileFetched));
+  const profileExists = !authLoading && Boolean(user?.id && profile);
+  const showProfileSkeleton = false;
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
@@ -357,8 +357,9 @@ setProfileError("");
     setMessageRecipient(recipient);
     exploreNav.openMenuScreen("Messages");
   }
-
+  
   function openMenuScreen(screen, options = {}) {
+   stopAllExploreMedia();
     if (!MENU_SCREENS[screen]) {
       return;
     }
@@ -479,7 +480,7 @@ setProfileError("");
 
     if (screenKey === "Messages") {
       return (
-        <MessagesScreen
+        <MessagesScreen keepAlive
           currentProfile={profile}
           hideHeader
           initialRecipient={messageRecipient}

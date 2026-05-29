@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect,useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Bell,
@@ -23,8 +23,13 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   const [createOpen, setCreateOpen] = useState(false);
   const { notifications, unreadCount } = useExploreNotifications();
   const messageStatus = useExploreMessageStatus(currentProfile?.userId || "");
-  const latestMessage = notifications.find((item) => item.type !== "message")?.message || "";
-
+  const latestMessage = useMemo(
+  () =>
+    notifications.find(
+      (item) => item.type !== "message"
+    )?.message || "",
+  [notifications]
+);
   useEffect(() => {
     if (!createOpen) return undefined;
 

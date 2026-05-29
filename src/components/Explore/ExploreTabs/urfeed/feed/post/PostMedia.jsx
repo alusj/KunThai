@@ -49,7 +49,7 @@ export default function PostMedia({ post }) {
             >
               {imageStatus !== "loaded" ? <MediaSkeleton /> : null}
               <img
-                key={`${post.image_url}-${imageRetryKey}`}
+                loading="lazy"
                 src={post.image_url}
                 alt=""
                 onLoad={() => setImageStatus("loaded")}
@@ -87,7 +87,7 @@ export default function PostMedia({ post }) {
                 onError={() => setVideoStatus("error")}
                 onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
                 playsInline
-                preload="metadata"
+                preload="none"
                 src={post.video_url}
                 className={`h-full max-h-[520px] w-full max-w-full object-cover transition-opacity duration-200 ${
                   videoStatus === "loaded" ? "opacity-100" : "opacity-0"
@@ -145,7 +145,8 @@ export default function PostMedia({ post }) {
             aria-label="Close image preview and return to feed"
           >
             <img
-              src={post.image_url}
+  loading="lazy"
+  src={post.image_url}
               alt=""
               onError={() => {
                 setImageStatus("error");

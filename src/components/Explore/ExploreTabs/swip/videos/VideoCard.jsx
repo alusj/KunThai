@@ -131,7 +131,6 @@ export default function VideoCard({
   function pauseInactiveVideo(video) {
     video.pause();
     video.muted = false;
-    video.defaultMuted = false;
     video.volume = 1;
     video.currentTime = clip.start;
     setProgress((current) => ({
@@ -214,27 +213,24 @@ export default function VideoCard({
     // until a user gesture, so the fallback keeps the video moving silently
     // without showing a large "Tap for sound" overlay.
     video.muted = false;
-    video.defaultMuted = false;
     video.volume = sound ? 1 : 0;
     video.autoplay = true;
 
-    try {
-      await playExploreMedia(video, { muteVideos: false });
-      video.muted = false;
-      video.defaultMuted = false;
-      video.volume = sound ? 1 : 0;
-      setNeedsSoundUnlock(false);
-    } catch {
-      try {
-        video.muted = true;
-        video.defaultMuted = true;
-        video.volume = 0;
-        await video.play();
-        setNeedsSoundUnlock(true);
-      } catch {
-        setNeedsSoundUnlock(true);
-      }
-    }
+   try {
+  await playExploreMedia(video, { muteVideos: false });
+  video.muted = false;
+  video.volume = sound ? 1 : 0;
+  setNeedsSoundUnlock(false);
+} catch {
+  try {
+    video.muted = true;
+    video.volume = 0;
+    await video.play();
+    setNeedsSoundUnlock(true);
+  } catch {
+    setNeedsSoundUnlock(true);
+  }
+}
   }
 
   function shouldIgnoreVideoGesture(event) {
@@ -249,7 +245,6 @@ export default function VideoCard({
 
     if (needsSoundUnlock || video.muted || video.volume === 0) {
       video.muted = false;
-      video.defaultMuted = false;
       video.volume = 1;
       setNeedsSoundUnlock(false);
       video.play().catch(() => setNeedsSoundUnlock(true));
@@ -309,7 +304,6 @@ export default function VideoCard({
       if (!video || !activeRef.current || !needsSoundUnlock) return;
 
       video.muted = false;
-      video.defaultMuted = false;
       video.volume = 1;
       video.play().then(() => setNeedsSoundUnlock(false)).catch(() => {});
     }
@@ -340,7 +334,6 @@ export default function VideoCard({
         autoPlay={active}
         controls={false}
         muted={false}
-        defaultMuted={false}
         playsInline
         loop={false}
         onError={() => setMediaError("Video could not load yet. It may still be uploading.")}
