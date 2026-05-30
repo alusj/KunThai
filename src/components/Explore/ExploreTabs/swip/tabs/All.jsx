@@ -114,11 +114,14 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     requestSwipActivePlay(160, true);
   }
 
-  function handleWheel(event) {
+ function handleWheel(event) {
+  if (event.cancelable) {
     event.preventDefault();
-    if (wheelLockedRef.current) {
-      return;
-    }
+  }
+
+  if (wheelLockedRef.current) {
+    return;
+  }
 
     wheelDeltaRef.current += event.deltaY;
     if (Math.abs(wheelDeltaRef.current) < WHEEL_THRESHOLD_PX) {

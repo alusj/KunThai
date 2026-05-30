@@ -22,7 +22,6 @@ function feedActions(feed) {
 
 export default function UrFeed({ profile, onViewProfile }) {
   const feed = useExploreFeed("feed");
-  const swipFeed = useExploreFeed("swip");
   const circleFeed = useExploreFeed("connections");
   const posts = useMemo(
     () =>
@@ -37,8 +36,8 @@ export default function UrFeed({ profile, onViewProfile }) {
     <div>
       <FeedComposer
         profile={profile}
-        creating={feed.creating || swipFeed.creating}
-        onSubmit={(postInput) => (postInput?.video_url ? swipFeed.submitPost(postInput) : feed.submitPost(postInput))}
+        creating={feed.creating}
+        onSubmit={(postInput) => feed.submitPost(postInput)}
       />
       <FeedList
         posts={posts}

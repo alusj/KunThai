@@ -634,19 +634,31 @@ setProfileError("");
       <div className={`w-full max-w-full overflow-x-clip ${isSwipTab ? "pt-0" : "pt-2"}`}>
         {showProfileSkeleton ? <ExploreProfileSkeleton /> : null}
         {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
-        {profileExists ? (
-          <>
-            <div className={getParentTabPanelClass("UrFeed")} aria-hidden={activeTab !== "UrFeed"}>
-              <UrFeed profile={profile} onViewProfile={openViewedProfile} />
-            </div>
-            <div className={getParentTabPanelClass("Swip")} aria-hidden={activeTab !== "Swip"}>
-              <Swip active={activeTab === "Swip" && !exploreNav.isFullScreen} currentUserId={profile.userId} onViewProfile={openViewedProfile} />
-            </div>
-            <div className={getParentTabPanelClass("Connections")} aria-hidden={activeTab !== "Connections"}>
-              <Connections currentUserId={profile.userId} onViewProfile={openViewedProfile} />
-            </div>
-          </>
-        ) : null}
+       {profileExists ? (
+  <>
+    {activeTab === "UrFeed" && (
+      <UrFeed
+        profile={profile}
+        onViewProfile={openViewedProfile}
+      />
+    )}
+
+    {activeTab === "Swip" && (
+      <Swip
+        active
+        currentUserId={profile.userId}
+        onViewProfile={openViewedProfile}
+      />
+    )}
+
+    {activeTab === "Connections" && (
+      <Connections
+        currentUserId={profile.userId}
+        onViewProfile={openViewedProfile}
+      />
+    )}
+  </>
+) : null}
       </div>
 
     </div>

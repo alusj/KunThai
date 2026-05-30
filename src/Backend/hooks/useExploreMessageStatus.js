@@ -52,7 +52,7 @@ const [conversations, setConversations] = useState(
     window.addEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
     window.addEventListener("storage", reloadMessages);
 
-    const interval = window.setInterval(reloadActivity, 5000);
+    const interval = window.setInterval(reloadActivity, 30000);
 
     return () => {
       unsubscribeRealtime();
