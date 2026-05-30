@@ -97,15 +97,15 @@ export default function VideoCard({
   }, [active, post.video_url, clip.start]);
 
   useEffect(() => {
-    function handleSwipActivePlay(event) {
-      if (activeRef.current || active) {
-        requestActivePlayback({ sound: event.detail?.sound !== false });
-      }
-    }
+  if (!active) return undefined;
 
-    window.addEventListener("swip-active-play", handleSwipActivePlay);
-    return () => window.removeEventListener("swip-active-play", handleSwipActivePlay);
-  }, [active, post.video_url, clip.start]);
+  function handleSwipActivePlay(event) {
+    requestActivePlayback({ sound: event.detail?.sound !== false });
+  }
+
+  window.addEventListener("swip-active-play", handleSwipActivePlay);
+  return () => window.removeEventListener("swip-active-play", handleSwipActivePlay);
+}, [active, post.video_url, clip.start]);
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
@@ -345,7 +345,7 @@ export default function VideoCard({
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
         onTimeUpdate={handleTimeUpdate}
-        preload="metadata"
+        preload={active ? "metadata" : "none"}
         className="absolute inset-0 h-full w-full object-cover"
       />
 

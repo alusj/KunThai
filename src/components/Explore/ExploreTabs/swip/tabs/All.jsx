@@ -173,44 +173,52 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
         overscrollBehavior: "contain",
       }}
     >
-      {videos.map((post, index) => (
-        <section
-          key={post.id}
-          ref={(node) => {
-            itemRefs.current[index] = node;
-          }}
-          data-swip-index={index}
-          className="h-[var(--swip-item-height)] min-h-[var(--swip-item-height)] w-full snap-start snap-always"
-        >
-          <SwipPostBoundary postId={post.id}>
-            <VideoCard
-              post={post}
-              active={active && index === activeIndex}
-              fullscreen={fullscreen}
-              contextLabel={getSwipContext(post, currentUserId)}
-              categoryLabel={getVideoCategoryLabel(post)}
-              currentUserId={currentUserId}
-              liked={feed.likedPosts.has(post.id)}
-              saved={feed.savedPosts.has(post.id)}
-              isOwner={Boolean(currentUserId && post.user_id === currentUserId)}
-              onLike={() => feed.toggleLike(post.id)}
-              onSave={() => feed.toggleSave(post.id)}
-              onComment={(delta) => feed.bumpCommentCount(post.id, delta)}
-              onDelete={() => feed.deletePost(post.id, { confirm: false })}
-              onFullscreenToggle={() => setFullscreen((current) => !current)}
-              onViewProfile={() =>
-                onViewProfile?.({
-                  userId: post.user_id || "",
-                  displayName: post.author_name || "Profile",
-                  username: post.author_username || "",
-                  avatarUrl: post.author_avatar_url || "",
-                  accountType: "personal",
-                })
-              }
-            />
-          </SwipPostBoundary>
-        </section>
-      ))}
+      {videos.map((post, index) => {
+  const shouldMountVideo = Math.abs(index - activeIndex) <= 1;
+
+  return (
+    <section
+      key={post.id}
+      ref={(node) => {
+        itemRefs.current[index] = node;
+      }}
+      data-swip-index={index}
+      className="h-[var(--swip-item-height)] min-h-[var(--swip-item-height)] w-full snap-start snap-always"
+    >
+      {shouldMountVideo ? (
+        <SwipPostBoundary postId={post.id}>
+          <VideoCard
+            post={post}
+            active={active && index === activeIndex}
+            fullscreen={fullscreen}
+            contextLabel={getSwipContext(post, currentUserId)}
+            categoryLabel={getVideoCategoryLabel(post)}
+            currentUserId={currentUserId}
+            liked={feed.likedPosts.has(post.id)}
+            saved={feed.savedPosts.has(post.id)}
+            isOwner={Boolean(currentUserId && post.user_id === currentUserId)}
+            onLike={() => feed.toggleLike(post.id)}
+            onSave={() => feed.toggleSave(post.id)}
+            onComment={(delta) => feed.bumpCommentCount(post.id, delta)}
+            onDelete={() => feed.deletePost(post.id, { confirm: false })}
+            onFullscreenToggle={() => setFullscreen((current) => !current)}
+            onViewProfile={() =>
+              onViewProfile?.({
+                userId: post.user_id || "",
+                displayName: post.author_name || "Profile",
+                username: post.author_username || "",
+                avatarUrl: post.author_avatar_url || "",
+                accountType: "personal",
+              })
+            }
+          />
+        </SwipPostBoundary>
+      ) : (
+        <div className="h-full w-full bg-slate-950" />
+      )}
+    </section>
+  );
+})}
     </div>
   );
 }
