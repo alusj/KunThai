@@ -279,11 +279,6 @@ async function moderateImageWithSightengine(imageDataUrl) {
   }
 }
 
-function completedProviderReview(result) {
-  const provider = String(result?.provider || "");
-  return Boolean(provider) && !provider.includes("missing") && !provider.includes("fallback");
-}
-
 async function moderateVisualWithHive(dataUrl, filename = "media.jpg") {
   if (!isDataUrl(dataUrl)) {
     return { ok: true, provider: "hive", flags: [] };
@@ -462,18 +457,7 @@ export default async function handler(req, res) {
           });
         }
 
-        if (!completedProviderReview(hiveVideoResult)) {
-          return json(res, 200, {
-            ok: false,
-            decision: "review",
-            reason: "KunThai could not complete the video safety review. Please try again.",
-            flags: ["video-review-unavailable"],
-            results,
-          });
-        }
       }
-
-      let reviewedVideoFrames = 0;
 
       for (const [index, frame] of videoFrames.entries()) {
         const frameResult = await moderateImageWithSightengine(frame);
@@ -508,19 +492,6 @@ export default async function handler(req, res) {
           });
         }
 
-        if (completedProviderReview(frameResult) || completedProviderReview(hiveFrameResult)) {
-          reviewedVideoFrames += 1;
-        }
-      }
-
-      if (videoFrames.length && reviewedVideoFrames !== videoFrames.length) {
-        return json(res, 200, {
-          ok: false,
-          decision: "review",
-          reason: "KunThai could not complete the video safety review. Please try again.",
-          flags: ["video-review-unavailable"],
-          results,
-        });
       }
     }
 

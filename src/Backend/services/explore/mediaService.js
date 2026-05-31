@@ -21,11 +21,19 @@ function getFileExtensionFromMime(mimeType, fallback = "bin") {
 }
 
 export async function uploadMediaDataUrl(dataUrl, mediaType, userId) {
-  if (!dataUrl || !String(dataUrl).startsWith("data:")) {
+  const mediaUrl = String(dataUrl || "");
+  const isLocalMediaUrl = mediaUrl.startsWith("data:") || mediaUrl.startsWith("blob:");
+
+  if (!mediaUrl || !isLocalMediaUrl) {
     return dataUrl || "";
   }
 
-  const response = await fetch(dataUrl);
+  const response = await fetch(mediaUrl);
+
+  if (!response.ok) {
+    throw new Error("Unable to prepare media for upload.");
+  }
+
   const blob = await response.blob();
   const fallback = mediaType === "image" || mediaType === "profile" ? "jpg" : mediaType === "video" ? "mp4" : "webm";
   const extension = getFileExtensionFromMime(blob.type, fallback);

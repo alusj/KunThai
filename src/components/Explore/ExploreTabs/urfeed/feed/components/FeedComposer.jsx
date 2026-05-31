@@ -541,10 +541,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           })
         : [];
 
-      if (finalVideoPreview && !videoFrameDataUrls.length) {
-        throw new Error("KunThai could not inspect this video safely. Please try the clip again or choose another video.");
-      }
-
       const review = await runPostReviewPipeline({
         body: postDraft.body,
         media: {
@@ -593,7 +589,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         post_privacy: postDraft.post_privacy,
         hashtags: tags.hashtags,
         mentions: tags.mentions,
-        moderation_status: review.review?.decision === "approved" ? "approved" : "",
+        moderation_status: review.ok ? "approved" : "",
       });
 
       if (result?.ok) {

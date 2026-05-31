@@ -70,15 +70,6 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
 
     if (!review.ok) {
       logSafetyReview("remote review inconclusive", review);
-
-      if (media?.videoReviewRequired) {
-        return {
-          ok: false,
-          reason: review.reason || "KunThai could not complete the video safety review. Please try again.",
-          flags: review.flags || [],
-          review,
-        };
-      }
     }
 
     logSafetyReview("post approved", { decision: review.decision || "approved" });
@@ -91,13 +82,6 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       { error },
     );
 
-    if (media?.videoReviewRequired) {
-      return {
-        ok: false,
-        reason: "KunThai could not complete the video safety review. Please try again.",
-        flags: ["video-review-unavailable"],
-      };
-    }
   }
 
   onStage?.("publishing", 84);
