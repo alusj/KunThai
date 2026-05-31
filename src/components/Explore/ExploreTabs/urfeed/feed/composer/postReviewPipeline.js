@@ -1,6 +1,5 @@
 import {
   buildModerationMediaPayload,
-  contentHasModerationFlags,
   moderateExplorePost,
 } from "../../../../../../Backend/services/explore/safetyService";
 
@@ -38,16 +37,6 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
   onStage?.("text-scan", 34);
   await wait(180);
 
-  const localTextFlags = contentHasModerationFlags(body);
-
-  if (localTextFlags.length) {
-    return {
-      ok: false,
-      reason: "This post was stopped because the text appears to break Explore safety rules.",
-      flags: localTextFlags,
-    };
-  }
-
   onStage?.("media-scan", 62);
   await wait(media?.hasMedia ? 260 : 160);
 
@@ -68,14 +57,14 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       };
     }
 
-    if (!review.ok) {
-      logSafetyReview("remote review inconclusive", review);
-    }
+    const publishableReview = review?.decision === "approved"
+      ? review
+      : { ...review, ok: true, decision: "pending" };
 
-    logSafetyReview("post approved", { decision: review.decision || "approved" });
+    logSafetyReview("post publishable", { decision: publishableReview.decision });
     onStage?.("publishing", 84);
     await wait(180);
-    return { ok: true, review };
+    return { ok: true, decision: publishableReview.decision, review: publishableReview };
   } catch (error) {
     logSafetyReview(
       isLikelyLocalDev() ? "remote moderation unavailable in local dev" : "remote moderation unavailable",
@@ -87,5 +76,13 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
   onStage?.("publishing", 84);
   await wait(180);
 
-  return { ok: true };
+  return {
+    ok: true,
+    decision: "pending",
+    review: {
+      ok: true,
+      decision: "pending",
+      reason: "Post published while KunThai completes the remaining safety review.",
+    },
+  };
 }

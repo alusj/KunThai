@@ -9,6 +9,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { shouldSkipBrowserVideoProcessing } from "./composerUtils";
+
+const MAX_THUMBNAIL_FRAMES = 4;
 
 function RemoveButton({ onClick }) {
   return (
@@ -58,8 +61,8 @@ function waitForVideoEvent(video, eventName, timeoutMs = 4000) {
   });
 }
 
-async function captureVideoThumbnails(videoUrl, count = 12) {
-  if (!videoUrl) return [];
+async function captureVideoThumbnails(videoUrl, count = MAX_THUMBNAIL_FRAMES) {
+  if (!videoUrl || shouldSkipBrowserVideoProcessing()) return [];
 
   const video = document.createElement("video");
   const canvas = document.createElement("canvas");
@@ -80,8 +83,10 @@ async function captureVideoThumbnails(videoUrl, count = 12) {
   canvas.width = 96;
   canvas.height = Math.max(54, Math.round(canvas.width * ratio));
 
-  for (let index = 0; index < count; index += 1) {
-    const targetTime = Math.min(Math.max(0.05, duration - 0.12), (duration * (index + 0.5)) / count);
+  const frameCount = Math.max(1, Math.min(MAX_THUMBNAIL_FRAMES, Math.round(Number(count || MAX_THUMBNAIL_FRAMES))));
+
+  for (let index = 0; index < frameCount; index += 1) {
+    const targetTime = Math.min(Math.max(0.05, duration - 0.12), (duration * (index + 0.5)) / frameCount);
     video.currentTime = targetTime;
     await waitForVideoEvent(video, "seeked", 2500).catch(() => {});
 
@@ -381,7 +386,7 @@ export default function MediaPreview({
             </div>
 
             <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+112px)] left-5 rounded-full bg-white/12 px-3 py-1 text-xs font-black text-white/85 backdrop-blur">
-              {formatTime(safeTrimStart)} to {formatTime(clipEnd)} • {formatTime(clipSeconds)} / max {formatTime(maxVideoSeconds)}
+              {formatTime(safeTrimStart)} to {formatTime(clipEnd)} | {formatTime(clipSeconds)} / max {formatTime(maxVideoSeconds)}
             </div>
           </div>
 
@@ -417,7 +422,7 @@ export default function MediaPreview({
                           draggable={false}
                         />
                       ))
-                    : Array.from({ length: 12 }).map((_, index) => (
+                    : Array.from({ length: MAX_THUMBNAIL_FRAMES }).map((_, index) => (
                         <span
                           key={index}
                           className="h-full flex-1 animate-pulse border-r border-white/10 bg-gradient-to-br from-slate-500 to-slate-900"

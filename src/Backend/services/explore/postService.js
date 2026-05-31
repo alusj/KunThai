@@ -1,6 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./errors";
-import { uploadMediaDataUrl } from "./mediaService";
+import { uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 
 const MAX_SWIP_SECONDS = 15;
@@ -11,8 +11,12 @@ function logExploreFeed(event, detail = {}) {
   }
 }
 
+function hasVideoPayload(payload) {
+  return Boolean(payload.video_file || payload.video_url);
+}
+
 function buildPostClassification(payload, scope) {
-  const hasVideo = Boolean(payload.video_url);
+  const hasVideo = hasVideoPayload(payload);
 
   return {
     feedScope: hasVideo ? "swip" : scope,
@@ -22,7 +26,7 @@ function buildPostClassification(payload, scope) {
 }
 
 function buildVideoTrimWindow(payload) {
-  if (!payload.video_url) {
+  if (!hasVideoPayload(payload)) {
     return { start: null, end: null };
   }
 
@@ -34,6 +38,14 @@ function buildVideoTrimWindow(payload) {
   );
 
   return { start, end };
+}
+
+function getModerationStatus(payload) {
+  if (!hasVideoPayload(payload)) {
+    return "not_required";
+  }
+
+  return payload.moderation_status === "approved" ? "approved" : "pending";
 }
 
 async function getCurrentUserId() {
@@ -233,13 +245,14 @@ export async function createExplorePost(input, scope = "feed") {
   const mentions = Array.isArray(payload.mentions) ? payload.mentions : [];
   const classification = buildPostClassification(payload, scope);
   const videoTrimWindow = buildVideoTrimWindow(payload);
+  const moderationStatus = getModerationStatus(payload);
 
-  if (!trimmedBody && !payload.image_url && !payload.audio_url && !payload.video_url) {
+  if (!trimmedBody && !payload.image_url && !payload.audio_url && !hasVideoPayload(payload)) {
     throw new Error("Add text, an image, a video, or a voice note.");
   }
 
-  if (payload.video_url && payload.moderation_status !== "approved") {
-    throw new Error("KunThai must approve this video's safety review before it can be published.");
+  if (hasVideoPayload(payload) && payload.moderation_status === "blocked") {
+    throw new Error("This video cannot be published because it violates KunThai safety rules.");
   }
 
   const {
@@ -257,7 +270,11 @@ export async function createExplorePost(input, scope = "feed") {
 
   const imageUrl = payload.image_url ? await uploadMediaDataUrl(payload.image_url, "image", user.id) : "";
   const audioUrl = payload.audio_url ? await uploadMediaDataUrl(payload.audio_url, "audio", user.id) : "";
-  const videoUrl = payload.video_url ? await uploadMediaDataUrl(payload.video_url, "video", user.id) : "";
+  const videoUrl = payload.video_file
+    ? await uploadMediaFile(payload.video_file, "video", user.id)
+    : payload.video_url
+      ? await uploadMediaDataUrl(payload.video_url, "video", user.id)
+      : "";
   const profile = buildExploreProfileFromUser(user);
 
   const draft = {
@@ -274,7 +291,7 @@ export async function createExplorePost(input, scope = "feed") {
     video_url: videoUrl,
     video_trim_start: videoTrimWindow.start,
     video_trim_end: videoTrimWindow.end,
-    moderation_status: payload.video_url ? "approved" : "not_required",
+    moderation_status: moderationStatus,
     audio_duration_seconds: audioDuration,
     post_privacy: postPrivacy,
     hashtags,
@@ -311,7 +328,7 @@ export async function createExplorePost(input, scope = "feed") {
   const created = {
     ...draft,
     ...data,
-    feed_scope: payload.video_url ? "swip" : data?.feed_scope || classification.feedScope,
+    feed_scope: hasVideoPayload(payload) ? "swip" : data?.feed_scope || classification.feedScope,
     post_type: data?.post_type || classification.postType,
     category: data?.category || classification.category,
   };

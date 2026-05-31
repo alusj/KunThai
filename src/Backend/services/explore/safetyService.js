@@ -227,6 +227,7 @@ export function buildModerationMediaPayload(media = {}) {
     imageDataUrl: media.imageDataUrl || "",
     videoDataUrl: media.videoDataUrl || "",
     videoFrameDataUrls,
+    videoFrameExtractionFailed: Boolean(media.videoFrameExtractionFailed),
     videoReviewRequired: Boolean(media.videoReviewRequired),
     audioDataUrl: media.audioDataUrl || "",
     imageName: media.imageName || "",

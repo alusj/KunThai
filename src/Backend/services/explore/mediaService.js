@@ -35,14 +35,22 @@ export async function uploadMediaDataUrl(dataUrl, mediaType, userId) {
   }
 
   const blob = await response.blob();
+  return uploadMediaFile(blob, mediaType, userId);
+}
+
+export async function uploadMediaFile(file, mediaType, userId) {
+  if (!file) {
+    return "";
+  }
+
   const fallback = mediaType === "image" || mediaType === "profile" ? "jpg" : mediaType === "video" ? "mp4" : "webm";
-  const extension = getFileExtensionFromMime(blob.type, fallback);
+  const extension = getFileExtensionFromMime(file.type, fallback);
   const filePath = `${userId}/${mediaType}-${Date.now()}.${extension}`;
 
-  const { error } = await supabase.storage.from(EXPLORE_MEDIA_BUCKET).upload(filePath, blob, {
+  const { error } = await supabase.storage.from(EXPLORE_MEDIA_BUCKET).upload(filePath, file, {
     cacheControl: "3600",
     upsert: false,
-    contentType: blob.type || undefined,
+    contentType: file.type || undefined,
   });
 
   if (error) {

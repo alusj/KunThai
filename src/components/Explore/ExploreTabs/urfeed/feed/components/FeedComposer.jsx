@@ -17,6 +17,7 @@ import {
   MAX_VIDEO_SECONDS,
   parseTags,
   readDraft,
+  shouldSkipBrowserVideoProcessing,
   writeDraft,
 } from "../composer/composerUtils";
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
@@ -59,6 +60,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const recordingTimerRef = useRef(null);
   const discardRecordingRef = useRef(false);
   const trimmedVideoMetaRef = useRef(null);
+  const originalVideoFileRef = useRef(null);
 
   const hasContent = Boolean(value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
   const hasVideoAttachment = Boolean(videoPreview || pendingVideoFile || pendingVideoUrl);
@@ -77,8 +79,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         URL.revokeObjectURL(pendingVideoUrl);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingVideoUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (videoPreview?.startsWith?.("blob:")) {
+        URL.revokeObjectURL(videoPreview);
+      }
+    };
+  }, [videoPreview]);
 
   useEffect(() => {
     writeDraft({
@@ -199,8 +208,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         const duration = await getVideoDuration(file);
 
         if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
+        if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
 
         setPendingVideoFile(file);
+        originalVideoFileRef.current = file;
         setPendingVideoUrl(URL.createObjectURL(file));
         setVideoDuration(duration);
         setVideoTrimStart(0);
@@ -214,6 +225,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       } else {
         const nextPreview = await fileToDataUrl(file);
 
+        originalVideoFileRef.current = null;
+        setPendingVideoFile(null);
+        if (pendingVideoUrl) {
+          URL.revokeObjectURL(pendingVideoUrl);
+          setPendingVideoUrl("");
+        }
+        if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
         setImagePreview(nextPreview);
         setVideoPreview("");
         trimmedVideoMetaRef.current = null;
@@ -275,11 +293,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       const { start: safeStart, end: safeEnd, seconds: clipSeconds } = clampTrimWindow(startOverride, endOverride);
 
       // IMPORTANT MOBILE FIX:
-      // Do not run a heavy browser-side ffmpeg/canvas export here. On iPhone/Safari,
+      // Do not run a heavy browser-side video export here. On iPhone/Safari,
       // exporting long videos can crash the tab and cause the blank/reload bug.
       // We keep the original video data and save the selected trim window as metadata;
       // the Swip player then loops only the selected range.
-      const sourcePreview = pendingVideoUrl || URL.createObjectURL(fileToTrim);
+      const sourcePreview = URL.createObjectURL(fileToTrim);
 
       if (requestId !== trimRequestRef.current) {
         if (sourcePreview && sourcePreview !== pendingVideoUrl) URL.revokeObjectURL(sourcePreview);
@@ -309,8 +327,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       trimmedVideoMetaRef.current = nextVideoMeta;
       setMediaMeta(nextVideoMeta);
 
-      // Keep the same object URL for the local preview. Revoking it here can break
-      // Safari playback before the post is handed to the upload layer.
       setPendingVideoUrl("");
 
       setVideoTrimStart(safeStart);
@@ -456,6 +472,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAudioDuration(null);
     setMediaMeta({});
     setPendingVideoFile(null);
+    originalVideoFileRef.current = null;
 
     if (pendingVideoUrl) {
       URL.revokeObjectURL(pendingVideoUrl);
@@ -534,12 +551,23 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         message: "Securing your draft before publishing.",
       });
 
-      const videoFrameDataUrls = finalVideoPreview
-        ? await extractVideoFramesFromDataUrl(finalVideoPreview, 5, {
-            start: postDraft.mediaMeta?.videoTrimStart || 0,
-            end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
-          })
-        : [];
+      let videoFrameDataUrls = [];
+      let videoFrameExtractionFailed = false;
+
+      if (finalVideoPreview) {
+        try {
+          if (!shouldSkipBrowserVideoProcessing()) {
+            videoFrameDataUrls = await extractVideoFramesFromDataUrl(finalVideoPreview, 4, {
+              start: postDraft.mediaMeta?.videoTrimStart || 0,
+              end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
+            });
+          }
+        } catch {
+          videoFrameDataUrls = [];
+        }
+
+        videoFrameExtractionFailed = videoFrameDataUrls.length === 0;
+      }
 
       const review = await runPostReviewPipeline({
         body: postDraft.body,
@@ -549,6 +577,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           imageDataUrl: postDraft.image_url || "",
           videoDataUrl: "",
           videoFrameDataUrls,
+          videoFrameExtractionFailed,
           videoReviewRequired: Boolean(postDraft.video_url),
           audioDataUrl: postDraft.audio_url || "",
         },
@@ -569,6 +598,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       }
 
       const tags = parseTags(postDraft.body);
+      const moderationStatus = review.decision === "approved" ? "approved" : "pending";
 
       setPostingStage("syncing");
       setPostingProgress(92);
@@ -585,11 +615,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         image_url: postDraft.image_url,
         audio_url: postDraft.audio_url,
         video_url: postDraft.video_url,
+        video_file: postDraft.video_url ? originalVideoFileRef.current : null,
         audio_duration_seconds: postDraft.audio_duration_seconds,
         post_privacy: postDraft.post_privacy,
         hashtags: tags.hashtags,
         mentions: tags.mentions,
-        moderation_status: review.ok ? "approved" : "",
+        moderation_status: postDraft.video_url ? moderationStatus : "not_required",
       });
 
       if (result?.ok) {
@@ -746,6 +777,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
                 onRemoveVideo={() => {
                   trimRequestRef.current += 1;
                   trimmedVideoMetaRef.current = null;
+                  originalVideoFileRef.current = null;
                   setVideoPreview("");
                   setPendingVideoFile(null);
 
