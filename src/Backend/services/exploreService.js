@@ -9,7 +9,10 @@ export {
   deleteExplorePost,
   fetchExplorePostCounts,
   fetchExplorePosts,
+  isExplorePostVisibleInFeed,
+  removeExploreVideoUpload,
   reportExplorePost,
+  uploadExploreVideoForReview,
   updateExplorePost,
   updateExplorePostCounts,
 } from "./explore/postService";

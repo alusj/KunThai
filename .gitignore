@@ -20,6 +20,11 @@ supabase/explore_foundation_hardening.sql
 supabase/marketplace_seller_schema.sql
 supabase/marketplace_buyer_schema.sql
 supabase/
+!supabase/
+supabase/*
+!supabase/migrations/
+supabase/migrations/*
+!supabase/migrations/*.sql
 
 # Editor directories and files
 .vscode/*

@@ -64,3 +64,30 @@ export async function uploadMediaFile(file, mediaType, userId) {
   const { data } = supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(filePath);
   return data?.publicUrl || "";
 }
+
+export async function removeUploadedMediaUrl(mediaUrl) {
+  try {
+    const url = new URL(String(mediaUrl || ""));
+    const pathPrefix = `/storage/v1/object/public/${EXPLORE_MEDIA_BUCKET}/`;
+
+    if (!url.pathname.startsWith(pathPrefix)) {
+      return;
+    }
+
+    const filePath = decodeURIComponent(url.pathname.slice(pathPrefix.length));
+    if (!filePath) {
+      return;
+    }
+
+    const { error } = await supabase.storage.from(EXPLORE_MEDIA_BUCKET).remove([filePath]);
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    if (error instanceof TypeError) {
+      return;
+    }
+
+    throw error;
+  }
+}

@@ -223,9 +223,10 @@ export function buildModerationMediaPayload(media = {}) {
   const videoFrameDataUrls = Array.isArray(media.videoFrameDataUrls) ? media.videoFrameDataUrls : [];
 
   return {
-    hasMedia: Boolean(media.imageDataUrl || media.videoDataUrl || videoFrameDataUrls.length || media.audioDataUrl),
+    hasMedia: Boolean(media.imageDataUrl || media.videoDataUrl || media.videoUrl || videoFrameDataUrls.length || media.audioDataUrl),
     imageDataUrl: media.imageDataUrl || "",
     videoDataUrl: media.videoDataUrl || "",
+    videoUrl: media.videoUrl || "",
     videoFrameDataUrls,
     videoFrameExtractionFailed: Boolean(media.videoFrameExtractionFailed),
     videoReviewRequired: Boolean(media.videoReviewRequired),

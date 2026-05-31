@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlinePaperAirplane, HiOutlineSparkles, HiOutlineXMark } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
+import {
+  removeExploreVideoUpload,
+  uploadExploreVideoForReview,
+} from "../../../../../../Backend/services/exploreService";
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
 import Avatar from "../../../../shared/Avatar";
 import CompactComposer from "../composer/CompactComposer";
@@ -505,6 +509,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       return;
     }
 
+    let uploadedReviewVideoUrl = "";
+
     try {
       let finalVideoPreview = videoPreview;
 
@@ -567,6 +573,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         }
 
         videoFrameExtractionFailed = videoFrameDataUrls.length === 0;
+
+        if (originalVideoFileRef.current) {
+          uploadedReviewVideoUrl = await uploadExploreVideoForReview(originalVideoFileRef.current);
+        }
       }
 
       const review = await runPostReviewPipeline({
@@ -576,6 +586,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           hasMedia: Boolean(postDraft.image_url || postDraft.video_url || postDraft.audio_url),
           imageDataUrl: postDraft.image_url || "",
           videoDataUrl: "",
+          videoUrl: uploadedReviewVideoUrl,
           videoFrameDataUrls,
           videoFrameExtractionFailed,
           videoReviewRequired: Boolean(postDraft.video_url),
@@ -589,6 +600,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       });
 
       if (!review.ok) {
+        await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
         setPostingStage("");
         setPostingProgress(0);
         setOpen(true);
@@ -599,6 +611,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
       const tags = parseTags(postDraft.body);
       const moderationStatus = review.decision === "approved" ? "approved" : "pending";
+      const uploadedVideoUrl = uploadedReviewVideoUrl || postDraft.video_url;
 
       setPostingStage("syncing");
       setPostingProgress(92);
@@ -614,8 +627,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         user_id: postDraft.user_id,
         image_url: postDraft.image_url,
         audio_url: postDraft.audio_url,
-        video_url: postDraft.video_url,
-        video_file: postDraft.video_url ? originalVideoFileRef.current : null,
+        video_url: uploadedVideoUrl,
+        video_file: uploadedReviewVideoUrl ? null : postDraft.video_url ? originalVideoFileRef.current : null,
         audio_duration_seconds: postDraft.audio_duration_seconds,
         post_privacy: postDraft.post_privacy,
         hashtags: tags.hashtags,
@@ -624,6 +637,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       });
 
       if (result?.ok) {
+        uploadedReviewVideoUrl = "";
         setPostingStage("complete");
         setPostingProgress(100);
 
@@ -644,12 +658,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       }
 
       const message = result?.error || "Unable to publish post.";
+      await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
       setPostingStage("");
       setPostingProgress(0);
       setOpen(true);
       setFeedback(message);
       publishPostingUpdate({ status: "error", progress: 0, message });
     } catch (error) {
+      await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
       const message = error.message || "Unable to publish this post. Your draft is still here.";
       setPostingStage("");
       setPostingProgress(0);

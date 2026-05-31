@@ -26,6 +26,7 @@ import {
   fetchExplorePostCounts,
   fetchExplorePosts,
   getCurrentUserProfile,
+  isExplorePostVisibleInFeed,
   reportExplorePost,
   syncExploreReaction,
   updateExplorePost,
@@ -154,7 +155,7 @@ function buildRemoteReactionSet(remoteIds = []) {
 
 export function useExploreFeed(scope = "feed") {
   const memory = readFeedMemory(scope);
-  const [posts, setPosts] = useState(() => memory?.posts || readStoredPosts(scope));
+  const [posts, setPosts] = useState(() => (memory?.posts || readStoredPosts(scope)).filter(isExplorePostVisibleInFeed));
   const [loading, setLoading] = useState(() => !memory?.posts?.length);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -250,7 +251,7 @@ export function useExploreFeed(scope = "feed") {
       }
       setCurrentUserId(currentProfile?.id || "");
       const cachedPosts = readStoredPosts(scope).map((post) => applyCurrentProfileToPost(post, currentProfile));
-      setPosts(cachedPosts);
+      setPosts(cachedPosts.filter(isExplorePostVisibleInFeed));
       setError(err.message || "Unable to load feed.");
     } finally {
       setLoading(false);
@@ -333,7 +334,7 @@ export function useExploreFeed(scope = "feed") {
               ? (nextPost?.feed_scope ?? "") === "swip" || Boolean(nextPost?.video_url)
               : (nextPost?.feed_scope ?? "feed") === scope && !nextPost?.video_url;
 
-          if (!nextPost || !belongsInScope) {
+          if (!nextPost || !belongsInScope || !isExplorePostVisibleInFeed(nextPost)) {
             return;
           }
 
@@ -361,17 +362,20 @@ export function useExploreFeed(scope = "feed") {
           }
 
           setPosts((current) => {
-  const nextPosts = current.map((post) =>
-    post.id === nextPost.id ? { ...post, ...nextPost } : post
-  );
+  const belongsInScope =
+    scope === "swip"
+      ? (nextPost?.feed_scope ?? "") === "swip" || Boolean(nextPost?.video_url)
+      : (nextPost?.feed_scope ?? "feed") === scope && !nextPost?.video_url;
+  const withoutUpdatedPost = current.filter((post) => post.id !== nextPost.id);
+  const nextPosts = belongsInScope && isExplorePostVisibleInFeed(nextPost)
+    ? mergePosts([nextPost], withoutUpdatedPost)
+    : withoutUpdatedPost;
 
   writeStoredPosts(scope, nextPosts);
   return nextPosts;
 });
       },
     });
-    // load captures optimistic feed state; realtime should reuse the current scope handler.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
 
   useEffect(() => {
@@ -439,7 +443,7 @@ export function useExploreFeed(scope = "feed") {
   useEffect(() => {
     function handleStorage(event) {
       if (event.key === getPostsStorageKey(scope)) {
-        setPosts(readStoredPosts(scope));
+        setPosts(readStoredPosts(scope).filter(isExplorePostVisibleInFeed));
       }
       if (event.key === HIDE_STORAGE_KEY) setHiddenPosts(readStoredSet(HIDE_STORAGE_KEY));
     }
@@ -447,7 +451,7 @@ export function useExploreFeed(scope = "feed") {
     function handleCacheEvent(event) {
       const detail = event.detail || {};
       if (detail.key === getPostsStorageKey(scope) || detail.scope === scope) {
-        setPosts(readStoredPosts(scope));
+        setPosts(readStoredPosts(scope).filter(isExplorePostVisibleInFeed));
       }
     }
 
@@ -463,6 +467,7 @@ export function useExploreFeed(scope = "feed") {
     const localId = `local-${scope}-${Date.now()}`;
     const optimisticPost = buildLocalPost(postInput, scope, localId);
     const optimisticScope = optimisticPost.feed_scope || scope;
+    const optimisticVisible = isExplorePostVisibleInFeed(optimisticPost);
 
     try {
       setCreating(true);
@@ -473,16 +478,18 @@ export function useExploreFeed(scope = "feed") {
         has_video: Boolean(optimisticPost.video_url),
       });
 
-      if (optimisticScope === scope) {
+      if (optimisticScope === scope && optimisticVisible) {
         setPosts((current) => mergePosts([optimisticPost], current));
       }
 
       const created = await createExplorePost(postInput, scope);
       const createdScope = created.video_url ? "swip" : created.feed_scope || scope;
+      const createdVisible = isExplorePostVisibleInFeed(created);
 
       if (createdScope === scope) {
         setPosts((current) => {
-          const nextPosts = mergePosts([created], current.filter((post) => post.id !== localId));
+          const withoutOptimisticPost = current.filter((post) => post.id !== localId);
+          const nextPosts = createdVisible ? mergePosts([created], withoutOptimisticPost) : withoutOptimisticPost;
           writeStoredPosts(scope, nextPosts);
           return nextPosts;
         });
@@ -493,27 +500,29 @@ export function useExploreFeed(scope = "feed") {
           return nextPosts;
         });
 
-        const targetPosts = mergePosts(
-          [created],
-          (readFeedMemory(createdScope)?.posts || readStoredPosts(createdScope)).filter((post) => post.id !== localId),
-        );
+        const currentTargetPosts = (readFeedMemory(createdScope)?.posts || readStoredPosts(createdScope))
+          .filter((post) => post.id !== localId)
+          .filter(isExplorePostVisibleInFeed);
+        const targetPosts = createdVisible ? mergePosts([created], currentTargetPosts) : currentTargetPosts;
 
         writeStoredPosts(createdScope, targetPosts);
         writeFeedMemory(createdScope, { posts: targetPosts });
       }
 
-      const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
-      await Promise.all(
-        followers.map((followerId) =>
-          createExploreNotification({
-            user_id: followerId,
-            type: "post",
-            post_id: created.id,
-            post_preview: created.body,
-            media_type: getPostMediaType(created),
-          }),
-        ),
-      );
+      if (createdVisible) {
+        const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
+        await Promise.all(
+          followers.map((followerId) =>
+            createExploreNotification({
+              user_id: followerId,
+              type: "post",
+              post_id: created.id,
+              post_preview: created.body,
+              media_type: getPostMediaType(created),
+            }),
+          ),
+        );
+      }
       window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope: createdScope, postId: created.id, type: "post-created" } }));
       logExploreFeed("published post routed", {
         post_id: created.id,
@@ -521,7 +530,11 @@ export function useExploreFeed(scope = "feed") {
         target_scope: createdScope,
         has_video: Boolean(created.video_url),
       });
-      return { ok: true, post: created };
+      return {
+        ok: true,
+        post: created,
+        warning: createdVisible ? "" : "Your video was uploaded and is pending KunThai safety review.",
+      };
     } catch (err) {
       const message = err.message || "Unable to sync post to backend right now.";
       const hasMediaUpload = Boolean(postInput?.image_url || postInput?.audio_url || postInput?.video_url);

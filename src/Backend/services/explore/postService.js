@@ -1,6 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./errors";
-import { uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
+import { removeUploadedMediaUrl, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 
 const MAX_SWIP_SECONDS = 15;
@@ -54,12 +54,34 @@ function getModerationStatus(payload) {
   return status === "approved" ? "approved" : "pending";
 }
 
+export function isExplorePostVisibleInFeed(post) {
+  if (!post?.video_url) {
+    return true;
+  }
+
+  return ["approved", "legacy"].includes(String(post.moderation_status || "").toLowerCase());
+}
+
 async function getCurrentUserId() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   return user?.id ?? null;
+}
+
+export async function uploadExploreVideoForReview(file) {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    throw new Error("No active session.");
+  }
+
+  return uploadMediaFile(file, "video", userId);
+}
+
+export async function removeExploreVideoUpload(videoUrl) {
+  await removeUploadedMediaUrl(videoUrl);
 }
 
 async function getCurrentUserContext() {
@@ -145,7 +167,7 @@ export async function fetchExplorePosts(scope = "feed") {
     throw error;
   }
 
-  const scopedPosts = (data || []).filter((post) => {
+  const scopedPosts = (data || []).filter(isExplorePostVisibleInFeed).filter((post) => {
     if (scope === "swip") {
       return (post.feed_scope ?? "") === "swip" || Boolean(post.video_url);
     }
@@ -348,7 +370,9 @@ export async function createExplorePost(input, scope = "feed") {
     visibility: normalizePostPrivacy(created),
   });
 
-  await notifyMentionedUsers(created, draft);
+  if (isExplorePostVisibleInFeed(created)) {
+    await notifyMentionedUsers(created, draft);
+  }
 
   return created;
 }
