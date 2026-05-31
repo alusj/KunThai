@@ -45,7 +45,13 @@ function getModerationStatus(payload) {
     return "not_required";
   }
 
-  return payload.moderation_status === "approved" ? "approved" : "pending";
+  const status = String(payload.moderation_status || "").toLowerCase();
+
+  if (status === "blocked") {
+    return "blocked";
+  }
+
+  return status === "approved" ? "approved" : "pending";
 }
 
 async function getCurrentUserId() {
@@ -251,7 +257,7 @@ export async function createExplorePost(input, scope = "feed") {
     throw new Error("Add text, an image, a video, or a voice note.");
   }
 
-  if (hasVideoPayload(payload) && payload.moderation_status === "blocked") {
+  if (moderationStatus === "blocked") {
     throw new Error("This video cannot be published because it violates KunThai safety rules.");
   }
 

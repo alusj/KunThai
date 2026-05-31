@@ -34,6 +34,20 @@ function getPublishableDecision(results = []) {
   return results.some((result) => result?.status === "pending") ? "pending" : "approved";
 }
 
+const LOCAL_EXPLICIT_TEXT_RULES = [
+  ["direct-threat", /\b(?:i\s+(?:want to|will|am going to|am gonna)|i['\u2019]m\s+(?:going to|gonna))\s+(?:kill|hurt)\s+(?:you|him|her|them|everyone|everybody)\b/i],
+  ["self-harm-encouragement", /\bkill yourself\b/i],
+  ["mass-threat", /\b(?:kill|hurt)\s+(?:everyone|everybody)\b/i],
+];
+
+function moderateTextWithLocalRules(text) {
+  const flags = LOCAL_EXPLICIT_TEXT_RULES
+    .filter(([, pattern]) => pattern.test(String(text || "")))
+    .map(([flag]) => flag);
+
+  return flags.length ? blockedResult("local-explicit-text-rules", flags) : approvedResult("local-explicit-text-rules");
+}
+
 function dataUrlToFile(dataUrl, filename = "upload.bin") {
   const [meta, base64] = String(dataUrl || "").split(",");
   const mime = meta?.match(/^data:(.*?);base64$/)?.[1] || "application/octet-stream";
@@ -116,6 +130,11 @@ async function moderateSingleText(text, provider = "openai") {
 
   if (!value) {
     return approvedResult(provider);
+  }
+
+  const localResult = moderateTextWithLocalRules(value);
+  if (!localResult.ok) {
+    return localResult;
   }
 
   if (!openai) {
