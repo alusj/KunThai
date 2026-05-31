@@ -5,8 +5,9 @@ import {
 
 export const postingStages = [
   { key: "preparing", label: "Securing draft" },
+  { key: "uploading-media", label: "Uploading media securely" },
   { key: "text-scan", label: "Scanning for policy violations" },
-  { key: "media-scan", label: "Reviewing attached media" },
+  { key: "media-scan", label: "Scanning attached media" },
   { key: "publishing", label: "Publishing to Explore" },
   { key: "syncing", label: "Syncing feed" },
   { key: "complete", label: "Post live" },
@@ -31,8 +32,10 @@ function logSafetyReview(event, detail = {}) {
 }
 
 export async function runPostReviewPipeline({ body, media, onStage }) {
-  onStage?.("preparing", 12);
-  await wait(180);
+  if (!media?.videoReviewRequired) {
+    onStage?.("preparing", 12);
+    await wait(180);
+  }
 
   onStage?.("text-scan", 34);
   await wait(180);
@@ -57,6 +60,18 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       };
     }
 
+    if (media?.videoReviewRequired && review?.decision !== "approved") {
+      const reason = review?.reason || "KunThai could not complete this video's safety scan. Please try posting the video again.";
+      logSafetyReview("video scan incomplete", { decision: review?.decision, reason });
+      return {
+        ok: false,
+        retryable: true,
+        reason,
+        flags: review?.flags || [],
+        review,
+      };
+    }
+
     const publishableReview = review?.decision === "approved"
       ? review
       : { ...review, ok: true, decision: "pending" };
@@ -71,6 +86,13 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       { error },
     );
 
+    if (media?.videoReviewRequired) {
+      return {
+        ok: false,
+        retryable: true,
+        reason: "KunThai could not complete this video's safety scan. Please try posting the video again.",
+      };
+    }
   }
 
   onStage?.("publishing", 84);

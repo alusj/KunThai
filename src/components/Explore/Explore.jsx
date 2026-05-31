@@ -715,8 +715,9 @@ function PostingStatusBanner({ notice }) {
   const title = isError ? "Post not published" : notice.status === "complete" ? "Post published" : "Publishing in background";
   const stageMessages = {
     preparing: "Locking your draft and preparing the upload.",
+    "uploading-media": "Uploading your original media securely before safety scanning.",
     "text-scan": "Scanning text for policy violations and unsafe content.",
-    "media-scan": "Reviewing attached media before it reaches the feed.",
+    "media-scan": "Scanning attached media for policy violations before it reaches the feed.",
     publishing: "Publishing the approved post to Explore.",
     syncing: "Syncing the new post into your feed.",
     complete: "Your post is live on Explore.",
@@ -740,7 +741,7 @@ function PostingStatusBanner({ notice }) {
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
               <div className="h-full rounded-full bg-sky-600 transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+            <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-7">
               {postingStages.map((stage, index) => {
                 const done = notice.status === "complete" || index < activeIndex;
                 const active = stage.key === notice.stage && notice.status !== "complete";

@@ -575,6 +575,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         videoFrameExtractionFailed = videoFrameDataUrls.length === 0;
 
         if (originalVideoFileRef.current) {
+          setPostingStage("uploading-media");
+          setPostingProgress(24);
+          publishPostingUpdate({
+            status: "posting",
+            stage: "uploading-media",
+            progress: 24,
+            message: "Uploading your original video securely before the safety scan.",
+          });
           uploadedReviewVideoUrl = await uploadExploreVideoForReview(originalVideoFileRef.current);
         }
       }
@@ -595,7 +603,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         onStage: (stage, progress) => {
           setPostingStage(stage);
           setPostingProgress(progress);
-          publishPostingUpdate({ status: "posting", stage, progress });
+          publishPostingUpdate({
+            status: "posting",
+            stage,
+            progress,
+            message: stage === "media-scan" && postDraft.video_url
+              ? "Scanning your original video for KunThai policy violations before publication."
+              : undefined,
+          });
         },
       });
 

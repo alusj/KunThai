@@ -147,12 +147,6 @@ function isUnsafeHiveClass(name, score) {
   return unsafeClasses.some(([className, threshold]) => value.includes(className) && Number(score || 0) >= threshold);
 }
 
-function getHiveFlags(data) {
-  return collectHiveClasses(data)
-    .filter((item) => isUnsafeHiveClass(item.name, item.score))
-    .map((item) => `${item.name}:${item.score.toFixed(2)}`);
-}
-
 async function moderateSingleText(text, provider = "openai") {
   const value = String(text || "").trim();
 
@@ -354,7 +348,15 @@ async function moderateVisualWithHive(source, filename = "media.jpg") {
       throw new Error(data?.message || data?.error || "Hive moderation failed");
     }
 
-    const flags = getHiveFlags(data);
+    const classes = collectHiveClasses(data);
+
+    if (!classes.length) {
+      return pendingResult("hive-invalid-response", ["hive-review-unavailable"]);
+    }
+
+    const flags = classes
+      .filter((item) => isUnsafeHiveClass(item.name, item.score))
+      .map((item) => `${item.name}:${item.score.toFixed(2)}`);
 
     return flags.length ? blockedResult("hive", flags) : approvedResult("hive");
   } catch (error) {
@@ -555,13 +557,16 @@ export default async function handler(req, res) {
     }
 
     const decision = getPublishableDecision(results);
+    const reason = decision === "pending"
+      ? videoReviewRequired
+        ? "KunThai could not complete this video's safety scan. Please try posting the video again."
+        : "Post published while KunThai completes the remaining safety review."
+      : "Post passed KunThai safety review.";
 
     return json(res, 200, {
       ok: true,
       decision,
-      reason: decision === "pending"
-        ? "Post published while KunThai completes the remaining safety review."
-        : "Post passed KunThai safety review.",
+      reason,
       flags: [],
       results,
     });
