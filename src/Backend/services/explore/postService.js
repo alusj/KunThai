@@ -59,7 +59,7 @@ export function isExplorePostVisibleInFeed(post) {
     return true;
   }
 
-  return String(post.moderation_status || "").toLowerCase() === "approved";
+  return ["approved", "legacy"].includes(String(post.moderation_status || "").toLowerCase());
 }
 
 async function getCurrentUserId() {
