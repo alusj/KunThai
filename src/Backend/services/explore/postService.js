@@ -47,11 +47,17 @@ function getModerationStatus(payload) {
 
   const status = String(payload.moderation_status || "").toLowerCase();
 
+  if (status === "approved") {
+    return "approved";
+  }
+
   if (status === "blocked") {
     return "blocked";
   }
 
-  return status === "approved" ? "approved" : "pending";
+  throw new Error(
+    "Video moderation must return approved or blocked."
+  );
 }
 
 export function isExplorePostVisibleInFeed(post) {

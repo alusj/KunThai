@@ -107,7 +107,10 @@ function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
     video_url: draft.video_url || "",
     video_trim_start: hasVideo ? Math.max(0, Number(draft.video_trim_start || 0)) : null,
     video_trim_end: hasVideo ? Math.max(0.5, Number(draft.video_trim_end || 15)) : null,
-    moderation_status: hasVideo ? draft.moderation_status || "pending" : "not_required",
+    moderation_status:
+  hasVideo
+    ? draft.moderation_status || "approved"
+    : "not_required",
     audio_duration_seconds: draft.audio_duration_seconds ?? null,
     post_privacy: draft.post_privacy || "public",
     hashtags: Array.isArray(draft.hashtags) ? draft.hashtags : [],
@@ -533,7 +536,7 @@ export function useExploreFeed(scope = "feed") {
       return {
         ok: true,
         post: created,
-        warning: createdVisible ? "" : "Your video was uploaded and is pending KunThai safety review.",
+        warning: "",
       };
     } catch (err) {
       const message = err.message || "Unable to sync post to backend right now.";

@@ -75,9 +75,7 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       };
     }
 
-    const publishableReview = review.decision === "approved"
-      ? review
-      : { ...review, ok: true, decision: "pending" };
+   const publishableReview = review;
 
     logSafetyReview("post publishable", { decision: publishableReview.decision });
     onStage?.("publishing", 84);
@@ -102,12 +100,9 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
   await wait(180);
 
   return {
-    ok: true,
-    decision: "pending",
-    review: {
-      ok: true,
-      decision: "pending",
-      reason: "Post published while KunThai completes the remaining safety review.",
-    },
-  };
+  ok: false,
+  retryable: true,
+  reason:
+    "KunThai could not complete the safety scan. Please try again.",
+};
 }

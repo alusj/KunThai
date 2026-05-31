@@ -3,11 +3,5 @@
     "api/moderate-post.js": {
       "maxDuration": 60
     }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  }
 }
