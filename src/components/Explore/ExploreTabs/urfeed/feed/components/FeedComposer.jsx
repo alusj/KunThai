@@ -625,7 +625,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       }
 
       const tags = parseTags(postDraft.body);
-      const moderationStatus = review.decision === "approved" ? "approved" : "pending";
       const uploadedVideoUrl = uploadedReviewVideoUrl || postDraft.video_url;
 
       setPostingStage("syncing");
@@ -648,7 +647,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         post_privacy: postDraft.post_privacy,
         hashtags: tags.hashtags,
         mentions: tags.mentions,
-        moderation_status: postDraft.video_url ? moderationStatus : "not_required",
+        moderation_status: postDraft.video_url ? "approved" : "not_required",
       });
 
       if (result?.ok) {

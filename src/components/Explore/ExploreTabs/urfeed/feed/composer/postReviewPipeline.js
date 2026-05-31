@@ -50,12 +50,15 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       media: moderationPayload,
     });
 
-    if (!review.ok && review.decision === "blocked") {
-      logSafetyReview("post rejected", { decision: review.decision, flags: review.flags || [] });
+    if (!review?.ok) {
+      const decision = review?.decision || "failed";
+      const flags = review?.flags || [];
+      logSafetyReview("post rejected", { decision, flags });
       return {
         ok: false,
-        reason: review.reason || "This post was stopped by KunThai safety review.",
-        flags: review.flags || [],
+        retryable: decision === "failed",
+        reason: review?.reason || "This post was stopped by KunThai safety review.",
+        flags,
         review,
       };
     }
@@ -72,7 +75,7 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       };
     }
 
-    const publishableReview = review?.decision === "approved"
+    const publishableReview = review.decision === "approved"
       ? review
       : { ...review, ok: true, decision: "pending" };
 

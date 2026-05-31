@@ -347,6 +347,7 @@ export default function VideoCard({
         controls={false}
         muted={false}
         playsInline
+        preload="metadata"
         loop={false}
         onError={() => {
           setVideoLoading(false);
@@ -365,7 +366,6 @@ export default function VideoCard({
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
         onTimeUpdate={handleTimeUpdate}
-        preload={active ? "metadata" : "none"}
         className="absolute inset-0 h-full w-full object-cover"
       />
 

@@ -493,7 +493,13 @@ export default async function handler(req, res) {
 
     if (videoReviewRequired) {
       if (!hiveVideoSource && (media.videoFrameExtractionFailed || !videoFrames.length)) {
-        results.push(pendingResult("video-frame-extraction-unavailable", ["video-review-unavailable"]));
+        results.push({
+          ok: false,
+          status: "failed",
+          provider: "video-frame-extraction-unavailable",
+          flags: ["video-review-unavailable"],
+          required: false,
+        });
       }
 
       let hiveVideoApproved = false;
@@ -561,35 +567,54 @@ export default async function handler(req, res) {
         hiveFramesApproved = hiveFramesApproved && hiveFrameResult.status === "approved";
       }
 
-      results.push(
-        hiveVideoApproved || sightengineFramesApproved || hiveFramesApproved
-          ? approvedResult("video-review")
-          : pendingResult("video-review-unavailable", ["video-review-unavailable"]),
-      );
+      const videoApproved = hiveVideoApproved || sightengineFramesApproved || hiveFramesApproved;
+
+      if (!videoApproved) {
+        return json(res, 200, {
+          ok: false,
+          decision: "failed",
+          reason: "KunThai could not complete this video's safety scan. Please try posting the video again.",
+          flags: ["video-review-unavailable"],
+          results,
+        });
+      }
+
+      results.push(approvedResult("video-review"));
     }
 
     const decision = getPublishableDecision(results);
-    const reason = decision === "pending"
-      ? videoReviewRequired
-        ? "KunThai could not complete this video's safety scan. Please try posting the video again."
-        : "Post published while KunThai completes the remaining safety review."
-      : "Post passed KunThai safety review.";
+
+    if (videoReviewRequired && decision !== "approved") {
+      return json(res, 200, {
+        ok: false,
+        decision: "failed",
+        reason: "KunThai could not complete this video's safety scan. Please try posting the video again.",
+        flags: ["video-review-unavailable"],
+        results,
+      });
+    }
 
     return json(res, 200, {
       ok: true,
       decision,
-      reason,
+      reason: decision === "pending"
+        ? "Post published while KunThai completes the remaining safety review."
+        : "Post passed KunThai safety review.",
       flags: [],
       results,
     });
   } catch (error) {
     console.error("[KunThai Moderation Error]", error);
 
+    const videoReviewRequired = Boolean(req.body?.media?.videoReviewRequired);
+
     return json(res, 200, {
-      ok: true,
-      decision: "pending",
-      reason: "Post published while KunThai completes the remaining safety review.",
-      flags: ["moderation-error"],
+      ok: !videoReviewRequired,
+      decision: videoReviewRequired ? "failed" : "pending",
+      reason: videoReviewRequired
+        ? "KunThai could not complete this video's safety scan. Please try posting the video again."
+        : "Post published while KunThai completes the remaining safety review.",
+      flags: [videoReviewRequired ? "video-review-unavailable" : "moderation-error"],
     });
   }
 }
