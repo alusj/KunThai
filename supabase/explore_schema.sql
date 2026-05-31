@@ -275,7 +275,7 @@ using (
   or (
     (
       nullif(btrim(coalesce(video_url, '')), '') is null
-      or moderation_status in ('approved', 'legacy')
+      or moderation_status = 'approved'
     )
     and (
       coalesce(post_privacy, 'public') = 'public'
@@ -799,4 +799,4 @@ on public.explore_posts
 for each row execute function public.normalize_explore_swip_video_post();
 
 comment on column public.explore_posts.moderation_status is
-'approved marks completed review; pending allows publication while review is unavailable or incomplete; blocked is rejected for new Swip video writes; legacy marks videos published before pending review support.';
+'approved marks completed review and is required for public Swip delivery; pending and legacy remain quarantined; blocked is rejected for new Swip video writes.';
