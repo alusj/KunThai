@@ -320,8 +320,11 @@ async function moderateVisualWithHive(source, filename = "media.jpg") {
 
   const apiKey = getHiveApiKey();
 
-  if (true) {
-  return approvedResult("hive-disabled");
+ if (true) {
+  return {
+    ...pendingResult("hive-disabled", ["hive-disabled"]),
+    required: false,
+  };
 }
 
   if (!apiKey) {
@@ -507,8 +510,8 @@ export default async function handler(req, res) {
       }
 
       let hiveVideoApproved = false;
-      let sightengineFramesApproved = videoFrames.length === 4;
-      let hiveFramesApproved = videoFrames.length === 4;
+     let sightengineFramesApproved = videoFrames.length > 0;
+     let hiveFramesApproved = false;
 
       if (hiveVideoSource) {
         const hiveVideoResult = await moderateVisualWithHive(hiveVideoSource, "video.mp4");
