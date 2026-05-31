@@ -336,9 +336,6 @@ async function moderateVisualWithHive(source, filename = "media.jpg") {
     } else {
       form.append("url", source);
     }
-console.log("[HIVE KEY EXISTS]", !!apiKey);
-console.log("[HIVE KEY LENGTH]", apiKey?.length || 0);
-console.log("[HIVE KEY PREFIX]", apiKey?.slice(0, 10));
 
     const response = await fetch("https://api.thehive.ai/api/v2/task/sync", {
       method: "POST",
