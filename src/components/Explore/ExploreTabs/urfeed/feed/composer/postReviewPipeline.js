@@ -52,7 +52,7 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       media: moderationPayload,
     });
 
-    if (!review.ok) {
+    if (!review.ok && review.decision === "blocked") {
       return {
         ok: false,
         reason: review.reason || "This post was stopped by KunThai safety review.",
@@ -60,16 +60,17 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
         review,
       };
     }
-  } catch (error) {
-    if (isLikelyLocalDev()) {
-      console.warn("[KunThai Safety] Remote moderation unavailable in local dev:", error);
-    } else {
-      return {
-        ok: false,
-        reason: error.message || "KunThai could not complete the safety review. Please try again.",
-        flags: ["moderation-unavailable"],
-      };
+
+    if (!review.ok) {
+      console.warn("[KunThai Safety] Media review was inconclusive; allowing the post without a policy violation.", review);
     }
+  } catch (error) {
+    console.warn(
+      isLikelyLocalDev()
+        ? "[KunThai Safety] Remote moderation unavailable in local dev:"
+        : "[KunThai Safety] Remote moderation unavailable; allowing the post without a policy violation:",
+      error,
+    );
   }
 
   onStage?.("publishing", 84);

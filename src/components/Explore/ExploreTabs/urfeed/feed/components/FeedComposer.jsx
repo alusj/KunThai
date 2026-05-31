@@ -538,18 +538,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         ? await extractVideoFramesFromDataUrl(finalVideoPreview, 4)
         : [];
 
-      if (finalVideoPreview && !videoFrameDataUrls.length) {
-        setPostingStage("");
-        setPostingProgress(0);
-        setFeedback("KunThai could not capture frames for video safety review. Please try this clip again.");
-        publishPostingUpdate({
-          status: "error",
-          progress: 0,
-          message: "KunThai could not complete the video safety review.",
-        });
-        return;
-      }
-
       const review = await runPostReviewPipeline({
         body: postDraft.body,
         media: {

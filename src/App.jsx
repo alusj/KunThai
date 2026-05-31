@@ -67,6 +67,7 @@ export default function App() {
     profile: onboardingProfile,
     loading: onboardingLoading,
     refresh: refreshOnboarding,
+    checked: onboardingChecked,
     isComplete: onboardingComplete,
   } = useOnboarding(user);
   const [page, setPage] = useState(() => {
@@ -141,10 +142,9 @@ export default function App() {
     return () => window.removeEventListener("kuntai-open-area-view", handleOpenAreaView);
   }, [page]);
 
-  if (loading || (user && onboardingLoading)) {
-    return <AppLoading page={page} />;
-  }
-
+  if (loading || (user && (!onboardingChecked || onboardingLoading))) {
+  return <AppLoading page={page} />;
+}
   if (!user) {
     return <Login />;
   }

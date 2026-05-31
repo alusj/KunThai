@@ -34,6 +34,7 @@ import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
 const EXPLORE_STACK_ANIMATION_MS = 280;
+const LEFT_SIDE_MENU_SCREENS = new Set(["Menu", "Messages"]);
 
 function PlaceholderMenuScreen({ screen }) {
   return (
@@ -538,10 +539,15 @@ setProfileError("");
       const pushedBehind = index < activeIndex;
       const hideScreenHeader = screenKey === "Messages" && messageConversationActive && active;
       const enteringOnPush = active && stackAction === "push";
+      const usesLeftSideMotion = LEFT_SIDE_MENU_SCREENS.has(screenKey);
       const motionClass = exiting
-        ? "kt-explore-stack-leave-right"
+        ? usesLeftSideMotion
+          ? "kt-explore-stack-leave-left"
+          : "kt-explore-stack-leave-right"
         : enteringOnPush
-          ? "kt-explore-stack-enter"
+          ? usesLeftSideMotion
+            ? "kt-explore-stack-enter-left"
+            : "kt-explore-stack-enter"
           : "";
       const placementClass = motionClass
         ? ""

@@ -73,38 +73,37 @@ function collectHiveClasses(value, found = []) {
 }
 
 function isUnsafeHiveClass(name, score) {
-  const value = String(name || "").toLowerCase();
+  const value = String(name || "")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 
   if (!value || value.startsWith("no_") || value.startsWith("not_") || value.startsWith("non_")) {
     return false;
   }
 
-  const unsafePatterns = [
-    "nsfw",
-    "sexual",
-    "suggestive",
-    "nudity",
-    "nude",
-    "explicit",
-    "gore",
-    "graphic",
-    "violence",
-    "weapon",
-    "gun",
-    "knife",
-    "drug",
-    "hate",
-    "self_harm",
-    "terror",
-    "child",
+  const unsafeClasses = [
+    ["csam", 0.5],
+    ["child_abuse", 0.5],
+    ["child_exploitation", 0.5],
+    ["sexual_minor", 0.5],
+    ["sexual_activity", 0.85],
+    ["explicit_nudity", 0.85],
+    ["nudity", 0.9],
+    ["nude", 0.9],
+    ["nsfw", 0.9],
+    ["gore", 0.85],
+    ["graphic_violence", 0.85],
+    ["self_harm", 0.85],
+    ["hate_symbol", 0.9],
+    ["terror", 0.9],
+    ["illegal_drug", 0.9],
+    ["recreational_drug", 0.9],
+    ["weapon", 0.95],
+    ["gun", 0.95],
+    ["knife", 0.95],
   ];
 
-  if (!unsafePatterns.some((pattern) => value.includes(pattern))) {
-    return false;
-  }
-
-  const threshold = value.includes("suggestive") ? 0.9 : value.includes("spam") ? 0.95 : 0.65;
-  return Number(score || 0) >= threshold;
+  return unsafeClasses.some(([className, threshold]) => value.includes(className) && Number(score || 0) >= threshold);
 }
 
 function getHiveFlags(data) {
@@ -250,8 +249,18 @@ async function moderateImageWithSightengine(imageDataUrl) {
       offensive: data?.offensive?.prob,
     };
 
+    const thresholds = {
+      nudity: 0.85,
+      sexual_display: 0.85,
+      erotica: 0.92,
+      weapon: 0.95,
+      drugs: 0.9,
+      gore: 0.85,
+      offensive: 0.9,
+    };
+
     const flags = Object.entries(checks)
-      .filter(([, score]) => Number(score || 0) >= 0.55)
+      .filter(([key, score]) => Number(score || 0) >= thresholds[key])
       .map(([key]) => key);
 
     return {
