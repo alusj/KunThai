@@ -25,6 +25,12 @@ function isLikelyLocalDev() {
   );
 }
 
+function logSafetyReview(event, detail = {}) {
+  if (import.meta.env.DEV) {
+    console.info(`[KunThai Safety] ${event}`, detail);
+  }
+}
+
 export async function runPostReviewPipeline({ body, media, onStage }) {
   onStage?.("preparing", 12);
   await wait(180);
@@ -53,6 +59,7 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
     });
 
     if (!review.ok && review.decision === "blocked") {
+      logSafetyReview("post rejected", { decision: review.decision, flags: review.flags || [] });
       return {
         ok: false,
         reason: review.reason || "This post was stopped by KunThai safety review.",
@@ -62,15 +69,35 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
     }
 
     if (!review.ok) {
-      console.warn("[KunThai Safety] Media review was inconclusive; allowing the post without a policy violation.", review);
+      logSafetyReview("remote review inconclusive", review);
+
+      if (media?.videoReviewRequired) {
+        return {
+          ok: false,
+          reason: review.reason || "KunThai could not complete the video safety review. Please try again.",
+          flags: review.flags || [],
+          review,
+        };
+      }
     }
+
+    logSafetyReview("post approved", { decision: review.decision || "approved" });
+    onStage?.("publishing", 84);
+    await wait(180);
+    return { ok: true, review };
   } catch (error) {
-    console.warn(
-      isLikelyLocalDev()
-        ? "[KunThai Safety] Remote moderation unavailable in local dev:"
-        : "[KunThai Safety] Remote moderation unavailable; allowing the post without a policy violation:",
-      error,
+    logSafetyReview(
+      isLikelyLocalDev() ? "remote moderation unavailable in local dev" : "remote moderation unavailable",
+      { error },
     );
+
+    if (media?.videoReviewRequired) {
+      return {
+        ok: false,
+        reason: "KunThai could not complete the video safety review. Please try again.",
+        flags: ["video-review-unavailable"],
+      };
+    }
   }
 
   onStage?.("publishing", 84);

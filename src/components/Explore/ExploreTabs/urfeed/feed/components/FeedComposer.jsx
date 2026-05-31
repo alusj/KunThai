@@ -535,8 +535,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       });
 
       const videoFrameDataUrls = finalVideoPreview
-        ? await extractVideoFramesFromDataUrl(finalVideoPreview, 4)
+        ? await extractVideoFramesFromDataUrl(finalVideoPreview, 5, {
+            start: postDraft.mediaMeta?.videoTrimStart || 0,
+            end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
+          })
         : [];
+
+      if (finalVideoPreview && !videoFrameDataUrls.length) {
+        throw new Error("KunThai could not inspect this video safely. Please try the clip again or choose another video.");
+      }
 
       const review = await runPostReviewPipeline({
         body: postDraft.body,
@@ -546,6 +553,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           imageDataUrl: postDraft.image_url || "",
           videoDataUrl: "",
           videoFrameDataUrls,
+          videoReviewRequired: Boolean(postDraft.video_url),
           audioDataUrl: postDraft.audio_url || "",
         },
         onStage: (stage, progress) => {
@@ -585,6 +593,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         post_privacy: postDraft.post_privacy,
         hashtags: tags.hashtags,
         mentions: tags.mentions,
+        moderation_status: review.review?.decision === "approved" ? "approved" : "",
       });
 
       if (result?.ok) {

@@ -3,10 +3,37 @@ import { isMissingColumn, isMissingTable } from "./errors";
 import { uploadMediaDataUrl } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 
+const MAX_SWIP_SECONDS = 15;
+
 function logExploreFeed(event, detail = {}) {
   if (import.meta.env.DEV) {
     console.info(`[ExploreFeed] ${event}`, detail);
   }
+}
+
+function buildPostClassification(payload, scope) {
+  const hasVideo = Boolean(payload.video_url);
+
+  return {
+    feedScope: hasVideo ? "swip" : scope,
+    postType: hasVideo ? "video" : "post",
+    category: hasVideo ? "swip" : scope === "connections" ? "connections" : "urfeed",
+  };
+}
+
+function buildVideoTrimWindow(payload) {
+  if (!payload.video_url) {
+    return { start: null, end: null };
+  }
+
+  const start = Math.max(0, Number(payload.video_trim_start || 0));
+  const requestedEnd = Number(payload.video_trim_end);
+  const end = Math.min(
+    start + MAX_SWIP_SECONDS,
+    Math.max(start + 0.5, Number.isFinite(requestedEnd) ? requestedEnd : start + MAX_SWIP_SECONDS),
+  );
+
+  return { start, end };
 }
 
 async function getCurrentUserId() {
@@ -204,9 +231,15 @@ export async function createExplorePost(input, scope = "feed") {
       : "public";
   const hashtags = Array.isArray(payload.hashtags) ? payload.hashtags : [];
   const mentions = Array.isArray(payload.mentions) ? payload.mentions : [];
+  const classification = buildPostClassification(payload, scope);
+  const videoTrimWindow = buildVideoTrimWindow(payload);
 
   if (!trimmedBody && !payload.image_url && !payload.audio_url && !payload.video_url) {
     throw new Error("Add text, an image, a video, or a voice note.");
+  }
+
+  if (payload.video_url && payload.moderation_status !== "approved") {
+    throw new Error("KunThai must approve this video's safety review before it can be published.");
   }
 
   const {
@@ -226,18 +259,22 @@ export async function createExplorePost(input, scope = "feed") {
   const audioUrl = payload.audio_url ? await uploadMediaDataUrl(payload.audio_url, "audio", user.id) : "";
   const videoUrl = payload.video_url ? await uploadMediaDataUrl(payload.video_url, "video", user.id) : "";
   const profile = buildExploreProfileFromUser(user);
-  const feedScope = payload.video_url ? "swip" : scope;
 
   const draft = {
     user_id: user.id,
     author_name: profile.displayName || user.email || "Profile",
     author_username: profile.username || user.email?.split("@")[0] || "",
     author_avatar_url: profile.avatarUrl || "",
-    feed_scope: feedScope,
+    feed_scope: classification.feedScope,
+    post_type: classification.postType,
+    category: classification.category,
     body: trimmedBody,
     image_url: imageUrl,
     audio_url: audioUrl,
     video_url: videoUrl,
+    video_trim_start: videoTrimWindow.start,
+    video_trim_end: videoTrimWindow.end,
+    moderation_status: payload.video_url ? "approved" : "not_required",
     audio_duration_seconds: audioDuration,
     post_privacy: postPrivacy,
     hashtags,
@@ -249,7 +286,9 @@ export async function createExplorePost(input, scope = "feed") {
 
   logExploreFeed("post creation started", {
     user_id: user.id,
-    feed_scope: feedScope,
+    feed_scope: classification.feedScope,
+    post_type: classification.postType,
+    category: classification.category,
     visibility: postPrivacy,
     has_image: Boolean(imageUrl),
     has_audio: Boolean(audioUrl),
@@ -260,7 +299,7 @@ export async function createExplorePost(input, scope = "feed") {
 
   if (error) {
     if (isMissingColumn(error, "feed_scope")) {
-      return createPostWithoutFeedScope(draft, feedScope);
+      return createPostWithoutFeedScope(draft, classification.feedScope);
     }
 
     if (isMissingTable(error)) {
@@ -269,16 +308,26 @@ export async function createExplorePost(input, scope = "feed") {
     throw error;
   }
 
+  const created = {
+    ...draft,
+    ...data,
+    feed_scope: payload.video_url ? "swip" : data?.feed_scope || classification.feedScope,
+    post_type: data?.post_type || classification.postType,
+    category: data?.category || classification.category,
+  };
+
   logExploreFeed("post creation completed", {
-    post_id: data?.id,
-    user_id: data?.user_id,
-    feed_scope: data?.feed_scope,
-    visibility: normalizePostPrivacy(data),
+    post_id: created.id,
+    user_id: created.user_id,
+    feed_scope: created.feed_scope,
+    post_type: created.post_type,
+    category: created.category,
+    visibility: normalizePostPrivacy(created),
   });
 
-  await notifyMentionedUsers(data, draft);
+  await notifyMentionedUsers(created, draft);
 
-  return data;
+  return created;
 }
 
 async function notifyMentionedUsers(post, draft) {
@@ -319,14 +368,24 @@ async function notifyMentionedUsers(post, draft) {
 async function insertExplorePostDraft(draft) {
   let payload = { ...draft };
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  const optionalColumns = [
+    "post_privacy",
+    "hashtags",
+    "mentions",
+    "post_type",
+    "category",
+    "video_trim_start",
+    "video_trim_end",
+    "moderation_status",
+  ];
+
+  for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
     const { data, error } = await supabase.from("explore_posts").insert(payload).select().single();
 
     if (!error) {
       return { data, error: null };
     }
 
-    const optionalColumns = ["post_privacy", "hashtags", "mentions"];
     const missingColumn = optionalColumns.find((column) => isMissingColumn(error, column));
 
     if (!missingColumn) {
@@ -364,7 +423,16 @@ async function createPostWithoutFeedScope(draft, feedScope) {
     throw error;
   }
 
-  const created = { ...data, feed_scope: feedScope, post_privacy: draft.post_privacy || "public" };
+  const created = {
+    ...data,
+    feed_scope: feedScope,
+    post_type: draft.post_type,
+    category: draft.category,
+    video_trim_start: draft.video_trim_start,
+    video_trim_end: draft.video_trim_end,
+    moderation_status: draft.moderation_status,
+    post_privacy: draft.post_privacy || "public",
+  };
   logExploreFeed("post creation completed without feed_scope column", {
     post_id: created.id,
     user_id: created.user_id,

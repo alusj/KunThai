@@ -220,11 +220,14 @@ export async function moderateExplorePost({ body = "", media = {} }) {
 }
 
 export function buildModerationMediaPayload(media = {}) {
+  const videoFrameDataUrls = Array.isArray(media.videoFrameDataUrls) ? media.videoFrameDataUrls : [];
+
   return {
-    hasMedia: Boolean(media.imageDataUrl || media.videoDataUrl || media.audioDataUrl),
+    hasMedia: Boolean(media.imageDataUrl || media.videoDataUrl || videoFrameDataUrls.length || media.audioDataUrl),
     imageDataUrl: media.imageDataUrl || "",
     videoDataUrl: media.videoDataUrl || "",
-    videoFrameDataUrls: Array.isArray(media.videoFrameDataUrls) ? media.videoFrameDataUrls : [],
+    videoFrameDataUrls,
+    videoReviewRequired: Boolean(media.videoReviewRequired),
     audioDataUrl: media.audioDataUrl || "",
     imageName: media.imageName || "",
     videoName: media.videoName || "",

@@ -86,16 +86,21 @@ function isUnsafeHiveClass(name, score) {
     ["child_abuse", 0.5],
     ["child_exploitation", 0.5],
     ["sexual_minor", 0.5],
+    ["sexual_abuse", 0.75],
     ["sexual_activity", 0.85],
     ["explicit_nudity", 0.85],
     ["nudity", 0.9],
     ["nude", 0.9],
     ["nsfw", 0.9],
+    ["porn", 0.9],
     ["gore", 0.85],
     ["graphic_violence", 0.85],
+    ["physical_abuse", 0.85],
     ["self_harm", 0.85],
     ["hate_symbol", 0.9],
+    ["hate", 0.95],
     ["terror", 0.9],
+    ["terrorism", 0.9],
     ["illegal_drug", 0.9],
     ["recreational_drug", 0.9],
     ["weapon", 0.95],
@@ -274,6 +279,11 @@ async function moderateImageWithSightengine(imageDataUrl) {
   }
 }
 
+function completedProviderReview(result) {
+  const provider = String(result?.provider || "");
+  return Boolean(provider) && !provider.includes("missing") && !provider.includes("fallback");
+}
+
 async function moderateVisualWithHive(dataUrl, filename = "media.jpg") {
   if (!isDataUrl(dataUrl)) {
     return { ok: true, provider: "hive", flags: [] };
@@ -422,8 +432,9 @@ export default async function handler(req, res) {
     const videoFrames = Array.isArray(media?.videoFrameDataUrls)
       ? media.videoFrameDataUrls.filter(isDataUrl)
       : [];
+    const videoReviewRequired = Boolean(media?.videoReviewRequired || media?.videoDataUrl || videoFrames.length);
 
-    if (media?.videoDataUrl || videoFrames.length) {
+    if (videoReviewRequired) {
       if (!videoFrames.length && !media.videoDataUrl) {
         return json(res, 200, {
           ok: false,
@@ -450,7 +461,19 @@ export default async function handler(req, res) {
             results,
           });
         }
+
+        if (!completedProviderReview(hiveVideoResult)) {
+          return json(res, 200, {
+            ok: false,
+            decision: "review",
+            reason: "KunThai could not complete the video safety review. Please try again.",
+            flags: ["video-review-unavailable"],
+            results,
+          });
+        }
       }
+
+      let reviewedVideoFrames = 0;
 
       for (const [index, frame] of videoFrames.entries()) {
         const frameResult = await moderateImageWithSightengine(frame);
@@ -484,6 +507,20 @@ export default async function handler(req, res) {
             results,
           });
         }
+
+        if (completedProviderReview(frameResult) || completedProviderReview(hiveFrameResult)) {
+          reviewedVideoFrames += 1;
+        }
+      }
+
+      if (videoFrames.length && reviewedVideoFrames !== videoFrames.length) {
+        return json(res, 200, {
+          ok: false,
+          decision: "review",
+          reason: "KunThai could not complete the video safety review. Please try again.",
+          flags: ["video-review-unavailable"],
+          results,
+        });
       }
     }
 

@@ -10,6 +10,12 @@ import VideoProgress from "./VideoProgress";
 
 const MAX_SWIP_SECONDS = 15;
 
+function logSwipPlayback(event, detail = {}) {
+  if (import.meta.env.DEV) {
+    console.info(`[Swip] ${event}`, detail);
+  }
+}
+
 function getClipWindow(post, realDuration = 0) {
   const rawStart =
     post?.video_trim_start ??
@@ -58,6 +64,7 @@ export default function VideoCard({
   const [progress, setProgress] = useState({ currentTime: 0, duration: MAX_SWIP_SECONDS });
   const [message, setMessage] = useState("");
   const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(true);
 
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
@@ -70,6 +77,7 @@ export default function VideoCard({
   useEffect(() => {
     setMediaError("");
     setNeedsSoundUnlock(false);
+    setVideoLoading(true);
     setProgress({ currentTime: 0, duration: MAX_SWIP_SECONDS, realDuration: 0 });
   }, [post.video_url]);
 
@@ -216,21 +224,25 @@ export default function VideoCard({
     video.volume = sound ? 1 : 0;
     video.autoplay = true;
 
-   try {
-  await playExploreMedia(video, { muteVideos: false });
-  video.muted = false;
-  video.volume = sound ? 1 : 0;
-  setNeedsSoundUnlock(false);
-} catch {
-  try {
-    video.muted = true;
-    video.volume = 0;
-    await video.play();
-    setNeedsSoundUnlock(true);
-  } catch {
-    setNeedsSoundUnlock(true);
-  }
-}
+    try {
+      await playExploreMedia(video, { muteVideos: false });
+      video.muted = false;
+      video.volume = sound ? 1 : 0;
+      setNeedsSoundUnlock(false);
+      logSwipPlayback("active video playing with sound", { post_id: post.id });
+    } catch (error) {
+      logSwipPlayback("unmuted autoplay deferred by browser", { post_id: post.id, error });
+
+      try {
+        video.muted = true;
+        video.volume = 0;
+        await video.play();
+        setNeedsSoundUnlock(true);
+      } catch (fallbackError) {
+        setNeedsSoundUnlock(true);
+        logSwipPlayback("muted autoplay deferred by browser", { post_id: post.id, error: fallbackError });
+      }
+    }
   }
 
   function shouldIgnoreVideoGesture(event) {
@@ -336,11 +348,19 @@ export default function VideoCard({
         muted={false}
         playsInline
         loop={false}
-        onError={() => setMediaError("Video could not load yet. It may still be uploading.")}
+        onError={() => {
+          setVideoLoading(false);
+          setMediaError("Video could not load yet. It may still be uploading.");
+        }}
         onCanPlay={() => {
+          setVideoLoading(false);
           updateVideoProgress(videoRef.current);
           if (activeRef.current || active) requestActivePlayback();
         }}
+        onLoadStart={() => setVideoLoading(true)}
+        onPlaying={() => setVideoLoading(false)}
+        onStalled={() => setVideoLoading(true)}
+        onWaiting={() => setVideoLoading(true)}
         onDurationChange={(event) => updateVideoProgress(event.currentTarget)}
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
@@ -349,12 +369,18 @@ export default function VideoCard({
         className="absolute inset-0 h-full w-full object-cover"
       />
 
-      {mediaError ? <div className="absolute inset-0 z-[1] bg-slate-950" /> : null}
+      {mediaError ? (
+        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-slate-950 px-6 text-center">
+          <p className="max-w-xs text-sm font-bold leading-6 text-white/70">{mediaError}</p>
+        </div>
+      ) : null}
       <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
 
-      {needsSoundUnlock ? (
-        <div className="pointer-events-none absolute left-4 top-16 z-20 rounded-full bg-black/35 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-white/75 backdrop-blur">
-          Sound will resume after interaction
+      {videoLoading && !mediaError ? (
+        <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/35">
+            <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+          </div>
         </div>
       ) : null}
 

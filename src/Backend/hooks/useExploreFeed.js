@@ -87,12 +87,16 @@ function isCurrentUserPost(post, profile) {
 
 function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
   const draft = typeof postInput === "string" ? { body: postInput } : postInput || {};
+  const hasVideo = Boolean(draft.video_url);
+  const feedScope = hasVideo ? "swip" : scope;
 
   return {
     id,
     body: String(draft.body || "").trim(),
     created_at: new Date().toISOString(),
-    feed_scope: draft.video_url ? "swip" : scope,
+    feed_scope: feedScope,
+    post_type: hasVideo ? "video" : "post",
+    category: hasVideo ? "swip" : feedScope === "connections" ? "connections" : "urfeed",
     user_id: draft.user_id || "",
     author_name: draft.author_name || "You",
     author_username: draft.author_username || "you",
@@ -100,6 +104,9 @@ function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
     image_url: draft.image_url || "",
     audio_url: draft.audio_url || "",
     video_url: draft.video_url || "",
+    video_trim_start: hasVideo ? Math.max(0, Number(draft.video_trim_start || 0)) : null,
+    video_trim_end: hasVideo ? Math.max(0.5, Number(draft.video_trim_end || 15)) : null,
+    moderation_status: hasVideo ? draft.moderation_status || "" : "not_required",
     audio_duration_seconds: draft.audio_duration_seconds ?? null,
     post_privacy: draft.post_privacy || "public",
     hashtags: Array.isArray(draft.hashtags) ? draft.hashtags : [],
@@ -455,12 +462,46 @@ export function useExploreFeed(scope = "feed") {
   async function submitPost(postInput) {
     const localId = `local-${scope}-${Date.now()}`;
     const optimisticPost = buildLocalPost(postInput, scope, localId);
+    const optimisticScope = optimisticPost.feed_scope || scope;
 
     try {
       setCreating(true);
-      setPosts((current) => mergePosts([optimisticPost], current));
+      logExploreFeed("optimistic post routed", {
+        local_id: localId,
+        current_scope: scope,
+        target_scope: optimisticScope,
+        has_video: Boolean(optimisticPost.video_url),
+      });
+
+      if (optimisticScope === scope) {
+        setPosts((current) => mergePosts([optimisticPost], current));
+      }
+
       const created = await createExplorePost(postInput, scope);
-      setPosts((current) => mergePosts([created], current.filter((post) => post.id !== localId)));
+      const createdScope = created.video_url ? "swip" : created.feed_scope || scope;
+
+      if (createdScope === scope) {
+        setPosts((current) => {
+          const nextPosts = mergePosts([created], current.filter((post) => post.id !== localId));
+          writeStoredPosts(scope, nextPosts);
+          return nextPosts;
+        });
+      } else {
+        setPosts((current) => {
+          const nextPosts = current.filter((post) => post.id !== localId);
+          writeStoredPosts(scope, nextPosts);
+          return nextPosts;
+        });
+
+        const targetPosts = mergePosts(
+          [created],
+          (readFeedMemory(createdScope)?.posts || readStoredPosts(createdScope)).filter((post) => post.id !== localId),
+        );
+
+        writeStoredPosts(createdScope, targetPosts);
+        writeFeedMemory(createdScope, { posts: targetPosts });
+      }
+
       const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
       await Promise.all(
         followers.map((followerId) =>
@@ -473,11 +514,14 @@ export function useExploreFeed(scope = "feed") {
           }),
         ),
       );
-      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope: created.feed_scope || scope, postId: created.id, type: "post-created" } }));
-     writeFeedMemory(created.feed_scope || scope, {
-  posts: postsRef.current,
-});
-      return { ok: true };
+      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope: createdScope, postId: created.id, type: "post-created" } }));
+      logExploreFeed("published post routed", {
+        post_id: created.id,
+        current_scope: scope,
+        target_scope: createdScope,
+        has_video: Boolean(created.video_url),
+      });
+      return { ok: true, post: created };
     } catch (err) {
       const message = err.message || "Unable to sync post to backend right now.";
       const hasMediaUpload = Boolean(postInput?.image_url || postInput?.audio_url || postInput?.video_url);

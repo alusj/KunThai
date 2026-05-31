@@ -9,6 +9,12 @@ export const MAX_VIDEO_SECONDS = 15;
 let ffmpeg = null;
 let ffmpegLoading = null;
 
+function logComposerMedia(level, event, error) {
+  if (import.meta.env.DEV) {
+    console[level](`[KunThai Composer] ${event}`, error);
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -127,7 +133,7 @@ export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSec
     try {
       return await trimVideoWithNativeRecorder(file, startSeconds, durationSeconds);
     } catch (error) {
-      console.warn("[KunThai Native Trim Attempt Failed]", error);
+      logComposerMedia("warn", "native trim attempt failed", error);
     }
   }
 
@@ -187,13 +193,13 @@ export async function trimVideoFileToDataUrl(file, startSeconds = 0, durationSec
     }
     return await blobToDataUrl(blob);
   } catch (error) {
-    console.error("[KunThai FFmpeg Trim Error]", error);
+    logComposerMedia("error", "FFmpeg trim failed", error);
 
     if (!preferNative) {
       try {
         return await trimVideoWithNativeRecorder(file, startSeconds, durationSeconds);
       } catch (nativeError) {
-        console.warn("[KunThai Native Trim Attempt Failed]", nativeError);
+        logComposerMedia("warn", "native trim attempt failed", nativeError);
       }
     }
 
@@ -322,7 +328,7 @@ async function trimVideoWithNativeRecorder(file, startSeconds = 0, durationSecon
   }
 }
 
-export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3) {
+export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3, options = {}) {
   return new Promise((resolve) => {
     if (!videoDataUrl) {
       resolve([]);
@@ -333,6 +339,25 @@ export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const frames = [];
+    const frameCount = Math.max(1, Math.min(6, Math.round(Number(count || 3))));
+    let settled = false;
+    let timeoutId = null;
+
+    function cleanup() {
+      window.clearTimeout(timeoutId);
+      video.onloadedmetadata = null;
+      video.onseeked = null;
+      video.onerror = null;
+      video.removeAttribute("src");
+      video.load();
+    }
+
+    function finish() {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(frames);
+    }
 
     video.muted = true;
     video.playsInline = true;
@@ -342,24 +367,32 @@ export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3) {
       const duration = video.duration || 0;
 
       if (!duration || !ctx) {
-        resolve([]);
+        finish();
         return;
       }
 
       canvas.width = Math.min(video.videoWidth || 720, 720);
       canvas.height = Math.round(canvas.width * ((video.videoHeight || 720) / (video.videoWidth || 720)));
 
-      const times = [
-        Math.max(0.3, duration * 0.15),
-        Math.max(0.6, duration * 0.5),
-        Math.max(0.9, duration * 0.85),
-      ].slice(0, count);
+      const requestedStart = Math.max(0, Number(options.start || 0));
+      const requestedEnd = Number(options.end || 0);
+      const sampleStart = Math.min(requestedStart, Math.max(0, duration - 0.2));
+      const sampleEnd = Math.min(
+        duration,
+        requestedEnd > sampleStart ? requestedEnd : duration,
+        sampleStart + MAX_VIDEO_SECONDS,
+      );
+      const sampleSpan = Math.max(0.2, sampleEnd - sampleStart);
+      const times = Array.from({ length: frameCount }, (_, index) => {
+        const ratio = (index + 0.5) / frameCount;
+        return Math.min(sampleStart + sampleSpan * ratio, Math.max(0, duration - 0.1));
+      });
 
       let index = 0;
 
       function captureNext() {
         if (index >= times.length) {
-          resolve(frames);
+          finish();
           return;
         }
 
@@ -367,21 +400,24 @@ export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3) {
       }
 
       video.onseeked = () => {
-        try {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          frames.push(canvas.toDataURL("image/jpeg", 0.82));
-        } catch {
-          // skip frame
-        }
+        window.requestAnimationFrame(() => {
+          try {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            frames.push(canvas.toDataURL("image/jpeg", 0.82));
+          } catch {
+            // Skip unreadable frames and let the caller require a usable review sample.
+          }
 
-        index += 1;
-        captureNext();
+          index += 1;
+          captureNext();
+        });
       };
 
       captureNext();
     };
 
-    video.onerror = () => resolve([]);
+    timeoutId = window.setTimeout(finish, 12_000);
+    video.onerror = finish;
     video.src = videoDataUrl;
   });
 }

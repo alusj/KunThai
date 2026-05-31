@@ -9,6 +9,11 @@ create table if not exists public.explore_posts (
   image_url text,
   audio_url text,
   video_url text,
+  video_trim_start numeric,
+  video_trim_end numeric,
+  post_type text not null default 'post',
+  category text not null default 'urfeed',
+  moderation_status text not null default 'not_required',
   audio_duration_seconds integer,
   post_privacy text not null default 'public' check (post_privacy in ('public', 'circle', 'private')),
   hashtags text[] not null default '{}',
@@ -50,6 +55,11 @@ alter table public.explore_posts add column if not exists feed_scope text not nu
 alter table public.explore_posts add column if not exists image_url text;
 alter table public.explore_posts add column if not exists audio_url text;
 alter table public.explore_posts add column if not exists video_url text;
+alter table public.explore_posts add column if not exists video_trim_start numeric;
+alter table public.explore_posts add column if not exists video_trim_end numeric;
+alter table public.explore_posts add column if not exists post_type text not null default 'post';
+alter table public.explore_posts add column if not exists category text not null default 'urfeed';
+alter table public.explore_posts add column if not exists moderation_status text not null default 'not_required';
 alter table public.explore_posts add column if not exists audio_duration_seconds integer;
 alter table public.explore_posts add column if not exists post_privacy text not null default 'public';
 alter table public.explore_posts add column if not exists hashtags text[] not null default '{}';
@@ -676,3 +686,84 @@ drop trigger if exists explore_comment_likes_refresh_counts on public.explore_co
 create trigger explore_comment_likes_refresh_counts
 after insert or delete on public.explore_comment_likes
 for each row execute function public.refresh_explore_comment_like_counts();
+
+-- Swip videos are reviewed before insert and normalized at the database boundary.
+update public.explore_posts
+set
+  feed_scope = 'swip',
+  post_type = 'video',
+  category = 'swip',
+  moderation_status = case when moderation_status = 'approved' then 'approved' else 'legacy' end,
+  video_trim_start = greatest(0, coalesce(video_trim_start, 0)),
+  video_trim_end = least(
+    greatest(0, coalesce(video_trim_start, 0)) + 15,
+    greatest(
+      greatest(0, coalesce(video_trim_start, 0)) + 0.5,
+      coalesce(video_trim_end, greatest(0, coalesce(video_trim_start, 0)) + 15)
+    )
+  )
+where nullif(btrim(coalesce(video_url, '')), '') is not null;
+
+alter table public.explore_posts drop constraint if exists explore_posts_post_type_check;
+alter table public.explore_posts
+  add constraint explore_posts_post_type_check check (post_type in ('post', 'video'));
+
+alter table public.explore_posts drop constraint if exists explore_posts_category_check;
+alter table public.explore_posts
+  add constraint explore_posts_category_check check (category in ('urfeed', 'connections', 'swip'));
+
+alter table public.explore_posts drop constraint if exists explore_posts_moderation_status_check;
+alter table public.explore_posts
+  add constraint explore_posts_moderation_status_check check (moderation_status in ('not_required', 'approved', 'legacy'));
+
+create or replace function public.normalize_explore_swip_video_post()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  has_video boolean;
+begin
+  has_video := nullif(btrim(coalesce(new.video_url, '')), '') is not null;
+
+  if has_video then
+    if tg_op = 'INSERT' and coalesce(new.moderation_status, '') <> 'approved' then
+      raise exception 'Swip videos require an approved pre-publish safety review';
+    end if;
+
+    if tg_op = 'UPDATE'
+      and new.video_url is distinct from old.video_url
+      and coalesce(new.moderation_status, '') <> 'approved'
+    then
+      raise exception 'Swip videos require an approved pre-publish safety review';
+    end if;
+
+    new.feed_scope := 'swip';
+    new.post_type := 'video';
+    new.category := 'swip';
+    new.video_trim_start := greatest(0, coalesce(new.video_trim_start, 0));
+    new.video_trim_end := least(
+      new.video_trim_start + 15,
+      greatest(new.video_trim_start + 0.5, coalesce(new.video_trim_end, new.video_trim_start + 15))
+    );
+  elsif new.feed_scope = 'swip' then
+    new.feed_scope := 'feed';
+    new.post_type := 'post';
+    new.category := 'urfeed';
+    new.moderation_status := 'not_required';
+    new.video_trim_start := null;
+    new.video_trim_end := null;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists explore_posts_normalize_swip_video on public.explore_posts;
+create trigger explore_posts_normalize_swip_video
+before insert or update of video_url, feed_scope, post_type, category, moderation_status, video_trim_start, video_trim_end
+on public.explore_posts
+for each row execute function public.normalize_explore_swip_video_post();
+
+comment on column public.explore_posts.moderation_status is
+'approved is required for new Swip video inserts; legacy marks videos published before pre-publish review enforcement.';
