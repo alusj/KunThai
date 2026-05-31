@@ -497,12 +497,15 @@ export default async function handler(req, res) {
       }
 
       let hiveVideoApproved = false;
+      let sightengineFramesApproved = videoFrames.length === 4;
+      let hiveFramesApproved = videoFrames.length === 4;
 
       if (hiveVideoSource) {
         const hiveVideoResult = await moderateVisualWithHive(hiveVideoSource, "video.mp4");
         results.push({
           ...hiveVideoResult,
           provider: "hive-video",
+          required: false,
         });
 
         if (!hiveVideoResult.ok) {
@@ -523,7 +526,7 @@ export default async function handler(req, res) {
         results.push({
           ...frameResult,
           provider: `sightengine-video-frame-${index + 1}`,
-          required: !hiveVideoApproved,
+          required: false,
         });
 
         if (!frameResult.ok) {
@@ -536,11 +539,13 @@ export default async function handler(req, res) {
           });
         }
 
+        sightengineFramesApproved = sightengineFramesApproved && frameResult.status === "approved";
+
         const hiveFrameResult = await moderateVisualWithHive(frame, `video-frame-${index + 1}.jpg`);
         results.push({
           ...hiveFrameResult,
           provider: `hive-video-frame-${index + 1}`,
-          required: !hiveVideoApproved,
+          required: false,
         });
 
         if (!hiveFrameResult.ok) {
@@ -553,7 +558,14 @@ export default async function handler(req, res) {
           });
         }
 
+        hiveFramesApproved = hiveFramesApproved && hiveFrameResult.status === "approved";
       }
+
+      results.push(
+        hiveVideoApproved || sightengineFramesApproved || hiveFramesApproved
+          ? approvedResult("video-review")
+          : pendingResult("video-review-unavailable", ["video-review-unavailable"]),
+      );
     }
 
     const decision = getPublishableDecision(results);
