@@ -8,6 +8,18 @@ function json(res, status, payload) {
   return res.status(status).json(payload);
 }
 
+function approvedResult(provider, flags = []) {
+  return { ok: true, status: "approved", provider, flags };
+}
+
+function pendingResult(provider, flags = []) {
+  return { ok: true, status: "pending", provider, flags };
+}
+
+function blockedResult(provider, flags = []) {
+  return { ok: false, status: "blocked", provider, flags };
+}
+
 function getFlags(result) {
   return Object.entries(result?.categories || {})
     .filter(([, value]) => Boolean(value))
@@ -24,6 +36,7 @@ function isTrustedExploreStorageUrl(value) {
     const configuredUrl = process.env.VITE_SUPABASE_URL
       ? new URL(process.env.VITE_SUPABASE_URL)
       : null;
+
     const isExpectedHost = configuredUrl
       ? url.host === configuredUrl.host
       : url.hostname.endsWith(".supabase.co");
@@ -38,16 +51,15 @@ function isTrustedExploreStorageUrl(value) {
   }
 }
 
-function approvedResult(provider, flags = []) {
-  return { ok: true, status: "approved", provider, flags };
+function dataUrlToFile(dataUrl, filename = "upload.bin") {
+  const [meta, base64] = String(dataUrl || "").split(",");
+  const mime = meta?.match(/^data:(.*?);base64$/)?.[1] || "application/octet-stream";
+  const buffer = Buffer.from(base64 || "", "base64");
+  return new File([buffer], filename, { type: mime });
 }
 
-function pendingResult(provider, flags = []) {
-  return { ok: true, status: "pending", provider, flags };
-}
-
-function blockedResult(provider, flags = []) {
-  return { ok: false, status: "blocked", provider, flags };
+function getHiveApiKey() {
+  return process.env.HIVE_API_KEY || process.env.HIVE_ACCESS_KEY || "";
 }
 
 function getPublishableDecision(results = []) {
@@ -67,18 +79,9 @@ function moderateTextWithLocalRules(text) {
     .filter(([, pattern]) => pattern.test(String(text || "")))
     .map(([flag]) => flag);
 
-  return flags.length ? blockedResult("local-explicit-text-rules", flags) : approvedResult("local-explicit-text-rules");
-}
-
-function dataUrlToFile(dataUrl, filename = "upload.bin") {
-  const [meta, base64] = String(dataUrl || "").split(",");
-  const mime = meta?.match(/^data:(.*?);base64$/)?.[1] || "application/octet-stream";
-  const buffer = Buffer.from(base64 || "", "base64");
-  return new File([buffer], filename, { type: mime });
-}
-
-function getHiveApiKey() {
-  return process.env.HIVE_API_KEY || process.env.HIVE_ACCESS_KEY || "";
+  return flags.length
+    ? blockedResult("local-explicit-text-rules", flags)
+    : approvedResult("local-explicit-text-rules");
 }
 
 function collectHiveClasses(value, found = []) {
@@ -91,10 +94,13 @@ function collectHiveClasses(value, found = []) {
     return found;
   }
 
-  if (typeof value.class === "string" && Number.isFinite(Number(value.score))) {
+  const className = value.class || value.class_name || value.label || value.name;
+  const score = value.score ?? value.value ?? value.confidence;
+
+  if (typeof className === "string" && Number.isFinite(Number(score))) {
     found.push({
-      name: value.class,
-      score: Number(value.score),
+      name: className,
+      score: Number(score),
     });
   }
 
@@ -144,7 +150,9 @@ function isUnsafeHiveClass(name, score) {
     ["knife", 0.95],
   ];
 
-  return unsafeClasses.some(([className, threshold]) => value.includes(className) && Number(score || 0) >= threshold);
+  return unsafeClasses.some(
+    ([className, threshold]) => value.includes(className) && Number(score || 0) >= threshold,
+  );
 }
 
 async function moderateSingleText(text, provider = "openai") {
@@ -176,7 +184,7 @@ async function moderateSingleText(text, provider = "openai") {
     }
 
     const flags = getFlags(result);
-    return result?.flagged ? blockedResult(provider, flags) : approvedResult(provider);
+    return result.flagged ? blockedResult(provider, flags) : approvedResult(provider);
   } catch (error) {
     console.error("[OpenAI Moderation Failed]", error);
     return pendingResult("openai-fallback", ["openai-moderation-unavailable"]);
@@ -315,38 +323,34 @@ async function moderateVisualWithHive(source, filename = "media.jpg") {
   const hasTrustedUrl = isTrustedExploreStorageUrl(source);
 
   if (!hasInlineMedia && !hasTrustedUrl) {
-    return pendingResult("hive-unavailable", ["hive-review-unavailable"]);
+    return {
+      ...pendingResult("hive-unavailable", ["hive-review-unavailable"]),
+      required: false,
+    };
   }
 
   const apiKey = getHiveApiKey();
 
- if (true) {
-  return {
-    ...pendingResult("hive-disabled", ["hive-disabled"]),
-    required: false,
-  };
-}
-
   if (!apiKey) {
-    return pendingResult("hive-missing", ["hive-review-unavailable"]);
+    return {
+      ...pendingResult("hive-missing", ["hive-review-unavailable"]),
+      required: false,
+    };
   }
 
   try {
-    const form = new FormData();
+    const input = hasInlineMedia
+      ? [{ media_base64: String(source).split(",")[1] || "" }]
+      : [{ media_url: source }];
 
-    if (hasInlineMedia) {
-      form.append("media", dataUrlToFile(source, filename));
-    } else {
-      form.append("url", source);
-    }
-
-    const response = await fetch("https://api.thehive.ai/api/v2/task/sync", {
+    const response = await fetch("https://api.thehive.ai/api/v3/hive/visual-moderation", {
       method: "POST",
       headers: {
         accept: "application/json",
-        authorization: `token ${apiKey}`,
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
       },
-      body: form,
+      body: JSON.stringify({ input }),
     });
 
     const data = await response.json().catch(() => null);
@@ -358,7 +362,10 @@ async function moderateVisualWithHive(source, filename = "media.jpg") {
     const classes = collectHiveClasses(data);
 
     if (!classes.length) {
-      return pendingResult("hive-invalid-response", ["hive-review-unavailable"]);
+      return {
+        ...pendingResult("hive-invalid-response", ["hive-review-unavailable"]),
+        required: false,
+      };
     }
 
     const flags = classes
@@ -368,7 +375,10 @@ async function moderateVisualWithHive(source, filename = "media.jpg") {
     return flags.length ? blockedResult("hive", flags) : approvedResult("hive");
   } catch (error) {
     console.error("[Hive Visual Moderation Failed]", error);
-    return pendingResult("hive-fallback", ["hive-review-unavailable"]);
+    return {
+      ...pendingResult("hive-fallback", ["hive-review-unavailable"]),
+      required: false,
+    };
   }
 }
 
@@ -471,6 +481,7 @@ export default async function handler(req, res) {
     if (media?.audioDataUrl) {
       const transcriptionResult = await transcribeAudio(media.audioDataUrl);
       const { transcript = "", ...transcriptionReview } = transcriptionResult;
+
       results.push({
         ...transcriptionReview,
         transcriptPreview: transcript.slice(0, 180),
@@ -495,6 +506,7 @@ export default async function handler(req, res) {
     const videoFrames = Array.isArray(media?.videoFrameDataUrls)
       ? media.videoFrameDataUrls.filter(isDataUrl).slice(0, 4)
       : [];
+
     const hiveVideoSource = media?.videoUrl || media?.videoDataUrl || "";
     const videoReviewRequired = Boolean(media?.videoReviewRequired || hiveVideoSource || videoFrames.length);
 
@@ -510,11 +522,12 @@ export default async function handler(req, res) {
       }
 
       let hiveVideoApproved = false;
-     let sightengineFramesApproved = videoFrames.length > 0;
-     let hiveFramesApproved = false;
+      let sightengineFramesApproved = videoFrames.length > 0;
+      let hiveFramesApproved = false;
 
       if (hiveVideoSource) {
         const hiveVideoResult = await moderateVisualWithHive(hiveVideoSource, "video.mp4");
+
         results.push({
           ...hiveVideoResult,
           provider: "hive-video",
@@ -536,6 +549,7 @@ export default async function handler(req, res) {
 
       for (const [index, frame] of videoFrames.entries()) {
         const frameResult = await moderateImageWithSightengine(frame);
+
         results.push({
           ...frameResult,
           provider: `sightengine-video-frame-${index + 1}`,
@@ -555,6 +569,7 @@ export default async function handler(req, res) {
         sightengineFramesApproved = sightengineFramesApproved && frameResult.status === "approved";
 
         const hiveFrameResult = await moderateVisualWithHive(frame, `video-frame-${index + 1}.jpg`);
+
         results.push({
           ...hiveFrameResult,
           provider: `hive-video-frame-${index + 1}`,
@@ -604,9 +619,10 @@ export default async function handler(req, res) {
     return json(res, 200, {
       ok: true,
       decision,
-      reason: decision === "pending"
-        ? "Post published while KunThai completes the remaining safety review."
-        : "Post passed KunThai safety review.",
+      reason:
+        decision === "pending"
+          ? "Post published while KunThai completes the remaining safety review."
+          : "Post passed KunThai safety review.",
       flags: [],
       results,
     });
