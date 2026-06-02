@@ -668,6 +668,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
               videoName: postDraft.mediaMeta?.videoName || "",
               videoSize: uploadedVideoSize,
               progress: 80,
+              nextRunAt: Date.now() + 24_000,
               message: "Your video is uploaded. KunThai is checking the full file in the background.",
             });
             setOpen(false);

@@ -2,7 +2,6 @@ export const POSTING_NOTICE_EVENT = "explore-posting-update";
 
 const POSTING_NOTICE_KEY = "explore-posting-notice";
 const VIDEO_REVIEW_JOBS_KEY = "explore-video-review-jobs";
-const TRANSIENT_NOTICE_MS = 6200;
 const MAX_VIDEO_REVIEW_JOBS = 6;
 
 function canUseStorage() {
@@ -24,7 +23,7 @@ function now() {
 export function normalizePostingNotice(detail = {}) {
   const timestamp = now();
   const status = String(detail.status || "posting");
-  const persistent = detail.persistent ?? status === "reviewing";
+  const persistent = detail.persistent ?? true;
 
   return {
     id: detail.id || `notice-${timestamp}`,
@@ -37,7 +36,7 @@ export function normalizePostingNotice(detail = {}) {
     persistent,
     pulse: detail.pulse ?? !["complete", "error"].includes(status),
     updatedAt: detail.updatedAt || timestamp,
-    expiresAt: persistent ? null : detail.expiresAt || timestamp + TRANSIENT_NOTICE_MS,
+    expiresAt: persistent ? null : detail.expiresAt || null,
   };
 }
 

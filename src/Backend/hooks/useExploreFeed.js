@@ -773,6 +773,17 @@ export function useExploreFeed(scope = "feed") {
     });
   }
 
+  function dismissPostLocally(postId) {
+    if (!postId) return;
+
+    setPosts((current) => {
+      const nextPosts = current.filter((post) => post.id !== postId);
+      writeStoredPosts(scope, nextPosts);
+      return nextPosts;
+    });
+    removePostFromAllCaches(postId);
+  }
+
   async function reportPost(postId, reasonValue = "") {
     if (!canRunSafetyAction("report-post")) {
       setError("You are reporting too quickly. Please slow down for a moment.");
@@ -834,6 +845,7 @@ export function useExploreFeed(scope = "feed") {
     editPost,
     deletePost,
     hidePost,
+    dismissPostLocally,
     reportPost,
     viewActivity,
   };

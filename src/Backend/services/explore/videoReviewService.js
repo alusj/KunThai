@@ -91,7 +91,7 @@ function scheduleVideoReviewJob(job, delayMs = 0) {
 export function startPendingVideoReviewJob(job) {
   const savedJob = upsertVideoReviewJob(job);
   publishReviewNotice(savedJob);
-  scheduleVideoReviewJob(savedJob, 900);
+  scheduleVideoReviewJob(savedJob, Math.max(900, Number(savedJob.nextRunAt || 0) - Date.now()));
   return savedJob;
 }
 

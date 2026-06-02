@@ -54,6 +54,7 @@ export default function VideoCard({
   onSave,
   onComment,
   onDelete,
+  onMediaUnavailable,
   onFullscreenToggle,
   onViewProfile,
 }) {
@@ -352,6 +353,7 @@ export default function VideoCard({
         onError={() => {
           setVideoLoading(false);
           setMediaError("Video could not load yet. It may still be uploading.");
+          onMediaUnavailable?.();
         }}
         onCanPlay={() => {
           setVideoLoading(false);

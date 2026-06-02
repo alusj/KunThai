@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "./Backend/hooks/useAuth";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
@@ -11,15 +11,6 @@ import Login from "./Login";
 import { PageTransition } from "./components/shared/motion";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 import { clearExploreScreenStack } from "./Backend/services/explore/navigationService";
-import {
-  clearPostingNotice,
-  getPostingNoticeClearDelay,
-  POSTING_NOTICE_EVENT,
-  readPostingNotice,
-  writePostingNotice,
-} from "./Backend/services/explore/postingProgressService";
-import { resumePendingVideoReviewJobs } from "./Backend/services/explore/videoReviewService";
-import PostingStatusBanner from "./components/Explore/shared/PostingStatusBanner";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
@@ -117,8 +108,6 @@ export default function App() {
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [pageSlideDirection, setPageSlideDirection] = useState("forward");
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
-  const [postingNotice, setPostingNotice] = useState(() => readPostingNotice());
-  const postingNoticeClearTimerRef = useRef(null);
   const userId = user?.id || "";
 
   useEffect(() => {
@@ -150,53 +139,6 @@ export default function App() {
     const preferredPage = normalizeMainPage(onboardingProfile?.primarySurface) || readLastMainPage();
     setPage((current) => normalizeMainPage(current) || preferredPage);
   }, [onboardingProfile?.primarySurface, userId]);
-
-  useEffect(() => {
-    function scheduleNoticeClear(notice) {
-      window.clearTimeout(postingNoticeClearTimerRef.current);
-      const delay = getPostingNoticeClearDelay(notice);
-
-      if (delay === null) {
-        return;
-      }
-
-      postingNoticeClearTimerRef.current = window.setTimeout(() => {
-        clearPostingNotice(notice?.id);
-        setPostingNotice((current) => (current?.id === notice?.id ? null : current));
-      }, delay);
-    }
-
-    const savedNotice = readPostingNotice();
-    if (savedNotice) {
-      setPostingNotice(savedNotice);
-      scheduleNoticeClear(savedNotice);
-    }
-
-    function handlePostingUpdate(event) {
-      const notice = writePostingNotice(event.detail || {});
-      setPostingNotice(notice);
-      scheduleNoticeClear(notice);
-    }
-
-    window.addEventListener(POSTING_NOTICE_EVENT, handlePostingUpdate);
-    return () => {
-      window.clearTimeout(postingNoticeClearTimerRef.current);
-      window.removeEventListener(POSTING_NOTICE_EVENT, handlePostingUpdate);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!userId) {
-      clearPostingNotice();
-      setPostingNotice(null);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (userId && onboardingComplete) {
-      resumePendingVideoReviewJobs(userId);
-    }
-  }, [onboardingComplete, userId]);
 
   useEffect(() => {
     function cleanupMedia() {
@@ -271,8 +213,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100">
-      <PostingStatusBanner notice={postingNotice} />
-
       <PageTransition active className="min-h-screen">
         <section className={pagePanelClass("explore")} aria-hidden={page !== "explore"}>
           <Explore

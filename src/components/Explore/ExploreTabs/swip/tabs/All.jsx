@@ -201,6 +201,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
             onSave={() => feed.toggleSave(post.id)}
             onComment={(delta) => feed.bumpCommentCount(post.id, delta)}
             onDelete={() => feed.deletePost(post.id, { confirm: false })}
+            onMediaUnavailable={() => feed.dismissPostLocally(post.id)}
             onFullscreenToggle={() => setFullscreen((current) => !current)}
             onViewProfile={() =>
               onViewProfile?.({

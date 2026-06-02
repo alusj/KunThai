@@ -6,6 +6,14 @@ import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
 import { useScrollHidden } from "../../Backend/hooks/useScrollHidden";
 import { buildExploreProfileFromUser, ensureExploreProfile, fetchExploreProfile } from "../../Backend/services/exploreService";
+import {
+  clearPostingNotice,
+  getPostingNoticeClearDelay,
+  POSTING_NOTICE_EVENT,
+  readPostingNotice,
+  writePostingNotice,
+} from "../../Backend/services/explore/postingProgressService";
+import { resumePendingVideoReviewJobs } from "../../Backend/services/explore/videoReviewService";
 
 // Pages (PARENT TAB CONTENT)
 import UrFeed from "./ExploreTabs/urfeed/UrFeed";
@@ -29,6 +37,7 @@ import { MENU_SCREENS } from "./config/menuScreens";
 import ExploreHeader from "./components/header/ExploreHeader";
 import { SocialMenuContent } from "./components/header/HeaderMenu";
 import ExploreTabs from "./ExploreTabs/ExploreTabs";
+import PostingStatusBanner from "./shared/PostingStatusBanner";
 import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
@@ -65,6 +74,7 @@ export default function Explore({ active = true, onScreenModeChange, user = null
   const [viewedProfile, setViewedProfile] = useState(null);
   const [messageRecipient, setMessageRecipient] = useState(null);
   const [messageConversationActive, setMessageConversationActive] = useState(false);
+  const [postingNotice, setPostingNotice] = useState(() => readPostingNotice());
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
@@ -73,6 +83,7 @@ export default function Explore({ active = true, onScreenModeChange, user = null
   const tabScrollRef = useRef({});
   const previousMenuStackRef = useRef([]);
   const stackCleanupTimerRef = useRef(null);
+  const postingNoticeClearTimerRef = useRef(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const navHidden = useScrollHidden();
   const authProfile = buildExploreProfileFromUser(user);
@@ -245,6 +256,55 @@ setProfileError("");
     window.addEventListener("explore-open-tab", handleOpenTab);
     return () => window.removeEventListener("explore-open-tab", handleOpenTab);
   }, [exploreNav]);
+
+  useEffect(() => {
+    function scheduleNoticeClear(notice) {
+      window.clearTimeout(postingNoticeClearTimerRef.current);
+      const delay = getPostingNoticeClearDelay(notice);
+
+      if (delay === null) {
+        return;
+      }
+
+      postingNoticeClearTimerRef.current = window.setTimeout(() => {
+        clearPostingNotice(notice?.id);
+        setPostingNotice((current) => (current?.id === notice?.id ? null : current));
+      }, delay);
+    }
+
+    const savedNotice = readPostingNotice();
+    if (savedNotice) {
+      setPostingNotice(savedNotice);
+      scheduleNoticeClear(savedNotice);
+    }
+
+    function handlePostingUpdate(event) {
+      const notice = writePostingNotice(event.detail || {});
+      setPostingNotice(notice);
+      scheduleNoticeClear(notice);
+    }
+
+    window.addEventListener(POSTING_NOTICE_EVENT, handlePostingUpdate);
+    return () => {
+      window.clearTimeout(postingNoticeClearTimerRef.current);
+      window.removeEventListener(POSTING_NOTICE_EVENT, handlePostingUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      clearPostingNotice();
+      setPostingNotice(null);
+      return;
+    }
+
+    resumePendingVideoReviewJobs(currentUserId);
+  }, [currentUserId]);
+
+  function dismissPostingNotice() {
+    clearPostingNotice(postingNotice?.id);
+    setPostingNotice(null);
+  }
 
   function openViewedProfile(authorProfile) {
     stopAllExploreMedia();
@@ -557,6 +617,8 @@ setProfileError("");
       className={`block min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
       style={{ "--explore-top-chrome-height": `${topChromeHeight}px` }}
     >
+      <PostingStatusBanner notice={postingNotice} onDismiss={dismissPostingNotice} />
+
       {/* =========================
           HEADER + PARENT TABS
       ========================= */}
