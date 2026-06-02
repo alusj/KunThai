@@ -47,16 +47,12 @@ function getModerationStatus(payload) {
 
   const status = String(payload.moderation_status || "").toLowerCase();
 
-  if (status === "approved") {
-    return "approved";
-  }
-
-  if (status === "blocked") {
-    return "blocked";
+  if (["approved", "pending", "blocked"].includes(status)) {
+    return status;
   }
 
   throw new Error(
-    "Video moderation must return approved or blocked."
+    "Video moderation must return approved, pending, or blocked."
   );
 }
 
@@ -533,6 +529,30 @@ export async function updateExplorePost(postId, patch) {
 
   if (error) {
     if (isMissingTable(error)) {
+      return null;
+    }
+    throw error;
+  }
+
+  return data;
+}
+
+export async function updateExploreVideoModerationStatus(postId, status) {
+  const moderationStatus = String(status || "").toLowerCase();
+
+  if (!postId || !["approved", "pending"].includes(moderationStatus)) {
+    throw new Error("Unsupported video moderation update.");
+  }
+
+  const { data, error } = await supabase
+    .from("explore_posts")
+    .update({ moderation_status: moderationStatus })
+    .eq("id", postId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error) || isMissingColumn(error, "moderation_status")) {
       return null;
     }
     throw error;

@@ -198,12 +198,13 @@ export function contentHasModerationFlags(value) {
   return patterns.filter((pattern) => text.includes(pattern));
 }
 
-export async function moderateExplorePost({ body = "", media = {} }) {
+export async function moderateExplorePost({ body = "", media = {}, signal = undefined }) {
   const response = await fetch("/api/moderate-post", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
+    signal,
     body: JSON.stringify({
       body,
       media,

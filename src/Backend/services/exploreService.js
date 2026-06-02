@@ -15,6 +15,7 @@ export {
   uploadExploreVideoForReview,
   updateExplorePost,
   updateExplorePostCounts,
+  updateExploreVideoModerationStatus,
 } from "./explore/postService";
 export {
   createExploreComment,

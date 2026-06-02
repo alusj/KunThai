@@ -29,7 +29,6 @@ import { MENU_SCREENS } from "./config/menuScreens";
 import ExploreHeader from "./components/header/ExploreHeader";
 import { SocialMenuContent } from "./components/header/HeaderMenu";
 import ExploreTabs from "./ExploreTabs/ExploreTabs";
-import { postingStages } from "./ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
@@ -66,7 +65,6 @@ export default function Explore({ active = true, onScreenModeChange, user = null
   const [viewedProfile, setViewedProfile] = useState(null);
   const [messageRecipient, setMessageRecipient] = useState(null);
   const [messageConversationActive, setMessageConversationActive] = useState(false);
-  const [postingNotice, setPostingNotice] = useState(null);
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
@@ -237,26 +235,6 @@ setProfileError("");
   }, [authLoading, user]);
 
   useEffect(() => {
-    let clearTimer;
-
-    function handlePostingUpdate(event) {
-      const detail = event.detail || {};
-      clearTimeout(clearTimer);
-      setPostingNotice(detail);
-
-      if (detail.status === "complete" || detail.status === "error") {
-        clearTimer = setTimeout(() => setPostingNotice(null), 4200);
-      }
-    }
-
-    window.addEventListener("explore-posting-update", handlePostingUpdate);
-    return () => {
-      clearTimeout(clearTimer);
-      window.removeEventListener("explore-posting-update", handlePostingUpdate);
-    };
-  }, []);
-
-  useEffect(() => {
     function handleOpenTab(event) {
       const tab = event.detail?.tab;
       if (tab) {
@@ -391,14 +369,6 @@ setProfileError("");
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.scrollTo({ top: nextScroll, behavior: "instant" }));
     });
-  }
-
-  function getParentTabPanelClass(tab) {
-    if (activeTab !== tab) {
-      return "hidden";
-    }
-
-    return `block ${tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`;
   }
 
   function renderMenuScreen(screenKey) {
@@ -587,8 +557,6 @@ setProfileError("");
       className={`block min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
       style={{ "--explore-top-chrome-height": `${topChromeHeight}px` }}
     >
-      {postingNotice ? <PostingStatusBanner notice={postingNotice} /> : null}
-
       {/* =========================
           HEADER + PARENT TABS
       ========================= */}
@@ -702,60 +670,6 @@ function ExploreProfileError({ message }) {
     <div className="px-4 py-4 sm:px-5 lg:px-8">
       <div className="rounded-[24px] border border-rose-100 bg-white p-5 text-sm font-bold text-rose-700 shadow-sm">
         {message}
-      </div>
-    </div>
-  );
-}
-
-function PostingStatusBanner({ notice }) {
-  const progress = Math.max(0, Math.min(100, notice.progress || 0));
-  const isError = notice.status === "error";
-  const activeIndex = Math.max(0, postingStages.findIndex((item) => item.key === notice.stage));
-  const currentStage = postingStages[activeIndex] || postingStages[0];
-  const title = isError ? "Post not published" : notice.status === "complete" ? "Post published" : "Publishing in background";
-  const stageMessages = {
-    preparing: "Locking your draft and preparing the upload.",
-    "uploading-media": "Uploading your original media securely before safety scanning.",
-    "text-scan": "Scanning text for policy violations and unsafe content.",
-    "media-scan": "Scanning attached media for policy violations before it reaches the feed.",
-    publishing: "Publishing the approved post to Explore.",
-    syncing: "Syncing the new post into your feed.",
-    complete: "Your post is live on Explore.",
-  };
-  const message = notice.message || stageMessages[notice.stage] || "Processing your post securely.";
-
-  return (
-    <div className="fixed left-3 right-3 top-3 z-[90] mx-auto max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-      <div className="px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${isError ? "text-rose-600" : "text-sky-700"}`}>{title}</p>
-            <h3 className="mt-1 truncate text-sm font-black text-slate-950">{isError ? "Review stopped" : currentStage.label}</h3>
-            <p className="mt-0.5 line-clamp-2 text-xs font-semibold leading-5 text-slate-600">{message}</p>
-          </div>
-          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${isError ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700"}`}>{progress}%</span>
-        </div>
-
-        {!isError ? (
-          <>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full bg-sky-600 transition-all duration-300" style={{ width: `${progress}%` }} />
-            </div>
-            <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-              {postingStages.map((stage, index) => {
-                const done = notice.status === "complete" || index < activeIndex;
-                const active = stage.key === notice.stage && notice.status !== "complete";
-                return (
-                  <div
-                    key={stage.key}
-                    className={`h-1.5 rounded-full transition-colors ${done || active ? "bg-sky-600" : "bg-slate-200"}`}
-                    title={stage.label}
-                  />
-                );
-              })}
-            </div>
-          </>
-        ) : null}
       </div>
     </div>
   );

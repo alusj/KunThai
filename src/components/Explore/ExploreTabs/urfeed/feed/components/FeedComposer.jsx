@@ -6,7 +6,9 @@ import {
   removeExploreVideoUpload,
   uploadExploreVideoForReview,
 } from "../../../../../../Backend/services/exploreService";
+import { publishPostingNotice } from "../../../../../../Backend/services/explore/postingProgressService";
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
+import { startPendingVideoReviewJob } from "../../../../../../Backend/services/explore/videoReviewService";
 import Avatar from "../../../../shared/Avatar";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
@@ -27,6 +29,8 @@ import {
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 
 const MAX_LOCAL_VIDEO_BYTES = 150 * 1024 * 1024;
+const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
+const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
 
 export default function FeedComposer({ profile, creating, onSubmit }) {
@@ -497,7 +501,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function publishPostingUpdate(detail) {
-    window.dispatchEvent(new CustomEvent("explore-posting-update", { detail }));
+    publishPostingNotice(detail);
   }
 
   async function handleSubmit(event) {
@@ -587,6 +591,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         }
       }
 
+      const tags = parseTags(postDraft.body);
+      const uploadedVideoSize = Number(postDraft.mediaMeta?.videoSize || originalVideoFileRef.current?.size || 0);
+      const shouldUseBackgroundReview = Boolean(
+        postDraft.video_url &&
+        (uploadedVideoSize >= LARGE_VIDEO_BACKGROUND_REVIEW_BYTES || videoFrameExtractionFailed),
+      );
+
       const review = await runPostReviewPipeline({
         body: postDraft.body,
         media: {
@@ -612,9 +623,68 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
               : undefined,
           });
         },
+        reviewTimeoutMs: shouldUseBackgroundReview ? LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS : 0,
       });
 
       if (!review.ok) {
+        if (postDraft.video_url && uploadedReviewVideoUrl && review.retryable) {
+          setPostingStage("syncing");
+          setPostingProgress(76);
+          publishPostingUpdate({
+            status: "reviewing",
+            stage: "media-scan",
+            progress: 76,
+            persistent: true,
+            message: "Your video is uploaded. KunThai is finishing the full safety review in the background.",
+          });
+
+          const pendingResult = await onSubmit?.({
+            video_trim_start: postDraft.mediaMeta?.videoTrimStart || 0,
+            video_trim_end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
+            body: postDraft.body,
+            author_name: postDraft.author_name,
+            author_username: postDraft.author_username,
+            author_avatar_url: postDraft.author_avatar_url,
+            user_id: postDraft.user_id,
+            image_url: postDraft.image_url,
+            audio_url: postDraft.audio_url,
+            video_url: uploadedReviewVideoUrl,
+            video_file: null,
+            audio_duration_seconds: postDraft.audio_duration_seconds,
+            post_privacy: postDraft.post_privacy,
+            hashtags: tags.hashtags,
+            mentions: tags.mentions,
+            moderation_status: "pending",
+          });
+
+          if (pendingResult?.ok && pendingResult.post?.id) {
+            const reviewVideoUrl = uploadedReviewVideoUrl;
+            uploadedReviewVideoUrl = "";
+            startPendingVideoReviewJob({
+              postId: pendingResult.post.id,
+              userId: pendingResult.post.user_id || postDraft.user_id,
+              videoUrl: reviewVideoUrl,
+              body: postDraft.body,
+              videoName: postDraft.mediaMeta?.videoName || "",
+              videoSize: uploadedVideoSize,
+              progress: 80,
+              message: "Your video is uploaded. KunThai is checking the full file in the background.",
+            });
+            setOpen(false);
+            resetComposer();
+            return;
+          }
+
+          const pendingMessage = pendingResult?.error || "Unable to save the video while review continues.";
+          await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
+          setPostingStage("");
+          setPostingProgress(0);
+          setOpen(true);
+          setFeedback(pendingMessage);
+          publishPostingUpdate({ status: "error", progress: 0, message: pendingMessage });
+          return;
+        }
+
         await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
         setPostingStage("");
         setPostingProgress(0);
@@ -624,7 +694,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         return;
       }
 
-      const tags = parseTags(postDraft.body);
       const uploadedVideoUrl = uploadedReviewVideoUrl || postDraft.video_url;
 
       setPostingStage("syncing");

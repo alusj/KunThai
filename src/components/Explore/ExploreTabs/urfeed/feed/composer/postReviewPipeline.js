@@ -17,6 +17,10 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isAbortError(error) {
+  return error?.name === "AbortError" || String(error?.message || "").toLowerCase().includes("abort");
+}
+
 function isLikelyLocalDev() {
   return (
     window.location.hostname === "localhost" ||
@@ -31,7 +35,7 @@ function logSafetyReview(event, detail = {}) {
   }
 }
 
-export async function runPostReviewPipeline({ body, media, onStage }) {
+export async function runPostReviewPipeline({ body, media, onStage, reviewTimeoutMs = 0 }) {
   if (!media?.videoReviewRequired) {
     onStage?.("preparing", 12);
     await wait(180);
@@ -45,10 +49,25 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
 
   try {
     const moderationPayload = buildModerationMediaPayload(media);
-    const review = await moderateExplorePost({
-      body,
-      media: moderationPayload,
-    });
+    const controller = reviewTimeoutMs > 0 && typeof AbortController !== "undefined"
+      ? new AbortController()
+      : null;
+    const timeoutId = controller
+      ? window.setTimeout(() => controller.abort(), reviewTimeoutMs)
+      : null;
+    let review;
+
+    try {
+      review = await moderateExplorePost({
+        body,
+        media: moderationPayload,
+        signal: controller?.signal,
+      });
+    } finally {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    }
 
     if (!review?.ok) {
       const decision = review?.decision || "failed";
@@ -91,7 +110,9 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
       return {
         ok: false,
         retryable: true,
-        reason: "KunThai could not complete this video's safety scan. Please try posting the video again.",
+        reason: isAbortError(error)
+          ? "KunThai needs more time to finish this video's safety scan."
+          : "KunThai could not complete this video's safety scan. Please try posting the video again.",
       };
     }
   }
