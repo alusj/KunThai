@@ -62,6 +62,10 @@ function displayTypeForFleet(fleetType, serviceCategory) {
   return type;
 }
 
+function normalizeIdentityValue(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+
 function formatLastActive(value) {
   if (!value) return "Last active time unavailable";
 
@@ -143,7 +147,25 @@ function mapLiveFleet(row) {
     acceptsDelivery: Boolean(row.accepts_delivery),
     maxDistanceKm: row.max_distance_km || "",
     operatingHours: [row.operating_hours_start, row.operating_hours_end].filter(Boolean).join(" - "),
+    updatedAt: row.updated_at || row.created_at || "",
   };
+}
+
+function dedupeLiveFleets(fleets) {
+  const seenOperators = new Set();
+  const seenPlates = new Set();
+
+  return fleets.filter((fleet) => {
+    const operatorKey = fleet.operatorRecordId || fleet.operatorId;
+    const plateKey = normalizeIdentityValue(fleet.plateNumber);
+
+    if (operatorKey && seenOperators.has(operatorKey)) return false;
+    if (plateKey && plateKey !== "NO-PLATE" && seenPlates.has(plateKey)) return false;
+
+    if (operatorKey) seenOperators.add(operatorKey);
+    if (plateKey && plateKey !== "NO-PLATE") seenPlates.add(plateKey);
+    return true;
+  });
 }
 
 const statusRank = {
@@ -207,7 +229,7 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
     throw error;
   }
 
-  const liveFleets = (data || []).map(mapLiveFleet);
+  const liveFleets = dedupeLiveFleets((data || []).map(mapLiveFleet));
 
   return sortFleets(
     liveFleets.filter((fleet) => matchesMode(fleet, selection.mode) && (!selection.fleetType || fleet.fleetType === selection.fleetType)),

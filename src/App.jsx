@@ -10,8 +10,37 @@ import Transport from "./components/transport/Transport";
 import Login from "./Login";
 import { PageTransition } from "./components/shared/motion";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
+import { clearExploreScreenStack } from "./Backend/services/explore/navigationService";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
+const LAST_PAGE_KEY = "kuntai-last-page";
+
+function normalizeMainPage(value) {
+  const page = String(value || "").toLowerCase();
+  if (page === "urmall") return "marketplace";
+  return PAGE_ORDER.includes(page) ? page : "";
+}
+
+function getMainPageFromHash(hashValue = "") {
+  const hash = String(hashValue || "").toLowerCase();
+  if (hash.includes("swip") || hash.includes("urfeed") || hash.includes("connections")) return "explore";
+  if (hash.includes("marketplace") || hash.includes("urmall")) return "marketplace";
+  if (hash.includes("transport")) return "transport";
+  return "";
+}
+
+function readLastMainPage() {
+  try {
+    return normalizeMainPage(localStorage.getItem(LAST_PAGE_KEY)) || "explore";
+  } catch {
+    return "explore";
+  }
+}
+
+function clearBrowserHash() {
+  if (!window.location.hash) return;
+  window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+}
 
 function AppLoading({ page = "explore" }) {
   return (
@@ -71,19 +100,7 @@ export default function App() {
     isComplete: onboardingComplete,
   } = useOnboarding(user);
   const [page, setPage] = useState(() => {
-    const hash = String(window.location.hash || "").toLowerCase();
-    if (hash.includes("swip") || hash.includes("urfeed") || hash.includes("connections")) {
-      return "explore";
-    }
-    if (hash.includes("marketplace") || hash.includes("urmall")) {
-      return "marketplace";
-    }
-
-    try {
-      return localStorage.getItem("kuntai-last-page") || "explore";
-    } catch {
-      return "explore";
-    }
+    return getMainPageFromHash(window.location.hash) || readLastMainPage();
   });
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
@@ -91,13 +108,14 @@ export default function App() {
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [pageSlideDirection, setPageSlideDirection] = useState("forward");
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
+  const userId = user?.id || "";
 
   useEffect(() => {
     stopAllExploreMedia();
     setMarketplaceActivityOpen(false);
     setTransportActivityOpen(false);
     try {
-      localStorage.setItem("kuntai-last-page", page);
+      localStorage.setItem(LAST_PAGE_KEY, normalizeMainPage(page) || "explore");
     } catch {
       // Keep navigation usable if browser storage is unavailable.
     }
@@ -105,6 +123,22 @@ export default function App() {
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     }
   }, [page]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    stopAllExploreMedia();
+    clearExploreScreenStack();
+    setExploreFullScreen(false);
+    setMarketplaceNav({ root: "marketplace", sub: null });
+    setMarketplaceActivityOpen(false);
+    setTransportActivityOpen(false);
+    setTransportAreaRequest(null);
+    clearBrowserHash();
+
+    const preferredPage = normalizeMainPage(onboardingProfile?.primarySurface) || readLastMainPage();
+    setPage((current) => normalizeMainPage(current) || preferredPage);
+  }, [onboardingProfile?.primarySurface, userId]);
 
   useEffect(() => {
     function cleanupMedia() {

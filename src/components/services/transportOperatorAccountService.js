@@ -1,6 +1,7 @@
 import supabase from "../../Backend/lib/supabaseClient";
 
 const DRAFT_KEY = "kuntai.transport.operatorDraft";
+const DRAFT_KEY_PREFIX = `${DRAFT_KEY}.`;
 const LEGACY_ACCOUNT_KEY = "kuntai.transport.operatorAccount";
 
 function safeParse(value) {
@@ -43,6 +44,29 @@ function displayFleetType(value) {
   return map[value] || value || "Fleet";
 }
 
+function normalizeOperatorCode(value) {
+  const code = String(value || "").replace(/\D/g, "").slice(0, 5);
+  return /^\d{5}$/.test(code) ? code : "";
+}
+
+function generateOperatorCode() {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    return String(10000 + (values[0] % 90000));
+  }
+
+  return String(Math.floor(10000 + Math.random() * 90000));
+}
+
+function normalizePlateNumber(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+function getDraftKey(userId) {
+  return `${DRAFT_KEY_PREFIX}${userId}`;
+}
+
 async function getCurrentUserId(message = "Sign in to manage your fleet.") {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user?.id) throw new Error(message);
@@ -80,6 +104,7 @@ function mapOperatorAccount(row, fleet, extras = {}) {
 
   return {
     id: row.id,
+    userId: row.user_id || "",
     fleetId: fleet?.id || "",
     operatorId: row.operator_code,
     displayCode: row.display_code || `KT-${row.operator_code}`,
@@ -190,17 +215,28 @@ function mapTransaction(row) {
   };
 }
 
-export function getOperatorDraft() {
-  return safeParse(localStorage.getItem(DRAFT_KEY));
+export async function getOperatorDraft() {
+  const userId = await getCurrentUserId("Sign in to continue your fleet draft.");
+  const scopedDraft = safeParse(localStorage.getItem(getDraftKey(userId)));
+  if (scopedDraft?.userId === userId) return scopedDraft;
+
+  const legacyDraft = safeParse(localStorage.getItem(DRAFT_KEY));
+  if (legacyDraft?.userId === userId) return legacyDraft;
+  if (legacyDraft) localStorage.removeItem(DRAFT_KEY);
+  return null;
 }
 
-export function saveOperatorDraft(draft) {
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  return draft;
+export async function saveOperatorDraft(draft) {
+  const userId = await getCurrentUserId("Sign in before saving your fleet draft.");
+  const scopedDraft = { ...draft, userId };
+  localStorage.setItem(getDraftKey(userId), JSON.stringify(scopedDraft));
+  localStorage.removeItem(DRAFT_KEY);
+  return scopedDraft;
 }
 
 export function getLegacyOperatorAccount() {
-  return safeParse(localStorage.getItem(LEGACY_ACCOUNT_KEY));
+  const stored = safeParse(localStorage.getItem(LEGACY_ACCOUNT_KEY));
+  return stored?.userId ? stored : null;
 }
 
 export async function getOperatorAccount() {
@@ -212,7 +248,10 @@ export async function getOperatorAccount() {
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (!operator) return null;
+  if (!operator) {
+    localStorage.removeItem(LEGACY_ACCOUNT_KEY);
+    return null;
+  }
 
   const [{ data: fleets, error: fleetError }, dashboard] = await Promise.all([
     supabase
@@ -375,74 +414,146 @@ export async function fetchOperatorDashboard(operatorId = null) {
 export async function saveOperatorAccount(account) {
   const userId = await getCurrentUserId("Sign in before submitting your fleet.");
   const form = account.form || {};
-  const operatorCode = account.operatorId || account.displayCode?.replace("KT-", "");
+  const requestedOperatorCode = normalizeOperatorCode(account.operatorId || account.displayCode);
+  const plateNumber = normalizePlateNumber(form.plateNumber);
   const documentsSkipped = Boolean(account.documentsSkipped);
   const verificationStatus = documentsSkipped ? "not_verified" : "verification_pending";
 
-  const { data: operator, error: operatorError } = await supabase
+  if (!plateNumber) {
+    throw new Error("Plate number is required so this fleet cannot be confused with another operator.");
+  }
+
+  const { data: existingOperator, error: existingOperatorError } = await supabase
     .from("transport_operators")
-    .upsert(
-      {
-        user_id: userId,
-        operator_code: operatorCode,
-        full_name: form.name?.trim() || "Operator",
-        phone: form.phone?.trim() || "",
-        city: form.city?.trim() || "",
-        emergency_contact: form.emergencyContact?.trim() || "",
-        documents_skipped: documentsSkipped,
-        verification_status: verificationStatus,
-        account_status: "submitted",
-        profile_completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "operator_code" },
-    )
-    .select()
+    .select("*")
+    .eq("user_id", userId)
     .maybeSingle();
 
-  if (operatorError) throw new Error(operatorError.message);
+  if (existingOperatorError) throw new Error(existingOperatorError.message);
 
-  const { data: fleet, error: fleetError } = await supabase
+  const operatorPayload = {
+    user_id: userId,
+    full_name: form.name?.trim() || "Operator",
+    phone: form.phone?.trim() || "",
+    city: form.city?.trim() || "",
+    emergency_contact: form.emergencyContact?.trim() || "",
+    documents_skipped: documentsSkipped,
+    verification_status: verificationStatus,
+    account_status: "submitted",
+    profile_completed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  let operator = existingOperator;
+
+  if (existingOperator?.id) {
+    const { data, error } = await supabase
+      .from("transport_operators")
+      .update(operatorPayload)
+      .eq("id", existingOperator.id)
+      .eq("user_id", userId)
+      .select()
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    operator = data;
+  } else {
+    let lastError = null;
+    const seedCode = requestedOperatorCode || generateOperatorCode();
+    const codeAttempts = [seedCode, ...Array.from({ length: 8 }, generateOperatorCode)];
+
+    for (const operatorCode of codeAttempts) {
+      const { data, error } = await supabase
+        .from("transport_operators")
+        .insert({
+          ...operatorPayload,
+          operator_code: operatorCode,
+        })
+        .select()
+        .maybeSingle();
+
+      if (!error) {
+        operator = data;
+        break;
+      }
+
+      lastError = error;
+      if (error.code !== "23505") break;
+    }
+
+    if (!operator) {
+      throw new Error(
+        lastError?.code === "23505"
+          ? "KunThai could not reserve a unique operator code. Please submit again."
+          : lastError?.message || "Unable to create operator profile.",
+      );
+    }
+  }
+
+  const { data: plateConflict, error: plateConflictError } = await supabase
     .from("transport_fleets")
-    .upsert(
-      {
-        operator_id: operator.id,
-        service_category: normalizeCategory(form.category),
-        fleet_type: normalizeFleetType(form.fleetType),
-        fleet_name: form.fleetName?.trim() || form.fleetType || "Registered Fleet",
-        plate_number: form.plateNumber?.trim() || "NO-PLATE",
-        make: form.make?.trim() || "",
-        model: form.model?.trim() || "",
-        manufacture_year: form.year ? Number(form.year) : null,
-        color: form.color?.trim() || "",
-        operating_area: form.operatingArea?.trim() || "",
-        availability: form.availability || "Full-time",
-        home_base_location: form.homeBaseLocation?.trim() || "",
-        fuel_type: form.fuelType?.trim() || "",
-        car_body_type: form.carBodyType?.trim() || "",
-        max_load: form.maxLoad?.trim() || "",
-        delivery_body_type: form.deliveryBodyType?.trim() || "",
-        base_fare: form.baseFare ? Number(form.baseFare) : null,
-        price_per_km: form.pricePerKm ? Number(form.pricePerKm) : null,
-        price_per_hour: form.pricePerHour ? Number(form.pricePerHour) : null,
-        price_hint: form.priceHint?.trim() || [
-          form.pricePerKm ? `SLE ${Number(form.pricePerKm).toLocaleString()} per km` : "",
-          form.pricePerHour ? `SLE ${Number(form.pricePerHour).toLocaleString()} per hour` : "",
-        ].filter(Boolean).join(" | "),
-        safety_answers: account.answers || {},
-        verification_status: verificationStatus,
-        accepts_ride: ["Transport", "Both"].includes(form.category),
-        accepts_delivery: ["Delivery", "Both"].includes(form.category),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "operator_id,plate_number" },
-    )
-    .select()
-    .maybeSingle();
+    .select("id, operator_id")
+    .eq("plate_number", plateNumber)
+    .neq("operator_id", operator.id)
+    .limit(1);
+
+  if (plateConflictError) throw new Error(plateConflictError.message);
+  if (plateConflict?.length) {
+    throw new Error("This plate number is already registered to another operator.");
+  }
+
+  const { data: existingFleets, error: existingFleetError } = await supabase
+    .from("transport_fleets")
+    .select("*")
+    .eq("operator_id", operator.id)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (existingFleetError) throw new Error(existingFleetError.message);
+
+  const fleetPayload = {
+    operator_id: operator.id,
+    service_category: normalizeCategory(form.category),
+    fleet_type: normalizeFleetType(form.fleetType),
+    fleet_name: form.fleetName?.trim() || form.fleetType || "Registered Fleet",
+    plate_number: plateNumber,
+    make: form.make?.trim() || "",
+    model: form.model?.trim() || "",
+    manufacture_year: form.year ? Number(form.year) : null,
+    color: form.color?.trim() || "",
+    operating_area: form.operatingArea?.trim() || "",
+    availability: form.availability || "Full-time",
+    home_base_location: form.homeBaseLocation?.trim() || "",
+    fuel_type: form.fuelType?.trim() || "",
+    car_body_type: form.carBodyType?.trim() || "",
+    max_load: form.maxLoad?.trim() || "",
+    delivery_body_type: form.deliveryBodyType?.trim() || "",
+    base_fare: form.baseFare ? Number(form.baseFare) : null,
+    price_per_km: form.pricePerKm ? Number(form.pricePerKm) : null,
+    price_per_hour: form.pricePerHour ? Number(form.pricePerHour) : null,
+    price_hint: form.priceHint?.trim() || [
+      form.pricePerKm ? `SLE ${Number(form.pricePerKm).toLocaleString()} per km` : "",
+      form.pricePerHour ? `SLE ${Number(form.pricePerHour).toLocaleString()} per hour` : "",
+    ].filter(Boolean).join(" | "),
+    safety_answers: account.answers || {},
+    verification_status: verificationStatus,
+    accepts_ride: ["Transport", "Both"].includes(form.category),
+    accepts_delivery: ["Delivery", "Both"].includes(form.category),
+    is_visible_to_passengers: true,
+    updated_at: new Date().toISOString(),
+  };
+
+  const existingFleet = existingFleets?.[0];
+  const fleetQuery = existingFleet?.id
+    ? supabase.from("transport_fleets").update(fleetPayload).eq("id", existingFleet.id)
+    : supabase.from("transport_fleets").insert(fleetPayload);
+
+  const { data: fleet, error: fleetError } = await fleetQuery.select().maybeSingle();
 
   if (fleetError) throw new Error(fleetError.message);
 
   localStorage.removeItem(DRAFT_KEY);
+  localStorage.removeItem(getDraftKey(userId));
   localStorage.removeItem(LEGACY_ACCOUNT_KEY);
 
   const dashboard = await fetchOperatorDashboard(operator.id);

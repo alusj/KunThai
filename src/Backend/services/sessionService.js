@@ -8,6 +8,11 @@ const SOCIAL_CACHE_KEYS = [
   "explore-posts-feed",
   "explore-posts-connections",
 ];
+const EXPLORE_NAVIGATION_KEY = "exploreNavigation";
+const DEFAULT_EXPLORE_NAVIGATION = {
+  activeTab: "UrFeed",
+  menuStack: [],
+};
 
 function clearSocialSessionCache() {
   SOCIAL_CACHE_KEYS.forEach((key) => {
@@ -15,7 +20,22 @@ function clearSocialSessionCache() {
   });
 }
 
+export function clearTransientSessionNavigation() {
+  try {
+    localStorage.setItem(EXPLORE_NAVIGATION_KEY, JSON.stringify(DEFAULT_EXPLORE_NAVIGATION));
+    sessionStorage.removeItem("exploreFeedScrollY");
+  } catch {
+    // Storage can be blocked in private browsers; sign-out should still work.
+  }
+
+  if (window.location.hash) {
+    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+  }
+}
+
 export async function signOutSocialSession() {
+  clearSocialSessionCache();
+  clearTransientSessionNavigation();
   const { error } = await supabase.auth.signOut();
 
   if (error) {

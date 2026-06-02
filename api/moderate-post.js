@@ -1,3 +1,5 @@
+/* global Buffer, process */
+
 import OpenAI from "openai";
 
 const openai = process.env.OPENAI_API_KEY
@@ -33,12 +35,23 @@ function isDataUrl(value) {
 function isTrustedExploreStorageUrl(value) {
   try {
     const url = new URL(String(value || ""));
-    const configuredUrl = process.env.VITE_SUPABASE_URL
-      ? new URL(process.env.VITE_SUPABASE_URL)
-      : null;
+    const configuredHosts = [
+      process.env.VITE_SUPABASE_URL,
+      process.env.SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+    ]
+      .filter(Boolean)
+      .map((supabaseUrl) => {
+        try {
+          return new URL(supabaseUrl).host;
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean);
 
-    const isExpectedHost = configuredUrl
-      ? url.host === configuredUrl.host
+    const isExpectedHost = configuredHosts.length
+      ? configuredHosts.includes(url.host)
       : url.hostname.endsWith(".supabase.co");
 
     return (
@@ -60,6 +73,80 @@ function dataUrlToFile(dataUrl, filename = "upload.bin") {
 
 function getHiveApiKey() {
   return process.env.HIVE_API_KEY || process.env.HIVE_ACCESS_KEY || "";
+}
+
+const SIGHTENGINE_VISUAL_RULES = [
+  { flag: "nudity", threshold: 0.85, paths: [["nudity", "sexual_activity"]] },
+  { flag: "sexual_display", threshold: 0.85, paths: [["nudity", "sexual_display"]] },
+  { flag: "erotica", threshold: 0.92, paths: [["nudity", "erotica"]] },
+  { flag: "weapon", threshold: 0.95, paths: [["weapon"]] },
+  { flag: "drugs", threshold: 0.9, paths: [["recreational_drug"]] },
+  { flag: "gore", threshold: 0.85, paths: [["gore", "prob"], ["gore"]] },
+  { flag: "violence", threshold: 0.85, paths: [["violence", "prob"], ["violence"]] },
+  { flag: "self_harm", threshold: 0.85, paths: [["self_harm", "prob"], ["self-harm", "prob"], ["self_harm"], ["self-harm"]] },
+  { flag: "offensive", threshold: 0.9, paths: [["offensive", "prob"], ["offensive"]] },
+];
+
+function isSafeSightengineScoreKey(key) {
+  const value = String(key || "").toLowerCase();
+  return (
+    value === "none" ||
+    value === "safe" ||
+    value === "context" ||
+    value === "info" ||
+    value.startsWith("no_") ||
+    value.startsWith("not_") ||
+    value.startsWith("non_")
+  );
+}
+
+function getMaxPositiveScore(value) {
+  if (Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return 0;
+  }
+
+  return Object.entries(value).reduce((max, [key, item]) => {
+    if (isSafeSightengineScoreKey(key)) {
+      return max;
+    }
+
+    return Math.max(max, getMaxPositiveScore(item));
+  }, 0);
+}
+
+function getValueAtPath(root, path = []) {
+  return path.reduce((current, key) => {
+    if (!current || typeof current !== "object") return undefined;
+    return current[key];
+  }, root);
+}
+
+function getSightengineSamples(data) {
+  const frames = Array.isArray(data?.data?.frames) ? data.data.frames : [];
+  return frames.length ? frames : [data];
+}
+
+function getSightengineVisualFlags(data) {
+  const flags = new Map();
+
+  for (const sample of getSightengineSamples(data)) {
+    for (const rule of SIGHTENGINE_VISUAL_RULES) {
+      const score = Math.max(
+        ...rule.paths.map((path) => getMaxPositiveScore(getValueAtPath(sample, path))),
+      );
+
+      if (score >= rule.threshold) {
+        const currentScore = flags.get(rule.flag) || 0;
+        flags.set(rule.flag, Math.max(currentScore, score));
+      }
+    }
+  }
+
+  return Array.from(flags.entries()).map(([flag, score]) => `${flag}:${score.toFixed(2)}`);
 }
 
 function getPublishableDecision(results = []) {
@@ -281,40 +368,69 @@ async function moderateImageWithSightengine(imageDataUrl) {
       body: form,
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
 
-    if (!response.ok) {
+    if (!response.ok || !data || data?.status === "failure" || data?.status === "error") {
       throw new Error(data?.error?.message || data?.error || "Sightengine moderation failed");
     }
 
-    const checks = {
-      nudity: data?.nudity?.sexual_activity,
-      sexual_display: data?.nudity?.sexual_display,
-      erotica: data?.nudity?.erotica,
-      weapon: data?.weapon,
-      drugs: data?.recreational_drug,
-      gore: data?.gore?.prob,
-      offensive: data?.offensive?.prob,
-    };
-
-    const thresholds = {
-      nudity: 0.85,
-      sexual_display: 0.85,
-      erotica: 0.92,
-      weapon: 0.95,
-      drugs: 0.9,
-      gore: 0.85,
-      offensive: 0.9,
-    };
-
-    const flags = Object.entries(checks)
-      .filter(([key, score]) => Number(score || 0) >= thresholds[key])
-      .map(([key]) => key);
+    const flags = getSightengineVisualFlags(data);
 
     return flags.length ? blockedResult("sightengine", flags) : approvedResult("sightengine");
   } catch (error) {
     console.error("[Sightengine Image Moderation Failed]", error);
     return pendingResult("sightengine-fallback", ["sightengine-review-unavailable"]);
+  }
+}
+
+async function moderateVideoWithSightengine(videoUrl) {
+  if (!isTrustedExploreStorageUrl(videoUrl)) {
+    return {
+      ...pendingResult("sightengine-video-unavailable", ["sightengine-video-review-unavailable"]),
+      required: false,
+    };
+  }
+
+  const apiUser = process.env.SIGHTENGINE_USER;
+  const apiSecret = process.env.SIGHTENGINE_SECRET;
+
+  if (!apiUser || !apiSecret) {
+    return {
+      ...pendingResult("sightengine-video-missing", ["sightengine-video-review-unavailable"]),
+      required: false,
+    };
+  }
+
+  try {
+    const form = new URLSearchParams({
+      stream_url: videoUrl,
+      models: "nudity-2.1,weapon,recreational_drug,offensive,gore-2.0,violence,self-harm",
+      api_user: apiUser,
+      api_secret: apiSecret,
+    });
+
+    const response = await fetch("https://api.sightengine.com/1.0/video/check-sync.json", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: form,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data || data?.status === "failure" || data?.status === "error") {
+      throw new Error(data?.error?.message || data?.error || "Sightengine video moderation failed");
+    }
+
+    const flags = getSightengineVisualFlags(data);
+    return flags.length ? blockedResult("sightengine-video", flags) : approvedResult("sightengine-video");
+  } catch (error) {
+    console.error("[Sightengine Video Moderation Failed]", error);
+    return {
+      ...pendingResult("sightengine-video-fallback", ["sightengine-video-review-unavailable"]),
+      required: false,
+    };
   }
 }
 
@@ -339,25 +455,13 @@ async function moderateVisualWithHive(source, filename = "media.jpg") {
   }
 
   try {
-    const input = hasInlineMedia
-      ? [{ media_base64: String(source).split(",")[1] || "" }]
-      : [{ media_url: source }];
-
-    const response = await fetch("https://api.thehive.ai/api/v3/hive/visual-moderation", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ input }),
+    const data = await submitHiveModeration({
+      apiKey,
+      source,
+      hasInlineMedia,
+      hasTrustedUrl,
+      filename,
     });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(data?.message || data?.error || "Hive moderation failed");
-    }
 
     const classes = collectHiveClasses(data);
 
@@ -380,6 +484,70 @@ async function moderateVisualWithHive(source, filename = "media.jpg") {
       required: false,
     };
   }
+}
+
+async function submitHiveModeration({ apiKey, source, hasInlineMedia, hasTrustedUrl }) {
+  const errors = [];
+
+  try {
+    const input = hasInlineMedia
+      ? [{ media_base64: String(source).split(",")[1] || "" }]
+      : [{ media_url: source }];
+
+    const response = await fetch("https://api.thehive.ai/api/v3/hive/visual-moderation", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ input }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(data?.message || data?.error || "Hive v3 moderation failed");
+    }
+
+    if (collectHiveClasses(data).length) {
+      return data;
+    }
+
+    errors.push(new Error("Hive v3 returned no visual classes"));
+  } catch (error) {
+    errors.push(error);
+  }
+
+  if (hasTrustedUrl) {
+    try {
+      const response = await fetch("https://api.thehive.ai/api/v2/task/sync", {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          authorization: `Token ${apiKey}`,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ url: source }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error || "Hive v2 moderation failed");
+      }
+
+      if (collectHiveClasses(data).length) {
+        return data;
+      }
+
+      errors.push(new Error("Hive v2 returned no visual classes"));
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  throw errors.find(Boolean) || new Error("Hive moderation failed");
 }
 
 async function transcribeAudio(audioDataUrl) {
@@ -522,8 +690,9 @@ export default async function handler(req, res) {
       }
 
       let hiveVideoApproved = false;
+      let sightengineVideoApproved = false;
       let sightengineFramesApproved = videoFrames.length > 0;
-      let hiveFramesApproved = false;
+      let hiveFramesApproved = videoFrames.length > 0;
 
       if (hiveVideoSource) {
         const hiveVideoResult = await moderateVisualWithHive(hiveVideoSource, "video.mp4");
@@ -545,6 +714,28 @@ export default async function handler(req, res) {
         }
 
         hiveVideoApproved = hiveVideoResult.status === "approved";
+
+        if (!hiveVideoApproved) {
+          const sightengineVideoResult = await moderateVideoWithSightengine(hiveVideoSource);
+
+          results.push({
+            ...sightengineVideoResult,
+            provider: "sightengine-video",
+            required: false,
+          });
+
+          if (!sightengineVideoResult.ok) {
+            return json(res, 200, {
+              ok: false,
+              decision: "blocked",
+              reason: "This video cannot be published because it may violate KunThai safety rules.",
+              flags: sightengineVideoResult.flags,
+              results,
+            });
+          }
+
+          sightengineVideoApproved = sightengineVideoResult.status === "approved";
+        }
       }
 
       for (const [index, frame] of videoFrames.entries()) {
@@ -589,7 +780,7 @@ export default async function handler(req, res) {
         hiveFramesApproved = hiveFramesApproved && hiveFrameResult.status === "approved";
       }
 
-      const videoApproved = hiveVideoApproved || sightengineFramesApproved || hiveFramesApproved;
+      const videoApproved = hiveVideoApproved || sightengineVideoApproved || sightengineFramesApproved || hiveFramesApproved;
 
       if (!videoApproved) {
         return json(res, 200, {

@@ -8,9 +8,197 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <title>KunThai</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f1f5f9;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .kt-startup-shell {
+        min-height: 100vh;
+        background: #f1f5f9;
+      }
+
+      .kt-startup-header {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        height: 64px;
+        padding: 0 16px;
+        border-bottom: 1px solid #e2e8f0;
+        background: rgba(255, 255, 255, 0.96);
+      }
+
+      .kt-startup-row,
+      .kt-startup-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .kt-startup-actions {
+        justify-content: flex-end;
+      }
+
+      .kt-startup-dot,
+      .kt-startup-tab,
+      .kt-startup-line,
+      .kt-startup-avatar,
+      .kt-startup-card-media {
+        animation: kt-startup-pulse 1.25s ease-in-out infinite;
+        background: #e2e8f0;
+      }
+
+      .kt-startup-dot {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+      }
+
+      .kt-startup-brand {
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+      }
+
+      .kt-startup-brand .kt-startup-line:first-child {
+        width: 64px;
+        height: 8px;
+        border-radius: 999px;
+        background: #dbeafe;
+      }
+
+      .kt-startup-brand .kt-startup-line:last-child {
+        width: 84px;
+        height: 12px;
+        border-radius: 999px;
+      }
+
+      .kt-startup-main {
+        display: grid;
+        gap: 16px;
+        padding: 16px;
+      }
+
+      .kt-startup-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .kt-startup-tab {
+        height: 48px;
+        border-radius: 20px;
+        background: #ffffff;
+      }
+
+      .kt-startup-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 24px;
+        background: #ffffff;
+        padding: 20px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+      }
+
+      .kt-startup-card-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .kt-startup-avatar {
+        width: 48px;
+        height: 48px;
+        flex: none;
+        border-radius: 999px;
+      }
+
+      .kt-startup-copy {
+        flex: 1;
+        display: grid;
+        gap: 8px;
+      }
+
+      .kt-startup-copy .kt-startup-line:first-child {
+        width: 60%;
+        height: 16px;
+        border-radius: 999px;
+      }
+
+      .kt-startup-copy .kt-startup-line:last-child {
+        width: 38%;
+        height: 12px;
+        border-radius: 999px;
+        background: #f1f5f9;
+      }
+
+      .kt-startup-card-media {
+        height: 128px;
+        margin-top: 20px;
+        border-radius: 20px;
+        background: #f1f5f9;
+      }
+
+      @keyframes kt-startup-pulse {
+        0%,
+        100% {
+          opacity: 0.55;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="kt-startup-shell" aria-label="Loading KunThai">
+        <div class="kt-startup-header">
+          <div class="kt-startup-row">
+            <div class="kt-startup-dot"></div>
+            <div class="kt-startup-dot"></div>
+          </div>
+          <div class="kt-startup-brand">
+            <div class="kt-startup-line"></div>
+            <div class="kt-startup-line"></div>
+          </div>
+          <div class="kt-startup-actions">
+            <div class="kt-startup-dot"></div>
+            <div class="kt-startup-dot"></div>
+          </div>
+        </div>
+        <main class="kt-startup-main">
+          <div class="kt-startup-tabs">
+            <div class="kt-startup-tab"></div>
+            <div class="kt-startup-tab"></div>
+            <div class="kt-startup-tab"></div>
+          </div>
+          <section class="kt-startup-card">
+            <div class="kt-startup-card-head">
+              <div class="kt-startup-avatar"></div>
+              <div class="kt-startup-copy">
+                <div class="kt-startup-line"></div>
+                <div class="kt-startup-line"></div>
+              </div>
+            </div>
+            <div class="kt-startup-card-media"></div>
+          </section>
+          <section class="kt-startup-card">
+            <div class="kt-startup-card-head">
+              <div class="kt-startup-avatar"></div>
+              <div class="kt-startup-copy">
+                <div class="kt-startup-line"></div>
+                <div class="kt-startup-line"></div>
+              </div>
+            </div>
+            <div class="kt-startup-card-media"></div>
+          </section>
+        </main>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

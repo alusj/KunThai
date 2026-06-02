@@ -24,7 +24,7 @@ export function useOnboarding(session) {
       setLoading(true);
 
       try {
-        const nextProfile = await getOnboardingProfile();
+        const nextProfile = await getOnboardingProfile(session);
         if (active) {
           setProfile(nextProfile);
         }

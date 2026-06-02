@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import supabase from "../lib/supabaseClient";
+import { clearTransientSessionNavigation } from "../services/sessionService";
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -10,12 +11,14 @@ export const useAuth = () => {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      if (data?.session?.user) clearTransientSessionNavigation();
       setUser(data?.session?.user ?? null);
       setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_, session) => {
+        if (session?.user) clearTransientSessionNavigation();
         setUser(session?.user ?? null);
         setLoading(false);
       }

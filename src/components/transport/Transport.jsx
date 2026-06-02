@@ -12,7 +12,7 @@ import Header from "./header/Header";
 import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
-import { getLegacyOperatorAccount, getOperatorAccount } from "../services/transportOperatorAccountService";
+import { getOperatorAccount } from "../services/transportOperatorAccountService";
 
 export default function Transport({ onActivityChange, areaViewRequest = null }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
@@ -142,7 +142,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       try {
         setOperatorError("");
         const account = await getOperatorAccount();
-        if (alive) setOperatorAccount(account || getLegacyOperatorAccount());
+        if (alive) setOperatorAccount(account);
       } catch (error) {
         if (alive) setOperatorError(error.message || "Unable to load fleet account.");
       } finally {

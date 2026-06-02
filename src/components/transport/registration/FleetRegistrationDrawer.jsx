@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FiAlertTriangle,
   FiCamera,
@@ -133,13 +133,12 @@ const defaultForm = {
 };
 
 export default function FleetRegistrationDrawer({ onClose, onComplete }) {
-  const draft = getOperatorDraft();
-  const [step, setStep] = useState(draft?.step || 0);
-  const [maxStepReached, setMaxStepReached] = useState(draft?.maxStepReached || draft?.step || 0);
-  const [operatorId] = useState(draft?.operatorId || generateOperatorId);
-  const [answers, setAnswers] = useState(draft?.answers || {});
-  const [uploads, setUploads] = useState(draft?.uploads || {});
-  const [documentsSkipped, setDocumentsSkipped] = useState(Boolean(draft?.documentsSkipped));
+  const [step, setStep] = useState(0);
+  const [maxStepReached, setMaxStepReached] = useState(0);
+  const [operatorId, setOperatorId] = useState(generateOperatorId);
+  const [answers, setAnswers] = useState({});
+  const [uploads, setUploads] = useState({});
+  const [documentsSkipped, setDocumentsSkipped] = useState(false);
   const [showSkipWarning, setShowSkipWarning] = useState(false);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [showReviewSaveWarning, setShowReviewSaveWarning] = useState(false);
@@ -147,10 +146,33 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
   const [stepError, setStepError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    ...defaultForm,
-    ...(draft?.form || {}),
-  });
+  const [form, setForm] = useState(defaultForm);
+
+  useEffect(() => {
+    let alive = true;
+
+    getOperatorDraft()
+      .then((draft) => {
+        if (!alive || !draft) return;
+        setStep(draft.step || 0);
+        setMaxStepReached(draft.maxStepReached || draft.step || 0);
+        setOperatorId(draft.operatorId || generateOperatorId());
+        setAnswers(draft.answers || {});
+        setUploads(draft.uploads || {});
+        setDocumentsSkipped(Boolean(draft.documentsSkipped));
+        setForm({
+          ...defaultForm,
+          ...(draft.form || {}),
+        });
+      })
+      .catch(() => {
+        if (alive) setSubmitError("Sign in again before continuing your fleet registration.");
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const documents = useMemo(() => {
     return [...baseDocuments, ...(categoryDocuments[form.category] || [])];
@@ -265,15 +287,19 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
     savedAt: new Date().toISOString(),
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (step === 5) {
       setShowReviewSaveWarning(true);
       return;
     }
 
-    saveOperatorDraft(buildPayload("draft"));
-    setSavedMessage("Checkpoint secured. You can return later and continue from this exact point.");
-    window.setTimeout(() => setSavedMessage(""), 4200);
+    try {
+      await saveOperatorDraft(buildPayload("draft"));
+      setSavedMessage("Checkpoint secured. You can return later and continue from this exact point.");
+      window.setTimeout(() => setSavedMessage(""), 4200);
+    } catch (error) {
+      setSubmitError(error.message || "Unable to save this fleet draft.");
+    }
   };
 
   const handleSubmit = async () => {
@@ -323,11 +349,15 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
     proceedToNextStep();
   };
 
-  const saveReviewDraft = () => {
-    saveOperatorDraft(buildPayload("draft"));
-    setShowReviewSaveWarning(false);
-    setSavedMessage("Review checkpoint saved. You can return later before submitting.");
-    window.setTimeout(() => setSavedMessage(""), 4200);
+  const saveReviewDraft = async () => {
+    try {
+      await saveOperatorDraft(buildPayload("draft"));
+      setShowReviewSaveWarning(false);
+      setSavedMessage("Review checkpoint saved. You can return later before submitting.");
+      window.setTimeout(() => setSavedMessage(""), 4200);
+    } catch (error) {
+      setSubmitError(error.message || "Unable to save this fleet draft.");
+    }
   };
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
   const goToStep = (index) => {
@@ -787,10 +817,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowReviewSaveWarning(false);
-                  saveOperatorDraft(buildPayload("draft"));
-                  handleSubmit();
+                onClick={async () => {
+                  try {
+                    setShowReviewSaveWarning(false);
+                    await saveOperatorDraft(buildPayload("draft"));
+                    handleSubmit();
+                  } catch (error) {
+                    setSubmitError(error.message || "Unable to save this fleet draft.");
+                  }
                 }}
                 className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
               >

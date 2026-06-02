@@ -1,6 +1,6 @@
 import supabase from "../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./explore/errors";
-import { writeStoredProfile } from "./explore/profileStorage";
+import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage";
 import { normalizeSocialLinks } from "./explore/socialLinks";
 
 const DEFAULT_NAV = "explore";
@@ -48,21 +48,138 @@ function buildProfileFromUser(user) {
   };
 }
 
-export async function getOnboardingProfile() {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+function hasExplicitOnboardingState(user) {
+  const metadata = user?.user_metadata ?? {};
+  return Object.prototype.hasOwnProperty.call(metadata, "onboarding_complete") ||
+    Object.prototype.hasOwnProperty.call(metadata, "onboarding_step");
+}
+
+function hasUsableReturningProfile(profile = {}) {
+  const displayName = String(profile.displayName || profile.display_name || "").trim();
+  const username = String(profile.username || "").trim();
+  const email = String(profile.email || profile.contact_email || "").trim();
+
+  return Boolean(
+    (displayName && displayName.toLowerCase() !== "profile") ||
+      (username && username.toLowerCase() !== "user") ||
+      email,
+  );
+}
+
+function mergeExploreProfile(authProfile, row) {
+  if (!row) return authProfile;
+
+  return {
+    ...authProfile,
+    displayName: row.display_name || authProfile.displayName,
+    username: row.username || authProfile.username,
+    email: row.contact_email || authProfile.email,
+    address: row.address || authProfile.address,
+    avatarUrl: row.avatar_url || authProfile.avatarUrl,
+    bio: row.bio || authProfile.bio,
+    socialLinks: normalizeSocialLinks(row.social_links || authProfile.socialLinks),
+    accountType: row.account_type || authProfile.accountType,
+  };
+}
+
+async function fetchStoredExploreProfile(userId) {
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from("explore_profiles")
+    .select("user_id, display_name, username, contact_email, address, avatar_url, bio, social_links, account_type")
+    .eq("user_id", userId)
+    .maybeSingle();
 
   if (error) {
+    if (isMissingTable(error)) return null;
     throw error;
+  }
+
+  return data || null;
+}
+
+async function syncReturningOnboardingMetadata(profile) {
+  const { error } = await supabase.auth.updateUser({
+    data: {
+      display_name: profile.displayName,
+      full_name: profile.displayName,
+      username: profile.username,
+      contact_email: profile.email,
+      address: profile.address,
+      avatar_url: profile.avatarUrl,
+      bio: profile.bio,
+      social_links: normalizeSocialLinks(profile.socialLinks),
+      account_type: profile.accountType || "personal",
+      primary_surface: profile.primarySurface || DEFAULT_NAV,
+      onboarding_complete: true,
+      onboarding_step: 4,
+    },
+  });
+
+  if (error) {
+    console.warn("[KunThai onboarding] Unable to sync returning profile metadata.", error);
+  }
+}
+
+export async function getOnboardingProfile(sessionUser = null) {
+  let user = sessionUser;
+
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    user = data?.user || user;
+  } catch (error) {
+    if (!user) throw error;
   }
 
   if (!user) {
     return null;
   }
 
-  return buildProfileFromUser(user);
+  const authProfile = buildProfileFromUser(user);
+  if (authProfile.onboardingComplete || hasExplicitOnboardingState(user)) {
+    return authProfile;
+  }
+
+  let storedProfile = null;
+  try {
+    storedProfile = await fetchStoredExploreProfile(user.id);
+  } catch (error) {
+    console.warn("[KunThai onboarding] Unable to read stored Explore profile.", error);
+  }
+  if (hasUsableReturningProfile(storedProfile)) {
+    const returningProfile = {
+      ...mergeExploreProfile(authProfile, storedProfile),
+      onboardingComplete: true,
+      onboardingStep: 4,
+    };
+    writeStoredProfile(user.id, {
+      userId: user.id,
+      displayName: returningProfile.displayName,
+      username: returningProfile.username,
+      email: returningProfile.email,
+      address: returningProfile.address,
+      accountType: returningProfile.accountType,
+      avatarUrl: returningProfile.avatarUrl,
+      bio: returningProfile.bio,
+      socialLinks: returningProfile.socialLinks,
+    });
+    syncReturningOnboardingMetadata(returningProfile);
+    return returningProfile;
+  }
+
+  const cachedProfile = readStoredProfile(user.id);
+  if (hasUsableReturningProfile(cachedProfile)) {
+    return {
+      ...authProfile,
+      ...cachedProfile,
+      onboardingComplete: true,
+      onboardingStep: 4,
+    };
+  }
+
+  return authProfile;
 }
 
 export async function updateOnboardingProfile(patch) {
