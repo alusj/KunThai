@@ -5,6 +5,7 @@ import {
   formatDistance,
   formatDuration,
   getRouteBetweenPoints,
+  getRouteThroughPoints,
 } from "../../../Backend/services/routeService";
 
 const DEFAULT_CENTER = {
@@ -147,6 +148,15 @@ function createLabeledMarker(label, bgColor) {
   wrapper.appendChild(pin);
 
   return wrapper;
+}
+
+function normalizeRoutePreviewPoint(point) {
+  const rawLat = point?.lat ?? point?.latitude;
+  const rawLng = point?.lng ?? point?.longitude;
+  const lat = rawLat == null || rawLat === "" ? null : Number(rawLat);
+  const lng = rawLng == null || rawLng === "" ? null : Number(rawLng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { ...point, lat, lng };
 }
 
 function createLiveUserMarker() {
@@ -1093,6 +1103,7 @@ export default function NearbyAreaMap({
   onLocationResolved,
   onMapReady,
   selectedLocation,
+  routePlan = null,
   focusMode = false,
   operatorLocations = [],
   nearbyMapLocations = [],
@@ -1106,6 +1117,7 @@ export default function NearbyAreaMap({
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
+  const pickupMarkerRef = useRef(null);
   const destinationMarkerRef = useRef(null);
   const watchIdRef = useRef(null);
   const routeCoordinatesRef = useRef([]);
@@ -1147,6 +1159,7 @@ export default function NearbyAreaMap({
   const navigationDragRef = useRef(null);
 
   const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
+  const [deviceLocationState, setDeviceLocationState] = useState("checking");
   const [userLocation, setUserLocation] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
   const [routeError, setRouteError] = useState("");
@@ -1172,7 +1185,11 @@ export default function NearbyAreaMap({
   const routeDurationLabel = routeInfo?.duration || (routeError ? "Check route" : "");
   const routeSummaryLabel = routeDurationLabel ? `${routeDistanceLabel} - ${routeDurationLabel}` : routeDistanceLabel;
   const routeFromLabel = routeInfo?.from || "Current location";
-  const routeToLabel = routeInfo?.to || selectedLocation?.name || selectedLocation?.label || "selected location";
+  const routePickupLabel = routeInfo?.pickup || routePlan?.pickup?.address || routePlan?.pickup?.name || "";
+  const routeToLabel = routeInfo?.to || routePlan?.dropoff?.address || selectedLocation?.name || selectedLocation?.label || "selected location";
+  const operatorPickup = normalizeRoutePreviewPoint(routePlan?.pickup);
+  const operatorDropoff = normalizeRoutePreviewPoint(routePlan?.dropoff);
+  const hasOperatorRoutePlan = Boolean(operatorPickup && operatorDropoff);
   const canUseHeading = headingMode !== "north";
   const weatherInsight = getSmartWeatherMessage(weather);
   const showWeatherBadge = Boolean(weatherError || weatherInsight.relevant);
@@ -1421,7 +1438,9 @@ export default function NearbyAreaMap({
     setAlternativeError("");
 
     try {
-      const route = await getRouteBetweenPoints(start, selectedLocation);
+      const route = hasOperatorRoutePlan
+        ? await getRouteThroughPoints([start, operatorPickup, operatorDropoff])
+        : await getRouteBetweenPoints(start, selectedLocation);
       if (alternativeRouteRequestRef.current !== requestId) return;
 
       const routeTrafficAhead = detectTrafficAhead({
@@ -1570,6 +1589,7 @@ export default function NearbyAreaMap({
       trafficMarkers.clear();
 
       userMarkerRef.current?.remove();
+      pickupMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
 
       clearRouteLayers(map);
@@ -1580,6 +1600,7 @@ export default function NearbyAreaMap({
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
+      pickupMarkerRef.current = null;
       destinationMarkerRef.current = null;
       watchIdRef.current = null;
       markerRenderedPositionRef.current = null;
@@ -1629,6 +1650,7 @@ export default function NearbyAreaMap({
 
   useEffect(() => {
     if (!navigator.geolocation) {
+      setDeviceLocationState("unavailable");
       publishGpsUi(`Showing ${DEFAULT_CENTER.label}`, null, { force: true });
       setUserLocation(DEFAULT_CENTER);
       userLocationRef.current = DEFAULT_CENTER;
@@ -1643,6 +1665,7 @@ export default function NearbyAreaMap({
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        setDeviceLocationState("ready");
         const accuracy = Math.round(position.coords.accuracy || 0);
         const nextCenter = {
           lat: position.coords.latitude,
@@ -1669,6 +1692,7 @@ export default function NearbyAreaMap({
         userMarkerRef.current?.setLngLat([nextCenter.lng, nextCenter.lat]);
       },
       () => {
+        setDeviceLocationState("unavailable");
         publishGpsUi(`Showing ${DEFAULT_CENTER.label}`, null, { force: true });
         setUserLocation(DEFAULT_CENTER);
         userLocationRef.current = DEFAULT_CENTER;
@@ -1714,16 +1738,37 @@ export default function NearbyAreaMap({
     async function drawRoute() {
       if (!selectedLocation || !mapRef.current) return;
 
+      if (routePlan && deviceLocationState === "checking") {
+        setRouteError("");
+        setRouteLoading(true);
+        setRouteInfo({
+          from: "CURRENT LOCATION",
+          pickup: operatorPickup?.address || operatorPickup?.name,
+          to: operatorDropoff?.address || selectedLocation.name || "Drop off point",
+          distance: "Waiting for GPS",
+          duration: "...",
+          routePlan: true,
+        });
+        return;
+      }
+
+      if (routePlan && deviceLocationState !== "ready") {
+        throw new Error("Allow location access to preview the operator route from your current location.");
+      }
+
       const routeStart = routeStartOverrideRef.current || smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
+      const routeTarget = operatorDropoff || selectedLocation;
       const map = mapRef.current;
 
       setRouteError("");
       setRouteLoading(true);
       setRouteInfo({
         from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
-        to: selectedLocation.name || "Selected destination",
+        pickup: operatorPickup?.address || operatorPickup?.name,
+        to: routeTarget.address || routeTarget.name || "Selected destination",
         distance: "Finding route",
         duration: "...",
+        routePlan: hasOperatorRoutePlan,
       });
       setRouteStatusKey("correct");
       routeStatusRef.current = "correct";
@@ -1735,20 +1780,36 @@ export default function NearbyAreaMap({
       lastRouteSegmentIndexRef.current = 0;
       arrivalReachedRef.current = false;
 
+      pickupMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
 
-      const destinationMarkerLabel = selectedLocation.type === "seller" ? "STORE" : "DESTINATION";
+      if (operatorPickup) {
+        pickupMarkerRef.current = new maplibregl.Marker({
+          element: createLabeledMarker("PICK UP POINT", "#059669"),
+          anchor: "center",
+        })
+          .setLngLat([operatorPickup.lng, operatorPickup.lat])
+          .addTo(map);
+      }
+
+      const destinationMarkerLabel = hasOperatorRoutePlan
+        ? "DROP OFF POINT"
+        : selectedLocation.type === "seller"
+          ? "STORE"
+          : "DESTINATION";
 
       destinationMarkerRef.current = new maplibregl.Marker({
         element: createLabeledMarker(destinationMarkerLabel, "#2563eb"),
         anchor: "center",
       })
-        .setLngLat([selectedLocation.lng, selectedLocation.lat])
+        .setLngLat([routeTarget.lng, routeTarget.lat])
         .addTo(map);
 
       await waitForMapStyle(map);
 
-      const route = await getRouteBetweenPoints(routeStart, selectedLocation);
+      const route = hasOperatorRoutePlan
+        ? await getRouteThroughPoints([routeStart, operatorPickup, routeTarget])
+        : await getRouteBetweenPoints(routeStart, routeTarget);
 
       if (cancelled) return;
 
@@ -1761,19 +1822,26 @@ export default function NearbyAreaMap({
       route.geometry.coordinates.forEach((coord) => bounds.extend(coord));
 
       map.fitBounds(bounds, {
-        padding: { top: 140, bottom: 230, left: 70, right: 70 },
+        padding: hasOperatorRoutePlan
+          ? { top: 150, bottom: 290, left: 80, right: 80 }
+          : { top: 140, bottom: 230, left: 70, right: 70 },
         duration: 900,
       });
 
-      window.setTimeout(() => {
-        if (!cancelled) applySmartCamera(routeStart, selectedLocation, 0, { force: true });
-      }, 950);
+      if (!hasOperatorRoutePlan) {
+        window.setTimeout(() => {
+          if (!cancelled) applySmartCamera(routeStart, routeTarget, 0, { force: true });
+        }, 950);
+      }
 
       setRouteInfo({
         from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
-        to: selectedLocation.name,
+        pickup: operatorPickup?.address || operatorPickup?.name,
+        to: routeTarget.address || routeTarget.name,
         distance: formatDistance(route.distanceMeters),
         duration: formatDuration(route.durationSeconds),
+        legs: route.legs || [],
+        routePlan: hasOperatorRoutePlan,
         raw: route,
       });
       setTrafficInsight(getLiveTrafficInsight(trafficSnapshotsRef.current, route, "correct"));
@@ -1782,7 +1850,7 @@ export default function NearbyAreaMap({
       routeStartOverrideRef.current = null;
     }
 
-    drawRoute().catch(() => {
+    drawRoute().catch((error) => {
       if (cancelled) return;
       routeStartOverrideRef.current = null;
       routeCoordinatesRef.current = [];
@@ -1795,19 +1863,21 @@ export default function NearbyAreaMap({
       routeStatusRef.current = "wrong";
       setRouteInfo({
         from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
-        to: selectedLocation?.name || "Selected destination",
+        pickup: operatorPickup?.address || operatorPickup?.name,
+        to: operatorDropoff?.address || selectedLocation?.name || "Selected destination",
         distance: "Route unavailable",
         duration: "Try again",
+        routePlan: hasOperatorRoutePlan,
       });
       setNavigationSnap("half");
-      setRouteError("Route unavailable. Check the route key or try another location.");
+      setRouteError(error.message || "Route unavailable. Check the route key or try another location.");
     });
 
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- route drawing is keyed by destination/reroute only; camera helpers read current refs.
-  }, [selectedLocation, rerouteKey]);
+  }, [deviceLocationState, routePlan, selectedLocation, rerouteKey]);
 
   useEffect(() => {
     if (!navigator.geolocation || !mapRef.current) return;
@@ -1819,6 +1889,7 @@ export default function NearbyAreaMap({
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
+        setDeviceLocationState("ready");
         const accuracy = Math.round(position.coords.accuracy || 0);
 
         if (accuracy > GPS_SETTINGS.ignoreAccuracyAboveMeters) {
@@ -1901,7 +1972,7 @@ export default function NearbyAreaMap({
           setNavigationSnap("collapsed");
         }
 
-        if ((focusMode || headingMode !== "north") && !isUserInteractingRef.current) {
+        if (!hasOperatorRoutePlan && (focusMode || headingMode !== "north") && !isUserInteractingRef.current) {
           applySmartCamera(livePosition, selectedLocation);
         }
 
@@ -1970,10 +2041,13 @@ export default function NearbyAreaMap({
             return next.label === current?.label ? current : next;
           });
           evaluateTrafficAhead();
-          applySmartCamera(livePosition, selectedLocation, nearestRouteInfo.segmentIndex);
+          if (!hasOperatorRoutePlan) {
+            applySmartCamera(livePosition, selectedLocation, nearestRouteInfo.segmentIndex);
+          }
         }
       },
       () => {
+        setDeviceLocationState((current) => current === "ready" ? current : "unavailable");
         publishGpsUi("Location permission needed for live tracking", null, { force: true });
       },
       {
@@ -1990,7 +2064,7 @@ export default function NearbyAreaMap({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the GPS watcher stays stable except when user-facing navigation modes change.
-  }, [focusMode, headingMode, onLocationResolved, selectedLocation]);
+  }, [focusMode, headingMode, onLocationResolved, routePlan, selectedLocation]);
 
   useEffect(() => {
     weatherCacheRef.current = weatherCache;
@@ -2221,7 +2295,7 @@ export default function NearbyAreaMap({
               className="kt-pressable rounded-full bg-green-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-green-700"
               aria-label={navigationCollapsed ? "Expand navigation sheet" : "Collapse navigation sheet"}
             >
-              Live Navigation
+              {routeInfo?.routePlan ? "Operator Route Preview" : "Live Navigation"}
             </button>
 
             <div className="flex items-center gap-2">
@@ -2257,7 +2331,7 @@ export default function NearbyAreaMap({
                     {routeSummaryLabel}
                   </h3>
                   <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">
-                    To: {routeToLabel}
+                    {routeInfo?.routePlan ? "Road ETA from current location through the passenger route." : `To: ${routeToLabel}`}
                   </p>
                 </div>
 
@@ -2341,13 +2415,40 @@ export default function NearbyAreaMap({
                   </span>
                 </div>
 
+                {routeInfo?.routePlan && routePickupLabel ? (
+                  <div className="flex items-start gap-2">
+                    <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-emerald-600" />
+                    <span className="line-clamp-2">
+                      <strong className="text-slate-900">PICK UP POINT / PASSENGER&apos;S LOCATION:</strong> {routePickupLabel}
+                    </span>
+                  </div>
+                ) : null}
+
                 <div className="flex items-start gap-2">
                   <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-600" />
                   <span className="line-clamp-2">
-                    <strong className="text-slate-900">DESTINATION:</strong> {routeToLabel}
+                    <strong className="text-slate-900">
+                      {routeInfo?.routePlan ? "DROP OFF POINT / PASSENGER'S DESTINATION:" : "DESTINATION:"}
+                    </strong>{" "}
+                    {routeToLabel}
                   </span>
                 </div>
               </div>
+
+              {routeInfo?.routePlan && routeInfo.legs?.length ? (
+                <div className="mt-3 grid gap-2">
+                  {routeInfo.legs.map((leg, index) => (
+                    <div key={`${index}-${leg.distanceMeters}`} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                      <span className="block font-black text-slate-900">
+                        {index === 0 ? "Current location to pick up point" : "Pick up point to drop off point"}
+                      </span>
+                      <span className="mt-1 block">
+                        {formatDistance(leg.distanceMeters)} - {formatDuration(leg.durationSeconds)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
         </div>

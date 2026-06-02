@@ -125,6 +125,8 @@ const defaultForm = {
   carBodyType: "",
   maxLoad: "",
   baseFare: "",
+  pricePerKm: "",
+  pricePerHour: "",
   priceHint: "",
   homeBaseLocation: "",
   deliveryBodyType: "",
@@ -200,8 +202,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
       if (!form.color.trim()) missing.push("color");
       if (!form.operatingArea.trim()) missing.push("operating area");
       if (!form.homeBaseLocation.trim()) missing.push("home base");
-      if (!form.baseFare.trim()) missing.push("base fare");
-      if (!form.priceHint.trim()) missing.push("passenger price hint");
+      if (!form.baseFare.trim()) missing.push("starting price");
+      if (!form.pricePerKm.trim()) missing.push("price per 1 km");
+      if (!form.pricePerHour.trim()) missing.push("price per 1 hour");
       return missing;
     }
 
@@ -468,8 +471,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
               <FormInput label="Color" value={form.color} onChange={(value) => update("color", value)} placeholder="Color" />
               <LocationInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder="Operating area" helper="Main area where passengers should expect service." />
               <LocationInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder="Home base or station" helper="Where the fleet usually starts or parks." />
-              <FormInput label="Base fare" type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder="Base fare" min="0" helper="Starting fare before distance or negotiation." />
-              <FormInput label="Passenger price hint" value={form.priceHint} onChange={(value) => update("priceHint", value)} placeholder="Passenger price hint" helper="A readable price note shown to passengers." />
+              <FormInput label="Starting price" type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder="Starting price" min="0" helper="The minimum fare shown when a distance or time total is lower than your starting price." />
+              <FormInput label="Price per 1 km or kilometer" type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder="Price for 1 km" min="0" helper="Distance bookings calculate this rate against the passenger route." />
+              <FormInput label="Price per 1 hour" type="number" value={form.pricePerHour} onChange={(value) => update("pricePerHour", value)} placeholder="Price for 1 hour" min="0" helper="Time bookings calculate this rate against the passenger's requested hours." />
+              <FormInput label="Passenger price note optional" value={form.priceHint} onChange={(value) => update("priceHint", value)} placeholder="Optional public price note" helper="Add a note only when passengers need extra context about your rates." />
               <SelectField
                 label="Availability"
                 options={availabilityOptions}
@@ -623,7 +628,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
                 <ReviewRow label="Fleet type" value={form.fleetType} />
                 <ReviewRow label="Plate number" value={form.plateNumber || "Not filled"} />
                 <ReviewRow label="Home base" value={form.homeBaseLocation || "Not filled"} />
-                <ReviewRow label="Price hint" value={form.priceHint || "Not filled"} />
+                <ReviewRow label="Starting price" value={form.baseFare ? `SLE ${Number(form.baseFare).toLocaleString()}` : "Not filled"} />
+                <ReviewRow label="Distance rate" value={form.pricePerKm ? `SLE ${Number(form.pricePerKm).toLocaleString()} per km` : "Not filled"} />
+                <ReviewRow label="Time rate" value={form.pricePerHour ? `SLE ${Number(form.pricePerHour).toLocaleString()} per hour` : "Not filled"} />
                 <ReviewRow label="Fleet images" value={`${fleetImageCount}/4 uploaded`} />
                 <ReviewRow
                   label="Current status"

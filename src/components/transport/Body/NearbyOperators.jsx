@@ -110,6 +110,10 @@ export default function NearbyOperators({ filters, destination, pickup, onChoose
                 <FiMapPin size={14} />
                 {operator.currentLocation || operator.lastKnownLocation}
               </div>
+              <p className="mt-2 text-xs font-black text-emerald-700">
+                {operator.pricePerKm ? `SLE ${operator.pricePerKm.toLocaleString()} / km` : "Distance rate pending"}
+                {operator.pricePerHour ? ` - SLE ${operator.pricePerHour.toLocaleString()} / hour` : ""}
+              </p>
 
               <div className="mt-4">
                 <VerificationBadge

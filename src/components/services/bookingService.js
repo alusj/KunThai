@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { calculateFleetFare } from "./transportPricingService";
 
 const SUPPORT_DRAFTS_KEY = "kuntai.transport.supportDrafts";
 
@@ -77,6 +78,12 @@ export async function createTransportBooking(booking) {
   const passengerName = buildPassengerName(passenger, booking);
   const now = new Date().toISOString();
   const title = buildBookingTitle({ ...booking, mode: tripType, fleet });
+  const bookingMethod = booking.bookingMethod === "time" ? "time" : "distance";
+  const fare = calculateFleetFare(fleet, {
+    bookingMethod,
+    distanceKm: booking.distanceKm,
+    bookedHours: booking.bookedHours,
+  });
 
   const payload = {
     passenger_id: passenger.id,
@@ -90,7 +97,16 @@ export async function createTransportBooking(booking) {
     contact_phone: String(booking.phone || "").trim() || null,
     package_description: tripType === "delivery" ? String(booking.packageDescription || "").trim() || null : null,
     trip_note: String(booking.note || "").trim() || null,
-    fare_amount: null,
+    booking_method: bookingMethod,
+    estimated_distance_km: booking.distanceKm ? Number(booking.distanceKm) : null,
+    booked_hours: bookingMethod === "time" && booking.bookedHours ? Number(booking.bookedHours) : null,
+    pickup_latitude: booking.pickupPoint?.lat ?? null,
+    pickup_longitude: booking.pickupPoint?.lng ?? null,
+    destination_latitude: booking.destinationPoint?.lat ?? null,
+    destination_longitude: booking.destinationPoint?.lng ?? null,
+    base_fare_snapshot: fare?.baseFare || null,
+    rate_snapshot: fare?.rate || null,
+    fare_amount: fare?.ready ? fare.amount : null,
     fare_currency: "SLE",
     scheduled_at: buildScheduledAt(booking),
     status: booking.fleetId || fleet.id ? "requested" : "waiting_operator",
@@ -161,6 +177,16 @@ export async function updateTransportTripStatus(tripId, status, patch = {}) {
     payload.fare_currency = patch.fareCurrency || "SLE";
   }
 
+  if (patch.startRequestedAt !== undefined) payload.start_requested_at = patch.startRequestedAt;
+  if (patch.startedAt !== undefined) payload.started_at = patch.startedAt;
+  if (patch.pausedAt !== undefined) payload.paused_at = patch.pausedAt;
+  if (patch.pausedSeconds !== undefined) payload.paused_seconds = Math.max(0, Number(patch.pausedSeconds || 0));
+  if (patch.distanceCoveredMeters !== undefined) payload.distance_covered_meters = Math.max(0, Number(patch.distanceCoveredMeters || 0));
+  if (patch.lastLocationLatitude !== undefined) payload.last_location_latitude = patch.lastLocationLatitude;
+  if (patch.lastLocationLongitude !== undefined) payload.last_location_longitude = patch.lastLocationLongitude;
+  if (patch.lastLocationAt !== undefined) payload.last_location_at = patch.lastLocationAt;
+  if (patch.endedBy !== undefined) payload.ended_by = patch.endedBy;
+
   const { data, error } = await supabase
     .from("transport_trips")
     .update(payload)
@@ -181,6 +207,83 @@ export async function updateTransportTripStatus(tripId, status, patch = {}) {
 
 export async function cancelTransportTrip(tripId) {
   return updateTransportTripStatus(tripId, "cancelled");
+}
+
+export async function requestTransportTripStart(tripId) {
+  return updateTransportTripStatus(tripId, "start_requested", {
+    startRequestedAt: new Date().toISOString(),
+  });
+}
+
+export async function confirmTransportTripStart(tripId) {
+  return updateTransportTripStatus(tripId, "in_progress", {
+    startedAt: new Date().toISOString(),
+    pausedAt: null,
+  });
+}
+
+export async function declineTransportTripStart(tripId) {
+  return updateTransportTripStatus(tripId, "arrived", {
+    startRequestedAt: null,
+  });
+}
+
+export async function pauseTransportTrip(trip) {
+  return updateTransportTripStatus(trip.id, "paused", {
+    pausedAt: new Date().toISOString(),
+  });
+}
+
+export async function continueTransportTrip(trip) {
+  const pausedAt = trip.pausedAt ? new Date(trip.pausedAt).getTime() : Date.now();
+  const additionalPausedSeconds = Math.max(0, Math.round((Date.now() - pausedAt) / 1000));
+  return updateTransportTripStatus(trip.id, "in_progress", {
+    pausedAt: null,
+    pausedSeconds: Number(trip.pausedSeconds || 0) + additionalPausedSeconds,
+  });
+}
+
+export async function endTransportTrip(trip) {
+  const currentPausedSeconds = trip.pausedAt
+    ? Number(trip.pausedSeconds || 0) + Math.max(0, Math.round((Date.now() - new Date(trip.pausedAt).getTime()) / 1000))
+    : Number(trip.pausedSeconds || 0);
+  const elapsedSeconds = Math.max(
+    0,
+    Math.round((Date.now() - new Date(trip.startedAt || Date.now()).getTime()) / 1000) - currentPausedSeconds,
+  );
+  const rate = Number(trip.rateSnapshot || 0);
+  const baseFare = Number(trip.baseFareSnapshot || 0);
+  const units = trip.bookingMethod === "time"
+    ? elapsedSeconds / 3600
+    : Number(trip.distanceCoveredMeters || 0) / 1000;
+  const fareAmount = rate ? Math.max(baseFare, rate * units) : Number(trip.fareAmount || 0);
+
+  return updateTransportTripStatus(trip.id, "completed", {
+    fareAmount,
+    pausedAt: null,
+    pausedSeconds: currentPausedSeconds,
+    endedBy: "passenger",
+  });
+}
+
+export async function updateTransportTripProgress(tripId, progress) {
+  if (!tripId) return null;
+
+  const { data, error } = await supabase
+    .from("transport_trips")
+    .update({
+      distance_covered_meters: Math.max(0, Number(progress.distanceCoveredMeters || 0)),
+      last_location_latitude: Number(progress.latitude),
+      last_location_longitude: Number(progress.longitude),
+      last_location_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tripId)
+    .select()
+    .maybeSingle();
+
+  if (error) throw new Error(error.message || "Unable to update live trip distance.");
+  return data;
 }
 
 export async function submitTransportSupportTicket(input) {

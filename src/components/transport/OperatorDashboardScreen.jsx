@@ -22,7 +22,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
-import { updateTransportTripStatus } from "../services/bookingService";
+import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
 import {
   fetchOperatorDashboard,
   subscribeOperatorTrips,
@@ -154,6 +154,47 @@ export default function OperatorDashboardScreen({
     );
   }
 
+  function openPassengerTripRoute(passenger) {
+    if (!passenger?.pickup || !passenger?.destination) return;
+
+    const pickup = {
+      id: `trip-${passenger.id}-pickup`,
+      type: "transport-trip-pickup",
+      name: "Pick up point",
+      label: "Pick up point",
+      address: passenger.pickup,
+      searchQuery: passenger.pickup,
+      ...passenger.pickupPoint,
+    };
+    const dropoff = {
+      id: `trip-${passenger.id}-dropoff`,
+      type: "transport-trip-dropoff",
+      name: "Drop off point",
+      label: "Drop off point",
+      address: passenger.destination,
+      searchQuery: passenger.destination,
+      ...passenger.destinationPoint,
+    };
+
+    onLocateArea?.(
+      {
+        ...dropoff,
+        id: `operator-trip-route-${passenger.id}`,
+        type: "operator-trip-route",
+        category: "Passenger destination",
+        status: "community",
+        description: `Operator route to ${passenger.name}'s pickup point and destination.`,
+        routePlan: {
+          id: passenger.id,
+          passengerName: passenger.name,
+          pickup,
+          dropoff,
+        },
+      },
+      { autoRoute: true },
+    );
+  }
+
   const refreshDashboard = useCallback(async () => {
     try {
       setDashboardLoading(true);
@@ -228,11 +269,12 @@ export default function OperatorDashboardScreen({
     try {
       setActionMessage("");
       setDashboardError("");
-      await updateTransportTripStatus(trip.id, status, patch);
+      if (status === "start_requested") await requestTransportTripStart(trip.id);
+      else await updateTransportTripStatus(trip.id, status, patch);
       const statusCopy = {
         accepted: "Trip accepted. The passenger can now see that you accepted the request.",
         arrived: "Arrival marked. The passenger can see that you are at the pickup point.",
-        in_progress: "Trip started.",
+        start_requested: "Start request sent. The passenger must approve before the live trip begins.",
         completed: "Trip completed and moved into history.",
         cancelled: "Trip declined or cancelled.",
       };
@@ -339,6 +381,7 @@ export default function OperatorDashboardScreen({
             availabilityText={availabilityText}
             onBack={() => setActiveView("dashboard")}
             onUpdateTrip={handleTripStatusUpdate}
+            onViewRoute={openPassengerTripRoute}
           />
         ) : activeView === "history" ? (
           <TripHistoryScreen
@@ -429,6 +472,8 @@ export default function OperatorDashboardScreen({
             availabilityText={availabilityText}
             service={form.category || "Transport"}
             baseFare={form.baseFare || "Not added"}
+            pricePerKm={form.pricePerKm || "Not added"}
+            pricePerHour={form.pricePerHour || "Not added"}
             waitingCount={waitingPassengers.length}
             verification={verification}
             onToggle={handleAvailabilityToggle}
@@ -659,6 +704,8 @@ function OperationsContainer({
   availabilityText,
   service,
   baseFare,
+  pricePerKm,
+  pricePerHour,
   waitingCount,
   verification,
   onToggle,
@@ -674,6 +721,8 @@ function OperationsContainer({
         <MiniRow label="Status" value={isActive ? "Online" : "Offline"} />
         <MiniRow label="Service" value={service} />
         <MiniRow label="Base fare" value={baseFare} />
+        <MiniRow label="Price per km" value={pricePerKm} />
+        <MiniRow label="Price per hour" value={pricePerHour} />
         <MiniRow label="Waiting" value={`${waitingCount} passengers`} />
         <button
           type="button"
@@ -1048,7 +1097,7 @@ function ActionRow({ icon, label, detail, onClick }) {
   );
 }
 
-function WaitingPassengersScreen({ passengers, fleetName, isActive, availabilityText, onBack, onUpdateTrip }) {
+function WaitingPassengersScreen({ passengers, fleetName, isActive, availabilityText, onBack, onUpdateTrip, onViewRoute }) {
   return (
     <section className="mx-auto max-w-5xl">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -1087,6 +1136,7 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
               passenger={passenger}
               isActive={isActive}
               onUpdateTrip={onUpdateTrip}
+              onViewRoute={() => onViewRoute(passenger)}
             />
           )) : (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm font-bold text-gray-500">
@@ -1099,14 +1149,16 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
   );
 }
 
-function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip }) {
+function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip, onViewRoute }) {
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const status = passenger.status || "requested";
   const isWaiting = ["requested", "waiting_operator", "pending_confirmation"].includes(status);
   const isAccepted = status === "accepted";
   const isArrived = status === "arrived";
+  const isStartRequested = status === "start_requested";
   const isInProgress = status === "in_progress";
+  const isPaused = status === "paused";
 
   async function runAction(nextStatus, patch = {}) {
     setBusy(true);
@@ -1123,6 +1175,8 @@ function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip }) {
         <div className="min-w-0">
           <h3 className="truncate text-base font-black text-gray-950">{passenger.name}</h3>
           <p className="mt-1 text-sm font-semibold text-gray-600">{passenger.route}</p>
+          <p className="mt-1 text-xs font-black uppercase tracking-wide text-green-700">{passenger.requestType} - Book by {passenger.bookingMethod}</p>
+          {passenger.packageDescription ? <p className="mt-1 text-xs font-semibold text-gray-600">Package: {passenger.packageDescription}</p> : null}
           <p className="mt-1 text-xs font-semibold text-gray-500">{passenger.note}</p>
         </div>
         <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-gray-700">
@@ -1135,6 +1189,16 @@ function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip }) {
         <MiniRow label="Drop-off" value={passenger.destination} />
         <MiniRow label="Fare" value={passenger.fare} />
       </div>
+
+      <button
+        type="button"
+        onClick={onViewRoute}
+        disabled={!passenger.pickup || !passenger.destination}
+        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white px-4 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:border-gray-200 disabled:text-gray-400"
+      >
+        <FiNavigation size={17} />
+        View route
+      </button>
 
       {isWaiting ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
@@ -1192,23 +1256,24 @@ function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip }) {
       {isArrived ? (
         <button
           type="button"
-          onClick={() => runAction("in_progress")}
+          onClick={() => runAction("start_requested")}
           disabled={!isActive || busy}
           className="mt-4 h-10 w-full rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
         >
-          Start trip
+          Request trip start
         </button>
       ) : null}
 
-      {isInProgress ? (
-        <button
-          type="button"
-          onClick={() => runAction("completed", { fareAmount })}
-          disabled={busy}
-          className="mt-4 h-10 w-full rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
-        >
-          Complete trip
-        </button>
+      {isStartRequested ? (
+        <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
+          Waiting for passenger approval. The live trip begins only after the passenger taps Start.
+        </div>
+      ) : null}
+
+      {isInProgress || isPaused ? (
+        <div className="mt-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+          Live trip active. The passenger controls pause, continue, safety actions, and trip completion from their live trip card.
+        </div>
       ) : null}
     </article>
   );

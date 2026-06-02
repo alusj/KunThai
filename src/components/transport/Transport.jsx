@@ -11,6 +11,7 @@ import TransportBookingDrawer from "./booking/TransportBookingDrawer";
 import Header from "./header/Header";
 import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
+import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import { getLegacyOperatorAccount, getOperatorAccount } from "../services/transportOperatorAccountService";
 
 export default function Transport({ onActivityChange, areaViewRequest = null }) {
@@ -370,6 +371,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           setRegistrationOpen(true);
         }}
       />
+      <PassengerLiveTripHeaderCard onOpenTrips={() => setActiveTripsOpen(true)} />
       {operatorError && (
         <div className="mx-4 mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
           {operatorError}

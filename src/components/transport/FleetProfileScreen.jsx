@@ -170,6 +170,9 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
               <ProfileMetric label="Service area" value={fleet.operatingArea || fleet.currentLocation || "Area pending"} />
               <ProfileMetric label="Availability" value={fleet.availability || fleet.lastActive || "Schedule pending"} />
               <ProfileMetric label="Distance limit" value={fleet.maxDistanceKm ? `${fleet.maxDistanceKm} km` : "Operator controlled"} />
+              <ProfileMetric label="Starting price" value={fleet.baseFare ? `SLE ${fleet.baseFare.toLocaleString()}` : "Not added"} />
+              <ProfileMetric label="Distance price" value={fleet.pricePerKm ? `SLE ${fleet.pricePerKm.toLocaleString()} per km` : "Not added"} />
+              <ProfileMetric label="Time price" value={fleet.pricePerHour ? `SLE ${fleet.pricePerHour.toLocaleString()} per hour` : "Not added"} />
               <ProfileMetric label="Hours" value={fleet.operatingHours || "Flexible"} />
               <ProfileMetric label="Ride service" value={fleet.acceptsRide ? "Available" : "Not offered"} />
               <ProfileMetric label="Delivery service" value={fleet.acceptsDelivery ? "Available" : "Not offered"} />

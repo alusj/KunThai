@@ -133,6 +133,47 @@ function getInitialDestinationSearchText(destination) {
   ).trim();
 }
 
+function buildRouteWaypoint(point, fallbackName) {
+  if (!point) return null;
+  const rawLat = point.lat ?? point.latitude;
+  const rawLng = point.lng ?? point.longitude;
+  const lat = rawLat == null || rawLat === "" ? null : Number(rawLat);
+  const lng = rawLng == null || rawLng === "" ? null : Number(rawLng);
+  const searchQuery = String(
+    point.searchQuery || point.address || point.fullAddress || point.label || point.name || "",
+  ).trim();
+
+  return {
+    ...point,
+    name: fallbackName,
+    label: fallbackName,
+    address: point.address || point.fullAddress || searchQuery,
+    searchQuery,
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
+  };
+}
+
+async function resolveRouteWaypoint(point, center, fallbackName) {
+  const waypoint = buildRouteWaypoint(point, fallbackName);
+  if (!waypoint) return null;
+  if (Number.isFinite(waypoint.lat) && Number.isFinite(waypoint.lng)) return waypoint;
+  if (!waypoint.searchQuery) return null;
+
+  const results = await searchLocations(waypoint.searchQuery, center);
+  const result = Array.isArray(results) ? results[0] : null;
+  const lat = Number(result?.lat);
+  const lng = Number(result?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return {
+    ...waypoint,
+    address: waypoint.address || result.address || result.name || waypoint.searchQuery,
+    lat,
+    lng,
+  };
+}
+
 function isFutureOrMissing(value) {
   if (!value) return true;
   const timestamp = new Date(value).getTime();
@@ -250,6 +291,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   const [selectionLocked, setSelectionLocked] = useState(false);
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedSearchLocation, setSelectedSearchLocation] = useState(null);
+  const [operatorRoutePlan, setOperatorRoutePlan] = useState(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [liveLocations, setLiveLocations] = useState([]);
   const [liveOperators, setLiveOperators] = useState([]);
@@ -310,6 +352,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       getInitialDestinationSearchText(initialDestination),
       initialDestination.lat ?? initialDestination.latitude,
       initialDestination.lng ?? initialDestination.longitude,
+      initialDestination.routePlan?.id,
       autoRoute ? "route" : "view",
     ].join(":");
   }, [autoRoute, initialDestination]);
@@ -366,12 +409,69 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   }, []);
 
   useEffect(() => {
+    const incomingRoutePlan = initialDestination?.routePlan;
     const destination = buildInitialMapDestination(initialDestination);
     const searchText = getInitialDestinationSearchText(initialDestination);
-    if (!destination && !searchText) return;
+    if (!incomingRoutePlan && !destination && !searchText) return;
     if (initialDestinationHandledRef.current === initialDestinationKey) return;
 
     initialDestinationHandledRef.current = initialDestinationKey;
+
+    if (incomingRoutePlan) {
+      let cancelled = false;
+      const searchCenter = mapCenterRef.current || userLocationRef.current;
+
+      setSearching(true);
+      setSelectionLocked(false);
+      setSearchResults([]);
+      setLocationPanelOpen(false);
+      setSearchOverlayOpen(false);
+
+      Promise.all([
+        resolveRouteWaypoint(incomingRoutePlan.pickup, searchCenter, "Pick up point"),
+        resolveRouteWaypoint(incomingRoutePlan.dropoff, searchCenter, "Drop off point"),
+      ])
+        .then(([pickup, dropoff]) => {
+          if (cancelled) return;
+          if (!pickup || !dropoff) {
+            throw new Error("Unable to resolve the passenger route");
+          }
+
+          const nextRoutePlan = {
+            ...incomingRoutePlan,
+            pickup,
+            dropoff,
+          };
+
+          setOperatorRoutePlan(nextRoutePlan);
+          setActiveLocation(dropoff);
+          setSearchQuery(dropoff.address || dropoff.name);
+          setSelectionLocked(true);
+          setSelectedSearchLocation(dropoff);
+
+          mapInstance?.flyTo({
+            center: [dropoff.lng, dropoff.lat],
+            zoom: 14,
+            essential: true,
+          });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setOperatorRoutePlan(null);
+          setSearchQuery(searchText);
+          setSearchResults([]);
+          setSearchOverlayOpen(true);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setOperatorRoutePlan(null);
 
     if (!destination) {
       setSearchQuery(searchText);
@@ -670,6 +770,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     const query = searchMap[type] || `${type} near me`;
 
     setSosOpen(false);
+    setOperatorRoutePlan(null);
     setSelectionLocked(false);
     setSearchResults([]);
     setSearching(false);
@@ -695,6 +796,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     setSearching(false);
     setLocationPanelOpen(false);
     setSearchOverlayOpen(false);
+    setOperatorRoutePlan(null);
     setSelectedSearchLocation(result);
 
     if (document.activeElement) document.activeElement.blur();
@@ -717,6 +819,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   const handleSelectLiveLocation = useCallback((location) => {
     setActiveLocation(location);
     setLocationPanelOpen(true);
+    setOperatorRoutePlan(null);
     setSelectedSearchLocation(location);
 
     mapInstance?.flyTo({
@@ -753,6 +856,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           onLocationResolved={handleMapLocationResolved}
           onMapReady={setMapInstance}
           selectedLocation={selectedSearchLocation}
+          routePlan={operatorRoutePlan}
           focusMode={focusMode}
           operatorLocations={operatorLocations}
           nearbyMapLocations={filteredMapLocations}

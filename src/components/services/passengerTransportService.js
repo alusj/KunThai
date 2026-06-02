@@ -5,7 +5,7 @@ const TRANSPORT_SAVED_PLACES_KEY = "kuntai.transport.savedPlaces";
 const TRANSPORT_ACTIVE_PLACE_KEY = "kuntai.transport.activePlace";
 const TRANSPORT_SETTINGS_KEY = "kuntai.transport.passengerSettings";
 
-const pendingTripStatuses = ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "in_progress"];
+const pendingTripStatuses = ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "start_requested", "in_progress", "paused"];
 const previousTripStatuses = ["completed", "cancelled"];
 
 function readLocalJson(key, fallback) {
@@ -114,8 +114,10 @@ function formatTripStage(row) {
   if (row.status === "requested") return "Sent to operator";
   if (row.status === "accepted") return "Operator accepted";
   if (row.status === "arrived") return "Operator arrived";
+  if (row.status === "start_requested") return "Confirm trip start";
   if (row.status === "pending_confirmation") return "Waiting for operator";
   if (row.status === "in_progress") return "Trip in progress";
+  if (row.status === "paused") return "Trip paused";
   return row.status || "Active booking";
 }
 
@@ -126,7 +128,9 @@ function getTripStep(status) {
     waiting_operator: 1,
     accepted: 2,
     arrived: 3,
+    start_requested: 3,
     in_progress: 4,
+    paused: 4,
     completed: 5,
     cancelled: 0,
   };
@@ -170,6 +174,19 @@ async function mapTrip(row) {
     step: getTripStep(row.status),
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || row.created_at || "",
+    bookingMethod: row.booking_method || "distance",
+    estimatedDistanceKm: Number(row.estimated_distance_km || 0),
+    bookedHours: Number(row.booked_hours || 0),
+    baseFareSnapshot: Number(row.base_fare_snapshot || 0),
+    rateSnapshot: Number(row.rate_snapshot || 0),
+    fareAmount: Number(row.fare_amount || 0),
+    distanceCoveredMeters: Number(row.distance_covered_meters || 0),
+    startedAt: row.started_at || "",
+    startRequestedAt: row.start_requested_at || "",
+    pausedAt: row.paused_at || "",
+    pausedSeconds: Number(row.paused_seconds || 0),
+    lastLocationLatitude: row.last_location_latitude == null ? null : Number(row.last_location_latitude),
+    lastLocationLongitude: row.last_location_longitude == null ? null : Number(row.last_location_longitude),
     fleet,
   };
 }
@@ -182,7 +199,7 @@ export async function fetchActiveTrips() {
     .from("transport_trips")
     .select("*")
     .eq("passenger_id", passengerId)
-    .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "in_progress"])
+    .in("status", pendingTripStatuses)
     .order("created_at", { ascending: false });
 
   if (error) {

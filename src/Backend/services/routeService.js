@@ -163,6 +163,44 @@ export async function getRouteBetweenPoints(start, end) {
   return getApproximateRoute(normalizedStart, normalizedEnd);
 }
 
+export async function getRouteThroughPoints(points = []) {
+  if (
+    points.length < 2 ||
+    points.some((point) => !hasValidPoint(point))
+  ) {
+    throw new Error("At least two valid route points are required");
+  }
+
+  const normalizedPoints = points.map(normalizePoint);
+
+  const legs = await Promise.all(
+    normalizedPoints.slice(0, -1).map(async (point, index) => {
+      const route = await getRouteBetweenPoints(point, normalizedPoints[index + 1]);
+      return {
+        ...route,
+        from: normalizedPoints[index],
+        to: normalizedPoints[index + 1],
+      };
+    }),
+  );
+
+  const coordinates = legs.flatMap((leg, index) => {
+    const legCoordinates = leg.geometry?.coordinates || [];
+    return index === 0 ? legCoordinates : legCoordinates.slice(1);
+  });
+
+  return {
+    geometry: {
+      type: "LineString",
+      coordinates,
+    },
+    distanceMeters: legs.reduce((total, leg) => total + leg.distanceMeters, 0),
+    durationSeconds: legs.reduce((total, leg) => total + leg.durationSeconds, 0),
+    approximate: legs.some((leg) => leg.approximate),
+    legs,
+  };
+}
+
 export function formatDistance(meters) {
   if (!meters) return "0 km";
   if (meters < 1000) return `${Math.round(meters)} m`;

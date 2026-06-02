@@ -180,7 +180,10 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
       </div>
 
       <div className="flex flex-col gap-2 lg:items-end">
-        <span className="text-sm font-bold text-gray-950 lg:text-right">{fleet.priceHint}</span>
+        <span className="text-sm font-bold text-gray-950 lg:text-right">
+          {fleet.pricePerKm ? `SLE ${fleet.pricePerKm.toLocaleString()} / km` : fleet.priceHint}
+          {fleet.pricePerHour ? <span className="block text-xs text-gray-500">SLE {fleet.pricePerHour.toLocaleString()} / hour</span> : null}
+        </span>
 
         <button
           type="button"

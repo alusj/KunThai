@@ -71,6 +71,8 @@ function mapOperatorAccount(row, fleet, extras = {}) {
     carBodyType: fleet?.car_body_type || "",
     maxLoad: fleet?.max_load || "",
     baseFare: fleet?.base_fare ? String(fleet.base_fare) : "",
+    pricePerKm: fleet?.price_per_km ? String(fleet.price_per_km) : "",
+    pricePerHour: fleet?.price_per_hour ? String(fleet.price_per_hour) : "",
     priceHint: fleet?.price_hint || "",
     homeBaseLocation: fleet?.home_base_location || "",
     deliveryBodyType: fleet?.delivery_body_type || "",
@@ -113,7 +115,18 @@ function patchStoredOperatorAccount(patch) {
   );
 }
 
+function parseOptionalCoordinate(value) {
+  if (value == null || value === "") return null;
+  const coordinate = Number(value);
+  return Number.isFinite(coordinate) ? coordinate : null;
+}
+
 function mapTrip(row) {
+  const tripType = row.trip_type || row.trip_mode || "ride";
+  const pickupLat = parseOptionalCoordinate(row.pickup_latitude);
+  const pickupLng = parseOptionalCoordinate(row.pickup_longitude);
+  const destinationLat = parseOptionalCoordinate(row.destination_latitude);
+  const destinationLng = parseOptionalCoordinate(row.destination_longitude);
   return {
     id: row.id,
     passengerId: row.passenger_id,
@@ -125,6 +138,18 @@ function mapTrip(row) {
     fare: row.fare_amount ? `${row.fare_currency || "SLE"} ${Number(row.fare_amount).toFixed(2)}` : "Fare pending",
     note: row.status || "Waiting for operator",
     status: row.status,
+    tripType,
+    requestType: tripType === "delivery" ? "Package delivery" : "Passenger ride",
+    packageDescription: row.package_description || "",
+    bookingMethod: row.booking_method || "distance",
+    estimatedDistanceKm: Number(row.estimated_distance_km || 0),
+    bookedHours: Number(row.booked_hours || 0),
+    pickupPoint: pickupLat != null && pickupLng != null
+      ? { lat: pickupLat, lng: pickupLng }
+      : null,
+    destinationPoint: destinationLat != null && destinationLng != null
+      ? { lat: destinationLat, lng: destinationLng }
+      : null,
     raw: row,
   };
 }
@@ -255,7 +280,7 @@ export async function fetchOperatorDashboard(operatorId = null) {
           .from("transport_trips")
           .select("*")
           .eq("fleet_id", fleetId)
-          .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "in_progress"])
+          .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "start_requested", "in_progress", "paused"])
           .order("created_at", { ascending: false })
       : { data: [], error: null },
     fleetId
@@ -398,7 +423,12 @@ export async function saveOperatorAccount(account) {
         max_load: form.maxLoad?.trim() || "",
         delivery_body_type: form.deliveryBodyType?.trim() || "",
         base_fare: form.baseFare ? Number(form.baseFare) : null,
-        price_hint: form.priceHint?.trim() || "",
+        price_per_km: form.pricePerKm ? Number(form.pricePerKm) : null,
+        price_per_hour: form.pricePerHour ? Number(form.pricePerHour) : null,
+        price_hint: form.priceHint?.trim() || [
+          form.pricePerKm ? `SLE ${Number(form.pricePerKm).toLocaleString()} per km` : "",
+          form.pricePerHour ? `SLE ${Number(form.pricePerHour).toLocaleString()} per hour` : "",
+        ].filter(Boolean).join(" | "),
         safety_answers: account.answers || {},
         verification_status: verificationStatus,
         accepts_ride: ["Transport", "Both"].includes(form.category),

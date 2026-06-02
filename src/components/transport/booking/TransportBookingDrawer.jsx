@@ -7,6 +7,7 @@ import {
   FiMapPin,
   FiNavigation,
   FiPhone,
+  FiRefreshCw,
   FiSend,
   FiTruck,
   FiUser,
@@ -17,6 +18,12 @@ import AppPortal from "../../shared/AppPortal";
 import { createTransportBooking } from "../../services/bookingService";
 import { getTransportSavedPlaces } from "../../services/passengerTransportService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
+import {
+  calculateBookingRoute,
+  calculateFleetFare,
+  describeFleetFare,
+  formatBookingDistance,
+} from "../../services/transportPricingService";
 
 const fleetTypes = [
   { value: "", label: "Any active fleet" },
@@ -53,29 +60,6 @@ function getPlaceLabel(place) {
   return place.category === "Other" ? place.customCategory || "Other" : place.category || "Saved";
 }
 
-function estimateFare(fleet, mode) {
-  if (!fleet) return "Choose an operator";
-  if (fleet.priceHint && !/confirmed on booking/i.test(fleet.priceHint)) return fleet.priceHint;
-
-  const distance = Math.max(1, Number(fleet.distanceKm || 2));
-  const type = fleet.fleetType;
-  const base =
-    mode === "delivery"
-      ? type === "Car"
-        ? 45
-        : type === "Tricycle"
-          ? 32
-          : 22
-      : type === "Car"
-        ? 35
-        : type === "Tricycle"
-          ? 25
-          : 15;
-  const perKm = mode === "delivery" ? 8 : type === "Car" ? 10 : 6;
-  const estimate = Math.round(base + distance * perKm);
-  return `Estimate SLE ${Math.max(10, estimate - 5)} - ${estimate + 8}`;
-}
-
 function isFleetBookable(fleet) {
   const status = String(fleet?.activeStatus || fleet?.status || "").trim().toLowerCase();
   return ["active", "available", "online"].includes(status);
@@ -91,6 +75,7 @@ function getBookingRequirementMessage(form, mode) {
   if (!hasText(form.passengerName)) return "Add the passenger or sender name.";
   if (!hasText(form.phone)) return "Add a phone number the operator can use.";
   if (form.pickupTime === "schedule" && !form.scheduledAt) return "Choose the scheduled pickup time.";
+  if (form.bookingMethod === "time" && Number(form.bookedHours || 0) <= 0) return "Add the number of hours for this time booking.";
   if (mode === "delivery" && !hasText(form.packageDescription)) return "Add a package description for this delivery.";
   return "";
 }
@@ -102,6 +87,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const [selectedFleetId, setSelectedFleetId] = useState(target?.fleet?.id || "");
   const [savedPlaces, setSavedPlaces] = useState([]);
   const [loadingFleets, setLoadingFleets] = useState(false);
+  const [routeEstimate, setRouteEstimate] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeMessage, setRouteMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
   const [form, setForm] = useState({
@@ -114,6 +102,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     passengers: "1",
     packageDescription: "",
     note: "",
+    bookingMethod: "distance",
+    bookedHours: "1",
   });
 
   const selectedFleet = useMemo(
@@ -135,7 +125,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   }, [activeAvailableFleets, availableFleets, isSelectedFleetActive, requiresLiveOperator, selectedFleet, selectedFleetId]);
   const displayFleet = bookingFleet || selectedFleet;
   const bookingMode = modeForFleet(bookingFleet || selectedFleet, selection.mode);
-  const fareEstimate = estimateFare(displayFleet, bookingMode);
+  const pricingInput = {
+    bookingMethod: form.bookingMethod,
+    distanceKm: routeEstimate?.distanceKm || 0,
+    bookedHours: form.bookedHours,
+  };
+  const fareEstimate = describeFleetFare(displayFleet, pricingInput);
   const requirementMessage = getBookingRequirementMessage(form, bookingMode);
   const fleetMessage = loadingFleets
     ? requiresLiveOperator
@@ -151,7 +146,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           : "No operator matches this service and fleet type."
       : "";
   const sendBlockMessage = requirementMessage || fleetMessage;
-  const canSendBooking = !submitting && !requirementMessage;
+  const canSendBooking = !submitting && !routeLoading && !requirementMessage && Boolean(bookingFleet);
 
   useEffect(() => {
     if (!open) return;
@@ -161,6 +156,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     setSelectedFleetId(target?.fleet?.id || "");
     setSavedPlaces(getTransportSavedPlaces());
     setStatus("");
+    setRouteEstimate(null);
+    setRouteMessage("");
     setForm((current) => ({
       ...current,
       pickup: target?.pickup || target?.movement?.pickup || current.pickup,
@@ -169,6 +166,33 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       note: "",
     }));
   }, [open, target]);
+
+  useEffect(() => {
+    if (!open || form.bookingMethod !== "distance" || !hasText(form.pickup) || !hasText(form.dropoff)) return undefined;
+
+    let alive = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        setRouteLoading(true);
+        setRouteMessage("Calculating the route distance...");
+        const nextRoute = await calculateBookingRoute(form.pickup, form.dropoff);
+        if (!alive) return;
+        setRouteEstimate(nextRoute);
+        setRouteMessage(`${formatBookingDistance(nextRoute.distanceKm)} route${nextRoute.approximate ? " - approximate road estimate" : ""}`);
+      } catch (error) {
+        if (!alive) return;
+        setRouteEstimate(null);
+        setRouteMessage(error.message || "Unable to calculate this route.");
+      } finally {
+        if (alive) setRouteLoading(false);
+      }
+    }, 650);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [form.bookingMethod, form.dropoff, form.pickup, open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -264,6 +288,24 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
     try {
       setSubmitting(true);
+      let resolvedRoute = routeEstimate;
+      if (form.bookingMethod === "distance" && !resolvedRoute) {
+        setRouteLoading(true);
+        resolvedRoute = await calculateBookingRoute(form.pickup, form.dropoff);
+        setRouteEstimate(resolvedRoute);
+        setRouteMessage(`${formatBookingDistance(resolvedRoute.distanceKm)} route${resolvedRoute.approximate ? " - approximate road estimate" : ""}`);
+      }
+      const resolvedFare = calculateFleetFare(bookingFleet, {
+        bookingMethod: form.bookingMethod,
+        distanceKm: resolvedRoute?.distanceKm,
+        bookedHours: form.bookedHours,
+      });
+      if (!bookingFleet) throw new Error("Choose an operator before sending this booking.");
+      if (!resolvedFare?.ready) {
+        throw new Error(form.bookingMethod === "time"
+          ? "This operator has not added an hourly rate yet. Choose another operator."
+          : "This operator has not added a price per kilometer yet. Choose another operator.");
+      }
       const nextBookingMode = modeForFleet(bookingFleet || null, selection.mode);
       const booking = await createTransportBooking({
         ...form,
@@ -272,6 +314,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         mode: nextBookingMode,
         pickup: form.pickup,
         dropoff: form.dropoff,
+        bookingMethod: form.bookingMethod,
+        bookedHours: form.bookingMethod === "time" ? Number(form.bookedHours) : null,
+        distanceKm: resolvedRoute?.distanceKm || null,
+        pickupPoint: resolvedRoute?.pickupPoint || null,
+        destinationPoint: resolvedRoute?.destinationPoint || null,
       });
       setSelectedFleetId(bookingFleet?.id || "");
       setStatus("Booking sent. The operator will see this as a pending passenger request.");
@@ -280,6 +327,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       setStatus(error.message || "Unable to send this booking.");
     } finally {
       setSubmitting(false);
+      setRouteLoading(false);
     }
   }
 
@@ -324,7 +372,27 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             </p>
           ) : null}
 
-          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Choose booking method</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <BookingMethodButton
+                active={form.bookingMethod === "distance"}
+                icon={FiNavigation}
+                title="Book by distance"
+                detail="Route price is calculated from pickup to drop-off using the operator's price per kilometer."
+                onClick={() => updateForm({ bookingMethod: "distance" })}
+              />
+              <BookingMethodButton
+                active={form.bookingMethod === "time"}
+                icon={FiClock}
+                title="Book by time"
+                detail="Reserve the operator by the hour and see the total from the operator's hourly price."
+                onClick={() => updateForm({ bookingMethod: "time" })}
+              />
+            </div>
+          </section>
+
+          <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1">
                 <span className="text-xs font-black uppercase text-gray-500">Service</span>
@@ -372,7 +440,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   </option>
                   {availableFleets.map((fleet) => (
                     <option key={fleet.id} value={fleet.id}>
-                      {fleet.fleetName} - {fleet.displayType}
+                      {fleet.fleetName} - {describeFleetFare(fleet, pricingInput)}
                     </option>
                   ))}
                 </select>
@@ -397,6 +465,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   }
                 />
                 <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
+                <InfoLine
+                  icon={form.bookingMethod === "time" ? FiClock : FiNavigation}
+                  label={form.bookingMethod === "time" ? "Hourly rate" : "Distance rate"}
+                  value={form.bookingMethod === "time"
+                    ? `${describeFleetFare({ ...displayFleet, baseFare: 0 }, { bookingMethod: "time" })}`
+                    : `${describeFleetFare({ ...displayFleet, baseFare: 0 }, { bookingMethod: "distance" })}`}
+                />
               </div>
             ) : null}
           </section>
@@ -407,10 +482,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 <FiCreditCard size={19} />
               </span>
               <div>
-                <p className="text-sm font-black text-emerald-950">Fare guidance</p>
+                <p className="text-sm font-black text-emerald-950">Calculated fare</p>
                 <p className="mt-1 text-sm font-black text-emerald-700">{fareEstimate}</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
-                  The operator can confirm the final fare after accepting. Built-in transport payments are still being prepared.
+                  {form.bookingMethod === "distance"
+                    ? `The selected operator's kilometer rate is calculated against ${routeEstimate ? formatBookingDistance(routeEstimate.distanceKm) : "your resolved route"}.`
+                    : `The selected operator's hourly rate is calculated against ${Number(form.bookedHours || 0)} hour${Number(form.bookedHours || 0) === 1 ? "" : "s"}.`}
                 </p>
               </div>
             </div>
@@ -484,6 +561,27 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 primary
               />
             </div>
+
+            {form.bookingMethod === "distance" ? (
+              <div className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-bold ${
+                routeEstimate ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"
+              }`}>
+                <FiRefreshCw className={routeLoading ? "animate-spin" : ""} size={17} />
+                <span>{routeMessage || "Add pickup and drop-off locations to calculate each operator's distance price."}</span>
+              </div>
+            ) : (
+              <label className="space-y-1">
+                <span className="text-xs font-black uppercase text-gray-500">Number of hours</span>
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={form.bookedHours}
+                  onChange={(event) => updateForm({ bookedHours: event.target.value })}
+                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+                />
+              </label>
+            )}
 
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1">
@@ -609,6 +707,26 @@ function LocateAreaButton({ icon, label, detail, disabled, onClick, primary = fa
           {detail}
         </span>
       </span>
+    </button>
+  );
+}
+
+function BookingMethodButton({ active, icon, title, detail, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`kt-touchable rounded-2xl border p-3 text-left ${
+        active
+          ? "border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm"
+          : "border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-white"
+      }`}
+    >
+      <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${active ? "bg-emerald-600 text-white" : "bg-white text-emerald-700"}`}>
+        {createElement(icon, { size: 18 })}
+      </span>
+      <span className="mt-3 block text-sm font-black">{title}</span>
+      <span className="mt-1 block text-xs font-semibold leading-5 opacity-75">{detail}</span>
     </button>
   );
 }
