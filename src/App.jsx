@@ -161,6 +161,10 @@ export default function App() {
       const detail = event.detail || {};
       if (!detail.destination) return;
 
+      setMarketplaceNav({ root: "marketplace", sub: null });
+      setMarketplaceActivityOpen(false);
+      window.dispatchEvent(new CustomEvent("marketplace-close-buyer-surfaces"));
+
       setTransportAreaRequest({
         ...detail,
         requestedAt: Date.now(),

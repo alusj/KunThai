@@ -33,6 +33,7 @@ import {
   getActiveTrips,
   subscribePassengerTrips,
 } from "../services/passengerTransportService";
+import { showToast } from "../../Backend/services/toastService";
 import AppBackTab from "../shared/AppBackTab";
 import LiveTripMetric from "./live/LiveTripMetric";
 import VerificationBadge from "./verification/VerificationBadge";
@@ -96,24 +97,33 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
     try {
       setActionMessage("");
       await action();
-      if (successMessage) setActionMessage(successMessage);
+      if (successMessage) {
+        setActionMessage(successMessage);
+        showToast(successMessage, "success");
+      }
       if (options.completeTrip) setCompletedTrip(options.completeTrip);
       setActionScreen(null);
       await loadTrips({ quiet: true });
     } catch (err) {
-      setActionMessage(err.message || "Unable to update this trip.");
+      const message = err.message || "Unable to update this trip.";
+      setActionMessage(message);
+      showToast(message, "danger");
     }
   }
 
   async function submitSupport(payload) {
     const result = await submitTransportSupportTicket(payload);
-    setActionMessage(result.synced ? "Support ticket sent." : "Support request saved on this device and queued for sync.");
+    const message = result.synced ? "Support ticket sent." : "Support request saved on this device and queued for sync.";
+    setActionMessage(message);
+    showToast(message, result.synced ? "success" : "info");
     setActionScreen(null);
   }
 
   async function submitReview(payload) {
     await submitTransportTripReview(payload);
-    setActionMessage("Thank you. Your rating and review were submitted.");
+    const message = "Thank you. Your rating and review were submitted.";
+    setActionMessage(message);
+    showToast(message, "success");
     setCompletedTrip(null);
     setActionScreen(null);
     await loadTrips({ quiet: true });

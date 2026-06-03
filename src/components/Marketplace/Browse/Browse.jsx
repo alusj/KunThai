@@ -1,6 +1,6 @@
 // src/components/Marketplace/Browse/Browse.jsx
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   addBuyerCartItem,
   createBuyerProductOrder,
@@ -71,6 +71,28 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [sellerOpen, setSellerOpen] = useState(false);
+  const noticeTimerRef = useRef(null);
+
+  const showNotice = useCallback((message, tone = "success") => {
+    showToast(message, tone);
+    setNotice(message);
+    window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => setNotice(""), 2500);
+  }, []);
+
+  const openProduct = useCallback(async (product) => {
+    setSelectedProduct(product);
+    setDetailOpen(true);
+    rememberRecentProduct(product);
+
+    try {
+      const detail = await fetchBuyerProductDetail(product.id);
+      setSelectedProduct(detail);
+      rememberRecentProduct(detail);
+    } catch (err) {
+      showNotice(err.message || "Unable to open product details.", "danger");
+    }
+  }, [showNotice]);
 
   useEffect(() => {
     onProductModeChange?.(detailOpen || sellerOpen);
@@ -81,6 +103,20 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
   }, [detailOpen, sellerOpen, onProductModeChange]);
 
   useEffect(() => {
+    return () => window.clearTimeout(noticeTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    function handleCloseBuyerSurfaces() {
+      setDetailOpen(false);
+      setSellerOpen(false);
+    }
+
+    window.addEventListener("marketplace-close-buyer-surfaces", handleCloseBuyerSurfaces);
+    return () => window.removeEventListener("marketplace-close-buyer-surfaces", handleCloseBuyerSurfaces);
+  }, []);
+
+  useEffect(() => {
     let alive = true;
 
     async function loadProducts() {
@@ -88,7 +124,7 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
       setError("");
 
       try {
-        const products = await fetchBuyerMarketplaceProducts(filters);
+        const products = await fetchBuyerMarketplaceProducts(queryFilters);
         if (alive) setCatalog(products);
       } catch (err) {
         if (alive) setError(err.message || "Unable to load UrMall products.");
@@ -149,7 +185,7 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
 
     window.addEventListener("marketplace-open-product", handleExternalProductOpen);
     return () => window.removeEventListener("marketplace-open-product", handleExternalProductOpen);
-  }, []);
+  }, [openProduct]);
 
   useEffect(() => {
     let alive = true;
@@ -176,28 +212,7 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
       alive = false;
       window.removeEventListener("hashchange", openProductFromHash);
     };
-  }, []);
-
-  function showNotice(message, tone = "success") {
-    showToast(message, tone);
-    setNotice(message);
-    window.clearTimeout(showNotice.timeoutId);
-    showNotice.timeoutId = window.setTimeout(() => setNotice(""), 2500);
-  }
-
-  async function openProduct(product) {
-    setSelectedProduct(product);
-    setDetailOpen(true);
-    rememberRecentProduct(product);
-
-    try {
-      const detail = await fetchBuyerProductDetail(product.id);
-      setSelectedProduct(detail);
-      rememberRecentProduct(detail);
-    } catch (err) {
-      showNotice(err.message || "Unable to open product details.", "danger");
-    }
-  }
+  }, [showNotice]);
 
   async function addToCart(product) {
     try {

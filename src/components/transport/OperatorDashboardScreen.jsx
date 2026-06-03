@@ -1,18 +1,25 @@
-import { createElement, useCallback, useEffect, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  FiAlertTriangle,
   FiBell,
   FiCalendar,
   FiChevronRight,
+  FiClock,
   FiCreditCard,
   FiEdit3,
   FiFileText,
+  FiFlag,
   FiHome,
   FiMap,
   FiMapPin,
+  FiMoreHorizontal,
   FiMoreVertical,
   FiNavigation,
+  FiPhone,
+  FiPlay,
   FiRefreshCw,
   FiRadio,
+  FiShare2,
   FiShield,
   FiSliders,
   FiStar,
@@ -23,12 +30,19 @@ import {
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
+import { showToast } from "../../Backend/services/toastService";
+import { createSupportTicket } from "../../Backend/services/explore/supportService";
 import {
   fetchOperatorDashboard,
   subscribeOperatorTrips,
   updateOperatorAvailability,
   updateTripControls,
 } from "../services/transportOperatorAccountService";
+import {
+  formatTripDistance,
+  formatTripElapsed,
+  getElapsedTripSeconds,
+} from "./live/liveTripMetricUtils";
 
 const operatorVerificationStatuses = {
   notVerified: {
@@ -107,7 +121,6 @@ export default function OperatorDashboardScreen({
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
   const [dashboard, setDashboard] = useState(account?.dashboard || null);
   const [dashboardError, setDashboardError] = useState("");
-  const [actionMessage, setActionMessage] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [controlsSaving, setControlsSaving] = useState(false);
   const form = account?.form || {};
@@ -123,7 +136,7 @@ export default function OperatorDashboardScreen({
   const availabilityText = isActive
     ? "Active, Visible to passengers"
     : "offline-not accepting trips";
-  const waitingPassengers = dashboard?.waitingPassengers || [];
+  const waitingPassengers = useMemo(() => dashboard?.waitingPassengers || [], [dashboard?.waitingPassengers]);
   const hasWaitingPassengers = waitingPassengers.length > 0;
   const today = dashboard?.today || {};
   const tripControls = dashboard?.tripControls || {};
@@ -131,6 +144,10 @@ export default function OperatorDashboardScreen({
   const reviews = dashboard?.reviews || {};
   const alerts = dashboard?.alerts || [];
   const tripHistory = dashboard?.tripHistory || [];
+  const liveTrip = useMemo(
+    () => waitingPassengers.find((passenger) => ["in_progress", "paused", "start_requested"].includes(passenger.status)) || null,
+    [waitingPassengers],
+  );
 
   function openOperatorArea(areaText, kind = "operating-area") {
     const cleanText = String(areaText || "").trim();
@@ -227,6 +244,7 @@ export default function OperatorDashboardScreen({
       const updatedFleet = await updateOperatorAvailability(account?.fleetId, nextActive);
       const updatedActive = updatedFleet?.active_status === "active";
       setIsActive(updatedActive);
+      showToast(updatedActive ? "Fleet is live for passengers." : "Fleet is offline.", "success");
       onAccountUpdate?.((current) => {
         if (!current) return current;
 
@@ -250,6 +268,7 @@ export default function OperatorDashboardScreen({
     } catch (error) {
       setIsActive(!nextActive);
       setDashboardError(error.message || "Unable to update availability.");
+      showToast(error.message || "Unable to update availability.", "danger");
     }
   }
 
@@ -257,9 +276,11 @@ export default function OperatorDashboardScreen({
     try {
       setControlsSaving(true);
       await updateTripControls(account?.fleetId, nextControls);
+      showToast("Trip controls saved.", "success");
       await refreshDashboard();
     } catch (error) {
       setDashboardError(error.message || "Unable to update trip controls.");
+      showToast(error.message || "Unable to update trip controls.", "danger");
     } finally {
       setControlsSaving(false);
     }
@@ -267,7 +288,6 @@ export default function OperatorDashboardScreen({
 
   async function handleTripStatusUpdate(trip, status, patch = {}) {
     try {
-      setActionMessage("");
       setDashboardError("");
       if (status === "start_requested") await requestTransportTripStart(trip.id);
       else await updateTransportTripStatus(trip.id, status, patch);
@@ -278,10 +298,11 @@ export default function OperatorDashboardScreen({
         completed: "Trip completed and moved into history.",
         cancelled: "Trip declined or cancelled.",
       };
-      setActionMessage(statusCopy[status] || "Trip updated.");
+      showToast(statusCopy[status] || "Trip updated.", "success");
       await refreshDashboard();
     } catch (error) {
       setDashboardError(error.message || "Unable to update trip.");
+      showToast(error.message || "Unable to update trip.", "danger");
     }
   }
 
@@ -367,12 +388,6 @@ export default function OperatorDashboardScreen({
           </div>
         )}
 
-        {actionMessage && (
-          <div className="mb-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-            {actionMessage}
-          </div>
-        )}
-
         {activeView === "waiting" ? (
           <WaitingPassengersScreen
             passengers={waitingPassengers}
@@ -404,6 +419,14 @@ export default function OperatorDashboardScreen({
             {availabilityText}
           </button>
         </div>
+
+        {liveTrip ? (
+          <OperatorLiveTripHeaderCard
+            trip={liveTrip}
+            fleetName={fleetName}
+            onViewRoute={() => openPassengerTripRoute(liveTrip)}
+          />
+        ) : null}
 
         <section className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
@@ -636,6 +659,200 @@ function LocateAreaIconButton({ label, onClick }) {
       className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-slate-950 text-white shadow-sm transition hover:bg-slate-900"
     >
       <FiNavigation size={17} />
+    </button>
+  );
+}
+
+function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const passengerPhone = trip.contactPhone || trip.raw?.contact_phone || "";
+  const paused = trip.status === "paused";
+  const awaitingStart = trip.status === "start_requested";
+  const statusLabel = awaitingStart ? "Waiting for passenger approval" : paused ? "Trip paused" : "Trip in progress";
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [trip?.id, trip?.status]);
+
+  async function shareRouteStatus() {
+    const text = [
+      `KunThai trip status: ${statusLabel}`,
+      `Passenger: ${trip.name}`,
+      `Route: ${trip.route}`,
+      `Pickup: ${trip.pickup}`,
+      `Drop-off: ${trip.destination}`,
+    ].filter(Boolean).join("\n");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "KunThai live route status",
+          text,
+        });
+        setMenuOpen(false);
+        return;
+      }
+
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(text);
+      setMenuOpen(false);
+      showToast("Route status copied.", "success");
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      showToast(error.message || "Unable to share route status.", "danger");
+    }
+  }
+
+  async function reportConcern() {
+    try {
+      await createSupportTicket({
+        category: "Transport",
+        priority: "high",
+        subject: `Operator trip concern - ${trip.name}`,
+        message: [
+          `Trip ID: ${trip.id}`,
+          `Fleet: ${fleetName}`,
+          `Passenger: ${trip.name}`,
+          `Status: ${statusLabel}`,
+          `Route: ${trip.route}`,
+          `Pickup: ${trip.pickup}`,
+          `Drop-off: ${trip.destination}`,
+        ].join("\n"),
+      });
+      setMenuOpen(false);
+      showToast("Transport concern sent to support.", "success");
+    } catch (error) {
+      showToast(error.message || "Unable to submit this transport concern.", "danger");
+    }
+  }
+
+  return (
+    <section className="relative mb-4 overflow-visible rounded-[28px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/70 to-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
+            <FiRadio size={14} />
+            Live Distance/Time Update
+          </p>
+          <h2 className="mt-1 break-words text-lg font-black leading-tight text-gray-950">{trip.title}</h2>
+          <p className="mt-1 text-xs font-bold text-gray-500">
+            {fleetName} - {trip.name} - {statusLabel}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-950 text-white shadow-sm"
+          aria-expanded={menuOpen}
+          aria-label="Open operator trip actions"
+        >
+          <FiMoreHorizontal size={18} />
+        </button>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(190px,280px)] sm:items-stretch">
+        <div className="rounded-2xl border border-white bg-white/80 px-3 py-3 shadow-sm">
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-400">Current route</p>
+          <p className="mt-1 break-words text-sm font-black leading-5 text-gray-950">{trip.route}</p>
+          <button
+            type="button"
+            onClick={onViewRoute}
+            disabled={!trip.pickup || !trip.destination}
+            className="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-emerald-600 px-3 text-xs font-black text-white shadow-sm disabled:bg-gray-300"
+          >
+            <FiNavigation size={15} />
+            View route
+          </button>
+        </div>
+        {awaitingStart ? (
+          <div className="rounded-2xl border border-sky-100 bg-sky-50 px-3 py-3">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-sky-700">Passenger approval</p>
+            <p className="mt-1 text-xl font-black text-slate-950">Pending</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-sky-700">The live counter starts only after the passenger taps Start.</p>
+          </div>
+        ) : (
+          <OperatorLiveTripMetric trip={trip} />
+        )}
+      </div>
+
+      {menuOpen ? (
+        <div className="kt-live-actions-pop mt-3 rounded-[24px] border border-slate-100 bg-slate-950 p-3 text-white shadow-2xl">
+          <div className="mb-3 rounded-2xl bg-white/10 px-3 py-2">
+            <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">
+              <FiShield size={14} />
+              Operator safety
+            </p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-200">
+              Keep route visibility, passenger contact, and emergency access within reach during the trip.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <OperatorLiveAction icon={FiNavigation} label="View route" onClick={onViewRoute} />
+            <OperatorLiveAction icon={FiPhone} label={passengerPhone ? "Call passenger" : "Passenger phone unavailable"} href={passengerPhone ? `tel:${passengerPhone}` : ""} disabled={!passengerPhone} />
+            <OperatorLiveAction icon={FiShare2} label="Share route status" onClick={shareRouteStatus} />
+            <OperatorLiveAction icon={FiAlertTriangle} label="Emergency 112" href="tel:112" danger />
+            <OperatorLiveAction icon={FiFlag} label="Report concern" onClick={reportConcern} />
+            <OperatorLiveAction icon={paused ? FiPlay : FiClock} label={paused ? "Waiting paused" : "Live tracking"} disabled />
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function OperatorLiveTripMetric({ trip }) {
+  const [clockNow, setClockNow] = useState(Date.now());
+  const isTime = trip.bookingMethod === "time";
+
+  useEffect(() => {
+    if (!trip?.startedAt || !["in_progress", "paused"].includes(trip.status)) return undefined;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [trip?.startedAt, trip?.status]);
+
+  const value = isTime
+    ? formatTripElapsed(getElapsedTripSeconds({ ...trip, rawStatus: trip.status }, clockNow))
+    : formatTripDistance(trip.distanceCoveredMeters);
+  const label = isTime ? "Live time update" : "Live distance update";
+  const detail = isTime
+    ? trip.status === "paused" ? "Timer paused by passenger" : "Counting from trip start"
+    : trip.status === "paused" ? "Distance paused by passenger" : "Synced from live trip progress";
+
+  return (
+    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3">
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-bold leading-5 text-emerald-700">{detail}</p>
+    </div>
+  );
+}
+
+function OperatorLiveAction({ icon, label, href = "", danger = false, disabled = false, onClick }) {
+  const className = `kt-touchable flex h-11 items-center gap-2 rounded-2xl px-3 text-left text-xs font-black transition ${
+    disabled
+      ? "bg-white/5 text-slate-500"
+      : danger
+        ? "bg-red-500/15 text-red-100 hover:bg-red-500/25"
+        : "bg-white/10 text-white hover:bg-white/15"
+  }`;
+  const content = (
+    <>
+      {createElement(icon, { size: 16 })}
+      <span className="min-w-0 truncate">{label}</span>
+    </>
+  );
+
+  if (href && !disabled) {
+    return (
+      <a href={href} className={className}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} disabled={disabled || !onClick} className={className}>
+      {content}
     </button>
   );
 }

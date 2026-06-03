@@ -748,23 +748,31 @@ export default function SellerProfileDrawer({
       return;
     }
 
-    window.dispatchEvent(
-      new CustomEvent("kuntai-open-area-view", {
-        detail: {
-          autoRoute: true,
-          destination: {
-            type: "seller",
-            id: safeSeller.id,
-            name: sellerName,
-            address: fullAddress,
-            category: sellerCategory,
-            lat: sellerDestination.lat,
-            lng: sellerDestination.lng,
-          },
-        },
-      }),
-    );
+    const routeDetail = {
+      autoRoute: true,
+      destination: {
+        type: "seller",
+        id: safeSeller.id,
+        name: sellerName,
+        address: fullAddress,
+        category: sellerCategory,
+        lat: sellerDestination.lat,
+        lng: sellerDestination.lng,
+        searchQuery: fullAddress || sellerName,
+        country: safeSeller.country || "",
+        city: safeSeller.city || "",
+      },
+    };
+
+    window.dispatchEvent(new CustomEvent("marketplace-close-buyer-surfaces"));
     onClose?.();
+    window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("kuntai-open-area-view", {
+          detail: routeDetail,
+        }),
+      );
+    }, 80);
   }
 
   function openMessagePanel() {

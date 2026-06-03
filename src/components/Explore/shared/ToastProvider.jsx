@@ -19,6 +19,11 @@ const tones = {
     className: "border-rose-100 bg-white text-slate-800",
     iconClass: "text-rose-600",
   },
+  error: {
+    icon: HiOutlineExclamationTriangle,
+    className: "border-rose-100 bg-white text-slate-800",
+    iconClass: "text-rose-600",
+  },
 };
 
 export default function ToastProvider({ children }) {
@@ -47,7 +52,7 @@ export default function ToastProvider({ children }) {
           return (
             <div
               key={item.id}
-              className={`pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-[18px] border px-3 py-3 text-sm font-bold shadow-2xl backdrop-blur transition ${tone.className}`}
+              className={`kt-toast-pop pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-[18px] border px-3 py-3 text-sm font-bold shadow-2xl backdrop-blur transition ${tone.className}`}
             >
               <Icon className={`flex-none text-xl ${tone.iconClass}`} />
               <p className="kuntai-break min-w-0 flex-1 leading-5">{item.message}</p>
