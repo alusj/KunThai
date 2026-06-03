@@ -16,11 +16,25 @@ function parseCoordinateLabel(value) {
   return { lat, lng };
 }
 
-async function resolveLocationPoint(label) {
+function normalizePoint(point) {
+  const lat = toFiniteNumber(point?.lat ?? point?.latitude);
+  const lng = toFiniteNumber(point?.lng ?? point?.longitude);
+  if (lat == null || lng == null) return null;
+  return {
+    ...point,
+    lat,
+    lng,
+  };
+}
+
+async function resolveLocationPoint(label, center = null) {
+  const directPoint = normalizePoint(label);
+  if (directPoint) return directPoint;
+
   const parsed = parseCoordinateLabel(label);
   if (parsed) return parsed;
 
-  const matches = await searchLocations(String(label || ""));
+  const matches = await searchLocations(String(label || ""), center);
   return matches[0] || null;
 }
 
@@ -79,11 +93,10 @@ export function describeFleetFare(fleet, input = {}) {
   return formatSle(estimate.amount);
 }
 
-export async function calculateBookingRoute(pickup, dropoff) {
-  const [start, end] = await Promise.all([
-    resolveLocationPoint(pickup),
-    resolveLocationPoint(dropoff),
-  ]);
+export async function calculateBookingRoute(pickup, dropoff, options = {}) {
+  const center = normalizePoint(options.center);
+  const start = await resolveLocationPoint(options.pickupPoint || pickup, center || options.destinationPoint);
+  const end = await resolveLocationPoint(options.destinationPoint || dropoff, start || center);
 
   if (!start || !end) {
     throw new Error("We could not resolve both locations. Add a clearer street, junction, landmark, or current GPS location.");

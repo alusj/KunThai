@@ -1734,29 +1734,24 @@ export default function NearbyAreaMap({
 
   useEffect(() => {
     let cancelled = false;
+    const cameraTimers = [];
+
+    function scheduleCameraMove(callback, delayMs) {
+      const timerId = window.setTimeout(() => {
+        if (!cancelled) callback();
+      }, delayMs);
+      cameraTimers.push(timerId);
+    }
 
     async function drawRoute() {
       if (!selectedLocation || !mapRef.current) return;
 
-      if (routePlan && deviceLocationState === "checking") {
-        setRouteError("");
-        setRouteLoading(true);
-        setRouteInfo({
-          from: "CURRENT LOCATION",
-          pickup: operatorPickup?.address || operatorPickup?.name,
-          to: operatorDropoff?.address || selectedLocation.name || "Drop off point",
-          distance: "Waiting for GPS",
-          duration: "...",
-          routePlan: true,
-        });
-        return;
-      }
-
-      if (routePlan && deviceLocationState !== "ready") {
-        throw new Error("Allow location access to preview the operator route from your current location.");
-      }
-
-      const routeStart = routeStartOverrideRef.current || smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
+      const routeStart =
+        routeStartOverrideRef.current ||
+        smoothedPositionRef.current ||
+        userLocationRef.current ||
+        markerRenderedPositionRef.current ||
+        DEFAULT_CENTER;
       const routeTarget = operatorDropoff || selectedLocation;
       const map = mapRef.current;
 
@@ -1820,15 +1815,29 @@ export default function NearbyAreaMap({
 
       const bounds = new maplibregl.LngLatBounds();
       route.geometry.coordinates.forEach((coord) => bounds.extend(coord));
+      [routeStart, operatorPickup, routeTarget].filter(Boolean).forEach((point) => bounds.extend([point.lng, point.lat]));
 
-      map.fitBounds(bounds, {
+      const fitRouteBounds = () => map.fitBounds(bounds, {
         padding: hasOperatorRoutePlan
           ? { top: 150, bottom: 290, left: 80, right: 80 }
           : { top: 140, bottom: 230, left: 70, right: 70 },
         duration: 900,
       });
 
-      if (!hasOperatorRoutePlan) {
+      if (hasOperatorRoutePlan) {
+        [routeStart, operatorPickup, routeTarget].filter(Boolean).forEach((point, index) => {
+          scheduleCameraMove(() => {
+            map.flyTo({
+              center: [point.lng, point.lat],
+              zoom: index === 0 ? 15 : 15.5,
+              duration: 650,
+              essential: true,
+            });
+          }, index * 760);
+        });
+        scheduleCameraMove(fitRouteBounds, 2450);
+      } else {
+        fitRouteBounds();
         window.setTimeout(() => {
           if (!cancelled) applySmartCamera(routeStart, routeTarget, 0, { force: true });
         }, 950);
@@ -1875,6 +1884,7 @@ export default function NearbyAreaMap({
 
     return () => {
       cancelled = true;
+      cameraTimers.forEach((timerId) => window.clearTimeout(timerId));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- route drawing is keyed by destination/reroute only; camera helpers read current refs.
   }, [deviceLocationState, routePlan, selectedLocation, rerouteKey]);

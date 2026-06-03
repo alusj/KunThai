@@ -1,6 +1,7 @@
 import { EXPLORE_CACHE_EVENT, readStoredPosts, removePostFromAllCaches, writeStoredPosts } from "./cacheService";
 import { deleteExplorePost, removeExploreVideoUpload, updateExploreVideoModerationStatus } from "./postService";
 import {
+  clearPostingNotice,
   patchVideoReviewJob,
   publishPostingNotice,
   readVideoReviewJobs,
@@ -10,8 +11,11 @@ import {
 import { moderateExplorePost } from "./safetyService";
 
 const BACKGROUND_REVIEW_TIMEOUT_MS = 52_000;
+const MAX_REVIEW_ATTEMPTS = 8;
+const MAX_REVIEW_AGE_MS = 2 * 60 * 60 * 1000;
 const RETRY_DELAYS_MS = [18_000, 45_000, 90_000, 180_000, 300_000];
 const activeReviewJobs = new Set();
+const activeReviewControllers = new Map();
 const scheduledReviewJobs = new Map();
 
 function getRetryDelay(attempts = 0) {
@@ -21,6 +25,42 @@ function getRetryDelay(attempts = 0) {
 
 function getJobNoticeId(job) {
   return `video-review:${job.postId || job.id}`;
+}
+
+function findStoredReviewJob(reference = "") {
+  const lookup = String(reference || "").trim();
+  if (!lookup) return null;
+
+  return (
+    readVideoReviewJobs().find(
+      (job) => job.id === lookup || job.postId === lookup || getJobNoticeId(job) === lookup,
+    ) || null
+  );
+}
+
+function hasStoredReviewJob(job) {
+  if (!job?.id) return false;
+  return readVideoReviewJobs().some((item) => item.id === job.id && item.postId === job.postId);
+}
+
+function isReviewJobExpired(job, attempts = Number(job?.attempts || 0)) {
+  const createdAt = Number(job?.createdAt || 0);
+  const ageMs = createdAt ? Date.now() - createdAt : 0;
+  return Number(attempts || 0) >= MAX_REVIEW_ATTEMPTS || ageMs >= MAX_REVIEW_AGE_MS;
+}
+
+function clearScheduledReviewJob(jobId) {
+  const timeoutId = scheduledReviewJobs.get(jobId);
+  if (typeof timeoutId !== "undefined" && typeof window !== "undefined") {
+    window.clearTimeout(timeoutId);
+  }
+  scheduledReviewJobs.delete(jobId);
+}
+
+function logReviewCleanupError(error) {
+  if (import.meta.env.DEV) {
+    console.warn("[KunThai Video Review] cleanup failed", error);
+  }
 }
 
 function publishReviewNotice(job, patch = {}) {
@@ -45,6 +85,10 @@ async function moderateVideoJob(job) {
     ? window.setTimeout(() => controller.abort(), BACKGROUND_REVIEW_TIMEOUT_MS)
     : null;
 
+  if (controller) {
+    activeReviewControllers.set(job.id, controller);
+  }
+
   try {
     return await moderateExplorePost({
       body: job.body || "",
@@ -60,7 +104,38 @@ async function moderateVideoJob(job) {
     if (timeoutId) {
       window.clearTimeout(timeoutId);
     }
+    if (activeReviewControllers.get(job.id) === controller) {
+      activeReviewControllers.delete(job.id);
+    }
   }
+}
+
+async function removePendingReviewAssets(job) {
+  if (!job?.id) return;
+
+  clearScheduledReviewJob(job.id);
+  activeReviewControllers.get(job.id)?.abort();
+  activeReviewControllers.delete(job.id);
+  removeVideoReviewJob(job.id);
+  removePostFromAllCaches(job.postId);
+
+  await Promise.all([
+    job.postId ? deleteExplorePost(job.postId).catch(() => null) : null,
+    job.videoUrl ? removeExploreVideoUpload(job.videoUrl).catch(() => null) : null,
+  ]);
+}
+
+async function expireVideoReviewJob(job) {
+  await removePendingReviewAssets(job);
+  publishPostingNotice({
+    id: getJobNoticeId(job),
+    status: "error",
+    stage: "media-scan",
+    progress: 0,
+    persistent: true,
+    pulse: false,
+    message: "KunThai stopped this video review because it took too long. Please try a shorter or compressed video.",
+  });
 }
 
 function isBlockedReview(review) {
@@ -98,19 +173,44 @@ export function startPendingVideoReviewJob(job) {
 export function resumePendingVideoReviewJobs(userId = "") {
   const jobs = readVideoReviewJobs(userId).filter((job) => job.status !== "complete");
   const now = Date.now();
+  const activeJobs = [];
 
   jobs.forEach((job) => {
+    if (isReviewJobExpired(job)) {
+      expireVideoReviewJob(job).catch(logReviewCleanupError);
+      return;
+    }
+
+    activeJobs.push(job);
     publishReviewNotice(job);
     scheduleVideoReviewJob(job, Math.max(0, Number(job.nextRunAt || 0) - now));
   });
 
-  return jobs;
+  return activeJobs;
+}
+
+export async function cancelPendingVideoReviewJob(reference) {
+  const job = findStoredReviewJob(reference);
+
+  if (!job) {
+    clearPostingNotice(reference);
+    return false;
+  }
+
+  await removePendingReviewAssets(job);
+  clearPostingNotice(getJobNoticeId(job));
+  return true;
 }
 
 export async function runPendingVideoReviewJob(jobId) {
   const job = readVideoReviewJobs().find((item) => item.id === jobId || item.postId === jobId);
 
   if (!job || activeReviewJobs.has(job.id)) {
+    return null;
+  }
+
+  if (isReviewJobExpired(job)) {
+    await expireVideoReviewJob(job);
     return null;
   }
 
@@ -122,6 +222,10 @@ export async function runPendingVideoReviewJob(jobId) {
 
   try {
     const review = await moderateVideoJob(job);
+
+    if (!hasStoredReviewJob(job)) {
+      return null;
+    }
 
     if (isApprovedReview(review)) {
       const updatedPost = await updateExploreVideoModerationStatus(job.postId, "approved");
@@ -166,7 +270,17 @@ export async function runPendingVideoReviewJob(jobId) {
 
     throw new Error(review?.reason || "Video review is still processing.");
   } catch (error) {
+    if (!hasStoredReviewJob(job)) {
+      return null;
+    }
+
     const attempts = Number(job.attempts || 0) + 1;
+
+    if (isReviewJobExpired(job, attempts)) {
+      await expireVideoReviewJob({ ...job, attempts });
+      return null;
+    }
+
     const retryDelay = getRetryDelay(attempts);
     const nextJob = patchVideoReviewJob(job.id, {
       attempts,

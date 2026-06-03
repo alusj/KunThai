@@ -25,6 +25,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   const [fleetSelection, setFleetSelection] = useState(null);
   const [activeFleetId, setActiveFleetId] = useState(null);
   const [activeTripsOpen, setActiveTripsOpen] = useState(false);
+  const [activeTripsActionRequest, setActiveTripsActionRequest] = useState(null);
   const [nearbyAreaOpen, setNearbyAreaOpen] = useState(false);
   const [nearbyAreaRequest, setNearbyAreaRequest] = useState(null);
   const [savedOperatorsOpen, setSavedOperatorsOpen] = useState(false);
@@ -37,6 +38,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setBookingTarget(null);
     setFleetSelection(null);
     setActiveFleetId(null);
+    setActiveTripsActionRequest(null);
     setNearbyAreaOpen(false);
     setSavedOperatorsOpen(false);
     setVerificationFleet(null);
@@ -290,7 +292,11 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     return (
       <div className="kt-route-transition min-h-screen">
         <ActiveTripsScreen
-          onBack={() => setActiveTripsOpen(false)}
+          initialActionRequest={activeTripsActionRequest}
+          onBack={() => {
+            setActiveTripsOpen(false);
+            setActiveTripsActionRequest(null);
+          }}
           onViewFleet={setActiveFleetId}
           onShowVerification={setVerificationFleet}
         />
@@ -371,7 +377,12 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           setRegistrationOpen(true);
         }}
       />
-      <PassengerLiveTripHeaderCard onOpenTrips={() => setActiveTripsOpen(true)} />
+      <PassengerLiveTripHeaderCard
+        onOpenTrips={(request) => {
+          setActiveTripsActionRequest(request || null);
+          setActiveTripsOpen(true);
+        }}
+      />
       {operatorError && (
         <div className="mx-4 mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
           {operatorError}
@@ -387,7 +398,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         onOpenNearbyArea={() => {
           openNearbyAreaRoute();
         }}
-        onOpenActiveTrips={() => setActiveTripsOpen(true)}
+        onOpenActiveTrips={() => {
+          setActiveTripsActionRequest(null);
+          setActiveTripsOpen(true);
+        }}
         onOpenSavedOperators={() => setSavedOperatorsOpen(true)}
         onViewFleet={setActiveFleetId}
         onOpenBooking={(target) => setBookingTarget(target)}

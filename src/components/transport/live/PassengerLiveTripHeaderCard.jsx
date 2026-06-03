@@ -96,11 +96,12 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
           <LiveTripMetric trip={trip} compact />
           <button
             type="button"
-            onClick={onOpenTrips}
+            onClick={() => onOpenTrips?.({ tripId: trip.id, type: "hub" })}
             className="kt-touchable flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white"
+            aria-label="Open trip actions"
           >
             <FiMoreHorizontal size={18} />
-            Actions
+            ...
           </button>
         </div>
       )}

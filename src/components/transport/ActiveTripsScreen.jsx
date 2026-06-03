@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useState } from "react";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiCheckCircle,
@@ -45,7 +45,7 @@ const tripSteps = [
   { key: "completed", label: "Done" },
 ];
 
-export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification }) {
+export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification, initialActionRequest = null }) {
   const [trips, setTrips] = useState(() => getActiveTrips());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,6 +53,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
   const [actionMessage, setActionMessage] = useState("");
   const [actionScreen, setActionScreen] = useState(null);
   const [completedTrip, setCompletedTrip] = useState(null);
+  const handledInitialActionRef = useRef("");
 
   const loadTrips = useCallback(async ({ quiet = false } = {}) => {
     try {
@@ -73,6 +74,23 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
     loadTrips();
     return subscribePassengerTrips(() => loadTrips({ quiet: true }));
   }, [loadTrips]);
+
+  useEffect(() => {
+    const requestedTripId = initialActionRequest?.tripId;
+    if (!requestedTripId || !trips.length) return;
+
+    const key = `${requestedTripId}:${initialActionRequest.type || "hub"}`;
+    if (handledInitialActionRef.current === key) return;
+
+    const trip = trips.find((item) => String(item.id) === String(requestedTripId));
+    if (!trip || !["in_progress", "paused"].includes(trip.rawStatus)) return;
+
+    handledInitialActionRef.current = key;
+    setActionScreen({
+      type: initialActionRequest.type || "hub",
+      trip,
+    });
+  }, [initialActionRequest, trips]);
 
   async function runTripAction(action, successMessage, options = {}) {
     try {

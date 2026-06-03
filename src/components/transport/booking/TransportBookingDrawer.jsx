@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 
 import AppPortal from "../../shared/AppPortal";
+import { searchLocations } from "../../../Backend/services/locationSearchService";
 import { createTransportBooking } from "../../services/bookingService";
 import { getTransportSavedPlaces } from "../../services/passengerTransportService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
@@ -69,6 +70,24 @@ function hasText(value) {
   return String(value || "").trim().length > 1;
 }
 
+function normalizeLocationPoint(place) {
+  const lat = Number(place?.lat ?? place?.latitude);
+  const lng = Number(place?.lng ?? place?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return {
+    ...place,
+    lat,
+    lng,
+    address: place.address || place.fullAddress || place.detectedAddress || place.street || place.placeName || place.name || "",
+    name: place.name || place.placeName || place.label || place.address || "Selected location",
+    searchQuery: place.searchQuery || place.fullAddress || place.address || place.street || place.placeName || place.name || "",
+  };
+}
+
+function getLocationInputValue(place) {
+  return String(place?.address || place?.fullAddress || place?.detectedAddress || place?.street || place?.placeName || place?.name || "").trim();
+}
+
 function getBookingRequirementMessage(form, mode) {
   if (!hasText(form.pickup)) return "Add a pickup point before sending this booking.";
   if (!hasText(form.dropoff)) return "Add a drop-off point before sending this booking.";
@@ -92,9 +111,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const [routeMessage, setRouteMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
+  const [searchCenter, setSearchCenter] = useState(null);
   const [form, setForm] = useState({
     pickup: "",
     dropoff: "",
+    pickupPoint: null,
+    dropoffPoint: null,
     passengerName: "",
     phone: "",
     pickupTime: "now",
@@ -162,10 +184,37 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       ...current,
       pickup: target?.pickup || target?.movement?.pickup || current.pickup,
       dropoff: target?.destination || target?.movement?.destination || current.dropoff,
+      pickupPoint: normalizeLocationPoint(target?.pickupPoint || target?.movement?.pickupPoint) || current.pickupPoint,
+      dropoffPoint: normalizeLocationPoint(target?.destinationPoint || target?.movement?.destinationPoint) || current.dropoffPoint,
       packageDescription: "",
       note: "",
     }));
   }, [open, target]);
+
+  useEffect(() => {
+    if (!open || !navigator.geolocation) return undefined;
+
+    let alive = true;
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        if (!alive) return;
+        setSearchCenter({
+          lat: coords.latitude,
+          lng: coords.longitude,
+          accuracy: coords.accuracy,
+          label: "Current area",
+        });
+      },
+      () => {
+        if (alive) setSearchCenter(null);
+      },
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 6500 },
+    );
+
+    return () => {
+      alive = false;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || form.bookingMethod !== "distance" || !hasText(form.pickup) || !hasText(form.dropoff)) return undefined;
@@ -175,7 +224,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       try {
         setRouteLoading(true);
         setRouteMessage("Calculating the route distance...");
-        const nextRoute = await calculateBookingRoute(form.pickup, form.dropoff);
+        const nextRoute = await calculateBookingRoute(form.pickup, form.dropoff, {
+          pickupPoint: form.pickupPoint,
+          destinationPoint: form.dropoffPoint,
+          center: searchCenter,
+        });
         if (!alive) return;
         setRouteEstimate(nextRoute);
         setRouteMessage(`${formatBookingDistance(nextRoute.distanceKm)} route${nextRoute.approximate ? " - approximate road estimate" : ""}`);
@@ -192,7 +245,15 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [form.bookingMethod, form.dropoff, form.pickup, open]);
+  }, [
+    form.bookingMethod,
+    form.dropoff,
+    form.dropoffPoint,
+    form.pickup,
+    form.pickupPoint,
+    open,
+    searchCenter,
+  ]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -244,15 +305,28 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     const pickupText = form.pickup.trim();
     const dropoffText = form.dropoff.trim();
     const areaText = kind === "pickup" ? pickupText : dropoffText || pickupText;
+    const areaPoint = kind === "pickup" ? form.pickupPoint : form.dropoffPoint;
+    const pickupPoint = normalizeLocationPoint(form.pickupPoint) || {
+      name: "Pick up point",
+      label: "Pick up point",
+      address: pickupText,
+      searchQuery: pickupText,
+    };
+    const dropoffPoint = normalizeLocationPoint(form.dropoffPoint) || {
+      name: "Drop off point",
+      label: "Drop off point",
+      address: dropoffText,
+      searchQuery: dropoffText,
+    };
 
     if (!areaText) return null;
 
     return {
       id: `booking-${kind}-${Date.now()}`,
       type: "transport-booking",
-      name: areaText,
-      label: areaText,
-      address: areaText,
+      name: areaPoint?.name || areaText,
+      label: areaPoint?.label || areaPoint?.name || areaText,
+      address: areaPoint?.address || areaText,
       category: kind === "pickup" ? "Pickup" : "Destination",
       status: "community",
       description:
@@ -262,6 +336,25 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       searchQuery: areaText,
       pickup: pickupText,
       destination: dropoffText,
+      ...(areaPoint ? { lat: areaPoint.lat, lng: areaPoint.lng, country: areaPoint.country, countryCode: areaPoint.countryCode } : {}),
+      ...(kind === "dropoff" && pickupText && dropoffText
+        ? {
+            routePlan: {
+              id: `booking-route-${Date.now()}`,
+              passengerName: form.passengerName || "Passenger",
+              pickup: {
+                ...pickupPoint,
+                name: "Pick up point",
+                label: "Pick up point / passenger's location",
+              },
+              dropoff: {
+                ...dropoffPoint,
+                name: "Drop off point",
+                label: "Drop off point / passenger's destination",
+              },
+            },
+          }
+        : {}),
       fleetId: bookingFleet?.id || selectedFleet?.id || null,
     };
   }
@@ -291,7 +384,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       let resolvedRoute = routeEstimate;
       if (form.bookingMethod === "distance" && !resolvedRoute) {
         setRouteLoading(true);
-        resolvedRoute = await calculateBookingRoute(form.pickup, form.dropoff);
+        resolvedRoute = await calculateBookingRoute(form.pickup, form.dropoff, {
+          pickupPoint: form.pickupPoint,
+          destinationPoint: form.dropoffPoint,
+          center: searchCenter,
+        });
         setRouteEstimate(resolvedRoute);
         setRouteMessage(`${formatBookingDistance(resolvedRoute.distanceKm)} route${resolvedRoute.approximate ? " - approximate road estimate" : ""}`);
       }
@@ -317,8 +414,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         bookingMethod: form.bookingMethod,
         bookedHours: form.bookingMethod === "time" ? Number(form.bookedHours) : null,
         distanceKm: resolvedRoute?.distanceKm || null,
-        pickupPoint: resolvedRoute?.pickupPoint || null,
-        destinationPoint: resolvedRoute?.destinationPoint || null,
+        pickupPoint: resolvedRoute?.pickupPoint || form.pickupPoint || null,
+        destinationPoint: resolvedRoute?.destinationPoint || form.dropoffPoint || null,
       });
       setSelectedFleetId(bookingFleet?.id || "");
       setStatus("Booking sent. The operator will see this as a pending passenger request.");
@@ -501,7 +598,10 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   <button
                     key={place.id}
                     type="button"
-                    onClick={() => updateForm({ pickup: place.street || place.detectedAddress || place.placeName })}
+                    onClick={() => updateForm({
+                      pickup: getLocationInputValue(place),
+                      pickupPoint: normalizeLocationPoint(place),
+                    })}
                     className="kt-touchable shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-xs font-bold text-gray-600 hover:border-emerald-200 hover:bg-emerald-50"
                   >
                     <span className="block text-gray-950">{getPlaceLabel(place)}</span>
@@ -514,18 +614,30 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
           <section className="mt-4 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="grid gap-3 md:grid-cols-2">
-              <FormInput
+              <AddressSuggestionInput
                 icon={FiMapPin}
                 label="Pickup point"
                 value={form.pickup}
-                onChange={(value) => updateForm({ pickup: value })}
+                selectedPoint={form.pickupPoint}
+                center={searchCenter || form.dropoffPoint}
+                onChange={(value) => updateForm({ pickup: value, pickupPoint: null })}
+                onSelect={(place) => updateForm({
+                  pickup: getLocationInputValue(place),
+                  pickupPoint: normalizeLocationPoint(place),
+                })}
                 placeholder="Street, junction, saved place, or landmark"
               />
-              <FormInput
+              <AddressSuggestionInput
                 icon={FiNavigation}
                 label={bookingMode === "delivery" ? "Delivery drop-off point" : "Drop-off point"}
                 value={form.dropoff}
-                onChange={(value) => updateForm({ dropoff: value })}
+                selectedPoint={form.dropoffPoint}
+                center={form.pickupPoint || searchCenter}
+                onChange={(value) => updateForm({ dropoff: value, dropoffPoint: null })}
+                onSelect={(place) => updateForm({
+                  dropoff: getLocationInputValue(place),
+                  dropoffPoint: normalizeLocationPoint(place),
+                })}
                 placeholder="Destination, address, station, or landmark"
               />
               <FormInput
@@ -740,6 +852,105 @@ function InfoLine({ icon, label, value }) {
         <span className="break-words">{value || "Pending"}</span>
       </span>
     </div>
+  );
+}
+
+function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onChange, onSelect, placeholder }) {
+  const [focused, setFocused] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+
+  useEffect(() => {
+    if (!focused) return undefined;
+
+    const text = String(value || "").trim();
+    if (text.length < 2) {
+      setSuggestions([]);
+      setSearching(false);
+      return undefined;
+    }
+
+    let alive = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        setSearching(true);
+        const results = await searchLocations(text, center, { limit: 6 });
+        if (alive) setSuggestions(results || []);
+      } catch {
+        if (alive) setSuggestions([]);
+      } finally {
+        if (alive) setSearching(false);
+      }
+    }, 320);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [center, focused, value]);
+
+  const showSuggestions = focused && (searching || suggestions.length > 0 || String(value || "").trim().length >= 2);
+
+  return (
+    <label className="min-w-0 space-y-1">
+      <span className="text-xs font-black uppercase text-gray-500">{label}</span>
+      <span className="relative block min-w-0">
+        {createElement(icon, {
+          size: 17,
+          className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400",
+        })}
+        <input
+          value={value}
+          onFocus={() => setFocused(true)}
+          onBlur={() => window.setTimeout(() => setFocused(false), 140)}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="h-12 w-full min-w-0 rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm font-semibold outline-none focus:border-emerald-500"
+        />
+      </span>
+
+      {selectedPoint?.lat && selectedPoint?.lng ? (
+        <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+          Selected address matched nearby coordinates{selectedPoint.country ? ` in ${selectedPoint.country}` : ""}.
+        </p>
+      ) : null}
+
+      {showSuggestions ? (
+        <div className="max-h-56 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
+          {searching ? (
+            <p className="px-3 py-3 text-xs font-black uppercase tracking-wide text-gray-400">Searching nearby addresses...</p>
+          ) : suggestions.length ? (
+            suggestions.map((place) => (
+              <button
+                key={place.id}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  onSelect(place);
+                  setFocused(false);
+                  setSuggestions([]);
+                }}
+                className="flex w-full min-w-0 gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-emerald-50"
+              >
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+                  {createElement(icon, { size: 16 })}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words text-sm font-black text-slate-950">{place.name}</span>
+                  <span className="mt-0.5 block break-words text-xs font-bold leading-5 text-slate-500">
+                    {[place.distance, place.address || place.fullAddress, place.country].filter(Boolean).join(" - ")}
+                  </span>
+                </span>
+              </button>
+            ))
+          ) : (
+            <p className="px-3 py-3 text-xs font-bold leading-5 text-gray-500">
+              No nearby match yet. Add a clearer street, junction, landmark, or select from Area View.
+            </p>
+          )}
+        </div>
+      ) : null}
+    </label>
   );
 }
 

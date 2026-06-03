@@ -13,7 +13,7 @@ import {
   readPostingNotice,
   writePostingNotice,
 } from "../../Backend/services/explore/postingProgressService";
-import { resumePendingVideoReviewJobs } from "../../Backend/services/explore/videoReviewService";
+import { cancelPendingVideoReviewJob, resumePendingVideoReviewJobs } from "../../Backend/services/explore/videoReviewService";
 
 // Pages (PARENT TAB CONTENT)
 import UrFeed from "./ExploreTabs/urfeed/UrFeed";
@@ -302,8 +302,19 @@ setProfileError("");
   }, [currentUserId]);
 
   function dismissPostingNotice() {
-    clearPostingNotice(postingNotice?.id);
+    const noticeId = postingNotice?.id;
+    const shouldCancelReview = postingNotice?.status === "reviewing" || String(noticeId || "").startsWith("video-review:");
+
+    clearPostingNotice(noticeId);
     setPostingNotice(null);
+
+    if (shouldCancelReview) {
+      cancelPendingVideoReviewJob(noticeId).catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn("[KunThai Video Review] cancel failed", error);
+        }
+      });
+    }
   }
 
   function openViewedProfile(authorProfile) {

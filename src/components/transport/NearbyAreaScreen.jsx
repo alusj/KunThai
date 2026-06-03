@@ -94,7 +94,9 @@ function normalizePosition(position) {
 }
 
 function getShortAddress(result) {
-  return result.address || result.fullAddress || result.placeName || "Freetown, Sierra Leone";
+  return [result.address || result.fullAddress || result.placeName, result.country]
+    .filter(Boolean)
+    .join(", ") || "Address details unavailable";
 }
 
 function buildInitialMapDestination(destination) {
@@ -419,7 +421,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
 
     if (incomingRoutePlan) {
       let cancelled = false;
-      const searchCenter = mapCenterRef.current || userLocationRef.current;
+      const searchCenter = mapCenterRef.current || userLocationRef.current || incomingRoutePlan.pickup || incomingRoutePlan.dropoff;
 
       setSearching(true);
       setSelectionLocked(false);
@@ -1165,10 +1167,10 @@ function SearchOverlay({
                   </span>
 
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-lg font-black text-slate-950">
+                    <span className="block break-words text-base font-black leading-5 text-slate-950 sm:text-lg">
                       {result.name}
                     </span>
-                    <span className="mt-1 block line-clamp-2 text-base font-bold text-slate-500">
+                    <span className="mt-1 block break-words text-sm font-bold leading-5 text-slate-500 sm:text-base">
                       {result.distance ? `${result.distance} • ` : ""}
                       {getShortAddress(result)}
                     </span>
