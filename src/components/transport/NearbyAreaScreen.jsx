@@ -63,6 +63,13 @@ const LIVE_AREA_REFRESH_METERS = 1600;
 const LIVE_AREA_REFRESH_MS = 1000 * 60 * 2;
 const LIVE_AREA_RADIUS_KM = 25;
 
+function formatCoordinatesLabel(point) {
+  const lat = Number(point?.lat ?? point?.latitude);
+  const lng = Number(point?.lng ?? point?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+  return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+}
+
 function toRadians(value) {
   return (value * Math.PI) / 180;
 }
@@ -84,6 +91,77 @@ function distanceInMeters(pointA, pointB) {
       Math.sin(deltaLng / 2);
 
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function destinationPointFromDistance(origin, distanceMeters, bearingDegrees = 90) {
+  const lat = Number(origin?.lat);
+  const lng = Number(origin?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const earthRadius = 6371000;
+  const angularDistance = distanceMeters / earthRadius;
+  const bearing = toRadians(bearingDegrees);
+  const startLat = toRadians(lat);
+  const startLng = toRadians(lng);
+
+  const endLat = Math.asin(
+    Math.sin(startLat) * Math.cos(angularDistance) +
+      Math.cos(startLat) * Math.sin(angularDistance) * Math.cos(bearing),
+  );
+  const endLng =
+    startLng +
+    Math.atan2(
+      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(startLat),
+      Math.cos(angularDistance) - Math.sin(startLat) * Math.sin(endLat),
+    );
+
+  return {
+    lat: (endLat * 180) / Math.PI,
+    lng: (endLng * 180) / Math.PI,
+  };
+}
+
+async function reverseGeocodePoint(point) {
+  const lat = Number(point?.lat ?? point?.latitude);
+  const lng = Number(point?.lng ?? point?.longitude);
+  const fallbackAddress = formatCoordinatesLabel({ lat, lng }) || "Selected map location";
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return {
+      address: "Selected map location",
+      city: "",
+      country: "",
+      lat: null,
+      lng: null,
+    };
+  }
+
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`,
+      { headers: { Accept: "application/json" } },
+    );
+
+    if (!response.ok) throw new Error("Location details unavailable");
+
+    const data = await response.json();
+    const address = data?.address || {};
+    return {
+      address: data?.display_name || fallbackAddress,
+      city: address.city || address.town || address.village || address.county || "",
+      country: address.country || "",
+      lat,
+      lng,
+    };
+  } catch {
+    return {
+      address: fallbackAddress,
+      city: "",
+      country: "",
+      lat,
+      lng,
+    };
+  }
 }
 
 function normalizePosition(position) {
@@ -277,7 +355,17 @@ function buildTrafficIntelligence({ snapshots = [], reports = [], operators = []
 }
 
 
-export default function NearbyAreaScreen({ onBack, initialDestination = null, autoRoute = false }) {
+export default function NearbyAreaScreen({
+  onBack,
+  onDone,
+  onLocationPicked,
+  initialDestination = null,
+  autoRoute = false,
+  mode = "standard",
+  pickerStart = "current",
+  pickerLabels = null,
+  backLabel = "Back to transport",
+}) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
@@ -304,6 +392,10 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   const [sosOpen, setSosOpen] = useState(false);
   const [detectedCountryCode, setDetectedCountryCode] = useState(SOS_FALLBACK_COUNTRY);
   const [detectingSosCountry, setDetectingSosCountry] = useState(false);
+  const [businessPickerMode, setBusinessPickerMode] = useState(pickerStart === "dropPin" ? "dropPin" : "current");
+  const [currentPickerLocation, setCurrentPickerLocation] = useState(null);
+  const [pickerStatus, setPickerStatus] = useState("");
+  const [pickerBusy, setPickerBusy] = useState(false);
   const mapCenterRef = useRef(null);
   const userLocationRef = useRef(null);
   const lastPublishedCenterRef = useRef(null);
@@ -317,6 +409,29 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
   const searchRequestRef = useRef(0);
   const sosDetectionRequestRef = useRef(0);
   const initialDestinationHandledRef = useRef("");
+  const isOneKmPreview = mode === "oneKmPreview";
+  const isBusinessLocationPicker = mode === "businessLocationPicker";
+  const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
+  const resolvedPickerLabels = useMemo(
+    () => ({
+      historyKey: "area-view-location-picker",
+      backLabel: "Back to location form",
+      eyebrow: "UrMall location",
+      headerCurrentTitle: "Confirm current location",
+      headerDropTitle: "Drop a pin",
+      cardEyebrow: "Business address",
+      currentHeading: "Your current location",
+      dropHeading: "Place the pin on your business",
+      dropInstruction: "Move the map until the pin sits exactly on the business entrance or pickup point, then add the location.",
+      currentPreparing: "Your current location is being prepared.",
+      currentStatus: "Confirming your current location...",
+      dropStatus: "Move the map until the pin is exactly on the selected location.",
+      currentName: "Current location",
+      droppedName: "Pinned location",
+      ...pickerLabels,
+    }),
+    [pickerLabels],
+  );
 
   const displayLocations = useMemo(() => {
     const ids = new Set();
@@ -346,6 +461,23 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     () => filteredLocations.filter((location) => location?.lat != null && location?.lng != null),
     [filteredLocations],
   );
+  const oneKmMeasurementPreview = useMemo(() => {
+    if (!isOneKmPreview || !userLocation?.lat || !userLocation?.lng) return null;
+    const destination = destinationPointFromDistance(userLocation, 1000, 90);
+    if (!destination) return null;
+
+    return {
+      label: "1 KM",
+      origin: {
+        ...userLocation,
+        name: "Current location",
+      },
+      destination: {
+        ...destination,
+        name: "1 KM point",
+      },
+    };
+  }, [isOneKmPreview, userLocation]);
   const initialDestinationKey = useMemo(() => {
     if (!initialDestination) return "";
     return [
@@ -409,6 +541,43 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
       searchRequestRef.current += 1;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isBusinessLocationPicker) return;
+    setBusinessPickerMode(pickerStart === "dropPin" ? "dropPin" : "current");
+    setPickerStatus("");
+    setCurrentPickerLocation(null);
+  }, [isBusinessLocationPicker, pickerStart]);
+
+  useEffect(() => {
+    if (!isBusinessLocationPicker || businessPickerMode !== "current" || !userLocation?.lat || !userLocation?.lng) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    setPickerBusy(true);
+    setPickerStatus(resolvedPickerLabels.currentStatus);
+
+    reverseGeocodePoint(userLocation)
+      .then((location) => {
+        if (cancelled) return;
+        const nextLocation = {
+          ...location,
+          name: resolvedPickerLabels.currentName,
+          label: location.address,
+          coordinatesLabel: formatCoordinatesLabel(location),
+        };
+        setCurrentPickerLocation(nextLocation);
+        setPickerStatus(`Your current location is ${nextLocation.address}.`);
+      })
+      .finally(() => {
+        if (!cancelled) setPickerBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [businessPickerMode, isBusinessLocationPicker, resolvedPickerLabels.currentName, resolvedPickerLabels.currentStatus, userLocation]);
 
   useEffect(() => {
     const incomingRoutePlan = initialDestination?.routePlan;
@@ -851,26 +1020,57 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
     setLocationPanelOpen(true);
   }, []);
 
+  const handleAddCurrentPickerLocation = useCallback(() => {
+    if (!currentPickerLocation) return;
+    onLocationPicked?.(currentPickerLocation);
+  }, [currentPickerLocation, onLocationPicked]);
+
+  const handleAddDroppedPinLocation = useCallback(async () => {
+    const center = mapInstance?.getCenter?.();
+    const point = center
+      ? { lat: center.lat, lng: center.lng }
+      : mapCenterRef.current || userLocationRef.current || userLocation;
+
+    if (!point?.lat || !point?.lng) {
+      setPickerStatus("Move the map to the exact location, then add the location.");
+      return;
+    }
+
+    setPickerBusy(true);
+    setPickerStatus("Reading the selected map location...");
+
+    const location = await reverseGeocodePoint(point);
+    setPickerBusy(false);
+    onLocationPicked?.({
+      ...location,
+      name: resolvedPickerLabels.droppedName,
+      label: location.address,
+      coordinatesLabel: formatCoordinatesLabel(location),
+      source: "dropPin",
+    });
+  }, [mapInstance, onLocationPicked, resolvedPickerLabels.droppedName, userLocation]);
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <section className="relative min-h-screen overflow-hidden">
         <NearbyAreaMap
           onLocationResolved={handleMapLocationResolved}
           onMapReady={setMapInstance}
-          selectedLocation={selectedSearchLocation}
+          selectedLocation={isSpecialMode ? null : selectedSearchLocation}
           routePlan={operatorRoutePlan}
-          focusMode={focusMode}
-          operatorLocations={operatorLocations}
-          nearbyMapLocations={filteredMapLocations}
-          reportLocations={liveReports}
-          trafficSnapshots={smartTrafficSnapshots}
+          focusMode={isSpecialMode ? true : focusMode}
+          operatorLocations={isSpecialMode ? [] : operatorLocations}
+          nearbyMapLocations={isSpecialMode ? [] : filteredMapLocations}
+          reportLocations={isSpecialMode ? [] : liveReports}
+          trafficSnapshots={isSpecialMode ? [] : smartTrafficSnapshots}
           weatherCache={weatherCache}
           onMapLocationSelect={handleSelectLiveLocation}
           onReportSelect={handleSelectReport}
           recenterSignal={recenterSignal}
+          measurementPreview={oneKmMeasurementPreview}
         >
           <div className="pointer-events-none absolute inset-0 z-10">
-            {!focusMode &&
+            {!isSpecialMode && !focusMode &&
               filteredLocations.map((location) => (
                 <MapPinButton
                   key={location.id}
@@ -882,6 +1082,33 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           </div>
         </NearbyAreaMap>
 
+        {isOneKmPreview ? (
+          <OneKmPreviewChrome
+            onBack={onBack}
+            onDone={onDone || onBack}
+            backLabel={backLabel}
+            ready={Boolean(oneKmMeasurementPreview)}
+          />
+        ) : null}
+
+        {isBusinessLocationPicker ? (
+          <BusinessLocationPickerChrome
+            mode={businessPickerMode}
+            status={pickerStatus}
+            busy={pickerBusy}
+            currentLocation={currentPickerLocation}
+            labels={resolvedPickerLabels}
+            onBack={onBack}
+            onUseCurrent={handleAddCurrentPickerLocation}
+            onDropPin={() => {
+              setBusinessPickerMode("dropPin");
+              setPickerStatus(resolvedPickerLabels.dropStatus);
+            }}
+            onAddDroppedPin={handleAddDroppedPinLocation}
+          />
+        ) : null}
+
+        {!isSpecialMode && (
         <header className="pointer-events-none absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
           <div className="pointer-events-auto flex items-center gap-2 sm:gap-3">
             <AppBackTab
@@ -889,7 +1116,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
                 if (mapLocked) return;
                 onBack?.();
               }}
-              label={mapLocked ? "Map locked" : "Back to transport"}
+              label={mapLocked ? "Map locked" : backLabel}
               historyKey="transport-nearby-area"
               className={`h-12 w-12 rounded-2xl shadow-lg ${
                 mapLocked ? "bg-slate-900 text-white opacity-70" : "bg-white/95 text-slate-900 hover:bg-white"
@@ -959,8 +1186,9 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
             </div>
           )}
         </header>
+        )}
 
-        {!focusMode && (
+        {!isSpecialMode && !focusMode && (
           <div className="area-view-side-actions absolute right-3 z-30 grid gap-3 sm:right-5">
             <button
               type="button"
@@ -990,7 +1218,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           </div>
         )}
 
-        {!focusMode && (
+        {!isSpecialMode && !focusMode && (
           <LocationPanel
             activeLocation={activeLocation}
             open={locationPanelOpen}
@@ -999,7 +1227,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           />
         )}
 
-        {searchOverlayOpen && (
+        {!isSpecialMode && searchOverlayOpen && (
           <SearchOverlay
             query={searchQuery}
             setQuery={(value) => {
@@ -1016,7 +1244,7 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
           />
         )}
 
-        {adding && <AddLocationPanel onClose={() => setAdding(false)} />}
+        {!isSpecialMode && adding && <AddLocationPanel onClose={() => setAdding(false)} />}
 
         <EmergencySheet
           open={sosOpen}
@@ -1027,6 +1255,159 @@ export default function NearbyAreaScreen({ onBack, initialDestination = null, au
         />
       </section>
     </div>
+  );
+}
+
+function OneKmPreviewChrome({ onBack, onDone, backLabel, ready }) {
+  return (
+    <>
+      <header className="pointer-events-none absolute left-0 right-0 top-0 z-30 px-3 py-3 sm:px-5">
+        <div className="pointer-events-auto flex items-center gap-3 rounded-3xl bg-white/95 px-3 py-2 text-slate-950 shadow-xl backdrop-blur sm:max-w-md">
+          <AppBackTab
+            onBack={onBack}
+            label={backLabel}
+            historyKey="transport-one-km-preview"
+            useHistoryLayer={false}
+            className="bg-white text-slate-900"
+            iconSize={22}
+          />
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase text-green-700">Price guide</p>
+            <h1 className="truncate text-base font-black">1 KM preview</h1>
+          </div>
+        </div>
+      </header>
+
+      <section className="absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[390px]">
+        <p className="text-xs font-black uppercase text-green-700">Distance view</p>
+        <h2 className="mt-1 text-xl font-black">One kilometre from your current location</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          The green line shows a clear 1 km distance so you can price each kilometre with confidence.
+        </p>
+        {!ready ? (
+          <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-black text-green-700">
+            Waiting for your current location...
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={onDone}
+          className="mt-4 h-11 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
+        >
+          Done
+        </button>
+      </section>
+    </>
+  );
+}
+
+function BusinessLocationPickerChrome({
+  mode,
+  status,
+  busy,
+  currentLocation,
+  labels,
+  onBack,
+  onUseCurrent,
+  onDropPin,
+  onAddDroppedPin,
+}) {
+  const isDropPin = mode === "dropPin";
+  const coordinates = currentLocation?.coordinatesLabel || formatCoordinatesLabel(currentLocation);
+
+  return (
+    <>
+      <header className="pointer-events-none absolute left-0 right-0 top-0 z-30 px-3 py-3 sm:px-5">
+        <div className="pointer-events-auto flex items-center gap-3 rounded-3xl bg-white/95 px-3 py-2 text-slate-950 shadow-xl backdrop-blur sm:max-w-lg">
+          <AppBackTab
+            onBack={onBack}
+            label={labels.backLabel}
+            historyKey={labels.historyKey}
+            useHistoryLayer={false}
+            className="bg-white text-slate-900"
+            iconSize={22}
+          />
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase text-blue-700">{labels.eyebrow}</p>
+            <h1 className="truncate text-base font-black">
+              {isDropPin ? labels.headerDropTitle : labels.headerCurrentTitle}
+            </h1>
+          </div>
+        </div>
+      </header>
+
+      {isDropPin ? (
+        <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center">
+          <div className="relative h-24 w-24">
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white shadow-xl">
+              PIN
+            </div>
+            <FiMapPin className="absolute left-1/2 top-8 -translate-x-1/2 text-blue-600 drop-shadow-xl" size={44} />
+            <div className="absolute left-1/2 top-[4.7rem] h-3 w-3 -translate-x-1/2 rounded-full bg-blue-600/40" />
+          </div>
+        </div>
+      ) : null}
+
+      <section className="absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[420px]">
+        <p className="text-xs font-black uppercase text-blue-700">{labels.cardEyebrow}</p>
+        <h2 className="mt-1 text-xl font-black">
+          {isDropPin ? labels.dropHeading : labels.currentHeading}
+        </h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          {isDropPin
+            ? labels.dropInstruction
+            : status || labels.currentPreparing}
+        </p>
+        {!isDropPin && currentLocation ? (
+          <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3">
+            <p className="text-sm font-black leading-5 text-blue-950">{currentLocation.address}</p>
+            {coordinates ? <p className="mt-2 text-xs font-bold text-blue-700">{coordinates}</p> : null}
+          </div>
+        ) : null}
+        {isDropPin && status ? (
+          <p className="mt-3 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">{status}</p>
+        ) : null}
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {isDropPin ? (
+            <>
+              <button
+                type="button"
+                onClick={onBack}
+                className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={onAddDroppedPin}
+                disabled={busy}
+                className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {busy ? "Adding..." : "Add location"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onDropPin}
+                className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                Drop a pin
+              </button>
+              <button
+                type="button"
+                onClick={onUseCurrent}
+                disabled={busy || !currentLocation}
+                className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                Add location
+              </button>
+            </>
+          )}
+        </div>
+      </section>
+    </>
   );
 }
 

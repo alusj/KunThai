@@ -411,7 +411,12 @@ export async function addBuyerCartItem(product, quantity = 1) {
 
   if (existingError) throw new Error(existingError.message);
 
-  const nextQty = Number(existing?.quantity || 0) + Number(quantity || 1);
+  if (existing) {
+    window.dispatchEvent(new CustomEvent("marketplace-cart-updated"));
+    return { status: "alreadyInCart", quantity: Number(existing.quantity || 1) };
+  }
+
+  const nextQty = Math.max(1, Number(quantity || 1));
   const payload = {
     buyer_id: buyerId,
     product_id: product.id,
@@ -426,6 +431,7 @@ export async function addBuyerCartItem(product, quantity = 1) {
 
   if (error) throw new Error(error.message);
   window.dispatchEvent(new CustomEvent("marketplace-cart-updated"));
+  return { status: "added", quantity: nextQty };
 }
 
 export async function updateBuyerCartItem(itemId, quantity) {

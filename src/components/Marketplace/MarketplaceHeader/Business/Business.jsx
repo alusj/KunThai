@@ -255,7 +255,7 @@ export default function Business({ onBack }) {
       ) : null}
 
       {!hasBusiness ? (
-        <BusinessRegistration onComplete={() => setHasBusiness(true)} />
+        <BusinessRegistration onComplete={() => setHasBusiness(true)} onExit={onBack} />
       ) : (
         <>
 

@@ -27,6 +27,13 @@ import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
 import { SlidePanel, useSlidePanel } from "../../shared/SlideTransition";
 import {
+  AddressAreaResolutionCard,
+  AddressAreaStatusIcon,
+  normalizeAreaLocation,
+  useAddressAreaValidation,
+} from "../../shared/AddressAreaValidation";
+import NearbyAreaScreen from "../NearbyAreaScreen";
+import {
   fetchPassengerTrips,
   getPassengerTrips,
   getTransportPassengerSettings,
@@ -643,6 +650,33 @@ function SavedPlacesPage() {
   const [message, setMessage] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [actionMenuId, setActionMenuId] = useState("");
+  const [areaPicker, setAreaPicker] = useState(null);
+  const placePoint = place.coordinates
+    ? {
+        lat: place.coordinates.latitude ?? place.coordinates.lat,
+        lng: place.coordinates.longitude ?? place.coordinates.lng,
+        address: place.detectedAddress || place.street,
+      }
+    : null;
+  const placeValidation = useAddressAreaValidation(place.street, { selectedPoint: placePoint });
+  const savedPlacePickerLabels = useMemo(
+    () => ({
+      historyKey: "transport-saved-place-picker",
+      backLabel: "Back to saved place",
+      eyebrow: "Transport place",
+      cardEyebrow: "Saved place",
+      headerCurrentTitle: "Confirm saved location",
+      headerDropTitle: "Drop saved-place pin",
+      currentHeading: "Your current saved location",
+      dropHeading: "Place the pin on the saved place",
+      dropInstruction: "Move the map until the pin sits exactly on the gate, pickup side, delivery door, or landmark, then add the location.",
+      currentStatus: "Confirming your current saved location...",
+      dropStatus: "Move the map until the pin is exactly on the saved place.",
+      currentName: "Current saved location",
+      droppedName: "Pinned saved location",
+    }),
+    [],
+  );
 
   function updatePlace(patch) {
     setPlace((current) => ({ ...current, ...patch }));
@@ -671,6 +705,7 @@ function SavedPlacesPage() {
     setPlace(createEmptyPlace());
     setLocationCandidate(null);
     setLocationStatus("");
+    setAreaPicker(null);
     setFormOpen(false);
   }
 
@@ -730,46 +765,32 @@ function SavedPlacesPage() {
     }
   }
 
-  async function locateMe() {
+  function openPlaceAreaPicker(start = "current") {
     setLocationStatus("");
     setLocationCandidate(null);
     setMessage("");
+    setAreaPicker({ start });
+  }
 
-    if (!navigator.geolocation) {
-      setLocationStatus("Location is not available on this device.");
-      return;
-    }
+  function locateMe() {
+    openPlaceAreaPicker("current");
+  }
 
-    setLocationStatus("Checking your location...");
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coords.latitude}&lon=${coords.longitude}`,
-          );
-          const data = await response.json();
-          const detectedAddress = data?.display_name || "";
+  function dropPlacePin() {
+    openPlaceAreaPicker("dropPin");
+  }
 
-          if (!detectedAddress) {
-            setLocationStatus("We could not detect the exact address. Please enter it manually.");
-            return;
-          }
+  function acceptAreaLocation(location) {
+    const nextLocation = normalizeAreaLocation(location, place.street);
+    if (!nextLocation) return;
 
-          setLocationCandidate({
-            address: detectedAddress,
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-          });
-          setLocationStatus("");
-        } catch {
-          setLocationStatus("We could not detect the exact address. Please enter it manually.");
-        }
-      },
-      (error) => {
-        setLocationStatus(error.code === 1 ? "Location permission denied. Enter address manually." : "Unable to get your location right now.");
-      },
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
-    );
+    updatePlace({
+      detectedAddress: nextLocation.address,
+      street: nextLocation.address || place.street,
+      coordinates: nextLocation.coordinates,
+    });
+    setLocationStatus(`Location added: ${nextLocation.address}`);
+    setAreaPicker(null);
   }
 
   function confirmDetectedLocation() {
@@ -947,8 +968,11 @@ function SavedPlacesPage() {
         </div>
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Street / landmark</span>
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
+            Street / landmark
+            <AddressAreaStatusIcon status={placeValidation.status} />
+          </span>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <input
               value={place.street}
               onChange={(event) => updatePlace({ street: event.target.value })}
@@ -963,8 +987,22 @@ function SavedPlacesPage() {
               <LocateFixed size={16} />
               Locate me
             </button>
+            <button
+              type="button"
+              onClick={dropPlacePin}
+              className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+            >
+              <MapPin size={16} />
+              Drop a pin
+            </button>
           </div>
         </label>
+
+        <AddressAreaResolutionCard
+          validation={placeValidation}
+          onLocateMe={locateMe}
+          onDropPin={dropPlacePin}
+        />
 
         {locationCandidate ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
@@ -1043,6 +1081,19 @@ function SavedPlacesPage() {
         >
           {place.id ? "Update Transport Place" : "Save Transport Place"}
         </button>
+      ) : null}
+
+      {areaPicker ? (
+        <div className="fixed inset-0 z-[1300] bg-slate-950">
+          <NearbyAreaScreen
+            mode="businessLocationPicker"
+            pickerStart={areaPicker.start}
+            pickerLabels={savedPlacePickerLabels}
+            backLabel="Back to saved place"
+            onBack={() => setAreaPicker(null)}
+            onLocationPicked={acceptAreaLocation}
+          />
+        </div>
       ) : null}
     </div>
   );

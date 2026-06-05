@@ -16,6 +16,7 @@ import { getOperatorAccount } from "../services/transportOperatorAccountService"
 
 export default function Transport({ onActivityChange, areaViewRequest = null }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [registrationAreaPreviewOpen, setRegistrationAreaPreviewOpen] = useState(false);
   const [operatorAccount, setOperatorAccount] = useState(null);
   const [operatorLoading, setOperatorLoading] = useState(true);
   const [operatorError, setOperatorError] = useState("");
@@ -32,7 +33,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   const [verificationFleet, setVerificationFleet] = useState(null);
   const [bookingTarget, setBookingTarget] = useState(null);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
+  const [routeDirection, setRouteDirection] = useState("forward");
   const operatorDashboardCloseTimer = useRef(null);
+
+  const routePanelClass = routeDirection === "backward" ? "kt-explore-stack-enter-left" : "kt-explore-stack-enter";
 
   function handleBookingCreated() {
     setBookingTarget(null);
@@ -42,6 +46,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setNearbyAreaOpen(false);
     setSavedOperatorsOpen(false);
     setVerificationFleet(null);
+    setRouteDirection("forward");
     setActiveTripsOpen(true);
   }
 
@@ -53,6 +58,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
     setOperatorDashboardClosing(false);
     setOperatorDashboardView(view);
+    setRouteDirection("forward");
     setOperatorDashboardOpen(true);
   }
 
@@ -62,6 +68,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     }
 
     setOperatorDashboardClosing(true);
+    setRouteDirection("backward");
     operatorDashboardCloseTimer.current = window.setTimeout(() => {
       setOperatorDashboardOpen(false);
       setOperatorDashboardClosing(false);
@@ -75,6 +82,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       operatorDashboardCloseTimer.current = null;
     }
 
+    setRouteDirection("forward");
+    setRegistrationAreaPreviewOpen(false);
     setRegistrationOpen(false);
     setOperatorDashboardOpen(false);
     setOperatorDashboardClosing(false);
@@ -83,16 +92,30 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setActiveTripsOpen(false);
     setSavedOperatorsOpen(false);
     setVerificationFleet(null);
+    const returnToBooking = options.returnTo === "booking";
+    const bookingSnapshot = returnToBooking ? options.bookingTarget || bookingTarget : null;
     setBookingTarget(null);
     setNearbyAreaRequest(
       destination
         ? {
             destination,
             autoRoute: options.autoRoute ?? true,
+            returnTo: returnToBooking ? "booking" : "",
+            bookingTarget: bookingSnapshot,
           }
         : null,
     );
     setNearbyAreaOpen(true);
+  }
+
+  function openRegistrationOneKmPreview() {
+    setRouteDirection("forward");
+    setRegistrationAreaPreviewOpen(true);
+  }
+
+  function closeRegistrationOneKmPreview() {
+    setRouteDirection("backward");
+    setRegistrationAreaPreviewOpen(false);
   }
 
   function renderBookingDrawer() {
@@ -109,6 +132,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   function handleViewVerificationProfile() {
     if (!verificationFleet?.id) return;
+    setRouteDirection("forward");
     setActiveFleetId(verificationFleet.id);
     setFleetSelection(null);
     setActiveTripsOpen(false);
@@ -120,6 +144,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setActiveFleetId(null);
     setActiveTripsOpen(false);
     setSavedOperatorsOpen(false);
+    setRouteDirection("forward");
     setFleetSelection({
       mode: "topRated",
       fleetType: null,
@@ -175,6 +200,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       operatorDashboardCloseTimer.current = null;
     }
     setRegistrationOpen(false);
+    setRegistrationAreaPreviewOpen(false);
+    setRouteDirection("forward");
     setOperatorDashboardOpen(false);
     setOperatorDashboardClosing(false);
     setFleetSelection(null);
@@ -194,6 +221,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         Boolean(fleetSelection) ||
         Boolean(activeFleetId) ||
         activeTripsOpen ||
+        registrationAreaPreviewOpen ||
         nearbyAreaOpen ||
         savedOperatorsOpen ||
         Boolean(verificationFleet) ||
@@ -212,18 +240,37 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     onActivityChange,
     operatorDashboardOpen,
     registrationOpen,
+    registrationAreaPreviewOpen,
     savedOperatorsOpen,
     verificationFleet,
   ]);
 
+  if (registrationAreaPreviewOpen) {
+    return (
+      <div className={`${routePanelClass} min-h-screen`}>
+        <NearbyAreaScreen
+          onBack={closeRegistrationOneKmPreview}
+          onDone={closeRegistrationOneKmPreview}
+          mode="oneKmPreview"
+          backLabel="Back to price form"
+        />
+      </div>
+    );
+  }
+
   if (registrationOpen) {
     return (
-      <div className="kt-route-transition min-h-screen">
+      <div className={`${routePanelClass} min-h-screen`}>
         <FleetRegistrationDrawer
-          onClose={() => setRegistrationOpen(false)}
+          onClose={() => {
+            setRouteDirection("backward");
+            setRegistrationOpen(false);
+          }}
+          onViewOneKmPreview={openRegistrationOneKmPreview}
           onComplete={(account) => {
             setOperatorAccount(account);
             setRegistrationOpen(false);
+            setRouteDirection("forward");
             setOperatorDashboardOpen(true);
           }}
         />
@@ -233,7 +280,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   if (operatorDashboardOpen && operatorAccount) {
     return (
-      <div className={`${operatorDashboardClosing ? "kt-route-zoom-close" : "kt-route-zoom-open"} min-h-screen`}>
+      <div className={`${operatorDashboardClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} min-h-screen`}>
         <OperatorDashboardScreen
           account={operatorAccount}
           initialView={operatorDashboardView}
@@ -241,6 +288,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onAccountUpdate={setOperatorAccount}
           onLocateArea={openNearbyAreaRoute}
           onEditRegistration={() => {
+            setRouteDirection("forward");
             setOperatorDashboardOpen(false);
             setRegistrationOpen(true);
           }}
@@ -251,14 +299,20 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   if (nearbyAreaOpen) {
     return (
-      <div className="kt-route-transition min-h-screen">
+      <div className={`${routePanelClass} min-h-screen`}>
         <NearbyAreaScreen
           onBack={() => {
+            const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
+            setRouteDirection("backward");
             setNearbyAreaOpen(false);
+            if (returnToBooking) {
+              setBookingTarget(nearbyAreaRequest.bookingTarget);
+            }
             setNearbyAreaRequest(null);
           }}
           initialDestination={nearbyAreaRequest?.destination}
           autoRoute={Boolean(nearbyAreaRequest?.autoRoute)}
+          backLabel={nearbyAreaRequest?.returnTo === "booking" ? "Back to booking form" : "Back to transport"}
         />
       </div>
     );
@@ -266,10 +320,13 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   if (activeFleetId) {
     return (
-      <div className="kt-route-transition min-h-screen">
+      <div className={`${routePanelClass} min-h-screen`}>
         <FleetProfileScreen
           fleetId={activeFleetId}
-          onBack={() => setActiveFleetId(null)}
+          onBack={() => {
+            setRouteDirection("backward");
+            setActiveFleetId(null);
+          }}
           onShowVerification={setVerificationFleet}
           onOpenBooking={(target) => setBookingTarget(target)}
           onLocateArea={openNearbyAreaRoute}
@@ -290,14 +347,18 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   if (activeTripsOpen) {
     return (
-      <div className="kt-route-transition min-h-screen">
+      <div className={`${routePanelClass} min-h-screen`}>
         <ActiveTripsScreen
           initialActionRequest={activeTripsActionRequest}
           onBack={() => {
+            setRouteDirection("backward");
             setActiveTripsOpen(false);
             setActiveTripsActionRequest(null);
           }}
-          onViewFleet={setActiveFleetId}
+          onViewFleet={(fleetId) => {
+            setRouteDirection("forward");
+            setActiveFleetId(fleetId);
+          }}
           onShowVerification={setVerificationFleet}
         />
         <VerificationDetailsModal
@@ -316,10 +377,16 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   if (savedOperatorsOpen) {
     return (
-      <div className="kt-route-transition min-h-screen">
+      <div className={`${routePanelClass} min-h-screen`}>
         <SavedOperatorsScreen
-          onBack={() => setSavedOperatorsOpen(false)}
-          onViewFleet={setActiveFleetId}
+          onBack={() => {
+            setRouteDirection("backward");
+            setSavedOperatorsOpen(false);
+          }}
+          onViewFleet={(fleetId) => {
+            setRouteDirection("forward");
+            setActiveFleetId(fleetId);
+          }}
           onShowVerification={setVerificationFleet}
           onOpenBooking={(target) => setBookingTarget(target)}
         />
@@ -339,11 +406,17 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   if (fleetSelection) {
     return (
-      <div className="kt-route-transition min-h-screen">
+      <div className={`${routePanelClass} min-h-screen`}>
         <FleetListScreen
           selection={fleetSelection}
-          onBack={() => setFleetSelection(null)}
-          onViewFleet={setActiveFleetId}
+          onBack={() => {
+            setRouteDirection("backward");
+            setFleetSelection(null);
+          }}
+          onViewFleet={(fleetId) => {
+            setRouteDirection("forward");
+            setActiveFleetId(fleetId);
+          }}
           onShowVerification={setVerificationFleet}
           onOpenBooking={(target) => setBookingTarget(target)}
         />
@@ -362,7 +435,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 relative">
+    <div className={`${routeDirection === "backward" ? "kt-explore-stack-enter-left" : ""} min-h-screen bg-gray-50 relative`}>
       <Header
         operatorAccount={operatorAccount}
         operatorLoading={operatorLoading}
@@ -375,11 +448,13 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           }
 
           setRegistrationOpen(true);
+          setRouteDirection("forward");
         }}
       />
       <PassengerLiveTripHeaderCard
         onOpenTrips={(request) => {
           setActiveTripsActionRequest(request || null);
+          setRouteDirection("forward");
           setActiveTripsOpen(true);
         }}
       />
@@ -390,9 +465,11 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       )}
       <Body
         onSelectFleetType={(mode, fleetType, label) => {
+          setRouteDirection("forward");
           setFleetSelection({ mode, fleetType, label });
         }}
         onOpenTopRated={() => {
+          setRouteDirection("forward");
           setFleetSelection({ mode: "topRated", fleetType: null, label: "Top Rated Fleets" });
         }}
         onOpenNearbyArea={() => {
@@ -400,10 +477,17 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         }}
         onOpenActiveTrips={() => {
           setActiveTripsActionRequest(null);
+          setRouteDirection("forward");
           setActiveTripsOpen(true);
         }}
-        onOpenSavedOperators={() => setSavedOperatorsOpen(true)}
-        onViewFleet={setActiveFleetId}
+        onOpenSavedOperators={() => {
+          setRouteDirection("forward");
+          setSavedOperatorsOpen(true);
+        }}
+        onViewFleet={(fleetId) => {
+          setRouteDirection("forward");
+          setActiveFleetId(fleetId);
+        }}
         onOpenBooking={(target) => setBookingTarget(target)}
         onLocateArea={openNearbyAreaRoute}
       />

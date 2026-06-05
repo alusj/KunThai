@@ -136,8 +136,8 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
         setNotice("This product could not be added again.");
         return;
       }
-      await addBuyerCartItem(product, Math.max(1, Number(order.itemCount || 1)));
-      setNotice("Product added back to cart.");
+      const result = await addBuyerCartItem(product, Math.max(1, Number(order.itemCount || 1)));
+      setNotice(result?.status === "alreadyInCart" ? "This product is already in your cart." : "Product added back to cart.");
     } catch (err) {
       setNotice(err.message || "Unable to reorder this product.");
     }

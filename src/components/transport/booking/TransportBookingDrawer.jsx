@@ -15,6 +15,13 @@ import {
 } from "react-icons/fi";
 
 import AppPortal from "../../shared/AppPortal";
+import {
+  AddressAreaResolutionCard,
+  AddressAreaStatusIcon,
+  normalizeAreaLocation,
+  useAddressAreaValidation,
+} from "../../shared/AddressAreaValidation";
+import NearbyAreaScreen from "../NearbyAreaScreen";
 import { searchLocations } from "../../../Backend/services/locationSearchService";
 import { createTransportBooking } from "../../services/bookingService";
 import { getTransportSavedPlaces } from "../../services/passengerTransportService";
@@ -66,6 +73,14 @@ function isFleetBookable(fleet) {
   return ["active", "available", "online"].includes(status);
 }
 
+function isFleetNearby(fleet) {
+  const distance = Number(fleet?.distanceKm || 0);
+  const maxDistance = Number(fleet?.maxDistanceKm || 0);
+  if (!Number.isFinite(distance) || distance <= 0) return true;
+  if (!Number.isFinite(maxDistance) || maxDistance <= 0) return true;
+  return distance <= maxDistance;
+}
+
 function hasText(value) {
   return String(value || "").trim().length > 1;
 }
@@ -99,6 +114,28 @@ function getBookingRequirementMessage(form, mode) {
   return "";
 }
 
+function getBookingPickerLabels(kind, bookingMode) {
+  const isPickup = kind === "pickup";
+  const destinationName = bookingMode === "delivery" ? "delivery drop-off" : "drop-off";
+  const label = isPickup ? "pickup" : destinationName;
+
+  return {
+    historyKey: `transport-booking-${kind}-picker`,
+    backLabel: "Back to booking form",
+    eyebrow: "Transport booking",
+    cardEyebrow: isPickup ? "Pickup point" : bookingMode === "delivery" ? "Delivery address" : "Drop-off point",
+    headerCurrentTitle: `Confirm ${label} location`,
+    headerDropTitle: `Drop ${label} pin`,
+    currentHeading: `Your current ${label} location`,
+    dropHeading: `Place the pin on the ${label} point`,
+    dropInstruction: `Move the map until the pin sits exactly on the ${label} gate, door, junction, or landmark, then add the location.`,
+    currentStatus: `Confirming your current ${label} location...`,
+    dropStatus: `Move the map until the pin is exactly on the ${label} point.`,
+    currentName: `Current ${label} location`,
+    droppedName: `Pinned ${label} location`,
+  };
+}
+
 export default function TransportBookingDrawer({ open, target, onClose, onCreated, onLocateArea }) {
   const initialSelection = useMemo(() => selectionFromTarget(target), [target]);
   const [selection, setSelection] = useState(initialSelection);
@@ -112,6 +149,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
   const [searchCenter, setSearchCenter] = useState(null);
+  const [areaPicker, setAreaPicker] = useState(null);
   const [form, setForm] = useState({
     pickup: "",
     dropoff: "",
@@ -134,17 +172,25 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   );
   const requiresLiveOperator = false;
   const activeAvailableFleets = useMemo(() => availableFleets.filter(isFleetBookable), [availableFleets]);
+  const nearbyActiveFleets = useMemo(
+    () => activeAvailableFleets.filter(isFleetNearby),
+    [activeAvailableFleets],
+  );
   const isSelectedFleetActive = isFleetBookable(selectedFleet);
+  const bookingTargetFleets = useMemo(() => {
+    if (selectedFleetId && selectedFleet) return [selectedFleet];
+    return nearbyActiveFleets;
+  }, [nearbyActiveFleets, selectedFleet, selectedFleetId]);
   const bookingFleet = useMemo(() => {
     if (!requiresLiveOperator) {
       if (selectedFleetId && selectedFleet) return selectedFleet;
-      return selectedFleet || availableFleets[0] || null;
+      return bookingTargetFleets[0] || selectedFleet || availableFleets[0] || null;
     }
 
     if (isSelectedFleetActive) return selectedFleet;
     if (selectedFleetId && selectedFleet) return null;
-    return activeAvailableFleets[0] || null;
-  }, [activeAvailableFleets, availableFleets, isSelectedFleetActive, requiresLiveOperator, selectedFleet, selectedFleetId]);
+    return bookingTargetFleets[0] || activeAvailableFleets[0] || null;
+  }, [activeAvailableFleets, availableFleets, bookingTargetFleets, isSelectedFleetActive, requiresLiveOperator, selectedFleet, selectedFleetId]);
   const displayFleet = bookingFleet || selectedFleet;
   const bookingMode = modeForFleet(bookingFleet || selectedFleet, selection.mode);
   const pricingInput = {
@@ -158,7 +204,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     ? requiresLiveOperator
       ? "Checking active operators for this booking."
       : "Checking matching operators for this scheduled booking."
-    : !bookingFleet
+    : !bookingTargetFleets.length
       ? selectedFleet
         ? requiresLiveOperator
           ? "The selected operator is not active right now. Choose another active operator."
@@ -168,26 +214,29 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           : "No operator matches this service and fleet type."
       : "";
   const sendBlockMessage = requirementMessage || fleetMessage;
-  const canSendBooking = !submitting && !routeLoading && !requirementMessage && Boolean(bookingFleet);
+  const canSendBooking = !submitting && !routeLoading && !requirementMessage && bookingTargetFleets.length > 0;
 
   useEffect(() => {
     if (!open) return;
 
     const nextSelection = selectionFromTarget(target);
+    const draftForm = target?.draftForm || null;
     setSelection(nextSelection);
     setSelectedFleetId(target?.fleet?.id || "");
     setSavedPlaces(getTransportSavedPlaces());
     setStatus("");
     setRouteEstimate(null);
     setRouteMessage("");
+    setAreaPicker(null);
     setForm((current) => ({
       ...current,
-      pickup: target?.pickup || target?.movement?.pickup || current.pickup,
-      dropoff: target?.destination || target?.movement?.destination || current.dropoff,
-      pickupPoint: normalizeLocationPoint(target?.pickupPoint || target?.movement?.pickupPoint) || current.pickupPoint,
-      dropoffPoint: normalizeLocationPoint(target?.destinationPoint || target?.movement?.destinationPoint) || current.dropoffPoint,
-      packageDescription: "",
-      note: "",
+      ...(draftForm || {}),
+      pickup: target?.pickup || target?.movement?.pickup || draftForm?.pickup || current.pickup,
+      dropoff: target?.destination || target?.movement?.destination || draftForm?.dropoff || current.dropoff,
+      pickupPoint: normalizeLocationPoint(target?.pickupPoint || target?.movement?.pickupPoint) || draftForm?.pickupPoint || current.pickupPoint,
+      dropoffPoint: normalizeLocationPoint(target?.destinationPoint || target?.movement?.destinationPoint) || draftForm?.dropoffPoint || current.dropoffPoint,
+      packageDescription: draftForm?.packageDescription || "",
+      note: draftForm?.note || "",
     }));
   }, [open, target]);
 
@@ -273,7 +322,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           : fleets;
 
         setAvailableFleets(nextFleets);
-        setSelectedFleetId((current) => current || nextFleets[0]?.id || "");
+        setSelectedFleetId((current) => current || target?.fleet?.id || "");
       })
       .catch((error) => {
         if (alive) {
@@ -299,6 +348,32 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   function updateSelection(patch) {
     setSelection((current) => ({ ...current, ...patch }));
     setSelectedFleetId("");
+  }
+
+  function openBookingLocationPicker(kind, start = "current") {
+    setAreaPicker({ kind, start });
+    setStatus("");
+  }
+
+  function acceptBookingLocation(location) {
+    const nextLocation = normalizeAreaLocation(location, areaPicker?.kind === "pickup" ? form.pickup : form.dropoff);
+    const nextPoint = normalizeLocationPoint(nextLocation);
+    if (!nextPoint) return;
+
+    if (areaPicker?.kind === "pickup") {
+      updateForm({
+        pickup: getLocationInputValue(nextPoint),
+        pickupPoint: nextPoint,
+      });
+      setStatus(`Pickup location added: ${nextPoint.address}`);
+    } else {
+      updateForm({
+        dropoff: getLocationInputValue(nextPoint),
+        dropoffPoint: nextPoint,
+      });
+      setStatus(`Drop-off location added: ${nextPoint.address}`);
+    }
+    setAreaPicker(null);
   }
 
   function buildBookingAreaDestination(kind) {
@@ -367,7 +442,16 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       return;
     }
 
-    onLocateArea?.(destination, { autoRoute: true });
+    onLocateArea?.(destination, {
+      autoRoute: true,
+      returnTo: "booking",
+      bookingTarget: {
+        ...target,
+        selection,
+        fleet: bookingFleet || selectedFleet || target?.fleet || null,
+        draftForm: form,
+      },
+    });
   }
 
   async function sendBooking() {
@@ -392,22 +476,15 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         setRouteEstimate(resolvedRoute);
         setRouteMessage(`${formatBookingDistance(resolvedRoute.distanceKm)} route${resolvedRoute.approximate ? " - approximate road estimate" : ""}`);
       }
-      const resolvedFare = calculateFleetFare(bookingFleet, {
-        bookingMethod: form.bookingMethod,
-        distanceKm: resolvedRoute?.distanceKm,
-        bookedHours: form.bookedHours,
-      });
-      if (!bookingFleet) throw new Error("Choose an operator before sending this booking.");
-      if (!resolvedFare?.ready) {
-        throw new Error(form.bookingMethod === "time"
-          ? "This operator has not added an hourly rate yet. Choose another operator."
-          : "This operator has not added a price per kilometer yet. Choose another operator.");
+      if (!bookingTargetFleets.length) {
+        throw new Error("No nearby matching operators are available for this booking right now.");
       }
       const nextBookingMode = modeForFleet(bookingFleet || null, selection.mode);
       const booking = await createTransportBooking({
         ...form,
         fleet: bookingFleet || null,
         fleetId: bookingFleet?.id || null,
+        targetFleets: bookingTargetFleets,
         mode: nextBookingMode,
         pickup: form.pickup,
         dropoff: form.dropoff,
@@ -418,7 +495,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         destinationPoint: resolvedRoute?.destinationPoint || form.dropoffPoint || null,
       });
       setSelectedFleetId(bookingFleet?.id || "");
-      setStatus("Booking sent. The operator will see this as a pending passenger request.");
+      setStatus(
+        booking?.notifiedFleetCount > 1
+          ? `Booking sent to ${booking.notifiedFleetCount} nearby matching operators. Any available operator can contact you and respond.`
+          : "Booking sent. The operator will see this as a pending passenger request and can contact you.",
+      );
       onCreated?.(booking);
     } catch (error) {
       setStatus(error.message || "Unable to send this booking.");
@@ -528,11 +609,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                     {loadingFleets
                       ? "Loading operators..."
                       : requiresLiveOperator
-                        ? activeAvailableFleets.length
-                          ? "Auto-match best active operator"
+                        ? nearbyActiveFleets.length
+                          ? `Notify ${nearbyActiveFleets.length} nearby active operator${nearbyActiveFleets.length === 1 ? "" : "s"}`
                           : "No active operator available"
-                        : availableFleets.length
-                          ? "Auto-match best matching operator"
+                        : nearbyActiveFleets.length
+                          ? `Notify ${nearbyActiveFleets.length} nearby matching operator${nearbyActiveFleets.length === 1 ? "" : "s"}`
                           : "No operator available"}
                   </option>
                   {availableFleets.map((fleet) => (
@@ -546,7 +627,15 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
             {displayFleet ? (
               <div className="mt-4 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-600 sm:grid-cols-2">
-                <InfoLine icon={FiTruck} label={bookingFleet && !selectedFleetId ? "Auto-match" : "Fleet"} value={`${displayFleet.fleetName} (${displayFleet.plateNumber})`} />
+                <InfoLine
+                  icon={FiTruck}
+                  label={selectedFleetId ? "Fleet" : "Request"}
+                  value={
+                    selectedFleetId
+                      ? `${displayFleet.fleetName} (${displayFleet.plateNumber})`
+                      : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} will be notified`
+                  }
+                />
                 <InfoLine icon={FiNavigation} label="Location" value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
                 <InfoLine
                   icon={FiClock}
@@ -583,8 +672,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 <p className="mt-1 text-sm font-black text-emerald-700">{fareEstimate}</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
                   {form.bookingMethod === "distance"
-                    ? `The selected operator's kilometer rate is calculated against ${routeEstimate ? formatBookingDistance(routeEstimate.distanceKm) : "your resolved route"}.`
-                    : `The selected operator's hourly rate is calculated against ${Number(form.bookedHours || 0)} hour${Number(form.bookedHours || 0) === 1 ? "" : "s"}.`}
+                    ? `${selectedFleetId ? "The selected operator" : "Operators"} will see your resolved route${routeEstimate ? ` of ${formatBookingDistance(routeEstimate.distanceKm)}` : ""} before responding.`
+                    : `${selectedFleetId ? "The selected operator" : "Operators"} will see your requested ${Number(form.bookedHours || 0)} hour${Number(form.bookedHours || 0) === 1 ? "" : "s"} before responding.`}
                 </p>
               </div>
             </div>
@@ -592,22 +681,43 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
           {savedPlaces.length ? (
             <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-sm font-black text-gray-950">Saved pickup places</p>
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {savedPlaces.map((place) => (
-                  <button
-                    key={place.id}
-                    type="button"
-                    onClick={() => updateForm({
-                      pickup: getLocationInputValue(place),
-                      pickupPoint: normalizeLocationPoint(place),
-                    })}
-                    className="kt-touchable shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-xs font-bold text-gray-600 hover:border-emerald-200 hover:bg-emerald-50"
-                  >
-                    <span className="block text-gray-950">{getPlaceLabel(place)}</span>
-                    <span className="mt-0.5 block max-w-[180px] truncate">{place.street || place.detectedAddress}</span>
-                  </button>
-                ))}
+              <div>
+                <p className="text-sm font-black text-gray-950">Saved locations</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
+                  Use any saved place as the pickup point or the {bookingMode === "delivery" ? "delivery drop-off" : "drop-off point"}.
+                </p>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {savedPlaces.map((place) => {
+                  const point = normalizeLocationPoint(place);
+                  const text = getLocationInputValue(place);
+                  return (
+                    <article key={place.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-gray-950">{getPlaceLabel(place)}</p>
+                        <p className="mt-0.5 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
+                          {place.street || place.detectedAddress}
+                        </p>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => updateForm({ pickup: text, pickupPoint: point })}
+                          className="kt-touchable h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
+                        >
+                          Use as pickup
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateForm({ dropoff: text, dropoffPoint: point })}
+                          className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+                        >
+                          Use as {bookingMode === "delivery" ? "delivery address" : "drop-off"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             </section>
           ) : null}
@@ -625,6 +735,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   pickup: getLocationInputValue(place),
                   pickupPoint: normalizeLocationPoint(place),
                 })}
+                onLocateMe={() => openBookingLocationPicker("pickup", "current")}
+                onDropPin={() => openBookingLocationPicker("pickup", "dropPin")}
                 placeholder="Street, junction, saved place, or landmark"
               />
               <AddressSuggestionInput
@@ -638,6 +750,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   dropoff: getLocationInputValue(place),
                   dropoffPoint: normalizeLocationPoint(place),
                 })}
+                onLocateMe={() => openBookingLocationPicker("dropoff", "current")}
+                onDropPin={() => openBookingLocationPicker("dropoff", "dropPin")}
                 placeholder="Destination, address, station, or landmark"
               />
               <FormInput
@@ -791,6 +905,18 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           </div>
         </footer>
       </aside>
+      {areaPicker ? (
+        <div className="fixed inset-0 z-[1200] bg-slate-950">
+          <NearbyAreaScreen
+            mode="businessLocationPicker"
+            pickerStart={areaPicker.start}
+            pickerLabels={getBookingPickerLabels(areaPicker.kind, bookingMode)}
+            backLabel="Back to booking form"
+            onBack={() => setAreaPicker(null)}
+            onLocationPicked={acceptBookingLocation}
+          />
+        </div>
+      ) : null}
     </div>
     </AppPortal>
   );
@@ -855,10 +981,11 @@ function InfoLine({ icon, label, value }) {
   );
 }
 
-function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onChange, onSelect, placeholder }) {
+function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onChange, onSelect, onLocateMe, onDropPin, placeholder }) {
   const [focused, setFocused] = useState(false);
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const validation = useAddressAreaValidation(value, { center, selectedPoint });
 
   useEffect(() => {
     if (!focused) return undefined;
@@ -893,7 +1020,10 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
 
   return (
     <label className="min-w-0 space-y-1">
-      <span className="text-xs font-black uppercase text-gray-500">{label}</span>
+      <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
+        {label}
+        <AddressAreaStatusIcon status={validation.status} />
+      </span>
       <span className="relative block min-w-0">
         {createElement(icon, {
           size: 17,
@@ -905,8 +1035,9 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
           onBlur={() => window.setTimeout(() => setFocused(false), 140)}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          className="h-12 w-full min-w-0 rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm font-semibold outline-none focus:border-emerald-500"
+          className="h-12 w-full min-w-0 rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-9 text-sm font-semibold outline-none focus:border-emerald-500"
         />
+        <AddressAreaStatusIcon status={validation.status} className="absolute right-3 top-1/2 -translate-y-1/2" />
       </span>
 
       {selectedPoint?.lat && selectedPoint?.lng ? (
@@ -914,6 +1045,31 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
           Selected address matched nearby coordinates{selectedPoint.country ? ` in ${selectedPoint.country}` : ""}.
         </p>
       ) : null}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={onLocateMe}
+          className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
+        >
+          <FiNavigation size={15} />
+          Locate me
+        </button>
+        <button
+          type="button"
+          onClick={onDropPin}
+          className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+        >
+          <FiMapPin size={15} />
+          Drop a pin
+        </button>
+      </div>
+
+      <AddressAreaResolutionCard
+        validation={validation}
+        onLocateMe={onLocateMe}
+        onDropPin={onDropPin}
+      />
 
       {showSuggestions ? (
         <div className="max-h-56 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">

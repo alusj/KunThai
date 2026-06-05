@@ -216,8 +216,8 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
 
   async function addToCart(product) {
     try {
-      await addBuyerCartItem(product);
-      showNotice("Product Added to Cart");
+      const result = await addBuyerCartItem(product);
+      showNotice(result?.status === "alreadyInCart" ? "This product is already in your cart." : "Product added to cart.");
     } catch (err) {
       showNotice(err.message || "Unable to add product to cart.", "danger");
     }

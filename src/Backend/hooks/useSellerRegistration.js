@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   BUSINESS_CATEGORIES,
@@ -6,6 +6,7 @@ import {
   calculateReadinessScore,
   submitSellerRegistration,
 } from "../services/marketplace/sellerRegistrationService";
+import { getOnboardingProfile } from "../services/onboardingService";
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
 
@@ -65,6 +66,17 @@ function formatCoordinates(latitude, longitude) {
   return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
 }
 
+function getAccountDisplayName(profile) {
+  return String(
+    profile?.displayName ||
+      profile?.display_name ||
+      profile?.fullName ||
+      profile?.full_name ||
+      [profile?.firstName || profile?.first_name, profile?.lastName || profile?.last_name].filter(Boolean).join(" ") ||
+      "",
+  ).trim();
+}
+
 async function reverseGeocode(latitude, longitude) {
   const fallback = {
     address: formatCoordinates(latitude, longitude),
@@ -107,6 +119,33 @@ export function useSellerRegistration({ onComplete } = {}) {
   const [draftStatus, setDraftStatus] = useState(draft?.savedAt ? `Draft saved ${new Date(draft.savedAt).toLocaleString()}` : "");
 
   const readinessScore = useMemo(() => calculateReadinessScore(form), [form]);
+
+  useEffect(() => {
+    let alive = true;
+
+    getOnboardingProfile()
+      .then((profile) => {
+        if (!alive) return;
+        const accountName = getAccountDisplayName(profile);
+        if (!accountName) return;
+
+        setForm((current) => {
+          if (current.identity.businessName.trim()) return current;
+          return {
+            ...current,
+            identity: {
+              ...current.identity,
+              businessName: accountName,
+            },
+          };
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   function updateSection(section, patch) {
     setDraftStatus("");
@@ -224,6 +263,7 @@ export function useSellerRegistration({ onComplete } = {}) {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
     setDraftStatus(`Draft saved ${new Date(payload.savedAt).toLocaleString()}`);
     setErrors((current) => ({ ...current, submit: "" }));
+    return payload;
   }
 
   function locateBusiness() {
@@ -282,6 +322,33 @@ export function useSellerRegistration({ onComplete } = {}) {
       coordinates: locationCandidate.coordinates,
     });
     setLocationStatus(`Location added: ${locationCandidate.address}`);
+    setLocationPromptOpen(false);
+    setLocationCandidate(null);
+  }
+
+  function acceptAreaViewLocation(location) {
+    const latitude = Number(location?.lat ?? location?.latitude);
+    const longitude = Number(location?.lng ?? location?.longitude);
+    const address = String(location?.address || location?.fullAddress || location?.label || location?.name || "").trim();
+    const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+
+    if (!address && !hasCoordinates) {
+      setLocationStatus("Choose a valid Area View location before adding it.");
+      return;
+    }
+
+    updateSection("location", {
+      address: address || formatCoordinates(latitude, longitude),
+      city: location?.city || form.location.city,
+      country: location?.country || form.location.country,
+      coordinates: hasCoordinates
+        ? {
+            latitude,
+            longitude,
+          }
+        : form.location.coordinates,
+    });
+    setLocationStatus(`Location added: ${address || formatCoordinates(latitude, longitude)}`);
     setLocationPromptOpen(false);
     setLocationCandidate(null);
   }
@@ -345,6 +412,7 @@ export function useSellerRegistration({ onComplete } = {}) {
     closeLocationPrompt,
     detectBusinessLocation,
     acceptDetectedLocation,
+    acceptAreaViewLocation,
     enterLocationManually,
     skipTrustPayout,
     saveDraft,

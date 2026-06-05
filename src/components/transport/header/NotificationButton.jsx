@@ -1,35 +1,55 @@
 // NotificationButton.jsx
 // Displays operator or passenger transport notifications.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Truck } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
 import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import { fetchTransportNotifications } from "../../services/transportHeaderService";
+import { subscribePassengerTrips } from "../../services/passengerTransportService";
+import { showToast } from "../../../Backend/services/toastService";
 
 export default function NotificationButton({ operatorAccount, onOpenChange, onViewFleet }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const announcedArrivalIdsRef = useRef(new Set());
+  const notificationsInitializedRef = useRef(false);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => notification.unread).length,
     [notifications],
   );
 
-  useEffect(() => {
-    if (!open) return undefined;
-
+  const refreshNotifications = useCallback(({ quiet = false } = {}) => {
     let alive = true;
-    setLoading(true);
+    if (open && !quiet) setLoading(true);
     setError("");
 
     fetchTransportNotifications(operatorAccount)
       .then((items) => {
-        if (alive) setNotifications(items);
+        if (!alive) return;
+        setNotifications(items);
+
+        const arrivedTrips = items.filter(
+          (notification) =>
+            notification.type === "trip" &&
+            /operator arrived/i.test(`${notification.title} ${notification.body}`),
+        );
+        if (!notificationsInitializedRef.current) {
+          arrivedTrips.forEach((notification) => announcedArrivalIdsRef.current.add(notification.id));
+          notificationsInitializedRef.current = true;
+          return;
+        }
+
+        arrivedTrips.forEach((notification) => {
+          if (!quiet || announcedArrivalIdsRef.current.has(notification.id)) return;
+          announcedArrivalIdsRef.current.add(notification.id);
+          showToast(`${notification.title}: operator arrived at the pickup point.`, "success");
+        });
       })
       .catch((err) => {
         if (alive) {
@@ -38,13 +58,30 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
         }
       })
       .finally(() => {
-        if (alive) setLoading(false);
+        if (alive && open && !quiet) setLoading(false);
       });
 
     return () => {
       alive = false;
     };
   }, [open, operatorAccount]);
+
+  useEffect(() => {
+    return refreshNotifications({ quiet: !open });
+  }, [open, refreshNotifications]);
+
+  useEffect(() => {
+    const refreshQuietly = () => refreshNotifications({ quiet: true });
+    const unsubscribe = subscribePassengerTrips(refreshQuietly);
+    window.addEventListener("transport-trip-updated", refreshQuietly);
+    window.addEventListener("transport-booking-created", refreshQuietly);
+
+    return () => {
+      unsubscribe?.();
+      window.removeEventListener("transport-trip-updated", refreshQuietly);
+      window.removeEventListener("transport-booking-created", refreshQuietly);
+    };
+  }, [refreshNotifications]);
 
   useEffect(() => {
     onOpenChange?.(open);

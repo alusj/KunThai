@@ -152,18 +152,15 @@ function mapLiveFleet(row) {
 }
 
 function dedupeLiveFleets(fleets) {
-  const seenOperators = new Set();
   const seenPlates = new Set();
 
   return fleets.filter((fleet) => {
-    const operatorKey = fleet.operatorRecordId || fleet.operatorId;
     const plateKey = normalizeIdentityValue(fleet.plateNumber);
+    const hasUsablePlate = plateKey && !["NO-PLATE", "PLATE PENDING", "PENDING"].includes(plateKey);
 
-    if (operatorKey && seenOperators.has(operatorKey)) return false;
-    if (plateKey && plateKey !== "NO-PLATE" && seenPlates.has(plateKey)) return false;
+    if (hasUsablePlate && seenPlates.has(plateKey)) return false;
 
-    if (operatorKey) seenOperators.add(operatorKey);
-    if (plateKey && plateKey !== "NO-PLATE") seenPlates.add(plateKey);
+    if (hasUsablePlate) seenPlates.add(plateKey);
     return true;
   });
 }
@@ -221,9 +218,8 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
   const { data, error } = await supabase
     .from("transport_fleets")
     .select("*, transport_operators(id, full_name, phone, city, operator_code, display_code, verification_status)")
-    .eq("is_visible_to_passengers", true)
     .order("updated_at", { ascending: false })
-    .limit(50);
+    .limit(100);
 
   if (error) {
     throw error;

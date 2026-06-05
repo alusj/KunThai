@@ -1370,6 +1370,7 @@ function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip, onViewRout
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const status = passenger.status || "requested";
+  const passengerPhone = passenger.contactPhone || passenger.raw?.contact_phone || "";
   const isWaiting = ["requested", "waiting_operator", "pending_confirmation"].includes(status);
   const isAccepted = status === "accepted";
   const isArrived = status === "arrived";
@@ -1407,15 +1408,29 @@ function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip, onViewRout
         <MiniRow label="Fare" value={passenger.fare} />
       </div>
 
-      <button
-        type="button"
-        onClick={onViewRoute}
-        disabled={!passenger.pickup || !passenger.destination}
-        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white px-4 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:border-gray-200 disabled:text-gray-400"
-      >
-        <FiNavigation size={17} />
-        View route
-      </button>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={onViewRoute}
+          disabled={!passenger.pickup || !passenger.destination}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white px-4 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:border-gray-200 disabled:text-gray-400"
+        >
+          <FiNavigation size={17} />
+          View route
+        </button>
+        <a
+          href={passengerPhone ? `tel:${passengerPhone}` : undefined}
+          aria-disabled={!passengerPhone}
+          className={`flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition ${
+            passengerPhone
+              ? "border border-slate-200 bg-slate-950 text-white hover:bg-slate-800"
+              : "pointer-events-none border border-gray-200 bg-gray-100 text-gray-400"
+          }`}
+        >
+          <FiPhone size={17} />
+          {passengerPhone ? "Call passenger" : "No passenger phone"}
+        </a>
+      </div>
 
       {isWaiting ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">

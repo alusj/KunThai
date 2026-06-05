@@ -150,6 +150,21 @@ function createLabeledMarker(label, bgColor) {
   return wrapper;
 }
 
+function createMeasurementLabel(label) {
+  const wrapper = document.createElement("div");
+  wrapper.textContent = label;
+  wrapper.style.background = "#16a34a";
+  wrapper.style.color = "white";
+  wrapper.style.fontSize = "13px";
+  wrapper.style.fontWeight = "900";
+  wrapper.style.padding = "6px 12px";
+  wrapper.style.borderRadius = "999px";
+  wrapper.style.border = "3px solid white";
+  wrapper.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
+  wrapper.style.whiteSpace = "nowrap";
+  return wrapper;
+}
+
 function normalizeRoutePreviewPoint(point) {
   const rawLat = point?.lat ?? point?.latitude;
   const rawLng = point?.lng ?? point?.longitude;
@@ -829,6 +844,73 @@ function clearRouteLayers(map) {
   if (map.getSource("route")) map.removeSource("route");
 }
 
+function clearMeasurementPreviewLayer(map) {
+  if (!map) return;
+
+  try {
+    if (map.getLayer("measurement-preview-line")) map.removeLayer("measurement-preview-line");
+    if (map.getLayer("measurement-preview-glow")) map.removeLayer("measurement-preview-glow");
+    if (map.getSource("measurement-preview")) map.removeSource("measurement-preview");
+  } catch {
+    // The map style can already be gone during teardown.
+  }
+}
+
+function upsertMeasurementPreviewLayer(map, origin, destination) {
+  if (!map || !origin || !destination) return;
+
+  const data = {
+    type: "Feature",
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [origin.lng, origin.lat],
+        [destination.lng, destination.lat],
+      ],
+    },
+  };
+
+  if (map.getSource("measurement-preview")) {
+    map.getSource("measurement-preview").setData(data);
+    return;
+  }
+
+  map.addSource("measurement-preview", {
+    type: "geojson",
+    data,
+  });
+
+  map.addLayer({
+    id: "measurement-preview-glow",
+    type: "line",
+    source: "measurement-preview",
+    layout: {
+      "line-join": "round",
+      "line-cap": "round",
+    },
+    paint: {
+      "line-color": "#16a34a",
+      "line-width": 18,
+      "line-opacity": 0.22,
+    },
+  });
+
+  map.addLayer({
+    id: "measurement-preview-line",
+    type: "line",
+    source: "measurement-preview",
+    layout: {
+      "line-join": "round",
+      "line-cap": "round",
+    },
+    paint: {
+      "line-color": "#16a34a",
+      "line-width": 6,
+      "line-opacity": 0.94,
+    },
+  });
+}
+
 function upsertRouteLayers(map, geometry, color = ROUTE_STATUS.correct.color) {
   if (!map || !geometry) return;
 
@@ -1113,12 +1195,16 @@ export default function NearbyAreaMap({
   onMapLocationSelect,
   onReportSelect,
   recenterSignal = 0,
+  measurementPreview = null,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
   const pickupMarkerRef = useRef(null);
   const destinationMarkerRef = useRef(null);
+  const measurementStartMarkerRef = useRef(null);
+  const measurementEndMarkerRef = useRef(null);
+  const measurementLabelMarkerRef = useRef(null);
   const watchIdRef = useRef(null);
   const routeCoordinatesRef = useRef([]);
   const smoothedPositionRef = useRef(null);
@@ -1591,8 +1677,12 @@ export default function NearbyAreaMap({
       userMarkerRef.current?.remove();
       pickupMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
+      measurementStartMarkerRef.current?.remove();
+      measurementEndMarkerRef.current?.remove();
+      measurementLabelMarkerRef.current?.remove();
 
       clearRouteLayers(map);
+      clearMeasurementPreviewLayer(map);
       clearTrafficOverlayLayers(map);
       clearTrafficAheadRouteLayer(map);
       clearAlternativeRouteLayer(map);
@@ -1602,6 +1692,9 @@ export default function NearbyAreaMap({
       userMarkerRef.current = null;
       pickupMarkerRef.current = null;
       destinationMarkerRef.current = null;
+      measurementStartMarkerRef.current = null;
+      measurementEndMarkerRef.current = null;
+      measurementLabelMarkerRef.current = null;
       watchIdRef.current = null;
       markerRenderedPositionRef.current = null;
     };
@@ -1721,6 +1814,89 @@ export default function NearbyAreaMap({
   useEffect(() => {
     routeInfoRef.current = routeInfo;
   }, [routeInfo]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return undefined;
+
+    const origin = normalizeRoutePreviewPoint(measurementPreview?.origin);
+    const destination = normalizeRoutePreviewPoint(measurementPreview?.destination);
+
+    measurementStartMarkerRef.current?.remove();
+    measurementEndMarkerRef.current?.remove();
+    measurementLabelMarkerRef.current?.remove();
+    measurementStartMarkerRef.current = null;
+    measurementEndMarkerRef.current = null;
+    measurementLabelMarkerRef.current = null;
+
+    if (!origin || !destination) {
+      clearMeasurementPreviewLayer(map);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const midpoint = {
+      lat: (origin.lat + destination.lat) / 2,
+      lng: (origin.lng + destination.lng) / 2,
+    };
+
+    setRouteInfo(null);
+    setRouteError("");
+    setRouteLoading(false);
+    routeCoordinatesRef.current = [];
+    clearRouteLayers(map);
+    clearAlternativeRouteLayer(map);
+    publishTrafficAhead(null, { force: true });
+
+    waitForMapStyle(map).then(() => {
+      if (cancelled) return;
+
+      upsertMeasurementPreviewLayer(map, origin, destination);
+
+      measurementStartMarkerRef.current = new maplibregl.Marker({
+        element: createLabeledMarker("START", "#16a34a"),
+        anchor: "center",
+      })
+        .setLngLat([origin.lng, origin.lat])
+        .addTo(map);
+
+      measurementEndMarkerRef.current = new maplibregl.Marker({
+        element: createLabeledMarker("1 KM POINT", "#2563eb"),
+        anchor: "center",
+      })
+        .setLngLat([destination.lng, destination.lat])
+        .addTo(map);
+
+      measurementLabelMarkerRef.current = new maplibregl.Marker({
+        element: createMeasurementLabel(measurementPreview?.label || "1 KM"),
+        anchor: "center",
+      })
+        .setLngLat([midpoint.lng, midpoint.lat])
+        .addTo(map);
+
+      const bounds = new maplibregl.LngLatBounds();
+      bounds.extend([origin.lng, origin.lat]);
+      bounds.extend([destination.lng, destination.lat]);
+
+      map.fitBounds(bounds, {
+        padding: { top: 150, bottom: 190, left: 70, right: 70 },
+        duration: 900,
+        maxZoom: 16.8,
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      measurementStartMarkerRef.current?.remove();
+      measurementEndMarkerRef.current?.remove();
+      measurementLabelMarkerRef.current?.remove();
+      measurementStartMarkerRef.current = null;
+      measurementEndMarkerRef.current = null;
+      measurementLabelMarkerRef.current = null;
+      clearMeasurementPreviewLayer(map);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- measurement mode owns route cleanup and map markers while active.
+  }, [measurementPreview]);
 
   useEffect(() => {
     trafficSnapshotsRef.current = trafficSnapshots;

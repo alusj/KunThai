@@ -24,8 +24,8 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
 
   const helperText =
     selection.mode === "topRated"
-      ? "Highest rated fleets are shown first across all categories."
-      : "Closest active fleets are shown first.";
+      ? "All registered fleets are shown with active operators first."
+      : "Registered fleets are shown with active operators first, then offline fleets with last activity.";
 
   useEffect(() => {
     let alive = true;
@@ -79,7 +79,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
 
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-              {fleets.length} found
+              {fleets.length} registered
             </span>
 
             <button
@@ -97,7 +97,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
         <div className="mb-4 grid gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-3">
           <SummaryItem
             label="Sort"
-            value={selection.mode === "topRated" ? "Rating, trips, active status" : "Active and closest first"}
+            value={selection.mode === "topRated" ? "Rating, trips, active status" : "Active, closest, then offline"}
           />
           <SummaryItem label="Type" value={selection.mode === "topRated" ? "All fleet types" : selection.label} />
           <SummaryItem label="Mode" value={selection.verifiedOnly ? "Verified only" : modeLabel} />
@@ -108,7 +108,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
         ) : loading ? (
           <EmptyState title="Loading fleets" body="Checking live operators from the backend." />
         ) : fleets.length === 0 ? (
-          <EmptyState title="No fleets available" body="No visible operators match this transport sector yet." />
+          <EmptyState title="No fleets available" body="No registered operators match this transport sector yet." />
         ) : (
           <div className="grid gap-3 2xl:grid-cols-2">
             {fleets.map((fleet) => (

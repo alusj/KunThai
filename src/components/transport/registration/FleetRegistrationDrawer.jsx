@@ -17,6 +17,7 @@ import {
   saveOperatorAccount,
   saveOperatorDraft,
 } from "../../services/transportOperatorAccountService";
+import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 
 const categories = ["Transport", "Delivery", "Both"];
 const fleetTypes = ["Car", "Motorcycle", "Tricycle"];
@@ -132,7 +133,18 @@ const defaultForm = {
   deliveryBodyType: "",
 };
 
-export default function FleetRegistrationDrawer({ onClose, onComplete }) {
+function getAccountDisplayName(profile) {
+  return String(
+    profile?.displayName ||
+      profile?.display_name ||
+      profile?.fullName ||
+      profile?.full_name ||
+      [profile?.firstName || profile?.first_name, profile?.lastName || profile?.last_name].filter(Boolean).join(" ") ||
+      "",
+  ).trim();
+}
+
+export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOneKmPreview }) {
   const [step, setStep] = useState(0);
   const [maxStepReached, setMaxStepReached] = useState(0);
   const [operatorId, setOperatorId] = useState(generateOperatorId);
@@ -142,32 +154,51 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
   const [showSkipWarning, setShowSkipWarning] = useState(false);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [showReviewSaveWarning, setShowReviewSaveWarning] = useState(false);
+  const [showSaveCheckpoint, setShowSaveCheckpoint] = useState(false);
+  const [activePricingGuide, setActivePricingGuide] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
   const [stepError, setStepError] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(defaultForm);
 
   useEffect(() => {
     let alive = true;
 
-    getOperatorDraft()
-      .then((draft) => {
-        if (!alive || !draft) return;
-        setStep(draft.step || 0);
-        setMaxStepReached(draft.maxStepReached || draft.step || 0);
-        setOperatorId(draft.operatorId || generateOperatorId());
-        setAnswers(draft.answers || {});
-        setUploads(draft.uploads || {});
-        setDocumentsSkipped(Boolean(draft.documentsSkipped));
-        setForm({
-          ...defaultForm,
-          ...(draft.form || {}),
-        });
-      })
-      .catch(() => {
+    async function loadRegistrationContext() {
+      const profile = await getOnboardingProfile().catch(() => null);
+      const accountName = getAccountDisplayName(profile);
+
+      try {
+        const draft = await getOperatorDraft();
+        if (!alive) return;
+
+        if (draft) {
+          const draftForm = draft.form || {};
+          setStep(draft.step || 0);
+          setMaxStepReached(draft.maxStepReached || draft.step || 0);
+          setOperatorId(draft.operatorId || generateOperatorId());
+          setAnswers(draft.answers || {});
+          setUploads(draft.uploads || {});
+          setDocumentsSkipped(Boolean(draft.documentsSkipped));
+          setForm({
+            ...defaultForm,
+            ...draftForm,
+            name: draftForm.name || accountName || "",
+          });
+          return;
+        }
+
+        if (accountName) {
+          setForm((current) => (current.name ? current : { ...current, name: accountName }));
+        }
+      } catch {
         if (alive) setSubmitError("Sign in again before continuing your fleet registration.");
-      });
+      }
+    }
+
+    loadRegistrationContext();
 
     return () => {
       alive = false;
@@ -287,18 +318,40 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
     savedAt: new Date().toISOString(),
   });
 
-  const handleSave = async () => {
-    if (step === 5) {
-      setShowReviewSaveWarning(true);
-      return;
-    }
-
+  const saveDraftCheckpoint = async () => {
+    setSavingDraft(true);
     try {
       await saveOperatorDraft(buildPayload("draft"));
-      setSavedMessage("Checkpoint secured. You can return later and continue from this exact point.");
-      window.setTimeout(() => setSavedMessage(""), 4200);
+      setSubmitError("");
+      return true;
     } catch (error) {
       setSubmitError(error.message || "Unable to save this fleet draft.");
+      return false;
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const handleSave = async () => {
+    const saved = await saveDraftCheckpoint();
+    if (saved) setShowSaveCheckpoint(true);
+  };
+
+  const continueAfterSave = () => {
+    setShowSaveCheckpoint(false);
+    setSavedMessage("Checkpoint saved. You can continue from this step.");
+    window.setTimeout(() => setSavedMessage(""), 4200);
+  };
+
+  const saveAndExit = () => {
+    setShowSaveCheckpoint(false);
+    onClose?.();
+  };
+
+  const handleViewOneKm = async () => {
+    const saved = await saveDraftCheckpoint();
+    if (saved) {
+      onViewOneKmPreview?.();
     }
   };
 
@@ -502,8 +555,24 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
               <LocationInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder="Operating area" helper="Main area where passengers should expect service." />
               <LocationInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder="Home base or station" helper="Where the fleet usually starts or parks." />
               <FormInput label="Starting price" type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder="Starting price" min="0" helper="The minimum fare shown when a distance or time total is lower than your starting price." />
-              <FormInput label="Price per 1 km or kilometer" type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder="Price for 1 km" min="0" helper="Distance bookings calculate this rate against the passenger route." />
-              <FormInput label="Price per 1 hour" type="number" value={form.pricePerHour} onChange={(value) => update("pricePerHour", value)} placeholder="Price for 1 hour" min="0" helper="Time bookings calculate this rate against the passenger's requested hours." />
+              <div>
+                <FormInput label="Price per 1 km or kilometer" type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder="Price for 1 km" min="0" helper="Distance bookings calculate this rate against the passenger route." />
+                <PricingGuide
+                  type="km"
+                  open={activePricingGuide === "km"}
+                  onToggle={() => setActivePricingGuide((current) => (current === "km" ? "" : "km"))}
+                  onViewOneKm={handleViewOneKm}
+                  disabled={savingDraft}
+                />
+              </div>
+              <div>
+                <FormInput label="Price per 1 hour" type="number" value={form.pricePerHour} onChange={(value) => update("pricePerHour", value)} placeholder="Price for 1 hour" min="0" helper="Time bookings calculate this rate against the passenger's requested hours." />
+                <PricingGuide
+                  type="hour"
+                  open={activePricingGuide === "hour"}
+                  onToggle={() => setActivePricingGuide((current) => (current === "hour" ? "" : "hour"))}
+                />
+              </div>
               <FormInput label="Passenger price note optional" value={form.priceHint} onChange={(value) => update("priceHint", value)} placeholder="Optional public price note" helper="Add a note only when passengers need extra context about your rates." />
               <SelectField
                 label="Availability"
@@ -693,9 +762,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
               <button
                 type="button"
                 onClick={handleSave}
+                disabled={savingDraft}
                 className="h-11 w-full rounded-2xl border border-green-200 bg-green-50 px-5 text-sm font-semibold text-green-700 hover:bg-green-100 transition sm:w-auto"
               >
-                Save
+                {savingDraft ? "Saving..." : "Save"}
               </button>
               {step < steps.length - 1 ? (
               <button
@@ -788,6 +858,38 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
         </div>
       )}
 
+      {showSaveCheckpoint && (
+        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/45 px-3 py-3 backdrop-blur-sm sm:items-center sm:justify-center">
+          <section className="kt-modal-enter w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg">
+            <div className="flex items-start gap-3">
+              <FiCheckCircle className="mt-1 shrink-0 text-green-700" size={23} />
+              <div>
+                <h2 className="text-lg font-black text-gray-950">Your information has been saved</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  When you return to fleet registration, KunThai will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={saveAndExit}
+                className="h-11 rounded-2xl border border-green-200 bg-green-50 text-sm font-bold text-green-700 hover:bg-green-100"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={continueAfterSave}
+                className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white hover:bg-green-700"
+              >
+                Continue
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {showReviewSaveWarning && (
         <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 px-3 py-3 sm:items-center sm:justify-center">
           <section className="w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg">
@@ -834,6 +936,51 @@ export default function FleetRegistrationDrawer({ onClose, onComplete }) {
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+function PricingGuide({ type, open, onToggle, onViewOneKm, disabled = false }) {
+  const isDistance = type === "km";
+  const audience = isDistance ? "customers and passengers" : "customers who book by time";
+
+  return (
+    <div className="mt-2 rounded-2xl border border-green-100 bg-green-50 px-3 py-3">
+      <p className="text-xs font-bold leading-5 text-green-800">
+        Please enter a fair price to attract more {audience}.
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="rounded-full border border-green-200 bg-white px-3 py-1.5 text-xs font-black text-green-700 hover:bg-green-100"
+        >
+          {open ? "Show less" : "Read more"}
+        </button>
+        {isDistance ? (
+          <button
+            type="button"
+            onClick={onViewOneKm}
+            disabled={disabled}
+            className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            {disabled ? "Saving..." : "View 1 KM"}
+          </button>
+        ) : null}
+      </div>
+      {open ? (
+        <div className="mt-3 rounded-2xl bg-white px-3 py-3 text-xs font-semibold leading-5 text-gray-600">
+          {isDistance ? (
+            <p>
+              A lower and honest price per kilometre can help passengers choose your fleet more often, especially for short trips. Start with a rate that covers fuel, maintenance, and your time, but avoid pricing so high that customers compare you with cheaper operators before booking.
+            </p>
+          ) : (
+            <p>
+              For hourly bookings, customers look for confidence and value. Choose a fair hourly rate that covers waiting time and service quality, then keep it simple. A reasonable price can bring more repeat bookings than a high rate that only works once.
+            </p>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

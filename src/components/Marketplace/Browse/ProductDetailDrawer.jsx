@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
+  LocateFixed,
   MapPin,
   MessageCircle,
   PackageCheck,
@@ -13,6 +14,13 @@ import {
   X,
 } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
+import {
+  AddressAreaResolutionCard,
+  AddressAreaStatusIcon,
+  normalizeAreaLocation,
+  useAddressAreaValidation,
+} from "../../shared/AddressAreaValidation";
+import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
@@ -27,6 +35,8 @@ function mapSavedAddressToOrder(address = {}) {
     buyerName: address.fullName || address.name || "",
     phone: address.phone || "",
     address: address.street || address.address || address.detectedAddress || "",
+    detectedAddress: address.detectedAddress || "",
+    coordinates: address.coordinates || null,
     note: address.note || "",
   };
 }
@@ -53,9 +63,9 @@ function readDefaultAddress() {
 
   try {
     const legacyAddress = localStorage.getItem(BUYER_ADDRESS_KEY) || "";
-    return { addressType: "Resident", buyerName: "", phone: "", address: legacyAddress, note: "" };
+    return { addressType: "Resident", buyerName: "", phone: "", address: legacyAddress, detectedAddress: "", coordinates: null, note: "" };
   } catch {
-    return { addressType: "Resident", buyerName: "", phone: "", address: "", note: "" };
+    return { addressType: "Resident", buyerName: "", phone: "", address: "", detectedAddress: "", coordinates: null, note: "" };
   }
 }
 
@@ -273,10 +283,22 @@ export default function ProductDetailDrawer({
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderForm, setOrderForm] = useState(() => ({ ...readDefaultAddress(), quantity: 1, fulfillment: "delivery" }));
   const [savedAddresses, setSavedAddresses] = useState(readSavedAddresses);
+  const [orderAreaPicker, setOrderAreaPicker] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [messageSending, setMessageSending] = useState(false);
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
+  const orderAddressPoint = orderForm.coordinates
+    ? {
+        lat: orderForm.coordinates.latitude ?? orderForm.coordinates.lat,
+        lng: orderForm.coordinates.longitude ?? orderForm.coordinates.lng,
+        address: orderForm.detectedAddress || orderForm.address,
+      }
+    : null;
+  const orderAddressValidation = useAddressAreaValidation(orderForm.address, {
+    selectedPoint: orderAddressPoint,
+    enabled: orderOpen && orderForm.fulfillment !== "pickup",
+  });
 
   useEffect(() => {
     let alive = true;
@@ -316,6 +338,10 @@ export default function ProductDetailDrawer({
     };
   }, [onClose, open]);
 
+  useEffect(() => {
+    if (!open) setOrderAreaPicker(null);
+  }, [open]);
+
   if (!open || !product) return null;
 
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
@@ -328,10 +354,27 @@ export default function ProductDetailDrawer({
     setOrderForm((current) => ({ ...current, ...patch }));
   }
 
+  function openOrderAreaPicker(start = "current") {
+    setOrderAreaPicker({ start });
+  }
+
+  function acceptOrderAreaLocation(location) {
+    const nextLocation = normalizeAreaLocation(location, orderForm.address);
+    if (!nextLocation) return;
+
+    updateOrderForm({
+      address: nextLocation.address || orderForm.address,
+      detectedAddress: nextLocation.address,
+      coordinates: nextLocation.coordinates,
+    });
+    setOrderAreaPicker(null);
+  }
+
   async function openOrderForm() {
     const localAddresses = readSavedAddresses();
     setSavedAddresses(localAddresses);
     setOrderForm({ ...readDefaultAddress(), quantity: 1, fulfillment: product.deliveryAvailable ? "delivery" : "pickup" });
+    setOrderAreaPicker(null);
     setOrderOpen(true);
 
     try {
@@ -698,23 +741,69 @@ export default function ProductDetailDrawer({
                 />
               </div>
 
-              <div className="mt-2 grid grid-cols-[1fr_120px] gap-2">
-                <input
-                  value={orderForm.address}
-                  onChange={(event) => updateOrderForm({ address: event.target.value })}
-                  placeholder={orderForm.fulfillment === "pickup" ? "Pickup note or preferred branch" : "Delivery address"}
-                  className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="number"
-                  min="1"
-                  max={Math.max(1, product.stock || 1)}
-                  value={orderForm.quantity}
-                  onChange={(event) => updateOrderForm({ quantity: event.target.value })}
-                  placeholder="Qty"
-                  className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                />
+              <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_120px]">
+                <label className="min-w-0 space-y-1">
+                  <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
+                    {orderForm.fulfillment === "pickup" ? "Pickup note" : "Delivery address"}
+                    {orderForm.fulfillment !== "pickup" ? <AddressAreaStatusIcon status={orderAddressValidation.status} /> : null}
+                  </span>
+                  <span className="grid gap-2 lg:grid-cols-[1fr_auto_auto]">
+                    <span className="relative block min-w-0">
+                      <input
+                        value={orderForm.address}
+                        onChange={(event) => updateOrderForm({ address: event.target.value, coordinates: null })}
+                        placeholder={orderForm.fulfillment === "pickup" ? "Pickup note or preferred branch" : "Delivery address"}
+                        className="h-11 w-full min-w-0 rounded-lg border border-gray-200 px-3 pr-9 text-sm font-semibold outline-none focus:border-emerald-500"
+                      />
+                      {orderForm.fulfillment !== "pickup" ? (
+                        <AddressAreaStatusIcon status={orderAddressValidation.status} className="absolute right-3 top-1/2 -translate-y-1/2" />
+                      ) : null}
+                    </span>
+                    {orderForm.fulfillment !== "pickup" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openOrderAreaPicker("current")}
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gray-950 px-3 text-xs font-black text-white hover:bg-gray-800"
+                        >
+                          <LocateFixed size={15} />
+                          Locate me
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openOrderAreaPicker("dropPin")}
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+                        >
+                          <MapPin size={15} />
+                          Drop a pin
+                        </button>
+                      </>
+                    ) : null}
+                  </span>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Qty</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={Math.max(1, product.stock || 1)}
+                    value={orderForm.quantity}
+                    onChange={(event) => updateOrderForm({ quantity: event.target.value })}
+                    placeholder="Qty"
+                    className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                  />
+                </label>
               </div>
+
+              {orderForm.fulfillment !== "pickup" ? (
+                <div className="mt-2">
+                  <AddressAreaResolutionCard
+                    validation={orderAddressValidation}
+                    onLocateMe={() => openOrderAreaPicker("current")}
+                    onDropPin={() => openOrderAreaPicker("dropPin")}
+                  />
+                </div>
+              ) : null}
 
               <input
                 value={orderForm.note}
@@ -818,6 +907,32 @@ export default function ProductDetailDrawer({
         onChange={setActiveImageIndex}
         onClose={() => setActiveImageIndex(-1)}
       />
+      {orderAreaPicker ? (
+        <div className="fixed inset-0 z-[1300] bg-slate-950">
+          <NearbyAreaScreen
+            mode="businessLocationPicker"
+            pickerStart={orderAreaPicker.start}
+            pickerLabels={{
+              historyKey: "urmall-product-order-address-picker",
+              backLabel: "Back to order form",
+              eyebrow: "UrMall delivery",
+              cardEyebrow: "Delivery address",
+              headerCurrentTitle: "Confirm delivery location",
+              headerDropTitle: "Drop delivery pin",
+              currentHeading: "Your current delivery location",
+              dropHeading: "Place the pin on the delivery point",
+              dropInstruction: "Move the map until the pin sits exactly on the delivery gate, door, stall, or pickup point, then add the location.",
+              currentStatus: "Confirming your current delivery location...",
+              dropStatus: "Move the map until the pin is exactly on the delivery location.",
+              currentName: "Current delivery location",
+              droppedName: "Pinned delivery location",
+            }}
+            backLabel="Back to order form"
+            onBack={() => setOrderAreaPicker(null)}
+            onLocationPicked={acceptOrderAreaLocation}
+          />
+        </div>
+      ) : null}
     </>,
     document.body,
   );

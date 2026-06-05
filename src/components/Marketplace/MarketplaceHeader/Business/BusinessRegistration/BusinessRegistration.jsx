@@ -1,3 +1,6 @@
+import { useState } from "react";
+
+import NearbyAreaScreen from "../../../../transport/NearbyAreaScreen";
 import { useSellerRegistration } from "../../../../../Backend/hooks/useSellerRegistration";
 import BusinessIdentityStep from "./BusinessIdentityStep";
 import LiveBusinessPreview from "./LiveBusinessPreview";
@@ -15,15 +18,55 @@ const STEP_TITLES = [
   "Review and submit",
 ];
 
-export default function BusinessRegistration({ onComplete }) {
+export default function BusinessRegistration({ onComplete, onExit }) {
   const registration = useSellerRegistration({ onComplete });
+  const [saveCheckpointOpen, setSaveCheckpointOpen] = useState(false);
+  const [locationPickerMode, setLocationPickerMode] = useState(null);
+  const enhancedRegistration = {
+    ...registration,
+    openCurrentLocationPicker() {
+      registration.closeLocationPrompt();
+      setLocationPickerMode("current");
+    },
+    openDropPinPicker() {
+      registration.closeLocationPrompt();
+      setLocationPickerMode("dropPin");
+    },
+  };
   const StepComponent = [
     BusinessIdentityStep,
     LocationContactStep,
     OperationsStep,
     TrustPayoutStep,
     ReviewSubmitStep,
-  ][registration.step];
+  ][enhancedRegistration.step];
+
+  function handleSaveDraft() {
+    registration.saveDraft();
+    setSaveCheckpointOpen(true);
+  }
+
+  function handleSaveAndExit() {
+    setSaveCheckpointOpen(false);
+    onExit?.();
+  }
+
+  if (locationPickerMode) {
+    return (
+      <div className="kt-explore-stack-enter min-h-screen">
+        <NearbyAreaScreen
+          mode="businessLocationPicker"
+          pickerStart={locationPickerMode}
+          backLabel="Back to location form"
+          onBack={() => setLocationPickerMode(null)}
+          onLocationPicked={(location) => {
+            registration.acceptAreaViewLocation(location);
+            setLocationPickerMode(null);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -38,12 +81,12 @@ export default function BusinessRegistration({ onComplete }) {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
           <main className="space-y-4">
-            <RegistrationProgress step={registration.step} />
+            <RegistrationProgress step={enhancedRegistration.step} />
 
             <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h2 className="text-xl font-black text-gray-950">{STEP_TITLES[registration.step]}</h2>
+              <h2 className="text-xl font-black text-gray-950">{STEP_TITLES[enhancedRegistration.step]}</h2>
               <div className="mt-5">
-                <StepComponent registration={registration} />
+                <StepComponent registration={enhancedRegistration} />
               </div>
             </section>
 
@@ -51,7 +94,7 @@ export default function BusinessRegistration({ onComplete }) {
               <button
                 type="button"
                 onClick={registration.back}
-                disabled={registration.step === 0}
+                disabled={enhancedRegistration.step === 0}
                 className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Back
@@ -61,12 +104,12 @@ export default function BusinessRegistration({ onComplete }) {
                 <div className="flex flex-wrap justify-end gap-3">
                   <button
                     type="button"
-                    onClick={registration.saveDraft}
+                    onClick={handleSaveDraft}
                     className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
                   >
                     Save Draft
                   </button>
-                  {registration.step < 4 ? (
+                  {enhancedRegistration.step < 4 ? (
                     <button
                       type="button"
                       onClick={registration.next}
@@ -98,6 +141,33 @@ export default function BusinessRegistration({ onComplete }) {
           <LiveBusinessPreview form={registration.form} readinessScore={registration.readinessScore} />
         </div>
       </div>
+
+      {saveCheckpointOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
+          <section className="kt-modal-enter w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
+            <p className="text-lg font-black text-gray-950">Your information has been saved</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
+              When you return to UrMall seller registration, you will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
+            </p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleSaveAndExit}
+                className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 hover:bg-blue-100"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setSaveCheckpointOpen(false)}
+                className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
+              >
+                Continue
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

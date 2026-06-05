@@ -76,7 +76,7 @@ export default function Marketplace({ nav, setNav, onActivityChange }) {
 
   if (nav.sub === "business") {
     return (
-      <div className={`${businessClosing ? "kt-route-zoom-close" : "kt-route-zoom-open"} min-h-screen`}>
+      <div className={`${businessClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} min-h-screen`}>
         <Business
           onBack={closeMyBiz}
         />

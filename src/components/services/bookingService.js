@@ -42,6 +42,58 @@ function buildScheduledAt(booking) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function normalizeBookingFleets(booking, fallbackFleet) {
+  const targetFleets = Array.isArray(booking.targetFleets) ? booking.targetFleets : [];
+  const fleets = targetFleets.length ? targetFleets : [fallbackFleet].filter((fleet) => fleet?.id);
+  const seen = new Set();
+
+  return fleets.filter((fleet) => {
+    if (!fleet?.id || seen.has(fleet.id)) return false;
+    seen.add(fleet.id);
+    return true;
+  });
+}
+
+function buildTripAlert({ trip, fleet, booking, passengerName, tripType, now }) {
+  const operatorId = fleet?.operatorRecordId || fleet?.operator_id || fleet?.operatorId || "";
+  if (!operatorId || !trip?.id) return null;
+
+  const pickup = String(booking.pickup || "").trim();
+  const dropoff = String(booking.dropoff || booking.destination || "").trim();
+  const phone = String(booking.phone || "").trim();
+  const body = [
+    `${passengerName} sent a ${tripType === "delivery" ? "delivery" : "ride"} request near your fleet.`,
+    pickup && dropoff ? `Route: ${pickup} to ${dropoff}.` : "",
+    phone ? `Passenger contact: ${phone}.` : "Passenger contact is available inside the request.",
+  ].filter(Boolean).join(" ");
+
+  return {
+    operator_id: operatorId,
+    alert_type: "passenger_request",
+    title: tripType === "delivery" ? "New delivery request" : "New ride request",
+    body,
+    action_label: "Open passenger request",
+    action_target: `trip:${trip.id}`,
+    status: "unread",
+    created_at: now,
+  };
+}
+
+async function notifyOperatorsAboutTrips({ trips, fleets, booking, passengerName, tripType, now }) {
+  const fleetById = new Map(fleets.map((fleet) => [String(fleet.id), fleet]));
+  const alerts = trips
+    .map((trip) => buildTripAlert({ trip, fleet: fleetById.get(String(trip.fleet_id)), booking, passengerName, tripType, now }))
+    .filter(Boolean);
+
+  if (!alerts.length) return;
+
+  try {
+    await supabase.from("transport_operator_alerts").insert(alerts);
+  } catch {
+    // Trip rows are the source of truth; alerts are an additional notification surface.
+  }
+}
+
 function shouldTryLegacyTripPayload(error) {
   const message = String(error?.message || "");
   return /column|schema cache|could not find/i.test(message);
@@ -74,80 +126,86 @@ export async function createTransportBooking(booking) {
 
   const passenger = await getCurrentPassenger();
   const fleet = booking.fleet || {};
+  const targetFleets = normalizeBookingFleets(booking, fleet);
+  if (!targetFleets.length) {
+    throw new Error("Choose at least one nearby operator before sending this booking.");
+  }
+
   const tripType = normalizeTripType(booking.mode, fleet);
   const passengerName = buildPassengerName(passenger, booking);
   const now = new Date().toISOString();
   const title = buildBookingTitle({ ...booking, mode: tripType, fleet });
   const bookingMethod = booking.bookingMethod === "time" ? "time" : "distance";
-  const fare = calculateFleetFare(fleet, {
-    bookingMethod,
-    distanceKm: booking.distanceKm,
-    bookedHours: booking.bookedHours,
+
+  const payloads = targetFleets.map((targetFleet) => {
+    const fare = calculateFleetFare(targetFleet, {
+      bookingMethod,
+      distanceKm: booking.distanceKm,
+      bookedHours: booking.bookedHours,
+    });
+
+    return {
+      passenger_id: passenger.id,
+      passenger_name: passengerName,
+      fleet_id: targetFleet.id,
+      trip_type: tripType,
+      trip_mode: tripType,
+      title,
+      pickup_label: String(booking.pickup || "").trim(),
+      destination_label: String(booking.dropoff || booking.destination || "").trim(),
+      contact_phone: String(booking.phone || "").trim() || null,
+      package_description: tripType === "delivery" ? String(booking.packageDescription || "").trim() || null : null,
+      trip_note: String(booking.note || "").trim() || null,
+      booking_method: bookingMethod,
+      estimated_distance_km: booking.distanceKm ? Number(booking.distanceKm) : null,
+      booked_hours: bookingMethod === "time" && booking.bookedHours ? Number(booking.bookedHours) : null,
+      pickup_latitude: booking.pickupPoint?.lat ?? null,
+      pickup_longitude: booking.pickupPoint?.lng ?? null,
+      destination_latitude: booking.destinationPoint?.lat ?? null,
+      destination_longitude: booking.destinationPoint?.lng ?? null,
+      base_fare_snapshot: fare?.baseFare || null,
+      rate_snapshot: fare?.rate || null,
+      fare_amount: fare?.ready ? fare.amount : null,
+      fare_currency: "SLE",
+      scheduled_at: buildScheduledAt(booking),
+      status: "requested",
+      created_at: now,
+      updated_at: now,
+    };
   });
 
-  const payload = {
+  const legacyPayloads = payloads.map((payload) => ({
     passenger_id: passenger.id,
-    passenger_name: passengerName,
-    fleet_id: booking.fleetId || fleet.id || null,
-    trip_type: tripType,
-    trip_mode: tripType,
-    title,
-    pickup_label: String(booking.pickup || "").trim(),
-    destination_label: String(booking.dropoff || booking.destination || "").trim(),
-    contact_phone: String(booking.phone || "").trim() || null,
-    package_description: tripType === "delivery" ? String(booking.packageDescription || "").trim() || null : null,
-    trip_note: String(booking.note || "").trim() || null,
-    booking_method: bookingMethod,
-    estimated_distance_km: booking.distanceKm ? Number(booking.distanceKm) : null,
-    booked_hours: bookingMethod === "time" && booking.bookedHours ? Number(booking.bookedHours) : null,
-    pickup_latitude: booking.pickupPoint?.lat ?? null,
-    pickup_longitude: booking.pickupPoint?.lng ?? null,
-    destination_latitude: booking.destinationPoint?.lat ?? null,
-    destination_longitude: booking.destinationPoint?.lng ?? null,
-    base_fare_snapshot: fare?.baseFare || null,
-    rate_snapshot: fare?.rate || null,
-    fare_amount: fare?.ready ? fare.amount : null,
-    fare_currency: "SLE",
-    scheduled_at: buildScheduledAt(booking),
-    status: booking.fleetId || fleet.id ? "requested" : "waiting_operator",
-    created_at: now,
-    updated_at: now,
-  };
-
-  const legacyPayload = {
-    passenger_id: passenger.id,
-    fleet_id: booking.fleetId || fleet.id,
+    fleet_id: payload.fleet_id,
     trip_mode: tripType,
     pickup_label: payload.pickup_label,
     destination_label: payload.destination_label,
-    fare_amount: null,
+    fare_amount: payload.fare_amount,
     fare_currency: "SLE",
     scheduled_at: payload.scheduled_at,
     status: "requested",
     created_at: now,
     updated_at: now,
-  };
+  }));
 
   let { data, error } = await supabase
     .from("transport_trips")
-    .insert(payload)
-    .select()
-    .maybeSingle();
+    .insert(payloads)
+    .select();
 
   if (error && shouldTryLegacyTripPayload(error)) {
     const legacyResult = await supabase
       .from("transport_trips")
-      .insert(legacyPayload)
-      .select()
-      .maybeSingle();
+      .insert(legacyPayloads)
+      .select();
 
-    data = legacyResult.data
-      ? {
-          ...legacyResult.data,
+    data = Array.isArray(legacyResult.data)
+      ? legacyResult.data.map((trip) => ({
+          ...trip,
           passenger_name: passengerName,
-          trip_type: legacyResult.data.trip_type || legacyResult.data.trip_mode || tripType,
-          title: legacyResult.data.title || title,
-        }
+          trip_type: trip.trip_type || trip.trip_mode || tripType,
+          title: trip.title || title,
+        }))
       : legacyResult.data;
     error = legacyResult.error;
   }
@@ -156,11 +214,25 @@ export async function createTransportBooking(booking) {
     throw new Error(error.message || "Unable to send this booking to the operator.");
   }
 
+  const trips = Array.isArray(data) ? data : [data].filter(Boolean);
+  await notifyOperatorsAboutTrips({ trips, fleets: targetFleets, booking, passengerName, tripType, now });
+  const primaryTrip = trips[0] || null;
+
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("transport-booking-created", { detail: { booking: data } }));
+    window.dispatchEvent(new CustomEvent("transport-booking-created", {
+      detail: {
+        booking: primaryTrip,
+        trips,
+        notifiedFleetCount: trips.length,
+      },
+    }));
   }
 
-  return data;
+  return {
+    ...primaryTrip,
+    broadcastTrips: trips,
+    notifiedFleetCount: trips.length,
+  };
 }
 
 export async function updateTransportTripStatus(tripId, status, patch = {}) {

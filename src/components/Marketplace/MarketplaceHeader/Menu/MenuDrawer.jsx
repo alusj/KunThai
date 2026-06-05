@@ -23,6 +23,13 @@ import {
 import AppPortal from "../../../shared/AppPortal";
 import AppBackTab from "../../../shared/AppBackTab";
 import { SlidePanel, useSlidePanel } from "../../../shared/SlideTransition";
+import {
+  AddressAreaResolutionCard,
+  AddressAreaStatusIcon,
+  normalizeAreaLocation,
+  useAddressAreaValidation,
+} from "../../../shared/AddressAreaValidation";
+import NearbyAreaScreen from "../../../transport/NearbyAreaScreen";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerDeliveryAddresses,
@@ -265,9 +272,36 @@ export default function MenuDrawer({ open, onClose }) {
   const [savedAddresses, setSavedAddresses] = useState(readBuyerAddresses);
   const [locationCandidate, setLocationCandidate] = useState(null);
   const [locationStatus, setLocationStatus] = useState("");
+  const [areaPicker, setAreaPicker] = useState(null);
   const [payment, setPayment] = useState(() => readLocalValue(BUYER_PAYMENT_KEY));
   const [message, setMessage] = useState("");
   const [addressFormOpen, setAddressFormOpen] = useState(false);
+  const addressPoint = address.coordinates
+    ? {
+        lat: address.coordinates.latitude ?? address.coordinates.lat,
+        lng: address.coordinates.longitude ?? address.coordinates.lng,
+        address: address.detectedAddress || address.street,
+      }
+    : null;
+  const addressValidation = useAddressAreaValidation(address.street, { selectedPoint: addressPoint });
+  const deliveryPickerLabels = useMemo(
+    () => ({
+      historyKey: "urmall-delivery-address-picker",
+      backLabel: "Back to delivery address",
+      eyebrow: "UrMall delivery",
+      cardEyebrow: "Delivery address",
+      headerCurrentTitle: "Confirm delivery location",
+      headerDropTitle: "Drop delivery pin",
+      currentHeading: "Your current delivery location",
+      dropHeading: "Place the pin on the delivery point",
+      dropInstruction: "Move the map until the pin sits exactly on the delivery gate, door, stall, or pickup point, then add the location.",
+      currentStatus: "Confirming your current delivery location...",
+      dropStatus: "Move the map until the pin is exactly on the delivery location.",
+      currentName: "Current delivery location",
+      droppedName: "Pinned delivery location",
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -286,6 +320,10 @@ export default function MenuDrawer({ open, onClose }) {
     fetchSavedBuyerProducts()
       .then(setSavedProducts)
       .catch((err) => setMessage(err.message || "Unable to load saved products."));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setAreaPicker(null);
   }, [open]);
 
   useEffect(() => {
@@ -359,49 +397,36 @@ export default function MenuDrawer({ open, onClose }) {
     setAddress(createEmptyAddress());
     setLocationCandidate(null);
     setLocationStatus("");
+    setAreaPicker(null);
     setAddressFormOpen(false);
   }
 
-  async function locateMe() {
+  function openAddressAreaPicker(start = "current") {
     setLocationStatus("");
     setLocationCandidate(null);
     setMessage("");
+    setAreaPicker({ start });
+  }
 
-    if (!navigator.geolocation) {
-      setLocationStatus("Location is not available on this device.");
-      return;
-    }
+  function locateMe() {
+    openAddressAreaPicker("current");
+  }
 
-    setLocationStatus("Checking your location...");
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coords.latitude}&lon=${coords.longitude}`,
-          );
-          const data = await response.json();
-          const detectedAddress = data?.display_name || "";
+  function dropAddressPin() {
+    openAddressAreaPicker("dropPin");
+  }
 
-          if (!detectedAddress) {
-            setLocationStatus("We could not detect the exact address. Please enter it manually.");
-            return;
-          }
+  function acceptAreaLocation(location) {
+    const nextLocation = normalizeAreaLocation(location, address.street);
+    if (!nextLocation) return;
 
-          setLocationCandidate({
-            address: detectedAddress,
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-          });
-          setLocationStatus("");
-        } catch {
-          setLocationStatus("We could not detect the exact address. Please enter it manually.");
-        }
-      },
-      (error) => {
-        setLocationStatus(error.code === 1 ? "Location permission denied. Enter address manually." : "Unable to get your location right now.");
-      },
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
-    );
+    updateAddress({
+      detectedAddress: nextLocation.address,
+      street: nextLocation.address || address.street,
+      coordinates: nextLocation.coordinates,
+    });
+    setLocationStatus(`Location added: ${nextLocation.address}`);
+    setAreaPicker(null);
   }
 
   function confirmDetectedLocation() {
@@ -567,8 +592,11 @@ export default function MenuDrawer({ open, onClose }) {
               </div>
 
               <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Street</span>
-                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
+                  Street
+                  <AddressAreaStatusIcon status={addressValidation.status} />
+                </span>
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
                   <input
                     value={address.street}
                     onChange={(event) => updateAddress({ street: event.target.value })}
@@ -583,8 +611,22 @@ export default function MenuDrawer({ open, onClose }) {
                     <LocateFixed size={16} />
                     Locate me
                   </button>
+                  <button
+                    type="button"
+                    onClick={dropAddressPin}
+                    className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+                  >
+                    <MapPin size={16} />
+                    Drop a pin
+                  </button>
                 </div>
               </label>
+
+              <AddressAreaResolutionCard
+                validation={addressValidation}
+                onLocateMe={locateMe}
+                onDropPin={dropAddressPin}
+              />
 
               {locationCandidate ? (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
@@ -850,6 +892,18 @@ export default function MenuDrawer({ open, onClose }) {
           </SlidePanel>
         ) : null}
         </div>
+      {areaPicker ? (
+        <div className="fixed inset-0 z-[1300] bg-slate-950">
+          <NearbyAreaScreen
+            mode="businessLocationPicker"
+            pickerStart={areaPicker.start}
+            pickerLabels={deliveryPickerLabels}
+            backLabel="Back to delivery address"
+            onBack={() => setAreaPicker(null)}
+            onLocationPicked={acceptAreaLocation}
+          />
+        </div>
+      ) : null}
     </AppPortal>
   );
 }
