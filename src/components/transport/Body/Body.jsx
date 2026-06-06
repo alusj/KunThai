@@ -6,13 +6,12 @@ import { useEffect, useState } from "react";
 
 import BookRide from "./BookRide/BookRide";
 import SendDelivery from "./SendDelivery/SendDelivery";
-import LocationSearch from "./LocationSearch";
 import AreaView from "./AreaView";
 import TopRated from "./TopRated";
 import TourHistory from "./TourHistory";
 import Favorite from "./Favorite";
 import NearbyOperators from "./NearbyOperators";
-import { fetchActiveTrips, fetchSavedOperators, getTransportSavedPlaces } from "../../services/passengerTransportService";
+import { fetchActiveTrips, fetchSavedOperators } from "../../services/passengerTransportService";
 import {
   fetchTransportFleets,
   subscribeToFleetUpdates,
@@ -27,14 +26,8 @@ export default function Body({
   onOpenSavedOperators,
   onViewFleet,
   onOpenBooking,
-  onLocateArea,
+  onReportConcern,
 }) {
-  const [destination, setDestination] = useState("");
-  const [pickup, setPickup] = useState("");
-  const [nearbyStatus, setNearbyStatus] = useState("");
-  const [pickupPanelOpen, setPickupPanelOpen] = useState(false);
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [savedPlaces, setSavedPlaces] = useState(() => getTransportSavedPlaces());
   const [movementFilters, setMovementFilters] = useState({
     mode: "topRated",
     fleetType: null,
@@ -102,116 +95,12 @@ export default function Body({
     };
   }, []);
 
-  useEffect(() => {
-    function refreshSavedPlaces() {
-      setSavedPlaces(getTransportSavedPlaces());
-    }
-
-    window.addEventListener("storage", refreshSavedPlaces);
-    window.addEventListener("transport-saved-place-selected", refreshSavedPlaces);
-    return () => {
-      window.removeEventListener("storage", refreshSavedPlaces);
-      window.removeEventListener("transport-saved-place-selected", refreshSavedPlaces);
-    };
-  }, []);
-
   function updateMovementFilters(patch) {
     setMovementFilters((current) => ({ ...current, ...patch }));
   }
 
-  function handleUseNearby() {
-    setNearbyStatus("");
-
-    if (!navigator.geolocation) {
-      setNearbyStatus("Location is not available on this device. Enter the pickup point manually.");
-      return;
-    }
-
-    setNearbyStatus("Checking your current pickup area...");
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const label = `Current location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`;
-        setPickup(label);
-        setNearbyStatus("Nearby operators are now filtered from your current pickup area.");
-      },
-      (error) => {
-        setNearbyStatus(error.code === 1 ? "Location permission denied. Enter pickup manually." : "Unable to detect your location right now.");
-      },
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
-    );
-  }
-
-  function getMovementSelection() {
-    return {
-      mode: movementFilters.mode,
-      fleetType: movementFilters.fleetType,
-      label:
-        movementFilters.mode === "delivery"
-          ? "Delivery operators"
-          : movementFilters.mode === "ride"
-            ? "Ride operators"
-            : "Available operators",
-    };
-  }
-
-  function handleLocateArea() {
-    const destinationText = destination.trim();
-    const pickupText = pickup.trim();
-    const areaText = destinationText || pickupText;
-
-    if (!areaText) {
-      onOpenNearbyArea?.();
-      return;
-    }
-
-    if (!onLocateArea) {
-      onOpenNearbyArea?.();
-      return;
-    }
-
-    onLocateArea?.(
-      {
-        id: `passenger-area-${Date.now()}`,
-        type: "passenger-area",
-        name: areaText,
-        label: areaText,
-        address: areaText,
-        category: destinationText ? "Destination" : "Pickup",
-        status: "community",
-        description: pickupText
-          ? `Passenger route from ${pickupText} to ${destinationText || areaText}.`
-          : "Passenger selected address or area.",
-        searchQuery: areaText,
-        pickup: pickupText,
-        destination: destinationText,
-      },
-      { autoRoute: true },
-    );
-  }
-
   return (
     <div className="relative px-3 pt-5 pb-24">
-      <LocationSearch
-        destination={destination}
-        pickup={pickup}
-        filters={movementFilters}
-        savedPlaces={savedPlaces}
-        nearbyStatus={nearbyStatus}
-        pickupPanelOpen={pickupPanelOpen}
-        filterPanelOpen={filterPanelOpen}
-        onDestinationChange={setDestination}
-        onPickupChange={setPickup}
-        onUseNearby={handleUseNearby}
-        onTogglePickupPanel={() => setPickupPanelOpen((open) => !open)}
-        onToggleFilterPanel={() => setFilterPanelOpen((open) => !open)}
-        onFilterChange={updateMovementFilters}
-        onLocateArea={handleLocateArea}
-        onOpenBooking={() => onOpenBooking?.({
-          selection: getMovementSelection(),
-          movement: { pickup, destination },
-        })}
-      />
-
       {/* Grid Layout */}
       <div className="grid grid-cols-2 gap-3 sm:gap-5">
 
@@ -231,8 +120,8 @@ export default function Body({
 
       <NearbyOperators
         filters={movementFilters}
-        destination={destination}
-        pickup={pickup}
+        destination=""
+        pickup=""
         onChooseVerified={() => updateMovementFilters({ verifiedOnly: true })}
         onViewAll={() => {
           const selection = getMovementSelection();
@@ -244,6 +133,7 @@ export default function Body({
         }}
         onViewFleet={onViewFleet}
         onOpenBooking={onOpenBooking}
+        onReportConcern={onReportConcern}
       />
 
       {/* Radar Floating In Slot Between Row 2 

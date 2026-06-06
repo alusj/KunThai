@@ -32,7 +32,7 @@ export default function PostOptionsMenu({ followed, isOwner, saved, onCopy, onDe
   ];
 
   return (
-    <div className="absolute right-3 top-14 z-10 w-56 max-w-[calc(100vw-2rem)] rounded-[18px] border border-slate-200 bg-white p-2 text-left shadow-xl sm:right-4">
+    <div className="absolute right-3 top-14 z-50 w-56 max-w-[calc(100vw-2rem)] rounded-[18px] border border-slate-200 bg-white p-2 text-left shadow-2xl sm:right-4">
       {(isOwner ? ownerActions : viewerActions).map((item) => {
         const Icon = item.icon;
         return (

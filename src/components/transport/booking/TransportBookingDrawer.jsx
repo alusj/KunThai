@@ -28,7 +28,6 @@ import { getTransportSavedPlaces } from "../../services/passengerTransportServic
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
   calculateBookingRoute,
-  calculateFleetFare,
   describeFleetFare,
   formatBookingDistance,
 } from "../../services/transportPricingService";
@@ -140,7 +139,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const initialSelection = useMemo(() => selectionFromTarget(target), [target]);
   const [selection, setSelection] = useState(initialSelection);
   const [availableFleets, setAvailableFleets] = useState([]);
-  const [selectedFleetId, setSelectedFleetId] = useState(target?.fleet?.id || "");
   const [savedPlaces, setSavedPlaces] = useState([]);
   const [loadingFleets, setLoadingFleets] = useState(false);
   const [routeEstimate, setRouteEstimate] = useState(null);
@@ -166,33 +164,21 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     bookedHours: "1",
   });
 
-  const selectedFleet = useMemo(
-    () => availableFleets.find((fleet) => String(fleet.id) === String(selectedFleetId)) || target?.fleet || null,
-    [availableFleets, selectedFleetId, target],
-  );
-  const requiresLiveOperator = false;
   const activeAvailableFleets = useMemo(() => availableFleets.filter(isFleetBookable), [availableFleets]);
-  const nearbyActiveFleets = useMemo(
-    () => activeAvailableFleets.filter(isFleetNearby),
-    [activeAvailableFleets],
+  const nearbyMatchingFleets = useMemo(
+    () => availableFleets.filter(isFleetNearby),
+    [availableFleets],
   );
-  const isSelectedFleetActive = isFleetBookable(selectedFleet);
-  const bookingTargetFleets = useMemo(() => {
-    if (selectedFleetId && selectedFleet) return [selectedFleet];
-    return nearbyActiveFleets;
-  }, [nearbyActiveFleets, selectedFleet, selectedFleetId]);
+  const nearbyActiveFleets = useMemo(
+    () => nearbyMatchingFleets.filter(isFleetBookable),
+    [nearbyMatchingFleets],
+  );
+  const bookingTargetFleets = nearbyMatchingFleets;
   const bookingFleet = useMemo(() => {
-    if (!requiresLiveOperator) {
-      if (selectedFleetId && selectedFleet) return selectedFleet;
-      return bookingTargetFleets[0] || selectedFleet || availableFleets[0] || null;
-    }
-
-    if (isSelectedFleetActive) return selectedFleet;
-    if (selectedFleetId && selectedFleet) return null;
-    return bookingTargetFleets[0] || activeAvailableFleets[0] || null;
-  }, [activeAvailableFleets, availableFleets, bookingTargetFleets, isSelectedFleetActive, requiresLiveOperator, selectedFleet, selectedFleetId]);
-  const displayFleet = bookingFleet || selectedFleet;
-  const bookingMode = modeForFleet(bookingFleet || selectedFleet, selection.mode);
+    return bookingTargetFleets[0] || activeAvailableFleets[0] || availableFleets[0] || target?.fleet || null;
+  }, [activeAvailableFleets, availableFleets, bookingTargetFleets, target]);
+  const displayFleet = bookingFleet;
+  const bookingMode = modeForFleet(bookingFleet, selection.mode);
   const pricingInput = {
     bookingMethod: form.bookingMethod,
     distanceKm: routeEstimate?.distanceKm || 0,
@@ -201,17 +187,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const fareEstimate = describeFleetFare(displayFleet, pricingInput);
   const requirementMessage = getBookingRequirementMessage(form, bookingMode);
   const fleetMessage = loadingFleets
-    ? requiresLiveOperator
-      ? "Checking active operators for this booking."
-      : "Checking matching operators for this scheduled booking."
+    ? "Checking nearby registered operators for this request."
     : !bookingTargetFleets.length
-      ? selectedFleet
-        ? requiresLiveOperator
-          ? "The selected operator is not active right now. Choose another active operator."
-          : "Choose another operator for this scheduled booking."
-        : requiresLiveOperator
-          ? "No active operator matches this service and fleet type right now."
-          : "No operator matches this service and fleet type."
+      ? "No nearby registered operator matches this service and fleet type right now."
       : "";
   const sendBlockMessage = requirementMessage || fleetMessage;
   const canSendBooking = !submitting && !routeLoading && !requirementMessage && bookingTargetFleets.length > 0;
@@ -222,7 +200,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     const nextSelection = selectionFromTarget(target);
     const draftForm = target?.draftForm || null;
     setSelection(nextSelection);
-    setSelectedFleetId(target?.fleet?.id || "");
     setSavedPlaces(getTransportSavedPlaces());
     setStatus("");
     setRouteEstimate(null);
@@ -322,7 +299,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           : fleets;
 
         setAvailableFleets(nextFleets);
-        setSelectedFleetId((current) => current || target?.fleet?.id || "");
       })
       .catch((error) => {
         if (alive) {
@@ -347,7 +323,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
   function updateSelection(patch) {
     setSelection((current) => ({ ...current, ...patch }));
-    setSelectedFleetId("");
   }
 
   function openBookingLocationPicker(kind, start = "current") {
@@ -430,7 +405,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             },
           }
         : {}),
-      fleetId: bookingFleet?.id || selectedFleet?.id || null,
+      fleetId: null,
     };
   }
 
@@ -448,7 +423,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       bookingTarget: {
         ...target,
         selection,
-        fleet: bookingFleet || selectedFleet || target?.fleet || null,
+        fleet: null,
         draftForm: form,
       },
     });
@@ -483,7 +458,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       const booking = await createTransportBooking({
         ...form,
         fleet: bookingFleet || null,
-        fleetId: bookingFleet?.id || null,
+        fleetId: null,
         targetFleets: bookingTargetFleets,
         mode: nextBookingMode,
         pickup: form.pickup,
@@ -494,7 +469,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         pickupPoint: resolvedRoute?.pickupPoint || form.pickupPoint || null,
         destinationPoint: resolvedRoute?.destinationPoint || form.dropoffPoint || null,
       });
-      setSelectedFleetId(bookingFleet?.id || "");
       setStatus(
         booking?.notifiedFleetCount > 1
           ? `Booking sent to ${booking.notifiedFleetCount} nearby matching operators. Any available operator can contact you and respond.`
@@ -571,7 +545,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           </section>
 
           <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-1">
                 <span className="text-xs font-black uppercase text-gray-500">Service</span>
                 <select
@@ -598,56 +572,35 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 </select>
               </label>
 
-              <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Operator</span>
-                <select
-                  value={selectedFleetId}
-                  onChange={(event) => setSelectedFleetId(event.target.value)}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                >
-                  <option value="">
-                    {loadingFleets
-                      ? "Loading operators..."
-                      : requiresLiveOperator
-                        ? nearbyActiveFleets.length
-                          ? `Notify ${nearbyActiveFleets.length} nearby active operator${nearbyActiveFleets.length === 1 ? "" : "s"}`
-                          : "No active operator available"
-                        : nearbyActiveFleets.length
-                          ? `Notify ${nearbyActiveFleets.length} nearby matching operator${nearbyActiveFleets.length === 1 ? "" : "s"}`
-                          : "No operator available"}
-                  </option>
-                  {availableFleets.map((fleet) => (
-                    <option key={fleet.id} value={fleet.id}>
-                      {fleet.fleetName} - {describeFleetFare(fleet, pricingInput)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+              <p className="text-sm font-black text-emerald-950">Open request</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
+                No operator is attached to this booking yet. When you save it, it enters My Trips and notifies every nearby registered operator matching the service and fleet type you selected.
+              </p>
+              <p className="mt-2 text-xs font-black text-emerald-700">
+                {loadingFleets
+                  ? "Checking matching operators..."
+                  : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} ready for notification (${nearbyActiveFleets.length} active now).`}
+              </p>
             </div>
 
             {displayFleet ? (
               <div className="mt-4 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-600 sm:grid-cols-2">
                 <InfoLine
                   icon={FiTruck}
-                  label={selectedFleetId ? "Fleet" : "Request"}
-                  value={
-                    selectedFleetId
-                      ? `${displayFleet.fleetName} (${displayFleet.plateNumber})`
-                      : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} will be notified`
-                  }
+                  label="Request"
+                  value={`${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} will be notified`}
                 />
                 <InfoLine icon={FiNavigation} label="Location" value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
                 <InfoLine
                   icon={FiClock}
-                  label={requiresLiveOperator ? "Status" : "Schedule"}
+                  label="Operator status"
                   value={
-                    requiresLiveOperator
-                      ? isFleetBookable(displayFleet)
-                        ? "Active now"
-                        : displayFleet.lastActive || "Offline"
-                      : isFleetBookable(displayFleet)
-                        ? "Active now; scheduled request allowed"
-                        : `${displayFleet.lastActive || "Offline"}; scheduled request allowed`
+                    isFleetBookable(displayFleet)
+                      ? "At least one matching fleet is active now"
+                      : `${displayFleet.lastActive || "Offline"}; request will remain available in operator alerts`
                   }
                 />
                 <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
@@ -672,8 +625,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 <p className="mt-1 text-sm font-black text-emerald-700">{fareEstimate}</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
                   {form.bookingMethod === "distance"
-                    ? `${selectedFleetId ? "The selected operator" : "Operators"} will see your resolved route${routeEstimate ? ` of ${formatBookingDistance(routeEstimate.distanceKm)}` : ""} before responding.`
-                    : `${selectedFleetId ? "The selected operator" : "Operators"} will see your requested ${Number(form.bookedHours || 0)} hour${Number(form.bookedHours || 0) === 1 ? "" : "s"} before responding.`}
+                    ? `Nearby matching operators will see your resolved route${routeEstimate ? ` of ${formatBookingDistance(routeEstimate.distanceKm)}` : ""} before responding.`
+                    : `Nearby matching operators will see your requested ${Number(form.bookedHours || 0)} hour${Number(form.bookedHours || 0) === 1 ? "" : "s"} before responding.`}
                 </p>
               </div>
             </div>
@@ -887,7 +840,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         <footer className="border-t border-gray-100 bg-white px-4 py-3 sm:px-5">
           <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
             <p className={`text-xs font-semibold leading-5 ${sendBlockMessage ? "text-gray-500" : "text-emerald-700"}`}>
-              {requirementMessage || fleetMessage || `Ready to send a pending ${bookingMode} request.`}
+              {requirementMessage || fleetMessage || `Ready to save this ${bookingMode} request in My Trips and notify matching operators.`}
             </p>
             <button
               type="button"
@@ -900,7 +853,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               }`}
             >
               {submitting ? <FiClock size={17} /> : <FiSend size={17} />}
-              {submitting ? "Sending..." : "Send Booking"}
+              {submitting ? "Saving..." : "Save & notify"}
             </button>
           </div>
         </footer>

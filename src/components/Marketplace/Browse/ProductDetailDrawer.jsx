@@ -8,6 +8,7 @@ import {
   MapPin,
   MessageCircle,
   PackageCheck,
+  Send,
   ShoppingCart,
   Star,
   Truck,
@@ -262,6 +263,132 @@ function StarRatingInput({ value, onChange }) {
   );
 }
 
+function formatProductReviewDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function ProductReviewDrawer({
+  comment,
+  onClose,
+  onCommentChange,
+  onRatingChange,
+  onSubmit,
+  open,
+  product,
+  rating,
+  reviewStatus,
+  reviewSubmitting,
+  reviewSummary,
+}) {
+  return (
+    <div
+      aria-hidden={!open}
+      inert={open ? undefined : "true"}
+      className={`fixed inset-0 z-[1200] overflow-hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+    >
+      <button
+        type="button"
+        aria-label="Close product reviews"
+        onClick={onClose}
+        tabIndex={open ? 0 : -1}
+        className={`absolute inset-0 border-0 bg-slate-950/35 p-0 backdrop-blur-sm transition-opacity duration-300 ${
+          open ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <section
+        className={`absolute bottom-0 left-0 right-0 mx-auto flex h-[86dvh] max-w-2xl transform flex-col overflow-hidden rounded-t-[2rem] bg-white shadow-2xl transition-transform duration-300 ${
+          open ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        <header className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Product reviews</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">
+              {reviewSummary.reviewCount || 0} response{reviewSummary.reviewCount === 1 ? "" : "s"}
+            </h2>
+            <p className="mt-1 truncate text-sm font-semibold text-slate-500">{product?.name}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
+            aria-label="Close product reviews"
+          >
+            <X size={22} />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {reviewSummary.reviews?.length ? (
+            <div className="space-y-3">
+              {reviewSummary.reviews.map((review) => (
+                <article key={review.id} className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-slate-950">{review.buyerName}</p>
+                      <p className="mt-0.5 text-xs font-bold text-slate-400">{formatProductReviewDate(review.createdAt)}</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">
+                      <Star size={13} fill="currentColor" />
+                      {Number(review.rating || 0).toFixed(1)}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+                    {review.comment || "This buyer left a rating without a written note."}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+              <MessageCircle className="mx-auto text-slate-400" size={34} />
+              <p className="mt-4 text-lg font-black text-slate-950">No product reviews yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm font-semibold leading-6 text-slate-500">
+                Reviews from buyers will appear here so people can understand quality, delivery, and product condition.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={onSubmit} className="border-t border-slate-100 bg-white px-4 py-3">
+          {reviewStatus ? (
+            <p className={`mb-3 rounded-2xl px-3 py-2 text-xs font-black ${
+              /added/i.test(reviewStatus) ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
+            }`}>
+              {reviewStatus}
+            </p>
+          ) : null}
+          <div className="mb-3">
+            <StarRatingInput value={rating} onChange={onRatingChange} />
+          </div>
+          <div className="flex items-end gap-2">
+            <textarea
+              value={comment}
+              onChange={(event) => onCommentChange(event.target.value)}
+              rows={2}
+              placeholder="Share what buyers should know about quality, condition, delivery, or value..."
+              className="min-h-12 flex-1 resize-none rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-400 focus:bg-white"
+            />
+            <button
+              type="submit"
+              disabled={reviewSubmitting || rating < 1}
+              className={`kt-touchable flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
+                reviewSubmitting || rating < 1 ? "bg-slate-100 text-slate-400" : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }`}
+              aria-label="Submit product review"
+            >
+              <Send size={18} />
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 export default function ProductDetailDrawer({
   product,
   open,
@@ -277,6 +404,8 @@ export default function ProductDetailDrawer({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState("");
   const [messageOpen, setMessageOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
@@ -342,6 +471,10 @@ export default function ProductDetailDrawer({
     if (!open) setOrderAreaPicker(null);
   }, [open]);
 
+  useEffect(() => {
+    if (!reviewOpen) setReviewStatus("");
+  }, [reviewOpen]);
+
   if (!open || !product) return null;
 
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
@@ -390,16 +523,22 @@ export default function ProductDetailDrawer({
 
   async function handleProductReviewSubmit(event) {
     event.preventDefault();
+    setReviewStatus("");
 
     try {
+      setReviewSubmitting(true);
       await submitProductReview(product, rating, comment);
       setComment("");
-      setReviewOpen(false);
+      setRating(5);
+      setReviewStatus("Your product review has been added.");
       onNotice?.("Product review submitted.");
       const reviews = await fetchBuyerReviews({ productId: product.id, reviewType: "product" });
       setReviewSummary(reviews);
     } catch (err) {
+      setReviewStatus(err.message || "Unable to submit product review.");
       onNotice?.(err.message || "Unable to submit product review.", "danger");
+    } finally {
+      setReviewSubmitting(false);
     }
   }
 
@@ -574,30 +713,12 @@ export default function ProductDetailDrawer({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setReviewOpen((current) => !current)}
+                    onClick={() => setReviewOpen(true)}
                     className="rounded-lg bg-gray-950 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700"
                   >
-                    Review
+                    Open reviews
                   </button>
                 </div>
-
-                {reviewOpen && (
-                  <form onSubmit={handleProductReviewSubmit} className="mt-4 space-y-3">
-                    <StarRatingInput value={rating} onChange={setRating} />
-                    <textarea
-                      value={comment}
-                      onChange={(event) => setComment(event.target.value)}
-                      placeholder="Share what buyers should know about this product"
-                      className="min-h-24 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
-                    />
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700"
-                    >
-                      Submit Product Review
-                    </button>
-                  </form>
-                )}
 
                 {!!reviewSummary.reviews.length && (
                   <div className="mt-4 space-y-3">
@@ -906,6 +1027,19 @@ export default function ProductDetailDrawer({
         activeIndex={activeImageIndex}
         onChange={setActiveImageIndex}
         onClose={() => setActiveImageIndex(-1)}
+      />
+      <ProductReviewDrawer
+        comment={comment}
+        onClose={() => setReviewOpen(false)}
+        onCommentChange={setComment}
+        onRatingChange={setRating}
+        onSubmit={handleProductReviewSubmit}
+        open={reviewOpen}
+        product={product}
+        rating={rating}
+        reviewStatus={reviewStatus}
+        reviewSubmitting={reviewSubmitting}
+        reviewSummary={reviewSummary}
       />
       {orderAreaPicker ? (
         <div className="fixed inset-0 z-[1300] bg-slate-950">

@@ -19,12 +19,22 @@ export default function MyBizHeader({ onBack, onAddProduct, onOrders, onMessages
           />
 
           <SellerHeaderActions
+            orderCount={sellerHeader.orderCount}
             messageCount={sellerHeader.messageCount}
             notificationCount={sellerHeader.notificationCount}
             onAddProduct={onAddProduct}
-            onOrders={onOrders}
-            onMessages={onMessages}
-            onAlerts={onAlerts}
+            onOrders={() => {
+              sellerHeader.markSellerSectionSeen("orders");
+              onOrders?.();
+            }}
+            onMessages={() => {
+              sellerHeader.markSellerSectionSeen("messages");
+              onMessages?.();
+            }}
+            onAlerts={() => {
+              sellerHeader.markSellerSectionSeen("notifications");
+              onAlerts?.();
+            }}
             onMenu={onMenu}
           />
         </div>

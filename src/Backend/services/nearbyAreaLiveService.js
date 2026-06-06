@@ -180,6 +180,16 @@ function normalizeNearbyLocation(row) {
   };
 }
 
+function isMissingNearbyAreaColumn(error, columnName) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes(`'${columnName}' column`) || message.includes(`column "${columnName}"`) || (message.includes(columnName) && message.includes("schema cache"));
+}
+
+function isMissingNearbyAreaTable(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "42P01" || message.includes("nearby_area_locations") && message.includes("does not exist");
+}
+
 function getReportTitle(type, title) {
   if (title) return title;
 
@@ -321,6 +331,99 @@ export async function getApprovedNearbyLocations(options = {}) {
   }, options);
 
   return dedupeById(rows.map(normalizeNearbyLocation).filter(Boolean));
+}
+
+export async function submitNearbyAreaLocation(input = {}) {
+  const userId = await getCurrentUserId();
+  const lat = toNumber(input.lat);
+  const lng = toNumber(input.lng);
+  const placeName = String(input.name || input.placeName || "").trim();
+  const category = String(input.category || "Community").trim();
+
+  if (!placeName) {
+    throw new Error("Enter the location name before submitting.");
+  }
+
+  if (lat == null || lng == null) {
+    throw new Error("Use Locate Me or Drop Pin so KunThai can save the exact map point.");
+  }
+
+  let payload = {
+    user_id: userId || null,
+    submitted_by: userId || null,
+    name: placeName,
+    place_name: placeName,
+    category,
+    type: category,
+    address: String(input.address || "").trim(),
+    landmark: String(input.landmark || "").trim(),
+    phone: String(input.phone || "").trim(),
+    opening_hours: String(input.openingHours || input.opening_hours || "").trim(),
+    description: String(input.description || "").trim(),
+    lat,
+    lng,
+    status: "submitted",
+    visibility: "public",
+    source: "area_view",
+    metadata: {
+      source: input.source || "area_view",
+      coordinates_label: input.coordinatesLabel || "",
+    },
+  };
+
+  const optionalColumns = [
+    "user_id",
+    "submitted_by",
+    "name",
+    "place_name",
+    "type",
+    "address",
+    "landmark",
+    "phone",
+    "opening_hours",
+    "description",
+    "visibility",
+    "source",
+    "metadata",
+  ];
+
+  for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
+    const { data, error } = await supabase.from("nearby_area_locations").insert(payload).select().maybeSingle();
+
+    if (!error) {
+      return normalizeNearbyLocation(data) || {
+        id: data?.id || `submitted-${Date.now()}`,
+        name: placeName,
+        category: normalizeLocationCategory(category),
+        type: category,
+        status: "submitted",
+        visibility: "public",
+        description: payload.description || payload.landmark || payload.address || "Submitted KunThai Area View location.",
+        distance: payload.address || payload.landmark || "Submitted for review",
+        address: payload.address,
+        landmark: payload.landmark,
+        phone: payload.phone,
+        openingHours: payload.opening_hours,
+        lat,
+        lng,
+        raw: data || payload,
+      };
+    }
+
+    if (isMissingNearbyAreaTable(error)) {
+      throw new Error("Area View location submissions are not installed yet.");
+    }
+
+    const missingColumn = optionalColumns.find((column) => payload[column] !== undefined && isMissingNearbyAreaColumn(error, column));
+    if (!missingColumn) {
+      throw new Error(error.message || "Unable to submit this location for review.");
+    }
+
+    const { [missingColumn]: _removed, ...nextPayload } = payload;
+    payload = nextPayload;
+  }
+
+  throw new Error("Unable to submit this location for review.");
 }
 
 export async function getLiveOperators(options = {}) {

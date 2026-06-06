@@ -23,13 +23,13 @@ const ROUTE_STATUS = {
   },
   warning: {
     label: "Slightly off route",
-    message: "You may be moving away from the recommended route. Check the map carefully.",
+    message: "You are slightly away from the recommended route. Slow down and check the green line before continuing.",
     color: "#eab308",
     className: "bg-yellow-100 text-yellow-700",
   },
   wrong: {
     label: "Wrong route detected",
-    message: "You are far from the recommended route or moving backward. Consider rerouting.",
+    message: "Wrong direction or far from the recommended route. KunThai is checking a safer route to the destination.",
     color: "#dc2626",
     className: "bg-red-100 text-red-700",
   },
@@ -43,8 +43,8 @@ const GPS_SETTINGS = {
   warningRouteMeters: 120,
   rerouteRouteMeters: 165,
   arrivalMeters: 34,
-  rerouteCooldownMs: 14000,
-  rerouteConfirmMs: 2600,
+  rerouteCooldownMs: 7000,
+  rerouteConfirmMs: 850,
   cameraThrottleMs: 1200,
   progressBacktrackSegments: 4,
   ignoreTinyMoveMeters: 4.5,
@@ -1434,6 +1434,7 @@ export default function NearbyAreaMap({
     const now = Date.now();
     if (rerouteTimerRef.current || now - lastRerouteAtRef.current < GPS_SETTINGS.rerouteCooldownMs) return;
 
+    setNavigationSnap("half");
     setLocationStatus(`Off route - checking better route (${Math.round(distanceFromRoute)}m)`);
 
     rerouteTimerRef.current = window.setTimeout(() => {
@@ -1580,6 +1581,7 @@ export default function NearbyAreaMap({
       duration: formatDuration(route.durationSeconds),
       raw: route,
     });
+    setNavigationSnap("half");
     setTrafficInsight(getLiveTrafficInsight(trafficSnapshotsRef.current, route, "correct"));
     evaluateTrafficAhead({ force: true });
   }
@@ -2154,10 +2156,6 @@ export default function NearbyAreaMap({
 
         smoothedPositionRef.current = livePosition;
 
-        if (routeInfoRef.current && routeStatusRef.current === "correct") {
-          setNavigationSnap("collapsed");
-        }
-
         if (!hasOperatorRoutePlan && (focusMode || headingMode !== "north") && !isUserInteractingRef.current) {
           applySmartCamera(livePosition, selectedLocation);
         }
@@ -2218,6 +2216,11 @@ export default function NearbyAreaMap({
           }
 
           setRouteLineColor(mapRef.current, ROUTE_STATUS[nextStatusKey].color);
+          if (nextStatusKey === "correct") {
+            setNavigationSnap("collapsed");
+          } else {
+            setNavigationSnap("half");
+          }
           setTrafficInsight((current) => {
             const next = getLiveTrafficInsight(
               trafficSnapshotsRef.current,
@@ -2492,10 +2495,10 @@ export default function NearbyAreaMap({
               <button
                 type="button"
                 onClick={() => setNextNavigationSnap(navigationCollapsed ? "up" : "down")}
-                className="kt-pressable flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+                className="kt-pressable flex h-10 w-10 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-lg font-black leading-none text-slate-900 shadow-sm"
                 aria-label={navigationCollapsed ? "Expand navigation" : "Collapse navigation"}
               >
-                {navigationCollapsed ? "+" : "-"}
+                <span className="-mt-0.5">{navigationCollapsed ? "^" : "v"}</span>
               </button>
             </div>
           </div>

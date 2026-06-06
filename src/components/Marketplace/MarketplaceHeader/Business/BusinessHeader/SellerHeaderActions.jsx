@@ -3,6 +3,7 @@ import { Bell, Menu, MessageSquare, PackageCheck, Plus } from "lucide-react";
 import HeaderActionButton from "./HeaderActionButton";
 
 export default function SellerHeaderActions({
+  orderCount,
   messageCount,
   notificationCount,
   onAddProduct,
@@ -11,6 +12,8 @@ export default function SellerHeaderActions({
   onAlerts,
   onMenu,
 }) {
+  const activeHint = orderCount ? "orders" : messageCount ? "messages" : notificationCount ? "alerts" : "";
+
   return (
     <div className="flex items-center gap-2">
       <HeaderActionButton
@@ -19,23 +22,30 @@ export default function SellerHeaderActions({
         primary
         onClick={onAddProduct}
       />
-      <HeaderActionButton
-        icon={PackageCheck}
-        label="Orders"
-        onClick={onOrders}
-      />
-      <HeaderActionButton
-        icon={MessageSquare}
-        label="Messages"
-        badge={messageCount}
-        onClick={onMessages}
-      />
-      <HeaderActionButton
-        icon={Bell}
-        label="Alerts"
-        badge={notificationCount}
-        onClick={onAlerts}
-      />
+      <ActionWithHint hint="New order waiting" visible={activeHint === "orders"} onClick={onOrders}>
+        <HeaderActionButton
+          icon={PackageCheck}
+          label="Orders"
+          badge={orderCount}
+          onClick={onOrders}
+        />
+      </ActionWithHint>
+      <ActionWithHint hint="New buyer message" visible={activeHint === "messages"} onClick={onMessages}>
+        <HeaderActionButton
+          icon={MessageSquare}
+          label="Messages"
+          badge={messageCount}
+          onClick={onMessages}
+        />
+      </ActionWithHint>
+      <ActionWithHint hint="Seller alert" visible={activeHint === "alerts"} onClick={onAlerts}>
+        <HeaderActionButton
+          icon={Bell}
+          label="Alerts"
+          badge={notificationCount}
+          onClick={onAlerts}
+        />
+      </ActionWithHint>
       <button
         type="button"
         onClick={onMenu}
@@ -45,6 +55,24 @@ export default function SellerHeaderActions({
       >
         <Menu size={20} strokeWidth={2.3} />
       </button>
+    </div>
+  );
+}
+
+function ActionWithHint({ children, hint, onClick, visible }) {
+  return (
+    <div className="relative">
+      {children}
+      {visible ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-36 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left text-xs font-black text-slate-700 shadow-xl shadow-slate-900/10"
+        >
+          {hint}
+          <span className="absolute -top-1 right-5 h-3 w-3 rotate-45 border-l border-t border-emerald-100 bg-white" />
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -125,7 +125,7 @@ export default function App() {
   }, [page]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !onboardingComplete) return;
 
     stopAllExploreMedia();
     clearExploreScreenStack();
@@ -134,11 +134,11 @@ export default function App() {
     setMarketplaceActivityOpen(false);
     setTransportActivityOpen(false);
     setTransportAreaRequest(null);
-    clearBrowserHash();
-
-    const preferredPage = normalizeMainPage(onboardingProfile?.primarySurface) || readLastMainPage();
-    setPage((current) => normalizeMainPage(current) || preferredPage);
-  }, [onboardingProfile?.primarySurface, userId]);
+    const hashPage = getMainPageFromHash(window.location.hash);
+    const preferredPage = hashPage || normalizeMainPage(onboardingProfile?.primarySurface) || readLastMainPage();
+    setPage(preferredPage);
+    if (!hashPage) clearBrowserHash();
+  }, [onboardingComplete, onboardingProfile?.primarySurface, userId]);
 
   useEffect(() => {
     function cleanupMedia() {

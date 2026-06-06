@@ -7,6 +7,10 @@ import { Bell, Truck } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
 import { PremiumHeaderButton } from "../../shared/PremiumHeader";
+import {
+  applySeenNotificationState,
+  markNotificationsSeen,
+} from "../../../Backend/services/notificationSeenStore";
 import { fetchTransportNotifications } from "../../services/transportHeaderService";
 import { subscribePassengerTrips } from "../../services/passengerTransportService";
 import { showToast } from "../../../Backend/services/toastService";
@@ -17,7 +21,9 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const announcedArrivalIdsRef = useRef(new Set());
+  const announcedHintIdsRef = useRef(new Set());
   const notificationsInitializedRef = useRef(false);
+  const seenScope = `transport:${operatorAccount?.id || "passenger"}`;
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => notification.unread).length,
@@ -32,7 +38,22 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
     fetchTransportNotifications(operatorAccount)
       .then((items) => {
         if (!alive) return;
-        setNotifications(items);
+        const nextItems = open
+          ? applySeenNotificationState(seenScope, items.map((item) => ({ ...item, unread: false })))
+          : applySeenNotificationState(seenScope, items);
+        if (open) markNotificationsSeen(seenScope, items);
+        setNotifications(nextItems);
+
+        const unseenUnreadItems = nextItems.filter((notification) => notification.unread);
+        if (!notificationsInitializedRef.current) {
+          unseenUnreadItems.forEach((notification) => announcedHintIdsRef.current.add(notification.id));
+        } else if (quiet && unseenUnreadItems.length) {
+          const nextHint = unseenUnreadItems.find((notification) => !announcedHintIdsRef.current.has(notification.id));
+          if (nextHint) {
+            announcedHintIdsRef.current.add(nextHint.id);
+            showToast("New transport notification. Tap the bell icon in the Transport header to review it.", "info");
+          }
+        }
 
         const arrivedTrips = items.filter(
           (notification) =>
@@ -64,7 +85,7 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
     return () => {
       alive = false;
     };
-  }, [open, operatorAccount]);
+    }, [open, operatorAccount, seenScope]);
 
   useEffect(() => {
     return refreshNotifications({ quiet: !open });
@@ -89,6 +110,15 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
   }, [onOpenChange, open]);
 
   useEffect(() => {
+    if (!open || !notifications.length) return;
+
+    markNotificationsSeen(seenScope, notifications);
+    setNotifications((current) => current.map((notification) => (
+      notification.unread ? { ...notification, unread: false } : notification
+    )));
+  }, [notifications.length, open, seenScope]);
+
+  useEffect(() => {
     if (!open) return undefined;
 
     const previousOverflow = document.body.style.overflow;
@@ -107,13 +137,25 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
 
   return (
     <>
-      <PremiumHeaderButton
-        badge={unreadCount}
-        icon={Bell}
-        label="Open transport notifications"
-        onClick={() => setOpen(true)}
-        title="Open transport notifications"
-      />
+      <div className="relative">
+        <PremiumHeaderButton
+          badge={unreadCount}
+          icon={Bell}
+          label="Open transport notifications"
+          onClick={() => setOpen(true)}
+          title="Open transport notifications"
+        />
+        {unreadCount > 0 && !open ? (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-40 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left text-xs font-black text-slate-700 shadow-xl shadow-slate-900/10"
+          >
+            New transport alert
+            <span className="absolute -top-1 right-5 h-3 w-3 rotate-45 border-l border-t border-emerald-100 bg-white" />
+          </button>
+        ) : null}
+      </div>
 
       <AppPortal>
         <div

@@ -1156,14 +1156,7 @@ function OperatorAlertsDrawer({
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
-        <header className="kt-header-glass flex items-start justify-between gap-4 px-4 py-4">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator Alerts</p>
-            <h2 className="mt-1 truncate text-xl font-black text-gray-950">Notifications</h2>
-            <p className="mt-1 text-sm font-semibold text-gray-500">
-              {fleetName} - {operatorName}
-            </p>
-          </div>
+        <header className="kt-header-glass flex items-start gap-4 px-4 py-4">
           <AppBackTab
             onBack={onClose}
             label="Back to operator"
@@ -1171,6 +1164,13 @@ function OperatorAlertsDrawer({
             className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             useHistoryLayer={false}
           />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator Alerts</p>
+            <h2 className="mt-1 truncate text-xl font-black text-gray-950">Notifications</h2>
+            <p className="mt-1 text-sm font-semibold text-gray-500">
+              {fleetName} - {operatorName}
+            </p>
+          </div>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4">
@@ -1660,14 +1660,7 @@ function OperatorMenuDrawer({
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator Menu</p>
-            <h2 className="truncate text-lg font-black text-gray-950">{fleetName}</h2>
-            <p className="truncate text-xs font-semibold text-gray-500">
-              {account?.displayCode} - {operatorName}
-            </p>
-          </div>
+        <div className="flex items-center gap-4 border-b border-gray-100 px-5 py-4">
           <AppBackTab
             onBack={onClose}
             label="Back to operator"
@@ -1675,6 +1668,13 @@ function OperatorMenuDrawer({
             className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             useHistoryLayer={false}
           />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator Menu</p>
+            <h2 className="truncate text-lg font-black text-gray-950">{fleetName}</h2>
+            <p className="truncate text-xs font-semibold text-gray-500">
+              {account?.displayCode} - {operatorName}
+            </p>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">

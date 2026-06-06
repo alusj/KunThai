@@ -15,6 +15,35 @@ import { readExploreSettings } from "../services/explore/preferencesService";
 const MESSAGES_MEMORY = new Map();
 const MESSAGES_MEMORY_TTL = 120_000;
 
+function normalizeOutgoingMessage(input) {
+  if (typeof input === "string") {
+    return { body: input.trim(), mediaUrl: "", type: "text" };
+  }
+
+  const body = String(input?.body || "").trim();
+  const mediaUrl = String(input?.media_url || input?.mediaUrl || "").trim();
+  const requestedType = String(input?.type || input?.media_type || "").toLowerCase();
+  const type = ["image", "audio", "video"].includes(requestedType)
+    ? requestedType
+    : mediaUrl
+      ? "image"
+      : "text";
+
+  return {
+    body,
+    mediaUrl,
+    type: mediaUrl ? type : "text",
+  };
+}
+
+function getMessagePreview(message) {
+  if (message.body) return message.body;
+  if (message.type === "image") return "Photo";
+  if (message.type === "audio") return "Voice note";
+  if (message.type === "video") return "Video";
+  return "Message";
+}
+
 function friendlyMessageError(err) {
   const message = String(err?.message || "");
   if (message.toLowerCase().includes("uuid") || message.includes("__")) {
@@ -182,11 +211,11 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   }
 
   async function sendMessage(body) {
-    const text = String(body || "").trim();
+    const draft = normalizeOutgoingMessage(body);
     const conversationId = activeConversation?.id;
-    const signature = `${conversationId || ""}|${currentUserId}|${text}`;
+    const signature = [conversationId || "", currentUserId, draft.type, draft.body, draft.mediaUrl].join("|");
 
-    if (!conversationId || !text || pendingMessageKeys.has(signature)) {
+    if (!conversationId || (!draft.body && !draft.mediaUrl) || pendingMessageKeys.has(signature)) {
       return { ok: false, duplicate: pendingMessageKeys.has(signature) };
     }
 
@@ -194,12 +223,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       id: `pending-message-${Date.now()}`,
       conversationId,
       senderId: currentUserId,
-      body: text,
-      type: "text",
+      body: draft.body,
+      type: draft.mediaUrl ? draft.type : "text",
+      mediaUrl: draft.mediaUrl,
       read: false,
       createdAt: new Date().toISOString(),
       pending: true,
     };
+    const preview = getMessagePreview(tempMessage);
 
     setError("");
     setPendingMessageKeys((current) => new Set(current).add(signature));
@@ -207,13 +238,13 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     setConversations((current) =>
       current.map((conversation) =>
         conversation.id === conversationId
-          ? { ...conversation, preview: text, updatedAt: tempMessage.createdAt }
+          ? { ...conversation, preview, updatedAt: tempMessage.createdAt }
           : conversation,
       ),
     );
 
     try {
-      const created = await sendExploreMessage(conversationId, currentProfile, text, { optimisticManaged: true });
+      const created = await sendExploreMessage(conversationId, currentProfile, body, { optimisticManaged: true });
       if (created) {
         setMessages((current) => current.map((message) => (message.id === tempMessage.id ? created : message)));
         setConversations(await fetchExploreConversations(currentUserId));

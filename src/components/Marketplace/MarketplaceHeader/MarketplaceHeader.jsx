@@ -1,10 +1,28 @@
 import { MessageCircle, PackageCheck, ShoppingBag, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
+import {
+  getUnseenNotificationCount,
+  markNotificationsSeen,
+  subscribeNotificationSeen,
+} from "../../../Backend/services/notificationSeenStore";
 import { fetchBuyerMessages, fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
+
+const BUYER_ORDER_SCOPE = "urmall:buyer:orders";
+const BUYER_MESSAGE_SCOPE = "urmall:buyer:messages";
+
+function mapHeaderItem(prefix, item) {
+  const baseId = item.id || item.conversationKey || item.businessId || item.createdAt;
+  const changeKey = [item.status, item.createdAt].filter(Boolean).join(":");
+
+  return {
+    id: `${prefix}:${baseId}${changeKey ? `:${changeKey}` : ""}`,
+    unread: item.unread !== false,
+  };
+}
 
 export default function MarketplaceHeader({
   onMyBizClick,
@@ -14,11 +32,15 @@ export default function MarketplaceHeader({
   onActivityChange,
 }) {
   const { loading, hasBusiness } = useSellerBusinessStatus();
-  const [orderCount, setOrderCount] = useState(0);
-  const [messageCount, setMessageCount] = useState(0);
+  const [orderItems, setOrderItems] = useState([]);
+  const [messageItems, setMessageItems] = useState([]);
+  const [, setSeenVersion] = useState(0);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const businessLabel = hasBusiness ? "MyBiz" : "REGISTER";
+  const orderCount = getUnseenNotificationCount(BUYER_ORDER_SCOPE, orderItems);
+  const messageCount = getUnseenNotificationCount(BUYER_MESSAGE_SCOPE, messageItems, { unreadOnly: true });
+  const activeHint = orderCount ? "orders" : messageCount ? "messages" : "";
 
   useEffect(() => {
     onActivityChange?.(cartOpen || menuOpen);
@@ -31,9 +53,9 @@ export default function MarketplaceHeader({
     async function loadOrderCount() {
       try {
         const orders = await fetchBuyerOrders();
-        if (alive) setOrderCount(orders.length);
+        if (alive) setOrderItems(orders.map((order) => mapHeaderItem("buyer-order", order)));
       } catch {
-        if (alive) setOrderCount(0);
+        if (alive) setOrderItems([]);
       }
     }
 
@@ -51,9 +73,11 @@ export default function MarketplaceHeader({
     async function loadMessageCount() {
       try {
         const messages = await fetchBuyerMessages();
-        if (alive) setMessageCount(messages.filter((message) => message.unread).length);
+        if (alive) {
+          setMessageItems(messages.filter((message) => message.unread).map((message) => mapHeaderItem("buyer-message", message)));
+        }
       } catch {
-        if (alive) setMessageCount(0);
+        if (alive) setMessageItems([]);
       }
     }
 
@@ -66,6 +90,22 @@ export default function MarketplaceHeader({
       window.removeEventListener("marketplace-seller-messages-updated", loadMessageCount);
     };
   }, []);
+
+  useEffect(() => {
+    return subscribeNotificationSeen(() => setSeenVersion((version) => version + 1));
+  }, []);
+
+  function openOrders() {
+    markNotificationsSeen(BUYER_ORDER_SCOPE, orderItems);
+    setSeenVersion((version) => version + 1);
+    onOrdersClick?.();
+  }
+
+  function openMessages() {
+    markNotificationsSeen(BUYER_MESSAGE_SCOPE, messageItems);
+    setSeenVersion((version) => version + 1);
+    onMessagesClick?.();
+  }
 
   if (loading) {
     return (
@@ -108,26 +148,56 @@ export default function MarketplaceHeader({
       )}
       right={(
         <>
-          <PremiumHeaderButton
-            active={activeUtility === "orders"}
-            accent="emerald"
-            badge={orderCount}
-            icon={PackageCheck}
-            label="Open orders"
-            onClick={onOrdersClick}
-          />
-          <PremiumHeaderButton
-            active={activeUtility === "messages"}
-            accent="emerald"
-            badge={messageCount}
-            icon={MessageCircle}
-            label="Open messages"
-            onClick={onMessagesClick}
-          />
+          <HeaderButtonWithHint
+            hint="New order update"
+            visible={activeHint === "orders"}
+            onClick={openOrders}
+          >
+            <PremiumHeaderButton
+              active={activeUtility === "orders"}
+              accent="emerald"
+              badge={orderCount}
+              icon={PackageCheck}
+              label="Open orders"
+              onClick={openOrders}
+            />
+          </HeaderButtonWithHint>
+          <HeaderButtonWithHint
+            hint="New seller message"
+            visible={activeHint === "messages"}
+            onClick={openMessages}
+          >
+            <PremiumHeaderButton
+              active={activeUtility === "messages"}
+              accent="emerald"
+              badge={messageCount}
+              icon={MessageCircle}
+              label="Open messages"
+              onClick={openMessages}
+            />
+          </HeaderButtonWithHint>
           <Cart onOpenChange={setCartOpen} />
           <Menu onOpenChange={setMenuOpen} />
         </>
       )}
     />
+  );
+}
+
+function HeaderButtonWithHint({ children, hint, onClick, visible }) {
+  return (
+    <div className="relative">
+      {children}
+      {visible ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-36 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left text-xs font-black text-slate-700 shadow-xl shadow-slate-900/10"
+        >
+          {hint}
+          <span className="absolute -top-1 right-5 h-3 w-3 rotate-45 border-l border-t border-emerald-100 bg-white" />
+        </button>
+      ) : null}
+    </div>
   );
 }

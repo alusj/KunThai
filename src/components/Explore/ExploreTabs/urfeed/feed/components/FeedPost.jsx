@@ -116,7 +116,12 @@ export default function FeedPost({
   }
 
   return (
-    <article id={`post-${post.id}`} className="relative w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+    <article
+      id={`post-${post.id}`}
+      className={`relative w-full max-w-full min-w-0 rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${
+        optionsOpen ? "z-40 overflow-visible" : "overflow-hidden"
+      }`}
+    >
       <PostHeader
         post={post}
         isOwner={isOwner}
@@ -162,10 +167,8 @@ export default function FeedPost({
       <PostActions
         post={post}
         liked={liked}
-        saved={saved}
         onLike={onLike}
         onComment={() => setCommentsOpen((current) => !current)}
-        onSave={onSave}
         onShare={() => runAction(shareAndNotify)}
       />
 

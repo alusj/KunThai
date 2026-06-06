@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiBookmark,
+  FiChevronDown,
+  FiChevronUp,
   FiCrosshair,
   FiEye,
   FiEyeOff,
@@ -27,6 +29,7 @@ import {
   getWeatherCacheNearArea,
   getRecentSearchHistory,
   saveSearchHistory,
+  submitNearbyAreaLocation,
   subscribeToAreaViewLiveData,
 } from "../../Backend/services/nearbyAreaLiveService";
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
@@ -52,6 +55,9 @@ const addCategories = [
   "Other",
 ];
 
+const primaryLocationCategories = locationCategories.slice(0, 3);
+const moreLocationCategories = locationCategories.slice(3);
+
 const SOS_COUNTRY_CACHE_KEY = "kuntai-sos-country-code";
 const SOS_FALLBACK_COUNTRY = "SL";
 const MAP_CENTER_PUBLISH_METERS = 35;
@@ -62,6 +68,38 @@ const WEATHER_REFRESH_DEBOUNCE_MS = 900;
 const LIVE_AREA_REFRESH_METERS = 1600;
 const LIVE_AREA_REFRESH_MS = 1000 * 60 * 2;
 const LIVE_AREA_RADIUS_KM = 25;
+
+function createAddLocationDraft() {
+  return {
+    name: "",
+    category: addCategories[0],
+    categoryName: "",
+    address: "",
+    landmark: "",
+    phone: "",
+    openingHours: "",
+    description: "",
+    lat: null,
+    lng: null,
+    coordinatesLabel: "",
+    source: "",
+  };
+}
+
+function getBrowserCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("Location is not supported in this browser."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 15000,
+    });
+  });
+}
 
 function formatCoordinatesLabel(point) {
   const lat = Number(point?.lat ?? point?.latitude);
@@ -369,6 +407,7 @@ export default function NearbyAreaScreen({
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
+  const [moreCategoriesOpen, setMoreCategoriesOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [mapCenter, setMapCenter] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -389,6 +428,11 @@ export default function NearbyAreaScreen({
   const [trafficSnapshots, setTrafficSnapshots] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
   const [weatherCache, setWeatherCache] = useState(null);
+  const [addLocationDraft, setAddLocationDraft] = useState(createAddLocationDraft);
+  const [addLocationMode, setAddLocationMode] = useState("form");
+  const [addLocationStatus, setAddLocationStatus] = useState("");
+  const [addLocationBusy, setAddLocationBusy] = useState(false);
+  const [addLocationLocateCautionOpen, setAddLocationLocateCautionOpen] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
   const [detectedCountryCode, setDetectedCountryCode] = useState(SOS_FALLBACK_COUNTRY);
   const [detectingSosCountry, setDetectingSosCountry] = useState(false);
@@ -432,6 +476,25 @@ export default function NearbyAreaScreen({
     }),
     [pickerLabels],
   );
+  const areaAddLocationPickerLabels = useMemo(
+    () => ({
+      historyKey: "area-view-add-location-pin",
+      backLabel: "Back to add location",
+      eyebrow: "Area View",
+      headerCurrentTitle: "Locate me",
+      headerDropTitle: "Drop a pin",
+      cardEyebrow: "New location",
+      currentHeading: "Your current location",
+      dropHeading: "Place the pin on the missing location",
+      dropInstruction: "Move the map until the pin sits exactly on the place entrance, pickup point, or landmark. Then add the location to the form.",
+      currentPreparing: "Your current location is being prepared.",
+      currentStatus: "Confirming your current location...",
+      dropStatus: "Move the map until the pin is exactly on the missing location.",
+      currentName: "Current location",
+      droppedName: "Pinned location",
+    }),
+    [],
+  );
 
   const displayLocations = useMemo(() => {
     const ids = new Set();
@@ -461,6 +524,7 @@ export default function NearbyAreaScreen({
     () => filteredLocations.filter((location) => location?.lat != null && location?.lng != null),
     [filteredLocations],
   );
+  const selectedMoreCategory = moreLocationCategories.includes(activeCategory);
   const oneKmMeasurementPreview = useMemo(() => {
     if (!isOneKmPreview || !userLocation?.lat || !userLocation?.lng) return null;
     const destination = destinationPointFromDistance(userLocation, 1000, 90);
@@ -497,6 +561,11 @@ export default function NearbyAreaScreen({
     } catch {
       return "";
     }
+  }
+
+  function chooseLocationCategory(category) {
+    setActiveCategory(category);
+    setMoreCategoriesOpen(false);
   }
 
   function cacheSosCountryCode(countryCode) {
@@ -889,8 +958,181 @@ export default function NearbyAreaScreen({
 
   const openAddLocation = useCallback(() => {
     setLocationPanelOpen(false);
+    setAddLocationDraft(createAddLocationDraft());
+    setAddLocationMode("form");
+    setAddLocationStatus("Use Locate Me or Drop Pin so the new location can be reviewed with an exact map point.");
+    setAddLocationLocateCautionOpen(false);
+    setAddLocationBusy(false);
+    setFocusMode(false);
     setAdding(true);
   }, []);
+
+  const updateAddLocationDraft = useCallback((field, value) => {
+    setAddLocationDraft((current) => ({ ...current, [field]: value }));
+  }, []);
+
+  const closeAddLocation = useCallback(() => {
+    setAdding(false);
+    setAddLocationMode("form");
+    setAddLocationLocateCautionOpen(false);
+    setAddLocationStatus("");
+    setAddLocationBusy(false);
+    setFocusMode(false);
+  }, []);
+
+  const handleAddLocationBack = useCallback(() => {
+    if (addLocationMode === "dropPin") {
+      setAddLocationMode("form");
+      setFocusMode(false);
+      setAddLocationStatus("Review the pinned address, then submit when the details are correct.");
+      return;
+    }
+
+    closeAddLocation();
+  }, [addLocationMode, closeAddLocation]);
+
+  const startAddLocationDropPin = useCallback(() => {
+    setAddLocationLocateCautionOpen(false);
+    setAdding(true);
+    setAddLocationMode("dropPin");
+    setFocusMode(true);
+    setAddLocationStatus(areaAddLocationPickerLabels.dropStatus);
+  }, [areaAddLocationPickerLabels.dropStatus]);
+
+  const confirmAddLocationLocateMe = useCallback(async () => {
+    setAddLocationLocateCautionOpen(false);
+    setAddLocationBusy(true);
+    setAddLocationStatus("Requesting your exact device location...");
+
+    try {
+      const position = await getBrowserCurrentPosition();
+      const point = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracyMeters: position.coords.accuracy,
+      };
+
+      userLocationRef.current = point;
+      mapCenterRef.current = point;
+      setUserLocation(point);
+      setMapCenter(point);
+      setRecenterSignal((value) => value + 1);
+      mapInstance?.flyTo({
+        center: [point.lng, point.lat],
+        zoom: 17,
+        essential: true,
+      });
+
+      const location = await reverseGeocodePoint(point);
+      const coordinatesLabel = formatCoordinatesLabel(location);
+      setAddLocationDraft((current) => ({
+        ...current,
+        address: location.address || current.address,
+        lat: location.lat,
+        lng: location.lng,
+        coordinatesLabel,
+        source: "currentLocation",
+      }));
+      setAddLocationStatus(`Your current location is ${location.address}. ${coordinatesLabel ? `Coordinates: ${coordinatesLabel}.` : ""}`);
+    } catch (error) {
+      setAddLocationStatus(error?.message || "Location permission is needed, or you can use Drop Pin instead.");
+    } finally {
+      setAddLocationBusy(false);
+    }
+  }, [mapInstance]);
+
+  const confirmAddLocationDroppedPin = useCallback(async () => {
+    const center = mapInstance?.getCenter?.();
+    const point = center
+      ? { lat: center.lat, lng: center.lng }
+      : mapCenterRef.current || userLocationRef.current || userLocation;
+
+    if (!Number.isFinite(Number(point?.lat)) || !Number.isFinite(Number(point?.lng))) {
+      setAddLocationStatus("Move the map to the exact location, then add the location.");
+      return;
+    }
+
+    setAddLocationBusy(true);
+    setAddLocationStatus("Reading the pinned map location...");
+
+    try {
+      const location = await reverseGeocodePoint(point);
+      const coordinatesLabel = formatCoordinatesLabel(location);
+      setAddLocationDraft((current) => ({
+        ...current,
+        address: location.address || current.address,
+        lat: location.lat,
+        lng: location.lng,
+        coordinatesLabel,
+        source: "dropPin",
+      }));
+      setAddLocationMode("form");
+      setFocusMode(false);
+      setAddLocationStatus(`Pinned location added to the form. ${coordinatesLabel ? `Coordinates: ${coordinatesLabel}.` : ""}`);
+    } catch (error) {
+      setAddLocationStatus(error?.message || "Unable to read the pinned location. Try again.");
+    } finally {
+      setAddLocationBusy(false);
+    }
+  }, [mapInstance, userLocation]);
+
+  const submitAddLocationForReview = useCallback(async () => {
+    const category = addLocationDraft.category === "Other"
+      ? addLocationDraft.categoryName.trim()
+      : addLocationDraft.category;
+
+    if (!addLocationDraft.name.trim()) {
+      setAddLocationStatus("Enter the place name before submitting.");
+      return;
+    }
+
+    if (!category) {
+      setAddLocationStatus("Choose or enter a category before submitting.");
+      return;
+    }
+
+    if (!Number.isFinite(Number(addLocationDraft.lat)) || !Number.isFinite(Number(addLocationDraft.lng))) {
+      setAddLocationStatus("Use Locate Me or Drop Pin before submitting so the location has an exact map point.");
+      return;
+    }
+
+    setAddLocationBusy(true);
+    setAddLocationStatus("Submitting this location for KunThai review...");
+
+    try {
+      const submitted = await submitNearbyAreaLocation({
+        ...addLocationDraft,
+        category,
+      });
+      const pendingLocation = {
+        ...submitted,
+        id: submitted.id || `submitted-${Date.now()}`,
+        name: submitted.name || addLocationDraft.name,
+        category: submitted.category || category,
+        type: submitted.type || category,
+        status: "community",
+        visibility: "pending",
+        description: submitted.description || addLocationDraft.description || "Submitted for KunThai review.",
+        distance: submitted.address || addLocationDraft.address || "Submitted for review",
+        lat: submitted.lat ?? addLocationDraft.lat,
+        lng: submitted.lng ?? addLocationDraft.lng,
+      };
+
+      setLiveLocations((items) => [pendingLocation, ...items.filter((item) => item.id !== pendingLocation.id)]);
+      setActiveLocation(pendingLocation);
+      setLocationPanelOpen(true);
+      mapInstance?.flyTo({
+        center: [pendingLocation.lng, pendingLocation.lat],
+        zoom: 16,
+        essential: true,
+      });
+      closeAddLocation();
+    } catch (error) {
+      setAddLocationStatus(error?.message || "Unable to submit this location for review.");
+    } finally {
+      setAddLocationBusy(false);
+    }
+  }, [addLocationDraft, closeAddLocation, mapInstance]);
 
   const handleUseCurrentArea = useCallback(() => {
     setFocusMode(false);
@@ -1108,7 +1350,21 @@ export default function NearbyAreaScreen({
           />
         ) : null}
 
-        {!isSpecialMode && (
+        {!isSpecialMode && adding && addLocationMode === "dropPin" ? (
+          <BusinessLocationPickerChrome
+            mode="dropPin"
+            status={addLocationStatus}
+            busy={addLocationBusy}
+            currentLocation={null}
+            labels={areaAddLocationPickerLabels}
+            onBack={handleAddLocationBack}
+            onUseCurrent={() => setAddLocationLocateCautionOpen(true)}
+            onDropPin={startAddLocationDropPin}
+            onAddDroppedPin={confirmAddLocationDroppedPin}
+          />
+        ) : null}
+
+        {!isSpecialMode && !(adding && addLocationMode === "dropPin") && (
         <header className="pointer-events-none absolute left-0 right-0 top-0 z-20 px-3 py-3 sm:px-5">
           <div className="pointer-events-auto flex items-center gap-2 sm:gap-3">
             <AppBackTab
@@ -1168,21 +1424,57 @@ export default function NearbyAreaScreen({
           </div>
 
           {!focusMode && (
-            <div className="pointer-events-auto mt-3 flex gap-2 overflow-x-auto pb-1">
-              {locationCategories.map((category) => (
+            <div className="pointer-events-auto relative mt-3">
+              <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap">
+                {primaryLocationCategories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => chooseLocationCategory(category)}
+                    className={`min-h-11 rounded-full px-3 text-sm font-black shadow sm:px-4 ${
+                      activeCategory === category
+                        ? "bg-green-600 text-white"
+                        : "bg-slate-900/85 text-white backdrop-blur"
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+
                 <button
-                  key={category}
                   type="button"
-                  onClick={() => setActiveCategory(category)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-black shadow ${
-                    activeCategory === category
+                  onClick={() => setMoreCategoriesOpen((open) => !open)}
+                  aria-expanded={moreCategoriesOpen}
+                  className={`flex min-h-11 items-center justify-center gap-1 rounded-full px-3 text-sm font-black shadow sm:px-4 ${
+                    moreCategoriesOpen || selectedMoreCategory
                       ? "bg-green-600 text-white"
-                      : "bg-slate-900/80 text-white backdrop-blur"
+                      : "bg-slate-900/85 text-white backdrop-blur"
                   }`}
                 >
-                  {category}
+                  More
+                  {moreCategoriesOpen ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
                 </button>
-              ))}
+              </div>
+
+              {moreCategoriesOpen ? (
+                <div className="absolute left-0 top-full z-40 mt-2 grid w-full max-w-[min(19rem,calc(100vw-1.5rem))] gap-2 rounded-3xl border border-white/40 bg-white/95 p-2 text-slate-950 shadow-2xl backdrop-blur">
+                  {moreLocationCategories.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => chooseLocationCategory(category)}
+                      className={`flex h-11 items-center justify-between rounded-2xl px-4 text-left text-sm font-black transition ${
+                        activeCategory === category
+                          ? "bg-green-600 text-white"
+                          : "bg-slate-100 text-slate-800 hover:bg-slate-200"
+                      }`}
+                    >
+                      <span>{category}</span>
+                      {activeCategory === category ? <span className="h-2.5 w-2.5 rounded-full bg-white" /> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
         </header>
@@ -1244,7 +1536,21 @@ export default function NearbyAreaScreen({
           />
         )}
 
-        {!isSpecialMode && adding && <AddLocationPanel onClose={() => setAdding(false)} />}
+        {!isSpecialMode && adding && addLocationMode === "form" ? (
+          <AddLocationPanel
+            draft={addLocationDraft}
+            busy={addLocationBusy}
+            cautionOpen={addLocationLocateCautionOpen}
+            status={addLocationStatus}
+            onBack={handleAddLocationBack}
+            onChange={updateAddLocationDraft}
+            onCloseCaution={() => setAddLocationLocateCautionOpen(false)}
+            onDropPin={startAddLocationDropPin}
+            onLocateMe={() => setAddLocationLocateCautionOpen(true)}
+            onConfirmLocateMe={confirmAddLocationLocateMe}
+            onSubmit={submitAddLocationForReview}
+          />
+        ) : null}
 
         <EmergencySheet
           open={sosOpen}
@@ -1259,6 +1565,8 @@ export default function NearbyAreaScreen({
 }
 
 function OneKmPreviewChrome({ onBack, onDone, backLabel, ready }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <>
       <header className="pointer-events-none absolute left-0 right-0 top-0 z-30 px-3 py-3 sm:px-5">
@@ -1278,24 +1586,60 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready }) {
         </div>
       </header>
 
-      <section className="absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[390px]">
-        <p className="text-xs font-black uppercase text-green-700">Distance view</p>
-        <h2 className="mt-1 text-xl font-black">One kilometre from your current location</h2>
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          The green line shows a clear 1 km distance so you can price each kilometre with confidence.
-        </p>
-        {!ready ? (
-          <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-black text-green-700">
-            Waiting for your current location...
-          </p>
-        ) : null}
-        <button
-          type="button"
-          onClick={onDone}
-          className="mt-4 h-11 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
-        >
-          Done
-        </button>
+      <section
+        className={`absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur transition-all duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:w-[390px] ${
+          collapsed ? "p-3" : "p-4"
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase text-green-700">Distance view</p>
+            <h2 className={`${collapsed ? "mt-0.5 text-base" : "mt-1 text-xl"} font-black leading-tight`}>
+              {collapsed ? "1 km pricing guide" : "One kilometre from your current location"}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCollapsed((current) => !current)}
+            className="kt-pressable flex h-10 w-10 flex-none items-center justify-center rounded-full border-2 border-slate-300 bg-white text-xl font-black text-slate-900 shadow-sm"
+            aria-label={collapsed ? "Maximize distance view" : "Minimize distance view"}
+          >
+            {collapsed ? <FiChevronUp strokeWidth={3} /> : <FiChevronDown strokeWidth={3} />}
+          </button>
+        </div>
+
+        {collapsed ? (
+          <div className="mt-3 flex items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs font-bold text-slate-600">
+              {ready ? "The green line marks a clear 1 km route." : "Waiting for your current location..."}
+            </p>
+            <button
+              type="button"
+              onClick={onDone}
+              className="h-10 rounded-2xl bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              The green line shows a clear 1 km distance so you can price each kilometre with confidence.
+            </p>
+            {!ready ? (
+              <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-black text-green-700">
+                Waiting for your current location...
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={onDone}
+              className="mt-4 h-11 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
+            >
+              Done
+            </button>
+          </>
+        )}
       </section>
     </>
   );
@@ -1663,31 +2007,75 @@ function LocationPanel({ activeLocation, open, onClose, onAddLocation }) {
   );
 }
 
-function AddLocationPanel({ onClose }) {
-  const [category, setCategory] = useState(addCategories[0]);
+function AddLocationPanel({
+  busy,
+  cautionOpen,
+  draft,
+  onBack,
+  onChange,
+  onCloseCaution,
+  onConfirmLocateMe,
+  onDropPin,
+  onLocateMe,
+  onSubmit,
+  status,
+}) {
+  const category = draft.category || addCategories[0];
+  const selectedLocationLabel = draft.coordinatesLabel || formatCoordinatesLabel(draft);
+  const hasSelectedLocation = Number.isFinite(Number(draft.lat)) && Number.isFinite(Number(draft.lng));
 
   return (
     <div className="absolute inset-0 z-40 flex items-end bg-slate-950/45 sm:items-center sm:justify-center">
-      <section className="w-full rounded-t-3xl bg-white p-4 text-slate-950 shadow-2xl sm:max-w-xl sm:rounded-3xl">
+      <section className="relative flex max-h-[calc(100vh-1.5rem)] w-full flex-col rounded-t-3xl bg-white text-slate-950 shadow-2xl sm:max-w-xl sm:rounded-3xl">
+        <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 p-4 backdrop-blur sm:rounded-t-3xl">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black">Add Location</h2>
-            <p className="mt-1 text-sm text-slate-500">Add local places that are missing from normal maps.</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <AppBackTab
+              onBack={onBack}
+              label="Back to Area View"
+              historyKey="area-view-add-location"
+              useHistoryLayer={false}
+              className="h-11 w-11 bg-slate-100 text-slate-900"
+              iconSize={21}
+            />
+            <div className="min-w-0">
+              <h2 className="truncate text-xl font-black">Add Location</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Add local places that are missing from normal maps.</p>
+            </div>
           </div>
-
-          <button type="button" onClick={onClose} className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold">
-            Close
-          </button>
+        </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <FormInput label="Place name" placeholder="Example: Musa Mini Mart" />
+        <div className="overflow-y-auto p-4">
+        {status ? (
+          <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${
+            hasSelectedLocation ? "border-green-100 bg-green-50 text-green-800" : "border-amber-100 bg-amber-50 text-amber-800"
+          }`}>
+            {status}
+          </div>
+        ) : null}
+
+        {hasSelectedLocation ? (
+          <div className="mb-4 rounded-2xl border border-green-100 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">Selected map point</p>
+            <p className="mt-1 text-sm font-black text-slate-950">{draft.address || "Pinned location"}</p>
+            {selectedLocationLabel ? <p className="mt-1 text-xs font-bold text-green-700">{selectedLocationLabel}</p> : null}
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormInput
+            label="Place name"
+            value={draft.name}
+            onChange={(value) => onChange("name", value)}
+            placeholder="Example: Musa Mini Mart"
+          />
 
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-slate-700">Category</span>
             <select
               value={category}
-              onChange={(event) => setCategory(event.target.value)}
+              onChange={(event) => onChange("category", event.target.value)}
               className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none"
             >
               {addCategories.map((item) => (
@@ -1697,43 +2085,132 @@ function AddLocationPanel({ onClose }) {
           </label>
 
           {category === "Other" ? (
-            <FormInput label="Category name" placeholder="Example: Garage, mosque, office, junction..." />
+            <FormInput
+              label="Category name"
+              value={draft.categoryName}
+              onChange={(value) => onChange("categoryName", value)}
+              placeholder="Example: Garage, mosque, office, junction..."
+            />
           ) : null}
 
-          <FormInput label="Street / address" placeholder="Street, junction, or area" />
-          <FormInput label="Landmark" placeholder="Near school, mosque, market..." />
-          <FormInput label="Phone optional" placeholder="+232..." />
-          <FormInput label="Opening hours optional" placeholder="8 AM - 9 PM" />
+          <FormInput
+            label="Street / address"
+            value={draft.address}
+            onChange={(value) => onChange("address", value)}
+            placeholder="Street, junction, or area"
+          />
+          <FormInput
+            label="Landmark"
+            value={draft.landmark}
+            onChange={(value) => onChange("landmark", value)}
+            placeholder="Near school, mosque, market..."
+          />
+          <FormInput
+            label="Phone optional"
+            value={draft.phone}
+            onChange={(value) => onChange("phone", value)}
+            placeholder="+232..."
+          />
+          <FormInput
+            label="Opening hours optional"
+            value={draft.openingHours}
+            onChange={(value) => onChange("openingHours", value)}
+            placeholder="8 AM - 9 PM"
+          />
         </div>
 
         <label className="mt-3 block">
           <span className="mb-2 block text-sm font-bold text-slate-700">Why is this place useful?</span>
           <textarea
             rows="3"
+            value={draft.description}
+            onChange={(event) => onChange("description", event.target.value)}
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none"
             placeholder="Pickup point, safe waiting spot, shop landmark, emergency help..."
           />
         </label>
 
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button type="button" className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-bold text-slate-700">
+        <div className="sticky bottom-0 -mx-4 mt-4 grid gap-2 border-t border-slate-100 bg-white/95 p-4 backdrop-blur sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={onLocateMe}
+            disabled={busy}
+            className="h-11 rounded-2xl border border-green-200 bg-green-50 px-4 text-sm font-black text-green-700 disabled:opacity-60"
+          >
+            Locate Me
+          </button>
+
+          <button
+            type="button"
+            onClick={onDropPin}
+            disabled={busy}
+            className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-700 disabled:opacity-60"
+          >
             Drop Pin
           </button>
 
-          <button type="button" onClick={onClose} className="h-11 rounded-2xl bg-green-600 px-4 text-sm font-bold text-white">
-            Submit for Review
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={busy}
+            className="h-11 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:opacity-60"
+          >
+            {busy ? "Please wait..." : "Submit for Review"}
           </button>
         </div>
+        </div>
+
+        {cautionOpen ? (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+            <div className="relative w-full max-w-md rounded-3xl bg-white p-5 text-slate-950 shadow-2xl">
+              <button
+                type="button"
+                onClick={onCloseCaution}
+                className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
+                aria-label="Cancel locate me"
+              >
+                <FiX size={18} />
+              </button>
+              <div className="pl-11">
+                <p className="text-xs font-black uppercase tracking-wide text-green-700">Confirm location</p>
+                <h3 className="mt-1 text-xl font-black">Be at the exact location</h3>
+              </div>
+              <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+                Please make sure you are standing at the exact place you want to add. KunThai will use your device location to help reviewers place this location correctly.
+              </p>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={onConfirmLocateMe}
+                  disabled={busy}
+                  className="h-11 rounded-2xl bg-green-600 text-sm font-black text-white disabled:opacity-60"
+                >
+                  Yes, locate me
+                </button>
+                <button
+                  type="button"
+                  onClick={onDropPin}
+                  disabled={busy}
+                  className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 disabled:opacity-60"
+                >
+                  Drop a pin
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   );
 }
-function FormInput({ label, placeholder }) {
+function FormInput({ label, onChange, placeholder, value }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
       <input
         placeholder={placeholder}
+        value={value || ""}
+        onChange={(event) => onChange?.(event.target.value)}
         className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none placeholder:text-slate-400"
       />
     </label>

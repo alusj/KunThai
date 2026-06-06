@@ -98,6 +98,28 @@ function buildSafety(row) {
   return items;
 }
 
+async function getCurrentPassenger(message = "Sign in to review this operator.") {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user?.id) throw new Error(message);
+
+  const meta = data.user.user_metadata || {};
+  return {
+    id: data.user.id,
+    name: meta.full_name || meta.name || meta.username || data.user.email?.split("@")[0] || "Passenger",
+  };
+}
+
+function mapOperatorReview(row) {
+  return {
+    id: row.id,
+    passengerName: row.passenger_name || "Passenger",
+    rating: Number(row.rating || 0),
+    reviewText: row.review_text || "",
+    responseText: row.response_text || "",
+    createdAt: row.created_at,
+  };
+}
+
 function mapLiveFleet(row) {
   const operator = row.transport_operators || {};
   const serviceCategory = displayCategory(row.service_category);
@@ -245,4 +267,49 @@ export async function fetchTransportFleetById(id) {
   }
 
   return data ? mapLiveFleet(data) : null;
+}
+
+export async function fetchTransportFleetReviews(fleet) {
+  const operatorId = fleet?.operatorRecordId || fleet?.operator_id || fleet?.operatorId;
+  if (!operatorId) return [];
+
+  const { data, error } = await supabase
+    .from("transport_operator_reviews")
+    .select("*")
+    .eq("operator_id", operatorId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    throw new Error(error.message || "Unable to load operator reviews.");
+  }
+
+  return (data || []).map(mapOperatorReview);
+}
+
+export async function submitTransportFleetReview(fleet, { rating, reviewText }) {
+  const passenger = await getCurrentPassenger();
+  const operatorId = fleet?.operatorRecordId || fleet?.operator_id || fleet?.operatorId;
+  const score = Number(rating || 0);
+
+  if (!operatorId) throw new Error("Operator review record is not available yet.");
+  if (score < 1) throw new Error("Choose a rating before submitting your review.");
+
+  const { data, error } = await supabase
+    .from("transport_operator_reviews")
+    .insert({
+      operator_id: operatorId,
+      passenger_name: passenger.name,
+      rating: score,
+      review_text: String(reviewText || "").trim(),
+      created_at: new Date().toISOString(),
+    })
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || "Unable to submit this review.");
+  }
+
+  return data ? mapOperatorReview(data) : null;
 }

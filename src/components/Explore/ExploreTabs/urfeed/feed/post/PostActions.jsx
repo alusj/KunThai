@@ -1,6 +1,5 @@
 import { createElement } from "react";
 import {
-  HiOutlineBookmark,
   HiOutlineChatBubbleOvalLeft,
   HiOutlineHandThumbUp,
   HiOutlineShare,
@@ -29,12 +28,11 @@ function ActionButton({ active, icon, label, meta, onClick }) {
   );
 }
 
-export default function PostActions({ post, liked, saved, onLike, onComment, onSave, onShare }) {
+export default function PostActions({ post, liked, onLike, onComment, onShare }) {
   return (
-    <div className="grid grid-cols-4 gap-1 border-t border-slate-100 px-2 py-2">
+    <div className="grid grid-cols-3 gap-1 border-t border-slate-100 px-2 py-2">
       <ActionButton active={liked} icon={HiOutlineHandThumbUp} label="Like" meta={post.likes_count ?? 0} onClick={onLike} />
-      <ActionButton icon={HiOutlineChatBubbleOvalLeft} label="Comment" meta={post.comments_count ?? 0} onClick={onComment} />
-      <ActionButton active={saved} icon={HiOutlineBookmark} label="Save" meta={post.saves_count ?? 0} onClick={onSave} />
+      <ActionButton icon={HiOutlineChatBubbleOvalLeft} label="Comments" meta={post.comments_count ?? 0} onClick={onComment} />
       <ActionButton icon={HiOutlineShare} label="Share" onClick={onShare} />
     </div>
   );

@@ -13,6 +13,7 @@ import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import { getOperatorAccount } from "../services/transportOperatorAccountService";
+import { submitTransportSupportTicket } from "../services/bookingService";
 
 export default function Transport({ onActivityChange, areaViewRequest = null }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
@@ -160,6 +161,37 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   function handleBookVerificationFleet() {
     if (!verificationFleet) return;
     setBookingTarget({ fleet: verificationFleet });
+  }
+
+  async function handleReportVerificationConcern(fleetOrPayload, maybePayload) {
+    const fleet = maybePayload ? fleetOrPayload : verificationFleet;
+    const payload = maybePayload || fleetOrPayload || {};
+
+    if (!fleet) {
+      throw new Error("Select the operator again so KunThai can attach the correct fleet record.");
+    }
+
+    const reason = payload.reason || "Verification concern";
+    const message = String(payload.message || "").trim();
+    const supportBody = [
+      `Reason: ${reason}`,
+      `Operator: ${fleet.operatorName || fleet.fleetName || "Transport operator"}`,
+      `Fleet: ${fleet.fleetName || "Fleet name unavailable"}`,
+      `Fleet ID: ${fleet.id || "Unavailable"}`,
+      `Operator record: ${fleet.operatorRecordId || "Unavailable"}`,
+      `Display code: ${fleet.operatorId || "Unavailable"}`,
+      `Plate: ${fleet.plateNumber || "Unavailable"}`,
+      `Verification status: ${fleet.verificationStatus || "Unknown"}`,
+      "",
+      message,
+    ].join("\n");
+
+    return submitTransportSupportTicket({
+      fleetId: fleet.id || fleet.operatorRecordId || "",
+      topic: "Operator verification concern",
+      priority: reason === "Safety concern" ? "high" : "normal",
+      body: supportBody,
+    });
   }
 
   useEffect(() => {
@@ -339,6 +371,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onContinue={handleContinueWithVerification}
           onChooseVerified={handleChooseVerifiedOperators}
           onBookOperator={handleBookVerificationFleet}
+          onReportConcern={handleReportVerificationConcern}
         />
         {renderBookingDrawer()}
       </div>
@@ -369,6 +402,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onContinue={handleContinueWithVerification}
           onChooseVerified={handleChooseVerifiedOperators}
           onBookOperator={handleBookVerificationFleet}
+          onReportConcern={handleReportVerificationConcern}
         />
         {renderBookingDrawer()}
       </div>
@@ -398,6 +432,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onContinue={handleContinueWithVerification}
           onChooseVerified={handleChooseVerifiedOperators}
           onBookOperator={handleBookVerificationFleet}
+          onReportConcern={handleReportVerificationConcern}
         />
         {renderBookingDrawer()}
       </div>
@@ -428,6 +463,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onContinue={handleContinueWithVerification}
           onChooseVerified={handleChooseVerifiedOperators}
           onBookOperator={handleBookVerificationFleet}
+          onReportConcern={handleReportVerificationConcern}
         />
         {renderBookingDrawer()}
       </div>
@@ -490,6 +526,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         }}
         onOpenBooking={(target) => setBookingTarget(target)}
         onLocateArea={openNearbyAreaRoute}
+        onReportConcern={handleReportVerificationConcern}
       />
       {renderBookingDrawer()}
     </div>

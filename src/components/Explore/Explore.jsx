@@ -85,15 +85,22 @@ export default function Explore({ active = true, onScreenModeChange, user = null
   const stackCleanupTimerRef = useRef(null);
   const postingNoticeClearTimerRef = useRef(null);
   const exploreNav = useExploreNavigation(MENU_SCREENS);
-  const navHidden = useScrollHidden();
+  const { activeTab, activeMenuScreen, menuStack } = exploreNav;
+  const isSwipTab = activeTab === "Swip";
+  const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
+  const navHidden = useScrollHidden({
+    enabled: active && !menuOverlayVisible,
+    threshold: 72,
+    hideDistance: 72,
+    showDistance: 52,
+    minScrollY: 96,
+    cooldownMs: 280,
+  });
   const authProfile = buildExploreProfileFromUser(user);
   const profile = profileOverride || authProfile;
   const currentUserId = profile?.userId || user?.id || "";
-  const { activeTab, activeMenuScreen, menuStack } = exploreNav;
-  const isSwipTab = activeTab === "Swip";
   const profileExists = !authLoading && Boolean(user?.id && profile);
   const showProfileSkeleton = false;
-  const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
   const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, {
@@ -635,25 +642,11 @@ setProfileError("");
       ========================= */}
       <div
         ref={topChromeRef}
-        className={`sticky top-0 z-30 overflow-hidden ${
-          isSwipTab
-            ? "bg-slate-100/95 backdrop-blur"
-            : `bg-slate-100/95 backdrop-blur transition-[max-height,opacity,transform] duration-300 ${
-                navHidden ? "max-h-0 -translate-y-2 opacity-0 pointer-events-none" : "max-h-56 translate-y-0 opacity-100"
-              }`
+        className={`sticky top-0 z-30 overflow-hidden bg-slate-100/95 backdrop-blur transition-[max-height,opacity,transform] duration-300 ease-out ${
+          navHidden ? "max-h-0 -translate-y-2 opacity-0 pointer-events-none" : "max-h-56 translate-y-0 opacity-100"
         }`}
       >
-        <div
-          className={
-            isSwipTab
-              ? `overflow-hidden transition-[max-height,opacity,transform] duration-300 ${
-                  navHidden
-                    ? "max-h-0 -translate-y-2 opacity-0 pointer-events-none"
-                    : "max-h-40 translate-y-0 opacity-100"
-                }`
-              : ""
-          }
-        >
+        <div>
           {!isSwipTab ? (
             <ExploreHeader
               currentProfile={profile}

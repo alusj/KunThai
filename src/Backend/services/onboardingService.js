@@ -56,11 +56,15 @@ function hasExplicitOnboardingState(user) {
 
 function hasUsableReturningProfile(profile = {}) {
   const displayName = String(profile.displayName || profile.display_name || "").trim();
+  const businessName = String(profile.businessName || profile.business_name || profile.name || "").trim();
+  const fullName = String(profile.fullName || profile.full_name || "").trim();
   const username = String(profile.username || "").trim();
   const email = String(profile.email || profile.contact_email || "").trim();
 
   return Boolean(
     (displayName && displayName.toLowerCase() !== "profile") ||
+      businessName ||
+      fullName ||
       (username && username.toLowerCase() !== "user") ||
       email,
   );
@@ -82,12 +86,77 @@ function mergeExploreProfile(authProfile, row) {
   };
 }
 
+function mergeMarketplaceProfile(authProfile, row) {
+  if (!row) return authProfile;
+
+  return {
+    ...authProfile,
+    displayName: authProfile.displayName || row.business_name || "UrMall seller",
+    email: row.email || authProfile.email,
+    phone: row.phone || authProfile.phone,
+    city: row.city || authProfile.city,
+    country: row.country || authProfile.country,
+    address: row.address || authProfile.address,
+    avatarUrl: row.logo_url || authProfile.avatarUrl,
+    bio: row.description || authProfile.bio,
+    accountType: "business",
+    primarySurface: "marketplace",
+  };
+}
+
+function mergeTransportOperatorProfile(authProfile, row) {
+  if (!row) return authProfile;
+
+  return {
+    ...authProfile,
+    displayName: row.full_name || authProfile.displayName || "Transport operator",
+    phone: row.phone || authProfile.phone,
+    city: row.city || authProfile.city,
+    accountType: "operator",
+    primarySurface: "transport",
+  };
+}
+
 async function fetchStoredExploreProfile(userId) {
   if (!userId) return null;
 
   const { data, error } = await supabase
     .from("explore_profiles")
     .select("user_id, display_name, username, contact_email, address, avatar_url, bio, social_links, account_type")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
+
+  return data || null;
+}
+
+async function fetchStoredMarketplaceBusiness(userId) {
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from("marketplace_businesses")
+    .select("id, business_name, description, country, city, address, phone, email, logo_url, updated_at, created_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
+
+  return data || null;
+}
+
+async function fetchStoredTransportOperator(userId) {
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from("transport_operators")
+    .select("id, full_name, phone, city, profile_completed_at, updated_at, created_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -122,6 +191,46 @@ async function syncReturningOnboardingMetadata(profile) {
   }
 }
 
+async function readReturningProfiles(userId) {
+  const [exploreProfile, marketplaceBusiness, transportOperator] = await Promise.all([
+    fetchStoredExploreProfile(userId).catch((error) => {
+      console.warn("[KunThai onboarding] Unable to read stored Explore profile.", error);
+      return null;
+    }),
+    fetchStoredMarketplaceBusiness(userId).catch((error) => {
+      console.warn("[KunThai onboarding] Unable to read stored UrMall profile.", error);
+      return null;
+    }),
+    fetchStoredTransportOperator(userId).catch((error) => {
+      console.warn("[KunThai onboarding] Unable to read stored transport profile.", error);
+      return null;
+    }),
+  ]);
+
+  return { exploreProfile, marketplaceBusiness, transportOperator };
+}
+
+function chooseReturningProfile(authProfile, records) {
+  const exploreProfile = hasUsableReturningProfile(records.exploreProfile)
+    ? {
+        ...mergeExploreProfile(authProfile, records.exploreProfile),
+        primarySurface: authProfile.primarySurface || DEFAULT_NAV,
+      }
+    : null;
+  const marketplaceProfile = hasUsableReturningProfile(records.marketplaceBusiness)
+    ? mergeMarketplaceProfile(authProfile, records.marketplaceBusiness)
+    : null;
+  const transportProfile = hasUsableReturningProfile(records.transportOperator)
+    ? mergeTransportOperatorProfile(authProfile, records.transportOperator)
+    : null;
+
+  if (authProfile.primarySurface === "transport" && transportProfile) return transportProfile;
+  if (authProfile.primarySurface === "marketplace" && marketplaceProfile) return marketplaceProfile;
+  if (authProfile.primarySurface === "explore" && exploreProfile) return exploreProfile;
+
+  return exploreProfile || transportProfile || marketplaceProfile || null;
+}
+
 export async function getOnboardingProfile(sessionUser = null) {
   let user = sessionUser;
 
@@ -138,19 +247,16 @@ export async function getOnboardingProfile(sessionUser = null) {
   }
 
   const authProfile = buildProfileFromUser(user);
-  if (authProfile.onboardingComplete || hasExplicitOnboardingState(user)) {
+  if (authProfile.onboardingComplete) {
     return authProfile;
   }
 
-  let storedProfile = null;
-  try {
-    storedProfile = await fetchStoredExploreProfile(user.id);
-  } catch (error) {
-    console.warn("[KunThai onboarding] Unable to read stored Explore profile.", error);
-  }
-  if (hasUsableReturningProfile(storedProfile)) {
+  const returningRecords = await readReturningProfiles(user.id);
+  const matchedReturningProfile = chooseReturningProfile(authProfile, returningRecords);
+
+  if (matchedReturningProfile) {
     const returningProfile = {
-      ...mergeExploreProfile(authProfile, storedProfile),
+      ...matchedReturningProfile,
       onboardingComplete: true,
       onboardingStep: 4,
     };
@@ -177,6 +283,10 @@ export async function getOnboardingProfile(sessionUser = null) {
       onboardingComplete: true,
       onboardingStep: 4,
     };
+  }
+
+  if (hasExplicitOnboardingState(user)) {
+    return authProfile;
   }
 
   return authProfile;

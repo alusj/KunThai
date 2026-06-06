@@ -5,6 +5,15 @@ function getOtherParticipant(conversation, currentUserId) {
   return conversation.participants?.[otherId] || {};
 }
 
+function getConversationPreview(conversation, username) {
+  const message = conversation.lastMessage;
+  if (message?.body) return message.body;
+  if (message?.type === "image") return "Photo";
+  if (message?.type === "audio") return "Voice note";
+  if (message?.type === "video") return "Video";
+  return `@${username || "user"}`;
+}
+
 export default function ConversationRow({ conversation, currentUserId, onOpen, onViewProfile }) {
   const user = getOtherParticipant(conversation, currentUserId);
 
@@ -38,7 +47,7 @@ export default function ConversationRow({ conversation, currentUserId, onOpen, o
           ) : null}
         </span>
         <span className="mt-1 block truncate text-sm font-semibold text-slate-500">
-          {conversation.lastMessage?.body || `@${user.username || "user"}`}
+          {getConversationPreview(conversation, user.username)}
         </span>
       </span>
     </button>

@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { uploadMediaDataUrl } from "./mediaService";
 
 const CONVERSATIONS_KEY = "explore-message-conversations";
 const MESSAGES_KEY = "explore-message-items";
@@ -75,9 +76,39 @@ function normalizeMessage(row) {
     senderId: row.sender_id || row.senderId,
     body: row.body || "",
     type: row.type || row.media_type || "text",
+    mediaUrl: row.media_url || row.mediaUrl || "",
     read: Boolean(row.read),
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
   };
+}
+
+function normalizeMessageInput(input) {
+  if (typeof input === "string") {
+    return { body: input.trim(), mediaUrl: "", type: "text" };
+  }
+
+  const body = String(input?.body || "").trim();
+  const mediaUrl = String(input?.media_url || input?.mediaUrl || "").trim();
+  const requestedType = String(input?.type || input?.media_type || "").toLowerCase();
+  const type = ["image", "audio", "video"].includes(requestedType)
+    ? requestedType
+    : mediaUrl
+      ? "image"
+      : "text";
+
+  return {
+    body,
+    mediaUrl,
+    type: mediaUrl ? type : "text",
+  };
+}
+
+function getMessagePreview(message) {
+  if (message.body) return message.body;
+  if (message.type === "image") return "Photo";
+  if (message.type === "audio") return "Voice note";
+  if (message.type === "video") return "Video";
+  return "Message";
 }
 
 async function fetchConversationMemberRows(conversationIds = []) {
@@ -424,19 +455,25 @@ async function insertExploreConversationDraft(draft) {
 }
 
 export async function sendExploreMessage(conversationId, senderProfile, body, options = {}) {
-  const text = String(body || "").trim();
-  if (!conversationId || !text) return null;
+  const draft = normalizeMessageInput(body);
+  if (!conversationId || (!draft.body && !draft.mediaUrl)) return null;
 
   const senderId = senderProfile?.userId || senderProfile?.id || "me";
+  const isLocalConversation = isLocalConversationId(conversationId);
+  const mediaUrl = !isLocalConversation && draft.mediaUrl
+    ? await uploadMediaDataUrl(draft.mediaUrl, draft.type, senderId)
+    : draft.mediaUrl;
   const message = {
     id: `message-${Date.now()}`,
     conversationId,
     senderId,
-    body: text,
-    type: "text",
+    body: draft.body,
+    type: draft.mediaUrl ? draft.type : "text",
+    mediaUrl,
     read: false,
     createdAt: new Date().toISOString(),
   };
+  const preview = getMessagePreview(message);
 
   if (!options.optimisticManaged) {
     const messages = readArray(MESSAGES_KEY, senderId);
@@ -444,25 +481,39 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
   }
 
   const conversations = readArray(CONVERSATIONS_KEY, senderId).map((conversation) =>
-    conversation.id === conversationId ? { ...conversation, updatedAt: message.createdAt } : conversation,
+    conversation.id === conversationId ? { ...conversation, preview, updatedAt: message.createdAt } : conversation,
   );
   writeArray(CONVERSATIONS_KEY, conversations, senderId);
   if (!options.optimisticManaged) {
     window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
   }
 
-  if (isLocalConversationId(conversationId)) {
+  if (isLocalConversation) {
     return message;
   }
 
-  const { data, error } = await supabase.from("explore_messages").insert({
+  const payload = {
     conversation_id: conversationId,
     sender_id: senderId,
     body: message.body,
     media_type: message.type,
+    media_url: message.mediaUrl,
     read: message.read,
     created_at: message.createdAt,
-  }).select().single();
+  };
+
+  let { data, error } = await supabase.from("explore_messages").insert(payload).select().single();
+
+  if (error && isMissingColumn(error, "media_url")) {
+    if (message.mediaUrl && !message.body) {
+      throw new Error("Media messages need the latest Explore message schema.");
+    }
+
+    const { media_url: _mediaUrl, media_type: _mediaType, ...textOnlyPayload } = payload;
+    const retry = await supabase.from("explore_messages").insert({ ...textOnlyPayload, media_type: "text" }).select().single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     if (isMissingMessageStore(error)) return message;

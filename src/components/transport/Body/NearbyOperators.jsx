@@ -30,7 +30,16 @@ function applyOperatorFilters(items, filters, destination) {
     .filter((operator) => matchesQuery(operator, destination));
 }
 
-export default function NearbyOperators({ filters, destination, pickup, onChooseVerified, onViewAll, onViewFleet, onOpenBooking }) {
+export default function NearbyOperators({
+  filters,
+  destination,
+  pickup,
+  onChooseVerified,
+  onViewAll,
+  onViewFleet,
+  onOpenBooking,
+  onReportConcern,
+}) {
   const [activeOperator, setActiveOperator] = useState(null);
   const [operators, setOperators] = useState(() => getTransportFleets({ mode: "topRated", fleetType: null }).slice(0, 4));
   const [loading, setLoading] = useState(true);
@@ -168,6 +177,7 @@ export default function NearbyOperators({ filters, destination, pickup, onChoose
         onViewProfile={() => onViewFleet?.(activeOperator?.id)}
         onContinue={() => setActiveOperator(null)}
         onChooseVerified={onChooseVerified}
+        onReportConcern={(payload) => onReportConcern?.(activeOperator, payload)}
         onBookOperator={() =>
           activeOperator &&
           onOpenBooking?.({
