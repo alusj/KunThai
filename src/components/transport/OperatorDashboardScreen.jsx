@@ -1200,7 +1200,7 @@ function OperatorAlertsDrawer({
       />
 
       <section
-        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-hidden bg-white shadow-2xl ${
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-dvh max-h-dvh w-full max-w-md flex-col overflow-hidden bg-white shadow-2xl ${
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
@@ -1221,7 +1221,7 @@ function OperatorAlertsDrawer({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4">
+        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-gray-50 px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-3">
             {alerts.length ? alerts.map((alert) => (
               <article key={alert.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -1727,7 +1727,7 @@ function OperatorMenuDrawer({
       />
 
       <aside
-        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-sm flex-col bg-white shadow-2xl ${
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-dvh max-h-dvh w-full max-w-sm flex-col overflow-hidden bg-white shadow-2xl ${
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
@@ -1748,7 +1748,7 @@ function OperatorMenuDrawer({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        <div className="min-h-0 flex-1 touch-pan-y space-y-5 overflow-y-auto overscroll-contain px-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-5 [-webkit-overflow-scrolling:touch]">
           <section className="rounded-2xl border border-green-100 bg-green-50 p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
