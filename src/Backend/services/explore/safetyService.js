@@ -199,7 +199,7 @@ export function contentHasModerationFlags(value) {
 }
 
 export async function moderateExplorePost({ body = "", media = {}, signal = undefined }) {
-  const response = await fetch("/api/moderate-post", {
+  const response = await fetch(`${window.location.origin}/api/moderate-post`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
