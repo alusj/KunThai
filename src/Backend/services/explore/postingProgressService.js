@@ -3,6 +3,7 @@ export const POSTING_NOTICE_EVENT = "explore-posting-update";
 const POSTING_NOTICE_KEY = "explore-posting-notice";
 const VIDEO_REVIEW_JOBS_KEY = "explore-video-review-jobs";
 const MAX_VIDEO_REVIEW_JOBS = 6;
+const COMPLETE_NOTICE_TTL_MS = 4500;
 
 function canUseStorage() {
   return typeof localStorage !== "undefined";
@@ -23,7 +24,8 @@ function now() {
 export function normalizePostingNotice(detail = {}) {
   const timestamp = now();
   const status = String(detail.status || "posting");
-  const persistent = detail.persistent ?? true;
+  const isComplete = status === "complete";
+  const persistent = detail.persistent ?? !isComplete;
 
   return {
     id: detail.id || `notice-${timestamp}`,
@@ -36,7 +38,7 @@ export function normalizePostingNotice(detail = {}) {
     persistent,
     pulse: detail.pulse ?? !["complete", "error"].includes(status),
     updatedAt: detail.updatedAt || timestamp,
-    expiresAt: persistent ? null : detail.expiresAt || null,
+    expiresAt: persistent ? null : detail.expiresAt || (isComplete ? timestamp + COMPLETE_NOTICE_TTL_MS : null),
   };
 }
 
@@ -45,6 +47,11 @@ export function readPostingNotice() {
 
   const notice = safeJsonParse(localStorage.getItem(POSTING_NOTICE_KEY) || "null", null);
   if (!notice || typeof notice !== "object") return null;
+
+  if (notice.status === "complete" && !notice.expiresAt) {
+    clearPostingNotice(notice.id);
+    return null;
+  }
 
   if (notice.expiresAt && Number(notice.expiresAt) <= now()) {
     clearPostingNotice(notice.id);

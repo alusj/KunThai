@@ -30,7 +30,10 @@ export function normalizeAreaLocation(location, fallbackAddress = "") {
     address,
     name: location.name || location.label || address || "Selected location",
     label: location.label || address || "Selected location",
-    coordinates: lat != null && lng != null ? { latitude: lat, longitude: lng } : location.coordinates || null,
+    coordinates:
+      lat != null && lng != null
+        ? { latitude: lat, longitude: lng }
+        : location.coordinates || null,
   };
 }
 
@@ -49,54 +52,138 @@ function pointKey(point) {
 export function useAddressAreaValidation(address, options = {}) {
   const { center = null, enabled = true, selectedPoint = null, minLength = 3 } = options;
   const [state, setState] = useState({ status: "idle", result: null, message: "" });
+
   const centerKey = useMemo(() => pointKey(center), [center]);
   const selectedPointKey = useMemo(() => pointKey(selectedPoint), [selectedPoint]);
 
+  const selectedLocation = useMemo(
+    () => normalizeAreaLocation(selectedPoint, address),
+    [selectedPointKey, address],
+  );
+
   useEffect(() => {
-    const selectedLocation = normalizeAreaLocation(selectedPoint, address);
     if (selectedLocation?.lat != null && selectedLocation?.lng != null) {
-      setState({
-        status: "found",
-        result: selectedLocation,
-        message: "Location found in Area View.",
+      setState((current) => {
+        const nextKey = pointKey(selectedLocation);
+        const currentKey = pointKey(current.result);
+
+        if (
+          current.status === "found" &&
+          currentKey === nextKey &&
+          current.message === "Location found in Area View."
+        ) {
+          return current;
+        }
+
+        return {
+          status: "found",
+          result: selectedLocation,
+          message: "Location found in Area View.",
+        };
       });
+
       return undefined;
     }
 
     const text = String(address || "").trim();
+
     if (!enabled || text.length < minLength) {
-      setState({ status: "idle", result: null, message: "" });
+      setState((current) => {
+        if (current.status === "idle" && !current.result && !current.message) {
+          return current;
+        }
+
+        return { status: "idle", result: null, message: "" };
+      });
+
       return undefined;
     }
 
     let alive = true;
+
     const timer = window.setTimeout(async () => {
-      setState({ status: "searching", result: null, message: "Checking Area View..." });
-      const results = await searchLocations(text, center, { limit: 3 });
-      if (!alive) return;
+      setState((current) => {
+        if (current.status === "searching" && current.message === "Checking Area View...") {
+          return current;
+        }
 
-      const match = normalizeAreaLocation(results?.[0], text);
-      if (match?.lat != null && match?.lng != null) {
-        setState({
-          status: "found",
-          result: match,
-          message: "Location found in Area View.",
-        });
-        return;
-      }
-
-      setState({
-        status: "notFound",
-        result: null,
-        message: "Location unknown or unfindable in Area View.",
+        return {
+          status: "searching",
+          result: null,
+          message: "Checking Area View...",
+        };
       });
+
+      try {
+        const results = await searchLocations(text, center, { limit: 3 });
+        if (!alive) return;
+
+        const match = normalizeAreaLocation(results?.[0], text);
+
+        if (match?.lat != null && match?.lng != null) {
+          setState((current) => {
+            const nextKey = pointKey(match);
+            const currentKey = pointKey(current.result);
+
+            if (
+              current.status === "found" &&
+              currentKey === nextKey &&
+              current.message === "Location found in Area View."
+            ) {
+              return current;
+            }
+
+            return {
+              status: "found",
+              result: match,
+              message: "Location found in Area View.",
+            };
+          });
+
+          return;
+        }
+
+        setState((current) => {
+          if (
+            current.status === "notFound" &&
+            !current.result &&
+            current.message === "Location unknown or unfindable in Area View."
+          ) {
+            return current;
+          }
+
+          return {
+            status: "notFound",
+            result: null,
+            message: "Location unknown or unfindable in Area View.",
+          };
+        });
+      } catch {
+        if (!alive) return;
+
+        setState((current) => {
+          if (
+            current.status === "notFound" &&
+            !current.result &&
+            current.message === "Location unknown or unfindable in Area View."
+          ) {
+            return current;
+          }
+
+          return {
+            status: "notFound",
+            result: null,
+            message: "Location unknown or unfindable in Area View.",
+          };
+        });
+      }
     }, 520);
 
     return () => {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [address, center, centerKey, enabled, minLength, selectedPoint, selectedPointKey]);
+  }, [address, center, centerKey, enabled, minLength, selectedLocation]);
 
   return state;
 }
@@ -138,9 +225,17 @@ export function AddressAreaResolutionCard({
 
   if (isFound || isSearching) {
     return (
-      <div className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs font-bold leading-5 ${isFound ? foundClasses : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+      <div
+        className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs font-bold leading-5 ${
+          isFound ? foundClasses : "border-slate-200 bg-slate-50 text-slate-600"
+        }`}
+      >
         <AddressAreaStatusIcon status={status} className="mt-0.5 shrink-0" />
-        <span>{isSearching ? "Checking Area View for this address..." : "Location found in Area View. You can continue or refine it with a pin if needed."}</span>
+        <span>
+          {isSearching
+            ? "Checking Area View for this address..."
+            : "Location found in Area View. You can continue or refine it with a pin if needed."}
+        </span>
       </div>
     );
   }
@@ -156,6 +251,7 @@ export function AddressAreaResolutionCard({
           </p>
         </div>
       </div>
+
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
@@ -165,6 +261,7 @@ export function AddressAreaResolutionCard({
           <LocateFixed size={15} />
           {locateLabel}
         </button>
+
         <button
           type="button"
           onClick={onDropPin}
