@@ -24,7 +24,9 @@ function dataUrlToFile(dataUrl, filename = "upload.bin") {
   const [meta, base64] = String(dataUrl || "").split(",");
   const mime = meta?.match(/^data:(.*?);base64$/)?.[1] || "application/octet-stream";
   const buffer = Buffer.from(base64 || "", "base64");
-  return new File([buffer], filename, { type: mime });
+  const blob = new Blob([buffer], { type: mime });
+
+  return typeof File !== "undefined" ? new File([blob], filename, { type: mime }) : blob;
 }
 
 const LOCAL_TEXT_RULES = [
@@ -57,7 +59,12 @@ const SIGHTENGINE_RULES = [
   { flag: "drugs", threshold: 0.9, paths: [["recreational_drug"]] },
   { flag: "gore", threshold: 0.85, paths: [["gore", "prob"], ["gore"]] },
   { flag: "offensive", threshold: 0.9, paths: [["offensive", "prob"], ["offensive"]] },
+  { flag: "violence", threshold: 0.92, paths: [["violence", "prob"], ["violence"]] },
+  { flag: "self_harm", threshold: 0.88, paths: [["self-harm", "prob"], ["self_harm", "prob"], ["self_harm"]] },
 ];
+
+const SIGHTENGINE_IMAGE_MODELS = "nudity-2.1,weapon,recreational_drug,offensive,gore-2.0";
+const SIGHTENGINE_VIDEO_MODELS = "nudity-2.1,weapon,recreational_drug,offensive,gore-2.0,violence,self-harm";
 
 function isSafeKey(key) {
   const value = String(key || "").toLowerCase();
@@ -106,6 +113,37 @@ function getSightengineFlags(data) {
   );
 }
 
+function getSightengineVideoFlags(data) {
+  const frames = Array.isArray(data?.data?.frames)
+    ? data.data.frames
+    : Array.isArray(data?.frames)
+      ? data.frames
+      : [];
+  const flags = new Map();
+
+  for (const frame of frames.length ? frames : [data]) {
+    const position = frame?.info?.position;
+
+    for (const flag of getSightengineFlags(frame)) {
+      const [name, score = "0"] = flag.split(":");
+      const current = flags.get(name);
+      const nextScore = Number(score || 0);
+
+      if (!current || nextScore > current.score) {
+        flags.set(name, {
+          score: nextScore,
+          position,
+        });
+      }
+    }
+  }
+
+  return Array.from(flags.entries()).map(([flag, detail]) => {
+    const suffix = Number.isFinite(Number(detail.position)) ? `@${detail.position}ms` : "";
+    return `${flag}:${detail.score.toFixed(2)}${suffix}`;
+  });
+}
+
 async function moderateImageWithSightengine(imageDataUrl, filename = "image.jpg") {
   if (!isDataUrl(imageDataUrl)) {
     return failedResult("sightengine-invalid-image", ["invalid-image-data"]);
@@ -121,8 +159,8 @@ async function moderateImageWithSightengine(imageDataUrl, filename = "image.jpg"
   try {
     const form = new FormData();
 
-    form.append("media", dataUrlToFile(imageDataUrl, filename));
-    form.append("models", "nudity-2.1,weapon,recreational_drug,offensive,gore-2.0");
+    form.append("media", dataUrlToFile(imageDataUrl, filename), filename);
+    form.append("models", SIGHTENGINE_IMAGE_MODELS);
     form.append("api_user", apiUser);
     form.append("api_secret", apiSecret);
 
@@ -147,6 +185,61 @@ async function moderateImageWithSightengine(imageDataUrl, filename = "image.jpg"
   } catch (error) {
     console.error("[Sightengine Image Check Failed]", error);
     return failedResult("sightengine-exception", ["sightengine-unavailable"]);
+  }
+}
+
+async function moderateVideoUrlWithSightengine(videoUrl) {
+  const safeUrl = String(videoUrl || "").trim();
+
+  if (!safeUrl || !/^https?:\/\//i.test(safeUrl)) {
+    return failedResult("sightengine-invalid-video-url", ["invalid-video-url"]);
+  }
+
+  const apiUser = process.env.SIGHTENGINE_USER;
+  const apiSecret = process.env.SIGHTENGINE_SECRET;
+
+  if (!apiUser || !apiSecret) {
+    return failedResult("sightengine-missing", ["sightengine-keys-missing"]);
+  }
+
+  try {
+    const form = new FormData();
+
+    form.append("stream_url", safeUrl);
+    form.append("models", SIGHTENGINE_VIDEO_MODELS);
+    form.append("api_user", apiUser);
+    form.append("api_secret", apiSecret);
+
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 55_000) : null;
+
+    let response;
+    try {
+      response = await fetch("https://api.sightengine.com/1.0/video/check-sync.json", {
+        method: "POST",
+        body: form,
+        signal: controller?.signal,
+      });
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data || data.status === "failure" || data.status === "error") {
+      return failedResult("sightengine-video-error", [
+        data?.error?.message || data?.error || "sightengine-video-check-failed",
+      ]);
+    }
+
+    const flags = getSightengineVideoFlags(data);
+
+    return flags.length
+      ? blockedResult("sightengine-video", flags)
+      : approvedResult("sightengine-video");
+  } catch (error) {
+    console.error("[Sightengine Video Check Failed]", error);
+    return failedResult("sightengine-video-exception", ["sightengine-video-unavailable"]);
   }
 }
 
@@ -207,11 +300,36 @@ export default async function handler(req, res) {
 
     if (media?.videoReviewRequired) {
       if (!videoFrames.length) {
+        if (media?.videoUrl) {
+          const videoResult = await moderateVideoUrlWithSightengine(media.videoUrl);
+          results.push(videoResult);
+
+          if (videoResult.status === "blocked") {
+            return json(res, 200, {
+              ok: false,
+              decision: "blocked",
+              reason: "This video cannot be published because it may violate KunThai safety rules.",
+              flags: videoResult.flags,
+              results,
+            });
+          }
+
+          if (videoResult.status === "approved") {
+            return json(res, 200, {
+              ok: true,
+              decision: "approved",
+              reason: "Video approved.",
+              flags: [],
+              results,
+            });
+          }
+        }
+
         return json(res, 200, {
           ok: false,
           decision: "failed",
-          reason: "KunThai could not extract video frames for safety scanning. Please try a shorter MP4 video.",
-          flags: ["video-frame-extraction-failed"],
+          reason: "KunThai could not finish the video safety scan immediately. The video can continue in background review.",
+          flags: ["video-review-needs-background-check"],
           results,
         });
       }

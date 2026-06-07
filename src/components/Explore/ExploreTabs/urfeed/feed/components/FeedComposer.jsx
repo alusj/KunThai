@@ -564,13 +564,32 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       let videoFrameExtractionFailed = false;
 
       if (finalVideoPreview) {
-        try {
-         videoFrameDataUrls = await extractVideoFramesFromDataUrl(finalVideoPreview, 6, {
-           start: postDraft.mediaMeta?.videoTrimStart || 0,
-            end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
-          });
-        } catch {
-          videoFrameDataUrls = [];
+        const frameSourceUrls = [];
+
+        if (
+          originalVideoFileRef.current &&
+          Number(originalVideoFileRef.current.size || 0) <= LARGE_VIDEO_BACKGROUND_REVIEW_BYTES
+        ) {
+          try {
+            frameSourceUrls.push(await fileToDataUrl(originalVideoFileRef.current));
+          } catch {
+            // Fall back to the preview URL below.
+          }
+        }
+
+        frameSourceUrls.push(finalVideoPreview);
+
+        for (const sourceUrl of Array.from(new Set(frameSourceUrls.filter(Boolean)))) {
+          try {
+            videoFrameDataUrls = await extractVideoFramesFromDataUrl(sourceUrl, 6, {
+              start: postDraft.mediaMeta?.videoTrimStart || 0,
+              end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
+            });
+          } catch {
+            videoFrameDataUrls = [];
+          }
+
+          if (videoFrameDataUrls.length) break;
         }
 
         videoFrameExtractionFailed = videoFrameDataUrls.length === 0;

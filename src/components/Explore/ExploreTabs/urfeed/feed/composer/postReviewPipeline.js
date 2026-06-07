@@ -54,13 +54,25 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
     if (!review?.ok) {
       const decision = review?.decision || "failed";
       const flags = review?.flags || [];
+      const canContinueVideoReview = Boolean(
+        media?.videoReviewRequired &&
+        media?.videoUrl &&
+        (
+          media?.videoFrameExtractionFailed ||
+          flags.includes("video-review-needs-background-check") ||
+          flags.includes("video-frame-extraction-failed")
+        ) &&
+        decision !== "blocked"
+      );
 
       logSafetyReview("post rejected", { decision, flags });
 
       return {
         ok: false,
-        retryable: false,
-        reason: review?.reason || "This post was stopped by KunThai safety review.",
+        retryable: canContinueVideoReview,
+        reason: canContinueVideoReview
+          ? "Your video has been uploaded. KunThai is finishing the safety review in the background."
+          : review?.reason || "This post was stopped by KunThai safety review.",
         flags,
         review,
       };
@@ -78,7 +90,7 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
 
       return {
         ok: false,
-        retryable: false,
+        retryable: Boolean(media?.videoUrl),
         reason,
         flags: review?.flags || [],
         review,
