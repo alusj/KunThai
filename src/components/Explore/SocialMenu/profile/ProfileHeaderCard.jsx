@@ -3,6 +3,7 @@ import {
   HiOutlineArrowTopRightOnSquare,
   HiOutlineCheckBadge,
   HiOutlineChatBubbleLeftRight,
+  HiOutlineClipboardDocument,
   HiOutlineEllipsisHorizontal,
   HiOutlineFlag,
   HiOutlineNoSymbol,
@@ -14,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
+import { getKunThaiPublicUserId } from "../../../../Backend/services/identityCodeService";
 import Avatar from "../../shared/Avatar";
 
 const platformIcons = {
@@ -47,9 +49,11 @@ export default function ProfileHeaderCard({
   values,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [copiedPublicId, setCopiedPublicId] = useState(false);
   const menuRef = useRef(null);
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
   const coverStyle = getCoverStyle(values.coverUrl);
+  const publicUserId = getKunThaiPublicUserId(values);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -67,6 +71,16 @@ export default function ProfileHeaderCard({
   function runMenuAction(action) {
     setMenuOpen(false);
     action?.();
+  }
+
+  async function copyPublicUserId() {
+    try {
+      await navigator.clipboard?.writeText(publicUserId);
+      setCopiedPublicId(true);
+      window.setTimeout(() => setCopiedPublicId(false), 2200);
+    } catch {
+      setCopiedPublicId(false);
+    }
   }
 
   return (
@@ -244,6 +258,22 @@ export default function ProfileHeaderCard({
             {values.verified ? <HiOutlineCheckBadge className="flex-none text-xl text-sky-600" /> : null}
           </div>
           {values.username ? <p className="mt-1 text-sm font-bold text-slate-500">@{values.username}</p> : null}
+          <div className="mt-2 flex w-fit max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <span className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-slate-500">
+              KunThai ID
+            </span>
+            <span className="min-w-0 truncate text-sm font-black text-slate-950">{publicUserId}</span>
+            <button
+              type="button"
+              onClick={copyPublicUserId}
+              className="kt-pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:text-sky-700"
+              aria-label="Copy KunThai ID"
+              title="Copy KunThai ID"
+            >
+              <HiOutlineClipboardDocument />
+            </button>
+            {copiedPublicId ? <span className="text-xs font-black text-sky-700">Copied</span> : null}
+          </div>
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
 
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">

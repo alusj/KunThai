@@ -1,4 +1,10 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import {
+  filterCountryScopedItems,
+  formatCountryMoney,
+  getCountryCurrencyCode,
+  normalizeCountryIso,
+} from "../../data/westAfricanCountryProfiles";
 
 export function subscribeToFleetUpdates(callback) {
   const channel = supabase
@@ -127,6 +133,10 @@ function mapLiveFleet(row) {
   const isActive = row.active_status === "active";
   const rating = Number(row.rating || 0);
   const trips = Number(row.completed_trips || row.trips_completed || 0);
+  const countryCode = normalizeCountryIso(row.country_iso || row.country_code || row.country || operator.country || operator.country_iso);
+  const country = row.country || operator.country || "";
+  const currency = row.currency || getCountryCurrencyCode(countryCode || country);
+  const baseFare = Number(row.base_fare || 0);
 
   return {
     id: row.id,
@@ -135,6 +145,9 @@ function mapLiveFleet(row) {
     operatorName: operator.full_name || "Transport operator",
     operatorPhone: operator.phone || "",
     operatorCity: operator.city || "",
+    country,
+    countryCode,
+    currency,
     operatorId: operator.display_code || `KT-${operator.operator_code || String(row.id).slice(0, 5).toUpperCase()}`,
     plateNumber: row.plate_number || "Plate pending",
     serviceCategory,
@@ -149,8 +162,8 @@ function mapLiveFleet(row) {
     etaMinutes: row.eta_minutes ? Number(row.eta_minutes) : null,
     rating: rating || null,
     trips,
-    priceHint: row.price_hint || (row.base_fare ? `From SLE ${Number(row.base_fare).toFixed(0)}` : "Fare confirmed on booking"),
-    baseFare: Number(row.base_fare || 0),
+    priceHint: row.price_hint || (baseFare ? `From ${formatCountryMoney(baseFare, currency)}` : "Fare confirmed on booking"),
+    baseFare,
     pricePerKm: Number(row.price_per_km || 0),
     pricePerHour: Number(row.price_per_hour || 0),
     safety: buildSafety(row),
@@ -248,9 +261,10 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
   }
 
   const liveFleets = dedupeLiveFleets((data || []).map(mapLiveFleet));
+  const scopedFleets = filterCountryScopedItems(liveFleets, (fleet) => [fleet.countryCode, fleet.country], selection.country || selection.countryCode);
 
   return sortFleets(
-    liveFleets.filter((fleet) => matchesMode(fleet, selection.mode) && (!selection.fleetType || fleet.fleetType === selection.fleetType)),
+    scopedFleets.items.filter((fleet) => matchesMode(fleet, selection.mode) && (!selection.fleetType || fleet.fleetType === selection.fleetType)),
     selection.mode,
   );
 }

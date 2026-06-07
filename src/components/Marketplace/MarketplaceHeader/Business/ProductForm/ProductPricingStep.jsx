@@ -1,14 +1,16 @@
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductToggle from "./ProductToggle";
+import { getCountryCurrencyCode } from "../../../../../data/westAfricanCountryProfiles";
 
 export default function ProductPricingStep({ productForm }) {
   const { form, errors, updateSection } = productForm;
+  const currencyCode = getCountryCurrencyCode();
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <ProductFormField label="Price" error={errors.price}>
+        <ProductFormField label={`Price (${currencyCode})`} error={errors.price}>
           <ProductFormInput
             type="number"
             min="0"
@@ -17,7 +19,7 @@ export default function ProductPricingStep({ productForm }) {
             placeholder="120"
           />
         </ProductFormField>
-        <ProductFormField label="Discount price optional" error={errors.discountPrice}>
+        <ProductFormField label={`Discount price optional (${currencyCode})`} error={errors.discountPrice}>
           <ProductFormInput
             type="number"
             min="0"

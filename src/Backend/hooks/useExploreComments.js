@@ -27,6 +27,26 @@ function getCommentMediaType(post) {
   return "post";
 }
 
+const COMMENTS_MEMORY = new Map();
+const COMMENTS_MEMORY_TTL = 120_000;
+
+function readCommentMemory(postId) {
+  const cached = COMMENTS_MEMORY.get(postId);
+  if (!cached) return { comments: [], likedIds: [], fresh: false };
+
+  return {
+    comments: cached.comments || [],
+    likedIds: cached.likedIds || [],
+    fresh: Date.now() - cached.savedAt < COMMENTS_MEMORY_TTL,
+  };
+}
+
+function writeCommentMemory(postId, patch) {
+  if (!postId) return;
+  const current = COMMENTS_MEMORY.get(postId) || { comments: [], likedIds: [], savedAt: 0 };
+  COMMENTS_MEMORY.set(postId, { ...current, ...patch, savedAt: Date.now() });
+}
+
 function isPlaceholderName(value) {
   const normalized = String(value || "").trim().toLowerCase();
   return !normalized || normalized === "profile";
@@ -42,9 +62,10 @@ function getReadableAuthorName(profile, userId = "") {
 }
 
 export function useExploreComments(postId, currentUserId = "", post = null, enabled = true) {
-  const [comments, setComments] = useState([]);
-  const [likedComments, setLikedComments] = useState(new Set());
-  const [loading, setLoading] = useState(false);
+  const cachedCommentState = readCommentMemory(postId);
+  const [comments, setComments] = useState(() => cachedCommentState.comments);
+  const [likedComments, setLikedComments] = useState(() => new Set(cachedCommentState.likedIds));
+  const [loading, setLoading] = useState(() => Boolean(enabled && postId && !cachedCommentState.comments.length));
   const [error, setError] = useState("");
   const [currentProfile, setCurrentProfile] = useState(null);
   const [pendingKeys, setPendingKeys] = useState(new Set());
@@ -55,13 +76,27 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       return;
     }
 
-    try {
+    const cached = readCommentMemory(postId);
+    if (cached.comments.length) {
+      setComments(cached.comments);
+      setLikedComments(new Set(cached.likedIds));
+      setLoading(false);
+      setError("");
+      if (cached.fresh) return;
+    } else {
+      setComments([]);
+      setLikedComments(new Set());
       setLoading(true);
+    }
+
+    try {
       setError("");
       const nextComments = await fetchExploreComments(postId);
       setComments(nextComments);
+      writeCommentMemory(postId, { comments: nextComments });
       const likedIds = await fetchCurrentUserCommentLikes(nextComments.map((comment) => comment.id)).catch(() => []);
       setLikedComments(new Set(likedIds));
+      writeCommentMemory(postId, { comments: nextComments, likedIds });
     } catch (err) {
       setError(err.message || "Unable to load comments.");
     } finally {
@@ -115,20 +150,32 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
           });
 
           if (pendingIndex >= 0) {
-            return current.map((comment, index) => (index === pendingIndex ? payload.new : comment));
+            const next = current.map((comment, index) => (index === pendingIndex ? payload.new : comment));
+            writeCommentMemory(postId, { comments: next });
+            return next;
           }
 
-          return [...current, payload.new];
+          const next = [...current, payload.new];
+          writeCommentMemory(postId, { comments: next });
+          return next;
         });
       },
       onUpdate(payload) {
         if (!payload.new) return;
-        setComments((current) => current.map((comment) => (comment.id === payload.new.id ? { ...comment, ...payload.new } : comment)));
+        setComments((current) => {
+          const next = current.map((comment) => (comment.id === payload.new.id ? { ...comment, ...payload.new } : comment));
+          writeCommentMemory(postId, { comments: next });
+          return next;
+        });
       },
       onDelete(payload) {
         const deletedId = payload.old?.id;
         if (!deletedId) return;
-        setComments((current) => current.filter((comment) => comment.id !== deletedId && comment.parent_comment_id !== deletedId));
+        setComments((current) => {
+          const next = current.filter((comment) => comment.id !== deletedId && comment.parent_comment_id !== deletedId);
+          writeCommentMemory(postId, { comments: next });
+          return next;
+        });
       },
     });
   }, [postId, enabled]);
@@ -229,7 +276,11 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
 
     setError("");
     setPendingKeys((current) => new Set(current).add(signature));
-    setComments((current) => [...current, optimisticComment]);
+    setComments((current) => {
+      const next = [...current, optimisticComment];
+      writeCommentMemory(postId, { comments: next });
+      return next;
+    });
 
     try {
       const created = await createExploreComment({
@@ -239,7 +290,11 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       });
 
       if (created) {
-        setComments((current) => current.map((comment) => (comment.id === tempId ? created : comment)));
+        setComments((current) => {
+          const next = current.map((comment) => (comment.id === tempId ? created : comment));
+          writeCommentMemory(postId, { comments: next });
+          return next;
+        });
       }
 
       const nextCount = Math.max(Number(post?.comments_count || 0), comments.length) + 1;
@@ -257,7 +312,11 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
 
       return { ok: true, comment: created || optimisticComment };
     } catch (err) {
-      setComments((current) => current.filter((comment) => comment.id !== tempId));
+      setComments((current) => {
+        const next = current.filter((comment) => comment.id !== tempId);
+        writeCommentMemory(postId, { comments: next });
+        return next;
+      });
       setError("Comment failed. Try again.");
       showToast("Comment failed. Try again.", "danger");
       return { ok: false, error: err.message || "Comment failed. Try again." };
@@ -272,12 +331,17 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
 
   async function removeComment(commentId) {
     const previous = comments;
-    setComments((current) => current.filter((comment) => comment.id !== commentId && comment.parent_comment_id !== commentId));
+    setComments((current) => {
+      const next = current.filter((comment) => comment.id !== commentId && comment.parent_comment_id !== commentId);
+      writeCommentMemory(postId, { comments: next });
+      return next;
+    });
 
     try {
       await deleteExploreComment(commentId);
     } catch (err) {
       setComments(previous);
+      writeCommentMemory(postId, { comments: previous });
       setError(err.message || "Unable to delete comment.");
     }
   }

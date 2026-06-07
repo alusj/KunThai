@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronLeft,
@@ -13,6 +13,8 @@ import {
   Star,
   Truck,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
 import {
@@ -92,14 +94,45 @@ function getProductSpecs(product = {}) {
 
 function ImageViewer({ images, activeIndex, onChange, onClose }) {
   const [touchStartX, setTouchStartX] = useState(null);
-  if (activeIndex < 0) return null;
-
-  const activeImage = images[activeIndex];
+  const [scale, setScale] = useState(1);
   const hasMultiple = images.length > 1;
+
+  useEffect(() => {
+    if (activeIndex >= 0) setScale(1);
+  }, [activeIndex]);
+
+  useEffect(() => {
+    if (activeIndex < 0) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        onClose?.();
+        return;
+      }
+      if (!hasMultiple) return;
+      if (event.key === "ArrowLeft") move(-1);
+      if (event.key === "ArrowRight") move(1);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyboard movement reads the current active image index.
+  }, [activeIndex, hasMultiple, onClose]);
+
+  if (activeIndex < 0 || !images.length) return null;
 
   function move(direction) {
     const nextIndex = (activeIndex + direction + images.length) % images.length;
     onChange(nextIndex);
+  }
+
+  function changeImage(index) {
+    if (index === activeIndex) return;
+    onChange(index);
+  }
+
+  function zoomBy(delta) {
+    setScale((current) => Math.min(3, Math.max(1, Number((current + delta).toFixed(2)))));
   }
 
   function handleTouchEnd(event) {
@@ -112,34 +145,87 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col bg-black/95">
-      <header className="flex h-16 items-center justify-between px-4 text-white">
+    <div className="fixed inset-0 z-[1500] flex h-dvh flex-col bg-black">
+      <header className="flex h-16 items-center justify-between gap-3 px-4 text-white">
         <p className="text-sm font-black">
           Image {activeIndex + 1} of {images.length}
         </p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20"
-          aria-label="Close image viewer"
-        >
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => zoomBy(-0.25)}
+            disabled={scale <= 1}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-40"
+            aria-label="Zoom out"
+          >
+            <ZoomOut size={19} />
+          </button>
+          <span className="min-w-12 rounded-full bg-white/10 px-2 py-1 text-center text-xs font-black">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            type="button"
+            onClick={() => zoomBy(0.25)}
+            disabled={scale >= 3}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-40"
+            aria-label="Zoom in"
+          >
+            <ZoomIn size={19} />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            aria-label="Close image viewer"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </header>
 
       <div
-        className="relative min-h-0 flex-1 overflow-auto p-4"
+        className="relative min-h-0 flex-1 overflow-hidden"
         onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
         onTouchEnd={handleTouchEnd}
+        onDoubleClick={() => setScale((current) => (current > 1 ? 1 : 2))}
+        onWheel={(event) => {
+          if (!event.ctrlKey && !event.metaKey) return;
+          event.preventDefault();
+          zoomBy(event.deltaY > 0 ? -0.2 : 0.2);
+        }}
       >
-        <img src={activeImage} alt="" className="mx-auto max-h-none max-w-full rounded-lg object-contain md:max-h-full" />
+        <div
+          className="flex h-full transition-transform duration-300 ease-out"
+          style={{ transform: `translate3d(-${activeIndex * 100}%, 0, 0)` }}
+        >
+          {images.map((image, index) => (
+            <div
+              key={`${image}-${index}`}
+              className="flex h-full w-full shrink-0 items-center justify-center overflow-auto p-4"
+            >
+              <img
+                src={image}
+                alt=""
+                draggable="false"
+                className={`max-h-full max-w-full select-none rounded-2xl object-contain shadow-2xl transition-all duration-300 ${
+                  index === activeIndex ? "opacity-100" : "opacity-60"
+                }`}
+                style={{
+                  transform: `scale(${index === activeIndex ? scale : 1})`,
+                  transformOrigin: "center",
+                  cursor: scale > 1 ? "zoom-out" : "zoom-in",
+                }}
+              />
+            </div>
+          ))}
+        </div>
 
         {hasMultiple && (
           <>
             <button
               type="button"
               onClick={() => move(-1)}
-              className="fixed left-3 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+              className="fixed left-3 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
               aria-label="Previous image"
             >
               <ChevronLeft size={24} />
@@ -147,7 +233,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
             <button
               type="button"
               onClick={() => move(1)}
-              className="fixed right-3 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+              className="fixed right-3 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
               aria-label="Next image"
             >
               <ChevronRight size={24} />
@@ -156,14 +242,14 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
         )}
       </div>
 
-      {hasMultiple && (
-        <div className="border-t border-white/10 p-3">
+      {hasMultiple ? (
+        <div className="border-t border-white/10 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {images.map((image, index) => (
               <button
                 key={`${image}-${index}`}
                 type="button"
-                onClick={() => onChange(index)}
+                onClick={() => changeImage(index)}
                 className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border ${
                   index === activeIndex ? "border-emerald-400" : "border-white/20"
                 }`}
@@ -174,7 +260,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
             ))}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -389,6 +475,37 @@ function ProductReviewDrawer({
   );
 }
 
+function ProductActionSheet({ children, labelledBy, maxWidth = "max-w-lg", onClose, open }) {
+  return (
+    <div
+      aria-hidden={!open}
+      inert={open ? undefined : "true"}
+      className={`fixed inset-0 z-[1200] overflow-hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+    >
+      <button
+        type="button"
+        aria-label="Close product action"
+        onClick={onClose}
+        tabIndex={open ? 0 : -1}
+        className={`absolute inset-0 border-0 bg-slate-950/35 p-0 backdrop-blur-sm transition-opacity duration-300 ${
+          open ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <section
+        role="dialog"
+        aria-modal={open ? "true" : undefined}
+        aria-labelledby={labelledBy}
+        tabIndex={open ? 0 : -1}
+        className={`absolute bottom-0 left-0 right-0 mx-auto max-h-[88dvh] w-full transform overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl transition-transform duration-300 ${maxWidth} ${
+          open ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        {children}
+      </section>
+    </div>
+  );
+}
+
 export default function ProductDetailDrawer({
   product,
   open,
@@ -417,6 +534,7 @@ export default function ProductDetailDrawer({
   const [messageSending, setMessageSending] = useState(false);
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
+  const messageTextareaRef = useRef(null);
   const orderAddressPoint = orderForm.coordinates
     ? {
         lat: orderForm.coordinates.latitude ?? orderForm.coordinates.lat,
@@ -475,10 +593,21 @@ export default function ProductDetailDrawer({
     if (!reviewOpen) setReviewStatus("");
   }, [reviewOpen]);
 
+  useEffect(() => {
+    if (!messageOpen) return undefined;
+
+    const timer = window.setTimeout(() => {
+      messageTextareaRef.current?.focus();
+    }, 260);
+
+    return () => window.clearTimeout(timer);
+  }, [messageOpen]);
+
   if (!open || !product) return null;
 
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
+  const productMoneyScope = product.currency || product.countryCode || product.country || product.seller?.currency || product.seller?.countryCode || product.seller?.country;
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
   const orderTotal = displayPrice * Math.max(1, Number(orderForm.quantity || 1));
   const specs = getProductSpecs(product);
@@ -618,9 +747,9 @@ export default function ProductDetailDrawer({
             <section className="space-y-4">
               <div>
                 <div className="flex flex-wrap items-end gap-2">
-                  <p className="text-3xl font-black text-gray-950">{formatCurrency(displayPrice)}</p>
+                  <p className="text-3xl font-black text-gray-950">{formatCurrency(displayPrice, productMoneyScope)}</p>
                   {hasDiscount && (
-                    <p className="pb-1 text-sm font-bold text-gray-400 line-through">{formatCurrency(product.price)}</p>
+                    <p className="pb-1 text-sm font-bold text-gray-400 line-through">{formatCurrency(product.price, productMoneyScope)}</p>
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black">
@@ -784,17 +913,22 @@ export default function ProductDetailDrawer({
           </button>
           </div>
         </footer>
+      </aside>
 
-        {orderOpen && (
-          <div className="fixed inset-0 z-[1001] flex items-end bg-black/35 p-3 sm:items-center sm:justify-center">
+        <ProductActionSheet
+          open={orderOpen}
+          onClose={() => setOrderOpen(false)}
+          labelledBy="product-order-title"
+          maxWidth="max-w-xl"
+        >
             <form
               onSubmit={handleOrderSubmit}
-              className="w-full rounded-xl border border-gray-200 bg-white p-4 shadow-2xl sm:max-w-lg"
+              className="w-full bg-white p-4 sm:p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase text-emerald-700">Create order</p>
-                  <h3 className="mt-1 text-lg font-black text-gray-950">{product.name}</h3>
+                  <h3 id="product-order-title" className="mt-1 text-lg font-black text-gray-950">{product.name}</h3>
                   <p className="mt-1 text-sm font-bold text-gray-500">{product.seller?.name || "UrMall seller"}</p>
                 </div>
                 <button
@@ -936,10 +1070,10 @@ export default function ProductDetailDrawer({
               <div className="mt-4 rounded-lg bg-gray-50 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-bold text-gray-500">Order total</p>
-                  <p className="text-xl font-black text-gray-950">{formatCurrency(orderTotal)}</p>
+                  <p className="text-xl font-black text-gray-950">{formatCurrency(orderTotal, productMoneyScope)}</p>
                 </div>
                 <p className="mt-1 text-xs font-bold text-gray-500">
-                  {Math.max(1, Number(orderForm.quantity || 1))} item{Number(orderForm.quantity || 1) === 1 ? "" : "s"} at {formatCurrency(displayPrice)}
+                  {Math.max(1, Number(orderForm.quantity || 1))} item{Number(orderForm.quantity || 1) === 1 ? "" : "s"} at {formatCurrency(displayPrice, productMoneyScope)}
                 </p>
               </div>
 
@@ -960,8 +1094,7 @@ export default function ProductDetailDrawer({
                 </button>
               </div>
             </form>
-          </div>
-        )}
+        </ProductActionSheet>
 
         {verificationOpen ? (
           <MarketplaceVerificationModal
@@ -973,16 +1106,20 @@ export default function ProductDetailDrawer({
           />
         ) : null}
 
-        {messageOpen && (
-          <div className="fixed inset-0 z-[1001] flex items-end bg-black/35 p-3 sm:items-center sm:justify-center">
+        <ProductActionSheet
+          open={messageOpen}
+          onClose={() => setMessageOpen(false)}
+          labelledBy="product-message-title"
+          maxWidth="max-w-lg"
+        >
             <form
               onSubmit={handleMessageSubmit}
-              className="w-full rounded-xl border border-gray-200 bg-white p-4 shadow-2xl sm:max-w-lg"
+              className="w-full bg-white p-4 sm:p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase text-emerald-700">Message seller</p>
-                  <h3 className="mt-1 text-lg font-black text-gray-950">{product.seller?.name || "UrMall seller"}</h3>
+                  <h3 id="product-message-title" className="mt-1 text-lg font-black text-gray-950">{product.seller?.name || "UrMall seller"}</h3>
                   <p className="mt-1 text-sm font-bold text-gray-500">Product inquiry: {product.name}</p>
                 </div>
                 <button
@@ -995,11 +1132,11 @@ export default function ProductDetailDrawer({
                 </button>
               </div>
               <textarea
+                ref={messageTextareaRef}
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
                 placeholder="Ask about availability, delivery, pickup, negotiation, or product details"
                 className="mt-4 min-h-32 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
-                autoFocus
               />
               <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
@@ -1018,9 +1155,7 @@ export default function ProductDetailDrawer({
                 </button>
               </div>
             </form>
-          </div>
-        )}
-      </aside>
+        </ProductActionSheet>
 
       <ImageViewer
         images={images}

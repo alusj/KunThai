@@ -1,24 +1,17 @@
-// backend/utils/formatCurrency.js
-// Formats money dynamically based on user's country
+import {
+  formatCountryMoney,
+  getActiveCountryProfile,
+  getCountryCurrencyCode,
+} from "../../data/westAfricanCountryProfiles";
 
-// Detect user country automatically
-const detectCurrency = () => {
-  const locale = navigator.language; // e.g., "en-GB", "en-SL"
+export function detectCurrency(country = "") {
+  return getCountryCurrencyCode(country);
+}
 
-  // Basic country mapping (expand later)
-  if (locale.includes("SL")) return "SLE"; // Sierra Leone
-  if (locale.includes("GB")) return "GBP";
-  if (locale.includes("US")) return "USD";
+export function formatCurrency(amount, country = "", options = {}) {
+  return formatCountryMoney(amount, country || getActiveCountryProfile(), options);
+}
 
-  // Default fallback
-  return "SLE";
-};
-
-export const formatCurrency = (amount) => {
-  const currency = detectCurrency();
-
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-  }).format(amount);
-};
+export function formatCurrencyCode(country = "") {
+  return getCountryCurrencyCode(country);
+}

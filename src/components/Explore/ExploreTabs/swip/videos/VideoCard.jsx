@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
+import { createExploreNotification } from "../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { sharePost } from "../../urfeed/feed/post/postUtils";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
@@ -76,6 +77,16 @@ export default function VideoCard({
   useBrowserBack(commentOpen, () => setCommentOpen(false), `swip-comments-${post.id}`);
 
   useEffect(() => {
+    function handleOpenPostComments(event) {
+      if (String(event.detail?.postId || "") !== String(post.id)) return;
+      setCommentOpen(true);
+    }
+
+    window.addEventListener("explore-open-post-comments", handleOpenPostComments);
+    return () => window.removeEventListener("explore-open-post-comments", handleOpenPostComments);
+  }, [post.id]);
+
+  useEffect(() => {
     setMediaError("");
     setNeedsSoundUnlock(false);
     setVideoLoading(true);
@@ -118,6 +129,15 @@ export default function VideoCard({
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
+    if (post.user_id && post.user_id !== currentUserId) {
+      await createExploreNotification({
+        user_id: post.user_id,
+        type: "share",
+        post_id: post.id,
+        post_preview: post.body,
+        media_type: "Swip video",
+      }).catch(() => null);
+    }
     setMessage(nextMessage);
   }
 

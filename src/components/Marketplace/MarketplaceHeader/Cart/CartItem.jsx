@@ -16,6 +16,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const stock = Number(item.product?.stock || 0);
+  const moneyScope = item.product?.currency || item.product?.countryCode || item.product?.country;
 
   async function copyProduct() {
     const link = productLink(item);
@@ -80,7 +81,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
 
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm font-black text-gray-950">{item.name}</p>
-        <p className="mt-1 text-xs font-bold text-gray-500">{formatCurrency(item.price)}</p>
+        <p className="mt-1 text-xs font-bold text-gray-500">{formatCurrency(item.price, moneyScope)}</p>
         <p className="truncate text-xs font-semibold text-gray-400">{item.location}</p>
         {stock ? <p className="mt-0.5 text-[11px] font-bold text-gray-400">{stock} in stock</p> : null}
       </div>

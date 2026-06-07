@@ -43,6 +43,7 @@ import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
 const EXPLORE_STACK_ANIMATION_MS = 280;
 const LEFT_SIDE_MENU_SCREENS = new Set(["Menu", "Messages"]);
+const COMMENT_TARGET_NOTIFICATION_TYPES = new Set(["comment", "reply", "creator_reply", "thread_reply", "mention"]);
 
 function PlaceholderMenuScreen({ screen }) {
   return (
@@ -356,22 +357,39 @@ setProfileError("");
     }
 
     if (notification?.post_id) {
-      const targetTab = String(notification.media_type || "").includes("video") ? "Swip" : "UrFeed";
+      const mediaType = String(notification.media_type || "").toLowerCase();
+      const targetTab = mediaType.includes("video") || mediaType.includes("swip") ? "Swip" : "UrFeed";
+      const currentIndex = EXPLORE_TAB_ORDER.indexOf(activeTab);
+      const nextIndex = EXPLORE_TAB_ORDER.indexOf(targetTab);
+      setTabSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
       exploreNav.setActiveTab(targetTab);
-      scrollToNotificationPost(notification.post_id);
+      scrollToNotificationPost(notification.post_id, 0, {
+        openComments: COMMENT_TARGET_NOTIFICATION_TYPES.has(notification.type),
+        commentId: notification.comment_id || notification.target_id || "",
+      });
     }
   }
 
-  function scrollToNotificationPost(postId, attempt = 0) {
+  function scrollToNotificationPost(postId, attempt = 0, options = {}) {
     window.setTimeout(() => {
       const node = document.getElementById(`post-${postId}`);
       if (node) {
         node.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (options.openComments) {
+          window.setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("explore-open-post-comments", {
+              detail: {
+                postId,
+                commentId: options.commentId || "",
+              },
+            }));
+          }, 180);
+        }
         return;
       }
 
       if (attempt < 12) {
-        scrollToNotificationPost(postId, attempt + 1);
+        scrollToNotificationPost(postId, attempt + 1, options);
       }
     }, attempt ? 220 : 260);
   }

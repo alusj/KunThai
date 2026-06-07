@@ -40,6 +40,16 @@ export default function FeedPost({
   useBrowserBack(commentsOpen, () => setCommentsOpen(false), `comments-${post.id}`);
 
   useEffect(() => {
+    function handleOpenPostComments(event) {
+      if (String(event.detail?.postId || "") !== String(post.id)) return;
+      setCommentsOpen(true);
+    }
+
+    window.addEventListener("explore-open-post-comments", handleOpenPostComments);
+    return () => window.removeEventListener("explore-open-post-comments", handleOpenPostComments);
+  }, [post.id]);
+
+  useEffect(() => {
     if (!optionsOpen) {
       return undefined;
     }

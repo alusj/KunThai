@@ -14,6 +14,10 @@ import {
   DEFAULT_WEST_AFRICAN_COUNTRY_CODE,
   WEST_AFRICAN_COUNTRY_CODES,
 } from "./data/westAfricanCountryCodes";
+import {
+  getActiveCountryProfile,
+  storeCountryContext,
+} from "./data/westAfricanCountryProfiles";
 
 function AuthMessage({ tone = "info", children }) {
   const tones = {
@@ -92,6 +96,7 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
               key={item.iso2}
               type="button"
               onClick={() => {
+                storeCountryContext(item);
                 onCountryChange(item);
                 setOpen(false);
               }}
@@ -194,7 +199,10 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [signInAccount, setSignInAccount] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState(DEFAULT_WEST_AFRICAN_COUNTRY_CODE);
+  const [selectedCountry, setSelectedCountry] = useState(() => {
+    const activeProfile = getActiveCountryProfile();
+    return WEST_AFRICAN_COUNTRY_CODES.find((country) => country.iso2 === activeProfile.iso2) || DEFAULT_WEST_AFRICAN_COUNTRY_CODE;
+  });
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pendingPhone, setPendingPhone] = useState("");
   const [otpCode, setOtpCode] = useState("");

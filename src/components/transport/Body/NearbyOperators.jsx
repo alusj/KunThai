@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FiMapPin, FiStar } from "react-icons/fi";
+import { formatCountryMoney } from "../../../data/westAfricanCountryProfiles";
 import { fetchTransportFleets, getTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 import VerificationDetailsModal from "../verification/VerificationDetailsModal";
@@ -94,6 +95,7 @@ export default function NearbyOperators({
         {operators.map((operator) => {
           const status = verificationStatuses[operator.verificationStatus];
           const isActive = operator.activeStatus === "active";
+          const moneyScope = operator.currency || operator.countryCode || operator.country;
 
           return (
             <article
@@ -120,8 +122,8 @@ export default function NearbyOperators({
                 {operator.currentLocation || operator.lastKnownLocation}
               </div>
               <p className="mt-2 text-xs font-black text-emerald-700">
-                {operator.pricePerKm ? `SLE ${operator.pricePerKm.toLocaleString()} / km` : "Distance rate pending"}
-                {operator.pricePerHour ? ` - SLE ${operator.pricePerHour.toLocaleString()} / hour` : ""}
+                {operator.pricePerKm ? `${formatCountryMoney(operator.pricePerKm, moneyScope, { maximumFractionDigits: 0 })} / km` : "Distance rate pending"}
+                {operator.pricePerHour ? ` - ${formatCountryMoney(operator.pricePerHour, moneyScope, { maximumFractionDigits: 0 })} / hour` : ""}
               </p>
 
               <div className="mt-4">

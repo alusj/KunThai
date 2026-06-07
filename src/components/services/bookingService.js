@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/westAfricanCountryProfiles";
 import { calculateFleetFare } from "./transportPricingService";
 
 const SUPPORT_DRAFTS_KEY = "kuntai.transport.supportDrafts";
@@ -138,6 +139,8 @@ export async function createTransportBooking(booking) {
   const bookingMethod = booking.bookingMethod === "time" ? "time" : "distance";
 
   const payloads = targetFleets.map((targetFleet) => {
+    const fareCurrency = targetFleet.currency || getCountryCurrencyCode(targetFleet.countryCode || targetFleet.country || booking.countryCode || booking.country);
+    const countryProfile = getActiveCountryProfile(targetFleet.countryCode || targetFleet.country || booking.countryCode || booking.country);
     const fare = calculateFleetFare(targetFleet, {
       bookingMethod,
       distanceKm: booking.distanceKm,
@@ -156,6 +159,8 @@ export async function createTransportBooking(booking) {
       contact_phone: String(booking.phone || "").trim() || null,
       package_description: tripType === "delivery" ? String(booking.packageDescription || "").trim() || null : null,
       trip_note: String(booking.note || "").trim() || null,
+      country: targetFleet.country || booking.country || countryProfile.name,
+      country_iso: targetFleet.countryCode || booking.countryCode || countryProfile.iso2,
       booking_method: bookingMethod,
       estimated_distance_km: booking.distanceKm ? Number(booking.distanceKm) : null,
       booked_hours: bookingMethod === "time" && booking.bookedHours ? Number(booking.bookedHours) : null,
@@ -166,7 +171,7 @@ export async function createTransportBooking(booking) {
       base_fare_snapshot: fare?.baseFare || null,
       rate_snapshot: fare?.rate || null,
       fare_amount: fare?.ready ? fare.amount : null,
-      fare_currency: "SLE",
+      fare_currency: fareCurrency,
       scheduled_at: buildScheduledAt(booking),
       status: "requested",
       created_at: now,
@@ -181,7 +186,7 @@ export async function createTransportBooking(booking) {
     pickup_label: payload.pickup_label,
     destination_label: payload.destination_label,
     fare_amount: payload.fare_amount,
-    fare_currency: "SLE",
+    fare_currency: payload.fare_currency,
     scheduled_at: payload.scheduled_at,
     status: "requested",
     created_at: now,
@@ -246,7 +251,7 @@ export async function updateTransportTripStatus(tripId, status, patch = {}) {
 
   if (patch.fareAmount !== undefined && patch.fareAmount !== "") {
     payload.fare_amount = Number(patch.fareAmount);
-    payload.fare_currency = patch.fareCurrency || "SLE";
+    payload.fare_currency = patch.fareCurrency || getCountryCurrencyCode(patch.countryCode || patch.country);
   }
 
   if (patch.startRequestedAt !== undefined) payload.start_requested_at = patch.startRequestedAt;

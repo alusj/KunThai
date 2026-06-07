@@ -12,12 +12,20 @@ import {
   FiUser,
 } from "react-icons/fi";
 import AppBackTab from "../../shared/AppBackTab";
+import { StepSlideTransition } from "../../shared/motion";
+import { useDirectionalStep } from "../../shared/motionHooks";
 import {
   getOperatorDraft,
   saveOperatorAccount,
   saveOperatorDraft,
 } from "../../services/transportOperatorAccountService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
+import {
+  formatCountryMoney,
+  getActiveCountryProfile,
+  getCountryCurrencyCode,
+  normalizeCountryIso,
+} from "../../../data/westAfricanCountryProfiles";
 
 const categories = ["Transport", "Delivery", "Both"];
 const fleetTypes = ["Car", "Motorcycle", "Tricycle"];
@@ -25,19 +33,20 @@ const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends on
 const fuelTypes = ["Petrol", "Diesel", "Hybrid", "Electric", "Not applicable"];
 const carBodyTypes = ["Sedan", "SUV", "Hatchback", "Minivan", "Pickup", "Van"];
 const deliveryBodyTypes = ["Open cargo", "Covered cargo", "Delivery box", "Insulated box", "Passenger + cargo"];
+const activeCountry = getActiveCountryProfile();
 const locationSuggestions = [
-  "Freetown CBD",
-  "Wilkinson Road",
-  "Lumley",
-  "Congo Cross",
-  "Kissy",
-  "Waterloo",
-  "Bo",
-  "Kenema",
-  "Makeni",
-  "Koidu",
-  "Lungi",
-  "Port Loko",
+  `${activeCountry.cityPlaceholder} CBD`,
+  `${activeCountry.cityPlaceholder} main road`,
+  `${activeCountry.cityPlaceholder} market area`,
+  "Central business district",
+  "Main transport park",
+  "Airport route",
+  "School area",
+  "Hospital area",
+  "Market area",
+  "Community junction",
+  "Residential area",
+  "Border route",
 ];
 const requiredFleetImages = [
   "Front view",
@@ -110,6 +119,9 @@ function generateOperatorId() {
 const defaultForm = {
   name: "",
   phone: "",
+  country: activeCountry.name,
+  countryCode: activeCountry.iso2,
+  currency: activeCountry.currency.code,
   city: "",
   emergencyContact: "",
   category: "Transport",
@@ -133,6 +145,19 @@ const defaultForm = {
   deliveryBodyType: "",
 };
 
+function getProfileCountryPatch(profile = {}) {
+  const profileCountry = getActiveCountryProfile(profile.country || profile.countryCode);
+  return {
+    country: profileCountry.name,
+    countryCode: profileCountry.iso2,
+    currency: getCountryCurrencyCode(profileCountry.iso2),
+  };
+}
+
+function formatFareReview(value, formCountry) {
+  return formatCountryMoney(value, formCountry || activeCountry.iso2, { maximumFractionDigits: 0 });
+}
+
 function getAccountDisplayName(profile) {
   return String(
     profile?.displayName ||
@@ -144,7 +169,7 @@ function getAccountDisplayName(profile) {
   ).trim();
 }
 
-export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOneKmPreview }) {
+export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExit, onViewOneKmPreview }) {
   const [step, setStep] = useState(0);
   const [maxStepReached, setMaxStepReached] = useState(0);
   const [operatorId, setOperatorId] = useState(generateOperatorId);
@@ -169,6 +194,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOne
     async function loadRegistrationContext() {
       const profile = await getOnboardingProfile().catch(() => null);
       const accountName = getAccountDisplayName(profile);
+      const countryPatch = getProfileCountryPatch(profile || {});
 
       try {
         const draft = await getOperatorDraft();
@@ -184,14 +210,21 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOne
           setDocumentsSkipped(Boolean(draft.documentsSkipped));
           setForm({
             ...defaultForm,
+            ...countryPatch,
             ...draftForm,
             name: draftForm.name || accountName || "",
+            countryCode: normalizeCountryIso(draftForm.countryCode || draftForm.country) || countryPatch.countryCode,
+            currency: draftForm.currency || countryPatch.currency,
           });
           return;
         }
 
-        if (accountName) {
-          setForm((current) => (current.name ? current : { ...current, name: accountName }));
+        if (accountName || countryPatch.countryCode) {
+          setForm((current) => ({
+            ...current,
+            ...countryPatch,
+            name: current.name || accountName || "",
+          }));
         }
       } catch {
         if (alive) setSubmitError("Sign in again before continuing your fleet registration.");
@@ -211,6 +244,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOne
 
   const questions = fleetQuestions[form.fleetType] || [];
   const fleetImageCount = requiredFleetImages.filter((image) => uploads[`fleet-${image}`]).length;
+  const stepSlideDirection = useDirectionalStep(step);
 
   const update = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -345,6 +379,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOne
 
   const saveAndExit = () => {
     setShowSaveCheckpoint(false);
+    if (onSaveExit) {
+      onSaveExit();
+      return;
+    }
     onClose?.();
   };
 
@@ -487,6 +525,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOne
               {stepError}
             </div>
           )}
+          <StepSlideTransition stepKey={step} direction={stepSlideDirection}>
           {step === 0 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <FormInput
@@ -727,9 +766,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOne
                 <ReviewRow label="Fleet type" value={form.fleetType} />
                 <ReviewRow label="Plate number" value={form.plateNumber || "Not filled"} />
                 <ReviewRow label="Home base" value={form.homeBaseLocation || "Not filled"} />
-                <ReviewRow label="Starting price" value={form.baseFare ? `SLE ${Number(form.baseFare).toLocaleString()}` : "Not filled"} />
-                <ReviewRow label="Distance rate" value={form.pricePerKm ? `SLE ${Number(form.pricePerKm).toLocaleString()} per km` : "Not filled"} />
-                <ReviewRow label="Time rate" value={form.pricePerHour ? `SLE ${Number(form.pricePerHour).toLocaleString()} per hour` : "Not filled"} />
+                <ReviewRow label="Starting price" value={form.baseFare ? formatFareReview(form.baseFare, form.currency || form.countryCode || form.country) : "Not filled"} />
+                <ReviewRow label="Distance rate" value={form.pricePerKm ? `${formatFareReview(form.pricePerKm, form.currency || form.countryCode || form.country)} per km` : "Not filled"} />
+                <ReviewRow label="Time rate" value={form.pricePerHour ? `${formatFareReview(form.pricePerHour, form.currency || form.countryCode || form.country)} per hour` : "Not filled"} />
                 <ReviewRow label="Fleet images" value={`${fleetImageCount}/4 uploaded`} />
                 <ReviewRow
                   label="Current status"
@@ -738,6 +777,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onViewOne
               </div>
             </div>
           )}
+          </StepSlideTransition>
 
           <div className="mt-6 border-t border-gray-100 pt-4">
             {submitError && (

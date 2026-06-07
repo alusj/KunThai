@@ -1,3 +1,5 @@
+import { normalizeCountryIso, storeCountryContext } from "../../data/westAfricanCountryProfiles";
+
 export async function detectCountryFromCoords(lat, lng) {
   const latitude = Number(lat);
   const longitude = Number(lng);
@@ -22,8 +24,12 @@ export async function detectCountryFromCoords(lat, lng) {
       f?.place_type?.includes("country")
     );
 
+    const countryCode = String(countryFeature?.properties?.country_code || "").toUpperCase() || "";
+    const westAfricaCountryCode = normalizeCountryIso(countryCode);
+    if (westAfricaCountryCode) storeCountryContext(westAfricaCountryCode);
+
     return {
-      countryCode: String(countryFeature?.properties?.country_code || "").toUpperCase() || "",
+      countryCode,
       countryName: countryFeature?.text,
     };
   } catch {

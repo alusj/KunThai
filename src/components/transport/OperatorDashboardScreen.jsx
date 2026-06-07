@@ -2,6 +2,7 @@ import { createElement, useCallback, useEffect, useMemo, useState } from "react"
 import {
   FiAlertTriangle,
   FiBell,
+  FiBriefcase,
   FiCalendar,
   FiChevronRight,
   FiClock,
@@ -10,6 +11,7 @@ import {
   FiFileText,
   FiFlag,
   FiHome,
+  FiLifeBuoy,
   FiMap,
   FiMapPin,
   FiMoreHorizontal,
@@ -32,6 +34,7 @@ import AppBackTab from "../shared/AppBackTab";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
 import { createSupportTicket } from "../../Backend/services/explore/supportService";
+import { formatCountryMoney, getCountryCurrencyCode } from "../../data/westAfricanCountryProfiles";
 import {
   fetchOperatorDashboard,
   subscribeOperatorTrips,
@@ -43,6 +46,10 @@ import {
   formatTripElapsed,
   getElapsedTripSeconds,
 } from "./live/liveTripMetricUtils";
+
+function formatOperatorMoney(value, account = null) {
+  return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
+}
 
 const operatorVerificationStatuses = {
   notVerified: {
@@ -108,10 +115,14 @@ function isUsableAreaText(value) {
 
 export default function OperatorDashboardScreen({
   account,
+  companyAccount,
+  companyLoading = false,
   initialView = "dashboard",
   onBack,
   onAccountUpdate,
   onLocateArea,
+  onOpenCompany,
+  onRegisterCompany,
   onEditRegistration,
 }) {
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
@@ -119,6 +130,7 @@ export default function OperatorDashboardScreen({
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
+  const [operatorSafetyOpen, setOperatorSafetyOpen] = useState(false);
   const [dashboard, setDashboard] = useState(account?.dashboard || null);
   const [dashboardError, setDashboardError] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -129,6 +141,7 @@ export default function OperatorDashboardScreen({
     : account?.verificationStatus || "pending";
   const verification =
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
+  const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
   const operatorName = form.name || "Operator not added";
   const fleetName = form.fleetName || "Registered Fleet";
   const operatingArea = form.operatingArea || form.city || "Operating area not added";
@@ -359,6 +372,18 @@ export default function OperatorDashboardScreen({
             </button>
           )}
 
+          {hasCompanyAccount ? (
+            <button
+              type="button"
+              aria-label="Open Fleet HQ"
+              title="Open Fleet HQ"
+              onClick={onOpenCompany}
+              className="kt-touchable flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
+            >
+              <FiBriefcase size={18} />
+            </button>
+          ) : null}
+
           <button
             type="button"
             aria-label="Operator notifications"
@@ -394,6 +419,7 @@ export default function OperatorDashboardScreen({
             fleetName={fleetName}
             isActive={isActive}
             availabilityText={availabilityText}
+            account={account}
             onBack={() => setActiveView("dashboard")}
             onUpdateTrip={handleTripStatusUpdate}
             onViewRoute={openPassengerTripRoute}
@@ -485,6 +511,7 @@ export default function OperatorDashboardScreen({
           <TodaysDemandContainer
             waitingPassengers={waitingPassengers}
             today={today}
+            account={account}
             isActive={isActive}
             loading={dashboardLoading}
             onRefresh={refreshDashboard}
@@ -512,7 +539,7 @@ export default function OperatorDashboardScreen({
             center={dashboard?.verificationCenter}
             onOpen={() => setVerificationOpen(true)}
           />
-          <EarningsContainer earnings={earnings} />
+          <EarningsContainer earnings={earnings} account={account} />
           <ReviewsContainer reviews={reviews} />
           <OperatorAlertsContainer alerts={alerts} />
           <OperatorToolsContainer
@@ -560,6 +587,8 @@ export default function OperatorDashboardScreen({
         homeBase={homeBase}
         fleetType={form.fleetType || "Not added"}
         documents={account?.documentsSkipped ? "Skipped" : "Submitted"}
+        companyAccount={companyAccount}
+        companyLoading={companyLoading}
         onClose={() => setOperatorMenuOpen(false)}
         onToggleAvailability={handleAvailabilityToggle}
         onOpenDashboard={() => {
@@ -578,14 +607,33 @@ export default function OperatorDashboardScreen({
           setVerificationOpen(true);
           setOperatorMenuOpen(false);
         }}
+        onOpenSafety={() => {
+          setOperatorMenuOpen(false);
+          setOperatorSafetyOpen(true);
+        }}
         onEditProfile={() => {
           setOperatorMenuOpen(false);
           onEditRegistration?.();
+        }}
+        onOpenCompany={() => {
+          setOperatorMenuOpen(false);
+          onOpenCompany?.();
+        }}
+        onRegisterCompany={() => {
+          setOperatorMenuOpen(false);
+          onRegisterCompany?.();
         }}
         onLocateArea={(areaText, kind) => {
           setOperatorMenuOpen(false);
           openOperatorArea(areaText, kind);
         }}
+      />
+
+      <OperatorSafetyDrawer
+        open={operatorSafetyOpen}
+        fleetName={fleetName}
+        operatorName={operatorName}
+        onClose={() => setOperatorSafetyOpen(false)}
       />
     </div>
   );
@@ -881,7 +929,7 @@ function DashboardContainer({ title, subtitle, icon, children, action }) {
   );
 }
 
-function TodaysDemandContainer({ waitingPassengers, today, isActive, loading, onRefresh, onOpenWaiting }) {
+function TodaysDemandContainer({ waitingPassengers, today, account, isActive, loading, onRefresh, onOpenWaiting }) {
   return (
     <DashboardContainer
       title="Today's Demand"
@@ -901,7 +949,7 @@ function TodaysDemandContainer({ waitingPassengers, today, isActive, loading, on
       <div className="grid gap-3 sm:grid-cols-2">
         <MetricCard label="Waiting" value={waitingPassengers.length} detail="passengers" />
         <MetricCard label="Trips today" value={today.trips || 0} detail="completed" />
-        <MetricCard label="Earnings" value={`SLE ${Number(today.earnings || 0).toFixed(2)}`} detail="today" />
+        <MetricCard label="Earnings" value={formatOperatorMoney(today.earnings || 0, account)} detail="today" />
         <MetricCard label="Response" value={formatSeconds(today.averageResponseSeconds)} detail="average" />
       </div>
       <button
@@ -1045,18 +1093,18 @@ function VerificationCenterContainer({ verification, center, onOpen }) {
   );
 }
 
-function EarningsContainer({ earnings }) {
+function EarningsContainer({ earnings, account }) {
   const transactions = earnings.transactions || [];
   return (
     <DashboardContainer title="Earnings & Wallet" subtitle="Trips, payouts, and wallet movement" icon={FiCreditCard}>
       <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Today" value={`SLE ${Number(earnings.today || 0).toFixed(2)}`} />
-        <MetricCard label="Wallet" value={`SLE ${Number(earnings.walletBalance || 0).toFixed(2)}`} />
-        <MetricCard label="Pending" value={`SLE ${Number(earnings.pendingPayout || 0).toFixed(2)}`} />
+        <MetricCard label="Today" value={formatOperatorMoney(earnings.today || 0, account)} />
+        <MetricCard label="Wallet" value={formatOperatorMoney(earnings.walletBalance || 0, account)} />
+        <MetricCard label="Pending" value={formatOperatorMoney(earnings.pendingPayout || 0, account)} />
       </div>
       <div className="mt-3 grid gap-2">
         {transactions.length ? transactions.slice(0, 3).map((item) => (
-          <MiniRow key={item.id} label={item.description || item.type} value={`${item.currency} ${item.amount.toFixed(2)}`} />
+          <MiniRow key={item.id} label={item.description || item.type} value={formatCountryMoney(item.amount, item.currency || account?.form?.currency || account?.form?.countryCode || account?.form?.country)} />
         )) : (
           <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-500">
             No wallet transactions yet.
@@ -1314,7 +1362,7 @@ function ActionRow({ icon, label, detail, onClick }) {
   );
 }
 
-function WaitingPassengersScreen({ passengers, fleetName, isActive, availabilityText, onBack, onUpdateTrip, onViewRoute }) {
+function WaitingPassengersScreen({ passengers, fleetName, account, isActive, availabilityText, onBack, onUpdateTrip, onViewRoute }) {
   return (
     <section className="mx-auto max-w-5xl">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -1351,6 +1399,7 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
             <OperatorTripRequestCard
               key={passenger.id}
               passenger={passenger}
+              account={account}
               isActive={isActive}
               onUpdateTrip={onUpdateTrip}
               onViewRoute={() => onViewRoute(passenger)}
@@ -1366,7 +1415,7 @@ function WaitingPassengersScreen({ passengers, fleetName, isActive, availability
   );
 }
 
-function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip, onViewRoute }) {
+function OperatorTripRequestCard({ passenger, account, isActive, onUpdateTrip, onViewRoute }) {
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const status = passenger.status || "requested";
@@ -1441,7 +1490,7 @@ function OperatorTripRequestCard({ passenger, isActive, onUpdateTrip, onViewRout
               min="0"
               value={fareAmount}
               onChange={(event) => setFareAmount(event.target.value)}
-              placeholder="SLE amount"
+              placeholder={`${getCountryCurrencyCode(account?.form?.countryCode || account?.form?.country)} amount`}
               className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-bold outline-none focus:border-green-500"
             />
           </label>
@@ -1556,6 +1605,8 @@ function TripHistoryScreen({ trips, fleetName, onBack }) {
 function OperatorMenuDrawer({
   open,
   account,
+  companyAccount,
+  companyLoading = false,
   fleetName,
   operatorName,
   operatingArea,
@@ -1570,11 +1621,15 @@ function OperatorMenuDrawer({
   onOpenDashboard,
   onOpenHistory,
   onOpenWaiting,
+  onOpenCompany,
+  onRegisterCompany,
+  onOpenSafety,
   onShowVerification,
   onEditProfile,
   onLocateArea,
 }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
+  const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
 
   useEffect(() => {
     if (!rendered) return undefined;
@@ -1607,6 +1662,22 @@ function OperatorMenuDrawer({
       label: "Fleet dashboard",
       detail: fleetName,
       onClick: onOpenDashboard,
+    },
+    {
+      icon: FiBriefcase,
+      label: hasCompanyAccount ? "Open Fleet HQ" : "Register your transport company",
+      detail: companyLoading
+        ? "Checking company workspace..."
+        : hasCompanyAccount
+          ? `${companyAccount.companyName || "Company workspace"} - ${companyAccount.verificationStatus || "pending"}`
+          : "Create a company workspace for teams, fleets, and operators",
+      onClick: companyLoading ? undefined : hasCompanyAccount ? onOpenCompany : onRegisterCompany,
+    },
+    {
+      icon: FiLifeBuoy,
+      label: "Safety & emergency",
+      detail: "Professional guidance for passengers, routes, incidents, and urgent risk",
+      onClick: onOpenSafety,
     },
     {
       icon: FiUsers,
@@ -1725,7 +1796,8 @@ function OperatorMenuDrawer({
                 key={item.label}
                 type="button"
                 onClick={item.onClick}
-                className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-left hover:border-green-200 hover:bg-green-50 transition"
+                disabled={!item.onClick}
+                className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-left transition hover:border-green-200 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="flex items-center gap-3">
                   <span className="h-10 w-10 rounded-full bg-gray-100 text-green-700 flex items-center justify-center">
@@ -1743,6 +1815,167 @@ function OperatorMenuDrawer({
         </div>
       </aside>
     </div>
+  );
+}
+
+const operatorSafetyTopics = [
+  {
+    title: "What KunThai can do",
+    body:
+      "KunThai can give operators better guidance, route context, trip records, passenger request details, safety reminders, and reporting tools. KunThai cannot physically protect an operator or passenger, control road conditions, or replace emergency services. When life, health, violence, fire, crash, or serious danger is involved, emergency help and nearby trusted people must come first.",
+  },
+  {
+    title: "Professional duty before accepting",
+    body:
+      "Accept only the trips you can safely complete. Check pickup point, destination, fleet type, passenger count, parcel details, and any special notes. If the trip is outside your service area, unsafe for your fleet, overloaded, or unclear, do not accept it just to win the request.",
+  },
+  {
+    title: "Arrival protocol",
+    body:
+      "Arrive at the pickup point shown in the booking, identify yourself calmly, and let the passenger confirm your operator name, fleet type, and plate number. Do not pressure a passenger to enter if they are still checking details. A professional operator makes the passenger feel safe before the trip starts.",
+  },
+  {
+    title: "Passenger respect and boundaries",
+    body:
+      "Avoid harassment, insults, threats, aggressive bargaining, or unnecessary personal questions. Keep communication focused on pickup, route, fare, delivery, and safety. If a passenger is distressed, confused, elderly, disabled, or travelling with a child, slow down the interaction and make the process clear.",
+  },
+  {
+    title: "Route discipline",
+    body:
+      "Follow the agreed route or the route shown in area view unless traffic, road closure, danger, or passenger instruction requires a change. If you must change route, explain it before or immediately after the change. Sudden unexplained detours create fear and can become a safety report.",
+  },
+  {
+    title: "Emergency handling",
+    body:
+      "In a crash, medical problem, violence, fire, robbery, or serious road danger, stop in the safest available place, contact local emergency help, and protect people before protecting the trip record. After urgent help is contacted, record the trip details, passenger name, location, time, and what happened for support follow-up.",
+  },
+  {
+    title: "Conflict and fare disagreement",
+    body:
+      "Do not escalate arguments on the roadside. If a fare, route, or delivery disagreement happens, keep your voice low, move to a public and safer place where possible, and preserve the trip details. Support can understand a calm report better than a heated argument with missing facts.",
+  },
+  {
+    title: "Delivery safety",
+    body:
+      "Check parcel description, pickup person, receiver details, payment responsibility, and drop-off location before moving. Do not carry suspicious, dangerous, illegal, leaking, or poorly described items. If the receiver cannot be verified, document the issue and contact support instead of abandoning the parcel without record.",
+  },
+  {
+    title: "Reporting as an operator",
+    body:
+      "Report passenger threats, unsafe pickup locations, fake bookings, harassment, unpaid fares, dangerous parcels, wrong saved locations, or route incidents with clear details. Include route, time, passenger name, phone if available, screenshots, and what action you took to keep people safe.",
+  },
+];
+
+function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
+  const { rendered, panelOpen } = useDrawerTransition(open);
+
+  useEffect(() => {
+    if (!rendered) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose?.();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose, rendered]);
+
+  if (!rendered) return null;
+
+  return (
+    <div className={`fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+      <button
+        type="button"
+        aria-label="Close operator safety overlay"
+        onClick={onClose}
+        className={`absolute inset-0 border-0 bg-slate-950/35 p-0 transition-opacity duration-300 ${
+          panelOpen ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
+      <aside
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl ${
+          panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
+        }`}
+      >
+        <header className="sticky top-0 z-20 border-b border-gray-100 bg-white px-5 py-4 shadow-sm">
+          <div className="flex items-center gap-4">
+            <AppBackTab
+              onBack={onClose}
+              label="Back to operator menu"
+              historyKey="transport-operator-safety"
+              className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+              useHistoryLayer={false}
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-wide text-red-700">Operator Safety</p>
+              <h2 className="truncate text-lg font-black text-gray-950">Safety & emergency</h2>
+              <p className="truncate text-xs font-semibold text-gray-500">
+                {fleetName} - {operatorName}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          <section className="rounded-3xl border border-red-100 bg-red-50 p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-red-700 shadow-sm">
+                <FiAlertTriangle size={22} />
+              </span>
+              <div>
+                <h3 className="font-black text-red-900">Emergency help comes first</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-red-800">
+                  KunThai can support records, reports, and trip follow-up. In immediate danger, contact local emergency help first, then use the app record after people are safe.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-4 grid gap-3">
+            {operatorSafetyTopics.map((topic, index) => (
+              <OperatorSafetyTopic key={topic.title} number={index + 1} topic={topic} />
+            ))}
+          </section>
+
+          <section className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="font-black text-gray-950">Operator incident record</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
+              After an incident, write down the trip ID or route, passenger name, pickup point, destination, time, location, what happened, who was contacted, and whether emergency help was called. A calm record protects serious operators and helps KunThai review the case more fairly.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {["Trip or request reference", "Passenger or receiver details", "Current location or landmark", "Route and fare agreement", "Photos when safe", "Emergency contact outcome"].map((item) => (
+                <span key={item} className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-black text-gray-600">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function OperatorSafetyTopic({ number, topic }) {
+  return (
+    <article className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-50 text-sm font-black text-red-700">
+          {number}
+        </span>
+        <div>
+          <h3 className="text-sm font-black text-gray-950">{topic.title}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-gray-600">{topic.body}</p>
+        </div>
+      </div>
+    </article>
   );
 }
 

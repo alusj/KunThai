@@ -20,6 +20,7 @@ import {
   fetchTransportFleetReviews,
   submitTransportFleetReview,
 } from "../services/transportFleetService";
+import { formatCountryMoney } from "../../data/westAfricanCountryProfiles";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import VerificationBadge from "./verification/VerificationBadge";
@@ -63,10 +64,10 @@ function getContactPhone(fleet) {
   return String(fleet.operatorPhone || "").trim();
 }
 
-function formatMoney(value) {
+function formatMoney(value, fleet) {
   const amount = Number(value || 0);
   if (!Number.isFinite(amount) || amount <= 0) return "Not added";
-  return `SLE ${amount.toLocaleString()}`;
+  return formatCountryMoney(amount, fleet?.currency || fleet?.countryCode || fleet?.country, { maximumFractionDigits: 0 });
 }
 
 function formatRating(value) {
@@ -458,9 +459,9 @@ function PricingCard({ fleet }) {
         </div>
       </div>
       <div className="mt-4 grid gap-2">
-        <MiniDetail label="Starting price" value={formatMoney(fleet.baseFare)} />
-        <MiniDetail label="Price per km" value={fleet.pricePerKm ? `${formatMoney(fleet.pricePerKm)} per km` : "Not added"} />
-        <MiniDetail label="Price per hour" value={fleet.pricePerHour ? `${formatMoney(fleet.pricePerHour)} per hour` : "Not added"} />
+        <MiniDetail label="Starting price" value={formatMoney(fleet.baseFare, fleet)} />
+        <MiniDetail label="Price per km" value={fleet.pricePerKm ? `${formatMoney(fleet.pricePerKm, fleet)} per km` : "Not added"} />
+        <MiniDetail label="Price per hour" value={fleet.pricePerHour ? `${formatMoney(fleet.pricePerHour, fleet)} per hour` : "Not added"} />
         <MiniDetail label="Distance limit" value={fleet.maxDistanceKm ? `${fleet.maxDistanceKm} km` : "Operator controlled"} />
       </div>
     </section>

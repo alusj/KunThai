@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { getActiveCountryProfile } from "../../../data/westAfricanCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 
@@ -223,8 +224,14 @@ function normalizeProductAttributes(details = {}) {
 async function insertProductPayload(payload) {
   let { data, error } = await supabase.from("marketplace_products").insert(payload).select().maybeSingle();
 
-  if (error && isMissingColumn(error, "product_attributes")) {
-    const { product_attributes: _attributes, ...fallbackPayload } = payload;
+  if (error && ["product_attributes", "country", "country_iso", "currency"].some((column) => isMissingColumn(error, column))) {
+    const {
+      product_attributes: _attributes,
+      country: _country,
+      country_iso: _countryIso,
+      currency: _currency,
+      ...fallbackPayload
+    } = payload;
     const fallback = await supabase.from("marketplace_products").insert(fallbackPayload).select().maybeSingle();
     data = fallback.data;
     error = fallback.error;
@@ -236,8 +243,14 @@ async function insertProductPayload(payload) {
 async function updateProductPayload(productId, businessId, payload) {
   let { data, error } = await supabase.from("marketplace_products").update(payload).eq("id", productId).eq("business_id", businessId).select().maybeSingle();
 
-  if (error && isMissingColumn(error, "product_attributes")) {
-    const { product_attributes: _attributes, ...fallbackPayload } = payload;
+  if (error && ["product_attributes", "country", "country_iso", "currency"].some((column) => isMissingColumn(error, column))) {
+    const {
+      product_attributes: _attributes,
+      country: _country,
+      country_iso: _countryIso,
+      currency: _currency,
+      ...fallbackPayload
+    } = payload;
     const fallback = await supabase.from("marketplace_products").update(fallbackPayload).eq("id", productId).eq("business_id", businessId).select().maybeSingle();
     data = fallback.data;
     error = fallback.error;
@@ -248,6 +261,7 @@ async function updateProductPayload(productId, businessId, payload) {
 
 export async function fetchProductFormOptions() {
   const business = await readRegisteredBusiness();
+  const countryProfile = getActiveCountryProfile(business?.location?.country);
   if (!business) {
     return {
       categories: [],
@@ -259,7 +273,7 @@ export async function fetchProductFormOptions() {
 
   return {
     categories: business.identity.categories,
-    defaultLocation: [business.location.city, business.location.country].filter(Boolean).join(", "),
+    defaultLocation: [business.location.city || countryProfile.cityPlaceholder, business.location.country || countryProfile.name].filter(Boolean).join(", "),
     deliveryAvailable: business.operations.deliveryEnabled,
     pickupAvailable: business.operations.pickupEnabled,
   };
@@ -291,6 +305,7 @@ export async function submitSellerProduct(form, onProgress) {
   }
 
   const status = form.pricing.publishStatus;
+  const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("Saving product details...");
   const payload = {
     business_id: business.id,
@@ -303,6 +318,9 @@ export async function submitSellerProduct(form, onProgress) {
     product_attributes: normalizeProductAttributes(form.details),
     price: Number(form.pricing.price || 0),
     discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
+    country: business.location.country || countryProfile.name,
+    country_iso: countryProfile.iso2,
+    currency: countryProfile.currency.code,
     status,
     stock: Number(form.pricing.stock || 0),
     sku: form.pricing.sku.trim(),
@@ -375,6 +393,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
   }
 
   const status = form.pricing.publishStatus;
+  const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("Updating product listing...");
   const payload = {
     name: form.basics.name.trim(),
@@ -386,6 +405,9 @@ export async function updateSellerProductListing(product, form, onProgress) {
     product_attributes: normalizeProductAttributes(form.details),
     price: Number(form.pricing.price || 0),
     discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
+    country: business.location.country || countryProfile.name,
+    country_iso: countryProfile.iso2,
+    currency: countryProfile.currency.code,
     status,
     stock: Number(form.pricing.stock || 0),
     sku: form.pricing.sku.trim(),

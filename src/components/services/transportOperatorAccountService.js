@@ -1,4 +1,12 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { isMissingColumn } from "../../Backend/services/explore/errors";
+import {
+  formatCountryMoney,
+  getActiveCountryProfile,
+  getCountryCurrencyCode,
+  normalizeCountryIso,
+  storeCountryContext,
+} from "../../data/westAfricanCountryProfiles";
 
 const DRAFT_KEY = "kuntai.transport.operatorDraft";
 const DRAFT_KEY_PREFIX = `${DRAFT_KEY}.`;
@@ -75,10 +83,14 @@ async function getCurrentUserId(message = "Sign in to manage your fleet.") {
 
 function mapOperatorAccount(row, fleet, extras = {}) {
   if (!row) return null;
+  const countryProfile = getActiveCountryProfile(fleet?.country_iso || row.country_iso || fleet?.country || row.country);
 
   const form = {
     name: row.full_name || "",
     phone: row.phone || "",
+    country: fleet?.country || row.country || countryProfile.name,
+    countryCode: fleet?.country_iso || row.country_iso || countryProfile.iso2,
+    currency: fleet?.currency || row.currency || countryProfile.currency.code,
     city: row.city || "",
     emergencyContact: row.emergency_contact || "",
     category: displayCategory(fleet?.service_category),
@@ -146,12 +158,39 @@ function parseOptionalCoordinate(value) {
   return Number.isFinite(coordinate) ? coordinate : null;
 }
 
+function resolveCurrencyCode(value = "") {
+  const raw = String(value || "").trim().toUpperCase();
+  if (/^[A-Z]{3}$/.test(raw)) return raw;
+  return getCountryCurrencyCode(normalizeCountryIso(value));
+}
+
+function hasMissingCountryContextColumn(error) {
+  return ["country", "country_iso", "currency"].some((column) => isMissingColumn(error, column));
+}
+
+function withoutCountryContext(payload) {
+  const { country: _country, country_iso: _countryIso, currency: _currency, ...rest } = payload;
+  return rest;
+}
+
+function buildCountryContext(form = {}) {
+  const countryProfile = getActiveCountryProfile(form.countryCode || form.country);
+  const country = form.country || countryProfile.name;
+  storeCountryContext(countryProfile.iso2);
+  return {
+    country,
+    country_iso: countryProfile.iso2,
+    currency: form.currency || countryProfile.currency.code,
+  };
+}
+
 function mapTrip(row) {
   const tripType = row.trip_type || row.trip_mode || "ride";
   const pickupLat = parseOptionalCoordinate(row.pickup_latitude);
   const pickupLng = parseOptionalCoordinate(row.pickup_longitude);
   const destinationLat = parseOptionalCoordinate(row.destination_latitude);
   const destinationLng = parseOptionalCoordinate(row.destination_longitude);
+  const fareCurrency = resolveCurrencyCode(row.fare_currency || row.country_iso || row.country);
   return {
     id: row.id,
     fleetId: row.fleet_id || "",
@@ -163,7 +202,7 @@ function mapTrip(row) {
     destination: row.destination_label || "Destination pending",
     route: [row.pickup_label, row.destination_label].filter(Boolean).join(" to ") || "Passenger request",
     time: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-    fare: row.fare_amount ? `${row.fare_currency || "SLE"} ${Number(row.fare_amount).toFixed(2)}` : "Fare pending",
+    fare: row.fare_amount ? formatCountryMoney(row.fare_amount, fareCurrency) : "Fare pending",
     note: row.status || "Waiting for operator",
     status: row.status,
     rawStatus: row.status,
@@ -180,7 +219,7 @@ function mapTrip(row) {
     pausedSeconds: Number(row.paused_seconds || 0),
     contactPhone: row.contact_phone || "",
     fareAmount: Number(row.fare_amount || 0),
-    fareCurrency: row.fare_currency || "SLE",
+    fareCurrency,
     lastLocationLatitude: parseOptionalCoordinate(row.last_location_latitude),
     lastLocationLongitude: parseOptionalCoordinate(row.last_location_longitude),
     pickupPoint: pickupLat != null && pickupLng != null
@@ -218,11 +257,12 @@ function mapAlert(row) {
 }
 
 function mapTransaction(row) {
+  const currency = resolveCurrencyCode(row.currency || row.country_iso || row.country);
   return {
     id: row.id,
     type: row.transaction_type,
     amount: Number(row.amount || 0),
-    currency: row.currency || "SLE",
+    currency,
     status: row.status,
     description: row.description || "",
     createdAt: row.created_at,
@@ -432,6 +472,7 @@ export async function saveOperatorAccount(account) {
   const plateNumber = normalizePlateNumber(form.plateNumber);
   const documentsSkipped = Boolean(account.documentsSkipped);
   const verificationStatus = documentsSkipped ? "not_verified" : "verification_pending";
+  const countryContext = buildCountryContext(form);
 
   if (!plateNumber) {
     throw new Error("Plate number is required so this fleet cannot be confused with another operator.");
@@ -450,6 +491,7 @@ export async function saveOperatorAccount(account) {
     full_name: form.name?.trim() || "Operator",
     phone: form.phone?.trim() || "",
     city: form.city?.trim() || "",
+    ...countryContext,
     emergency_contact: form.emergencyContact?.trim() || "",
     documents_skipped: documentsSkipped,
     verification_status: verificationStatus,
@@ -461,13 +503,25 @@ export async function saveOperatorAccount(account) {
   let operator = existingOperator;
 
   if (existingOperator?.id) {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("transport_operators")
       .update(operatorPayload)
       .eq("id", existingOperator.id)
       .eq("user_id", userId)
       .select()
       .maybeSingle();
+
+    if (error && hasMissingCountryContextColumn(error)) {
+      const fallback = await supabase
+        .from("transport_operators")
+        .update(withoutCountryContext(operatorPayload))
+        .eq("id", existingOperator.id)
+        .eq("user_id", userId)
+        .select()
+        .maybeSingle();
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) throw new Error(error.message);
     operator = data;
@@ -477,7 +531,7 @@ export async function saveOperatorAccount(account) {
     const codeAttempts = [seedCode, ...Array.from({ length: 8 }, generateOperatorCode)];
 
     for (const operatorCode of codeAttempts) {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("transport_operators")
         .insert({
           ...operatorPayload,
@@ -485,6 +539,19 @@ export async function saveOperatorAccount(account) {
         })
         .select()
         .maybeSingle();
+
+      if (error && hasMissingCountryContextColumn(error)) {
+        const fallback = await supabase
+          .from("transport_operators")
+          .insert({
+            ...withoutCountryContext(operatorPayload),
+            operator_code: operatorCode,
+          })
+          .select()
+          .maybeSingle();
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (!error) {
         operator = data;
@@ -538,6 +605,7 @@ export async function saveOperatorAccount(account) {
     operating_area: form.operatingArea?.trim() || "",
     availability: form.availability || "Full-time",
     home_base_location: form.homeBaseLocation?.trim() || "",
+    ...countryContext,
     fuel_type: form.fuelType?.trim() || "",
     car_body_type: form.carBodyType?.trim() || "",
     max_load: form.maxLoad?.trim() || "",
@@ -546,8 +614,8 @@ export async function saveOperatorAccount(account) {
     price_per_km: form.pricePerKm ? Number(form.pricePerKm) : null,
     price_per_hour: form.pricePerHour ? Number(form.pricePerHour) : null,
     price_hint: form.priceHint?.trim() || [
-      form.pricePerKm ? `SLE ${Number(form.pricePerKm).toLocaleString()} per km` : "",
-      form.pricePerHour ? `SLE ${Number(form.pricePerHour).toLocaleString()} per hour` : "",
+      form.pricePerKm ? `${formatCountryMoney(form.pricePerKm, form.currency || form.countryCode || form.country)} per km` : "",
+      form.pricePerHour ? `${formatCountryMoney(form.pricePerHour, form.currency || form.countryCode || form.country)} per hour` : "",
     ].filter(Boolean).join(" | "),
     safety_answers: account.answers || {},
     verification_status: verificationStatus,
@@ -562,7 +630,17 @@ export async function saveOperatorAccount(account) {
     ? supabase.from("transport_fleets").update(fleetPayload).eq("id", existingFleet.id)
     : supabase.from("transport_fleets").insert(fleetPayload);
 
-  const { data: fleet, error: fleetError } = await fleetQuery.select().maybeSingle();
+  let { data: fleet, error: fleetError } = await fleetQuery.select().maybeSingle();
+
+  if (fleetError && hasMissingCountryContextColumn(fleetError)) {
+    const fallbackFleetPayload = withoutCountryContext(fleetPayload);
+    const fallbackFleetQuery = existingFleet?.id
+      ? supabase.from("transport_fleets").update(fallbackFleetPayload).eq("id", existingFleet.id)
+      : supabase.from("transport_fleets").insert(fallbackFleetPayload);
+    const fallback = await fallbackFleetQuery.select().maybeSingle();
+    fleet = fallback.data;
+    fleetError = fallback.error;
+  }
 
   if (fleetError) throw new Error(fleetError.message);
 

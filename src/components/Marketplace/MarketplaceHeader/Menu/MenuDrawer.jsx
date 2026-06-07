@@ -12,12 +12,17 @@ import {
   LifeBuoy,
   LocateFixed,
   MapPin,
+  MoreHorizontal,
+  Navigation,
   PackageCheck,
+  Pencil,
   Plus,
   ReceiptText,
   RotateCcw,
   Settings,
   ShieldAlert,
+  Share2,
+  Trash2,
   X,
 } from "lucide-react";
 import AppPortal from "../../../shared/AppPortal";
@@ -32,6 +37,7 @@ import {
 import NearbyAreaScreen from "../../../transport/NearbyAreaScreen";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import {
+  deleteBuyerDeliveryAddress,
   fetchBuyerDeliveryAddresses,
   fetchSavedBuyerProducts,
   saveBuyerDeliveryAddress,
@@ -123,6 +129,18 @@ function readBuyerAddresses() {
 
 function getAddressLabel(address) {
   return address.category === "Other" ? address.customCategory || "Other" : address.category || "Resident";
+}
+
+function getAddressActionKey(address = {}) {
+  return address.id || `${address.category || "Resident"}-${address.street || address.detectedAddress || "address"}`;
+}
+
+function getAddressShareText(address) {
+  const label = getAddressLabel(address);
+  const street = address.street || address.detectedAddress || "Address pending";
+  const phone = address.phone ? `\nPhone: ${address.phone}` : "";
+  const note = address.note ? `\nNote: ${address.note}` : "";
+  return `${label} delivery address\n${street}${phone}${note}`;
 }
 
 function createEmptyAddress() {
@@ -263,6 +281,21 @@ function BuyerArticlePanel({ icon, tone = "emerald", title, summary, sections })
   );
 }
 
+function SavedAddressMenuAction({ danger = false, icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`kt-touchable flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black ${
+        danger ? "text-rose-600 hover:bg-rose-50" : "text-gray-700 hover:bg-gray-50 hover:text-gray-950"
+      }`}
+    >
+      <Icon size={17} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
 export default function MenuDrawer({ open, onClose }) {
   const [active, setActive] = useState(null);
   const { visibleKey: visibleActive, action: activeAction } = useSlidePanel(active);
@@ -276,6 +309,7 @@ export default function MenuDrawer({ open, onClose }) {
   const [payment, setPayment] = useState(() => readLocalValue(BUYER_PAYMENT_KEY));
   const [message, setMessage] = useState("");
   const [addressFormOpen, setAddressFormOpen] = useState(false);
+  const [addressActionMenuId, setAddressActionMenuId] = useState("");
   const addressPoint = address.coordinates
     ? {
         lat: address.coordinates.latitude ?? address.coordinates.lat,
@@ -386,6 +420,7 @@ export default function MenuDrawer({ open, onClose }) {
   }
 
   function editAddress(nextAddress) {
+    setAddressActionMenuId("");
     setAddress({ ...createEmptyAddress(), ...nextAddress });
     setLocationCandidate(null);
     setLocationStatus("");
@@ -399,6 +434,70 @@ export default function MenuDrawer({ open, onClose }) {
     setLocationStatus("");
     setAreaPicker(null);
     setAddressFormOpen(false);
+  }
+
+  function selectAddress(nextAddress) {
+    setAddressActionMenuId("");
+    setAddress({ ...createEmptyAddress(), ...nextAddress });
+    localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(nextAddress));
+    window.dispatchEvent(new CustomEvent("marketplace-delivery-address-selected", { detail: { address: nextAddress } }));
+    setMessage(`${getAddressLabel(nextAddress)} address selected for your next UrMall order.`);
+  }
+
+  async function shareAddress(nextAddress) {
+    setAddressActionMenuId("");
+    const text = getAddressShareText(nextAddress);
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${getAddressLabel(nextAddress)} delivery address`,
+          text,
+        });
+        setMessage("Delivery address ready to share.");
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setMessage("Delivery address details copied.");
+        return;
+      }
+
+      setMessage(text);
+    } catch {
+      setMessage("Unable to share this delivery address right now.");
+    }
+  }
+
+  async function removeAddress(addressKey, nextAddress) {
+    setAddressActionMenuId("");
+    const nextAddresses = savedAddresses.filter((item) => getAddressActionKey(item) !== addressKey);
+    setSavedAddresses(nextAddresses);
+    localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(nextAddresses));
+
+    let activeAddress = null;
+    try {
+      activeAddress = JSON.parse(localStorage.getItem(BUYER_ADDRESS_KEY) || "null");
+    } catch {
+      activeAddress = null;
+    }
+
+    if (getAddressActionKey(activeAddress || {}) === addressKey) {
+      if (nextAddresses[0]) localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(nextAddresses[0]));
+      else localStorage.removeItem(BUYER_ADDRESS_KEY);
+    }
+
+    if (getAddressActionKey(address) === addressKey) {
+      closeAddressForm();
+    }
+
+    try {
+      await deleteBuyerDeliveryAddress(nextAddress.id);
+      setMessage("Delivery address removed.");
+    } catch {
+      setMessage("Delivery address removed on this device. Online sync will update when the buyer address table is available.");
+    }
   }
 
   function openAddressAreaPicker(start = "current") {
@@ -493,23 +592,57 @@ export default function MenuDrawer({ open, onClose }) {
 
         {screenKey === "address" && (
           <div className="space-y-4">
+            {addressActionMenuId ? (
+              <button
+                type="button"
+                aria-label="Close delivery address actions"
+                className="fixed inset-0 z-10 cursor-default bg-transparent"
+                onClick={() => setAddressActionMenuId("")}
+              />
+            ) : null}
+
             {savedAddresses.length ? (
               <div className="space-y-2">
                 <p className="text-sm font-black text-gray-950">Saved addresses</p>
-                {savedAddresses.map((item) => (
-                  <button
-                    key={item.id || `${item.category}-${item.street}`}
-                    type="button"
-                    onClick={() => editAddress(item)}
-                    className="kt-touchable w-full rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-black text-gray-950">{getAddressLabel(item)} address</p>
-                      <span className="text-xs font-black text-emerald-700">Edit</span>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{item.street || item.detectedAddress}</p>
-                  </button>
-                ))}
+                {savedAddresses.map((item) => {
+                  const actionKey = getAddressActionKey(item);
+
+                  return (
+                    <article
+                      key={actionKey}
+                      className="kt-touchable relative rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <button type="button" onClick={() => editAddress(item)} className="kt-touchable min-w-0 flex-1 text-left">
+                          <p className="text-sm font-black text-gray-950">{getAddressLabel(item)} address</p>
+                          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
+                            {item.street || item.detectedAddress}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setAddressActionMenuId((current) => (current === actionKey ? "" : actionKey));
+                          }}
+                          className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-950"
+                          aria-label={`${getAddressLabel(item)} address actions`}
+                          aria-expanded={addressActionMenuId === actionKey}
+                        >
+                          <MoreHorizontal size={18} />
+                        </button>
+                      </div>
+                      {addressActionMenuId === actionKey ? (
+                        <div className="kt-modal-enter absolute right-3 top-12 z-30 w-60 overflow-hidden rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl shadow-slate-950/10">
+                          <SavedAddressMenuAction icon={Navigation} label="Use for next order" onClick={() => selectAddress(item)} />
+                          <SavedAddressMenuAction icon={Pencil} label="Edit address" onClick={() => editAddress(item)} />
+                          <SavedAddressMenuAction icon={Share2} label="Share details" onClick={() => shareAddress(item)} />
+                          <SavedAddressMenuAction danger icon={Trash2} label="Delete address" onClick={() => removeAddress(actionKey, item)} />
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
             ) : null}
 

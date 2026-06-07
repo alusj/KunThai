@@ -16,6 +16,8 @@ import ProfileEditForm from "./ProfileEditForm";
 import ProfileHeaderCard from "./ProfileHeaderCard";
 import ProfileTabs from "./ProfileTabs";
 
+const PROFILE_TAB_ORDER = ["feed", "swip", "saved", "activity"];
+
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -57,6 +59,7 @@ export default function ProfileScreen({
 }) {
   const [editing, setEditing] = useState(false);
   const [postTab, setPostTab] = useState("feed");
+  const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [values, setValues] = useState(profile || {});
@@ -143,6 +146,15 @@ export default function ProfileScreen({
     await toggleFollow(values.userId);
   }
 
+  function changeProfileTab(nextTab) {
+    if (nextTab === postTab) return;
+
+    const currentIndex = PROFILE_TAB_ORDER.indexOf(postTab);
+    const nextIndex = PROFILE_TAB_ORDER.indexOf(nextTab);
+    setTabSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
+    setPostTab(nextTab);
+  }
+
   async function handleShare() {
     try {
       await shareProfile(values);
@@ -209,6 +221,14 @@ export default function ProfileScreen({
     ));
   }
 
+  function renderTabContent() {
+    if (postTab === "feed") return renderFeedPosts();
+    if (postTab === "swip") return renderSwipPosts();
+    if (postTab === "saved" && editable) return <SavedPostsScreen currentUserId={currentUserId} hideHeader />;
+    if (postTab === "activity" && editable) return <ActivityScreen hideHeader onOpenNotification={onOpenNotification} />;
+    return null;
+  }
+
   return (
     <div>
       {!hideHeader ? (
@@ -265,13 +285,13 @@ export default function ProfileScreen({
 
         {editing ? <ProfileEditForm values={values} onChange={updateField} /> : null}
 
-        <ProfileTabs active={postTab} editable={editable} onChange={setPostTab} />
+        <ProfileTabs active={postTab} editable={editable} onChange={changeProfileTab} />
 
-        <section className="w-full space-y-4">
-          {postTab === "feed" ? renderFeedPosts() : null}
-          {postTab === "swip" ? renderSwipPosts() : null}
-          {postTab === "saved" && editable ? <SavedPostsScreen currentUserId={currentUserId} hideHeader /> : null}
-          {postTab === "activity" && editable ? <ActivityScreen hideHeader onOpenNotification={onOpenNotification} /> : null}
+        <section
+          key={postTab}
+          className={`w-full space-y-4 ${tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`}
+        >
+          {renderTabContent()}
         </section>
           </>
         ) : null}

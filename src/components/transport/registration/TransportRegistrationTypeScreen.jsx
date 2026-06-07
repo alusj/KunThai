@@ -1,0 +1,102 @@
+import { Building2, CheckCircle2, ShieldCheck, Truck, UserRound } from "lucide-react";
+
+import AppBackTab from "../../shared/AppBackTab";
+
+const OPTIONS = [
+  {
+    id: "solo",
+    title: "Solo Operator",
+    subtitle: "Register yourself and one primary fleet.",
+    icon: UserRound,
+    tone: "emerald",
+    bullets: ["Personal operator profile", "One fleet registration", "Direct passenger bookings"],
+  },
+  {
+    id: "company",
+    title: "Company / Organization",
+    subtitle: "Register a transport business, add fleets, and invite operators.",
+    icon: Building2,
+    tone: "blue",
+    bullets: ["Fleet HQ workspace", "Multiple fleet documents", "Operator invites by KunThai ID"],
+  },
+];
+
+export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
+        <div className="flex items-center gap-3">
+          <AppBackTab
+            onBack={onBack}
+            label="Back to transport"
+            historyKey="transport-registration-type"
+            className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
+          />
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Transport registration</p>
+            <h1 className="truncate text-xl font-black text-slate-950">Choose your registration type</h1>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
+        <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+            <Truck size={28} />
+          </div>
+          <h2 className="mt-5 text-2xl font-black leading-tight text-slate-950">
+            Build the right transport profile from the beginning.
+          </h2>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+            KunThai separates personal operators from transport companies so documents, fleets, invitations, and verification stay clear for passengers, operators, and admins.
+          </p>
+          <div className="mt-5 grid gap-3">
+            {["Clear ownership", "Document-ready review", "Better team control"].map((item) => (
+              <div key={item} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                <ShieldCheck className="text-emerald-700" size={19} />
+                <span className="text-sm font-black text-slate-800">{item}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="grid gap-4">
+          {OPTIONS.map((option) => {
+            const Icon = option.icon;
+            const isCompany = option.id === "company";
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onSelect(option.id)}
+                className={`kt-pressable rounded-3xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
+                  isCompany ? "border-blue-200 hover:border-blue-400" : "border-emerald-200 hover:border-emerald-400"
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+                    isCompany ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"
+                  }`}>
+                    <Icon size={28} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xl font-black text-slate-950">{option.title}</span>
+                    <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">{option.subtitle}</span>
+                  </span>
+                  <CheckCircle2 className={isCompany ? "text-blue-600" : "text-emerald-600"} size={24} />
+                </div>
+                <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                  {option.bullets.map((bullet) => (
+                    <span key={bullet} className="rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-600">
+                      {bullet}
+                    </span>
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </section>
+      </main>
+    </div>
+  );
+}

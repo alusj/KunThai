@@ -7,13 +7,18 @@ import {
   submitSellerRegistration,
 } from "../services/marketplace/sellerRegistrationService";
 import { getOnboardingProfile } from "../services/onboardingService";
+import {
+  getActiveCountryProfile,
+  storeCountryContext,
+} from "../../data/westAfricanCountryProfiles";
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
 
 function cloneInitialRegistration() {
+  const countryProfile = getActiveCountryProfile();
   return {
     identity: { ...INITIAL_REGISTRATION.identity, categories: [...INITIAL_REGISTRATION.identity.categories] },
-    location: { ...INITIAL_REGISTRATION.location },
+    location: { ...INITIAL_REGISTRATION.location, country: countryProfile.name },
     operations: { ...INITIAL_REGISTRATION.operations },
     trustPayout: { ...INITIAL_REGISTRATION.trustPayout },
   };
@@ -127,15 +132,19 @@ export function useSellerRegistration({ onComplete } = {}) {
       .then((profile) => {
         if (!alive) return;
         const accountName = getAccountDisplayName(profile);
-        if (!accountName) return;
+        const countryProfile = getActiveCountryProfile(profile?.country || profile?.countryCode);
 
         setForm((current) => {
-          if (current.identity.businessName.trim()) return current;
           return {
             ...current,
             identity: {
               ...current.identity,
-              businessName: accountName,
+              businessName: current.identity.businessName.trim() ? current.identity.businessName : accountName,
+            },
+            location: {
+              ...current.location,
+              country: current.location.country || profile?.country || countryProfile.name,
+              city: current.location.city || profile?.city || "",
             },
           };
         });
@@ -148,6 +157,7 @@ export function useSellerRegistration({ onComplete } = {}) {
   }, []);
 
   function updateSection(section, patch) {
+    if (section === "location" && patch?.country) storeCountryContext(patch.country);
     setDraftStatus("");
     setForm((current) => ({
       ...current,

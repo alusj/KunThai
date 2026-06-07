@@ -81,9 +81,9 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
-          <p className="text-lg font-black text-gray-950">{formatCurrency(displayPrice)}</p>
+          <p className="text-lg font-black text-gray-950">{formatCurrency(displayPrice, product.currency || product.countryCode || product.country)}</p>
           {hasDiscount && (
-            <p className="pb-0.5 text-xs font-bold text-gray-400 line-through">{formatCurrency(product.price)}</p>
+            <p className="pb-0.5 text-xs font-bold text-gray-400 line-through">{formatCurrency(product.price, product.currency || product.countryCode || product.country)}</p>
           )}
         </div>
 

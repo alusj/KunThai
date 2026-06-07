@@ -364,6 +364,7 @@ function ProductCard({
   const productDiscountPrice = product?.discountPrice === null || product?.discountPrice === undefined ? null : toSafeNumber(product.discountPrice, 0);
   const hasDiscount = productDiscountPrice !== null && productDiscountPrice < productPrice;
   const displayPrice = hasDiscount ? productDiscountPrice : productPrice;
+  const productMoneyScope = product?.currency || product?.countryCode || product?.country;
   const productStock = toSafeNumber(product?.stock, 0);
   const stockLabel = productStock > 0 ? `${productStock} in stock` : "Out of stock";
 
@@ -405,8 +406,8 @@ function ProductCard({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="text-lg font-black text-gray-950">{formatCurrency(displayPrice)}</p>
-          {hasDiscount ? <p className="text-xs font-black text-gray-400 line-through">{formatCurrency(productPrice)}</p> : null}
+          <p className="text-lg font-black text-gray-950">{formatCurrency(displayPrice, productMoneyScope)}</p>
+          {hasDiscount ? <p className="text-xs font-black text-gray-400 line-through">{formatCurrency(productPrice, productMoneyScope)}</p> : null}
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-black">

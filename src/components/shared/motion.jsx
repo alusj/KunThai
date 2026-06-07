@@ -18,6 +18,16 @@ export function PageTransition({ active = true, children, className = "" }) {
   );
 }
 
+export function StepSlideTransition({ children, className = "", direction = "forward", stepKey }) {
+  const slideClass = direction === "backward" ? "kt-form-step-slide-backward" : "kt-form-step-slide-forward";
+
+  return (
+    <div key={stepKey} className={`${slideClass} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 export function PressableButton({
   as = "button",
   children,

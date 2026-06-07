@@ -1,9 +1,11 @@
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductToggle from "./ProductToggle";
+import { getActiveCountryProfile } from "../../../../../data/westAfricanCountryProfiles";
 
 export default function ProductDeliveryReviewStep({ productForm }) {
   const { form, errors, updateSection } = productForm;
+  const countryProfile = getActiveCountryProfile();
 
   return (
     <div className="space-y-5">
@@ -33,7 +35,7 @@ export default function ProductDeliveryReviewStep({ productForm }) {
           <ProductFormInput
             value={form.delivery.location}
             onChange={(event) => updateSection("delivery", { location: event.target.value })}
-            placeholder="Freetown, Sierra Leone"
+            placeholder={`${countryProfile.cityPlaceholder}, ${countryProfile.name}`}
           />
         </ProductFormField>
       </div>

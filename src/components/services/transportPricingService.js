@@ -1,5 +1,6 @@
 import { searchLocations } from "../../Backend/services/locationSearchService";
 import { getRouteBetweenPoints } from "../../Backend/services/routeService";
+import { formatCountryMoney } from "../../data/westAfricanCountryProfiles";
 
 function toFiniteNumber(value) {
   const number = Number(value);
@@ -39,8 +40,11 @@ async function resolveLocationPoint(label, center = null) {
 }
 
 export function formatSle(value) {
-  const amount = Number(value || 0);
-  return `SLE ${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return formatCountryMoney(value);
+}
+
+export function formatTransportMoney(value, countryOrCurrency = "") {
+  return formatCountryMoney(value, countryOrCurrency);
 }
 
 export function formatBookingDistance(distanceKm) {
@@ -84,13 +88,13 @@ export function describeFleetFare(fleet, input = {}) {
 
   if (input.bookingMethod === "time") {
     if (!Number(fleet.pricePerHour || 0)) return "Hourly rate not added";
-    if (!estimate?.ready) return `${formatSle(fleet.pricePerHour)} per hour`;
+    if (!estimate?.ready) return `${formatTransportMoney(fleet.pricePerHour, fleet.currency || fleet.countryCode || fleet.country)} per hour`;
   } else {
     if (!Number(fleet.pricePerKm || 0)) return "Distance rate not added";
-    if (!estimate?.ready) return `${formatSle(fleet.pricePerKm)} per km`;
+    if (!estimate?.ready) return `${formatTransportMoney(fleet.pricePerKm, fleet.currency || fleet.countryCode || fleet.country)} per km`;
   }
 
-  return formatSle(estimate.amount);
+  return formatTransportMoney(estimate.amount, fleet.currency || fleet.countryCode || fleet.country);
 }
 
 export async function calculateBookingRoute(pickup, dropoff, options = {}) {

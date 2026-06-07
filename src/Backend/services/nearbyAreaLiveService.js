@@ -7,6 +7,7 @@ const DEFAULT_AREA_RADIUS_KM = 25;
 const MAX_AREA_RADIUS_KM = 60;
 
 const TRANSPORT_TYPES = new Set(["bike", "keke", "car", "van"]);
+const LIVE_OPERATOR_STATUSES = new Set(["online", "busy"]);
 const TRAFFIC_STATUSES = new Set(["green", "yellow", "red"]);
 const ACTIVE_REPORT_TYPES = new Set([
   "traffic",
@@ -120,6 +121,33 @@ function normalizeTransportType(value) {
   return "bike";
 }
 
+function getRowMetadata(row) {
+  const metadata = row?.metadata;
+  if (!metadata) return {};
+  if (typeof metadata === "object") return metadata;
+
+  try {
+    return JSON.parse(metadata);
+  } catch {
+    return {};
+  }
+}
+
+function isOperatorBooked(row, status) {
+  const metadata = getRowMetadata(row);
+  return Boolean(
+    status === "busy" ||
+      row?.booked ||
+      row?.is_booked ||
+      row?.active_trip_id ||
+      row?.current_trip_id ||
+      metadata.booked ||
+      metadata.isBooked ||
+      metadata.activeTripId ||
+      metadata.currentTripId,
+  );
+}
+
 function normalizeLocationCategory(category) {
   const value = String(category || "Community").trim().toLowerCase();
 
@@ -137,15 +165,22 @@ function normalizeOperator(row) {
   const point = getLatLng(row);
   if (!row || !point || !isFreshOperator(row)) return null;
 
-  const type = normalizeTransportType(row.transport_type || row.type || row.vehicle_type);
+  const status = String(row.status || "online").toLowerCase();
+  const available = row.available !== false && row.is_available !== false;
+  if ((!available && status !== "busy") || !LIVE_OPERATOR_STATUSES.has(status)) return null;
+
+  const type = normalizeTransportType(row.transport_type || row.fleet_type || row.type || row.vehicle_type);
+  const booked = isOperatorBooked(row, status);
 
   return {
     id: String(row.operator_id || row.id),
     operatorId: row.operator_id || row.id,
     name: row.display_name || row.name || row.full_name || "Nearby operator",
     type,
-    available: row.available !== false && row.is_available !== false,
-    status: row.status || "online",
+    available,
+    booked,
+    status,
+    statusLabel: booked ? "BOOKED" : "AVAILABLE",
     lat: point.lat,
     lng: point.lng,
     heading: toNumber(row.heading),
@@ -433,6 +468,7 @@ export async function getLiveOperators(options = {}) {
     let query = supabase
       .from("transport_operator_locations")
       .select("*")
+      .in("status", Array.from(LIVE_OPERATOR_STATUSES))
       .gte("last_seen_at", staleCutoff)
       .order("last_seen_at", { ascending: false })
       .limit(limit);

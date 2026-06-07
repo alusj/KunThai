@@ -244,6 +244,14 @@
     animation: kt-page-slide-backward 260ms var(--kt-ease-standard) backwards;
   }
 
+  .kt-form-step-slide-forward {
+    animation: kt-form-step-slide-forward 260ms var(--kt-ease-standard) both;
+  }
+
+  .kt-form-step-slide-backward {
+    animation: kt-form-step-slide-backward 260ms var(--kt-ease-standard) both;
+  }
+
   .kt-parent-tab-slide-forward {
     animation: kt-tab-slide-forward 220ms var(--kt-ease-standard) backwards;
   }
@@ -578,6 +586,28 @@
   from {
     opacity: 0.94;
     transform: translate3d(-22px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-form-step-slide-forward {
+  from {
+    opacity: 0.96;
+    transform: translate3d(18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-form-step-slide-backward {
+  from {
+    opacity: 0.96;
+    transform: translate3d(-18px, 0, 0);
   }
   to {
     opacity: 1;

@@ -7,6 +7,8 @@ import ProductMediaStep from "./ProductMediaStep";
 import ProductPreview from "./ProductPreview";
 import ProductPricingStep from "./ProductPricingStep";
 import AppBackTab from "../../../../shared/AppBackTab";
+import { StepSlideTransition } from "../../../../shared/motion";
+import { useDirectionalStep } from "../../../../shared/motionHooks";
 
 const STEPS = [
   { title: "Product basics", component: ProductBasicsStep },
@@ -20,6 +22,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
   const productForm = useSellerProductForm({ mode, product, onComplete });
   const StepComponent = STEPS[productForm.step].component;
   const editing = mode === "edit";
+  const stepSlideDirection = useDirectionalStep(productForm.step);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -54,7 +57,9 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
             <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-xl font-black text-gray-950">{STEPS[productForm.step].title}</h2>
               <div className="mt-5">
-                <StepComponent productForm={productForm} />
+                <StepSlideTransition stepKey={productForm.step} direction={stepSlideDirection}>
+                  <StepComponent productForm={productForm} />
+                </StepSlideTransition>
               </div>
             </section>
 

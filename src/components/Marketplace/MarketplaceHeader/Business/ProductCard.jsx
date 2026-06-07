@@ -1,7 +1,4 @@
-// =======================
-// ProductCard.jsx
-// Reusable product display card for buyers
-// =======================
+import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 
 export default function ProductCard({ product }) {
   return (
@@ -28,14 +25,14 @@ export default function ProductCard({ product }) {
         {product.discount_price ? (
           <>
             <span className="text-red-600 font-semibold">
-              ${product.discount_price}
+              {formatCurrency(product.discount_price)}
             </span>
             <span className="line-through text-gray-400 ml-2">
-              ${product.price}
+              {formatCurrency(product.price)}
             </span>
           </>
         ) : (
-          <span className="font-semibold">${product.price}</span>
+          <span className="font-semibold">{formatCurrency(product.price)}</span>
         )}
       </div>
 

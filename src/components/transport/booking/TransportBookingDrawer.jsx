@@ -23,6 +23,7 @@ import {
 } from "../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../NearbyAreaScreen";
 import { searchLocations } from "../../../Backend/services/locationSearchService";
+import { getCountryPhonePlaceholder } from "../../../data/westAfricanCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
 import { getTransportSavedPlaces } from "../../services/passengerTransportService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
@@ -719,7 +720,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 label="Phone"
                 value={form.phone}
                 onChange={(value) => updateForm({ phone: value })}
-                placeholder="+232..."
+                placeholder={getCountryPhonePlaceholder()}
               />
             </div>
 

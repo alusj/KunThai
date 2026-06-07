@@ -1,4 +1,9 @@
 import supabase from "../../lib/supabaseClient";
+import {
+  filterCountryScopedItems,
+  getCountryCurrencyCode,
+  normalizeCountryIso,
+} from "../../../data/westAfricanCountryProfiles";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -14,6 +19,8 @@ function normalizeNestedBusiness(value) {
 function mapBuyerProduct(product = {}) {
   const business = normalizeNestedBusiness(product.marketplace_businesses);
   const imageUrls = Array.isArray(product.image_urls) ? product.image_urls : [];
+  const countryCode = normalizeCountryIso(product.country_iso || product.country || business.country_iso || business.country);
+  const currency = product.currency || business.currency || getCountryCurrencyCode(countryCode || business.country);
 
   return {
     id: product.id,
@@ -42,6 +49,9 @@ function mapBuyerProduct(product = {}) {
     pickupAvailable: Boolean(product.pickup_available),
     deliveryTime: product.delivery_time || "",
     allowNegotiation: Boolean(product.allow_negotiation),
+    country: product.country || business.country || "",
+    countryCode,
+    currency,
     rating: Number(product.rating || 0),
     reviewCount: Number(product.review_count || 0),
     seller: {
@@ -52,6 +62,8 @@ function mapBuyerProduct(product = {}) {
       address: business.address || "",
       city: business.city || "",
       country: business.country || "",
+      countryCode: normalizeCountryIso(business.country_iso || business.country),
+      currency: business.currency || currency,
       phone: business.phone || "",
       whatsappEnabled: Boolean(business.whatsapp_enabled),
       whatsapp: business.whatsapp || "",
@@ -77,10 +89,10 @@ function mapBuyerProduct(product = {}) {
 const PRODUCT_SELECT = `
   id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
-  delivery_time,allow_negotiation,
+  delivery_time,allow_negotiation,country,country_iso,currency,
   marketplace_businesses (
     id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
-    latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,
+    latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,country_iso,currency,
     logo_url,banner_url,verification_status,readiness_score,created_at
   )
 `;
@@ -89,10 +101,10 @@ const PRODUCT_DETAIL_SELECT = `
   id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
   product_attributes,
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
-  delivery_time,allow_negotiation,
+  delivery_time,allow_negotiation,country,country_iso,currency,
   marketplace_businesses (
     id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
-    latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,
+    latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,country_iso,currency,
     logo_url,banner_url,verification_status,readiness_score,created_at
   )
 `;
@@ -272,6 +284,44 @@ function buildDeliveryAddressPayload(address, buyerId) {
   };
 }
 
+async function insertMarketplaceOrder(payload) {
+  let { data, error } = await supabase
+    .from("marketplace_orders")
+    .insert(payload)
+    .select()
+    .maybeSingle();
+
+  const missingCountryContextColumn = (() => {
+    const message = String(error?.message || error?.details || error?.hint || "").toLowerCase();
+    return ["country", "country_iso", "currency"].some((column) =>
+      message.includes(`'${column}'`) ||
+      message.includes(`"${column}"`) ||
+      message.includes(`${column} column`),
+    );
+  })();
+
+  if (error && missingCountryContextColumn) {
+    const { country: _country, country_iso: _countryIso, currency: _currency, ...fallbackPayload } = payload;
+    const fallback = await supabase
+      .from("marketplace_orders")
+      .insert(fallbackPayload)
+      .select()
+      .maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  return { data, error };
+}
+
+function orderCountryContext(product) {
+  return {
+    country: product?.country || product?.seller?.country || "",
+    country_iso: product?.countryCode || product?.seller?.countryCode || "",
+    currency: product?.currency || product?.seller?.currency || getCountryCurrencyCode(product?.countryCode || product?.seller?.countryCode || product?.country || product?.seller?.country),
+  };
+}
+
 export async function fetchBuyerDeliveryAddress() {
   const buyerId = await getCurrentUserId("Sign in to view your delivery address.");
   const { data, error } = await supabase
@@ -313,9 +363,28 @@ export async function saveBuyerDeliveryAddress(address) {
   return mapBuyerDeliveryAddress(data);
 }
 
+export async function deleteBuyerDeliveryAddress(addressId) {
+  if (!addressId || String(addressId).startsWith("local-")) return true;
+
+  const buyerId = await getCurrentUserId("Sign in to delete your delivery address.");
+  const { error } = await supabase
+    .from("marketplace_buyer_delivery_addresses")
+    .delete()
+    .eq("id", addressId)
+    .eq("buyer_id", buyerId);
+
+  if (error) throw new Error(error.message);
+  return true;
+}
+
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
   const data = await runProductListQuery({ filters });
-  const products = sortProducts((data || []).map(mapBuyerProduct), filters.sort);
+  const scoped = filterCountryScopedItems(
+    (data || []).map(mapBuyerProduct),
+    (product) => [product.seller?.country, product.location],
+    filters.country || filters.countryCode,
+  );
+  const products = sortProducts(scoped.items, filters.sort);
 
   return {
     newProducts: products,
@@ -324,6 +393,9 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
       .filter((product) => product.views > 0 || product.sales > 0)
       .sort((a, b) => b.sales + b.views - (a.sales + a.views)),
     topRatedProducts: products,
+    countryScope: scoped.scope,
+    country: scoped.country,
+    fallbackCountries: scoped.fallbackCountries,
   };
 }
 
@@ -343,17 +415,16 @@ export async function fetchBuyerProductDetail(productId) {
 }
 
 export async function fetchBuyerDiscoveryOptions() {
-  const { data, error } = await supabase
-    .from("marketplace_products")
-    .select("category,location")
-    .eq("status", "active")
-    .gt("stock", 0);
-
-  if (error) throw new Error(error.message);
+  const data = await runProductListQuery();
+  const scoped = filterCountryScopedItems(
+    (data || []).map(mapBuyerProduct),
+    (product) => [product.seller?.country, product.location],
+  );
+  const products = scoped.items;
 
   return {
-    categories: Array.from(new Set((data || []).map((item) => item.category).filter(Boolean))).sort(),
-    locations: Array.from(new Set((data || []).map((item) => item.location).filter(Boolean))).sort(),
+    categories: Array.from(new Set(products.map((item) => item.category).filter(Boolean))).sort(),
+    locations: Array.from(new Set(products.map((item) => item.location).filter(Boolean))).sort(),
   };
 }
 
@@ -557,9 +628,8 @@ export async function checkoutBuyerCart(deliveryLocation = "") {
   const orders = [];
   for (const [businessId, groupItems] of Object.entries(grouped)) {
     const total = groupItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const { data, error } = await supabase
-      .from("marketplace_orders")
-      .insert({
+    const orderContext = orderCountryContext(groupItems[0]?.product);
+    const { data, error } = await insertMarketplaceOrder({
         buyer_id: buyerId,
         business_id: businessId,
         product_id: groupItems.length === 1 ? groupItems[0].productId : null,
@@ -568,9 +638,8 @@ export async function checkoutBuyerCart(deliveryLocation = "") {
         item_count: groupItems.reduce((sum, item) => sum + item.qty, 0),
         preview: groupItems.map((item) => `${item.name} x${item.qty}`).join(", "),
         delivery_location: deliveryLocation.trim(),
-      })
-      .select()
-      .maybeSingle();
+        ...orderContext,
+      });
 
     if (error) throw new Error(error.message);
     orders.push(data);
@@ -603,9 +672,7 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
     .filter(Boolean)
     .join(" | ");
 
-  const { data, error } = await supabase
-    .from("marketplace_orders")
-    .insert({
+  const { data, error } = await insertMarketplaceOrder({
       buyer_id: buyer.id,
       buyer_name: buyerName.trim() || buyer.name,
       business_id: product.businessId,
@@ -615,9 +682,8 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
       item_count: quantity,
       preview: `${product.name} x${quantity}`,
       delivery_location: deliveryDetails,
-    })
-    .select()
-    .maybeSingle();
+      ...orderCountryContext(product),
+    });
 
   if (error) throw new Error(error.message);
 

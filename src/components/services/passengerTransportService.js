@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { formatCountryMoney, getCountryCurrencyCode } from "../../data/westAfricanCountryProfiles";
 import { fetchTransportFleetById } from "./transportFleetService";
 
 const TRANSPORT_SAVED_PLACES_KEY = "kuntai.transport.savedPlaces";
@@ -104,7 +105,7 @@ export function saveTransportPassengerSettings(settings) {
 
 function formatFare(row) {
   if (!row?.fare_amount) return "Fare pending";
-  return `${row.fare_currency || "SLE"} ${Number(row.fare_amount).toFixed(2)}`;
+  return formatCountryMoney(row.fare_amount, row.fare_currency || getCountryCurrencyCode(row.countryCode || row.country));
 }
 
 function formatTripStage(row) {

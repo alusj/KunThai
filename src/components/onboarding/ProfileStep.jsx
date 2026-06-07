@@ -2,6 +2,11 @@ import { Camera, CheckCircle2, Mail, MapPin, Phone, ShieldCheck } from "lucide-r
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { detectSocialPlatform, normalizeSocialLinks } from "../../Backend/services/explore/socialLinks";
+import {
+  getActiveCountryProfile,
+  getCountryPhonePlaceholder,
+  storeCountryContext,
+} from "../../data/westAfricanCountryProfiles";
 import OnboardingFrame from "./OnboardingFrame";
 
 const accountTypes = [
@@ -93,6 +98,7 @@ function SocialLinkInput({ index, onChange, value }) {
 export default function ProfileStep({ values, onChange, onBack, onNext }) {
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || "Your name";
+  const countryProfile = getActiveCountryProfile(values.country);
   const canContinue =
     values.firstName.trim().length >= 2 &&
     values.lastName.trim().length >= 2 &&
@@ -211,7 +217,7 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
                 type="tel"
                 value={values.phone}
                 onChange={(event) => onChange("phone", event.target.value)}
-                placeholder="+232 00 000 000"
+                placeholder={getCountryPhonePlaceholder(countryProfile)}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
               />
             </label>
@@ -243,7 +249,7 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
               <input
                 value={values.city}
                 onChange={(event) => onChange("city", event.target.value)}
-                placeholder="Freetown"
+                placeholder={countryProfile.cityPlaceholder}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
               />
             </label>
@@ -252,8 +258,11 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Country</span>
               <input
                 value={values.country}
-                onChange={(event) => onChange("country", event.target.value)}
-                placeholder="Sierra Leone"
+                onChange={(event) => {
+                  storeCountryContext(event.target.value);
+                  onChange("country", event.target.value);
+                }}
+                placeholder={countryProfile.name}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
               />
             </label>
@@ -317,7 +326,7 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
               </p>
               <p className="flex items-center gap-2">
                 <Phone size={15} />
-                {values.phone || "+232 phone number"}
+                {values.phone || `${countryProfile.dialCode} phone number`}
               </p>
               <p className="flex items-center gap-2">
                 <MapPin size={15} />

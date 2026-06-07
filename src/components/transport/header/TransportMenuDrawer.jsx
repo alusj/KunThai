@@ -44,6 +44,7 @@ import {
   selectTransportSavedPlace,
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
+import { getCountryCurrencyCode } from "../../../data/westAfricanCountryProfiles";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
 const TRANSPORT_SUPPORT_DRAFTS_KEY = "kuntai.transport.supportDrafts";
@@ -82,6 +83,12 @@ const menuSections = [
         icon: ShieldAlert,
         title: "Payment safety",
         description: "How to handle fares while transport payments are prepared.",
+      },
+      {
+        id: "safety",
+        icon: LifeBuoy,
+        title: "Safety & emergency",
+        description: "Passenger guidance for safer pickup, trips, delivery, and urgent situations.",
       },
     ],
   },
@@ -242,6 +249,10 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
 
     if (screenId === "paymentSafety") {
       return <PaymentReadinessPage variant="safety" />;
+    }
+
+    if (screenId === "safety") {
+      return <PassengerSafetyPage />;
     }
 
     if (screenId === "support") {
@@ -407,7 +418,7 @@ function PassengerSummaryCard({ onOpenWallet }) {
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold">
-        <span className="rounded-lg bg-white/10 px-3 py-2">Wallet SLE 0.00</span>
+        <span className="rounded-lg bg-white/10 px-3 py-2">Wallet {getCountryCurrencyCode()} 0.00</span>
         <span className="rounded-lg bg-white/10 px-3 py-2">Safe trip tools</span>
       </div>
     </button>
@@ -1172,6 +1183,114 @@ function PaymentGuideline({ title, body }) {
   );
 }
 
+const passengerSafetyTopics = [
+  {
+    title: "What KunThai can do",
+    body:
+      "KunThai can help passengers make safer decisions by showing operator profiles, fleet details, saved places, route context, support records, and safety reminders. The app can also help you keep evidence of what was agreed before and during a trip. KunThai cannot physically rescue a passenger, physically control an operator, or replace police, ambulance, fire service, family, or trusted people nearby.",
+  },
+  {
+    title: "Before pickup",
+    body:
+      "Confirm the operator name, fleet type, plate number, pickup point, destination, estimated fare, and contact phone before you enter the vehicle. If the person or vehicle does not match the app information, do not enter. Move to a visible public place and contact support or a trusted person.",
+  },
+  {
+    title: "Pickup location safety",
+    body:
+      "Use saved places, Locate Me, or Drop Pin to make pickup points clear. A clear pickup point helps the right operator find you and reduces confusion. When possible, wait in a place with lighting, people nearby, and a clear route to leave if something feels wrong.",
+  },
+  {
+    title: "During the trip",
+    body:
+      "Keep your phone available, watch the route, and speak early if the route changes without explanation. Do not share private passwords, PINs, OTPs, full card details, or sensitive personal information. If the operator becomes unsafe, ask to stop at a public place when it is safe to do so.",
+  },
+  {
+    title: "Emergency action",
+    body:
+      "If there is immediate danger, call local emergency services first. After emergency help is contacted, use KunThai support to record the trip, operator, location, time, route, and what happened. The app record helps follow-up, but emergency responders and trusted people nearby should come first.",
+  },
+  {
+    title: "Share proof and location",
+    body:
+      "Before or during a trip, share your route, operator name, plate number, and pickup or destination details with someone you trust. If a trip feels unusual, send a short message with your current location and what is happening before your battery or signal becomes a problem.",
+  },
+  {
+    title: "Fare and payment safety",
+    body:
+      "Agree on the fare method before the trip starts. Keep payment proof when money changes hands. If there is a fare disagreement, avoid arguing in an unsafe place; record the details and report through support after you are safe.",
+  },
+  {
+    title: "Delivery safety",
+    body:
+      "For delivery, confirm the receiver name, phone number, pickup address, drop-off address, item description, and payment responsibility. Do not send prohibited, dangerous, or unclear items. Use photos or notes when the pickup or delivery point may be confusing.",
+  },
+  {
+    title: "Reporting concerns",
+    body:
+      "Report unsafe driving, harassment, threats, damaged fleet, wrong operator, suspicious route changes, delivery issues, or payment disputes with as much detail as possible. Good reports include time, route, plate number, operator name, screenshots, photos where safe, and a calm description of what happened.",
+  },
+];
+
+function PassengerSafetyPage() {
+  return (
+    <div className="space-y-4">
+      <InfoPanel
+        icon={LifeBuoy}
+        tone="red"
+        title="Safety & emergency guidance"
+        body="KunThai is designed to guide safer transport decisions, keep useful records, and make reporting clearer. In immediate danger, local emergency help and trusted people nearby should be contacted first."
+      />
+
+      <section className="rounded-2xl border border-red-100 bg-red-50 p-4">
+        <p className="text-sm font-black text-red-800">Immediate danger comes first</p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-red-700">
+          If a passenger, operator, child, receiver, or bystander may be harmed, do not wait for an app response. Call local emergency help, move to a safer public place if possible, and contact someone trusted nearby.
+        </p>
+      </section>
+
+      <section className="grid gap-3">
+        {passengerSafetyTopics.map((topic, index) => (
+          <SafetyTopicCard key={topic.title} number={index + 1} topic={topic} />
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <p className="text-sm font-black text-gray-950">What to keep ready</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {[
+            "Operator name and fleet plate",
+            "Pickup and destination",
+            "Current location or nearest landmark",
+            "Trip time and fare agreement",
+            "Photos or screenshots when safe",
+            "Trusted contact phone number",
+          ].map((item) => (
+            <span key={item} className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-black text-gray-600">
+              {item}
+            </span>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SafetyTopicCard({ number, topic }) {
+  return (
+    <article className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-black text-emerald-700">
+          {number}
+        </span>
+        <div>
+          <h3 className="text-sm font-black text-gray-950">{topic.title}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-gray-600">{topic.body}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function SupportPage({ seed }) {
   const [form, setForm] = useState({
     topic: seed?.topic || "Trip issue",
@@ -1475,7 +1594,9 @@ function InfoPanel({ icon, tone = "emerald", title, body }) {
       ? "bg-amber-50 text-amber-700"
       : tone === "blue"
         ? "bg-blue-50 text-blue-700"
-        : "bg-emerald-50 text-emerald-700";
+        : tone === "red"
+          ? "bg-red-50 text-red-700"
+          : "bg-emerald-50 text-emerald-700";
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

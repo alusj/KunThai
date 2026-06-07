@@ -18,8 +18,10 @@ import {
   FiX,
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
+import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
 import { searchLocations } from "../../Backend/services/locationSearchService";
+import { showToast } from "../../Backend/services/toastService";
 import {
   getActiveAreaReports,
   getActiveTrafficSnapshots,
@@ -33,6 +35,7 @@ import {
   subscribeToAreaViewLiveData,
 } from "../../Backend/services/nearbyAreaLiveService";
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
+import { getActiveCountryProfile, getCountryPhonePlaceholder } from "../../data/westAfricanCountryProfiles";
 import {
   emergencyContacts,
   locationCategories,
@@ -59,7 +62,7 @@ const primaryLocationCategories = locationCategories.slice(0, 3);
 const moreLocationCategories = locationCategories.slice(3);
 
 const SOS_COUNTRY_CACHE_KEY = "kuntai-sos-country-code";
-const SOS_FALLBACK_COUNTRY = "SL";
+const SOS_FALLBACK_COUNTRY = getActiveCountryProfile().iso2;
 const MAP_CENTER_PUBLISH_METERS = 35;
 const MAP_CENTER_PUBLISH_DEBOUNCE_MS = 450;
 const WEATHER_REFRESH_METERS = 1200;
@@ -68,6 +71,9 @@ const WEATHER_REFRESH_DEBOUNCE_MS = 900;
 const LIVE_AREA_REFRESH_METERS = 1600;
 const LIVE_AREA_REFRESH_MS = 1000 * 60 * 2;
 const LIVE_AREA_RADIUS_KM = 25;
+const ACTIVE_OPERATOR_EMPTY_TOAST_MESSAGE =
+  "No registered fleets are currently active nearby. Try expanding the area or check again shortly.";
+const ACTIVE_OPERATOR_EMPTY_TOAST_COOLDOWN_MS = 45000;
 
 function createAddLocationDraft() {
   return {
@@ -99,6 +105,19 @@ function getBrowserCurrentPosition() {
       timeout: 15000,
     });
   });
+}
+
+function MapCardCollapseButton({ className = "", collapsed, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`kt-pressable flex h-12 w-12 flex-none items-center justify-center rounded-full border-2 border-slate-300 bg-white/95 text-xl font-black text-slate-950 shadow-lg backdrop-blur ${className}`}
+      aria-label={label}
+    >
+      {collapsed ? <FiChevronUp strokeWidth={3.2} /> : <FiChevronDown strokeWidth={3.2} />}
+    </button>
+  );
 }
 
 function formatCoordinatesLabel(point) {
@@ -453,6 +472,7 @@ export default function NearbyAreaScreen({
   const searchRequestRef = useRef(0);
   const sosDetectionRequestRef = useRef(0);
   const initialDestinationHandledRef = useRef("");
+  const activeOperatorToastAtRef = useRef(0);
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
   const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
@@ -510,7 +530,11 @@ export default function NearbyAreaScreen({
     return displayLocations.filter((location) => location.category === activeCategory);
   }, [activeCategory, displayLocations]);
 
-  const operatorLocations = useMemo(() => liveOperators, [liveOperators]);
+  const shouldShowFleetLayer = activeCategory === "All" || activeCategory === "Fleets";
+  const operatorLocations = useMemo(
+    () => (shouldShowFleetLayer ? liveOperators : []),
+    [liveOperators, shouldShowFleetLayer],
+  );
   const smartTrafficSnapshots = useMemo(
     () =>
       buildTrafficIntelligence({
@@ -520,6 +544,7 @@ export default function NearbyAreaScreen({
       }),
     [liveOperators, liveReports, trafficSnapshots],
   );
+
   const filteredMapLocations = useMemo(
     () => filteredLocations.filter((location) => location?.lat != null && location?.lng != null),
     [filteredLocations],
@@ -567,6 +592,37 @@ export default function NearbyAreaScreen({
     setActiveCategory(category);
     setMoreCategoriesOpen(false);
   }
+
+  const showNoActiveOperatorToast = useCallback(() => {
+    if (isSpecialMode) return;
+
+    const now = Date.now();
+    if (now - activeOperatorToastAtRef.current < ACTIVE_OPERATOR_EMPTY_TOAST_COOLDOWN_MS) return;
+
+    activeOperatorToastAtRef.current = now;
+    showToast(ACTIVE_OPERATOR_EMPTY_TOAST_MESSAGE, "info");
+  }, [isSpecialMode]);
+
+  const publishLiveOperators = useCallback(
+    (operators = []) => {
+      const nextOperators = Array.isArray(operators)
+        ? operators.filter((operator) => operator?.id && operator?.lat != null && operator?.lng != null)
+        : [];
+
+      setLiveOperators(nextOperators);
+
+      if (!nextOperators.length) {
+        showNoActiveOperatorToast();
+      }
+    },
+    [showNoActiveOperatorToast],
+  );
+
+  useEffect(() => {
+    if (activeCategory === "Fleets" && liveOperators.length === 0) {
+      showNoActiveOperatorToast();
+    }
+  }, [activeCategory, liveOperators.length, showNoActiveOperatorToast]);
 
   function cacheSosCountryCode(countryCode) {
     const normalizedCode = String(countryCode || "").toUpperCase();
@@ -812,7 +868,7 @@ export default function NearbyAreaScreen({
 
       if (!mounted) return;
       setLiveLocations(locations);
-      setLiveOperators(operators);
+      publishLiveOperators(operators);
       setLiveReports(reports);
       setTrafficSnapshots(traffic);
       setRecentSearches(history);
@@ -827,7 +883,7 @@ export default function NearbyAreaScreen({
 
     const unsubscribe = subscribeToAreaViewLiveData({
       onLocations: (locations) => mounted && setLiveLocations(locations),
-      onOperators: (operators) => mounted && setLiveOperators(operators),
+      onOperators: (operators) => mounted && publishLiveOperators(operators),
       onReports: (reports) => mounted && setLiveReports(reports),
       onTraffic: (traffic) => mounted && setTrafficSnapshots(traffic),
       onWeather: (weather) => mounted && setWeatherCache(weather),
@@ -841,7 +897,7 @@ export default function NearbyAreaScreen({
       mounted = false;
       unsubscribe?.();
     };
-  }, []);
+  }, [publishLiveOperators]);
 
   useEffect(() => {
     const expiryTimer = window.setInterval(() => {
@@ -877,7 +933,7 @@ export default function NearbyAreaScreen({
         ]);
 
         setLiveLocations(locations);
-        setLiveOperators(operators);
+        publishLiveOperators(operators);
         setLiveReports(reports);
         setTrafficSnapshots(traffic);
         liveAreaPositionRef.current = nextPosition;
@@ -906,7 +962,7 @@ export default function NearbyAreaScreen({
         weatherRefreshTimerRef.current = null;
       }
     };
-  }, [mapCenter]);
+  }, [mapCenter, publishLiveOperators]);
 
   useEffect(() => {
     const requestId = searchRequestRef.current + 1;
@@ -1565,7 +1621,9 @@ export default function NearbyAreaScreen({
 }
 
 function OneKmPreviewChrome({ onBack, onDone, backLabel, ready }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggle } = useAutoCollapseCard({
+    resetKey: ready ? "one-km-ready" : "one-km-waiting",
+  });
 
   return (
     <>
@@ -1586,61 +1644,44 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready }) {
         </div>
       </header>
 
-      <section
-        className={`absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur transition-all duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:w-[390px] ${
-          collapsed ? "p-3" : "p-4"
-        }`}
-      >
+      {collapsed ? (
+        <div className="absolute bottom-5 right-4 z-30 sm:right-5">
+          <MapCardCollapseButton
+            collapsed
+            label="Maximize distance view"
+            onClick={toggle}
+          />
+        </div>
+      ) : (
+      <section className="absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur transition-all duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:w-[390px]">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase text-green-700">Distance view</p>
-            <h2 className={`${collapsed ? "mt-0.5 text-base" : "mt-1 text-xl"} font-black leading-tight`}>
-              {collapsed ? "1 km pricing guide" : "One kilometre from your current location"}
-            </h2>
+            <h2 className="mt-1 text-xl font-black leading-tight">One kilometre from your current location</h2>
           </div>
-          <button
-            type="button"
-            onClick={() => setCollapsed((current) => !current)}
-            className="kt-pressable flex h-10 w-10 flex-none items-center justify-center rounded-full border-2 border-slate-300 bg-white text-xl font-black text-slate-900 shadow-sm"
-            aria-label={collapsed ? "Maximize distance view" : "Minimize distance view"}
-          >
-            {collapsed ? <FiChevronUp strokeWidth={3} /> : <FiChevronDown strokeWidth={3} />}
-          </button>
+          <MapCardCollapseButton
+            label="Minimize distance view"
+            onClick={toggle}
+          />
         </div>
 
-        {collapsed ? (
-          <div className="mt-3 flex items-center gap-2">
-            <p className="min-w-0 flex-1 truncate text-xs font-bold text-slate-600">
-              {ready ? "The green line marks a clear 1 km route." : "Waiting for your current location..."}
-            </p>
-            <button
-              type="button"
-              onClick={onDone}
-              className="h-10 rounded-2xl bg-green-600 px-5 text-sm font-black text-white hover:bg-green-700"
-            >
-              Done
-            </button>
-          </div>
-        ) : (
-          <>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              The green line shows a clear 1 km distance so you can price each kilometre with confidence.
-            </p>
-            {!ready ? (
-              <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-black text-green-700">
-                Waiting for your current location...
-              </p>
-            ) : null}
-            <button
-              type="button"
-              onClick={onDone}
-              className="mt-4 h-11 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
-            >
-              Done
-            </button>
-          </>
-        )}
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          The green line shows a clear 1 km distance so you can price each kilometre with confidence.
+        </p>
+        {!ready ? (
+          <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-black text-green-700">
+            Waiting for your current location...
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={onDone}
+          className="mt-4 h-11 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
+        >
+          Done
+        </button>
       </section>
+      )}
     </>
   );
 }
@@ -1658,6 +1699,17 @@ function BusinessLocationPickerChrome({
 }) {
   const isDropPin = mode === "dropPin";
   const coordinates = currentLocation?.coordinatesLabel || formatCoordinatesLabel(currentLocation);
+  const { collapsed, toggle } = useAutoCollapseCard({
+    enabled: isDropPin,
+    resetKey: [
+      mode,
+      busy ? "busy" : "ready",
+      status,
+      currentLocation?.address,
+      currentLocation?.lat,
+      currentLocation?.lng,
+    ].join("|"),
+  });
 
   return (
     <>
@@ -1692,65 +1744,83 @@ function BusinessLocationPickerChrome({
         </div>
       ) : null}
 
-      <section className="absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[420px]">
-        <p className="text-xs font-black uppercase text-blue-700">{labels.cardEyebrow}</p>
-        <h2 className="mt-1 text-xl font-black">
-          {isDropPin ? labels.dropHeading : labels.currentHeading}
-        </h2>
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          {isDropPin
-            ? labels.dropInstruction
-            : status || labels.currentPreparing}
-        </p>
-        {!isDropPin && currentLocation ? (
-          <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3">
-            <p className="text-sm font-black leading-5 text-blue-950">{currentLocation.address}</p>
-            {coordinates ? <p className="mt-2 text-xs font-bold text-blue-700">{coordinates}</p> : null}
-          </div>
-        ) : null}
-        {isDropPin && status ? (
-          <p className="mt-3 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">{status}</p>
-        ) : null}
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {isDropPin ? (
-            <>
-              <button
-                type="button"
-                onClick={onBack}
-                className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={onAddDroppedPin}
-                disabled={busy}
-                className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {busy ? "Adding..." : "Add location"}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={onDropPin}
-                className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
-              >
-                Drop a pin
-              </button>
-              <button
-                type="button"
-                onClick={onUseCurrent}
-                disabled={busy || !currentLocation}
-                className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                Add location
-              </button>
-            </>
-          )}
+      {collapsed ? (
+        <div className="absolute bottom-5 right-4 z-30 sm:right-5">
+          <MapCardCollapseButton
+            collapsed
+            label={isDropPin ? "Maximize drop pin card" : "Maximize location card"}
+            onClick={toggle}
+          />
         </div>
-      </section>
+      ) : (
+        <section className="absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[420px]">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black uppercase text-blue-700">{labels.cardEyebrow}</p>
+              <h2 className="mt-1 text-xl font-black">
+                {isDropPin ? labels.dropHeading : labels.currentHeading}
+              </h2>
+            </div>
+            <MapCardCollapseButton
+              label={isDropPin ? "Minimize drop pin card" : "Minimize location card"}
+              onClick={toggle}
+            />
+          </div>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            {isDropPin
+              ? labels.dropInstruction
+              : status || labels.currentPreparing}
+          </p>
+          {!isDropPin && currentLocation ? (
+            <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3">
+              <p className="text-sm font-black leading-5 text-blue-950">{currentLocation.address}</p>
+              {coordinates ? <p className="mt-2 text-xs font-bold text-blue-700">{coordinates}</p> : null}
+            </div>
+          ) : null}
+          {isDropPin && status ? (
+            <p className="mt-3 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">{status}</p>
+          ) : null}
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {isDropPin ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={onAddDroppedPin}
+                  disabled={busy}
+                  className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {busy ? "Adding..." : "Add location"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onDropPin}
+                  className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  Drop a pin
+                </button>
+                <button
+                  type="button"
+                  onClick={onUseCurrent}
+                  disabled={busy || !currentLocation}
+                  className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  Add location
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+      )}
     </>
   );
 }
@@ -2023,10 +2093,40 @@ function AddLocationPanel({
   const category = draft.category || addCategories[0];
   const selectedLocationLabel = draft.coordinatesLabel || formatCoordinatesLabel(draft);
   const hasSelectedLocation = Number.isFinite(Number(draft.lat)) && Number.isFinite(Number(draft.lng));
+  const panelCollapse = useAutoCollapseCard({
+    enabled: false,
+    resetKey: [
+      status,
+      hasSelectedLocation ? selectedLocationLabel : "no-point",
+      draft.source,
+      draft.lat,
+      draft.lng,
+    ].join("|"),
+  });
+  const cautionCollapse = useAutoCollapseCard({
+    enabled: false,
+    resetKey: ["locate-caution", status, busy ? "busy" : "ready"].join("|"),
+  });
+
+  if (panelCollapse.collapsed && !cautionOpen) {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-40">
+        <div className="pointer-events-auto absolute bottom-5 right-4 sm:right-5">
+          <MapCardCollapseButton
+            collapsed
+            label="Maximize add location form"
+            onClick={panelCollapse.expand}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 z-40 flex items-end bg-slate-950/45 sm:items-center sm:justify-center">
-      <section className="relative flex max-h-[calc(100vh-1.5rem)] w-full flex-col rounded-t-3xl bg-white text-slate-950 shadow-2xl sm:max-w-xl sm:rounded-3xl">
+      <section
+        className="relative flex max-h-[calc(100vh-1.5rem)] w-full flex-col rounded-t-3xl bg-white text-slate-950 shadow-2xl sm:max-w-xl sm:rounded-3xl"
+      >
         <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 p-4 backdrop-blur sm:rounded-t-3xl">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -2043,6 +2143,10 @@ function AddLocationPanel({
               <p className="mt-1 text-sm font-semibold text-slate-500">Add local places that are missing from normal maps.</p>
             </div>
           </div>
+          <MapCardCollapseButton
+            label="Minimize add location form"
+            onClick={panelCollapse.collapse}
+          />
         </div>
         </div>
 
@@ -2109,7 +2213,7 @@ function AddLocationPanel({
             label="Phone optional"
             value={draft.phone}
             onChange={(value) => onChange("phone", value)}
-            placeholder="+232..."
+            placeholder={getCountryPhonePlaceholder()}
           />
           <FormInput
             label="Opening hours optional"
@@ -2160,7 +2264,17 @@ function AddLocationPanel({
         </div>
         </div>
 
-        {cautionOpen ? (
+        {cautionOpen && cautionCollapse.collapsed ? (
+          <div className="pointer-events-auto absolute bottom-5 right-4 z-30 sm:right-5">
+            <MapCardCollapseButton
+              collapsed
+              label="Maximize locate me confirmation"
+              onClick={cautionCollapse.expand}
+            />
+          </div>
+        ) : null}
+
+        {cautionOpen && !cautionCollapse.collapsed ? (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
             <div className="relative w-full max-w-md rounded-3xl bg-white p-5 text-slate-950 shadow-2xl">
               <button
@@ -2171,6 +2285,11 @@ function AddLocationPanel({
               >
                 <FiX size={18} />
               </button>
+              <MapCardCollapseButton
+                className="absolute right-3 top-3"
+                label="Minimize locate me confirmation"
+                onClick={cautionCollapse.collapse}
+              />
               <div className="pl-11">
                 <p className="text-xs font-black uppercase tracking-wide text-green-700">Confirm location</p>
                 <h3 className="mt-1 text-xl font-black">Be at the exact location</h3>

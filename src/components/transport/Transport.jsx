@@ -8,19 +8,28 @@ import NearbyAreaScreen from "./NearbyAreaScreen";
 import OperatorDashboardScreen from "./OperatorDashboardScreen";
 import SavedOperatorsScreen from "./SavedOperatorsScreen";
 import TransportBookingDrawer from "./booking/TransportBookingDrawer";
+import CompanyWorkspaceScreen from "./CompanyWorkspaceScreen";
 import Header from "./header/Header";
+import CompanyRegistrationScreen from "./registration/CompanyRegistrationScreen";
 import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
+import TransportRegistrationTypeScreen from "./registration/TransportRegistrationTypeScreen";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import { getOperatorAccount } from "../services/transportOperatorAccountService";
+import { getTransportCompanyAccount, subscribeTransportCompanyUpdates } from "../services/transportCompanyService";
 import { submitTransportSupportTicket } from "../services/bookingService";
 
 export default function Transport({ onActivityChange, areaViewRequest = null }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
+  const [registrationType, setRegistrationType] = useState(null);
+  const [registrationSource, setRegistrationSource] = useState(null);
   const [registrationAreaPreviewOpen, setRegistrationAreaPreviewOpen] = useState(false);
   const [operatorAccount, setOperatorAccount] = useState(null);
   const [operatorLoading, setOperatorLoading] = useState(true);
   const [operatorError, setOperatorError] = useState("");
+  const [companyAccount, setCompanyAccount] = useState(null);
+  const [companyLoading, setCompanyLoading] = useState(true);
+  const [companyWorkspaceOpen, setCompanyWorkspaceOpen] = useState(false);
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
   const [operatorDashboardClosing, setOperatorDashboardClosing] = useState(false);
   const [operatorDashboardView, setOperatorDashboardView] = useState("dashboard");
@@ -63,6 +72,68 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setOperatorDashboardOpen(true);
   }
 
+  function openRegistrationChooser() {
+    setRegistrationSource("transport-chooser");
+    setRegistrationType(null);
+    setRegistrationOpen(true);
+    setCompanyWorkspaceOpen(false);
+    setRouteDirection("forward");
+  }
+
+  function openSoloRegistration(source = "transport-chooser") {
+    setRegistrationSource(source);
+    setRegistrationType("solo");
+    setRegistrationOpen(true);
+    setCompanyWorkspaceOpen(false);
+    setRouteDirection("forward");
+  }
+
+  function openCompanyRegistration(source = "transport-chooser") {
+    setRegistrationSource(source);
+    setRegistrationType("company");
+    setRegistrationOpen(true);
+    setCompanyWorkspaceOpen(false);
+    setRouteDirection("forward");
+  }
+
+  function closeRegistrationFlow() {
+    setRouteDirection("backward");
+
+    if (registrationSource === "transport-chooser" && registrationType) {
+      setRegistrationType(null);
+      return;
+    }
+
+    setRegistrationOpen(false);
+    setRegistrationType(null);
+
+    if (registrationSource === "operator-dashboard") {
+      setOperatorDashboardOpen(true);
+    }
+
+    if (registrationSource === "company-workspace") {
+      setCompanyWorkspaceOpen(true);
+    }
+
+    setRegistrationSource(null);
+  }
+
+  function exitRegistrationFlow() {
+    setRouteDirection("backward");
+    setRegistrationOpen(false);
+    setRegistrationType(null);
+
+    if (registrationSource === "operator-dashboard") {
+      setOperatorDashboardOpen(true);
+    }
+
+    if (registrationSource === "company-workspace") {
+      setCompanyWorkspaceOpen(true);
+    }
+
+    setRegistrationSource(null);
+  }
+
   function closeOperatorDashboard() {
     if (operatorDashboardCloseTimer.current) {
       window.clearTimeout(operatorDashboardCloseTimer.current);
@@ -86,6 +157,9 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setRouteDirection("forward");
     setRegistrationAreaPreviewOpen(false);
     setRegistrationOpen(false);
+    setRegistrationType(null);
+    setRegistrationSource(null);
+    setCompanyWorkspaceOpen(false);
     setOperatorDashboardOpen(false);
     setOperatorDashboardClosing(false);
     setFleetSelection(null);
@@ -217,6 +291,31 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   }, []);
 
   useEffect(() => {
+    let alive = true;
+
+    async function loadCompanyAccount() {
+      try {
+        const account = await getTransportCompanyAccount();
+        if (alive) setCompanyAccount(account);
+      } catch {
+        if (alive) setCompanyAccount(null);
+      } finally {
+        if (alive) setCompanyLoading(false);
+      }
+    }
+
+    loadCompanyAccount();
+    const unsubscribe = subscribeTransportCompanyUpdates((account) => {
+      if (alive) setCompanyAccount(account || null);
+    });
+
+    return () => {
+      alive = false;
+      unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (operatorDashboardCloseTimer.current) {
         window.clearTimeout(operatorDashboardCloseTimer.current);
@@ -232,8 +331,11 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       operatorDashboardCloseTimer.current = null;
     }
     setRegistrationOpen(false);
+    setRegistrationType(null);
+    setRegistrationSource(null);
     setRegistrationAreaPreviewOpen(false);
     setRouteDirection("forward");
+    setCompanyWorkspaceOpen(false);
     setOperatorDashboardOpen(false);
     setOperatorDashboardClosing(false);
     setFleetSelection(null);
@@ -249,6 +351,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   useEffect(() => {
     onActivityChange?.(
       registrationOpen ||
+        companyWorkspaceOpen ||
         operatorDashboardOpen ||
         Boolean(fleetSelection) ||
         Boolean(activeFleetId) ||
@@ -266,6 +369,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     activeFleetId,
     activeTripsOpen,
     bookingTarget,
+    companyWorkspaceOpen,
     fleetSelection,
     headerActivityOpen,
     nearbyAreaOpen,
@@ -291,20 +395,78 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   }
 
   if (registrationOpen) {
+    if (!registrationType) {
+      return (
+        <div className={`${routePanelClass} min-h-screen`}>
+          <TransportRegistrationTypeScreen
+            onBack={() => {
+              setRouteDirection("backward");
+              setRegistrationOpen(false);
+              setRegistrationType(null);
+              setRegistrationSource(null);
+            }}
+            onSelect={(type) => {
+              if (type === "company") {
+                openCompanyRegistration("transport-chooser");
+                return;
+              }
+
+              openSoloRegistration("transport-chooser");
+            }}
+          />
+        </div>
+      );
+    }
+
+    if (registrationType === "company") {
+      return (
+        <div className={`${routePanelClass} min-h-screen`}>
+          <CompanyRegistrationScreen
+            existingCompany={companyAccount}
+            onBack={closeRegistrationFlow}
+            onSaveExit={exitRegistrationFlow}
+            onComplete={(account) => {
+              setCompanyAccount(account);
+              setRegistrationOpen(false);
+              setRegistrationType(null);
+              setRegistrationSource(null);
+              setRouteDirection("forward");
+              setCompanyWorkspaceOpen(true);
+            }}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className={`${routePanelClass} min-h-screen`}>
         <FleetRegistrationDrawer
-          onClose={() => {
-            setRouteDirection("backward");
-            setRegistrationOpen(false);
-          }}
+          onClose={closeRegistrationFlow}
+          onSaveExit={exitRegistrationFlow}
           onViewOneKmPreview={openRegistrationOneKmPreview}
           onComplete={(account) => {
             setOperatorAccount(account);
             setRegistrationOpen(false);
+            setRegistrationType(null);
+            setRegistrationSource(null);
             setRouteDirection("forward");
             setOperatorDashboardOpen(true);
           }}
+        />
+      </div>
+    );
+  }
+
+  if (companyWorkspaceOpen) {
+    return (
+      <div className={`${routePanelClass} min-h-screen`}>
+        <CompanyWorkspaceScreen
+          company={companyAccount}
+          onBack={() => {
+            setRouteDirection("backward");
+            setCompanyWorkspaceOpen(false);
+          }}
+          onRegisterCompany={() => openCompanyRegistration("company-workspace")}
         />
       </div>
     );
@@ -315,14 +477,21 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       <div className={`${operatorDashboardClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} min-h-screen`}>
         <OperatorDashboardScreen
           account={operatorAccount}
+          companyAccount={companyAccount}
+          companyLoading={companyLoading}
           initialView={operatorDashboardView}
           onBack={closeOperatorDashboard}
           onAccountUpdate={setOperatorAccount}
           onLocateArea={openNearbyAreaRoute}
+          onOpenCompany={() => {
+            setRouteDirection("forward");
+            setCompanyWorkspaceOpen(true);
+          }}
+          onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}
           onEditRegistration={() => {
             setRouteDirection("forward");
             setOperatorDashboardOpen(false);
-            setRegistrationOpen(true);
+            openSoloRegistration("operator-dashboard");
           }}
         />
       </div>
@@ -483,8 +652,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
             return;
           }
 
-          setRegistrationOpen(true);
-          setRouteDirection("forward");
+          openRegistrationChooser();
         }}
       />
       <PassengerLiveTripHeaderCard

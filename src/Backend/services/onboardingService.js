@@ -2,6 +2,7 @@ import supabase from "../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./explore/errors";
 import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage";
 import { normalizeSocialLinks } from "./explore/socialLinks";
+import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
 
 const DEFAULT_NAV = "explore";
 
@@ -23,7 +24,7 @@ function buildProfileFromUser(user) {
             ? "Phone"
             : provider;
 
-  return {
+  const profile = {
     firstName: metadata.first_name ?? "",
     middleName: metadata.middle_name ?? "",
     lastName: metadata.last_name ?? "",
@@ -46,6 +47,8 @@ function buildProfileFromUser(user) {
     onboardingComplete: Boolean(metadata.onboarding_complete),
     onboardingStep: Number(metadata.onboarding_step ?? 1),
   };
+  if (profile.country) storeCountryContext(profile.country);
+  return profile;
 }
 
 function hasExplicitOnboardingState(user) {

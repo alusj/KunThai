@@ -1,3 +1,5 @@
+import { FiChevronDown, FiChevronUp } from "react-icons/fi";
+
 import RegistrationField from "./RegistrationField";
 import RegistrationInput from "./RegistrationInput";
 import ToggleRow from "./ToggleRow";
@@ -6,6 +8,8 @@ import {
   AddressAreaStatusIcon,
   useAddressAreaValidation,
 } from "../../../../shared/AddressAreaValidation";
+import { useAutoCollapseCard } from "../../../../shared/motionHooks";
+import { getActiveCountryProfile, getCountryPhonePlaceholder } from "../../../../../data/westAfricanCountryProfiles";
 
 export default function LocationContactStep({ registration }) {
   const {
@@ -29,6 +33,11 @@ export default function LocationContactStep({ registration }) {
       }
     : null;
   const addressValidation = useAddressAreaValidation(form.location.address, { selectedPoint: locationPoint });
+  const locationPromptCollapse = useAutoCollapseCard({
+    enabled: locationPromptOpen && !locating,
+    resetKey: [locationPromptOpen ? "open" : "closed", locationStatus, locating ? "locating" : "ready"].join("|"),
+  });
+  const countryProfile = getActiveCountryProfile(form.location.country);
 
   return (
     <div className="space-y-5">
@@ -37,7 +46,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.country}
             onChange={(event) => updateSection("location", { country: event.target.value })}
-            placeholder="Sierra Leone"
+            placeholder={countryProfile.name}
             autoComplete="country-name"
           />
         </RegistrationField>
@@ -45,7 +54,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.city}
             onChange={(event) => updateSection("location", { city: event.target.value })}
-            placeholder="Freetown"
+            placeholder={countryProfile.cityPlaceholder}
             autoComplete="address-level2"
           />
         </RegistrationField>
@@ -60,9 +69,9 @@ export default function LocationContactStep({ registration }) {
         )}
       >
         <RegistrationInput
-          value={form.location.address}
-          onChange={(event) => updateSection("location", { address: event.target.value })}
-          placeholder="15 Siaka Stevens Street"
+            value={form.location.address}
+            onChange={(event) => updateSection("location", { address: event.target.value })}
+          placeholder={countryProfile.addressExample}
           autoComplete="street-address"
         />
       </RegistrationField>
@@ -97,7 +106,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.phone}
             onChange={(event) => updateSection("location", { phone: event.target.value })}
-            placeholder="+232..."
+            placeholder={getCountryPhonePlaceholder(countryProfile)}
             autoComplete="tel"
           />
         </RegistrationField>
@@ -133,7 +142,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.whatsapp}
             onChange={(event) => updateSection("location", { whatsapp: event.target.value })}
-            placeholder="+232..."
+            placeholder={getCountryPhonePlaceholder(countryProfile)}
           />
         </RegistrationField>
       ) : null}
@@ -145,7 +154,20 @@ export default function LocationContactStep({ registration }) {
         onChange={(checked) => updateSection("location", { discoverableNearby: checked })}
       />
 
-      {locationPromptOpen ? (
+      {locationPromptOpen && locationPromptCollapse.collapsed ? (
+        <div className="fixed bottom-5 right-4 z-50">
+          <button
+            type="button"
+            onClick={locationPromptCollapse.expand}
+            className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full border-2 border-gray-300 bg-white/95 text-xl font-black text-gray-950 shadow-2xl backdrop-blur"
+            aria-label="Maximize location confirmation"
+          >
+            <FiChevronUp strokeWidth={3.2} />
+          </button>
+        </div>
+      ) : null}
+
+      {locationPromptOpen && !locationPromptCollapse.collapsed ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 py-5 sm:items-center">
           <section className="relative w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
             <button
@@ -155,6 +177,14 @@ export default function LocationContactStep({ registration }) {
               aria-label="Cancel location confirmation"
             >
               X
+            </button>
+            <button
+              type="button"
+              onClick={locationPromptCollapse.collapse}
+              className="kt-pressable absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-lg font-black text-gray-950 shadow-sm"
+              aria-label="Minimize location confirmation"
+            >
+              <FiChevronDown strokeWidth={3.2} />
             </button>
             <div className="pl-12">
               <p className="text-lg font-black text-gray-950">Confirm business location</p>

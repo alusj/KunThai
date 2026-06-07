@@ -2,6 +2,8 @@ import { useState } from "react";
 
 import NearbyAreaScreen from "../../../../transport/NearbyAreaScreen";
 import { useSellerRegistration } from "../../../../../Backend/hooks/useSellerRegistration";
+import { StepSlideTransition } from "../../../../shared/motion";
+import { useDirectionalStep } from "../../../../shared/motionHooks";
 import BusinessIdentityStep from "./BusinessIdentityStep";
 import LiveBusinessPreview from "./LiveBusinessPreview";
 import LocationContactStep from "./LocationContactStep";
@@ -22,6 +24,7 @@ export default function BusinessRegistration({ onComplete, onExit }) {
   const registration = useSellerRegistration({ onComplete });
   const [saveCheckpointOpen, setSaveCheckpointOpen] = useState(false);
   const [locationPickerMode, setLocationPickerMode] = useState(null);
+  const stepSlideDirection = useDirectionalStep(registration.step);
   const enhancedRegistration = {
     ...registration,
     openCurrentLocationPicker() {
@@ -86,7 +89,9 @@ export default function BusinessRegistration({ onComplete, onExit }) {
             <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-xl font-black text-gray-950">{STEP_TITLES[enhancedRegistration.step]}</h2>
               <div className="mt-5">
-                <StepComponent registration={enhancedRegistration} />
+                <StepSlideTransition stepKey={enhancedRegistration.step} direction={stepSlideDirection}>
+                  <StepComponent registration={enhancedRegistration} />
+                </StepSlideTransition>
               </div>
             </section>
 

@@ -15,13 +15,21 @@ import {
 
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
 import { useExploreMessageStatus } from "../../../../Backend/hooks/useExploreMessageStatus";
+import {
+  getUnseenNotificationCount,
+  markNotificationsSeen,
+  subscribeNotificationSeen,
+} from "../../../../Backend/services/notificationSeenStore";
 import PremiumHeader, { PremiumHeaderButton } from "../../../shared/PremiumHeader";
 import SearchOverlay from "./search/SearchOverlay";
+
+const EXPLORE_BELL_SEEN_SCOPE = "explore.header.bell";
 
 export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const { notifications, unreadCount } = useExploreNotifications();
+  const [bellBadgeCount, setBellBadgeCount] = useState(0);
+  const { notifications } = useExploreNotifications();
   const messageStatus = useExploreMessageStatus(currentProfile?.userId || "");
   const latestMessage = useMemo(
   () =>
@@ -50,9 +58,26 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
     };
   }, [createOpen]);
 
+  useEffect(() => {
+    function refreshBadge() {
+      setBellBadgeCount(getUnseenNotificationCount(EXPLORE_BELL_SEEN_SCOPE, notifications));
+    }
+
+    refreshBadge();
+    return subscribeNotificationSeen((event) => {
+      if (event.detail?.scope === EXPLORE_BELL_SEEN_SCOPE) refreshBadge();
+    });
+  }, [notifications]);
+
   function selectCreateType(type) {
     setCreateOpen(false);
     onCreateSelect?.(type);
+  }
+
+  function openAlerts() {
+    markNotificationsSeen(EXPLORE_BELL_SEEN_SCOPE, notifications);
+    setBellBadgeCount(0);
+    onAlertsClick?.();
   }
 
   return (
@@ -93,10 +118,10 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                 onClick={() => setCreateOpen((current) => !current)}
               />
               <PremiumHeaderButton
-                badge={unreadCount}
+                badge={bellBadgeCount}
                 icon={Bell}
                 label="Notifications"
-                onClick={onAlertsClick}
+                onClick={openAlerts}
                 title={latestMessage || "Notifications"}
               />
             </>

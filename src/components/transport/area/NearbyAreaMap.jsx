@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import {
   formatDistance,
   formatDuration,
   getRouteBetweenPoints,
   getRouteThroughPoints,
 } from "../../../Backend/services/routeService";
+import { getActiveCountryProfile } from "../../../data/westAfricanCountryProfiles";
 
-const DEFAULT_CENTER = {
-  lat: 8.4657,
-  lng: -13.2317,
-  label: "Lumley, Freetown",
-};
+const defaultCountryProfile = getActiveCountryProfile();
+const DEFAULT_CENTER = defaultCountryProfile.mapCenter;
 
 const ROUTE_STATUS = {
   correct: {
@@ -381,6 +380,149 @@ function updateOperatorMarkerElement(element, operator) {
     iconNode.style.transform = Number.isFinite(Number(operator?.heading))
       ? `rotate(${Number(operator.heading)}deg)`
       : "none";
+  }
+}
+
+function getLiveFleetMarkerConfig(operator) {
+  const booked = Boolean(operator?.booked || String(operator?.status || "").toLowerCase() === "busy");
+  const type = String(operator?.type || "bike").toLowerCase();
+  const fallback = {
+    label: "Fleet",
+    bg: booked ? "#f97316" : "#0f172a",
+    svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h14M6.5 16l1.4-5.2c.3-.9 1-1.5 2-1.5h4.2c1 0 1.8.6 2 1.5L17.5 16"/><circle cx="7.5" cy="19" r="1.5"/><circle cx="16.5" cy="19" r="1.5"/></svg>',
+  };
+
+  const byType = {
+    bike: {
+      label: "Bike",
+      bg: booked ? "#f97316" : "#16a34a",
+      svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="2.6"/><circle cx="18" cy="17" r="2.6"/><path d="M7 17l3-7h3l2.5 4H18l-2-5h2.4l1.1 2.2M10 10H7.5M12.8 10l-2.4 7"/></svg>',
+    },
+    keke: {
+      label: "Tricycle",
+      bg: booked ? "#f97316" : "#2563eb",
+      svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5h10.5l2.2 3H20M5 13.5V9.2c0-1.1.8-2 1.9-2h5.2c1.2 0 2.1.9 2.1 2v4.3M7.3 9.3h4.9M5.5 16.5h1M12.3 16.5h1"/><circle cx="6.5" cy="17" r="2.2"/><circle cx="14" cy="17" r="2.2"/><circle cx="20" cy="17" r="2.2"/></svg>',
+    },
+    car: {
+      label: "Taxi",
+      bg: booked ? "#f97316" : "#0f172a",
+      svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h14M6.5 16l1.4-5.2c.3-.9 1-1.5 2-1.5h4.2c1 0 1.8.6 2 1.5L17.5 16M8 9.3V7h8v2.3M6 16v3M18 16v3"/><circle cx="7.5" cy="19" r="1.5"/><circle cx="16.5" cy="19" r="1.5"/></svg>',
+    },
+    van: {
+      label: "Van",
+      bg: booked ? "#f97316" : "#7c3aed",
+      svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h10v8H4zM14 12h3.8l2.2 3.2v2.3h-6M5.8 9.5V7h7v2.5M17.7 13.8h1.4"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+    },
+  };
+
+  return { ...(byType[type] || fallback), booked };
+}
+
+function createLiveFleetOperatorMarker(operator) {
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "relative";
+  wrapper.style.width = "78px";
+  wrapper.style.height = "78px";
+  wrapper.style.display = "grid";
+  wrapper.style.placeItems = "center";
+  wrapper.style.pointerEvents = "auto";
+  wrapper.style.cursor = "pointer";
+
+  const shell = document.createElement("div");
+  shell.dataset.liveFleetShell = "true";
+  shell.style.width = "48px";
+  shell.style.height = "48px";
+  shell.style.borderRadius = "999px";
+  shell.style.display = "grid";
+  shell.style.placeItems = "center";
+  shell.style.border = "3px solid white";
+  shell.style.boxShadow = "0 12px 26px rgba(15,23,42,0.38)";
+  shell.style.color = "white";
+
+  const icon = document.createElement("span");
+  icon.dataset.liveFleetIcon = "true";
+  icon.style.display = "grid";
+  icon.style.placeItems = "center";
+  icon.style.width = "27px";
+  icon.style.height = "27px";
+  icon.style.transformOrigin = "center";
+
+  const liveDot = document.createElement("span");
+  liveDot.dataset.liveFleetDot = "true";
+  liveDot.style.position = "absolute";
+  liveDot.style.right = "17px";
+  liveDot.style.top = "13px";
+  liveDot.style.width = "10px";
+  liveDot.style.height = "10px";
+  liveDot.style.borderRadius = "999px";
+  liveDot.style.border = "2px solid white";
+
+  const bookedBadge = document.createElement("span");
+  bookedBadge.dataset.liveFleetBooked = "true";
+  bookedBadge.style.position = "absolute";
+  bookedBadge.style.left = "50%";
+  bookedBadge.style.bottom = "2px";
+  bookedBadge.style.transform = "translateX(-50%)";
+  bookedBadge.style.borderRadius = "999px";
+  bookedBadge.style.background = "#f97316";
+  bookedBadge.style.color = "white";
+  bookedBadge.style.fontSize = "9px";
+  bookedBadge.style.fontWeight = "900";
+  bookedBadge.style.letterSpacing = "0";
+  bookedBadge.style.padding = "3px 7px";
+  bookedBadge.style.boxShadow = "0 8px 18px rgba(15,23,42,0.28)";
+  bookedBadge.style.whiteSpace = "nowrap";
+
+  shell.appendChild(icon);
+  wrapper.appendChild(shell);
+  wrapper.appendChild(liveDot);
+  wrapper.appendChild(bookedBadge);
+  updateLiveFleetOperatorMarkerElement(wrapper, operator);
+  return wrapper;
+}
+
+function updateLiveFleetOperatorMarkerElement(element, operator) {
+  if (!element) return;
+
+  const config = getLiveFleetMarkerConfig(operator);
+  const shell = element.querySelector("[data-live-fleet-shell='true']");
+  const icon = element.querySelector("[data-live-fleet-icon='true']");
+  const liveDot = element.querySelector("[data-live-fleet-dot='true']");
+  const bookedBadge = element.querySelector("[data-live-fleet-booked='true']");
+
+  element.title = [operator?.name || "Active operator", config.label, config.booked ? "Booked" : "Available"]
+    .filter(Boolean)
+    .join(" - ");
+
+  if (shell) shell.style.background = config.bg;
+
+  if (icon) {
+    icon.innerHTML = config.svg;
+    const svg = icon.querySelector("svg");
+    if (svg) {
+      svg.style.width = "100%";
+      svg.style.height = "100%";
+      svg.style.fill = "none";
+      svg.style.stroke = "currentColor";
+      svg.style.strokeWidth = "2.2";
+      svg.style.strokeLinecap = "round";
+      svg.style.strokeLinejoin = "round";
+    }
+    icon.style.transform = Number.isFinite(Number(operator?.heading))
+      ? `rotate(${Number(operator.heading)}deg)`
+      : "none";
+  }
+
+  if (liveDot) {
+    liveDot.style.background = config.booked ? "#fb923c" : "#22c55e";
+    liveDot.style.boxShadow = config.booked
+      ? "0 0 0 3px rgba(251,146,60,0.2)"
+      : "0 0 0 3px rgba(34,197,94,0.2)";
+  }
+
+  if (bookedBadge) {
+    bookedBadge.textContent = config.booked ? "BOOKED" : "";
+    bookedBadge.style.display = config.booked ? "inline-flex" : "none";
   }
 }
 
@@ -2292,15 +2434,15 @@ export default function NearbyAreaMap({
         operatorAnimationCancelRef.current.set(
           operator.id,
           animateMarkerTo(existingMarker, fromPosition, operator, 900, () => {
-            updateOperatorMarkerElement(existingMarker.getElement(), operator);
+            updateLiveFleetOperatorMarkerElement(existingMarker.getElement(), operator);
           }),
         );
-        updateOperatorMarkerElement(existingMarker.getElement(), operator);
+        updateLiveFleetOperatorMarkerElement(existingMarker.getElement(), operator);
         return;
       }
 
       const marker = new maplibregl.Marker({
-        element: createSmartOperatorMarker(operator),
+        element: createLiveFleetOperatorMarker(operator),
         anchor: "center",
       })
         .setLngLat([operator.lng, operator.lat])
@@ -2495,10 +2637,10 @@ export default function NearbyAreaMap({
               <button
                 type="button"
                 onClick={() => setNextNavigationSnap(navigationCollapsed ? "up" : "down")}
-                className="kt-pressable flex h-10 w-10 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-lg font-black leading-none text-slate-900 shadow-sm"
+                className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full border-2 border-slate-300 bg-white/95 text-xl font-black leading-none text-slate-950 shadow-lg backdrop-blur"
                 aria-label={navigationCollapsed ? "Expand navigation" : "Collapse navigation"}
               >
-                <span className="-mt-0.5">{navigationCollapsed ? "^" : "v"}</span>
+                {navigationCollapsed ? <FiChevronUp strokeWidth={3.2} /> : <FiChevronDown strokeWidth={3.2} />}
               </button>
             </div>
           </div>

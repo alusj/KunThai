@@ -1,4 +1,8 @@
 import supabase from "../../lib/supabaseClient";
+import {
+  getActiveCountryProfile,
+  storeCountryContext,
+} from "../../../data/westAfricanCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
 
 export const BUSINESS_CATEGORIES = [
@@ -166,6 +170,7 @@ export async function readRegisteredBusiness() {
 
   if (error) throw new Error(error.message);
   if (!business) return null;
+  storeCountryContext(business.country);
 
   const [{ data: categories }, { data: payoutMethod }, { data: documents }] = await Promise.all([
     supabase.from("marketplace_business_categories").select("category").eq("business_id", business.id),
@@ -183,6 +188,8 @@ export async function hasRegisteredBusiness() {
 
 export async function submitSellerRegistration(registration) {
   const userId = await getCurrentUserId();
+  storeCountryContext(registration.location.country);
+  const countryProfile = getActiveCountryProfile(registration.location.country);
   const readinessScore = calculateReadinessScore(registration);
   const [logoUrl, bannerUrl, idDocumentUrl, businessDocumentUrl] = await Promise.all([
     uploadBusinessFile(userId, registration.identity.logoFile, "logos"),
@@ -197,6 +204,8 @@ export async function submitSellerRegistration(registration) {
     business_name: registration.identity.businessName.trim(),
     description: registration.identity.description.trim(),
     country: registration.location.country.trim(),
+    country_iso: countryProfile.iso2,
+    currency: countryProfile.currency.code,
     city: registration.location.city.trim(),
     address: registration.location.address.trim(),
     phone: registration.location.phone.trim(),
@@ -222,8 +231,17 @@ export async function submitSellerRegistration(registration) {
 
   let { data: business, error } = await supabase.from("marketplace_businesses").upsert(businessPayload, { onConflict: "user_id" }).select().maybeSingle();
 
-  if (error && (isMissingColumn(error, "website_url") || isMissingColumn(error, "operating_days"))) {
-    const { website_url: _websiteUrl, operating_days: _operatingDays, ...fallbackPayload } = businessPayload;
+  if (
+    error &&
+    ["website_url", "operating_days", "country_iso", "currency"].some((column) => isMissingColumn(error, column))
+  ) {
+    const {
+      website_url: _websiteUrl,
+      operating_days: _operatingDays,
+      country_iso: _countryIso,
+      currency: _currency,
+      ...fallbackPayload
+    } = businessPayload;
     const fallback = await supabase.from("marketplace_businesses").upsert(fallbackPayload, { onConflict: "user_id" }).select().maybeSingle();
     business = fallback.data;
     error = fallback.error;

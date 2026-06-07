@@ -5,6 +5,7 @@ import {
   getTransportFleets,
   subscribeToFleetUpdates,
 } from "../services/transportFleetService";
+import { formatCountryMoney } from "../../data/westAfricanCountryProfiles";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
@@ -131,6 +132,8 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
   const status = verificationStatuses[fleet.verificationStatus] || verificationStatuses.pending;
   const isActive = fleet.activeStatus === "active";
 
+  const moneyScope = fleet.currency || fleet.countryCode || fleet.country;
+
   return (
     <article className="grid gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-[minmax(260px,1fr)_minmax(260px,1fr)_auto] lg:items-center">
       <div className="min-w-0">
@@ -181,8 +184,8 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
 
       <div className="flex flex-col gap-2 lg:items-end">
         <span className="text-sm font-bold text-gray-950 lg:text-right">
-          {fleet.pricePerKm ? `SLE ${fleet.pricePerKm.toLocaleString()} / km` : fleet.priceHint}
-          {fleet.pricePerHour ? <span className="block text-xs text-gray-500">SLE {fleet.pricePerHour.toLocaleString()} / hour</span> : null}
+          {fleet.pricePerKm ? `${formatCountryMoney(fleet.pricePerKm, moneyScope, { maximumFractionDigits: 0 })} / km` : fleet.priceHint}
+          {fleet.pricePerHour ? <span className="block text-xs text-gray-500">{formatCountryMoney(fleet.pricePerHour, moneyScope, { maximumFractionDigits: 0 })} / hour</span> : null}
         </span>
 
         <button

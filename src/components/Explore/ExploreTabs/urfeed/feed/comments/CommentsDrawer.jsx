@@ -157,6 +157,8 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
         <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 kuntai-scrollbar-none">
           {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
 
+          {comments.loading && !comments.thread.length ? <CommentLoadingRows /> : null}
+
           {!comments.loading && !comments.thread.length ? (
             <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
               <HiOutlineChatBubbleLeftRight className="mx-auto text-3xl text-slate-400" />
@@ -190,6 +192,23 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           onSubmit={addComment}
         />
       </section>
+    </div>
+  );
+}
+
+function CommentLoadingRows() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="flex gap-3 rounded-[22px] bg-slate-50 p-3">
+          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-slate-200" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3 w-36 animate-pulse rounded-full bg-slate-200" />
+            <div className="h-3 w-full animate-pulse rounded-full bg-slate-100" />
+            <div className="h-3 w-2/3 animate-pulse rounded-full bg-slate-100" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

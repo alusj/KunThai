@@ -55,6 +55,7 @@ export default function CartDrawer({
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [paymentPreference, setPaymentPreference] = useState(readPaymentPreference);
   const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const moneyScope = items[0]?.product?.currency || items[0]?.product?.countryCode || items[0]?.product?.country;
   const itemCount = items.reduce((sum, item) => sum + item.qty, 0);
   const selectedAddress = savedAddresses.find((address) => String(address.id) === String(selectedAddressId));
   const checkoutReady = deliveryMode === "pickup" || Boolean(getAddressText(selectedAddress) || deliveryLocation.trim());
@@ -220,12 +221,12 @@ export default function CartDrawer({
             </div>
             <div className="mt-2 flex items-center justify-between text-sm">
               <span className="font-bold text-gray-500">Subtotal</span>
-              <span className="text-xl font-black text-gray-950">{formatCurrency(total)}</span>
+              <span className="text-xl font-black text-gray-950">{formatCurrency(total, moneyScope)}</span>
             </div>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="font-bold text-gray-500">Total</span>
-            <span className="text-xl font-black text-gray-950">{formatCurrency(total)}</span>
+            <span className="text-xl font-black text-gray-950">{formatCurrency(total, moneyScope)}</span>
           </div>
           {checkoutStatus && (
             <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{checkoutStatus}</p>

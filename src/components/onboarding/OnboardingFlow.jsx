@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { markOnboardingComplete, updateOnboardingProfile } from "../../Backend/services/onboardingService";
+import { getActiveCountryProfile } from "../../data/westAfricanCountryProfiles";
 import WelcomeStep from "./WelcomeStep";
 import ProfileStep from "./ProfileStep";
 import InterestsStep from "./InterestsStep";
@@ -19,6 +20,7 @@ function splitDisplayName(displayName = "") {
 function normalizeProfile(profile) {
   const displayName = profile?.displayName ?? "";
   const nameParts = splitDisplayName(displayName);
+  const countryProfile = getActiveCountryProfile(profile?.country || profile?.countryCode);
 
   return {
     firstName: profile?.firstName || nameParts.firstName,
@@ -28,7 +30,7 @@ function normalizeProfile(profile) {
     dateOfBirth: profile?.dateOfBirth ?? "",
     username: profile?.username ?? "",
     city: profile?.city ?? "",
-    country: profile?.country ?? "",
+    country: profile?.country || countryProfile.name,
     address: profile?.address ?? "",
     email: profile?.email ?? "",
     phone: profile?.phone ?? "",
