@@ -17,10 +17,6 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isAbortError(error) {
-  return error?.name === "AbortError" || String(error?.message || "").toLowerCase().includes("abort");
-}
-
 function isLikelyLocalDev() {
   return (
     window.location.hostname === "localhost" ||
@@ -35,7 +31,7 @@ function logSafetyReview(event, detail = {}) {
   }
 }
 
-export async function runPostReviewPipeline({ body, media, onStage, reviewTimeoutMs = 0 }) {
+export async function runPostReviewPipeline({ body, media, onStage }) {
   if (!media?.videoReviewRequired) {
     onStage?.("preparing", 12);
     await wait(180);
@@ -49,33 +45,21 @@ export async function runPostReviewPipeline({ body, media, onStage, reviewTimeou
 
   try {
     const moderationPayload = buildModerationMediaPayload(media);
-    const controller = reviewTimeoutMs > 0 && typeof AbortController !== "undefined"
-      ? new AbortController()
-      : null;
-    const timeoutId = controller
-      ? window.setTimeout(() => controller.abort(), reviewTimeoutMs)
-      : null;
-    let review;
 
-    try {
-      review = await moderateExplorePost({
-        body,
-        media: moderationPayload,
-        signal: controller?.signal,
-      });
-    } finally {
-      if (timeoutId) {
-        window.clearTimeout(timeoutId);
-      }
-    }
+    const review = await moderateExplorePost({
+      body,
+      media: moderationPayload,
+    });
 
     if (!review?.ok) {
       const decision = review?.decision || "failed";
       const flags = review?.flags || [];
+
       logSafetyReview("post rejected", { decision, flags });
+
       return {
         ok: false,
-        retryable: decision === "failed",
+        retryable: false,
         reason: review?.reason || "This post was stopped by KunThai safety review.",
         flags,
         review,
@@ -83,47 +67,47 @@ export async function runPostReviewPipeline({ body, media, onStage, reviewTimeou
     }
 
     if (media?.videoReviewRequired && review?.decision !== "approved") {
-      const reason = review?.reason || "KunThai could not complete this video's safety scan. Please try posting the video again.";
-      logSafetyReview("video scan incomplete", { decision: review?.decision, reason });
+      const reason =
+        review?.reason ||
+        "KunThai could not complete this video's safety scan. Please try posting the video again.";
+
+      logSafetyReview("video scan incomplete", {
+        decision: review?.decision,
+        reason,
+      });
+
       return {
         ok: false,
-        retryable: true,
+        retryable: false,
         reason,
         flags: review?.flags || [],
         review,
       };
     }
 
-   const publishableReview = review;
+    logSafetyReview("post publishable", { decision: review.decision });
 
-    logSafetyReview("post publishable", { decision: publishableReview.decision });
     onStage?.("publishing", 84);
     await wait(180);
-    return { ok: true, decision: publishableReview.decision, review: publishableReview };
+
+    return {
+      ok: true,
+      decision: review.decision,
+      review,
+    };
   } catch (error) {
     logSafetyReview(
-      isLikelyLocalDev() ? "remote moderation unavailable in local dev" : "remote moderation unavailable",
+      isLikelyLocalDev()
+        ? "remote moderation unavailable in local dev"
+        : "remote moderation unavailable",
       { error },
     );
 
-    if (media?.videoReviewRequired) {
-      return {
-        ok: false,
-        retryable: true,
-        reason: isAbortError(error)
-          ? "KunThai needs more time to finish this video's safety scan."
-          : "KunThai could not complete this video's safety scan. Please try posting the video again.",
-      };
-    }
+    return {
+      ok: false,
+      retryable: false,
+      reason:
+        "KunThai could not complete the safety scan. Please try again.",
+    };
   }
-
-  onStage?.("publishing", 84);
-  await wait(180);
-
-  return {
-  ok: false,
-  retryable: true,
-  reason:
-    "KunThai could not complete the safety scan. Please try again.",
-};
 }
