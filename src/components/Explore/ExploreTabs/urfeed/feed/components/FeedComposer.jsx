@@ -23,7 +23,6 @@ import {
   MAX_VIDEO_SECONDS,
   parseTags,
   readDraft,
-  shouldSkipBrowserVideoProcessing,
   writeDraft,
 } from "../composer/composerUtils";
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
@@ -566,12 +565,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
       if (finalVideoPreview) {
         try {
-          if (!shouldSkipBrowserVideoProcessing()) {
-            videoFrameDataUrls = await extractVideoFramesFromDataUrl(finalVideoPreview, 4, {
-              start: postDraft.mediaMeta?.videoTrimStart || 0,
-              end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
-            });
-          }
+         videoFrameDataUrls = await extractVideoFramesFromDataUrl(finalVideoPreview, 6, {
+           start: postDraft.mediaMeta?.videoTrimStart || 0,
+            end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
+          });
         } catch {
           videoFrameDataUrls = [];
         }
