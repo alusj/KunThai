@@ -27,7 +27,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setShowIntro(false);
-    }, 1400);
+   }, 900);
 
     return () => window.clearTimeout(timer);
   }, []);
@@ -59,19 +59,13 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
         <main className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
           <section className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-              <Truck size={28} />
+              <Truck size={38} />
             </div>
 
             <p className="mt-4 text-xs font-black uppercase tracking-wide text-emerald-700">
               KunThai Transport
             </p>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">
-              Register operators, fleets, and transport companies.
-            </h2>
-            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-              Choose the right setup for your transport account. Solo operators can register one main fleet, while companies can manage multiple fleets and invite operators.
-            </p>
-          </section>
+            </section>
 
           <section className="grid gap-4">
             {OPTIONS.map((option) => {
@@ -82,7 +76,13 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                 <button
                   key={option.id}
                   type="button"
-                  onClick={() => onSelect(option.id)}
+                  onClick={() => {
+  setShowIntro(true);
+
+  window.setTimeout(() => {
+    onSelect(option.id);
+  }, 900);
+}}
                   className={`kt-pressable rounded-3xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
                     isCompany
                       ? "border-blue-200 hover:border-blue-400"
