@@ -581,10 +581,18 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
         for (const sourceUrl of Array.from(new Set(frameSourceUrls.filter(Boolean)))) {
           try {
-            videoFrameDataUrls = await extractVideoFramesFromDataUrl(sourceUrl, 6, {
-              start: postDraft.mediaMeta?.videoTrimStart || 0,
-              end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
-            });
+            const isMobileVideoDevice =
+  /iphone|ipad|ipod|android/i.test(navigator.userAgent || "") ||
+  window.innerWidth <= 768;
+
+if (!isMobileVideoDevice) {
+  videoFrameDataUrls = await extractVideoFramesFromDataUrl(finalVideoPreview, 6, {
+    start: postDraft.mediaMeta?.videoTrimStart || 0,
+    end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
+  });
+} else {
+  videoFrameDataUrls = [];
+}
           } catch {
             videoFrameDataUrls = [];
           }
@@ -624,7 +632,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           videoUrl: uploadedReviewVideoUrl,
           videoFrameDataUrls,
           videoFrameExtractionFailed,
-          videoReviewRequired: Boolean(postDraft.video_url),
+          videoReviewRequired: Boolean(postDraft.video_url && videoFrameDataUrls.length),
           audioDataUrl: postDraft.audio_url || "",
         },
         onStage: (stage, progress) => {
