@@ -6,13 +6,13 @@ export default function TransportEntryAnimation({ show }) {
     <AnimatePresence>
       {show && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white px-5 pb-28"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
           <motion.div
-            className="flex flex-col items-center gap-5"
+            className="-translate-y-20 flex flex-col items-center gap-5 text-center"
             initial={{ scale: 0.92, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.95, y: -20 }}
