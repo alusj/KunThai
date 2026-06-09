@@ -1,7 +1,13 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { Truck } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Bike, Truck } from "lucide-react";
 
 export default function TransportEntryAnimation({ show }) {
+  const vehicles = [
+    { id: "bike", Icon: Bike, label: "Bike" },
+    { id: "keke", emoji: "🛺", label: "Tricycle" },
+    { id: "truck", Icon: Truck, label: "Delivery" },
+  ];
+
   return (
     <AnimatePresence>
       {show && (
@@ -9,42 +15,81 @@ export default function TransportEntryAnimation({ show }) {
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-white px-5 pb-28"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, x: 80 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
         >
           <motion.div
-            className="-translate-y-20 flex flex-col items-center gap-5 text-center"
-            initial={{ scale: 0.92, y: 20 }}
+            className="-translate-y-20 flex w-full max-w-md flex-col items-center gap-6 text-center"
+            initial={{ scale: 0.94, y: 20 }}
             animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: -20 }}
-            transition={{ type: "spring", stiffness: 220, damping: 22 }}
+            exit={{ scale: 0.98, x: 120, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 220, damping: 24 }}
           >
-            <motion.div
-              className="h-24 w-24 rounded-full bg-emerald-100 flex items-center justify-center shadow-lg"
-              animate={{
-                scale: [1, 1.08, 1],
-                boxShadow: [
-                  "0 0 0px rgba(16,185,129,0.3)",
-                  "0 0 35px rgba(16,185,129,0.55)",
-                  "0 0 0px rgba(16,185,129,0.3)",
-                ],
-              }}
-              transition={{ duration: 1.2, repeat: Infinity }}
-            >
+            <div className="relative flex h-40 w-full items-center justify-center overflow-hidden rounded-[2rem] bg-emerald-50/70">
               <motion.div
-                animate={{ x: [0, 10, 0] }}
-                transition={{ duration: 0.9, repeat: Infinity }}
-              >
-                <Truck size={44} className="text-emerald-600" />
-              </motion.div>
-            </motion.div>
+                className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 bg-emerald-100"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                exit={{ scaleX: 0 }}
+                transition={{ duration: 0.8 }}
+              />
 
-            <div className="text-center">
-              <h2 className="text-2xl font-black text-slate-950">
+              <div className="relative flex w-full items-center justify-around px-6">
+                {vehicles.map((vehicle, index) => {
+                  const Icon = vehicle.Icon;
+
+                  return (
+                    <motion.div
+                      key={vehicle.id}
+                      className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-emerald-700 shadow-lg ring-1 ring-emerald-100"
+                      initial={{ x: -90, opacity: 0, scale: 0.8 }}
+                      animate={{
+                        x: [0, 12, 0],
+                        opacity: 1,
+                        scale: 1,
+                      }}
+                      exit={{
+                        x: 180,
+                        opacity: 0,
+                        scale: 0.85,
+                      }}
+                      transition={{
+                        delay: index * 0.12,
+                        duration: 0.7,
+                        ease: "easeInOut",
+                      }}
+                    >
+                      {Icon ? (
+                        <Icon size={36} strokeWidth={2.5} />
+                      ) : (
+                        <span className="text-4xl">{vehicle.emoji}</span>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <motion.h2
+                className="text-4xl font-black tracking-tight text-slate-950"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: 80 }}
+                transition={{ delay: 0.15 }}
+              >
                 Entering Transport
-              </h2>
-              <p className="mt-2 text-sm font-bold text-slate-500">
-                Preparing rides, deliveries and fleets...
-              </p>
+              </motion.h2>
+
+              <motion.p
+                className="mt-3 text-base font-black text-slate-500"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: 80 }}
+                transition={{ delay: 0.25 }}
+              >
+                from KunThai...
+              </motion.p>
             </div>
           </motion.div>
         </motion.div>

@@ -27,7 +27,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setShowIntro(false);
-   }, 900);
+   }, 1100);
 
     return () => window.clearTimeout(timer);
   }, []);
