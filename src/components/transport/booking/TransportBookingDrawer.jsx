@@ -33,6 +33,8 @@ import {
   formatBookingDistance,
 } from "../../services/transportPricingService";
 
+const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
+
 const fleetTypes = [
   { value: "", label: "Any active fleet" },
   { value: "Motorcycle", label: "Bike / motorcycle" },
@@ -149,6 +151,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const [status, setStatus] = useState("");
   const [searchCenter, setSearchCenter] = useState(null);
   const [areaPicker, setAreaPicker] = useState(null);
+  const [showPassengerCaution, setShowPassengerCaution] = useState(false);
+  const [dontShowPassengerCaution, setDontShowPassengerCaution] = useState(false);
+
   const [form, setForm] = useState({
     pickup: "",
     dropoff: "",
@@ -166,18 +171,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   });
 
   const activeAvailableFleets = useMemo(() => availableFleets.filter(isFleetBookable), [availableFleets]);
-  const nearbyMatchingFleets = useMemo(
-    () => availableFleets.filter(isFleetNearby),
-    [availableFleets],
-  );
-  const nearbyActiveFleets = useMemo(
-    () => nearbyMatchingFleets.filter(isFleetBookable),
-    [nearbyMatchingFleets],
-  );
+  const nearbyMatchingFleets = useMemo(() => availableFleets.filter(isFleetNearby), [availableFleets]);
+  const nearbyActiveFleets = useMemo(() => nearbyMatchingFleets.filter(isFleetBookable), [nearbyMatchingFleets]);
   const bookingTargetFleets = nearbyMatchingFleets;
   const bookingFleet = useMemo(() => {
     return bookingTargetFleets[0] || activeAvailableFleets[0] || availableFleets[0] || target?.fleet || null;
   }, [activeAvailableFleets, availableFleets, bookingTargetFleets, target]);
+
   const displayFleet = bookingFleet;
   const bookingMode = modeForFleet(bookingFleet, selection.mode);
   const pricingInput = {
@@ -194,6 +194,16 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       : "";
   const sendBlockMessage = requirementMessage || fleetMessage;
   const canSendBooking = !submitting && !routeLoading && !requirementMessage && bookingTargetFleets.length > 0;
+
+  useEffect(() => {
+    if (!open) return;
+
+    const accepted = localStorage.getItem(PASSENGER_CAUTION_KEY) === "true";
+    if (!accepted) {
+      setShowPassengerCaution(true);
+      setDontShowPassengerCaution(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -326,6 +336,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     setSelection((current) => ({ ...current, ...patch }));
   }
 
+  function acceptPassengerCaution() {
+    if (dontShowPassengerCaution) {
+      localStorage.setItem(PASSENGER_CAUTION_KEY, "true");
+    }
+    setShowPassengerCaution(false);
+  }
+
   function openBookingLocationPicker(kind, start = "current") {
     setAreaPicker({ kind, start });
     setStatus("");
@@ -357,18 +374,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     const dropoffText = form.dropoff.trim();
     const areaText = kind === "pickup" ? pickupText : dropoffText || pickupText;
     const areaPoint = kind === "pickup" ? form.pickupPoint : form.dropoffPoint;
-    const pickupPoint = normalizeLocationPoint(form.pickupPoint) || {
-      name: "Pick up point",
-      label: "Pick up point",
-      address: pickupText,
-      searchQuery: pickupText,
-    };
-    const dropoffPoint = normalizeLocationPoint(form.dropoffPoint) || {
-      name: "Drop off point",
-      label: "Drop off point",
-      address: dropoffText,
-      searchQuery: dropoffText,
-    };
 
     if (!areaText) return null;
 
@@ -388,24 +393,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       pickup: pickupText,
       destination: dropoffText,
       ...(areaPoint ? { lat: areaPoint.lat, lng: areaPoint.lng, country: areaPoint.country, countryCode: areaPoint.countryCode } : {}),
-      ...(kind === "dropoff" && pickupText && dropoffText
-        ? {
-            routePlan: {
-              id: `booking-route-${Date.now()}`,
-              passengerName: form.passengerName || "Passenger",
-              pickup: {
-                ...pickupPoint,
-                name: "Pick up point",
-                label: "Pick up point / passenger's location",
-              },
-              dropoff: {
-                ...dropoffPoint,
-                name: "Drop off point",
-                label: "Drop off point / passenger's destination",
-              },
-            },
-          }
-        : {}),
       fleetId: null,
     };
   }
@@ -452,9 +439,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         setRouteEstimate(resolvedRoute);
         setRouteMessage(`${formatBookingDistance(resolvedRoute.distanceKm)} route${resolvedRoute.approximate ? " - approximate road estimate" : ""}`);
       }
+
       if (!bookingTargetFleets.length) {
         throw new Error("No nearby matching operators are available for this booking right now.");
       }
+
       const nextBookingMode = modeForFleet(bookingFleet || null, selection.mode);
       const booking = await createTransportBooking({
         ...form,
@@ -470,11 +459,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         pickupPoint: resolvedRoute?.pickupPoint || form.pickupPoint || null,
         destinationPoint: resolvedRoute?.destinationPoint || form.dropoffPoint || null,
       });
+
       setStatus(
         booking?.notifiedFleetCount > 1
           ? `Booking sent to ${booking.notifiedFleetCount} nearby matching operators. Any available operator can contact you and respond.`
           : "Booking sent. The operator will see this as a pending passenger request and can contact you.",
       );
+
       onCreated?.(booking);
     } catch (error) {
       setStatus(error.message || "Unable to send this booking.");
@@ -486,392 +477,415 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
   return (
     <AppPortal>
-    <div className="fixed inset-0 z-[1200] flex justify-end">
-      <button
-        type="button"
-        aria-label="Close booking overlay"
-        onClick={onClose}
-        className="kt-backdrop absolute inset-0"
-      />
+      <div className="fixed inset-0 z-[1200] flex justify-end">
+        <button
+          type="button"
+          aria-label="Close booking overlay"
+          onClick={onClose}
+          className="kt-backdrop absolute inset-0"
+        />
 
-      <aside className="kt-panel-enter relative flex h-full w-full max-w-2xl flex-col bg-gray-50 shadow-2xl">
-        <header className="kt-header-glass flex items-center justify-between px-4 py-3 sm:px-5">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
-              Transport booking
-            </p>
-            <h2 className="mt-1 truncate text-xl font-black text-gray-950">
-              {bookingMode === "delivery" ? "Send delivery" : "Book a ride"}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="kt-touchable flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-            aria-label="Close booking"
-          >
-            <FiX size={20} />
-          </button>
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-          {status ? (
-            <p
-              className={`mb-4 rounded-xl p-3 text-sm font-bold ${
-                status.startsWith("Booking sent") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-              }`}
-            >
-              {status}
-            </p>
-          ) : null}
-
-          <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Choose booking method</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <BookingMethodButton
-                active={form.bookingMethod === "distance"}
-                icon={FiNavigation}
-                title="Book by distance"
-                detail="Route price is calculated from pickup to drop-off using the operator's price per kilometer."
-                onClick={() => updateForm({ bookingMethod: "distance" })}
-              />
-              <BookingMethodButton
-                active={form.bookingMethod === "time"}
-                icon={FiClock}
-                title="Book by time"
-                detail="Reserve the operator by the hour and see the total from the operator's hourly price."
-                onClick={() => updateForm({ bookingMethod: "time" })}
-              />
-            </div>
-          </section>
-
-          <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Service</span>
-                <select
-                  value={selection.mode}
-                  onChange={(event) => updateSelection({ mode: event.target.value })}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                >
-                  <option value="topRated">Any service</option>
-                  <option value="ride">Ride</option>
-                  <option value="delivery">Delivery</option>
-                </select>
-              </label>
-
-              <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Fleet type</span>
-                <select
-                  value={selection.fleetType || ""}
-                  onChange={(event) => updateSelection({ fleetType: event.target.value || null })}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                >
-                  {fleetTypes.map((type) => (
-                    <option key={type.value || "all"} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </label>
-
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-              <p className="text-sm font-black text-emerald-950">Open request</p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
-                No operator is attached to this booking yet. When you save it, it enters My Trips and notifies every nearby registered operator matching the service and fleet type you selected.
+        <aside className="kt-panel-enter relative flex h-full w-full max-w-2xl flex-col bg-gray-50 shadow-2xl">
+          <header className="kt-header-glass flex items-center justify-between px-4 py-3 sm:px-5">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
+                Transport booking
               </p>
-              <p className="mt-2 text-xs font-black text-emerald-700">
-                {loadingFleets
-                  ? "Checking matching operators..."
-                  : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} ready for notification (${nearbyActiveFleets.length} active now).`}
-              </p>
+              <h2 className="mt-1 truncate text-xl font-black text-gray-950">
+                {bookingMode === "delivery" ? "Send delivery" : "Book a ride"}
+              </h2>
             </div>
 
-            {displayFleet ? (
-              <div className="mt-4 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-600 sm:grid-cols-2">
-                <InfoLine
-                  icon={FiTruck}
-                  label="Request"
-                  value={`${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} will be notified`}
-                />
-                <InfoLine icon={FiNavigation} label="Location" value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
-                <InfoLine
-                  icon={FiClock}
-                  label="Operator status"
-                  value={
-                    isFleetBookable(displayFleet)
-                      ? "At least one matching fleet is active now"
-                      : `${displayFleet.lastActive || "Offline"}; request will remain available in operator alerts`
-                  }
-                />
-                <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
-                <InfoLine
-                  icon={form.bookingMethod === "time" ? FiClock : FiNavigation}
-                  label={form.bookingMethod === "time" ? "Hourly rate" : "Distance rate"}
-                  value={form.bookingMethod === "time"
-                    ? `${describeFleetFare({ ...displayFleet, baseFare: 0 }, { bookingMethod: "time" })}`
-                    : `${describeFleetFare({ ...displayFleet, baseFare: 0 }, { bookingMethod: "distance" })}`}
-                />
-              </div>
-            ) : null}
-          </section>
-
-          <section className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700">
-                <FiCreditCard size={19} />
-              </span>
-              <div>
-                <p className="text-sm font-black text-emerald-950">Calculated fare</p>
-                <p className="mt-1 text-sm font-black text-emerald-700">{fareEstimate}</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
-                  {form.bookingMethod === "distance"
-                    ? `Nearby matching operators will see your resolved route${routeEstimate ? ` of ${formatBookingDistance(routeEstimate.distanceKm)}` : ""} before responding.`
-                    : `Nearby matching operators will see your requested ${Number(form.bookedHours || 0)} hour${Number(form.bookedHours || 0) === 1 ? "" : "s"} before responding.`}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {savedPlaces.length ? (
-            <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div>
-                <p className="text-sm font-black text-gray-950">Saved locations</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
-                  Use any saved place as the pickup point or the {bookingMode === "delivery" ? "delivery drop-off" : "drop-off point"}.
-                </p>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {savedPlaces.map((place) => {
-                  const point = normalizeLocationPoint(place);
-                  const text = getLocationInputValue(place);
-                  return (
-                    <article key={place.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-gray-950">{getPlaceLabel(place)}</p>
-                        <p className="mt-0.5 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-                          {place.street || place.detectedAddress}
-                        </p>
-                      </div>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => updateForm({ pickup: text, pickupPoint: point })}
-                          className="kt-touchable h-10 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
-                        >
-                          Use as pickup
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateForm({ dropoff: text, dropoffPoint: point })}
-                          className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
-                        >
-                          Use as {bookingMode === "delivery" ? "delivery address" : "drop-off"}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
-
-          <section className="mt-4 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-2">
-              <AddressSuggestionInput
-                icon={FiMapPin}
-                label="Pickup point"
-                value={form.pickup}
-                selectedPoint={form.pickupPoint}
-                center={searchCenter || form.dropoffPoint}
-                onChange={(value) => updateForm({ pickup: value, pickupPoint: null })}
-                onSelect={(place) => updateForm({
-                  pickup: getLocationInputValue(place),
-                  pickupPoint: normalizeLocationPoint(place),
-                })}
-                onLocateMe={() => openBookingLocationPicker("pickup", "current")}
-                onDropPin={() => openBookingLocationPicker("pickup", "dropPin")}
-                placeholder="Street, junction, saved place, or landmark"
-              />
-              <AddressSuggestionInput
-                icon={FiNavigation}
-                label={bookingMode === "delivery" ? "Delivery drop-off point" : "Drop-off point"}
-                value={form.dropoff}
-                selectedPoint={form.dropoffPoint}
-                center={form.pickupPoint || searchCenter}
-                onChange={(value) => updateForm({ dropoff: value, dropoffPoint: null })}
-                onSelect={(place) => updateForm({
-                  dropoff: getLocationInputValue(place),
-                  dropoffPoint: normalizeLocationPoint(place),
-                })}
-                onLocateMe={() => openBookingLocationPicker("dropoff", "current")}
-                onDropPin={() => openBookingLocationPicker("dropoff", "dropPin")}
-                placeholder="Destination, address, station, or landmark"
-              />
-              <FormInput
-                icon={FiUser}
-                label="Passenger / sender name"
-                value={form.passengerName}
-                onChange={(value) => updateForm({ passengerName: value })}
-                placeholder="Name operator should see"
-              />
-              <FormInput
-                icon={FiPhone}
-                label="Phone"
-                value={form.phone}
-                onChange={(value) => updateForm({ phone: value })}
-                placeholder={getCountryPhonePlaceholder()}
-              />
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              <LocateAreaButton
-                icon={FiMapPin}
-                label="Locate pickup"
-                detail="Open pickup in Area View"
-                disabled={!hasText(form.pickup)}
-                onClick={() => handleLocateArea("pickup")}
-              />
-              <LocateAreaButton
-                icon={FiNavigation}
-                label="Route drop-off"
-                detail="Open smart Area View route"
-                disabled={!hasText(form.dropoff)}
-                onClick={() => handleLocateArea("dropoff")}
-                primary
-              />
-            </div>
-
-            {form.bookingMethod === "distance" ? (
-              <div className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-bold ${
-                routeEstimate ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"
-              }`}>
-                <FiRefreshCw className={routeLoading ? "animate-spin" : ""} size={17} />
-                <span>{routeMessage || "Add pickup and drop-off locations to calculate each operator's distance price."}</span>
-              </div>
-            ) : (
-              <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Number of hours</span>
-                <input
-                  type="number"
-                  min="0.5"
-                  step="0.5"
-                  value={form.bookedHours}
-                  onChange={(event) => updateForm({ bookedHours: event.target.value })}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                />
-              </label>
-            )}
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Pickup time</span>
-                <select
-                  value={form.pickupTime}
-                  onChange={(event) => updateForm({ pickupTime: event.target.value })}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                >
-                  <option value="now">Now</option>
-                  <option value="schedule">Schedule</option>
-                </select>
-              </label>
-
-              <label className="space-y-1 md:col-span-2">
-                <span className="text-xs font-black uppercase text-gray-500">Scheduled time</span>
-                <input
-                  type="datetime-local"
-                  value={form.scheduledAt}
-                  onChange={(event) => updateForm({ scheduledAt: event.target.value })}
-                  disabled={form.pickupTime !== "schedule"}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-950 outline-none focus:border-emerald-500 disabled:text-gray-400"
-                />
-              </label>
-            </div>
-
-            {bookingMode === "delivery" ? (
-              <FormInput
-                icon={FiBox}
-                label="Package description"
-                value={form.packageDescription}
-                onChange={(value) => updateForm({ packageDescription: value })}
-                placeholder="Small bag, box, food parcel, documents..."
-              />
-            ) : (
-              <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Passengers</span>
-                <select
-                  value={form.passengers}
-                  onChange={(event) => updateForm({ passengers: event.target.value })}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                >
-                  <option value="1">1 passenger</option>
-                  <option value="2">2 passengers</option>
-                  <option value="3">3 passengers</option>
-                  <option value="4">4 passengers</option>
-                </select>
-              </label>
-            )}
-
-            <label className="space-y-1">
-              <span className="text-xs font-black uppercase text-gray-500">Trip note</span>
-              <textarea
-                value={form.note}
-                onChange={(event) => updateForm({ note: event.target.value })}
-                rows={4}
-                placeholder="Gate color, route instruction, package handling, passenger note..."
-                className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
-              />
-            </label>
-          </section>
-
-          <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <div className="flex items-start gap-3">
-              <FiAlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={20} />
-              <div>
-                <p className="text-sm font-black text-amber-900">Payment notice</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-                  Built-in transport payments are not active yet. Confirm the fare, route, operator identity,
-                  and payment method before paying. Do not share PINs, OTPs, or account passwords.
-                </p>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <footer className="border-t border-gray-100 bg-white px-4 py-3 sm:px-5">
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-            <p className={`text-xs font-semibold leading-5 ${sendBlockMessage ? "text-gray-500" : "text-emerald-700"}`}>
-              {requirementMessage || fleetMessage || `Ready to save this ${bookingMode} request in My Trips and notify matching operators.`}
-            </p>
             <button
               type="button"
-              onClick={sendBooking}
-              disabled={!canSendBooking}
-              className={`kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-black transition ${
-                canSendBooking
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                  : "bg-gray-200 text-gray-500"
-              }`}
+              onClick={onClose}
+              className="kt-touchable flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+              aria-label="Close booking"
             >
-              {submitting ? <FiClock size={17} /> : <FiSend size={17} />}
-              {submitting ? "Saving..." : "Save & notify"}
+              <FiX size={20} />
             </button>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+            {status ? (
+              <p
+                className={`mb-4 rounded-xl p-3 text-sm font-bold ${
+                  status.startsWith("Booking sent") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                }`}
+              >
+                {status}
+              </p>
+            ) : null}
+
+            <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Choose booking method</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <BookingMethodButton
+                  active={form.bookingMethod === "distance"}
+                  icon={FiNavigation}
+                  title="Book by distance"
+                  detail="Route price is calculated from pickup to drop-off using the operator's price per kilometer."
+                  onClick={() => updateForm({ bookingMethod: "distance" })}
+                />
+                <BookingMethodButton
+                  active={form.bookingMethod === "time"}
+                  icon={FiClock}
+                  title="Book by time"
+                  detail="Reserve the operator by the hour and see the total from the operator's hourly price."
+                  onClick={() => updateForm({ bookingMethod: "time" })}
+                />
+              </div>
+            </section>
+
+            <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Service</span>
+                  <select
+                    value={selection.mode}
+                    onChange={(event) => updateSelection({ mode: event.target.value })}
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+                  >
+                    <option value="topRated">Any service</option>
+                    <option value="ride">Ride</option>
+                    <option value="delivery">Delivery</option>
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Fleet type</span>
+                  <select
+                    value={selection.fleetType || ""}
+                    onChange={(event) => updateSelection({ fleetType: event.target.value || null })}
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+                  >
+                    {fleetTypes.map((type) => (
+                      <option key={type.value || "all"} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+                <p className="text-sm font-black text-emerald-950">Open request</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
+                  No operator is attached to this booking yet. When you save it, it enters My Trips and notifies every nearby registered operator matching the service and fleet type you selected.
+                </p>
+                <p className="mt-2 text-xs font-black text-emerald-700">
+                  {loadingFleets
+                    ? "Checking matching operators..."
+                    : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} ready for notification (${nearbyActiveFleets.length} active now).`}
+                </p>
+              </div>
+
+              {displayFleet ? (
+                <div className="mt-4 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-600 sm:grid-cols-2">
+                  <InfoLine
+                    icon={FiTruck}
+                    label="Request"
+                    value={`${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} will be notified`}
+                  />
+                  <InfoLine icon={FiNavigation} label="Location" value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
+                  <InfoLine
+                    icon={FiClock}
+                    label="Operator status"
+                    value={
+                      isFleetBookable(displayFleet)
+                        ? "At least one matching fleet is active now"
+                        : `${displayFleet.lastActive || "Offline"}; request will remain available in operator alerts`
+                    }
+                  />
+                  <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
+                </div>
+              ) : null}
+            </section>
+
+            <section className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700">
+                  <FiCreditCard size={19} />
+                </span>
+                <div>
+                  <p className="text-sm font-black text-emerald-950">Calculated fare</p>
+                  <p className="mt-1 text-sm font-black text-emerald-700">{fareEstimate}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
+                    {form.bookingMethod === "distance"
+                      ? `Nearby matching operators will see your resolved route${routeEstimate ? ` of ${formatBookingDistance(routeEstimate.distanceKm)}` : ""} before responding.`
+                      : `Nearby matching operators will see your requested ${Number(form.bookedHours || 0)} hour${Number(form.bookedHours || 0) === 1 ? "" : "s"} before responding.`}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="mt-4 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="grid gap-3 md:grid-cols-2">
+                <AddressSuggestionInput
+                  icon={FiMapPin}
+                  label="Pickup point"
+                  value={form.pickup}
+                  selectedPoint={form.pickupPoint}
+                  center={searchCenter || form.dropoffPoint}
+                  onChange={(value) => updateForm({ pickup: value, pickupPoint: null })}
+                  onSelect={(place) => updateForm({
+                    pickup: getLocationInputValue(place),
+                    pickupPoint: normalizeLocationPoint(place),
+                  })}
+                  onLocateMe={() => openBookingLocationPicker("pickup", "current")}
+                  onDropPin={() => openBookingLocationPicker("pickup", "dropPin")}
+                  placeholder="Street, junction, saved place, or landmark"
+                />
+
+                <AddressSuggestionInput
+                  icon={FiNavigation}
+                  label={bookingMode === "delivery" ? "Delivery drop-off point" : "Drop-off point"}
+                  value={form.dropoff}
+                  selectedPoint={form.dropoffPoint}
+                  center={form.pickupPoint || searchCenter}
+                  onChange={(value) => updateForm({ dropoff: value, dropoffPoint: null })}
+                  onSelect={(place) => updateForm({
+                    dropoff: getLocationInputValue(place),
+                    dropoffPoint: normalizeLocationPoint(place),
+                  })}
+                  onLocateMe={() => openBookingLocationPicker("dropoff", "current")}
+                  onDropPin={() => openBookingLocationPicker("dropoff", "dropPin")}
+                  placeholder="Destination, address, station, or landmark"
+                />
+
+                <FormInput
+                  icon={FiUser}
+                  label="Passenger / sender name"
+                  value={form.passengerName}
+                  onChange={(value) => updateForm({ passengerName: value })}
+                  placeholder="Name operator should see"
+                />
+
+                <FormInput
+                  icon={FiPhone}
+                  label="Phone"
+                  value={form.phone}
+                  onChange={(value) => updateForm({ phone: value })}
+                  placeholder={getCountryPhonePlaceholder()}
+                />
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <LocateAreaButton
+                  icon={FiMapPin}
+                  label="Locate pickup"
+                  detail="Open pickup in Area View"
+                  disabled={!hasText(form.pickup)}
+                  onClick={() => handleLocateArea("pickup")}
+                />
+                <LocateAreaButton
+                  icon={FiNavigation}
+                  label="Route drop-off"
+                  detail="Open smart Area View route"
+                  disabled={!hasText(form.dropoff)}
+                  onClick={() => handleLocateArea("dropoff")}
+                  primary
+                />
+              </div>
+
+              {form.bookingMethod === "distance" ? (
+                <div className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-bold ${
+                  routeEstimate ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"
+                }`}>
+                  <FiRefreshCw className={routeLoading ? "animate-spin" : ""} size={17} />
+                  <span>{routeMessage || "Add pickup and drop-off locations to calculate each operator's distance price."}</span>
+                </div>
+              ) : (
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Number of hours</span>
+                  <input
+                    type="number"
+                    min="0.5"
+                    step="0.5"
+                    value={form.bookedHours}
+                    onChange={(event) => updateForm({ bookedHours: event.target.value })}
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+                  />
+                </label>
+              )}
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Pickup time</span>
+                  <select
+                    value={form.pickupTime}
+                    onChange={(event) => updateForm({ pickupTime: event.target.value })}
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+                  >
+                    <option value="now">Now</option>
+                    <option value="schedule">Schedule</option>
+                  </select>
+                </label>
+
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-black uppercase text-gray-500">Scheduled time</span>
+                  <input
+                    type="datetime-local"
+                    value={form.scheduledAt}
+                    onChange={(event) => updateForm({ scheduledAt: event.target.value })}
+                    disabled={form.pickupTime !== "schedule"}
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-950 outline-none focus:border-emerald-500 disabled:text-gray-400"
+                  />
+                </label>
+              </div>
+
+              {bookingMode === "delivery" ? (
+                <FormInput
+                  icon={FiBox}
+                  label="Package description"
+                  value={form.packageDescription}
+                  onChange={(value) => updateForm({ packageDescription: value })}
+                  placeholder="Small bag, box, food parcel, documents..."
+                />
+              ) : (
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-gray-500">Passengers</span>
+                  <select
+                    value={form.passengers}
+                    onChange={(event) => updateForm({ passengers: event.target.value })}
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+                  >
+                    <option value="1">1 passenger</option>
+                    <option value="2">2 passengers</option>
+                    <option value="3">3 passengers</option>
+                    <option value="4">4 passengers</option>
+                  </select>
+                </label>
+              )}
+
+              <label className="space-y-1">
+                <span className="text-xs font-black uppercase text-gray-500">Trip note</span>
+                <textarea
+                  value={form.note}
+                  onChange={(event) => updateForm({ note: event.target.value })}
+                  rows={4}
+                  placeholder="Gate color, route instruction, package handling, passenger note..."
+                  className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                />
+              </label>
+            </section>
+
+            <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <FiAlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={20} />
+                <div>
+                  <p className="text-sm font-black text-amber-900">Payment notice</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+                    Built-in transport payments are not active yet. Confirm the fare, route, operator identity,
+                    and payment method before paying. Do not share PINs, OTPs, or account passwords.
+                  </p>
+                </div>
+              </div>
+            </section>
           </div>
-        </footer>
-      </aside>
-      {areaPicker ? (
-        <div className="fixed inset-0 z-[1200] bg-slate-950">
-          <NearbyAreaScreen
-            mode="businessLocationPicker"
-            pickerStart={areaPicker.start}
-            pickerLabels={getBookingPickerLabels(areaPicker.kind, bookingMode)}
-            backLabel="Back to booking form"
-            onBack={() => setAreaPicker(null)}
-            onLocationPicked={acceptBookingLocation}
-          />
-        </div>
-      ) : null}
-    </div>
+
+          <footer className="border-t border-gray-100 bg-white px-4 py-3 sm:px-5">
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+              <p className={`text-xs font-semibold leading-5 ${sendBlockMessage ? "text-gray-500" : "text-emerald-700"}`}>
+                {requirementMessage || fleetMessage || `Ready to save this ${bookingMode} request in My Trips and notify matching operators.`}
+              </p>
+
+              <button
+                type="button"
+                onClick={sendBooking}
+                disabled={!canSendBooking}
+                className={`kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-black transition ${
+                  canSendBooking
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "bg-gray-200 text-gray-500"
+                }`}
+              >
+                {submitting ? <FiClock size={17} /> : <FiSend size={17} />}
+                {submitting ? "Saving..." : "Save & notify"}
+              </button>
+            </div>
+          </footer>
+        </aside>
+
+        {showPassengerCaution ? (
+          <div className="fixed inset-0 z-[1400] flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
+            <section className="w-full max-w-lg rounded-[2rem] bg-white p-5 shadow-2xl">
+              <div className="flex items-start gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                  <FiAlertTriangle size={24} />
+                </span>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+                    Passenger safety notice
+                  </p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    Before you book with KunThai Transport
+                  </h2>
+                </div>
+              </div>
+
+              <div className="mt-5 grid max-h-[48vh] gap-3 overflow-y-auto pr-1 text-sm font-semibold leading-6 text-slate-600">
+                <p>
+                  KunThai helps passengers connect with registered operators, view routes,
+                  create booking records, and report transport issues.
+                </p>
+
+                <p>
+                  We may use and share necessary booking details, passenger information,
+                  operator information, route history, contact details, payment records,
+                  or safety reports when required for fraud prevention, dispute review,
+                  emergency support, legal compliance, or verified government request.
+                </p>
+
+                <p>
+                  KunThai is a technology platform. We can guide, record, notify, and
+                  provide information, but we cannot physically guarantee your safety,
+                  prevent accidents, stop crime, replace emergency services, or control
+                  operator behavior in the real world.
+                </p>
+
+                <p>
+                  Always confirm the operator, fleet, route, fare, and payment method
+                  before moving. Do not share OTPs, PINs, passwords, or private financial
+                  details with anyone.
+                </p>
+              </div>
+
+              <label className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <input
+                  type="checkbox"
+                  checked={dontShowPassengerCaution}
+                  onChange={(event) => setDontShowPassengerCaution(event.target.checked)}
+                  className="mt-1 h-5 w-5 accent-emerald-600"
+                />
+                <span className="text-sm font-bold leading-6 text-slate-700">
+                  Do not show this again
+                </span>
+              </label>
+
+              <button
+                type="button"
+                onClick={acceptPassengerCaution}
+                className="mt-5 h-12 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
+              >
+                I Have Read and Accepted the Condition
+              </button>
+            </section>
+          </div>
+        ) : null}
+
+        {areaPicker ? (
+          <div className="fixed inset-0 z-[1200] bg-slate-950">
+            <NearbyAreaScreen
+              mode="businessLocationPicker"
+              pickerStart={areaPicker.start}
+              pickerLabels={getBookingPickerLabels(areaPicker.kind, bookingMode)}
+              backLabel="Back to booking form"
+              onBack={() => setAreaPicker(null)}
+              onLocationPicked={acceptBookingLocation}
+            />
+          </div>
+        ) : null}
+      </div>
     </AppPortal>
   );
 }

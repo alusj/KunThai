@@ -30,7 +30,8 @@ const OPTIONS = [
 export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   const [showIntro, setShowIntro] = useState(true);
   const [selectedType, setSelectedType] = useState(null);
- 
+  const [leavingCaution, setLeavingCaution] = useState(false);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setShowIntro(false);
@@ -40,8 +41,9 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   }, []);
 
   function handleSelect(type) {
-  setSelectedType(type);
-}
+    setSelectedType(type);
+    setLeavingCaution(false);
+  }
 
   function continueToRegistration() {
     if (!selectedType) return;
@@ -51,6 +53,14 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
     window.setTimeout(() => {
       onSelect(selectedType);
     }, 1800);
+  }
+
+  function acceptTransportCaution() {
+    setLeavingCaution(true);
+
+    window.setTimeout(() => {
+      continueToRegistration();
+    }, 520);
   }
 
   if (selectedType) {
@@ -83,81 +93,88 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
           </header>
 
           <main className="mx-auto max-w-4xl px-4 py-5 pb-28">
-            <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-700">
-                <ShieldCheck size={32} />
+            <section
+              className={`mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-3xl flex-col rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm transition-all duration-500 ${
+                leavingCaution
+                  ? "translate-y-8 scale-95 opacity-0"
+                  : "translate-y-0 scale-100 opacity-100"
+              }`}
+            >
+              <div>
+                <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-700">
+                  <ShieldCheck size={32} />
+                </div>
+
+                <h2 className="mt-5 text-3xl font-black text-slate-950">
+                  Welcome to {title}
+                </h2>
+
+                <p className="mt-8 text-lg font-black text-slate-800">
+                  Learn about {title} registration
+                </p>
+
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                  Understand how registration works, what information is required,
+                  what KunThai Transport can provide, and the responsibilities of
+                  operators, companies, and fleet owners.
+                </p>
+
+                <p className="mt-8 text-lg font-black text-slate-800">
+                  Read our policy and guidance
+                </p>
+
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                  KunThai may assist with bookings, route records, emergency reporting,
+                  account verification, fraud prevention, and lawful information requests.
+                  KunThai is a technology platform and cannot physically guarantee safety,
+                  prevent crime, or replace emergency services.
+                </p>
+
+                <div className="mt-5 grid gap-3">
+                  <PolicyItem
+                    title="Registration accuracy"
+                    body="Use your real name, active phone number, correct vehicle or fleet details, and valid documents. False information may delay approval or lead to account restriction."
+                  />
+
+                  <PolicyItem
+                    title="Safety responsibility"
+                    body="KunThai can provide tools, route guidance, booking records, contact details, reporting channels, and emergency information. However, KunThai cannot physically prevent danger, accidents, criminal activity, unsafe driving, or misconduct in the real world."
+                  />
+
+                  <PolicyItem
+                    title="Verification and review"
+                    body="Your registration may be reviewed before full access is granted. We may request documents, photos, location details, or additional checks to protect passengers, operators, companies, and the platform."
+                  />
+
+                  <PolicyItem
+                    title="Information sharing"
+                    body="KunThai may share necessary trip, operator, passenger, fleet, location, payment, or account information when required by law, court order, verified government request, emergency investigation, fraud review, or serious safety incident."
+                  />
+
+                  <PolicyItem
+                    title="Platform limitation"
+                    body="KunThai is a technology platform. We guide, connect, inform, and support users, but we are not a police service, ambulance service, insurance company, or physical security provider."
+                  />
+
+                  <PolicyItem
+                    title="Professional conduct"
+                    body="Operators and companies must treat passengers respectfully, avoid unsafe driving, follow local transport laws, protect customer privacy, and never misuse passenger information."
+                  />
+                </div>
               </div>
 
-              <h2 className="mt-5 text-3xl font-black text-slate-950">
-  Welcome to {title}
-</h2>
-
-<p className="mt-5 text-lg font-black text-slate-800">
-  Learn about {title} registration
-</p>
-
-<p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-  Understand how registration works, what information is required,
-  what KunThai Transport can provide, and the responsibilities of
-  operators, companies, and fleet owners.
-</p>
-
-<p className="mt-5 text-lg font-black text-slate-800">
-  Read our policy and guidance
-</p>
-
-<p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-  KunThai may assist with bookings, route records, emergency reporting,
-  account verification, fraud prevention, and lawful information requests.
-  KunThai is a technology platform and cannot physically guarantee safety,
-  prevent crime, or replace emergency services.
-</p>
-
-              <div className="mt-5 grid gap-3">
-                <PolicyItem
-                  title="Registration accuracy"
-                  body="Use your real name, active phone number, correct vehicle or fleet details, and valid documents. False information may delay approval or lead to account restriction."
-                />
-
-                <PolicyItem
-                  title="Safety responsibility"
-                  body="KunThai can provide tools, route guidance, booking records, contact details, reporting channels, and emergency information. However, KunThai cannot physically prevent danger, accidents, criminal activity, unsafe driving, or misconduct in the real world."
-                />
-
-                <PolicyItem
-                  title="Verification and review"
-                  body="Your registration may be reviewed before full access is granted. We may request documents, photos, location details, or additional checks to protect passengers, operators, companies, and the platform."
-                />
-
-                <PolicyItem
-                  title="Information sharing"
-                  body="KunThai may share necessary trip, operator, passenger, fleet, location, payment, or account information when required by law, court order, verified government request, emergency investigation, fraud review, or serious safety incident."
-                />
-
-                <PolicyItem
-                  title="Platform limitation"
-                  body="KunThai is a technology platform. We guide, connect, inform, and support users, but we are not a police service, ambulance service, insurance company, or physical security provider."
-                />
-
-                <PolicyItem
-                  title="Professional conduct"
-                  body="Operators and companies must treat passengers respectfully, avoid unsafe driving, follow local transport laws, protect customer privacy, and never misuse passenger information."
-                />
+              <div className="mt-auto pt-8">
+                <button
+                  type="button"
+                  onClick={acceptTransportCaution}
+                  disabled={leavingCaution}
+                  className="h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:opacity-70"
+                >
+                  {leavingCaution
+                    ? "Opening Registration..."
+                    : "I Have Learned and Accepted the Policy and Guidance"}
+                </button>
               </div>
-
-              <button
-  type="button"
-  onClick={() => {
-    setShowIntro(true);
-
-    window.setTimeout(() => {
-      onSelect(selectedType);
-    }, 1800);
-  }}
-  className="mt-8 h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
->
-  I Have Learned and Accepted the Policy and Guidance
-</button>
             </section>
           </main>
         </div>
