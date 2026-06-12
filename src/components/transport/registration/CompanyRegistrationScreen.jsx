@@ -26,7 +26,7 @@ import {
   saveTransportCompanyDraft,
 } from "../../services/transportCompanyService";
 import AppBackTab from "../../shared/AppBackTab";
-import { StepSlideTransition } from "../../shared/motion";
+import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
 import NearbyAreaScreen from "../NearbyAreaScreen";
 import {
@@ -209,6 +209,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
     const request = {
       requestId: `invite-${Date.now()}`,
       operatorId: operator.id,
+      userId: operator.userId,
       publicId: operator.publicId,
       name: operator.name,
       city: operator.city,
@@ -399,7 +400,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
 
   if (locationPickerMode) {
     return (
-      <div className="kt-explore-stack-enter min-h-screen">
+      <div className="kt-explore-stack-enter min-h-dvh">
         <NearbyAreaScreen
           mode="businessLocationPicker"
           pickerStart={locationPickerMode}
@@ -427,7 +428,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <ScreenSlideTransition screenKey="transport-company-registration-form" className="min-h-dvh bg-slate-50">
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-8">
         <div className="flex w-full items-center gap-3">
           <AppBackTab
@@ -633,7 +634,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
           </section>
         </div>
       ) : null}
-    </div>
+    </ScreenSlideTransition>
   );
 }
 
@@ -755,24 +756,67 @@ function FleetCard({ fleet, index, onInvite, onOperatorDocument, onOperatorUpdat
   const [operatorMatch, setOperatorMatch] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
 
-  async function lookupOperator() {
-    if (!operatorId.trim()) {
+  function applyLookupResult(match) {
+    setOperatorMatch(match);
+    setLookupStatus(match ? `Account available as ${match.name}` : "KunThai ID not found. Check the account ID and try again.");
+  }
+
+  async function lookupOperator(query = operatorId) {
+    const target = String(query || "").trim();
+    if (!target) {
       setLookupStatus("Enter the operator's KunThai ID first.");
       return;
     }
 
     setLookingUp(true);
-    setLookupStatus("Checking KunThai operator records...");
+    setLookupStatus("Checking KunThai ID...");
     try {
-      const match = await lookupTransportOperatorByKunThaiId(operatorId);
-      setOperatorMatch(match);
-      setLookupStatus(match ? "Operator found. Review the details before sending the request." : "No registered operator was found for this ID.");
+      const match = await lookupTransportOperatorByKunThaiId(target);
+      applyLookupResult(match);
     } catch (error) {
       setLookupStatus(error.message || "Unable to check this operator ID.");
     } finally {
       setLookingUp(false);
     }
   }
+
+  useEffect(() => {
+    const target = operatorId.trim();
+    setOperatorMatch(null);
+
+    if (!target) {
+      setLookupStatus("");
+      setLookingUp(false);
+      return undefined;
+    }
+
+    const compactTarget = target.replace(/[^a-z0-9]/gi, "");
+    if (compactTarget.length < 7) {
+      setLookupStatus("Enter a complete KunThai ID.");
+      setLookingUp(false);
+      return undefined;
+    }
+
+    let alive = true;
+    const timer = window.setTimeout(async () => {
+      setLookingUp(true);
+      setLookupStatus("Checking KunThai ID...");
+
+      try {
+        const match = await lookupTransportOperatorByKunThaiId(target);
+        if (alive) applyLookupResult(match);
+      } catch (error) {
+        if (alive) setLookupStatus(error.message || "Unable to check this KunThai ID.");
+      } finally {
+        if (alive) setLookingUp(false);
+      }
+    }, 450);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [operatorId]);
 
   function addMatchedOperator() {
     if (!operatorMatch) return;
@@ -821,26 +865,26 @@ function FleetCard({ fleet, index, onInvite, onOperatorDocument, onOperatorUpdat
         <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
           <input
             value={operatorId}
-            onChange={(event) => {
-              setOperatorId(event.target.value);
-              setOperatorMatch(null);
-              setLookupStatus("");
-            }}
+            onChange={(event) => setOperatorId(event.target.value)}
             placeholder="KTU-XXXX-XXXX or KT-12345"
             className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
           />
-          <button type="button" onClick={lookupOperator} disabled={lookingUp} className="h-11 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white disabled:opacity-60">
+          <button type="button" onClick={() => lookupOperator()} disabled={lookingUp} className="h-11 rounded-2xl border border-slate-950 bg-white px-5 text-sm font-black text-slate-950 disabled:opacity-60">
             <span className="flex items-center justify-center gap-2"><FiSearch /> {lookingUp ? "Checking" : "Check"}</span>
           </button>
         </div>
-        {lookupStatus ? <p className="mt-3 text-sm font-bold text-blue-700">{lookupStatus}</p> : null}
+        {lookupStatus ? (
+          <p className={`mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupStatus.includes("not found") || lookupStatus.includes("Unable") ? "text-rose-700" : "text-slate-600"}`}>
+            {lookupStatus}
+          </p>
+        ) : null}
         {operatorMatch ? (
-          <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-blue-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-black text-emerald-950">{operatorMatch.name}</p>
-              <p className="text-xs font-bold text-emerald-700">{operatorMatch.publicId} {operatorMatch.city ? `- ${operatorMatch.city}` : ""}</p>
+              <p className="font-black text-slate-950">{operatorMatch.name}</p>
+              <p className="text-xs font-bold text-blue-700">{operatorMatch.publicId} {operatorMatch.city ? `- ${operatorMatch.city}` : ""}</p>
             </div>
-            <button type="button" onClick={addMatchedOperator} className="h-10 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white">
+            <button type="button" onClick={addMatchedOperator} className="h-10 rounded-2xl border border-blue-300 bg-blue-50 px-5 text-sm font-black text-blue-800">
               Add
             </button>
           </div>

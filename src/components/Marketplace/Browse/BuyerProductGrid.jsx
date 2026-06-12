@@ -61,7 +61,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
             event.stopPropagation();
             onToggleSaved?.(product);
           }}
-          className={`absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/70 shadow-sm backdrop-blur ${
+          className={`absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/70 shadow-sm backdrop-blur ${
             saved ? "bg-red-600 text-white" : "bg-white/90 text-gray-700 hover:text-red-600"
           }`}
           aria-label={saved ? `Unsave ${product.name}` : `Save ${product.name}`}
@@ -70,43 +70,43 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
         </button>
       </div>
 
-      <div className="space-y-2 p-3">
+      <div className="space-y-1.5 p-2.5">
         <div>
-          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-black leading-5 text-gray-950">
+          <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-[1.125rem] text-gray-950">
             {product.name}
           </h3>
-          <p className="mt-1 truncate text-xs font-semibold text-gray-500">
+          <p className="mt-0.5 truncate text-[11px] font-semibold text-gray-500">
             {product.category} | {product.seller?.name || "UrMall seller"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2">
-          <p className="text-lg font-black text-gray-950">{formatCurrency(displayPrice, product.currency || product.countryCode || product.country)}</p>
+        <div className="flex flex-wrap items-end gap-1.5">
+          <p className="text-base font-black text-gray-950">{formatCurrency(displayPrice, product.currency || product.countryCode || product.country)}</p>
           {hasDiscount && (
-            <p className="pb-0.5 text-xs font-bold text-gray-400 line-through">{formatCurrency(product.price, product.currency || product.countryCode || product.country)}</p>
+            <p className="pb-0.5 text-[11px] font-bold text-gray-400 line-through">{formatCurrency(product.price, product.currency || product.countryCode || product.country)}</p>
           )}
         </div>
 
-        <div className="grid gap-1 text-xs font-bold text-gray-500">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <MapPin size={14} className="shrink-0 text-emerald-600" />
+        <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
+          <span className="flex min-w-0 items-center gap-1.5 leading-5">
+            <MapPin size={13} className="shrink-0 text-emerald-600" />
             <span className="truncate">{product.location}</span>
           </span>
-          <span className="flex min-w-0 items-center gap-1.5">
-            <Truck size={14} className="shrink-0 text-emerald-600" />
+          <span className="flex min-w-0 items-center gap-1.5 leading-5">
+            <Truck size={13} className="shrink-0 text-emerald-600" />
             <span className="truncate">
               {product.deliveryAvailable ? product.deliveryTime || "Delivery available" : product.pickupAvailable ? "Pickup available" : "Ask seller"}
             </span>
           </span>
         </div>
 
-        <div className="flex items-center justify-between gap-3 pt-1">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <span className="inline-flex items-center gap-1 text-xs font-black text-amber-600">
-              <Star size={13} fill="currentColor" />
+            <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-600">
+              <Star size={12} fill="currentColor" />
               {product.reviewCount ? `${product.rating.toFixed(1)} (${product.reviewCount})` : product.sales > 0 ? `${product.sales} sold` : "New"}
             </span>
-            <p className="mt-0.5 truncate text-[11px] font-bold text-gray-400">{product.stock} in stock</p>
+            <p className="truncate text-[10px] font-bold text-gray-400">{product.stock} in stock</p>
           </div>
           <button
             type="button"
@@ -114,10 +114,10 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
               event.stopPropagation();
               onAddToCart?.(product);
             }}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-950 text-white transition hover:bg-emerald-700"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-950 text-white transition hover:bg-emerald-700"
             aria-label={`Add ${product.name} to cart`}
           >
-            <ShoppingCart size={16} />
+            <ShoppingCart size={15} />
           </button>
         </div>
       </div>
@@ -129,10 +129,10 @@ function ProductSkeleton() {
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
       <div className="aspect-square animate-pulse bg-gray-100" />
-      <div className="space-y-3 p-3">
+      <div className="space-y-2 p-2.5">
         <div className="h-4 w-5/6 animate-pulse rounded bg-gray-100" />
         <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
-        <div className="h-5 w-2/3 animate-pulse rounded bg-gray-100" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-gray-100" />
         <div className="h-3 w-3/4 animate-pulse rounded bg-gray-100" />
       </div>
     </div>

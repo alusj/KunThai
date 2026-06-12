@@ -31,7 +31,7 @@ export default function Body({
   const [movementFilters, setMovementFilters] = useState({
     mode: "topRated",
     fleetType: null,
-    activeOnly: true,
+    activeOnly: false,
     verifiedOnly: false,
   });
   const [summary, setSummary] = useState({
@@ -97,6 +97,25 @@ export default function Body({
 
   function updateMovementFilters(patch) {
     setMovementFilters((current) => ({ ...current, ...patch }));
+  }
+
+  function getMovementSelection() {
+    const mode = movementFilters.mode || "topRated";
+    const fleetType = movementFilters.fleetType || null;
+    const label = movementFilters.label || (
+      mode === "ride"
+        ? fleetType || "Ride Fleets"
+        : mode === "delivery"
+          ? fleetType || "Delivery Fleets"
+          : "All Registered Fleets"
+    );
+
+    return {
+      mode,
+      fleetType,
+      label,
+      verifiedOnly: movementFilters.verifiedOnly,
+    };
   }
 
   return (

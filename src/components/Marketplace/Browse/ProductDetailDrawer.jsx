@@ -299,7 +299,7 @@ function Gallery({ product, onOpenImage }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <button
         type="button"
         onClick={() => onOpenImage(activeIndex)}
@@ -311,13 +311,13 @@ function Gallery({ product, onOpenImage }) {
         <img src={activeImage} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
       </button>
       {hasMultiple && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
           {images.map((image, index) => (
             <button
               key={`${image}-${index}`}
               type="button"
               onClick={() => showImage(index)}
-              className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border bg-gray-100 ${
+              className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-gray-100 ${
                 index === activeIndex ? "border-emerald-600" : "border-transparent"
               }`}
               aria-label={`Show product image ${index + 1}`}
@@ -733,9 +733,9 @@ export default function ProductDetailDrawer({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-36 sm:p-6 sm:pb-28">
-          <div className="grid w-full gap-5 md:grid-cols-[0.9fr_1.1fr]">
-            <div className="space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-32 sm:p-5 sm:pb-28">
+          <div className="grid w-full gap-4 md:grid-cols-[0.9fr_1.1fr]">
+            <div className="space-y-2.5">
               <Gallery product={product} onOpenImage={setActiveImageIndex} />
               {product.videoUrl ? (
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-950">
@@ -744,7 +744,7 @@ export default function ProductDetailDrawer({
               ) : null}
             </div>
 
-            <section className="space-y-4">
+            <section className="space-y-3">
               <div>
                 <div className="flex flex-wrap items-end gap-2">
                   <p className="text-3xl font-black text-gray-950">{formatCurrency(displayPrice, productMoneyScope)}</p>
@@ -752,7 +752,7 @@ export default function ProductDetailDrawer({
                     <p className="pb-1 text-sm font-bold text-gray-400 line-through">{formatCurrency(product.price, productMoneyScope)}</p>
                   )}
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black">
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs font-black">
                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-amber-700">
                     <Star size={13} fill="currentColor" />
                     {product.sales > 0 ? `${product.sales} sold` : "New arrival"}
@@ -765,10 +765,10 @@ export default function ProductDetailDrawer({
               <button
                 type="button"
                 onClick={() => onOpenSeller?.(product.seller)}
-                className="w-full rounded-lg border border-gray-200 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
+                className="w-full rounded-lg border border-gray-200 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
               >
                 <div className="flex items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-950 text-sm font-black text-white">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-950 text-sm font-black text-white">
                     {product.seller.logoUrl ? (
                       <img src={product.seller.logoUrl} alt="" className="h-full w-full rounded-lg object-cover" />
                     ) : (
@@ -785,7 +785,7 @@ export default function ProductDetailDrawer({
                         onReadMore={() => setVerificationOpen(true)}
                       />
                     </div>
-                    <p className="mt-1 flex items-center gap-1 text-sm font-bold text-gray-500">
+                    <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-gray-500">
                       <MapPin size={14} />
                       {[product.seller.city, product.seller.country].filter(Boolean).join(", ") || product.location}
                     </p>
@@ -794,47 +794,47 @@ export default function ProductDetailDrawer({
               </button>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg bg-gray-100 p-3">
+                <div className="rounded-lg bg-gray-100 p-2.5">
                   <p className="flex items-center gap-2 text-xs font-black uppercase text-gray-500">
                     <Truck size={14} />
                     Delivery
                   </p>
-                  <p className="mt-1 text-sm font-black text-gray-950">
+                  <p className="mt-0.5 text-sm font-black text-gray-950">
                     {product.deliveryAvailable ? product.deliveryTime || "Available" : "Pickup only"}
                   </p>
                 </div>
-                <div className="rounded-lg bg-gray-100 p-3">
+                <div className="rounded-lg bg-gray-100 p-2.5">
                   <p className="text-xs font-black uppercase text-gray-500">Location</p>
-                  <p className="mt-1 truncate text-sm font-black text-gray-950">{product.location}</p>
+                  <p className="mt-0.5 truncate text-sm font-black text-gray-950">{product.location}</p>
                 </div>
               </div>
 
               <div>
                 <h3 className="font-black text-gray-950">Description</h3>
-                <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
+                <p className="mt-1.5 text-sm font-medium leading-5 text-gray-600">
                   {product.description || "No product description has been added yet."}
                 </p>
               </div>
 
               {specs.length ? (
-                <div className="rounded-lg border border-gray-200 p-4">
+                <div className="rounded-lg border border-gray-200 p-3">
                   <h3 className="font-black text-gray-950">Product Details</h3>
-                  <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <dl className="mt-2 grid gap-1.5 sm:grid-cols-2">
                     {specs.map(([label, value]) => (
-                      <div key={label} className="rounded-lg bg-gray-50 p-3">
+                      <div key={label} className="rounded-lg bg-gray-50 p-2.5">
                         <dt className="text-[11px] font-black uppercase text-gray-500">{label}</dt>
-                        <dd className="mt-1 text-sm font-black text-gray-950">{value}</dd>
+                        <dd className="mt-0.5 text-sm font-black text-gray-950">{value}</dd>
                       </div>
                     ))}
                   </dl>
                 </div>
               ) : null}
 
-              <div className="rounded-lg border border-gray-200 p-4">
+              <div className="rounded-lg border border-gray-200 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="font-black text-gray-950">Product Reviews</h3>
-                    <p className="mt-1 text-sm font-bold text-gray-500">
+                    <p className="mt-0.5 text-sm font-bold text-gray-500">
                       {reviewSummary.reviewCount
                         ? `${reviewSummary.rating.toFixed(1)} from ${reviewSummary.reviewCount} review${reviewSummary.reviewCount === 1 ? "" : "s"}`
                         : "No product reviews yet"}
@@ -850,9 +850,9 @@ export default function ProductDetailDrawer({
                 </div>
 
                 {!!reviewSummary.reviews.length && (
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-3 space-y-2">
                     {reviewSummary.reviews.slice(0, 3).map((review) => (
-                      <div key={review.id} className="rounded-lg bg-gray-50 p-3">
+                      <div key={review.id} className="rounded-lg bg-gray-50 p-2.5">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-black text-gray-950">{review.buyerName}</p>
                           <p className="text-xs font-black text-amber-600">{review.rating}/5</p>

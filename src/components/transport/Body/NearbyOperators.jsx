@@ -74,12 +74,12 @@ export default function NearbyOperators({
     <section className="mt-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-bold text-gray-900">Available Operators</h2>
+          <h2 className="text-base font-bold text-gray-900">Registered Operators</h2>
           <p className="text-xs text-gray-500">
-            {pickup ? `Pickup: ${pickup}` : "Visible with KunThai verification status"}
+            {pickup ? `Pickup: ${pickup}` : "Online and offline fleets with KunThai verification status"}
           </p>
         </div>
-        <button type="button" onClick={onViewAll} className="text-sm font-semibold text-green-700">
+        <button type="button" onClick={onViewAll} className="text-sm font-semibold text-sky-700">
           View all
         </button>
       </div>
@@ -96,24 +96,35 @@ export default function NearbyOperators({
           const status = verificationStatuses[operator.verificationStatus];
           const isActive = operator.activeStatus === "active";
           const moneyScope = operator.currency || operator.countryCode || operator.country;
+          const cardTone = isActive
+            ? "border-sky-200 shadow-sky-100/70"
+            : "border-slate-200 shadow-slate-100/80";
+          const statusTone = isActive
+            ? "border-sky-200 bg-sky-50 text-sky-700"
+            : "border-slate-200 bg-slate-50 text-slate-500";
 
           return (
             <article
               key={operator.id}
-              className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+              className={`rounded-2xl border bg-white p-4 shadow-sm ${cardTone}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <button type="button" onClick={() => onViewFleet?.(operator.id)} className="text-left text-sm font-bold text-gray-950 hover:text-green-700">
+                  <button type="button" onClick={() => onViewFleet?.(operator.id)} className="text-left text-sm font-bold text-gray-950 hover:text-sky-700">
                     {operator.fleetName}
                   </button>
                   <p className="mt-1 text-xs text-gray-500">
                     {operator.operatorId} - {operator.displayType} - {operator.plateNumber}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 text-xs font-semibold text-gray-600">
-                  <FiStar className="text-yellow-500" size={14} />
-                  {operator.rating || "New"}
+                <div className="grid justify-items-end gap-1">
+                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone}`}>
+                    {isActive ? "Online" : "Offline"}
+                  </span>
+                  <div className="flex items-center gap-1 text-xs font-semibold text-gray-600">
+                    <FiStar className="text-yellow-500" size={14} />
+                    {operator.rating || "New"}
+                  </div>
                 </div>
               </div>
 
@@ -121,7 +132,7 @@ export default function NearbyOperators({
                 <FiMapPin size={14} />
                 {operator.currentLocation || operator.lastKnownLocation}
               </div>
-              <p className="mt-2 text-xs font-black text-emerald-700">
+              <p className="mt-2 text-xs font-black text-slate-800">
                 {operator.pricePerKm ? `${formatCountryMoney(operator.pricePerKm, moneyScope, { maximumFractionDigits: 0 })} / km` : "Distance rate pending"}
                 {operator.pricePerHour ? ` - ${formatCountryMoney(operator.pricePerHour, moneyScope, { maximumFractionDigits: 0 })} / hour` : ""}
               </p>
@@ -134,7 +145,7 @@ export default function NearbyOperators({
                 <button
                   type="button"
                   onClick={() => setActiveOperator(operator)}
-                  className="mt-2 block text-left text-xs font-medium text-gray-500 hover:text-green-700"
+                  className="mt-2 block text-left text-xs font-medium text-gray-500 hover:text-sky-700"
                 >
                   {status.shortText} - Read more
                 </button>
@@ -154,7 +165,7 @@ export default function NearbyOperators({
                     },
                   })}
                   disabled={!isActive}
-                  className="h-10 rounded-xl bg-green-600 px-3 text-xs font-black text-white transition hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-500"
+                  className="h-10 rounded-xl border border-sky-300 bg-white px-3 text-xs font-black text-sky-800 transition hover:bg-sky-50 disabled:border-slate-200 disabled:bg-white disabled:text-slate-400"
                 >
                   {isActive ? "Open booking" : "Offline"}
                 </button>

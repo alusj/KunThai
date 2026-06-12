@@ -12,14 +12,14 @@ export default function BusinessSellerEntryAnimation({ show }) {
     <AnimatePresence>
       {show && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white px-5 pb-28"
+          className="fixed inset-0 z-[9999] flex h-dvh items-center justify-center bg-slate-50 px-5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, x: 90 }}
           transition={{ duration: 0.45 }}
         >
           <motion.div
-            className="-translate-y-20 flex w-full max-w-md flex-col items-center gap-6 text-center"
+            className="flex w-full max-w-md flex-col items-center gap-6 text-center"
             initial={{ scale: 0.94, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.98, x: 120, opacity: 0 }}

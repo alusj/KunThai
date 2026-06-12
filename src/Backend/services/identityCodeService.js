@@ -4,6 +4,17 @@ function compactIdentity(value = "") {
   return String(value).replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
+function formatPublicUserIdBody(body = "") {
+  const compact = compactIdentity(body);
+  if (!compact) return "";
+
+  if (compact.length >= 12) {
+    return `${USER_ID_PREFIX}-${compact.slice(0, 4)}-${compact.slice(4, 8)}-${compact.slice(-4)}`;
+  }
+
+  return `${USER_ID_PREFIX}-${compact}`;
+}
+
 function hashIdentity(value = "") {
   let hash = 2166136261;
   const input = String(value || "kunthai");
@@ -18,17 +29,20 @@ function hashIdentity(value = "") {
 
 export function getKunThaiPublicUserId(profile = {}) {
   const existing = compactIdentity(profile.publicUserId || profile.public_user_id || profile.kunThaiId || profile.kunthai_id);
-  if (existing) return existing.startsWith(USER_ID_PREFIX) ? existing : `${USER_ID_PREFIX}-${existing}`;
+  if (existing) {
+    const body = existing.startsWith(USER_ID_PREFIX) ? existing.slice(USER_ID_PREFIX.length) : existing;
+    return formatPublicUserIdBody(body);
+  }
 
   const userId = compactIdentity(profile.userId || profile.user_id || profile.id);
   if (userId.length >= 12) {
-    return `${USER_ID_PREFIX}-${userId.slice(0, 4)}-${userId.slice(4, 8)}-${userId.slice(-4)}`;
+    return formatPublicUserIdBody(userId);
   }
 
   const username = compactIdentity(profile.username || profile.handle);
   const name = compactIdentity(profile.displayName || profile.display_name || profile.fullName || profile.full_name);
   const seed = userId || username || name || "KUNTHAI";
-  return `${USER_ID_PREFIX}-${hashIdentity(seed)}`;
+  return formatPublicUserIdBody(hashIdentity(seed));
 }
 
 export function normalizeKunThaiPublicId(value = "") {
@@ -37,8 +51,8 @@ export function normalizeKunThaiPublicId(value = "") {
 
   if (compact.startsWith(USER_ID_PREFIX)) {
     const body = compact.slice(USER_ID_PREFIX.length);
-    return body ? `${USER_ID_PREFIX}-${body}` : "";
+    return body ? formatPublicUserIdBody(body) : "";
   }
 
-  return compact.length >= 4 ? `${USER_ID_PREFIX}-${compact}` : compact;
+  return compact.length >= 4 ? formatPublicUserIdBody(compact) : compact;
 }

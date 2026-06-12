@@ -28,6 +28,16 @@ export function StepSlideTransition({ children, className = "", direction = "for
   );
 }
 
+export function ScreenSlideTransition({ children, className = "", direction = "forward", screenKey }) {
+  const slideClass = direction === "backward" ? "kt-screen-slide-backward" : "kt-screen-slide-forward";
+
+  return (
+    <div key={screenKey} className={`${slideClass} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 export function PressableButton({
   as = "button",
   children,

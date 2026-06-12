@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab";
+import { ScreenSlideTransition } from "../../shared/motion";
 import TransportEntryAnimation from "./TransportEntryAnimation";
 
 const OPTIONS = [
@@ -60,7 +61,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
 
     window.setTimeout(() => {
       continueToRegistration();
-    }, 520);
+    }, 300);
   }
 
   if (selectedType) {
@@ -71,7 +72,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
       <>
         <TransportEntryAnimation show={showIntro} />
 
-        <div className="min-h-screen bg-slate-50">
+        <ScreenSlideTransition screenKey="transport-registration-policy" className="min-h-dvh bg-slate-50">
           <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
             <div className="flex items-center gap-3">
               <AppBackTab
@@ -92,12 +93,12 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
             </div>
           </header>
 
-          <main className="mx-auto max-w-4xl px-4 py-5 pb-28">
+          <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-4xl px-4 py-4 pb-6">
             <section
-              className={`mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-3xl flex-col rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm transition-all duration-500 ${
+              className={`mx-auto flex min-h-full w-full max-w-3xl flex-col rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm transition-all duration-300 ${
                 leavingCaution
-                  ? "translate-y-8 scale-95 opacity-0"
-                  : "translate-y-0 scale-100 opacity-100"
+                  ? "-translate-x-10 opacity-0"
+                  : "translate-x-0 opacity-100"
               }`}
             >
               <div>
@@ -177,7 +178,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
               </div>
             </section>
           </main>
-        </div>
+        </ScreenSlideTransition>
       </>
     );
   }
@@ -186,7 +187,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
     <>
       <TransportEntryAnimation show={showIntro} />
 
-      <div className="min-h-screen bg-slate-50">
+      <ScreenSlideTransition screenKey="transport-registration-type" className="min-h-dvh bg-slate-50">
         <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
           <div className="flex items-center gap-3">
             <AppBackTab
@@ -283,7 +284,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
             })}
           </section>
         </main>
-      </div>
+      </ScreenSlideTransition>
     </>
   );
 }

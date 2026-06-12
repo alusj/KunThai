@@ -383,7 +383,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   if (registrationAreaPreviewOpen) {
     return (
-      <div className={`${routePanelClass} min-h-screen`}>
+      <div className={`${routePanelClass} min-h-dvh`}>
         <NearbyAreaScreen
           onBack={closeRegistrationOneKmPreview}
           onDone={closeRegistrationOneKmPreview}
@@ -397,7 +397,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   if (registrationOpen) {
     if (!registrationType) {
       return (
-        <div className={`${routePanelClass} min-h-screen`}>
+        <div className={`${routePanelClass} min-h-dvh`}>
           <TransportRegistrationTypeScreen
             onBack={() => {
               setRouteDirection("backward");
@@ -420,7 +420,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
     if (registrationType === "company") {
       return (
-        <div className={`${routePanelClass} min-h-screen`}>
+        <div className={`${routePanelClass} min-h-dvh`}>
           <CompanyRegistrationScreen
             existingCompany={companyAccount}
             onBack={closeRegistrationFlow}
@@ -439,7 +439,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     }
 
     return (
-      <div className={`${routePanelClass} min-h-screen`}>
+      <div className={`${routePanelClass} min-h-dvh`}>
         <FleetRegistrationDrawer
           onClose={closeRegistrationFlow}
           onSaveExit={exitRegistrationFlow}

@@ -252,6 +252,14 @@
     animation: kt-form-step-slide-backward 260ms var(--kt-ease-standard) both;
   }
 
+  .kt-screen-slide-forward {
+    animation: kt-screen-slide-forward 300ms var(--kt-ease-emphasized) both;
+  }
+
+  .kt-screen-slide-backward {
+    animation: kt-screen-slide-backward 300ms var(--kt-ease-emphasized) both;
+  }
+
   .kt-parent-tab-slide-forward {
     animation: kt-tab-slide-forward 220ms var(--kt-ease-standard) backwards;
   }
@@ -608,6 +616,28 @@
   from {
     opacity: 0.96;
     transform: translate3d(-18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-screen-slide-forward {
+  from {
+    opacity: 0.98;
+    transform: translate3d(34px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-screen-slide-backward {
+  from {
+    opacity: 0.98;
+    transform: translate3d(-34px, 0, 0);
   }
   to {
     opacity: 1;

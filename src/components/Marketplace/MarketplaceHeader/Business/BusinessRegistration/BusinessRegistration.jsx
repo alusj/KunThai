@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import BusinessSellerEntryAnimation from "./BusinessSellerEntryAnimation";
 import NearbyAreaScreen from "../../../../transport/NearbyAreaScreen";
 import { useSellerRegistration } from "../../../../../Backend/hooks/useSellerRegistration";
-import { StepSlideTransition } from "../../../../shared/motion";
+import { ScreenSlideTransition, StepSlideTransition } from "../../../../shared/motion";
 import { useDirectionalStep } from "../../../../shared/motionHooks";
 import BusinessIdentityStep from "./BusinessIdentityStep";
 import LiveBusinessPreview from "./LiveBusinessPreview";
@@ -59,70 +59,72 @@ export default function BusinessRegistration({ onComplete, onExit }) {
   }, []);
 
   function acceptSellerCaution() {
-  setLeavingCaution(true);
+    setLeavingCaution(true);
 
-  window.setTimeout(() => {
-    setAcceptedCaution(true);
-  }, 520);
-}
+    window.setTimeout(() => {
+      setAcceptedCaution(true);
+    }, 300);
+  }
   if (!acceptedCaution) {
     return (
       <>
         <BusinessSellerEntryAnimation show={showIntro} />
 
         {!showIntro ? (
-         <div className="flex min-h-screen bg-gray-50 px-4 py-6">
-  <section
-    className={`mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-3xl flex-col rounded-[2rem] border border-blue-100 bg-white p-5 shadow-sm transition-all duration-500 ${
-      leavingCaution
-        ? "translate-y-8 scale-95 opacity-0"
-        : "translate-y-0 scale-100 opacity-100"
-    }`}
-  >
-    <div>
-      <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-        Before you continue
-      </p>
+          <ScreenSlideTransition screenKey="seller-registration-caution" className="min-h-dvh bg-gray-50">
+            <div className="flex min-h-dvh px-4 py-4 sm:py-6">
+              <section
+                className={`mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col rounded-[2rem] border border-blue-100 bg-white p-5 shadow-sm transition-all duration-300 sm:min-h-[calc(100dvh-3rem)] ${
+                  leavingCaution
+                    ? "-translate-x-10 opacity-0"
+                    : "translate-x-0 opacity-100"
+                }`}
+              >
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">
+                    Before you continue
+                  </p>
 
-      <h1 className="mt-2 text-3xl font-black text-gray-950">
-        Welcome to KunThai UrMall Registration
-      </h1>
+                  <h1 className="mt-2 text-3xl font-black text-gray-950">
+                    Welcome to KunThai UrMall Registration
+                  </h1>
 
-      <p className="mt-8 text-lg font-black text-gray-800">
-        Learn about business registration
-      </p>
+                  <p className="mt-8 text-lg font-black text-gray-800">
+                    Learn about business registration
+                  </p>
 
-      <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-        Set up your business identity, location, operations, trust details,
-        and payout information so buyers can discover and contact your store.
-      </p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
+                    Set up your business identity, location, operations, trust details,
+                    and payout information so buyers can discover and contact your store.
+                  </p>
 
-      <p className="mt-8 text-lg font-black text-gray-800">
-        Read our seller policy and guidance
-      </p>
+                  <p className="mt-8 text-lg font-black text-gray-800">
+                    Read our seller policy and guidance
+                  </p>
 
-      <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-        KunThai may use seller information for verification, fraud prevention,
-        customer support, order safety, dispute review, and legal compliance.
-        KunThai helps connect buyers and sellers, but cannot guarantee physical
-        safety, product quality, delivery success, or prevent fraud outside the platform.
-      </p>
-    </div>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
+                    KunThai may use seller information for verification, fraud prevention,
+                    customer support, order safety, dispute review, and legal compliance.
+                    KunThai helps connect buyers and sellers, but cannot guarantee physical
+                    safety, product quality, delivery success, or prevent fraud outside the platform.
+                  </p>
+                </div>
 
-    <div className="mt-auto pt-8">
-      <button
-        type="button"
-        onClick={acceptSellerCaution}
-        disabled={leavingCaution}
-        className="h-14 w-full rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:opacity-70"
-      >
-        {leavingCaution
-          ? "Opening Registration..."
-          : "I Have Learned and Accepted the Policy and Guidance"}
-      </button>
-    </div>
-  </section>
-</div>
+                <div className="mt-auto pt-8">
+                  <button
+                    type="button"
+                    onClick={acceptSellerCaution}
+                    disabled={leavingCaution}
+                    className="h-14 w-full rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:opacity-70"
+                  >
+                    {leavingCaution
+                      ? "Opening Registration..."
+                      : "I Have Learned and Accepted the Policy and Guidance"}
+                  </button>
+                </div>
+              </section>
+            </div>
+          </ScreenSlideTransition>
         ) : null}
       </>
     );
@@ -140,7 +142,7 @@ export default function BusinessRegistration({ onComplete, onExit }) {
 
   if (locationPickerMode) {
     return (
-      <div className="kt-explore-stack-enter min-h-screen">
+      <div className="kt-explore-stack-enter min-h-dvh">
         <NearbyAreaScreen
           mode="businessLocationPicker"
           pickerStart={locationPickerMode}
@@ -156,7 +158,7 @@ export default function BusinessRegistration({ onComplete, onExit }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ScreenSlideTransition screenKey="seller-registration-form" className="min-h-dvh bg-gray-50">
       <div className="w-full px-4 py-6 sm:px-6 lg:px-10 xl:px-14">
         <div className="mb-6">
           <p className="text-sm font-black uppercase text-blue-700">
@@ -280,6 +282,6 @@ export default function BusinessRegistration({ onComplete, onExit }) {
           </section>
         </div>
       ) : null}
-    </div>
+    </ScreenSlideTransition>
   );
 }

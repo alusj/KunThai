@@ -126,7 +126,7 @@ function mapOperatorAccount(row, fleet, extras = {}) {
     documentsSkipped: Boolean(row.documents_skipped),
     verificationStatus: normalizeVerification(fleet?.verification_status || row.verification_status),
     activeStatus: fleet?.active_status || "offline",
-    isVisibleToPassengers: Boolean(fleet?.is_visible_to_passengers),
+    isVisibleToPassengers: Boolean(fleet?.is_visible_to_passengers ?? true),
     walletBalance: Number(row.wallet_balance || 0),
     pendingPayout: Number(row.pending_payout || 0),
     status: row.account_status || "pending_review",
@@ -659,7 +659,7 @@ export async function updateOperatorAvailability(fleetId, active, pauseReason = 
     .from("transport_fleets")
     .update({
       active_status: active ? "active" : "offline",
-      is_visible_to_passengers: Boolean(active),
+      is_visible_to_passengers: true,
       pause_reason: active ? "" : pauseReason,
       last_active_at: now,
       updated_at: now,
@@ -673,7 +673,7 @@ export async function updateOperatorAvailability(fleetId, active, pauseReason = 
   const activeStatus = data?.active_status || (active ? "active" : "offline");
   patchStoredOperatorAccount({
     activeStatus,
-    isVisibleToPassengers: Boolean(data?.is_visible_to_passengers ?? active),
+    isVisibleToPassengers: Boolean(data?.is_visible_to_passengers ?? true),
     savedAt: data?.updated_at || now,
     dashboard: data ? { fleet: data } : undefined,
   });
@@ -681,7 +681,7 @@ export async function updateOperatorAvailability(fleetId, active, pauseReason = 
   return data || {
     id: fleetId,
     active_status: activeStatus,
-    is_visible_to_passengers: Boolean(active),
+    is_visible_to_passengers: true,
     updated_at: now,
   };
 }

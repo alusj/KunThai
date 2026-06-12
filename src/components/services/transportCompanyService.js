@@ -38,6 +38,53 @@ function asUuid(value) {
     : null;
 }
 
+function uniqueValues(values = []) {
+  return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
+}
+
+function buildKunThaiIdCandidates(value) {
+  const raw = String(value || "").trim();
+  const compactId = compact(raw);
+  const normalized = normalizeKunThaiPublicId(raw);
+  const normalizedCompact = compact(normalized);
+  const body = compactId.startsWith("KTU") ? compactId.slice(3) : compactId;
+
+  return uniqueValues([
+    raw.toUpperCase(),
+    normalized,
+    compactId,
+    normalizedCompact,
+    body ? `KTU${body}` : "",
+    body ? normalizeKunThaiPublicId(body) : "",
+  ]);
+}
+
+function matchesLookupValue(value, possibleValues = []) {
+  const targets = uniqueValues([value, normalizeKunThaiPublicId(value)]).map(compact).filter(Boolean);
+  return possibleValues.some((possible) => targets.includes(compact(possible)));
+}
+
+function isMissingRpc(error) {
+  const message = error?.message?.toLowerCase?.() || "";
+  return error?.code === "42883" ||
+    error?.code === "PGRST202" ||
+    message.includes("could not find the function") ||
+    message.includes("schema cache");
+}
+
+function getAccountDisplayName(profile = {}, user = {}) {
+  const metadata = user?.user_metadata || {};
+  return profile.displayName ||
+    profile.fullName ||
+    profile.display_name ||
+    profile.full_name ||
+    metadata.display_name ||
+    metadata.full_name ||
+    metadata.name ||
+    user?.email?.split("@")[0] ||
+    "KunThai account";
+}
+
 async function getCurrentUser(message = "Sign in to manage a transport company.") {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user?.id) throw new Error(message);
@@ -339,13 +386,13 @@ export async function lookupTransportOperatorByKunThaiId(value) {
   const requestedId = normalizeKunThaiPublicId(value);
   const compactId = compact(value);
   const digits = String(value || "").replace(/\D/g, "").slice(-5);
+  const idCandidates = buildKunThaiIdCandidates(value);
 
   if (!compactId) return null;
 
   try {
     const filters = [
-      `display_code.eq.${requestedId}`,
-      `display_code.eq.${compactId}`,
+      ...idCandidates.map((candidate) => `display_code.eq.${candidate}`),
       digits.length === 5 ? `operator_code.eq.${digits}` : "",
     ].filter(Boolean).join(",");
 
@@ -375,21 +422,67 @@ export async function lookupTransportOperatorByKunThaiId(value) {
     }
   }
 
+  try {
+    const { data, error } = await supabase.rpc("lookup_kunthai_account_by_public_id", {
+      input_public_id: requestedId,
+    });
+
+    if (error) throw error;
+
+    const account = Array.isArray(data) ? data[0] : data;
+    if (account?.user_id) {
+      return {
+        id: "",
+        userId: account.user_id,
+        publicId: account.public_id || requestedId,
+        name: account.full_name || account.display_name || account.username || "KunThai account",
+        city: account.city || account.address || "",
+        phone: account.phone || "",
+        verificationStatus: "pending",
+        source: "kunthai_account",
+      };
+    }
+  } catch (error) {
+    if (!isMissingRpc(error) && !isMissingTable(error)) {
+      // Fall back to local/current account matching when the hardened lookup is unavailable.
+    }
+  }
+
   const user = await supabase.auth.getUser().then((result) => result.data?.user).catch(() => null);
   if (user) {
     const localOperator = safeParse(localStorage.getItem("kuntai.transport.operatorAccount"));
     const localPublicId = getKunThaiPublicUserId({ userId: localOperator?.userId || user.id });
-    const localDisplayCode = compact(localOperator?.displayCode);
-    if (compact(localPublicId) === compactId || localDisplayCode === compactId || localDisplayCode === compact(requestedId)) {
+    if (matchesLookupValue(value, [localPublicId, localOperator?.displayCode])) {
       return {
-        id: localOperator?.id || user.id,
+        id: localOperator?.id || "",
         userId: localOperator?.userId || user.id,
         publicId: localOperator?.displayCode || localPublicId,
-        name: localOperator?.form?.name || user.user_metadata?.display_name || user.email || "Registered operator",
+        name: localOperator?.form?.name || getAccountDisplayName({}, user),
         city: localOperator?.form?.city || "",
         phone: localOperator?.form?.phone || "",
         verificationStatus: localOperator?.verificationStatus || "pending",
         source: "local_operator",
+      };
+    }
+
+    const profile = await getOnboardingProfile(user).catch(() => null);
+    const accountPublicId = getKunThaiPublicUserId({ ...(profile || {}), userId: user.id });
+    if (matchesLookupValue(value, [
+      accountPublicId,
+      profile?.publicUserId,
+      profile?.public_user_id,
+      profile?.kunThaiId,
+      profile?.kunthai_id,
+    ])) {
+      return {
+        id: "",
+        userId: user.id,
+        publicId: accountPublicId,
+        name: getAccountDisplayName(profile || {}, user),
+        city: profile?.city || "",
+        phone: profile?.phone || "",
+        verificationStatus: "pending",
+        source: "current_kunthai_account",
       };
     }
   }

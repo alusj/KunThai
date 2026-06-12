@@ -264,7 +264,7 @@ export default function OperatorDashboardScreen({
         return {
           ...current,
           activeStatus: updatedFleet?.active_status || (updatedActive ? "active" : "offline"),
-          isVisibleToPassengers: Boolean(updatedFleet?.is_visible_to_passengers ?? updatedActive),
+          isVisibleToPassengers: Boolean(updatedFleet?.is_visible_to_passengers ?? true),
           savedAt: updatedFleet?.updated_at || current.savedAt,
           dashboard: current.dashboard
             ? {

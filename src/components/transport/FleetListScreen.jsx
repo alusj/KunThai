@@ -79,14 +79,14 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+            <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">
               {fleets.length} registered
             </span>
 
             <button
               type="button"
               onClick={() => onOpenBooking?.({ selection })}
-              className="hidden h-10 rounded-full bg-green-600 px-4 text-sm font-black text-white hover:bg-green-700 sm:block"
+              className="hidden h-10 rounded-full border border-sky-300 bg-white px-4 text-sm font-black text-sky-800 hover:bg-sky-50 sm:block"
             >
               Open booking
             </button>
@@ -135,7 +135,9 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
   const moneyScope = fleet.currency || fleet.countryCode || fleet.country;
 
   return (
-    <article className="grid gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-[minmax(260px,1fr)_minmax(260px,1fr)_auto] lg:items-center">
+    <article className={`grid gap-4 rounded-2xl border bg-white p-4 shadow-sm lg:grid-cols-[minmax(260px,1fr)_minmax(260px,1fr)_auto] lg:items-center ${
+      isActive ? "border-sky-200 shadow-sky-100/70" : "border-slate-200 shadow-slate-100/80"
+    }`}>
       <div className="min-w-0">
         <div className="flex items-start justify-between gap-3 lg:block">
           <div className="min-w-0">
@@ -158,7 +160,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
           <button
             type="button"
             onClick={onShowVerification}
-            className="mt-2 block text-left text-xs font-medium text-gray-500 hover:text-green-700"
+            className="mt-2 block text-left text-xs font-medium text-gray-500 hover:text-sky-700"
           >
             {status.shortText} - Read more
           </button>
@@ -192,7 +194,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
           type="button"
           onClick={onOpenBooking}
           disabled={!isActive}
-          className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-semibold text-white transition hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-500"
+          className="h-10 rounded-2xl border border-sky-300 bg-white px-4 text-sm font-semibold text-sky-800 transition hover:bg-sky-50 disabled:border-slate-200 disabled:bg-white disabled:text-slate-400"
         >
           {isActive ? "Open booking" : "Offline"}
         </button>
@@ -214,7 +216,7 @@ function StatusPill({ active }) {
     <span
       className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
         active
-          ? "border-green-200 bg-green-100 text-green-700"
+          ? "border-sky-200 bg-sky-50 text-sky-700"
           : "border-gray-200 bg-gray-100 text-gray-600"
       }`}
     >
