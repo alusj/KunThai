@@ -76,6 +76,34 @@ export default function Radar({ onOpenChange, onViewFleet }) {
     return () => onOpenChange?.(false);
   }, [onOpenChange, open]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const previousBody = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    };
+    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.documentElement.style.overscrollBehavior = "none";
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+
+    return () => {
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+      document.body.style.overflow = previousBody.overflow;
+      document.body.style.position = previousBody.position;
+      document.body.style.top = previousBody.top;
+      document.body.style.width = previousBody.width;
+      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+    };
+  }, [open]);
+
   return (
     <>
       <PremiumHeaderButton
@@ -89,8 +117,8 @@ export default function Radar({ onOpenChange, onViewFleet }) {
 
       {open ? (
         <AppPortal>
-        <div className="kt-backdrop fixed inset-0 z-[1200] px-3 py-4">
-          <div className="mx-auto flex min-h-full w-full max-w-lg items-center justify-center">
+        <div className="kt-backdrop fixed inset-0 z-[1200] overflow-hidden overscroll-none px-3 py-4 touch-none">
+          <div className="mx-auto flex h-full w-full max-w-lg items-center justify-center">
             <section className="kt-modal-enter w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4">
                 <div>
@@ -151,7 +179,7 @@ export default function Radar({ onOpenChange, onViewFleet }) {
                         </button>
                       </div>
 
-                      <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                      <div className="max-h-72 space-y-3 overflow-y-auto overscroll-contain pr-1 touch-pan-y">
                         {nearbyOperators.map((operator) => (
                           <article key={operator.id} className="rounded-2xl border border-slate-100 p-3 shadow-sm">
                             <div className="flex items-start justify-between gap-3">

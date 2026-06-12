@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiBriefcase,
@@ -112,10 +112,20 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
   const [saveCheckpointOpen, setSaveCheckpointOpen] = useState(false);
   const stepDirection = useDirectionalStep(step);
   const hasLocation = Boolean(form.coordinates?.latitude || form.coordinates?.lat);
+  const formTopRef = useRef(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      formTopRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [step]);
 
   useEffect(() => {
     let alive = true;
@@ -393,7 +403,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
   }
 
   return (
-    <ScreenSlideTransition screenKey="transport-company-registration-form" className="min-h-dvh bg-slate-50">
+    <ScreenSlideTransition screenKey="transport-company-registration-form" className="min-h-dvh bg-slate-50 [transform:translateZ(0)]">
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-8">
         <div className="flex w-full items-center gap-3">
           <AppBackTab
@@ -412,7 +422,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
         </div>
       </header>
 
-      <main className="grid w-full gap-5 px-3 py-4 sm:px-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8">
+      <main ref={formTopRef} className="grid w-full gap-5 px-3 py-4 sm:px-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8">
         <aside className="lg:sticky lg:top-20 lg:h-fit">
           <div className="grid grid-cols-2 gap-2 rounded-3xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-4 lg:grid-cols-1">
             {steps.map((item, index) => {

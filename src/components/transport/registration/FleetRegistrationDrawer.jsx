@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiCamera,
@@ -187,10 +187,20 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(defaultForm);
+  const formTopRef = useRef(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      formTopRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [step]);
 
   useEffect(() => {
     let alive = true;
@@ -462,7 +472,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   };
 
   return (
-    <ScreenSlideTransition screenKey="transport-solo-registration-form" className="min-h-dvh bg-gray-50">
+    <ScreenSlideTransition screenKey="transport-solo-registration-form" className="min-h-dvh bg-gray-50 [transform:translateZ(0)]">
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 lg:px-8">
         <div className="flex w-full items-center gap-3 sm:gap-4">
           <AppBackTab
@@ -488,7 +498,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
         </div>
       </header>
 
-      <main className="grid w-full gap-5 px-3 py-4 sm:px-5 sm:py-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[300px_minmax(0,1fr)]">
+      <main ref={formTopRef} className="grid w-full gap-5 px-3 py-4 sm:px-5 sm:py-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="min-w-0 lg:sticky lg:top-20 lg:h-fit">
           <div className="grid grid-cols-2 gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm sm:grid-cols-3 sm:p-3 lg:grid-cols-1">
             {steps.map((item, index) => {

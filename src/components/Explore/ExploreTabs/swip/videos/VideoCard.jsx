@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Copy, Download, Eye, EyeOff, Flag, Link, Repeat2, Send, ShieldCheck, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { createExploreNotification } from "../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
-import { sharePost } from "../../urfeed/feed/post/postUtils";
+import { copyPostLink, getPostUrl, sharePost } from "../../urfeed/feed/post/postUtils";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
@@ -56,6 +57,7 @@ export default function VideoCard({
   onComment,
   onDelete,
   onMediaUnavailable,
+  onReport,
   onFullscreenToggle,
   onViewProfile,
 }) {
@@ -67,9 +69,13 @@ export default function VideoCard({
   const [message, setMessage] = useState("");
   const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
   const [videoLoading, setVideoLoading] = useState(true);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [quickDeckOpen, setQuickDeckOpen] = useState(false);
+  const [displayMinimal, setDisplayMinimal] = useState(false);
 
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
+  const holdTriggeredRef = useRef(false);
   const activeRef = useRef(false);
 
   const clip = useMemo(() => getClipWindow(post, progress.realDuration || 0), [post, progress.realDuration]);
@@ -90,6 +96,9 @@ export default function VideoCard({
     setMediaError("");
     setNeedsSoundUnlock(false);
     setVideoLoading(true);
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
+    setDisplayMinimal(false);
     setProgress({ currentTime: 0, duration: MAX_SWIP_SECONDS, realDuration: 0 });
   }, [post.video_url]);
 
@@ -138,7 +147,89 @@ export default function VideoCard({
         media_type: "Swip video",
       }).catch(() => null);
     }
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
     setMessage(nextMessage);
+  }
+
+  async function handleCopyLink() {
+    const nextMessage = await copyPostLink(post.id);
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
+    setMessage(nextMessage);
+  }
+
+  async function handleCopyCaption() {
+    const caption = String(post.body || "").trim();
+    if (!caption) {
+      setMessage("No caption to copy.");
+      setActionMenuOpen(false);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(caption);
+      setMessage("Caption copied.");
+    } catch {
+      setMessage(caption);
+    }
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
+  }
+
+  function handleDownload() {
+    if (!post.video_url) {
+      setMessage("Video is not ready for saving.");
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = post.video_url;
+    link.download = `kunthai-swip-${post.id}.mp4`;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
+    setMessage("Save started.");
+  }
+
+  async function handleRepostKit() {
+    const link = getPostUrl(post.id);
+    const body = [
+      post.body ? `Swip note: ${post.body}` : "Swip note",
+      link,
+    ].filter(Boolean).join("\n");
+
+    try {
+      await navigator.clipboard.writeText(body);
+      setMessage("Repost kit copied.");
+    } catch {
+      setMessage("Repost kit ready.");
+    }
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
+  }
+
+  async function handleReport() {
+    if (isOwner) {
+      setMessage("This is your Swip.");
+      setActionMenuOpen(false);
+      setQuickDeckOpen(false);
+      return;
+    }
+
+    await onReport?.("Swip video report");
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
+    setMessage("Report received.");
+  }
+
+  function toggleDisplayMinimal() {
+    setDisplayMinimal((current) => !current);
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
   }
 
   async function confirmDelete() {
@@ -295,12 +386,26 @@ export default function VideoCard({
   function handlePointerDown(event) {
     if (shouldIgnoreVideoGesture(event)) return;
     window.clearTimeout(holdTimerRef.current);
+    holdTriggeredRef.current = false;
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTriggeredRef.current = true;
+      setActionMenuOpen(false);
+      setQuickDeckOpen(true);
+      navigator.vibrate?.(12);
+    }, 520);
   }
 
   function handlePointerUp(event) {
     if (shouldIgnoreVideoGesture(event)) return;
     window.clearTimeout(holdTimerRef.current);
   }
+
+  useEffect(() => {
+    if (!active) {
+      setActionMenuOpen(false);
+      setQuickDeckOpen(false);
+    }
+  }, [active]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -353,7 +458,16 @@ export default function VideoCard({
     <article
       id={`post-${post.id}`}
       onClick={(event) => {
+        if (holdTriggeredRef.current) {
+          holdTriggeredRef.current = false;
+          return;
+        }
         if (!shouldIgnoreVideoGesture(event)) handleVideoTap();
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setActionMenuOpen(false);
+        setQuickDeckOpen(true);
       }}
       onPointerCancel={handlePointerUp}
       onPointerDown={handlePointerDown}
@@ -406,21 +520,36 @@ export default function VideoCard({
         </div>
       ) : null}
 
-      <SwipActionRail
-        fullscreen={fullscreen}
-        post={post}
-        liked={liked}
-        saved={saved}
-        isOwner={isOwner}
-        onLike={onLike}
-        onSave={onSave}
-        onComment={() => setCommentOpen(true)}
-        onDelete={() => setDeleteOpen(true)}
-        onFullscreen={onFullscreenToggle}
-        onShare={handleShare}
-      />
+      {!displayMinimal ? (
+        <SwipActionRail
+          fullscreen={fullscreen}
+          post={post}
+          liked={liked}
+          saved={saved}
+          isOwner={isOwner}
+          onLike={onLike}
+          onSave={onSave}
+          onComment={() => setCommentOpen(true)}
+          onDelete={() => setDeleteOpen(true)}
+          onFullscreen={onFullscreenToggle}
+          onMore={() => setActionMenuOpen(true)}
+          onShare={handleShare}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setDisplayMinimal(false);
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          className="absolute right-4 top-20 z-20 rounded-full border border-white/15 bg-slate-950/35 px-3 py-2 text-xs font-black text-white shadow-2xl backdrop-blur-md"
+        >
+          Restore display
+        </button>
+      )}
 
-      {!fullscreen ? (
+      {!fullscreen && !displayMinimal ? (
         <SwipCaption
           post={post}
           categoryLabel={categoryLabel}
@@ -429,7 +558,7 @@ export default function VideoCard({
         />
       ) : null}
 
-      <VideoProgress currentTime={progress.currentTime} duration={progress.duration} onSeek={handleSeek} />
+      {!displayMinimal ? <VideoProgress currentTime={progress.currentTime} duration={progress.duration} onSeek={handleSeek} /> : null}
 
       <CommentsDrawer
         currentUserId={currentUserId}
@@ -444,6 +573,79 @@ export default function VideoCard({
         <p className="absolute left-4 top-16 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-sky-700">
           {message}
         </p>
+      ) : null}
+
+      {actionMenuOpen ? (
+        <div
+          className="absolute inset-0 z-30 flex items-end bg-slate-950/35 px-4 pb-5 backdrop-blur-[2px]"
+          onClick={() => setActionMenuOpen(false)}
+        >
+          <section
+            className="w-full rounded-[26px] border border-white/10 bg-white p-4 text-slate-950 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Swip actions</p>
+                <h3 className="mt-1 text-lg font-black">Manage this video</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionMenuOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+                aria-label="Close Swip actions"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="mt-4 grid gap-2">
+              <SwipActionItem icon={Send} title="Share Swip" detail="Send through your phone share sheet." onClick={handleShare} />
+              <SwipActionItem icon={Link} title="Copy link" detail="Keep a direct link to this Swip." onClick={handleCopyLink} />
+              <SwipActionItem icon={Download} title="Save video" detail="Download the video file when the browser allows it." onClick={handleDownload} />
+              <SwipActionItem icon={Copy} title="Copy caption" detail="Copy the creator note only." onClick={handleCopyCaption} />
+              <SwipActionItem icon={Repeat2} title="Repost kit" detail="Copy a clean repost note and link." onClick={handleRepostKit} />
+              <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? "Show display" : "Clear display"} detail="Toggle a focused viewing mode." onClick={toggleDisplayMinimal} />
+              {!isOwner ? (
+                <SwipActionItem danger icon={Flag} title="Report safety issue" detail="Send this Swip for review." onClick={handleReport} />
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {quickDeckOpen ? (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/25 px-5 backdrop-blur-[2px]"
+          onClick={() => setQuickDeckOpen(false)}
+        >
+          <section
+            className="w-full max-w-sm rounded-[28px] border border-white/15 bg-slate-950/78 p-4 text-white shadow-2xl backdrop-blur-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/55">Hold tools</p>
+                <h3 className="mt-1 text-lg font-black">Quick Swip deck</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickDeckOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white"
+                aria-label="Close quick Swip deck"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <SwipQuickAction icon={Download} label="Save" onClick={handleDownload} />
+              <SwipQuickAction icon={displayMinimal ? Eye : EyeOff} label={displayMinimal ? "Show" : "Focus"} onClick={toggleDisplayMinimal} />
+              <SwipQuickAction icon={Repeat2} label="Repost kit" onClick={handleRepostKit} />
+              <SwipQuickAction icon={Link} label="Copy link" onClick={handleCopyLink} />
+              <SwipQuickAction icon={Send} label="Share" onClick={handleShare} />
+              {!isOwner ? <SwipQuickAction danger icon={Flag} label="Report" onClick={handleReport} /> : <SwipQuickAction icon={Copy} label="Caption" onClick={handleCopyCaption} />}
+            </div>
+          </section>
+        </div>
       ) : null}
 
       {deleteOpen ? (
@@ -466,5 +668,44 @@ export default function VideoCard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function SwipActionItem({ danger = false, detail, icon: Icon, onClick, title }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${
+        danger
+          ? "border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100"
+          : "border-slate-100 bg-slate-50 text-slate-900 hover:border-sky-100 hover:bg-sky-50"
+      }`}
+    >
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white ${danger ? "text-rose-700" : "text-sky-700"}`}>
+        <Icon size={18} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-black">{title}</span>
+        <span className={`mt-0.5 block text-xs font-semibold leading-5 ${danger ? "text-rose-600" : "text-slate-500"}`}>{detail}</span>
+      </span>
+    </button>
+  );
+}
+
+function SwipQuickAction({ danger = false, icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl border px-2 text-xs font-black transition ${
+        danger
+          ? "border-rose-300/30 bg-rose-500/18 text-rose-100"
+          : "border-white/10 bg-white/10 text-white hover:bg-white/16"
+      }`}
+    >
+      <Icon size={19} />
+      <span className="text-center leading-tight">{label}</span>
+    </button>
   );
 }

@@ -6,6 +6,7 @@ import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
 
 const COMPANY_DRAFT_PREFIX = "kuntai.transport.companyDraft.";
 const COMPANY_ACCOUNT_PREFIX = "kuntai.transport.companyAccount.";
+const COMPANY_INVITES_KEY = "kuntai.transport.companyInvites";
 const COMPANY_EVENT = "kunthai-transport-company-updated";
 
 function safeParse(value) {
@@ -220,8 +221,48 @@ function normalizeCompanyAccount(input = {}, userId = "") {
 function writeLocalCompanyAccount(userId, account) {
   const normalized = normalizeCompanyAccount(account, userId);
   localStorage.setItem(scopedKey(COMPANY_ACCOUNT_PREFIX, userId), JSON.stringify(normalized));
+  persistCompanyInvites(normalized);
   window.dispatchEvent(new CustomEvent(COMPANY_EVENT, { detail: normalized }));
   return normalized;
+}
+
+function getInviteStoreKey(invite = {}) {
+  const normalized = normalizeInvite(invite);
+  return `${normalized.companyId || normalized.companyCode || normalized.companyName}:${normalized.requestId || normalized.publicId}`;
+}
+
+function readLocalInviteStore() {
+  const value = safeParse(localStorage.getItem(COMPANY_INVITES_KEY));
+  return Array.isArray(value) ? value.map(normalizeInvite) : [];
+}
+
+function writeLocalInviteStore(invites = []) {
+  localStorage.setItem(COMPANY_INVITES_KEY, JSON.stringify(dedupeInvites(invites)));
+}
+
+function upsertLocalInviteStore(invite) {
+  const normalized = normalizeInvite(invite);
+  const key = getInviteStoreKey(normalized);
+  const nextInvites = [
+    normalized,
+    ...readLocalInviteStore().filter((item) => getInviteStoreKey(item) !== key),
+  ];
+  writeLocalInviteStore(nextInvites);
+  return normalized;
+}
+
+function persistCompanyInvites(account) {
+  const normalizedAccount = normalizeCompanyAccount(account, account?.userId);
+  const invites = (normalizedAccount.fleets || []).flatMap((fleet) =>
+    (fleet.operators || []).map((operator) => enrichInvite(operator, normalizedAccount, fleet)),
+  );
+
+  if (!invites.length) return;
+
+  const current = readLocalInviteStore();
+  const inviteKeys = new Set(invites.map(getInviteStoreKey));
+  const unrelated = current.filter((invite) => !inviteKeys.has(getInviteStoreKey(invite)));
+  writeLocalInviteStore([...invites, ...unrelated]);
 }
 
 function getLocalCompanyAccounts() {
@@ -261,13 +302,16 @@ function inviteMatchesOperator(invite, candidates = {}) {
 }
 
 function getLocalOperatorInvites(candidates = {}) {
-  return getLocalCompanyAccounts().flatMap(({ account }) =>
+  const accountInvites = getLocalCompanyAccounts().flatMap(({ account }) =>
     (account.fleets || []).flatMap((fleet) =>
       (fleet.operators || [])
         .map((operator) => enrichInvite(operator, account, fleet))
         .filter((invite) => inviteMatchesOperator(invite, candidates)),
     ),
   );
+  const storedInvites = readLocalInviteStore().filter((invite) => inviteMatchesOperator(invite, candidates));
+
+  return dedupeInvites([...accountInvites, ...storedInvites]);
 }
 
 function dedupeInvites(invites = []) {
@@ -330,7 +374,7 @@ function patchLocalOperatorInvite(invite, patch = {}) {
     }
   });
 
-  return updatedInvite || normalizeInvite({ ...invite, ...patch, documents: nextDocuments, updatedAt: new Date().toISOString() });
+  return upsertLocalInviteStore(updatedInvite || normalizeInvite({ ...invite, ...patch, documents: nextDocuments, updatedAt: new Date().toISOString() }));
 }
 
 export async function getTransportCompanyDraft() {
@@ -515,7 +559,7 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
     if (error) throw error;
     if (!data) return localInvite;
 
-    return normalizeInvite({
+    return upsertLocalInviteStore(normalizeInvite({
       ...localInvite,
       ...data,
       companyName: localInvite.companyName,
@@ -523,7 +567,7 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
       fleetName: localInvite.fleetName,
       fleetType: localInvite.fleetType,
       plateNumber: localInvite.plateNumber,
-    });
+    }));
   } catch (error) {
     if (isMissingTable(error)) return localInvite;
     throw new Error(error.message || "Unable to update this company request.");

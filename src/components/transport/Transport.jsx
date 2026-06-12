@@ -990,10 +990,8 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
 }
 
 function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onCompleteRegistration, onReject }) {
-  const actionableInvites = invites.filter((invite) =>
-    invite.status === "pending" || invite.status === "accepted_pending_documents" || invite.documents?.registrationRequired
-  );
-  if (!actionableInvites.length && !loading && !status) return null;
+  const visibleInvites = invites.filter((invite) => invite.status !== "archived");
+  if (!visibleInvites.length && !loading && !status) return null;
 
   return (
     <section className="mx-4 mt-3 rounded-[28px] border border-blue-100 bg-white p-4 shadow-sm">
@@ -1017,10 +1015,12 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
       ) : null}
 
       <div className="mt-4 grid gap-3">
-        {loading ? (
-          <div className="h-24 rounded-2xl border border-slate-100 bg-slate-50" />
+        {loading && !visibleInvites.length ? (
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
+            Checking company requests...
+          </div>
         ) : null}
-        {actionableInvites.map((invite) => (
+        {visibleInvites.map((invite) => (
           <CompanyOperatorInviteCard
             key={`${invite.companyId || invite.companyName}-${invite.requestId}`}
             invite={invite}
@@ -1036,6 +1036,14 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
 
 function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, onReject }) {
   const needsDocuments = invite.status === "accepted_pending_documents" || invite.documents?.registrationRequired;
+  const accepted = invite.status === "accepted" && !needsDocuments;
+  const rejected = invite.status === "rejected";
+  const statusLabel = needsDocuments ? "Accepted" : accepted ? "Accepted" : rejected ? "Declined" : "Pending";
+  const statusTone = needsDocuments || accepted
+    ? "bg-blue-100 text-blue-700"
+    : rejected
+      ? "bg-rose-100 text-rose-700"
+      : "bg-amber-100 text-amber-800";
   return (
     <article className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1048,18 +1056,23 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
             {invite.fleetName || invite.fleetType || "Company fleet"} {invite.plateNumber ? `- ${invite.plateNumber}` : ""}
           </p>
         </div>
-        <span className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-black ${
-          needsDocuments ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-800"
-        }`}>
-          {needsDocuments ? "Accepted" : "Pending"}
+        <span className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-black ${statusTone}`}>
+          {statusLabel}
         </span>
       </div>
       <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
         {needsDocuments
           ? "Complete your operator registration so this company can add you to its approved operator list."
-          : "Accept if you want this company to register you as an operator. Reject if you do not want to join this company fleet."}
+          : accepted
+            ? invite.documents?.reuseNotice || invite.documents?.reusedExistingDocuments
+              ? "Accepted. KunThai will use your previously submitted identity, license, and fleet documents for this company registration."
+              : "Accepted. This company can now keep your operator record in its Fleet HQ."
+            : rejected
+              ? "You declined this company request. The company will see that this invitation was not accepted."
+              : "Accept if you want this company to register you as an operator. Reject if you do not want to join this company fleet."}
       </p>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      {!accepted && !rejected ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => (needsDocuments ? onCompleteRegistration(invite) : onAccept(invite))}
@@ -1076,7 +1089,12 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
           <FiX size={17} />
           Reject
         </button>
-      </div>
+        </div>
+      ) : (
+        <div className="mt-4 rounded-2xl border border-white bg-white px-4 py-3 text-xs font-black text-slate-600">
+          {accepted ? "No further action is needed." : "No active action remains on this request."}
+        </div>
+      )}
     </article>
   );
 }

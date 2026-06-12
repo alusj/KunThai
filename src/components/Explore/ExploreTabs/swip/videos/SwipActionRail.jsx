@@ -68,6 +68,7 @@ export default function SwipActionRail({
   onDelete,
   onFullscreen,
   onLike,
+  onMore,
   onSave,
   onShare,
 }) {
@@ -95,6 +96,9 @@ export default function SwipActionRail({
           <HiOutlineTrash />
         </RailButton>
       ) : null}
+      <RailButton label="" title="More Swip actions" onClick={onMore}>
+        <span className="text-2xl font-black leading-none">...</span>
+      </RailButton>
     </div>
   );
 }
