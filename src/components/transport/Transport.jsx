@@ -670,11 +670,11 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       <Body
         onSelectFleetType={(mode, fleetType, label) => {
           setRouteDirection("forward");
-          setFleetSelection({ mode, fleetType, label });
+          setFleetSelection({ mode, fleetType, label, includeOffline: true });
         }}
         onOpenTopRated={() => {
           setRouteDirection("forward");
-          setFleetSelection({ mode: "topRated", fleetType: null, label: "Top Rated Fleets" });
+          setFleetSelection({ mode: "topRated", fleetType: null, label: "Top Rated Fleets", includeOffline: false });
         }}
         onOpenNearbyArea={() => {
           openNearbyAreaRoute();

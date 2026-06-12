@@ -31,7 +31,7 @@ export default function Body({
   const [movementFilters, setMovementFilters] = useState({
     mode: "topRated",
     fleetType: null,
-    activeOnly: false,
+    activeOnly: true,
     verifiedOnly: false,
   });
   const [summary, setSummary] = useState({
@@ -47,7 +47,7 @@ export default function Body({
     async function loadSummary() {
       try {
         const [fleets, trips, saved] = await Promise.all([
-          fetchTransportFleets({ mode: "topRated", fleetType: null }),
+          fetchTransportFleets({ mode: "topRated", fleetType: null, includeOffline: false }),
           fetchActiveTrips(),
           fetchSavedOperators(),
         ]);

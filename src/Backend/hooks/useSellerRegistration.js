@@ -4,7 +4,9 @@ import {
   BUSINESS_CATEGORIES,
   INITIAL_REGISTRATION,
   calculateReadinessScore,
+  readRegisteredBusiness,
   submitSellerRegistration,
+  updateRegisteredBusinessProfile,
 } from "../services/marketplace/sellerRegistrationService";
 import { getOnboardingProfile } from "../services/onboardingService";
 import {
@@ -67,6 +69,35 @@ function readDraft() {
   }
 }
 
+function formFromRegisteredBusiness(business) {
+  const initial = cloneInitialRegistration();
+  if (!business) return initial;
+
+  return {
+    identity: {
+      ...initial.identity,
+      ...(business.identity || {}),
+      categories: Array.isArray(business.identity?.categories) ? business.identity.categories : [],
+      logoFile: null,
+      bannerFile: null,
+    },
+    location: {
+      ...initial.location,
+      ...(business.location || {}),
+    },
+    operations: {
+      ...initial.operations,
+      ...(business.operations || {}),
+    },
+    trustPayout: {
+      ...initial.trustPayout,
+      ...(business.trustPayout || {}),
+      idDocumentFile: null,
+      businessDocumentFile: null,
+    },
+  };
+}
+
 function formatCoordinates(latitude, longitude) {
   return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
 }
@@ -111,8 +142,9 @@ async function reverseGeocode(latitude, longitude) {
   }
 }
 
-export function useSellerRegistration({ onComplete } = {}) {
-  const draft = readDraft();
+export function useSellerRegistration({ mode = "create", onComplete } = {}) {
+  const editing = mode === "edit";
+  const draft = editing ? null : readDraft();
   const [step, setStep] = useState(draft?.step ?? 0);
   const [form, setForm] = useState(draft?.form ?? cloneInitialRegistration());
   const [errors, setErrors] = useState({});
@@ -121,11 +153,14 @@ export function useSellerRegistration({ onComplete } = {}) {
   const [locationCandidate, setLocationCandidate] = useState(null);
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(editing);
   const [draftStatus, setDraftStatus] = useState(draft?.savedAt ? `Draft saved ${new Date(draft.savedAt).toLocaleString()}` : "");
 
   const readinessScore = useMemo(() => calculateReadinessScore(form), [form]);
 
   useEffect(() => {
+    if (editing) return undefined;
+
     let alive = true;
 
     getOnboardingProfile()
@@ -154,7 +189,37 @@ export function useSellerRegistration({ onComplete } = {}) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [editing]);
+
+  useEffect(() => {
+    if (!editing) return undefined;
+
+    let alive = true;
+    setLoadingExisting(true);
+
+    readRegisteredBusiness()
+      .then((business) => {
+        if (!alive) return;
+        setForm(formFromRegisteredBusiness(business));
+        setStep(0);
+        setDraftStatus("");
+      })
+      .catch((error) => {
+        if (alive) {
+          setErrors((current) => ({
+            ...current,
+            submit: error.message || "Unable to load your business profile for editing.",
+          }));
+        }
+      })
+      .finally(() => {
+        if (alive) setLoadingExisting(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [editing]);
 
   function updateSection(section, patch) {
     if (section === "location" && patch?.country) storeCountryContext(patch.country);
@@ -390,8 +455,10 @@ export function useSellerRegistration({ onComplete } = {}) {
     setErrors((current) => ({ ...current, submit: "" }));
     setSubmitting(true);
     try {
-      const business = await submitSellerRegistration(form);
-      localStorage.removeItem(DRAFT_KEY);
+      const business = editing
+        ? await updateRegisteredBusinessProfile(form)
+        : await submitSellerRegistration(form);
+      if (!editing) localStorage.removeItem(DRAFT_KEY);
       onComplete?.(business);
     } catch (error) {
       setErrors((current) => ({
@@ -413,6 +480,8 @@ export function useSellerRegistration({ onComplete } = {}) {
     locationPromptOpen,
     locationCandidate,
     locating,
+    loadingExisting,
+    mode,
     submitting,
     updateSection,
     toggleCategory,

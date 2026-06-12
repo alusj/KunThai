@@ -250,6 +250,7 @@ export function getTransportFleetById() {
 }
 
 export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
+  const includeOffline = selection.includeOffline === true;
   const { data, error } = await supabase
     .from("transport_fleets")
     .select("*, transport_operators(id, full_name, phone, city, operator_code, display_code, verification_status)")
@@ -264,7 +265,11 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
   const scopedFleets = filterCountryScopedItems(liveFleets, (fleet) => [fleet.countryCode, fleet.country], selection.country || selection.countryCode);
 
   return sortFleets(
-    scopedFleets.items.filter((fleet) => matchesMode(fleet, selection.mode) && (!selection.fleetType || fleet.fleetType === selection.fleetType)),
+    scopedFleets.items.filter((fleet) =>
+      matchesMode(fleet, selection.mode) &&
+      (!selection.fleetType || fleet.fleetType === selection.fleetType) &&
+      (includeOffline || fleet.activeStatus === "active")
+    ),
     selection.mode,
   );
 }

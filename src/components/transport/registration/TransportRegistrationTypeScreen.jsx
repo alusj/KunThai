@@ -28,10 +28,18 @@ const OPTIONS = [
   },
 ];
 
+function scrollViewportTop() {
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
 export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   const [showIntro, setShowIntro] = useState(true);
   const [selectedType, setSelectedType] = useState(null);
   const [leavingCaution, setLeavingCaution] = useState(false);
+
+  useEffect(() => {
+    scrollViewportTop();
+  }, [selectedType]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -49,11 +57,13 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   function continueToRegistration() {
     if (!selectedType) return;
 
+    scrollViewportTop();
     setShowIntro(true);
 
     window.setTimeout(() => {
+      scrollViewportTop();
       onSelect(selectedType);
-    }, 1800);
+    }, 700);
   }
 
   function acceptTransportCaution() {
@@ -61,7 +71,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
 
     window.setTimeout(() => {
       continueToRegistration();
-    }, 300);
+    }, 80);
   }
 
   if (selectedType) {

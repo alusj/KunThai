@@ -94,7 +94,7 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
           onClick={onEditProfile}
         >
-          Edit Profile
+          Edit Business
         </button>
       </div>
       {verificationOpen ? (

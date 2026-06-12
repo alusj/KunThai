@@ -342,11 +342,18 @@ export async function updateRegisteredBusinessProfile(updates) {
       ...currentBusiness.operations,
       ...(updates.operations || {}),
     },
-    trustPayout: currentBusiness.trustPayout,
+    trustPayout: {
+      ...currentBusiness.trustPayout,
+      ...(updates.trustPayout || {}),
+      idDocumentFile: updates.trustPayout?.idDocumentFile || null,
+      businessDocumentFile: updates.trustPayout?.businessDocumentFile || null,
+    },
   };
-  const [logoUrl, bannerUrl] = await Promise.all([
+  const [logoUrl, bannerUrl, idDocumentUrl, businessDocumentUrl] = await Promise.all([
     uploadBusinessFile(userId, registration.identity.logoFile, "logos"),
     uploadBusinessFile(userId, registration.identity.bannerFile, "banners"),
+    uploadBusinessFile(userId, registration.trustPayout.idDocumentFile, "documents"),
+    uploadBusinessFile(userId, registration.trustPayout.businessDocumentFile, "documents"),
   ]);
 
   const businessPayload = {
@@ -400,6 +407,57 @@ export async function updateRegisteredBusinessProfile(updates) {
       );
       if (categoryError) throw new Error(categoryError.message);
     }
+  }
+
+  const payoutPayload = registration.trustPayout.skipped
+    ? {
+        business_id: currentBusiness.id,
+        method_type: "skipped",
+        kunthai_money_connected: false,
+        bank_name: "",
+        account_number_mask: "",
+        account_name: "",
+        skipped: true,
+      }
+    : {
+        business_id: currentBusiness.id,
+        method_type: registration.trustPayout.connectKunThaiMoney ? "kunthai_money" : "bank",
+        kunthai_money_connected: Boolean(registration.trustPayout.connectKunThaiMoney),
+        bank_name: registration.trustPayout.bankName?.trim?.() || "",
+        account_number_mask: registration.trustPayout.accountNumber
+          ? `**** ${String(registration.trustPayout.accountNumber).slice(-4)}`
+          : currentBusiness.trustPayout.accountNumber || "",
+        account_name: registration.trustPayout.accountName?.trim?.() || "",
+        skipped: false,
+      };
+
+  const { error: payoutError } = await supabase
+    .from("marketplace_payout_methods")
+    .upsert(payoutPayload, { onConflict: "business_id" });
+  if (payoutError) throw new Error(payoutError.message);
+
+  const documentRows = [
+    idDocumentUrl
+      ? {
+          business_id: currentBusiness.id,
+          document_type: "id",
+          file_name: registration.trustPayout.idDocumentName,
+          file_url: idDocumentUrl,
+        }
+      : null,
+    businessDocumentUrl
+      ? {
+          business_id: currentBusiness.id,
+          document_type: "business",
+          file_name: registration.trustPayout.businessDocumentName,
+          file_url: businessDocumentUrl,
+        }
+      : null,
+  ].filter(Boolean);
+
+  if (documentRows.length) {
+    const { error: documentError } = await supabase.from("marketplace_business_documents").insert(documentRows);
+    if (documentError) throw new Error(documentError.message);
   }
 
   return readRegisteredBusiness();

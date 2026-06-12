@@ -107,9 +107,8 @@ export default function Business({ onBack }) {
   }, []);
 
   function openProfileEditor() {
-    setMenuInitialScreen("profile");
-    setProfileInitialView("edit");
-    setMenuOpen(true);
+    setMenuOpen(false);
+    openSellerScreen("editBusiness");
   }
 
   function openSellerMenu() {
@@ -170,6 +169,22 @@ export default function Business({ onBack }) {
           open={screenPanelOpen}
         >
           <CustomerCare />
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "editBusiness") {
+      return (
+        <SellerFullScreen key="editBusiness" hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
+          <BusinessRegistration
+            mode="edit"
+            onExit={goBackSellerScreen}
+            onComplete={() => {
+              replaceSellerScreen("dashboard");
+              setToastMessage("Business profile updated successfully");
+              window.setTimeout(() => setToastMessage(""), 4500);
+            }}
+          />
         </SellerFullScreen>
       );
     }

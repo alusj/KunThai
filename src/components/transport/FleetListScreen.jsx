@@ -24,9 +24,9 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
     selection.mode === "topRated" ? "All Fleets" : selection.mode === "ride" ? "Ride" : "Delivery";
 
   const helperText =
-    selection.mode === "topRated"
-      ? "All registered fleets are shown with active operators first."
-      : "Registered fleets are shown with active operators first, then offline fleets with last activity.";
+    selection.includeOffline
+      ? "Registered fleets are shown with active operators first, then offline fleets with last activity."
+      : "Only live fleets are shown here. Offline fleets stay inside ride and delivery category lists.";
 
   useEffect(() => {
     let alive = true;

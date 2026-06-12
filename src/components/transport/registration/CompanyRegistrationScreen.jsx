@@ -115,6 +115,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
   const hasLocation = Boolean(form.coordinates?.latitude || form.coordinates?.lat);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, []);
+
+  useEffect(() => {
     let alive = true;
 
     async function loadContext() {

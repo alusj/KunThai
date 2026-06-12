@@ -189,6 +189,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   const [form, setForm] = useState(defaultForm);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, []);
+
+  useEffect(() => {
     let alive = true;
 
     async function loadRegistrationContext() {

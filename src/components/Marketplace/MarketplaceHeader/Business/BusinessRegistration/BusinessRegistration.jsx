@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import BusinessSellerEntryAnimation from "./BusinessSellerEntryAnimation";
 import NearbyAreaScreen from "../../../../transport/NearbyAreaScreen";
 import { useSellerRegistration } from "../../../../../Backend/hooks/useSellerRegistration";
+import AppBackTab from "../../../../shared/AppBackTab";
 import { ScreenSlideTransition, StepSlideTransition } from "../../../../shared/motion";
 import { useDirectionalStep } from "../../../../shared/motionHooks";
 import BusinessIdentityStep from "./BusinessIdentityStep";
@@ -21,11 +22,12 @@ const STEP_TITLES = [
   "Review and submit",
 ];
 
-export default function BusinessRegistration({ onComplete, onExit }) {
-  const [showIntro, setShowIntro] = useState(true);
-  const [acceptedCaution, setAcceptedCaution] = useState(false);
+export default function BusinessRegistration({ mode = "create", onComplete, onExit }) {
+  const editing = mode === "edit";
+  const [showIntro, setShowIntro] = useState(!editing);
+  const [acceptedCaution, setAcceptedCaution] = useState(editing);
   const [leavingCaution, setLeavingCaution] = useState(false);
-  const registration = useSellerRegistration({ onComplete });
+  const registration = useSellerRegistration({ mode, onComplete });
   const [saveCheckpointOpen, setSaveCheckpointOpen] = useState(false);
   const [locationPickerMode, setLocationPickerMode] = useState(null);
   const stepSlideDirection = useDirectionalStep(registration.step);
@@ -51,19 +53,29 @@ export default function BusinessRegistration({ onComplete, onExit }) {
   ][enhancedRegistration.step];
 
   useEffect(() => {
+    if (editing) return undefined;
+
     const timer = window.setTimeout(() => {
       setShowIntro(false);
     }, 2200);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [editing]);
+
+  useEffect(() => {
+    if (acceptedCaution) {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  }, [acceptedCaution]);
 
   function acceptSellerCaution() {
     setLeavingCaution(true);
 
     window.setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       setAcceptedCaution(true);
-    }, 300);
+      setLeavingCaution(false);
+    }, 120);
   }
   if (!acceptedCaution) {
     return (
@@ -81,6 +93,15 @@ export default function BusinessRegistration({ onComplete, onExit }) {
                 }`}
               >
                 <div>
+                  <div className="mb-5">
+                    <AppBackTab
+                      onBack={onExit}
+                      label="Back to UrMall"
+                      historyKey="seller-registration-caution"
+                      className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+                    />
+                  </div>
+
                   <p className="text-xs font-black uppercase tracking-wide text-blue-700">
                     Before you continue
                   </p>
@@ -131,6 +152,7 @@ export default function BusinessRegistration({ onComplete, onExit }) {
   }
 
   function handleSaveDraft() {
+    if (editing) return;
     registration.saveDraft();
     setSaveCheckpointOpen(true);
   }
@@ -157,19 +179,50 @@ export default function BusinessRegistration({ onComplete, onExit }) {
     );
   }
 
+  if (registration.loadingExisting) {
+    return (
+      <ScreenSlideTransition screenKey="seller-business-editor-loading" className="min-h-dvh bg-gray-50">
+        <div className="w-full px-4 py-5 sm:px-6 lg:px-10">
+          <div className="mb-5">
+            <AppBackTab
+              onBack={onExit}
+              label="Back to seller dashboard"
+              historyKey="seller-business-editor-loading"
+              className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+            />
+          </div>
+          <div className="grid gap-4">
+            <div className="h-20 animate-pulse rounded-2xl border border-gray-200 bg-white" />
+            <div className="h-80 animate-pulse rounded-2xl border border-gray-200 bg-white" />
+          </div>
+        </div>
+      </ScreenSlideTransition>
+    );
+  }
+
   return (
-    <ScreenSlideTransition screenKey="seller-registration-form" className="min-h-dvh bg-gray-50">
+    <ScreenSlideTransition screenKey={editing ? "seller-business-editor" : "seller-registration-form"} className="min-h-dvh bg-gray-50">
       <div className="w-full px-4 py-6 sm:px-6 lg:px-10 xl:px-14">
-        <div className="mb-6">
-          <p className="text-sm font-black uppercase text-blue-700">
-            Seller Registration
-          </p>
-          <h1 className="mt-1 text-2xl font-black text-gray-950">
-            Create your business profile
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-gray-600">
-            Set up the store details that power your seller dashboard, discovery, trust, and payouts.
-          </p>
+        <div className="mb-6 flex items-start gap-3">
+          <AppBackTab
+            onBack={onExit}
+            label={editing ? "Back to seller dashboard" : "Back to UrMall"}
+            historyKey={editing ? "seller-business-editor" : "seller-registration-form"}
+            className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase text-blue-700">
+              {editing ? "Business Dashboard Editor" : "Seller Registration"}
+            </p>
+            <h1 className="mt-1 text-2xl font-black text-gray-950">
+              {editing ? "Edit your business profile" : "Create your business profile"}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-gray-600">
+              {editing
+                ? "Update the staged business details that power your dashboard, discovery, trust, and buyer actions."
+                : "Set up the store details that power your seller dashboard, discovery, trust, and payouts."}
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -203,13 +256,15 @@ export default function BusinessRegistration({ onComplete, onExit }) {
 
               <div className="flex flex-col gap-2 sm:items-end">
                 <div className="flex flex-wrap justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={handleSaveDraft}
-                    className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
-                  >
-                    Save Draft
-                  </button>
+                  {!editing ? (
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+                    >
+                      Save Draft
+                    </button>
+                  ) : null}
 
                   {enhancedRegistration.step < 4 ? (
                     <button
@@ -226,7 +281,7 @@ export default function BusinessRegistration({ onComplete, onExit }) {
                       disabled={registration.submitting}
                       className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
                     >
-                      {registration.submitting ? "Submitting..." : "Submit Business"}
+                      {registration.submitting ? (editing ? "Saving..." : "Submitting...") : editing ? "Save Changes" : "Submit Business"}
                     </button>
                   )}
                 </div>

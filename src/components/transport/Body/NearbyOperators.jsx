@@ -51,7 +51,7 @@ export default function NearbyOperators({
     setLoading(true);
     setError("");
 
-    fetchTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null })
+    fetchTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null, includeOffline: false })
       .then((items) => {
         if (alive) setOperators(applyOperatorFilters(items, filters, destination).slice(0, 6));
       })
@@ -74,9 +74,9 @@ export default function NearbyOperators({
     <section className="mt-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-bold text-gray-900">Registered Operators</h2>
+          <h2 className="text-base font-bold text-gray-900">Live Operators</h2>
           <p className="text-xs text-gray-500">
-            {pickup ? `Pickup: ${pickup}` : "Online and offline fleets with KunThai verification status"}
+            {pickup ? `Pickup: ${pickup}` : "Online fleets with KunThai verification status"}
           </p>
         </div>
         <button type="button" onClick={onViewAll} className="text-sm font-semibold text-sky-700">
@@ -89,7 +89,7 @@ export default function NearbyOperators({
       ) : loading ? (
         <EmptyState title="Loading operators" body="Checking visible operator fleets." />
       ) : operators.length === 0 ? (
-        <EmptyState title="No visible operators" body="Verified passenger-visible fleets will appear here." />
+        <EmptyState title="No live operators" body="Online fleets will appear here. Offline fleets stay inside ride and delivery lists." />
       ) : (
       <div className="grid gap-3 lg:grid-cols-3 2xl:grid-cols-6">
         {operators.map((operator) => {

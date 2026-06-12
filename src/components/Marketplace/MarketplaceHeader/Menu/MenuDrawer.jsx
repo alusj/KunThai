@@ -143,6 +143,16 @@ function getAddressShareText(address) {
   return `${label} delivery address\n${street}${phone}${note}`;
 }
 
+function writeBuyerAddress(address) {
+  if (address) localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(address));
+  else localStorage.removeItem(BUYER_ADDRESS_KEY);
+  window.dispatchEvent(new CustomEvent("marketplace-delivery-address-selected", { detail: { address } }));
+}
+
+function writeBuyerAddresses(addresses) {
+  localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(addresses));
+}
+
 function createEmptyAddress() {
   return {
     id: "",
@@ -286,12 +296,14 @@ function SavedAddressMenuAction({ danger = false, icon: Icon, label, onClick }) 
     <button
       type="button"
       onClick={onClick}
-      className={`kt-touchable flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black ${
+      className={`kt-touchable flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-black ${
         danger ? "text-rose-600 hover:bg-rose-50" : "text-gray-700 hover:bg-gray-50 hover:text-gray-950"
       }`}
     >
-      <Icon size={17} />
-      <span>{label}</span>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${danger ? "bg-rose-50" : "bg-slate-50"}`}>
+        <Icon size={18} />
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
     </button>
   );
 }
@@ -318,6 +330,10 @@ export default function MenuDrawer({ open, onClose }) {
       }
     : null;
   const addressValidation = useAddressAreaValidation(address.street, { selectedPoint: addressPoint });
+  const activeActionAddress = useMemo(
+    () => savedAddresses.find((item) => getAddressActionKey(item) === addressActionMenuId) || null,
+    [addressActionMenuId, savedAddresses],
+  );
   const deliveryPickerLabels = useMemo(
     () => ({
       historyKey: "urmall-delivery-address-picker",
@@ -389,14 +405,14 @@ export default function MenuDrawer({ open, onClose }) {
     const localAddress = { ...address, id: localId };
     const nextAddresses = [localAddress, ...savedAddresses.filter((item) => item.id !== localId)];
     setSavedAddresses(nextAddresses);
-    localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(localAddress));
-    localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(nextAddresses));
+    writeBuyerAddress(localAddress);
+    writeBuyerAddresses(nextAddresses);
     try {
       const savedAddress = await saveBuyerDeliveryAddress(address);
       const syncedAddresses = [savedAddress, ...nextAddresses.filter((item) => item.id !== localId && item.id !== savedAddress.id)];
       setSavedAddresses(syncedAddresses);
-      localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(savedAddress));
-      localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(syncedAddresses));
+      writeBuyerAddress(savedAddress);
+      writeBuyerAddresses(syncedAddresses);
       setMessage("Delivery address saved.");
     } catch {
       setMessage("Delivery address saved on this device. Apply the buyer address SQL table to sync it online.");
@@ -439,8 +455,14 @@ export default function MenuDrawer({ open, onClose }) {
   function selectAddress(nextAddress) {
     setAddressActionMenuId("");
     setAddress({ ...createEmptyAddress(), ...nextAddress });
-    localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(nextAddress));
-    window.dispatchEvent(new CustomEvent("marketplace-delivery-address-selected", { detail: { address: nextAddress } }));
+    const selectedKey = getAddressActionKey(nextAddress);
+    const orderedAddresses = [
+      nextAddress,
+      ...savedAddresses.filter((item) => getAddressActionKey(item) !== selectedKey),
+    ];
+    setSavedAddresses(orderedAddresses);
+    writeBuyerAddress(nextAddress);
+    writeBuyerAddresses(orderedAddresses);
     setMessage(`${getAddressLabel(nextAddress)} address selected for your next UrMall order.`);
   }
 
@@ -474,7 +496,7 @@ export default function MenuDrawer({ open, onClose }) {
     setAddressActionMenuId("");
     const nextAddresses = savedAddresses.filter((item) => getAddressActionKey(item) !== addressKey);
     setSavedAddresses(nextAddresses);
-    localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(nextAddresses));
+    writeBuyerAddresses(nextAddresses);
 
     let activeAddress = null;
     try {
@@ -484,11 +506,12 @@ export default function MenuDrawer({ open, onClose }) {
     }
 
     if (getAddressActionKey(activeAddress || {}) === addressKey) {
-      if (nextAddresses[0]) localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(nextAddresses[0]));
-      else localStorage.removeItem(BUYER_ADDRESS_KEY);
+      const replacement = nextAddresses[0] || null;
+      writeBuyerAddress(replacement);
+      setAddress(replacement ? { ...createEmptyAddress(), ...replacement } : createEmptyAddress());
     }
 
-    if (getAddressActionKey(address) === addressKey) {
+    if (addressFormOpen && getAddressActionKey(address) === addressKey) {
       closeAddressForm();
     }
 
@@ -592,20 +615,12 @@ export default function MenuDrawer({ open, onClose }) {
 
         {screenKey === "address" && (
           <div className="space-y-4">
-            {addressActionMenuId ? (
-              <button
-                type="button"
-                aria-label="Close delivery address actions"
-                className="fixed inset-0 z-10 cursor-default bg-transparent"
-                onClick={() => setAddressActionMenuId("")}
-              />
-            ) : null}
-
             {savedAddresses.length ? (
               <div className="space-y-2">
                 <p className="text-sm font-black text-gray-950">Saved addresses</p>
                 {savedAddresses.map((item) => {
                   const actionKey = getAddressActionKey(item);
+                  const selected = actionKey === getAddressActionKey(address);
 
                   return (
                     <article
@@ -614,7 +629,14 @@ export default function MenuDrawer({ open, onClose }) {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <button type="button" onClick={() => editAddress(item)} className="kt-touchable min-w-0 flex-1 text-left">
-                          <p className="text-sm font-black text-gray-950">{getAddressLabel(item)} address</p>
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-black text-gray-950">{getAddressLabel(item)} address</span>
+                            {selected ? (
+                              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                                Selected
+                              </span>
+                            ) : null}
+                          </span>
                           <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
                             {item.street || item.detectedAddress}
                           </p>
@@ -628,21 +650,49 @@ export default function MenuDrawer({ open, onClose }) {
                           className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-950"
                           aria-label={`${getAddressLabel(item)} address actions`}
                           aria-expanded={addressActionMenuId === actionKey}
+                          aria-haspopup="menu"
                         >
                           <MoreHorizontal size={18} />
                         </button>
                       </div>
-                      {addressActionMenuId === actionKey ? (
-                        <div className="kt-modal-enter absolute right-3 top-12 z-30 w-60 overflow-hidden rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl shadow-slate-950/10">
-                          <SavedAddressMenuAction icon={Navigation} label="Use for next order" onClick={() => selectAddress(item)} />
-                          <SavedAddressMenuAction icon={Pencil} label="Edit address" onClick={() => editAddress(item)} />
-                          <SavedAddressMenuAction icon={Share2} label="Share details" onClick={() => shareAddress(item)} />
-                          <SavedAddressMenuAction danger icon={Trash2} label="Delete address" onClick={() => removeAddress(actionKey, item)} />
-                        </div>
-                      ) : null}
                     </article>
                   );
                 })}
+              </div>
+            ) : null}
+
+            {activeActionAddress ? (
+              <div
+                className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/20 px-3 py-4 backdrop-blur-[1px] sm:items-center sm:p-6"
+                role="presentation"
+                onClick={() => setAddressActionMenuId("")}
+              >
+                <section
+                  className="kt-modal-enter w-full max-w-sm overflow-hidden rounded-[1.75rem] border border-gray-200 bg-white p-2 shadow-2xl shadow-slate-950/20 sm:max-w-xs"
+                  role="menu"
+                  aria-label={`${getAddressLabel(activeActionAddress)} delivery address actions`}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="border-b border-gray-100 px-3 py-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+                      {getAddressLabel(activeActionAddress)} address
+                    </p>
+                    <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
+                      {activeActionAddress.street || activeActionAddress.detectedAddress || "Delivery location"}
+                    </p>
+                  </div>
+                  <div className="grid gap-1 p-1">
+                    <SavedAddressMenuAction icon={Navigation} label="Use for next order" onClick={() => selectAddress(activeActionAddress)} />
+                    <SavedAddressMenuAction icon={Pencil} label="Edit address" onClick={() => editAddress(activeActionAddress)} />
+                    <SavedAddressMenuAction icon={Share2} label="Share details" onClick={() => shareAddress(activeActionAddress)} />
+                    <SavedAddressMenuAction
+                      danger
+                      icon={Trash2}
+                      label="Delete address"
+                      onClick={() => removeAddress(addressActionMenuId, activeActionAddress)}
+                    />
+                  </div>
+                </section>
               </div>
             ) : null}
 
