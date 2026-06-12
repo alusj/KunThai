@@ -2,22 +2,44 @@ import { useEffect, useMemo, useState } from "react";
 
 import { fetchSellerActivities } from "../services/marketplace/sellerActivityService";
 
+const SELLER_ACTIVITIES_MEMORY = {
+  loaded: false,
+  activities: [],
+  savedAt: 0,
+};
+
 export function useSellerActivities() {
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [activities, setActivities] = useState(() => SELLER_ACTIVITIES_MEMORY.activities);
+  const [loading, setLoading] = useState(() => !SELLER_ACTIVITIES_MEMORY.loaded);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let active = true;
+    const hasCachedActivities = SELLER_ACTIVITIES_MEMORY.loaded;
+
+    if (hasCachedActivities) {
+      setActivities(SELLER_ACTIVITIES_MEMORY.activities);
+      setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setRefreshing(false);
+    }
 
     fetchSellerActivities()
       .then((nextActivities) => {
+        SELLER_ACTIVITIES_MEMORY.loaded = true;
+        SELLER_ACTIVITIES_MEMORY.activities = Array.isArray(nextActivities) ? nextActivities : [];
+        SELLER_ACTIVITIES_MEMORY.savedAt = Date.now();
         if (active) {
-          setActivities(nextActivities);
+          setActivities(SELLER_ACTIVITIES_MEMORY.activities);
         }
       })
+      .catch(() => {})
       .finally(() => {
         if (active) {
           setLoading(false);
+          setRefreshing(false);
         }
       });
 
@@ -39,5 +61,8 @@ export function useSellerActivities() {
     activities,
     summary,
     loading,
+    isInitialLoading: loading && !SELLER_ACTIVITIES_MEMORY.loaded,
+    refreshing,
+    isRefreshing: refreshing,
   };
 }

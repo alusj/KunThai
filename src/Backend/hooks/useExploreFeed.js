@@ -158,8 +158,10 @@ function buildRemoteReactionSet(remoteIds = []) {
 
 export function useExploreFeed(scope = "feed") {
   const memory = readFeedMemory(scope);
-  const [posts, setPosts] = useState(() => (memory?.posts || readStoredPosts(scope)).filter(isExplorePostVisibleInFeed));
-  const [loading, setLoading] = useState(() => !memory?.posts?.length);
+  const initialPosts = (memory?.posts || readStoredPosts(scope)).filter(isExplorePostVisibleInFeed);
+  const [posts, setPosts] = useState(() => initialPosts);
+  const [loading, setLoading] = useState(() => initialPosts.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [likedPosts, setLikedPosts] = useState(() => memory?.likedPosts || readStoredSet(LIKE_STORAGE_KEY));
@@ -197,23 +199,25 @@ export function useExploreFeed(scope = "feed") {
     const force = Boolean(options.force);
     const cached = readFeedMemory(scope);
     const hasCachedPosts = Boolean(cached?.posts?.length || postsRef.current.length || readStoredPosts(scope).length);
-    const cacheFresh = hasCachedPosts && Date.now() - cached.savedAt < FEED_MEMORY_TTL;
+    const cacheFresh = Boolean(cached?.posts?.length && Date.now() - cached.savedAt < FEED_MEMORY_TTL);
 
     if (cacheFresh && !force) {
       refreshCurrentReactions();
       setLoading(false);
+      setRefreshing(false);
       setError("");
       return;
     }
 
-    if (hasCachedPosts && !error) {
+    if (hasCachedPosts) {
       setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setRefreshing(false);
     }
 
     try {
-      if (!hasCachedPosts) {
-        setLoading(true);
-      }
       setError("");
       const [rawPosts, reactions, currentProfile] = await Promise.all([
         fetchExplorePosts(scope),
@@ -254,10 +258,16 @@ export function useExploreFeed(scope = "feed") {
       }
       setCurrentUserId(currentProfile?.id || "");
       const cachedPosts = readStoredPosts(scope).map((post) => applyCurrentProfileToPost(post, currentProfile));
-      setPosts(cachedPosts.filter(isExplorePostVisibleInFeed));
-      setError(err.message || "Unable to load feed.");
+      const visibleFallbackPosts = (cachedPosts.length ? cachedPosts : postsRef.current).filter(isExplorePostVisibleInFeed);
+      if (visibleFallbackPosts.length) {
+        setPosts(visibleFallbackPosts);
+        setError("");
+      } else {
+        setError(err.message || "Unable to load feed.");
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -826,6 +836,9 @@ export function useExploreFeed(scope = "feed") {
       return isOwnPost || (!hiddenPosts.has(post.id) && !readBlockedUsers().has(post.user_id));
     }),
     loading,
+    isInitialLoading: loading && posts.length === 0,
+    refreshing,
+    isRefreshing: refreshing,
     error,
     creating,
     likedPosts,

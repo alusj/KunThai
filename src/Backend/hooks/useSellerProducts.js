@@ -12,21 +12,53 @@ const DEFAULT_PRODUCTS = {
   topSellingProducts: [],
 };
 
+const SELLER_PRODUCTS_MEMORY = {
+  productState: null,
+  savedAt: 0,
+};
+
+function normalizeProducts(productState) {
+  return { ...DEFAULT_PRODUCTS, ...productState };
+}
+
+function hasProductStateData(productState) {
+  return Boolean(productState?.summary || productState?.products?.length || productState?.topSellingProducts?.length);
+}
+
 export function useSellerProducts() {
-  const [productState, setProductState] = useState(DEFAULT_PRODUCTS);
-  const [loading, setLoading] = useState(true);
+  const [productState, setProductState] = useState(() => SELLER_PRODUCTS_MEMORY.productState || DEFAULT_PRODUCTS);
+  const [loading, setLoading] = useState(() => !hasProductStateData(SELLER_PRODUCTS_MEMORY.productState));
+  const [refreshing, setRefreshing] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
 
-  async function loadProducts(active = true) {
+  async function loadProducts(isActive = () => true) {
+    const cachedProductState = SELLER_PRODUCTS_MEMORY.productState;
+    const hasCachedProducts = hasProductStateData(cachedProductState);
+
+    if (cachedProductState && isActive()) {
+      setProductState(cachedProductState);
+    }
+
+    if (hasCachedProducts) {
+      setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setRefreshing(false);
+    }
+
     try {
-      const nextProductState = await fetchSellerProducts();
-      if (active) {
-        setProductState({ ...DEFAULT_PRODUCTS, ...nextProductState });
+      const nextProductState = normalizeProducts(await fetchSellerProducts());
+      SELLER_PRODUCTS_MEMORY.productState = nextProductState;
+      SELLER_PRODUCTS_MEMORY.savedAt = Date.now();
+      if (isActive()) {
+        setProductState(nextProductState);
       }
     } finally {
-      if (active) {
+      if (isActive()) {
         setLoading(false);
+        setRefreshing(false);
       }
     }
   }
@@ -34,7 +66,7 @@ export function useSellerProducts() {
   useEffect(() => {
     let active = true;
 
-    loadProducts(active);
+    loadProducts(() => active).catch(() => {});
 
     return () => {
       active = false;
@@ -73,7 +105,7 @@ export function useSellerProducts() {
         setActionMessage("Promotion draft created.");
       }
 
-      await loadProducts(true);
+      await loadProducts(() => true);
     } catch (error) {
       setActionError(error.message || "Unable to update product.");
     }
@@ -86,5 +118,8 @@ export function useSellerProducts() {
     actionError,
     handleProductAction,
     loading,
+    isInitialLoading: loading && !hasProductStateData(productState),
+    refreshing,
+    isRefreshing: refreshing,
   };
 }

@@ -23,6 +23,7 @@ import ProductSuccessToast from "./ProductSuccessToast";
 //import RecentMessages from "./RecentMessages";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
+import { useSellerOverview } from "../../../../Backend/hooks/useSellerOverview";
 import { useEffect, useRef, useState } from "react";
 import AppBackTab from "../../../shared/AppBackTab";
 import AppPortal from "../../../shared/AppPortal";
@@ -66,8 +67,9 @@ function SellerFullScreen({ children, hideHeader = false, eyebrow, onBack, open,
 
 export default function Business({ onBack }) {
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
+  const sellerOverview = useSellerOverview({ enabled: hasBusiness });
   const [activeScreen, setActiveScreen] = useState("dashboard");
-  const [screenHistory, setScreenHistory] = useState([]);
+  const [, setScreenHistory] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
   const [toastMessage, setToastMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -231,7 +233,14 @@ export default function Business({ onBack }) {
     return null;
   }
 
-  if (loading) return <BusinessSkeleton />;
+  const sellerDashboardHasData =
+    sellerOverview.business &&
+    sellerOverview.storeStatus &&
+    sellerOverview.health &&
+    sellerOverview.today;
+  const sellerDashboardInitialLoading = hasBusiness && sellerOverview.isInitialLoading && !sellerDashboardHasData;
+
+  if (loading || sellerDashboardInitialLoading) return <BusinessSkeleton />;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -280,7 +289,7 @@ export default function Business({ onBack }) {
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         <div>
           <main className="space-y-6">
-            <MyBizDashboardHeader onEditProfile={openProfileEditor} />
+            <MyBizDashboardHeader onEditProfile={openProfileEditor} overview={sellerOverview} />
             <SellerWorkspaceTabs activeTab={activeTab} onTabChange={setActiveTab} />
             {activeTab === "overview" ? (
               <>

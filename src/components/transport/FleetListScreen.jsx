@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import { FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
 import {
   fetchTransportFleets,
@@ -10,15 +10,23 @@ import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 
+function filterFleetsForSelection(items, selection) {
+  return selection.verifiedOnly
+    ? items.filter((fleet) => ["verified", "recommended"].includes(fleet.verificationStatus))
+    : items;
+}
+
 export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification, onOpenBooking }) {
-  const [fleets, setFleets] = useState(() => {
-    const items = getTransportFleets(selection);
-    return selection.verifiedOnly
-      ? items.filter((fleet) => ["verified", "recommended"].includes(fleet.verificationStatus))
-      : items;
-  });
-  const [loading, setLoading] = useState(true);
+  const initialFleets = filterFleetsForSelection(getTransportFleets(selection), selection);
+  const [fleets, setFleets] = useState(() => initialFleets);
+  const [loading, setLoading] = useState(() => initialFleets.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const fleetsRef = useRef(fleets);
+
+  useEffect(() => {
+    fleetsRef.current = fleets;
+  }, [fleets]);
 
   const modeLabel =
     selection.mode === "topRated" ? "All Fleets" : selection.mode === "ride" ? "Ride" : "Delivery";
@@ -32,21 +40,37 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
     let alive = true;
 
     async function loadFleets() {
+      const localItems = filterFleetsForSelection(getTransportFleets(selection), selection);
+      const hasExistingFleets = fleetsRef.current.length > 0 || localItems.length > 0;
+
       try {
-        setLoading(true);
+        if (localItems.length) {
+          setFleets(localItems);
+          fleetsRef.current = localItems;
+        }
+        if (hasExistingFleets) {
+          setLoading(false);
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+          setRefreshing(false);
+        }
         setError("");
         const items = await fetchTransportFleets(selection);
-        const visibleItems = selection.verifiedOnly
-          ? items.filter((fleet) => ["verified", "recommended"].includes(fleet.verificationStatus))
-          : items;
+        const visibleItems = filterFleetsForSelection(items, selection);
         if (alive) setFleets(visibleItems);
       } catch (err) {
         if (alive) {
-          setError(err.message || "Unable to load fleets.");
-          setFleets([]);
+          setError(hasExistingFleets ? "" : err.message || "Unable to load fleets.");
+          if (!hasExistingFleets) {
+            setFleets([]);
+          }
         }
       } finally {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
 
@@ -103,10 +127,15 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
           <SummaryItem label="Type" value={selection.mode === "topRated" ? "All fleet types" : selection.label} />
           <SummaryItem label="Mode" value={selection.verifiedOnly ? "Verified only" : modeLabel} />
         </div>
+        {refreshing && fleets.length ? (
+          <p className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
+            Refreshing fleet availability...
+          </p>
+        ) : null}
 
         {error ? (
           <EmptyState title="Unable to load fleets" body={error} />
-        ) : loading ? (
+        ) : loading && !fleets.length ? (
           <EmptyState title="Loading fleets" body="Checking live operators from the backend." />
         ) : fleets.length === 0 ? (
           <EmptyState title="No fleets available" body="No registered operators match this transport sector yet." />

@@ -67,7 +67,7 @@ function PlaceholderMenuScreen({ screen }) {
   - Decides which page to show
 */
 
-export default function Explore({ active = true, onScreenModeChange, user = null, authLoading = false }) {
+export default function Explore({ active = true, onNavigateMain, onScreenModeChange, user = null, authLoading = false }) {
   const [profileOverride, setProfileOverride] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
@@ -78,10 +78,12 @@ export default function Explore({ active = true, onScreenModeChange, user = null
   const [postingNotice, setPostingNotice] = useState(() => readPostingNotice());
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
+  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
   const [menuStackAction, setMenuStackAction] = useState("idle");
   const topChromeRef = useRef(null);
   const tabScrollRef = useRef({});
+  const exploreGestureRef = useRef(null);
   const previousMenuStackRef = useRef([]);
   const stackCleanupTimerRef = useRef(null);
   const postingNoticeClearTimerRef = useRef(null);
@@ -89,8 +91,9 @@ export default function Explore({ active = true, onScreenModeChange, user = null
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
+  const anyExploreOverlayVisible = menuOverlayVisible || leftDrawerOpen;
   const navHidden = useScrollHidden({
-    enabled: active && !menuOverlayVisible,
+    enabled: active && !anyExploreOverlayVisible,
     threshold: 72,
     hideDistance: 72,
     showDistance: 52,
@@ -131,23 +134,24 @@ export default function Explore({ active = true, onScreenModeChange, user = null
   }, [isSwipTab, navHidden]);
 
   useEffect(() => {
-    onScreenModeChange?.(active && (menuOverlayVisible || isSwipTab || Boolean(activeMenuScreen)));
+    onScreenModeChange?.(active && (anyExploreOverlayVisible || isSwipTab || Boolean(activeMenuScreen)));
 
     stopAllExploreMedia();
 
     return () => {
       onScreenModeChange?.(false);
     };
-  }, [active, menuOverlayVisible, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
+  }, [active, anyExploreOverlayVisible, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
 
   useEffect(() => {
     if (!active) {
       stopAllExploreMedia();
+      setLeftDrawerOpen(false);
     }
   }, [active]);
 
   useEffect(() => {
-    if (!menuOverlayVisible) return undefined;
+    if (!anyExploreOverlayVisible) return undefined;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -155,7 +159,7 @@ export default function Explore({ active = true, onScreenModeChange, user = null
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [menuOverlayVisible]);
+  }, [anyExploreOverlayVisible]);
 
   useEffect(() => {
     const previousStack = previousMenuStackRef.current;
@@ -435,6 +439,7 @@ setProfileError("");
   
   function openMenuScreen(screen, options = {}) {
    stopAllExploreMedia();
+    setLeftDrawerOpen(false);
     if (!MENU_SCREENS[screen]) {
       return;
     }
@@ -465,6 +470,82 @@ setProfileError("");
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.scrollTo({ top: nextScroll, behavior: "instant" }));
     });
+  }
+
+  function getExploreTabPanelClass(tab) {
+    if (activeTab !== tab) {
+      return "hidden";
+    }
+
+    return `${tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"} block`;
+  }
+
+  function handleExploreTouchStart(event) {
+    if (!active || anyExploreOverlayVisible || event.touches.length !== 1) {
+      exploreGestureRef.current = null;
+      return;
+    }
+
+    const target = event.target;
+    if (target?.closest?.("input, textarea, select, [contenteditable='true']")) {
+      exploreGestureRef.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    exploreGestureRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      lastX: touch.clientX,
+      lastY: touch.clientY,
+    };
+  }
+
+  function handleExploreTouchMove(event) {
+    if (!exploreGestureRef.current || event.touches.length !== 1) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    exploreGestureRef.current.lastX = touch.clientX;
+    exploreGestureRef.current.lastY = touch.clientY;
+  }
+
+  function handleExploreTouchEnd() {
+    const gesture = exploreGestureRef.current;
+    exploreGestureRef.current = null;
+
+    if (!gesture || !active || anyExploreOverlayVisible) {
+      return;
+    }
+
+    const deltaX = gesture.lastX - gesture.startX;
+    const deltaY = gesture.lastY - gesture.startY;
+    const horizontal = Math.abs(deltaX);
+    const vertical = Math.abs(deltaY);
+
+    if (horizontal < 68 || horizontal < vertical * 1.25 || vertical > 110) {
+      return;
+    }
+
+    const currentIndex = EXPLORE_TAB_ORDER.indexOf(activeTab);
+
+    if (deltaX > 0) {
+      if (activeTab === "UrFeed") {
+        setLeftDrawerOpen(true);
+        return;
+      }
+
+      switchExploreTab(EXPLORE_TAB_ORDER[Math.max(0, currentIndex - 1)]);
+      return;
+    }
+
+    if (currentIndex < EXPLORE_TAB_ORDER.length - 1) {
+      switchExploreTab(EXPLORE_TAB_ORDER[currentIndex + 1]);
+      return;
+    }
+
+    onNavigateMain?.("marketplace");
   }
 
   function renderMenuScreen(screenKey) {
@@ -652,6 +733,12 @@ setProfileError("");
     <div
       className={`block min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
       style={{ "--explore-top-chrome-height": `${topChromeHeight}px` }}
+      onTouchStart={handleExploreTouchStart}
+      onTouchMove={handleExploreTouchMove}
+      onTouchEnd={handleExploreTouchEnd}
+      onTouchCancel={() => {
+        exploreGestureRef.current = null;
+      }}
     >
       <PostingStatusBanner notice={postingNotice} onDismiss={dismissPostingNotice} />
 
@@ -694,32 +781,67 @@ setProfileError("");
         {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
        {profileExists ? (
   <>
-    {activeTab === "UrFeed" && (
+    <section aria-hidden={activeTab !== "UrFeed"} className={getExploreTabPanelClass("UrFeed")}>
       <UrFeed
         profile={profile}
         onViewProfile={openViewedProfile}
       />
-    )}
+    </section>
 
-    {activeTab === "Swip" && (
+    <section aria-hidden={activeTab !== "Swip"} className={getExploreTabPanelClass("Swip")}>
       <Swip
-        active
+        active={active && activeTab === "Swip"}
         currentUserId={profile.userId}
         onViewProfile={openViewedProfile}
       />
-    )}
+    </section>
 
-    {activeTab === "Connections" && (
+    <section aria-hidden={activeTab !== "Connections"} className={getExploreTabPanelClass("Connections")}>
       <Connections
         currentUserId={profile.userId}
         onViewProfile={openViewedProfile}
       />
-    )}
+    </section>
   </>
 ) : null}
       </div>
 
     </div>
+    {leftDrawerOpen ? (
+      <div className="fixed inset-0 z-[75] flex h-screen w-screen overflow-hidden">
+        <button
+          type="button"
+          aria-label="Close social menu"
+          className="absolute inset-0 bg-slate-950/30"
+          onClick={() => setLeftDrawerOpen(false)}
+        />
+        <aside className="kt-explore-stack-enter-left relative z-10 flex h-full w-[min(78vw,390px)] min-w-[260px] max-w-sm flex-col bg-white shadow-2xl">
+          <header className="border-b border-slate-200 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setLeftDrawerOpen(false)}
+                className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-black text-slate-800 shadow-sm"
+                aria-label="Close menu"
+              >
+                &larr;
+              </button>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">KunThai</p>
+                <h2 className="truncate text-lg font-semibold text-slate-950">Social Menu</h2>
+              </div>
+            </div>
+          </header>
+          <SocialMenuContent
+            onClose={() => setLeftDrawerOpen(false)}
+            onNavigate={(screen, options) => {
+              setLeftDrawerOpen(false);
+              openMenuScreen(screen, options);
+            }}
+          />
+        </aside>
+      </div>
+    ) : null}
     {menuOverlayVisible ? (
       <div
         ref={fullScreenSwipeRef}

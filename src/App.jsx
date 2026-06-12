@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "./Backend/hooks/useAuth";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
@@ -108,6 +108,7 @@ export default function App() {
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [pageSlideDirection, setPageSlideDirection] = useState("forward");
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
+  const appGestureRef = useRef(null);
   const userId = user?.id || "";
 
   useEffect(() => {
@@ -207,6 +208,69 @@ export default function App() {
     setPage(nextPage);
   }
 
+  function handleAppTouchStart(event) {
+    if (page === "explore" || bottomTabsHidden || event.touches.length !== 1) {
+      appGestureRef.current = null;
+      return;
+    }
+
+    const target = event.target;
+    if (target?.closest?.("input, textarea, select, [contenteditable='true']")) {
+      appGestureRef.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    appGestureRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      lastX: touch.clientX,
+      lastY: touch.clientY,
+    };
+  }
+
+  function handleAppTouchMove(event) {
+    if (!appGestureRef.current || event.touches.length !== 1) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    appGestureRef.current.lastX = touch.clientX;
+    appGestureRef.current.lastY = touch.clientY;
+  }
+
+  function handleAppTouchEnd() {
+    const gesture = appGestureRef.current;
+    appGestureRef.current = null;
+
+    if (!gesture || page === "explore" || bottomTabsHidden) {
+      return;
+    }
+
+    const deltaX = gesture.lastX - gesture.startX;
+    const deltaY = gesture.lastY - gesture.startY;
+    const horizontal = Math.abs(deltaX);
+    const vertical = Math.abs(deltaY);
+
+    if (horizontal < 72 || horizontal < vertical * 1.25 || vertical > 112) {
+      return;
+    }
+
+    if (deltaX < 0 && page === "marketplace") {
+      changePage("transport");
+      return;
+    }
+
+    if (deltaX > 0 && page === "transport") {
+      changePage("marketplace");
+      return;
+    }
+
+    if (deltaX > 0 && page === "marketplace") {
+      changePage("explore");
+    }
+  }
+
   function pagePanelClass(targetPage) {
     if (page !== targetPage) {
       return "hidden";
@@ -216,11 +280,20 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100">
+    <div
+      className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100"
+      onTouchStart={handleAppTouchStart}
+      onTouchMove={handleAppTouchMove}
+      onTouchEnd={handleAppTouchEnd}
+      onTouchCancel={() => {
+        appGestureRef.current = null;
+      }}
+    >
       <PageTransition active className="min-h-screen">
         <section className={pagePanelClass("explore")} aria-hidden={page !== "explore"}>
           <Explore
   active={page === "explore"}
+  onNavigateMain={changePage}
   onScreenModeChange={setExploreFullScreen}
   user={user}
   authLoading={loading}

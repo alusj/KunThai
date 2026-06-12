@@ -26,27 +26,56 @@ const DEFAULT_HEADER_STATE = {
   searchSuggestions: [],
 };
 
+const SELLER_HEADER_MEMORY = {
+  loaded: false,
+  headerState: DEFAULT_HEADER_STATE,
+  savedAt: 0,
+};
+
+function normalizeHeaderState(headerState) {
+  return { ...DEFAULT_HEADER_STATE, ...headerState };
+}
+
 export function useSellerHeader() {
-  const [headerState, setHeaderState] = useState(DEFAULT_HEADER_STATE);
+  const [headerState, setHeaderState] = useState(() => SELLER_HEADER_MEMORY.headerState);
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !SELLER_HEADER_MEMORY.loaded);
+  const [refreshing, setRefreshing] = useState(false);
   const [, setSeenVersion] = useState(0);
 
-  async function loadHeaderState(active = true) {
-    const nextState = await fetchSellerHeaderState();
-    if (active) {
-      setHeaderState({ ...DEFAULT_HEADER_STATE, ...nextState });
-    }
-    if (active) {
+  async function loadHeaderState(isActive = () => true) {
+    const hasCachedHeader = SELLER_HEADER_MEMORY.loaded;
+
+    if (hasCachedHeader && isActive()) {
+      setHeaderState(SELLER_HEADER_MEMORY.headerState);
       setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setRefreshing(false);
+    }
+
+    const nextState = normalizeHeaderState(await fetchSellerHeaderState());
+    SELLER_HEADER_MEMORY.loaded = true;
+    SELLER_HEADER_MEMORY.headerState = nextState;
+    SELLER_HEADER_MEMORY.savedAt = Date.now();
+    if (isActive()) {
+      setHeaderState(nextState);
+      setLoading(false);
+      setRefreshing(false);
     }
   }
 
   useEffect(() => {
     let active = true;
 
-    loadHeaderState(active);
+    loadHeaderState(() => active).catch(() => {
+      if (active) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    });
 
     return () => {
       active = false;
@@ -55,7 +84,7 @@ export function useSellerHeader() {
 
   useEffect(() => {
     function handleMessagesUpdated() {
-      loadHeaderState(true);
+      loadHeaderState(() => true).catch(() => {});
     }
 
     window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
@@ -110,6 +139,9 @@ export function useSellerHeader() {
     setQuery,
     searchResults,
     loading,
+    isInitialLoading: loading && !SELLER_HEADER_MEMORY.loaded,
+    refreshing,
+    isRefreshing: refreshing,
     markSellerSectionSeen,
   };
 }

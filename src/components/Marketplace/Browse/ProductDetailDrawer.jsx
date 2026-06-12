@@ -717,6 +717,15 @@ export default function ProductDetailDrawer({
     }
   }
 
+  function openSellerProfile() {
+    onOpenSeller?.(product.seller);
+  }
+
+  function openVerificationDetails(event) {
+    event?.stopPropagation?.();
+    setVerificationOpen(true);
+  }
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
@@ -762,36 +771,49 @@ export default function ProductDetailDrawer({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => onOpenSeller?.(product.seller)}
-                className="w-full rounded-lg border border-gray-200 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
-              >
+              <article className="w-full rounded-lg border border-gray-200 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-950 text-sm font-black text-white">
+                  <button
+                    type="button"
+                    onClick={openSellerProfile}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-950 text-sm font-black text-white transition hover:scale-[1.02]"
+                    aria-label={`Open ${product.seller.name} profile`}
+                  >
                     {product.seller.logoUrl ? (
                       <img src={product.seller.logoUrl} alt="" className="h-full w-full rounded-lg object-cover" />
                     ) : (
                       product.seller.name.slice(0, 2).toUpperCase()
                     )}
-                  </div>
+                  </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-black text-gray-950">{product.seller.name}</p>
-                      <MarketplaceVerificationBadge status={product.seller.verificationStatus} onClick={() => setVerificationOpen(true)} />
+                      <button
+                        type="button"
+                        onClick={openSellerProfile}
+                        className="min-w-0 truncate rounded-md text-left font-black text-gray-950 outline-none transition hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                      >
+                        {product.seller.name}
+                      </button>
+                      <MarketplaceVerificationBadge status={product.seller.verificationStatus} onClick={openVerificationDetails} />
                       <MarketplaceVerificationInline
                         audience="buyer"
                         status={product.seller.verificationStatus}
-                        onReadMore={() => setVerificationOpen(true)}
+                        onReadMore={openVerificationDetails}
                       />
                     </div>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-gray-500">
+                    <button
+                      type="button"
+                      onClick={openSellerProfile}
+                      className="mt-0.5 flex max-w-full items-center gap-1 rounded-md text-left text-xs font-bold text-gray-500 outline-none transition hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    >
                       <MapPin size={14} />
-                      {[product.seller.city, product.seller.country].filter(Boolean).join(", ") || product.location}
-                    </p>
+                      <span className="truncate">
+                        {[product.seller.city, product.seller.country].filter(Boolean).join(", ") || product.location}
+                      </span>
+                    </button>
                   </div>
                 </div>
-              </button>
+              </article>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg bg-gray-100 p-2.5">

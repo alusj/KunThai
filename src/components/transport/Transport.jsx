@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FiBriefcase, FiCheckCircle, FiFileText, FiShield, FiX } from "react-icons/fi";
 
 import Body from "./Body/Body";
 import ActiveTripsScreen from "./ActiveTripsScreen";
@@ -15,8 +16,13 @@ import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import TransportRegistrationTypeScreen from "./registration/TransportRegistrationTypeScreen";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
-import { getOperatorAccount } from "../services/transportOperatorAccountService";
-import { getTransportCompanyAccount, subscribeTransportCompanyUpdates } from "../services/transportCompanyService";
+import { fetchOperatorDashboard, getOperatorAccount } from "../services/transportOperatorAccountService";
+import {
+  getOperatorCompanyInvites,
+  getTransportCompanyAccount,
+  subscribeTransportCompanyUpdates,
+  updateOperatorCompanyInvite,
+} from "../services/transportCompanyService";
 import { submitTransportSupportTicket } from "../services/bookingService";
 
 export default function Transport({ onActivityChange, areaViewRequest = null }) {
@@ -30,6 +36,9 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   const [companyAccount, setCompanyAccount] = useState(null);
   const [companyLoading, setCompanyLoading] = useState(true);
   const [companyWorkspaceOpen, setCompanyWorkspaceOpen] = useState(false);
+  const [companyWorkspaceStatus, setCompanyWorkspaceStatus] = useState("");
+  const [companyOperatorDashboardOpen, setCompanyOperatorDashboardOpen] = useState(false);
+  const [companyOperatorAccount, setCompanyOperatorAccount] = useState(null);
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
   const [operatorDashboardClosing, setOperatorDashboardClosing] = useState(false);
   const [operatorDashboardView, setOperatorDashboardView] = useState("dashboard");
@@ -43,6 +52,11 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   const [verificationFleet, setVerificationFleet] = useState(null);
   const [bookingTarget, setBookingTarget] = useState(null);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
+  const [operatorCompanyInvites, setOperatorCompanyInvites] = useState([]);
+  const [operatorInviteLoading, setOperatorInviteLoading] = useState(false);
+  const [operatorInviteStatus, setOperatorInviteStatus] = useState("");
+  const [documentReuseInvite, setDocumentReuseInvite] = useState(null);
+  const [registrationInvite, setRegistrationInvite] = useState(null);
   const [routeDirection, setRouteDirection] = useState("forward");
   const operatorDashboardCloseTimer = useRef(null);
 
@@ -69,6 +83,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setOperatorDashboardClosing(false);
     setOperatorDashboardView(view);
     setRouteDirection("forward");
+    setCompanyOperatorDashboardOpen(false);
+    setCompanyOperatorAccount(null);
     setOperatorDashboardOpen(true);
   }
 
@@ -77,6 +93,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setRegistrationType(null);
     setRegistrationOpen(true);
     setCompanyWorkspaceOpen(false);
+    setCompanyOperatorDashboardOpen(false);
+    setCompanyOperatorAccount(null);
     setRouteDirection("forward");
   }
 
@@ -85,6 +103,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setRegistrationType("solo");
     setRegistrationOpen(true);
     setCompanyWorkspaceOpen(false);
+    setCompanyOperatorDashboardOpen(false);
+    setCompanyOperatorAccount(null);
     setRouteDirection("forward");
   }
 
@@ -93,6 +113,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setRegistrationType("company");
     setRegistrationOpen(true);
     setCompanyWorkspaceOpen(false);
+    setCompanyOperatorDashboardOpen(false);
+    setCompanyOperatorAccount(null);
     setRouteDirection("forward");
   }
 
@@ -115,6 +137,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       setCompanyWorkspaceOpen(true);
     }
 
+    if (registrationSource === "company-invite") {
+      setRegistrationInvite(null);
+    }
+
     setRegistrationSource(null);
   }
 
@@ -129,6 +155,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
     if (registrationSource === "company-workspace") {
       setCompanyWorkspaceOpen(true);
+    }
+
+    if (registrationSource === "company-invite") {
+      setRegistrationInvite(null);
     }
 
     setRegistrationSource(null);
@@ -160,6 +190,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setRegistrationType(null);
     setRegistrationSource(null);
     setCompanyWorkspaceOpen(false);
+    setCompanyOperatorDashboardOpen(false);
+    setCompanyOperatorAccount(null);
     setOperatorDashboardOpen(false);
     setOperatorDashboardClosing(false);
     setFleetSelection(null);
@@ -268,6 +300,149 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     });
   }
 
+  const refreshOperatorCompanyInvites = useCallback(async (account = operatorAccount) => {
+    try {
+      setOperatorInviteLoading(true);
+      const invites = await getOperatorCompanyInvites(account);
+      setOperatorCompanyInvites(invites);
+      setOperatorInviteStatus("");
+    } catch (error) {
+      if (!/sign in/i.test(error.message || "")) {
+        setOperatorInviteStatus(error.message || "Unable to load company registration requests.");
+      }
+    } finally {
+      setOperatorInviteLoading(false);
+    }
+  }, [operatorAccount]);
+
+  async function respondToOperatorInvite(invite, patch) {
+    const updatedInvite = await updateOperatorCompanyInvite(invite, {
+      operatorId: operatorAccount?.id || invite.operatorId,
+      userId: operatorAccount?.userId || invite.userId,
+      verificationStatus: operatorAccount?.verificationStatus || invite.verificationStatus,
+      ...patch,
+    });
+    setOperatorCompanyInvites((items) =>
+      items.map((item) => (item.requestId === updatedInvite.requestId && item.companyId === updatedInvite.companyId ? updatedInvite : item)),
+    );
+    return updatedInvite;
+  }
+
+  async function acceptOperatorCompanyInvite(invite) {
+    setOperatorInviteStatus("");
+    if (hasSubmittedOperatorDocuments(operatorAccount)) {
+      setDocumentReuseInvite(invite);
+      return;
+    }
+
+    try {
+      const updatedInvite = await respondToOperatorInvite(invite, {
+        status: "accepted",
+        documents: {
+          registrationRequired: true,
+          registrationRequestedAt: new Date().toISOString(),
+        },
+      });
+      setRegistrationInvite(updatedInvite);
+      openSoloRegistration("company-invite");
+    } catch (error) {
+      setOperatorInviteStatus(error.message || "Unable to accept this company request.");
+    }
+  }
+
+  async function continueWithExistingOperatorDocuments() {
+    if (!documentReuseInvite) return;
+    try {
+      const reuseNotice = "KunThai will use the identity, license, and fleet documents this operator previously submitted for review.";
+      await respondToOperatorInvite(documentReuseInvite, {
+        status: "accepted",
+        documents: {
+          reuseNotice,
+          reusedExistingDocuments: true,
+          reusedAt: new Date().toISOString(),
+        },
+      });
+      setDocumentReuseInvite(null);
+      await refreshOperatorCompanyInvites(operatorAccount);
+      setOperatorInviteStatus("Company request accepted. Your existing operator documents will be used for this registration.");
+    } catch (error) {
+      setOperatorInviteStatus(error.message || "Unable to continue with existing documents.");
+    }
+  }
+
+  async function rejectOperatorCompanyInvite(invite = documentReuseInvite) {
+    if (!invite) return;
+    try {
+      await respondToOperatorInvite(invite, {
+        status: "rejected",
+        documents: {
+          rejectedAt: new Date().toISOString(),
+        },
+      });
+      setDocumentReuseInvite(null);
+      await refreshOperatorCompanyInvites(operatorAccount);
+      setOperatorInviteStatus("Company request declined.");
+    } catch (error) {
+      setOperatorInviteStatus(error.message || "Unable to decline this company request.");
+    }
+  }
+
+  function completeRegistrationForInvite(invite) {
+    setRegistrationInvite(invite);
+    openSoloRegistration("company-invite");
+  }
+
+  async function finishOperatorRegistration(account) {
+    setOperatorAccount(account);
+    if (registrationInvite) {
+      try {
+        await updateOperatorCompanyInvite(registrationInvite, {
+          status: "accepted",
+          operatorId: account?.id,
+          userId: account?.userId,
+          verificationStatus: account?.verificationStatus || "pending",
+          documents: {
+            registrationRequired: false,
+            registrationCompleted: true,
+            registrationCompletedAt: new Date().toISOString(),
+          },
+        });
+        const invites = await getOperatorCompanyInvites(account).catch(() => []);
+        setOperatorCompanyInvites(invites);
+      } catch (error) {
+        setOperatorInviteStatus(error.message || "Operator registered, but the company request could not be updated.");
+      } finally {
+        setRegistrationInvite(null);
+      }
+    }
+
+    setRegistrationOpen(false);
+    setRegistrationType(null);
+    setRegistrationSource(null);
+    setRouteDirection("forward");
+    setOperatorDashboardOpen(true);
+  }
+
+  async function openCompanyOperatorDashboard(operator) {
+    if (!operator?.operatorId) {
+      setCompanyWorkspaceStatus("This operator has not completed registration yet, so the dashboard is not available.");
+      return;
+    }
+
+    try {
+      setCompanyWorkspaceStatus("Opening operator dashboard...");
+      const dashboard = await fetchOperatorDashboard(operator.operatorId);
+      const account = buildReadOnlyOperatorAccount(operator, dashboard);
+      setCompanyOperatorAccount(account);
+      setCompanyOperatorDashboardOpen(true);
+      setCompanyWorkspaceOpen(false);
+      setRouteDirection("forward");
+      setCompanyWorkspaceStatus("");
+    } catch (error) {
+      setCompanyWorkspaceStatus(error.message || "Unable to open this operator dashboard.");
+    }
+  }
+
   useEffect(() => {
     let alive = true;
 
@@ -289,6 +464,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    refreshOperatorCompanyInvites();
+  }, [refreshOperatorCompanyInvites]);
 
   useEffect(() => {
     let alive = true;
@@ -336,6 +515,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setRegistrationAreaPreviewOpen(false);
     setRouteDirection("forward");
     setCompanyWorkspaceOpen(false);
+    setCompanyOperatorDashboardOpen(false);
+    setCompanyOperatorAccount(null);
     setOperatorDashboardOpen(false);
     setOperatorDashboardClosing(false);
     setFleetSelection(null);
@@ -352,6 +533,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     onActivityChange?.(
       registrationOpen ||
         companyWorkspaceOpen ||
+        companyOperatorDashboardOpen ||
         operatorDashboardOpen ||
         Boolean(fleetSelection) ||
         Boolean(activeFleetId) ||
@@ -361,7 +543,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         savedOperatorsOpen ||
         Boolean(verificationFleet) ||
         Boolean(bookingTarget) ||
-        headerActivityOpen,
+        headerActivityOpen ||
+        Boolean(documentReuseInvite),
     );
 
     return () => onActivityChange?.(false);
@@ -370,6 +553,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     activeTripsOpen,
     bookingTarget,
     companyWorkspaceOpen,
+    companyOperatorDashboardOpen,
+    documentReuseInvite,
     fleetSelection,
     headerActivityOpen,
     nearbyAreaOpen,
@@ -444,13 +629,33 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onClose={closeRegistrationFlow}
           onSaveExit={exitRegistrationFlow}
           onViewOneKmPreview={openRegistrationOneKmPreview}
-          onComplete={(account) => {
-            setOperatorAccount(account);
-            setRegistrationOpen(false);
-            setRegistrationType(null);
-            setRegistrationSource(null);
-            setRouteDirection("forward");
-            setOperatorDashboardOpen(true);
+          onComplete={finishOperatorRegistration}
+        />
+      </div>
+    );
+  }
+
+  if (companyOperatorDashboardOpen && companyOperatorAccount) {
+    return (
+      <div className={`${routePanelClass} min-h-screen`}>
+        <OperatorDashboardScreen
+          account={companyOperatorAccount}
+          companyAccount={companyAccount}
+          companyLoading={companyLoading}
+          initialView="dashboard"
+          readOnly
+          readOnlyReason="Company owner view. You can review passengers, trips, earnings, documents, and activity, but only the operator can make changes."
+          onBack={() => {
+            setRouteDirection("backward");
+            setCompanyOperatorDashboardOpen(false);
+            setCompanyWorkspaceOpen(true);
+          }}
+          onAccountUpdate={setCompanyOperatorAccount}
+          onLocateArea={openNearbyAreaRoute}
+          onOpenCompany={() => {
+            setRouteDirection("backward");
+            setCompanyOperatorDashboardOpen(false);
+            setCompanyWorkspaceOpen(true);
           }}
         />
       </div>
@@ -462,10 +667,12 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       <div className={`${routePanelClass} min-h-screen`}>
         <CompanyWorkspaceScreen
           company={companyAccount}
+          statusMessage={companyWorkspaceStatus}
           onBack={() => {
             setRouteDirection("backward");
             setCompanyWorkspaceOpen(false);
           }}
+          onOpenOperatorDashboard={openCompanyOperatorDashboard}
           onRegisterCompany={() => openCompanyRegistration("company-workspace")}
         />
       </div>
@@ -667,6 +874,14 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           {operatorError}
         </div>
       )}
+      <CompanyOperatorInvitePanel
+        invites={operatorCompanyInvites}
+        loading={operatorInviteLoading}
+        status={operatorInviteStatus}
+        onAccept={acceptOperatorCompanyInvite}
+        onCompleteRegistration={completeRegistrationForInvite}
+        onReject={rejectOperatorCompanyInvite}
+      />
       <Body
         onSelectFleetType={(mode, fleetType, label) => {
           setRouteDirection("forward");
@@ -696,7 +911,215 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         onLocateArea={openNearbyAreaRoute}
         onReportConcern={handleReportVerificationConcern}
       />
+      <DocumentReuseDecisionModal
+        invite={documentReuseInvite}
+        onClose={() => setDocumentReuseInvite(null)}
+        onContinue={continueWithExistingOperatorDocuments}
+        onDeny={() => rejectOperatorCompanyInvite(documentReuseInvite)}
+      />
       {renderBookingDrawer()}
+    </div>
+  );
+}
+
+function hasSubmittedOperatorDocuments(account) {
+  if (!account || account.documentsSkipped) return false;
+  const documents = account.dashboard?.verificationCenter?.documents || [];
+  const status = account.verificationStatus || account.dashboard?.verificationCenter?.status || "";
+  return documents.length > 0 || ["pending", "verified", "recommended"].includes(status);
+}
+
+function normalizeDashboardVerification(value = "pending") {
+  const map = {
+    not_verified: "notVerified",
+    verification_pending: "pending",
+    verified_recommended: "recommended",
+  };
+  return map[value] || value || "pending";
+}
+
+function titleCaseTransportValue(value = "", fallback = "Not added") {
+  const text = String(value || "").replace(/[_-]+/g, " ").trim();
+  if (!text) return fallback;
+  return text.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function buildReadOnlyOperatorAccount(invite, dashboard = null) {
+  const operator = dashboard?.operator || {};
+  const fleet = dashboard?.fleet || {};
+  return {
+    id: operator.id || invite.operatorId,
+    userId: operator.user_id || invite.userId,
+    fleetId: fleet.id || invite.companyFleetId,
+    operatorId: operator.operator_code || "",
+    displayCode: operator.display_code || invite.publicId,
+    form: {
+      name: operator.full_name || invite.name || "Registered operator",
+      phone: operator.phone || "",
+      country: fleet.country || operator.country || "",
+      countryCode: fleet.country_iso || operator.country_iso || "",
+      currency: fleet.currency || operator.currency || "",
+      city: operator.city || invite.city || "",
+      category: titleCaseTransportValue(fleet.service_category, "Transport"),
+      fleetType: titleCaseTransportValue(fleet.fleet_type || invite.fleetType, "Fleet"),
+      fleetName: fleet.fleet_name || invite.fleetName || "Registered Fleet",
+      plateNumber: fleet.plate_number || invite.plateNumber || "",
+      make: fleet.make || "",
+      model: fleet.model || "",
+      year: fleet.manufacture_year ? String(fleet.manufacture_year) : "",
+      color: fleet.color || "",
+      operatingArea: fleet.operating_area || invite.companyCity || "",
+      availability: fleet.availability || "",
+      homeBaseLocation: fleet.home_base_location || "",
+      baseFare: fleet.base_fare ? String(fleet.base_fare) : "",
+      pricePerKm: fleet.price_per_km ? String(fleet.price_per_km) : "",
+      pricePerHour: fleet.price_per_hour ? String(fleet.price_per_hour) : "",
+    },
+    answers: fleet.safety_answers || {},
+    uploads: {},
+    documentsSkipped: Boolean(operator.documents_skipped),
+    verificationStatus: normalizeDashboardVerification(fleet.verification_status || operator.verification_status || invite.verificationStatus),
+    activeStatus: fleet.active_status || "offline",
+    isVisibleToPassengers: Boolean(fleet.is_visible_to_passengers ?? true),
+    walletBalance: Number(operator.wallet_balance || 0),
+    pendingPayout: Number(operator.pending_payout || 0),
+    status: operator.account_status || "submitted",
+    savedAt: operator.updated_at || fleet.updated_at || invite.updatedAt,
+    dashboard,
+  };
+}
+
+function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onCompleteRegistration, onReject }) {
+  const actionableInvites = invites.filter((invite) =>
+    invite.status === "pending" || invite.status === "accepted_pending_documents" || invite.documents?.registrationRequired
+  );
+  if (!actionableInvites.length && !loading && !status) return null;
+
+  return (
+    <section className="mx-4 mt-3 rounded-[28px] border border-blue-100 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+          <FiBriefcase size={21} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">Company registration request</p>
+          <h2 className="mt-1 text-lg font-black leading-tight text-slate-950">Transport company invitations</h2>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+            Review requests from companies that want you to operate under their Fleet HQ.
+          </p>
+        </div>
+      </div>
+
+      {status ? (
+        <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
+          {status}
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-3">
+        {loading ? (
+          <div className="h-24 rounded-2xl border border-slate-100 bg-slate-50" />
+        ) : null}
+        {actionableInvites.map((invite) => (
+          <CompanyOperatorInviteCard
+            key={`${invite.companyId || invite.companyName}-${invite.requestId}`}
+            invite={invite}
+            onAccept={onAccept}
+            onCompleteRegistration={onCompleteRegistration}
+            onReject={onReject}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, onReject }) {
+  const needsDocuments = invite.status === "accepted_pending_documents" || invite.documents?.registrationRequired;
+  return (
+    <article className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+            {needsDocuments ? "Registration documents needed" : "New request"}
+          </p>
+          <h3 className="mt-1 break-words text-base font-black text-slate-950">{invite.companyName || "Transport company"}</h3>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+            {invite.fleetName || invite.fleetType || "Company fleet"} {invite.plateNumber ? `- ${invite.plateNumber}` : ""}
+          </p>
+        </div>
+        <span className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-black ${
+          needsDocuments ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-800"
+        }`}>
+          {needsDocuments ? "Accepted" : "Pending"}
+        </span>
+      </div>
+      <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+        {needsDocuments
+          ? "Complete your operator registration so this company can add you to its approved operator list."
+          : "Accept if you want this company to register you as an operator. Reject if you do not want to join this company fleet."}
+      </p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => (needsDocuments ? onCompleteRegistration(invite) : onAccept(invite))}
+          className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
+        >
+          {needsDocuments ? <FiFileText size={17} /> : <FiCheckCircle size={17} />}
+          {needsDocuments ? "Complete registration" : "Accept"}
+        </button>
+        <button
+          type="button"
+          onClick={() => onReject(invite)}
+          className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-700"
+        >
+          <FiX size={17} />
+          Reject
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function DocumentReuseDecisionModal({ invite, onClose, onContinue, onDeny }) {
+  if (!invite) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
+      <section className="kt-modal-enter relative w-full max-w-lg rounded-[28px] bg-white p-5 shadow-2xl">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700"
+          aria-label="Close document reuse notice"
+        >
+          <FiX />
+        </button>
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+          <FiShield size={23} />
+        </span>
+        <p className="mt-4 text-xs font-black uppercase tracking-wide text-emerald-700">Existing documents available</p>
+        <h2 className="mt-1 pr-10 text-2xl font-black leading-tight text-slate-950">Use your submitted operator documents?</h2>
+        <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+          {invite.companyName || "This company"} invited you to join {invite.fleetName || invite.fleetType || "their fleet"}. Since you have already submitted operator documents, KunThai can use those identity, license, and fleet records for this company registration.
+        </p>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onContinue}
+            className="h-11 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white"
+          >
+            Continue
+          </button>
+          <button
+            type="button"
+            onClick={onDeny}
+            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
+          >
+            Deny
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

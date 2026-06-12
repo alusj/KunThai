@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchSellerOverview } from "../services/marketplace/sellerOverviewService";
 
@@ -9,38 +9,98 @@ const DEFAULT_OVERVIEW = {
   today: null,
 };
 
-export function useSellerOverview() {
-  const [overview, setOverview] = useState(DEFAULT_OVERVIEW);
-  const [loading, setLoading] = useState(true);
+const SELLER_OVERVIEW_MEMORY = {
+  overview: null,
+  savedAt: 0,
+};
 
-  async function loadOverview(active = true) {
-    fetchSellerOverview()
-      .then((nextOverview) => {
-        if (active) {
-          setOverview({ ...DEFAULT_OVERVIEW, ...nextOverview });
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
-  }
+function normalizeOverview(overview) {
+  return { ...DEFAULT_OVERVIEW, ...overview };
+}
+
+function hasOverviewData(overview) {
+  return Boolean(overview?.business || overview?.storeStatus || overview?.health || overview?.today);
+}
+
+export function useSellerOverview({ enabled = true } = {}) {
+  const [overview, setOverview] = useState(() => (enabled && SELLER_OVERVIEW_MEMORY.overview ? SELLER_OVERVIEW_MEMORY.overview : DEFAULT_OVERVIEW));
+  const [loading, setLoading] = useState(() => enabled && !hasOverviewData(SELLER_OVERVIEW_MEMORY.overview));
+  const [refreshing, setRefreshing] = useState(false);
+  const overviewRef = useRef(overview);
+
+  useEffect(() => {
+    overviewRef.current = overview;
+  }, [overview]);
+
+  const loadOverview = useCallback(async (isActive = () => true) => {
+    if (!enabled) {
+      if (isActive()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+      return;
+    }
+
+    const cachedOverview = SELLER_OVERVIEW_MEMORY.overview;
+    const hasCachedOverview = hasOverviewData(cachedOverview) || hasOverviewData(overviewRef.current);
+
+    if (cachedOverview && isActive()) {
+      setOverview(cachedOverview);
+    }
+
+    if (hasCachedOverview) {
+      setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setRefreshing(false);
+    }
+
+    try {
+      const nextOverview = normalizeOverview(await fetchSellerOverview());
+      SELLER_OVERVIEW_MEMORY.overview = nextOverview;
+      SELLER_OVERVIEW_MEMORY.savedAt = Date.now();
+      if (isActive()) {
+        setOverview(nextOverview);
+      }
+    } catch {
+      if (isActive() && !hasCachedOverview) {
+        setOverview(DEFAULT_OVERVIEW);
+      }
+    } finally {
+      if (isActive()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+  }, [enabled]);
 
   useEffect(() => {
     let active = true;
 
-    setLoading(true);
-    loadOverview(active);
+    if (!enabled) {
+      if (!SELLER_OVERVIEW_MEMORY.overview) {
+        setOverview(DEFAULT_OVERVIEW);
+      }
+      setLoading(false);
+      setRefreshing(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    loadOverview(() => active);
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [enabled, loadOverview]);
 
   useEffect(() => {
+    if (!enabled) return undefined;
+
     function handleMessagesUpdated() {
-      loadOverview(true);
+      loadOverview(() => true);
     }
 
     window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
@@ -49,10 +109,13 @@ export function useSellerOverview() {
       window.removeEventListener("marketplace-message-sent", handleMessagesUpdated);
       window.removeEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
     };
-  }, []);
+  }, [enabled, loadOverview]);
 
   return {
     ...overview,
     loading,
+    isInitialLoading: loading && !hasOverviewData(overview),
+    refreshing,
+    isRefreshing: refreshing,
   };
 }

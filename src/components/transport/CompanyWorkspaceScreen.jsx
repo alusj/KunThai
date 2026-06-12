@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { Building2, ClipboardList, FileCheck2, Plus, ShieldCheck, Truck, UsersRound } from "lucide-react";
+import { Building2, ClipboardList, Eye, FileCheck2, Plus, ShieldCheck, Truck, UsersRound } from "lucide-react";
 import { FiActivity, FiMapPin } from "react-icons/fi";
 
 import AppBackTab from "../shared/AppBackTab";
 
 const tabs = ["Overview", "Fleets", "Colleagues", "Requests", "Activity"];
 
-export default function CompanyWorkspaceScreen({ company, onBack, onRegisterCompany }) {
+export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperatorDashboard, onRegisterCompany, statusMessage = "" }) {
   const [activeTab, setActiveTab] = useState("Overview");
   const fleets = company?.fleets || [];
   const requests = fleets.flatMap((fleet) =>
@@ -17,8 +17,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onRegisterComp
       plateNumber: fleet.plateNumber,
     })),
   );
-  const acceptedOperators = requests.filter((request) => request.status === "accepted");
-  const pendingRequests = requests.filter((request) => request.status === "pending");
+  const acceptedOperators = requests.filter((request) => request.status === "accepted" && !request.documents?.registrationRequired);
+  const pendingRequests = requests.filter((request) => request.status === "pending" || request.documents?.registrationRequired);
   const metrics = useMemo(
     () => [
       { label: "Fleets", value: fleets.length, icon: Truck, tone: "emerald" },
@@ -124,9 +124,14 @@ export default function CompanyWorkspaceScreen({ company, onBack, onRegisterComp
           </div>
 
           <section className="mt-4">
+            {statusMessage ? (
+              <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
+                {statusMessage}
+              </div>
+            ) : null}
             {activeTab === "Overview" ? <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} /> : null}
             {activeTab === "Fleets" ? <FleetList fleets={fleets} /> : null}
-            {activeTab === "Colleagues" ? <Colleagues operators={acceptedOperators} /> : null}
+            {activeTab === "Colleagues" ? <Colleagues operators={acceptedOperators} onOpenOperatorDashboard={onOpenOperatorDashboard} /> : null}
             {activeTab === "Requests" ? <Requests requests={requests} /> : null}
             {activeTab === "Activity" ? <Activity company={company} /> : null}
           </section>
@@ -206,7 +211,7 @@ function FleetList({ fleets }) {
   );
 }
 
-function Colleagues({ operators }) {
+function Colleagues({ operators, onOpenOperatorDashboard }) {
   if (!operators.length) return <EmptyPanel title="No colleagues accepted yet" body="Accepted operators and admins will appear here." />;
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -218,6 +223,15 @@ function Colleagues({ operators }) {
           <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
             Assigned to {operator.fleetName || operator.fleetType}
           </p>
+          <button
+            type="button"
+            onClick={() => onOpenOperatorDashboard?.(operator)}
+            disabled={!operator.operatorId || !onOpenOperatorDashboard}
+            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+          >
+            <Eye size={17} />
+            {operator.operatorId ? "View dashboard" : "Dashboard pending"}
+          </button>
         </section>
       ))}
     </div>
@@ -235,6 +249,12 @@ function Requests({ requests }) {
               <p className="text-xs font-black uppercase tracking-wide text-slate-400">{request.status}</p>
               <h3 className="mt-1 font-black text-slate-950">{request.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType}</p>
+              {request.status === "accepted_pending_documents" || request.documents?.registrationRequired ? (
+                <p className="mt-2 text-xs font-bold text-blue-700">Operator accepted. Registration documents are still needed.</p>
+              ) : null}
+              {request.documents?.reuseNotice ? (
+                <p className="mt-2 text-xs font-bold text-emerald-700">Using documents from the operator's previous registration.</p>
+              ) : null}
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">{request.plateNumber || "No plate"}</span>
           </div>

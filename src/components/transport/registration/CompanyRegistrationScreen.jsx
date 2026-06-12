@@ -47,7 +47,6 @@ const serviceCategories = ["Ride only", "Delivery only", "Ride and delivery"];
 const companyTypes = ["Transport company", "Delivery company", "Taxi union", "Bike riders group", "Community fleet", "Other organization"];
 const companyDocuments = ["Business registration", "Transport permit", "Tax or business ID", "Owner national ID"];
 const fleetDocuments = ["Fleet registration", "Insurance", "Roadworthiness", "Fleet photos"];
-const operatorDocuments = ["Driver or rider license", "National ID", "Selfie"];
 
 function createCompanyForm(profile = {}) {
   const name = String(profile.displayName || profile.fullName || "").trim();
@@ -229,44 +228,6 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
           ? {
               ...fleet,
               operators: [request, ...(fleet.operators || []).filter((item) => item.publicId !== request.publicId)],
-            }
-          : fleet,
-      ),
-    );
-  }
-
-  function updateOperatorInvite(fleetId, requestId, patch) {
-    setFleets((items) =>
-      items.map((fleet) =>
-        fleet.localId === fleetId
-          ? {
-              ...fleet,
-              operators: (fleet.operators || []).map((operator) =>
-                operator.requestId === requestId ? { ...operator, ...patch } : operator,
-              ),
-            }
-          : fleet,
-      ),
-    );
-  }
-
-  function markOperatorDocument(fleetId, requestId, document, file) {
-    setFleets((items) =>
-      items.map((fleet) =>
-        fleet.localId === fleetId
-          ? {
-              ...fleet,
-              operators: (fleet.operators || []).map((operator) =>
-                operator.requestId === requestId
-                  ? {
-                      ...operator,
-                      documents: {
-                        ...operator.documents,
-                        [document]: file?.name || "Selected",
-                      },
-                    }
-                  : operator,
-              ),
             }
           : fleet,
       ),
@@ -508,8 +469,6 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
                 fleets={fleets}
                 onAddFleet={addFleet}
                 onInvite={addOperatorInvite}
-                onOperatorDocument={markOperatorDocument}
-                onOperatorUpdate={updateOperatorInvite}
                 onRemoveFleet={removeFleet}
                 onUpdateFleet={updateFleet}
                 onUploadFleetDocument={markFleetDocument}
@@ -722,7 +681,7 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
   );
 }
 
-function FleetBuilderStep({ fleets, onAddFleet, onInvite, onOperatorDocument, onOperatorUpdate, onRemoveFleet, onUpdateFleet, onUploadFleetDocument }) {
+function FleetBuilderStep({ fleets, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -741,8 +700,6 @@ function FleetBuilderStep({ fleets, onAddFleet, onInvite, onOperatorDocument, on
             fleet={fleet}
             index={index}
             onInvite={onInvite}
-            onOperatorDocument={onOperatorDocument}
-            onOperatorUpdate={onOperatorUpdate}
             onRemove={onRemoveFleet}
             onUpdate={onUpdateFleet}
             onUploadDocument={onUploadFleetDocument}
@@ -754,7 +711,7 @@ function FleetBuilderStep({ fleets, onAddFleet, onInvite, onOperatorDocument, on
   );
 }
 
-function FleetCard({ fleet, index, onInvite, onOperatorDocument, onOperatorUpdate, onRemove, onUpdate, onUploadDocument, removable }) {
+function FleetCard({ fleet, index, onInvite, onRemove, onUpdate, onUploadDocument, removable }) {
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
@@ -862,7 +819,7 @@ function FleetCard({ fleet, index, onInvite, onOperatorDocument, onOperatorUpdat
           <div>
             <h4 className="font-black text-slate-950">Add operator by KunThai ID</h4>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              Paste the operator's public KunThai ID. If the operator is registered, their name appears before you send the request.
+              Paste the operator's public KunThai ID. KunThai will send the operator a request with Accept and Reject actions.
             </p>
           </div>
         </div>
@@ -897,10 +854,7 @@ function FleetCard({ fleet, index, onInvite, onOperatorDocument, onOperatorUpdat
           {(fleet.operators || []).map((operator) => (
             <OperatorRequestCard
               key={operator.requestId}
-              fleetId={fleet.localId}
               operator={operator}
-              onDocument={onOperatorDocument}
-              onUpdate={onOperatorUpdate}
             />
           ))}
         </div>
@@ -909,46 +863,63 @@ function FleetCard({ fleet, index, onInvite, onOperatorDocument, onOperatorUpdat
   );
 }
 
-function OperatorRequestCard({ fleetId, operator, onDocument, onUpdate }) {
-  const accepted = operator.status === "accepted";
-  const rejected = operator.status === "rejected";
+function getOperatorRequestStatus(status = "pending", documents = {}) {
+  if (status === "accepted_pending_documents" || documents?.registrationRequired) {
+    return {
+      label: "Accepted - documents needed",
+      body: "The operator accepted the request and must complete the operator registration documents before the dashboard becomes available.",
+      panel: "border-blue-100 bg-blue-50",
+      badge: "bg-blue-100 text-blue-700",
+    };
+  }
+
+  if (status === "accepted") {
+    return {
+      label: "Accepted",
+      body: documents?.reuseNotice
+        ? "The operator accepted the company request. KunThai will use the documents already submitted on the operator account."
+        : "The operator accepted the company request and can now appear in your Fleet HQ.",
+      panel: "border-emerald-100 bg-emerald-50",
+      badge: "bg-emerald-100 text-emerald-700",
+    };
+  }
+
+  if (status === "rejected") {
+    return {
+      label: "Rejected",
+      body: "The operator declined this company request. You can invite another operator for this fleet.",
+      panel: "border-rose-100 bg-rose-50",
+      badge: "bg-rose-100 text-rose-700",
+    };
+  }
+
+  return {
+    label: "Waiting for operator response",
+    body: "The request has been sent to the operator. The operator must accept or reject it from their transport account.",
+    panel: "border-slate-100 bg-slate-50",
+    badge: "bg-amber-100 text-amber-800",
+  };
+}
+
+function OperatorRequestCard({ operator }) {
+  const status = getOperatorRequestStatus(operator.status, operator.documents);
 
   return (
-    <div className={`rounded-2xl border p-4 ${accepted ? "border-emerald-100 bg-emerald-50" : rejected ? "border-rose-100 bg-rose-50" : "border-slate-100 bg-slate-50"}`}>
+    <div className={`rounded-2xl border p-4 ${status.panel}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-slate-400">Operator request</p>
           <h5 className="mt-1 font-black text-slate-950">{operator.name}</h5>
-          <p className="mt-1 text-xs font-bold text-slate-500">{operator.publicId} - {operator.status}</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">{operator.publicId}</p>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onUpdate(fleetId, operator.requestId, { status: "accepted" })}
-            disabled={accepted}
-            className="h-10 rounded-2xl bg-emerald-600 px-4 text-xs font-black text-white disabled:opacity-50"
-          >
-            Accept
-          </button>
-          <button
-            type="button"
-            onClick={() => onUpdate(fleetId, operator.requestId, { status: "rejected" })}
-            disabled={rejected}
-            className="h-10 rounded-2xl border border-rose-200 bg-white px-4 text-xs font-black text-rose-700 disabled:opacity-50"
-          >
-            Reject
-          </button>
-        </div>
+        <span className={`inline-flex h-9 items-center rounded-full px-3 text-xs font-black ${status.badge}`}>
+          {status.label}
+        </span>
       </div>
-      {accepted ? (
-        <div className="mt-4">
-          <p className="mb-2 text-sm font-black text-slate-800">Operator document packet</p>
-          <DocumentGrid
-            compact
-            documents={operatorDocuments}
-            uploads={operator.documents}
-            onUpload={(document, file) => onDocument(fleetId, operator.requestId, document, file)}
-          />
+      <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{status.body}</p>
+      {operator.documents?.reuseNotice ? (
+        <div className="mt-3 rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-xs font-black text-emerald-700">
+          Documents reused from operator registration
         </div>
       ) : null}
     </div>

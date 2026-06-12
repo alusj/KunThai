@@ -7,17 +7,46 @@ import { EXPLORE_FOLLOW_CHANGED_EVENT, useExploreFollows } from "./useExploreFol
 const BLOCK_STORAGE_KEY = "explore-blocked-users";
 const CONNECTIONS_MEMORY = new Map();
 const CONNECTIONS_MEMORY_TTL = 120_000;
+const CONNECTIONS_STORAGE_PREFIX = "kunthai.explore.connections.";
 
 function getConnectionsKey(kind, currentUserId) {
   return `${kind || "discover"}:${currentUserId || "guest"}`;
 }
 
 function readConnectionsMemory(key) {
-  return CONNECTIONS_MEMORY.get(key) || null;
+  const cached = CONNECTIONS_MEMORY.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  const storedItems = readStoredConnections(key);
+  return storedItems.length ? { items: storedItems, savedAt: 0 } : null;
 }
 
 function writeConnectionsMemory(key, items) {
   CONNECTIONS_MEMORY.set(key, { items, savedAt: Date.now() });
+  writeStoredConnections(key, items);
+}
+
+function getConnectionsStorageKey(key) {
+  return `${CONNECTIONS_STORAGE_PREFIX}${key}`;
+}
+
+function readStoredConnections(key) {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(getConnectionsStorageKey(key)) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredConnections(key, items) {
+  try {
+    sessionStorage.setItem(getConnectionsStorageKey(key), JSON.stringify(Array.isArray(items) ? items : []));
+  } catch {
+    // Connections cache is only an instant-return convenience.
+  }
 }
 
 function readBlockedUsers() {
@@ -36,8 +65,10 @@ function writeBlockedUsers(value) {
 export function useExploreConnections(kind, currentUserId = "") {
   const cacheKey = getConnectionsKey(kind, currentUserId);
   const cached = readConnectionsMemory(cacheKey);
-  const [items, setItems] = useState(() => cached?.items || []);
-  const [loading, setLoading] = useState(() => !cached?.items?.length);
+  const initialItems = cached?.items || [];
+  const [items, setItems] = useState(() => initialItems);
+  const [loading, setLoading] = useState(() => initialItems.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [blockedUsers, setBlockedUsers] = useState(readBlockedUsers);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
@@ -54,22 +85,29 @@ export function useExploreConnections(kind, currentUserId = "") {
 
     if (fresh && !force) {
       setLoading(false);
+      setRefreshing(false);
       setError("");
       return;
     }
 
+    if (hasCachedItems) {
+      setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setRefreshing(false);
+    }
+
     try {
-      if (!hasCachedItems) {
-        setLoading(true);
-      }
       setError("");
       const nextItems = await fetchExploreConnections(kind, currentUserId);
       setItems(nextItems);
       writeConnectionsMemory(cacheKey, nextItems);
     } catch (err) {
-      setError(err.message || "Unable to load connections.");
+      setError(hasCachedItems ? "" : err.message || "Unable to load connections.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -84,15 +122,20 @@ export function useExploreConnections(kind, currentUserId = "") {
       if (hasCachedItems) {
         setItems(currentCache.items);
         setLoading(false);
+        setRefreshing(!fresh);
       }
 
       if (fresh) {
+        setRefreshing(false);
         return;
       }
 
       try {
         if (!hasCachedItems) {
           setLoading(true);
+          setRefreshing(false);
+        } else {
+          setRefreshing(true);
         }
         setError("");
         const nextItems = await fetchExploreConnections(kind, currentUserId);
@@ -102,11 +145,12 @@ export function useExploreConnections(kind, currentUserId = "") {
         }
       } catch (err) {
         if (active) {
-          setError(err.message || "Unable to load connections.");
+          setError(hasCachedItems ? "" : err.message || "Unable to load connections.");
         }
       } finally {
         if (active) {
           setLoading(false);
+          setRefreshing(false);
         }
       }
     }
@@ -216,5 +260,16 @@ export function useExploreConnections(kind, currentUserId = "") {
     .filter((item) => !blockedUsers.has(item.user_id))
     .map((item) => ({ ...item, isFollowing: followedUsers.has(item.user_id) || item.isFollowing }));
 
-  return { items: visibleItems, loading, error, reload: () => load({ force: true }), followUser, blockUser, removeUser };
+  return {
+    items: visibleItems,
+    loading,
+    isInitialLoading: loading && visibleItems.length === 0,
+    refreshing,
+    isRefreshing: refreshing,
+    error,
+    reload: () => load({ force: true }),
+    followUser,
+    blockUser,
+    removeUser,
+  };
 }

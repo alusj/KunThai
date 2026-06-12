@@ -38,6 +38,50 @@ const DEFAULT_FILTERS = {
 };
 
 const RECENT_PRODUCTS_KEY = "marketplace-recent-products";
+const DEFAULT_OPTIONS = { categories: [], locations: [] };
+const DEFAULT_CATALOG = {
+  newProducts: [],
+  discountedProducts: [],
+  highDemandProducts: [],
+  topRatedProducts: [],
+};
+const BROWSE_CATALOG_MEMORY = new Map();
+const BROWSE_MEMORY = {
+  filters: DEFAULT_FILTERS,
+  queryFilters: DEFAULT_FILTERS,
+  options: DEFAULT_OPTIONS,
+  catalog: DEFAULT_CATALOG,
+  savedIds: new Set(),
+  savedSellerIds: new Set(),
+};
+
+function cloneFilters(filters) {
+  return { ...DEFAULT_FILTERS, ...(filters || {}) };
+}
+
+function cloneSet(value) {
+  return new Set(value instanceof Set ? Array.from(value) : Array.isArray(value) ? value : []);
+}
+
+function normalizeCatalog(catalog) {
+  return { ...DEFAULT_CATALOG, ...(catalog || {}) };
+}
+
+function catalogHasProducts(catalog) {
+  return Object.values(catalog || {}).some((items) => Array.isArray(items) && items.length > 0);
+}
+
+function buildCatalogKey(filters) {
+  const normalized = cloneFilters(filters);
+  return JSON.stringify(
+    Object.keys(normalized)
+      .sort()
+      .reduce((result, key) => {
+        result[key] = normalized[key];
+        return result;
+      }, {}),
+  );
+}
 
 function rememberRecentProduct(product) {
   try {
@@ -53,25 +97,51 @@ function rememberRecentProduct(product) {
 }
 
 export default function Browse({ activeTab = "new", onProductModeChange }) {
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [queryFilters, setQueryFilters] = useState(DEFAULT_FILTERS);
-  const [options, setOptions] = useState({ categories: [], locations: [] });
-  const [catalog, setCatalog] = useState({
-    newProducts: [],
-    discountedProducts: [],
-    highDemandProducts: [],
-    topRatedProducts: [],
-  });
-  const [loading, setLoading] = useState(true);
+  const initialQueryFilters = cloneFilters(BROWSE_MEMORY.queryFilters);
+  const initialCatalog = normalizeCatalog(
+    BROWSE_CATALOG_MEMORY.get(buildCatalogKey(initialQueryFilters))?.catalog || BROWSE_MEMORY.catalog,
+  );
+  const [filters, setFilters] = useState(() => cloneFilters(BROWSE_MEMORY.filters));
+  const [queryFilters, setQueryFilters] = useState(() => initialQueryFilters);
+  const [options, setOptions] = useState(() => ({ ...DEFAULT_OPTIONS, ...BROWSE_MEMORY.options }));
+  const [catalog, setCatalog] = useState(() => initialCatalog);
+  const [loading, setLoading] = useState(() => !catalogHasProducts(initialCatalog));
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [savedIds, setSavedIds] = useState(new Set());
-  const [savedSellerIds, setSavedSellerIds] = useState(new Set());
+  const [savedIds, setSavedIds] = useState(() => cloneSet(BROWSE_MEMORY.savedIds));
+  const [savedSellerIds, setSavedSellerIds] = useState(() => cloneSet(BROWSE_MEMORY.savedSellerIds));
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [sellerOpen, setSellerOpen] = useState(false);
   const noticeTimerRef = useRef(null);
+  const catalogRef = useRef(catalog);
+
+  useEffect(() => {
+    BROWSE_MEMORY.filters = cloneFilters(filters);
+  }, [filters]);
+
+  useEffect(() => {
+    BROWSE_MEMORY.queryFilters = cloneFilters(queryFilters);
+  }, [queryFilters]);
+
+  useEffect(() => {
+    catalogRef.current = catalog;
+    BROWSE_MEMORY.catalog = normalizeCatalog(catalog);
+  }, [catalog]);
+
+  useEffect(() => {
+    BROWSE_MEMORY.options = { ...DEFAULT_OPTIONS, ...options };
+  }, [options]);
+
+  useEffect(() => {
+    BROWSE_MEMORY.savedIds = cloneSet(savedIds);
+  }, [savedIds]);
+
+  useEffect(() => {
+    BROWSE_MEMORY.savedSellerIds = cloneSet(savedSellerIds);
+  }, [savedSellerIds]);
 
   const showNotice = useCallback((message, tone = "success") => {
     showToast(message, tone);
@@ -120,16 +190,36 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
     let alive = true;
 
     async function loadProducts() {
-      setLoading(true);
+      const cacheKey = buildCatalogKey(queryFilters);
+      const cachedCatalog = normalizeCatalog(BROWSE_CATALOG_MEMORY.get(cacheKey)?.catalog);
+      const hasCachedCatalog = catalogHasProducts(cachedCatalog);
+      const hasExistingCatalog = hasCachedCatalog || catalogHasProducts(catalogRef.current);
+
+      if (hasCachedCatalog) {
+        setCatalog(cachedCatalog);
+      }
+
+      if (hasExistingCatalog) {
+        setLoading(false);
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+        setRefreshing(false);
+      }
+
       setError("");
 
       try {
-        const products = await fetchBuyerMarketplaceProducts(queryFilters);
+        const products = normalizeCatalog(await fetchBuyerMarketplaceProducts(queryFilters));
+        BROWSE_CATALOG_MEMORY.set(cacheKey, { catalog: products, savedAt: Date.now() });
         if (alive) setCatalog(products);
       } catch (err) {
-        if (alive) setError(err.message || "Unable to load UrMall products.");
+        if (alive) setError(hasExistingCatalog ? "" : err.message || "Unable to load UrMall products.");
       } finally {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
 
@@ -164,7 +254,9 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
           setSavedSellerIds(savedStores);
         }
       } catch {
-        if (alive) setOptions({ categories: [], locations: [] });
+        if (alive && !options.categories.length && !options.locations.length) {
+          setOptions(DEFAULT_OPTIONS);
+        }
       }
     }
 
@@ -323,6 +415,12 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
           {notice}
         </div>
       )}
+
+      {refreshing && catalogHasProducts(catalog) ? (
+        <div className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-2 text-xs font-black text-sky-700">
+          Refreshing products...
+        </div>
+      ) : null}
 
       {/* =========================
           Browse content

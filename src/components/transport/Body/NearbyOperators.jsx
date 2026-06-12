@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FiMapPin, FiStar } from "react-icons/fi";
 import { formatCountryMoney } from "../../../data/westAfricanCountryProfiles";
 import { fetchTransportFleets, getTransportFleets } from "../../services/transportFleetService";
@@ -42,13 +42,41 @@ export default function NearbyOperators({
   onReportConcern,
 }) {
   const [activeOperator, setActiveOperator] = useState(null);
-  const [operators, setOperators] = useState(() => getTransportFleets({ mode: "topRated", fleetType: null }).slice(0, 4));
-  const [loading, setLoading] = useState(true);
+  const initialOperators = applyOperatorFilters(
+    getTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null }),
+    filters,
+    destination,
+  ).slice(0, 6);
+  const [operators, setOperators] = useState(() => initialOperators);
+  const [loading, setLoading] = useState(() => initialOperators.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const operatorsRef = useRef(operators);
+
+  useEffect(() => {
+    operatorsRef.current = operators;
+  }, [operators]);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    const localOperators = applyOperatorFilters(
+      getTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null }),
+      filters,
+      destination,
+    ).slice(0, 6);
+    const hasExistingOperators = operatorsRef.current.length > 0 || localOperators.length > 0;
+
+    if (localOperators.length) {
+      setOperators(localOperators);
+      operatorsRef.current = localOperators;
+    }
+    if (hasExistingOperators) {
+      setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setRefreshing(false);
+    }
     setError("");
 
     fetchTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null, includeOffline: false })
@@ -57,12 +85,17 @@ export default function NearbyOperators({
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || "Unable to load operators.");
-          setOperators([]);
+          setError(hasExistingOperators ? "" : err.message || "Unable to load operators.");
+          if (!hasExistingOperators) {
+            setOperators([]);
+          }
         }
       })
       .finally(() => {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       });
 
     return () => {
@@ -86,11 +119,17 @@ export default function NearbyOperators({
 
       {error ? (
         <EmptyState title="Unable to load operators" body={error} />
-      ) : loading ? (
+      ) : loading && !operators.length ? (
         <EmptyState title="Loading operators" body="Checking visible operator fleets." />
       ) : operators.length === 0 ? (
         <EmptyState title="No live operators" body="Online fleets will appear here. Offline fleets stay inside ride and delivery lists." />
       ) : (
+      <>
+      {refreshing ? (
+        <p className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
+          Refreshing live operators...
+        </p>
+      ) : null}
       <div className="grid gap-3 lg:grid-cols-3 2xl:grid-cols-6">
         {operators.map((operator) => {
           const status = verificationStatuses[operator.verificationStatus];
@@ -181,6 +220,7 @@ export default function NearbyOperators({
           );
         })}
       </div>
+      </>
       )}
 
       <VerificationDetailsModal

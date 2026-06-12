@@ -21,6 +21,7 @@ import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
 import { searchLocations } from "../../Backend/services/locationSearchService";
+import { getRouteBetweenPoints } from "../../Backend/services/routeService";
 import { showToast } from "../../Backend/services/toastService";
 import {
   getActiveAreaReports,
@@ -74,6 +75,11 @@ const LIVE_AREA_RADIUS_KM = 25;
 const ACTIVE_OPERATOR_EMPTY_TOAST_MESSAGE =
   "No registered fleets are currently active nearby. Try expanding the area or check again shortly.";
 const ACTIVE_OPERATOR_EMPTY_TOAST_COOLDOWN_MS = 45000;
+const ONE_KM_PREVIEW_METERS = 1000;
+const ONE_KM_ROUTE_SEARCH_METERS = 1350;
+const ONE_KM_ROUTE_START_SNAP_LIMIT_METERS = 160;
+const ONE_KM_ROUTE_TIMEOUT_MS = 7000;
+const ONE_KM_ROUTE_BEARINGS = [0, 45, 90, 135, 180, 225, 270, 315];
 
 function createAddLocationDraft() {
   return {
@@ -176,6 +182,159 @@ function destinationPointFromDistance(origin, distanceMeters, bearingDegrees = 9
     lat: (endLat * 180) / Math.PI,
     lng: (endLng * 180) / Math.PI,
   };
+}
+
+function coordinateToPoint(coordinate) {
+  if (!Array.isArray(coordinate) || coordinate.length < 2) return null;
+  const lng = Number(coordinate[0]);
+  const lat = Number(coordinate[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+}
+
+function pointToCoordinate(point) {
+  return [point.lng, point.lat];
+}
+
+function getRouteGeometryPoints(geometry) {
+  if (geometry?.type !== "LineString" || !Array.isArray(geometry.coordinates)) return [];
+  return geometry.coordinates.map(coordinateToPoint).filter(Boolean);
+}
+
+function interpolateRoutePoint(start, end, amount) {
+  return {
+    lat: start.lat + (end.lat - start.lat) * amount,
+    lng: start.lng + (end.lng - start.lng) * amount,
+  };
+}
+
+function buildStraightOneKmPreview(origin) {
+  const destination = destinationPointFromDistance(origin, ONE_KM_PREVIEW_METERS, 90);
+  if (!destination) return null;
+
+  return {
+    label: "1 KM",
+    routeMode: "straight",
+    distanceMeters: ONE_KM_PREVIEW_METERS,
+    origin: {
+      ...origin,
+      name: "Current location",
+    },
+    destination: {
+      ...destination,
+      name: "1 KM point",
+    },
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        pointToCoordinate(origin),
+        pointToCoordinate(destination),
+      ],
+    },
+  };
+}
+
+function withRouteTimeout(promise, timeoutMs) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("Route lookup timed out")), timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
+}
+
+function clipRouteToOneKilometre(origin, route) {
+  if (route?.approximate) return null;
+
+  const routePoints = getRouteGeometryPoints(route?.geometry);
+  if (routePoints.length < 2) return null;
+
+  const startSnapMeters = distanceInMeters(origin, routePoints[0]);
+  if (!Number.isFinite(startSnapMeters) || startSnapMeters > ONE_KM_ROUTE_START_SNAP_LIMIT_METERS) {
+    return null;
+  }
+
+  const points = startSnapMeters > 2 ? [origin, ...routePoints] : routePoints;
+  const clippedCoordinates = [pointToCoordinate(points[0])];
+  let travelledMeters = 0;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const segmentMeters = distanceInMeters(previous, current);
+    if (!Number.isFinite(segmentMeters) || segmentMeters <= 0) continue;
+
+    if (travelledMeters + segmentMeters >= ONE_KM_PREVIEW_METERS) {
+      const remainingMeters = ONE_KM_PREVIEW_METERS - travelledMeters;
+      const destination = interpolateRoutePoint(previous, current, remainingMeters / segmentMeters);
+      clippedCoordinates.push(pointToCoordinate(destination));
+
+      return {
+        label: "1 KM",
+        routeMode: "road",
+        distanceMeters: ONE_KM_PREVIEW_METERS,
+        routeDistanceMeters: route.distanceMeters || travelledMeters + segmentMeters,
+        startSnapMeters,
+        origin: {
+          ...origin,
+          name: "Current location",
+        },
+        destination: {
+          ...destination,
+          name: "1 KM point",
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: clippedCoordinates,
+        },
+      };
+    }
+
+    travelledMeters += segmentMeters;
+    clippedCoordinates.push(pointToCoordinate(current));
+  }
+
+  return null;
+}
+
+async function buildRoadOneKmPreview(origin) {
+  const candidates = ONE_KM_ROUTE_BEARINGS
+    .map((bearing) => ({
+      bearing,
+      destination: destinationPointFromDistance(origin, ONE_KM_ROUTE_SEARCH_METERS, bearing),
+    }))
+    .filter((candidate) => candidate.destination);
+
+  const routeResults = await Promise.allSettled(
+    candidates.map(async (candidate) => {
+      const route = await withRouteTimeout(
+        getRouteBetweenPoints(origin, candidate.destination),
+        ONE_KM_ROUTE_TIMEOUT_MS,
+      );
+      const preview = clipRouteToOneKilometre(origin, route);
+      if (!preview) return null;
+
+      const routePointCount = route.geometry?.coordinates?.length || 0;
+      const routeDistance = Number(route.distanceMeters || 0);
+      const distancePenalty = Number.isFinite(routeDistance)
+        ? Math.abs(routeDistance - ONE_KM_ROUTE_SEARCH_METERS) * 0.08
+        : 120;
+      const detailBonus = Math.min(routePointCount, 24);
+
+      return {
+        ...preview,
+        bearing: candidate.bearing,
+        score: preview.startSnapMeters * 6 + distancePenalty - detailBonus,
+      };
+    }),
+  );
+
+  return routeResults
+    .map((result) => (result.status === "fulfilled" ? result.value : null))
+    .filter(Boolean)
+    .sort((first, second) => first.score - second.score)[0] || null;
 }
 
 async function reverseGeocodePoint(point) {
@@ -459,6 +618,8 @@ export default function NearbyAreaScreen({
   const [currentPickerLocation, setCurrentPickerLocation] = useState(null);
   const [pickerStatus, setPickerStatus] = useState("");
   const [pickerBusy, setPickerBusy] = useState(false);
+  const [oneKmMeasurementPreview, setOneKmMeasurementPreview] = useState(null);
+  const [oneKmPreviewState, setOneKmPreviewState] = useState("idle");
   const mapCenterRef = useRef(null);
   const userLocationRef = useRef(null);
   const lastPublishedCenterRef = useRef(null);
@@ -473,6 +634,7 @@ export default function NearbyAreaScreen({
   const sosDetectionRequestRef = useRef(0);
   const initialDestinationHandledRef = useRef("");
   const activeOperatorToastAtRef = useRef(0);
+  const oneKmPreviewRequestRef = useRef(0);
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
   const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
@@ -550,23 +712,6 @@ export default function NearbyAreaScreen({
     [filteredLocations],
   );
   const selectedMoreCategory = moreLocationCategories.includes(activeCategory);
-  const oneKmMeasurementPreview = useMemo(() => {
-    if (!isOneKmPreview || !userLocation?.lat || !userLocation?.lng) return null;
-    const destination = destinationPointFromDistance(userLocation, 1000, 90);
-    if (!destination) return null;
-
-    return {
-      label: "1 KM",
-      origin: {
-        ...userLocation,
-        name: "Current location",
-      },
-      destination: {
-        ...destination,
-        name: "1 KM point",
-      },
-    };
-  }, [isOneKmPreview, userLocation]);
   const initialDestinationKey = useMemo(() => {
     if (!initialDestination) return "";
     return [
@@ -623,6 +768,45 @@ export default function NearbyAreaScreen({
       showNoActiveOperatorToast();
     }
   }, [activeCategory, liveOperators.length, showNoActiveOperatorToast]);
+
+  useEffect(() => {
+    if (!isOneKmPreview || !userLocation?.lat || !userLocation?.lng) {
+      oneKmPreviewRequestRef.current += 1;
+      setOneKmMeasurementPreview(null);
+      setOneKmPreviewState("idle");
+      return undefined;
+    }
+
+    let cancelled = false;
+    const requestId = oneKmPreviewRequestRef.current + 1;
+    oneKmPreviewRequestRef.current = requestId;
+
+    setOneKmMeasurementPreview(null);
+    setOneKmPreviewState("loading");
+
+    buildRoadOneKmPreview(userLocation)
+      .then((roadPreview) => {
+        if (cancelled || oneKmPreviewRequestRef.current !== requestId) return;
+
+        if (roadPreview) {
+          setOneKmMeasurementPreview(roadPreview);
+          setOneKmPreviewState("road");
+          return;
+        }
+
+        setOneKmMeasurementPreview(buildStraightOneKmPreview(userLocation));
+        setOneKmPreviewState("straight");
+      })
+      .catch(() => {
+        if (cancelled || oneKmPreviewRequestRef.current !== requestId) return;
+        setOneKmMeasurementPreview(buildStraightOneKmPreview(userLocation));
+        setOneKmPreviewState("straight");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOneKmPreview, userLocation]);
 
   function cacheSosCountryCode(countryCode) {
     const normalizedCode = String(countryCode || "").toUpperCase();
@@ -1386,6 +1570,7 @@ export default function NearbyAreaScreen({
             onDone={onDone || onBack}
             backLabel={backLabel}
             ready={Boolean(oneKmMeasurementPreview)}
+            previewState={oneKmPreviewState}
           />
         ) : null}
 
@@ -1620,10 +1805,16 @@ export default function NearbyAreaScreen({
   );
 }
 
-function OneKmPreviewChrome({ onBack, onDone, backLabel, ready }) {
+function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) {
   const { collapsed, toggle } = useAutoCollapseCard({
     resetKey: ready ? "one-km-ready" : "one-km-waiting",
   });
+  const statusText =
+    previewState === "loading"
+      ? "Finding a nearby road route for the 1 km preview..."
+      : previewState === "straight"
+        ? "No usable nearby road route was available, so this view falls back to a straight 1 km distance."
+        : "The green route follows nearby roads for the first 1 km so you can price each kilometre with confidence.";
 
   return (
     <>
@@ -1665,12 +1856,10 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready }) {
           />
         </div>
 
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          The green line shows a clear 1 km distance so you can price each kilometre with confidence.
-        </p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{statusText}</p>
         {!ready ? (
           <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-black text-green-700">
-            Waiting for your current location...
+            {previewState === "loading" ? "Checking nearby roads..." : "Waiting for your current location..."}
           </p>
         ) : null}
         <button

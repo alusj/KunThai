@@ -93,9 +93,17 @@ async function getCurrentUser(message = "Sign in to manage a transport company."
 
 function normalizeInvite(invite = {}) {
   return {
+    id: invite.id || "",
     requestId: invite.requestId || invite.request_id || `invite-${compact(invite.operator_public_id || invite.publicId || Date.now())}`,
+    companyId: invite.companyId || invite.company_id || "",
+    companyName: invite.companyName || invite.company_name || "",
+    companyCode: invite.companyCode || invite.company_code || "",
+    companyCity: invite.companyCity || invite.company_city || "",
     companyFleetId: invite.companyFleetId || invite.company_fleet_id || "",
     fleetCode: invite.fleetCode || invite.fleet_code || "",
+    fleetName: invite.fleetName || invite.fleet_name || "",
+    fleetType: invite.fleetType || invite.fleet_type || "",
+    plateNumber: invite.plateNumber || invite.plate_number || "",
     operatorId: invite.operatorId || invite.operator_id || "",
     userId: invite.userId || invite.operator_user_id || "",
     publicId: invite.publicId || invite.operator_public_id || "",
@@ -103,8 +111,9 @@ function normalizeInvite(invite = {}) {
     city: invite.city || invite.operator_city || "",
     verificationStatus: invite.verificationStatus || invite.verification_status || "pending",
     status: invite.status || "pending",
-    documents: invite.documents || {},
+    documents: safeParse(invite.documents) || invite.documents || {},
     createdAt: invite.createdAt || invite.created_at || new Date().toISOString(),
+    updatedAt: invite.updatedAt || invite.updated_at || invite.createdAt || invite.created_at || new Date().toISOString(),
   };
 }
 
@@ -215,6 +224,115 @@ function writeLocalCompanyAccount(userId, account) {
   return normalized;
 }
 
+function getLocalCompanyAccounts() {
+  if (typeof localStorage === "undefined") return [];
+  return Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+    .filter((key) => key?.startsWith(COMPANY_ACCOUNT_PREFIX))
+    .map((key) => {
+      const userId = key.slice(COMPANY_ACCOUNT_PREFIX.length);
+      const account = safeParse(localStorage.getItem(key));
+      return account ? { key, userId, account: normalizeCompanyAccount(account, userId) } : null;
+    })
+    .filter(Boolean);
+}
+
+function enrichInvite(invite, company = {}, fleet = {}) {
+  return normalizeInvite({
+    ...invite,
+    companyId: invite.companyId || invite.company_id || company.id || company.localId,
+    companyName: invite.companyName || company.companyName || company.company_name,
+    companyCode: invite.companyCode || company.companyCode || company.company_code,
+    companyCity: invite.companyCity || company.city,
+    companyFleetId: invite.companyFleetId || invite.company_fleet_id || fleet.id || fleet.localId,
+    fleetCode: invite.fleetCode || invite.fleet_code || fleet.fleetCode || fleet.fleet_code,
+    fleetName: invite.fleetName || fleet.fleetName || fleet.fleet_name,
+    fleetType: invite.fleetType || fleet.fleetType || fleet.fleet_type,
+    plateNumber: invite.plateNumber || fleet.plateNumber || fleet.plate_number,
+  });
+}
+
+function inviteMatchesOperator(invite, candidates = {}) {
+  const candidatePublicIds = (candidates.publicIds || []).map(compact).filter(Boolean);
+  return Boolean(
+    (candidates.userId && invite.userId === candidates.userId) ||
+      (candidates.operatorId && invite.operatorId === candidates.operatorId) ||
+      (invite.publicId && candidatePublicIds.includes(compact(invite.publicId))),
+  );
+}
+
+function getLocalOperatorInvites(candidates = {}) {
+  return getLocalCompanyAccounts().flatMap(({ account }) =>
+    (account.fleets || []).flatMap((fleet) =>
+      (fleet.operators || [])
+        .map((operator) => enrichInvite(operator, account, fleet))
+        .filter((invite) => inviteMatchesOperator(invite, candidates)),
+    ),
+  );
+}
+
+function dedupeInvites(invites = []) {
+  const byKey = new Map();
+  invites.forEach((invite) => {
+    const normalized = normalizeInvite(invite);
+    const key = `${normalized.companyId || normalized.companyName}:${normalized.requestId || normalized.publicId}`;
+    const existing = byKey.get(key);
+    if (!existing || new Date(normalized.updatedAt) > new Date(existing.updatedAt)) {
+      byKey.set(key, normalized);
+    }
+  });
+  return Array.from(byKey.values()).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
+function patchLocalOperatorInvite(invite, patch = {}) {
+  let updatedInvite = null;
+  const nextDocuments = {
+    ...(invite.documents || {}),
+    ...(patch.documents || {}),
+  };
+
+  getLocalCompanyAccounts().forEach(({ key, userId, account }) => {
+    let changed = false;
+    const fleets = (account.fleets || []).map((fleet) => {
+      const operators = (fleet.operators || []).map((operator) => {
+        const current = enrichInvite(operator, account, fleet);
+        const sameInvite =
+          (invite.id && current.id === invite.id) ||
+          (invite.companyId && current.companyId === invite.companyId && current.requestId === invite.requestId) ||
+          current.requestId === invite.requestId;
+
+        if (!sameInvite) return operator;
+
+        changed = true;
+        updatedInvite = enrichInvite(
+          {
+            ...operator,
+            ...patch,
+            requestId: operator.requestId || operator.request_id || invite.requestId,
+            operatorId: patch.operatorId || operator.operatorId || operator.operator_id || invite.operatorId,
+            userId: patch.userId || operator.userId || operator.operator_user_id || invite.userId,
+            verificationStatus: patch.verificationStatus || operator.verificationStatus || operator.verification_status || invite.verificationStatus,
+            documents: nextDocuments,
+            updatedAt: new Date().toISOString(),
+          },
+          account,
+          fleet,
+        );
+        return updatedInvite;
+      });
+
+      return changed ? { ...fleet, operators } : fleet;
+    });
+
+    if (changed) {
+      const nextAccount = normalizeCompanyAccount({ ...account, fleets, savedAt: new Date().toISOString() }, userId);
+      localStorage.setItem(key, JSON.stringify(nextAccount));
+      window.dispatchEvent(new CustomEvent(COMPANY_EVENT, { detail: nextAccount }));
+    }
+  });
+
+  return updatedInvite || normalizeInvite({ ...invite, ...patch, documents: nextDocuments, updatedAt: new Date().toISOString() });
+}
+
 export async function getTransportCompanyDraft() {
   const user = await getCurrentUser("Sign in to continue your company registration.");
   return safeParse(localStorage.getItem(scopedKey(COMPANY_DRAFT_PREFIX, user.id)));
@@ -260,6 +378,155 @@ export async function getTransportCompanyAccount() {
   } catch (error) {
     if (isMissingTable(error) || localAccount) return localAccount ? normalizeCompanyAccount(localAccount, user.id) : null;
     throw new Error(error.message || "Unable to load company workspace.");
+  }
+}
+
+async function getOperatorInviteCandidates(operatorAccount = null) {
+  const user = await getCurrentUser("Sign in to view company registration requests.");
+  const profile = await getOnboardingProfile(user).catch(() => null);
+  let operatorRecord = operatorAccount?.id
+    ? {
+        id: operatorAccount.id,
+        user_id: operatorAccount.userId || user.id,
+        display_code: operatorAccount.displayCode || operatorAccount.publicId,
+        operator_code: operatorAccount.operatorId,
+        verification_status: operatorAccount.verificationStatus,
+      }
+    : null;
+
+  if (!operatorRecord?.id) {
+    try {
+      const { data, error } = await supabase
+        .from("transport_operators")
+        .select("id, user_id, display_code, operator_code, verification_status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      operatorRecord = data || operatorRecord;
+    } catch (error) {
+      if (!isMissingTable(error)) {
+        // Local and public account matches still allow pending invitations to surface.
+      }
+    }
+  }
+
+  const profilePublicId = getKunThaiPublicUserId({ ...(profile || {}), userId: user.id });
+  const publicIds = uniqueValues([
+    operatorAccount?.publicId,
+    operatorAccount?.displayCode,
+    operatorAccount?.operatorId ? `KT-${operatorAccount.operatorId}` : "",
+    operatorRecord?.display_code,
+    operatorRecord?.operator_code ? `KT-${operatorRecord.operator_code}` : "",
+    profile?.publicUserId,
+    profile?.public_user_id,
+    profile?.kunThaiId,
+    profile?.kunthai_id,
+    profilePublicId,
+  ].flatMap(buildKunThaiIdCandidates));
+
+  return {
+    user,
+    userId: user.id,
+    operatorId: operatorAccount?.id || operatorRecord?.id || "",
+    verificationStatus: operatorAccount?.verificationStatus || operatorRecord?.verification_status || "pending",
+    publicIds,
+  };
+}
+
+export async function getOperatorCompanyInvites(operatorAccount = null) {
+  const candidates = await getOperatorInviteCandidates(operatorAccount);
+  const localInvites = getLocalOperatorInvites(candidates);
+
+  try {
+    const filters = [
+      candidates.userId ? `operator_user_id.eq.${candidates.userId}` : "",
+      candidates.operatorId ? `operator_id.eq.${candidates.operatorId}` : "",
+      ...candidates.publicIds.map((publicId) => `operator_public_id.eq.${publicId}`),
+    ].filter(Boolean).join(",");
+
+    const { data: inviteRows, error } = await supabase
+      .from("transport_company_operator_invites")
+      .select("*")
+      .or(filters)
+      .order("updated_at", { ascending: false });
+
+    if (error) throw error;
+
+    const companyIds = uniqueValues((inviteRows || []).map((invite) => invite.company_id));
+    const [{ data: companyRows }, { data: fleetRows }] = await Promise.all([
+      companyIds.length
+        ? supabase.from("transport_companies").select("id, company_code, company_name, city").in("id", companyIds).catch(() => ({ data: [] }))
+        : { data: [] },
+      companyIds.length
+        ? supabase.from("transport_company_fleets").select("*").in("company_id", companyIds).catch(() => ({ data: [] }))
+        : { data: [] },
+    ]);
+
+    const companiesById = new Map((companyRows || []).map((company) => [company.id, company]));
+    const fleetsById = new Map((fleetRows || []).map((fleet) => [fleet.id, fleet]));
+    const fleetsByCode = new Map((fleetRows || []).map((fleet) => [`${fleet.company_id}:${fleet.fleet_code}`, fleet]));
+    const cloudInvites = (inviteRows || []).map((invite) => {
+      const fleet = fleetsById.get(invite.company_fleet_id) || fleetsByCode.get(`${invite.company_id}:${invite.fleet_code}`) || {};
+      return enrichInvite(invite, companiesById.get(invite.company_id) || {}, fleet);
+    });
+
+    return dedupeInvites([...cloudInvites, ...localInvites]);
+  } catch (error) {
+    if (isMissingTable(error)) return dedupeInvites(localInvites);
+    throw new Error(error.message || "Unable to load company registration requests.");
+  }
+}
+
+export async function updateOperatorCompanyInvite(invite, patch = {}) {
+  const user = await getCurrentUser("Sign in to respond to this company request.");
+  const documents = {
+    ...(invite.documents || {}),
+    ...(patch.documents || {}),
+  };
+  const nextPatch = {
+    ...patch,
+    userId: patch.userId || invite.userId || user.id,
+    documents,
+    updatedAt: new Date().toISOString(),
+  };
+  const localInvite = patchLocalOperatorInvite(invite, nextPatch);
+
+  try {
+    const payload = {
+      status: nextPatch.status || invite.status || "pending",
+      verification_status: nextPatch.verificationStatus || invite.verificationStatus || "pending",
+      documents,
+      updated_at: new Date().toISOString(),
+    };
+    const operatorId = asUuid(nextPatch.operatorId || invite.operatorId);
+    const userId = asUuid(nextPatch.userId || invite.userId || user.id);
+    if (operatorId) payload.operator_id = operatorId;
+    if (userId) payload.operator_user_id = userId;
+
+    let query = supabase.from("transport_company_operator_invites").update(payload);
+    if (invite.id) {
+      query = query.eq("id", invite.id);
+    } else {
+      if (invite.companyId) query = query.eq("company_id", invite.companyId);
+      query = query.eq("request_id", invite.requestId);
+    }
+
+    const { data, error } = await query.select().maybeSingle();
+    if (error) throw error;
+    if (!data) return localInvite;
+
+    return normalizeInvite({
+      ...localInvite,
+      ...data,
+      companyName: localInvite.companyName,
+      companyCode: localInvite.companyCode,
+      fleetName: localInvite.fleetName,
+      fleetType: localInvite.fleetType,
+      plateNumber: localInvite.plateNumber,
+    });
+  } catch (error) {
+    if (isMissingTable(error)) return localInvite;
+    throw new Error(error.message || "Unable to update this company request.");
   }
 }
 

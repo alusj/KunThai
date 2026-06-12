@@ -4,8 +4,9 @@ import HealthScoreCard from "./HealthScoreCard";
 import SellerIntelligence from "../SellerIntelligence/SellerIntelligence";
 import TodaySummaryCard from "./TodaySummaryCard";
 
-export default function MyBizDashboardHeader({ onEditProfile }) {
-  const { business, storeStatus, health, today, loading } = useSellerOverview();
+export default function MyBizDashboardHeader({ onEditProfile, overview }) {
+  const fallbackOverview = useSellerOverview({ enabled: !overview });
+  const { business, storeStatus, health, today, loading } = overview || fallbackOverview;
 
   if (loading || !business || !storeStatus || !health || !today) {
     return (

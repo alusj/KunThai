@@ -1,17 +1,37 @@
-import { createElement, useEffect, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import { FiClock, FiMapPin, FiStar, FiTrash2 } from "react-icons/fi";
 import { fetchSavedOperators, getSavedOperators } from "../services/passengerTransportService";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 
 export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification, onOpenBooking }) {
-  const [savedOperators, setSavedOperators] = useState(() => getSavedOperators());
-  const [loading, setLoading] = useState(true);
+  const initialSavedOperators = getSavedOperators();
+  const [savedOperators, setSavedOperators] = useState(() => initialSavedOperators);
+  const [loading, setLoading] = useState(() => initialSavedOperators.length === 0);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const savedOperatorsRef = useRef(savedOperators);
+
+  useEffect(() => {
+    savedOperatorsRef.current = savedOperators;
+  }, [savedOperators]);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    const localSavedOperators = getSavedOperators();
+    const hasExistingSavedOperators = savedOperatorsRef.current.length > 0 || localSavedOperators.length > 0;
+
+    if (localSavedOperators.length) {
+      setSavedOperators(localSavedOperators);
+      savedOperatorsRef.current = localSavedOperators;
+    }
+    if (hasExistingSavedOperators) {
+      setLoading(false);
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+      setRefreshing(false);
+    }
     setError("");
 
     fetchSavedOperators()
@@ -20,12 +40,17 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || "Unable to load saved operators.");
-          setSavedOperators([]);
+          setError(hasExistingSavedOperators ? "" : err.message || "Unable to load saved operators.");
+          if (!hasExistingSavedOperators) {
+            setSavedOperators([]);
+          }
         }
       })
       .finally(() => {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       });
     return () => {
       alive = false;
@@ -53,9 +78,14 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
       </header>
 
       <main className="w-full px-3 py-4 sm:px-5 xl:px-8">
+        {refreshing && savedOperators.length ? (
+          <p className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
+            Refreshing saved operators...
+          </p>
+        ) : null}
         {error ? (
           <EmptyState title="Unable to load saved operators" body={error} />
-        ) : loading ? (
+        ) : loading && !savedOperators.length ? (
           <EmptyState title="Loading saved operators" body="Checking your saved transport operators." />
         ) : savedOperators.length === 0 ? (
           <EmptyState title="No saved operators" body="Save a real operator from a fleet profile and they will appear here." />

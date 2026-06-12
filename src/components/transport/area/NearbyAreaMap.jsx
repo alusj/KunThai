@@ -173,6 +173,70 @@ function normalizeRoutePreviewPoint(point) {
   return { ...point, lat, lng };
 }
 
+function normalizeLineStringCoordinates(geometry) {
+  if (geometry?.type !== "LineString" || !Array.isArray(geometry.coordinates)) return [];
+
+  return geometry.coordinates.filter((coordinate) => {
+    const lng = Number(coordinate?.[0]);
+    const lat = Number(coordinate?.[1]);
+    return Number.isFinite(lat) && Number.isFinite(lng);
+  });
+}
+
+function coordinateToPoint(coordinate) {
+  const lng = Number(coordinate?.[0]);
+  const lat = Number(coordinate?.[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+}
+
+function getMeasurementPreviewCoordinates(origin, destination, geometry) {
+  const routeCoordinates = normalizeLineStringCoordinates(geometry);
+  if (routeCoordinates.length >= 2) return routeCoordinates;
+  return [
+    [origin.lng, origin.lat],
+    [destination.lng, destination.lat],
+  ];
+}
+
+function getCoordinateMidpoint(coordinates, fallback) {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return fallback;
+
+  const points = coordinates.map(coordinateToPoint).filter(Boolean);
+  if (points.length < 2) return fallback;
+
+  const segmentLengths = [];
+  let totalMeters = 0;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const segmentMeters = distanceInMeters(points[index - 1], points[index]);
+    segmentLengths.push(segmentMeters);
+    if (Number.isFinite(segmentMeters)) totalMeters += segmentMeters;
+  }
+
+  if (!Number.isFinite(totalMeters) || totalMeters <= 0) return fallback;
+
+  const targetMeters = totalMeters / 2;
+  let travelledMeters = 0;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const segmentMeters = segmentLengths[index - 1];
+    if (!Number.isFinite(segmentMeters) || segmentMeters <= 0) continue;
+
+    if (travelledMeters + segmentMeters >= targetMeters) {
+      const amount = (targetMeters - travelledMeters) / segmentMeters;
+      return {
+        lat: lerp(points[index - 1].lat, points[index].lat, amount),
+        lng: lerp(points[index - 1].lng, points[index].lng, amount),
+      };
+    }
+
+    travelledMeters += segmentMeters;
+  }
+
+  return points[Math.floor(points.length / 2)] || fallback;
+}
+
 function createLiveUserMarker() {
   const wrapper = document.createElement("div");
   wrapper.style.width = "74px";
@@ -998,17 +1062,14 @@ function clearMeasurementPreviewLayer(map) {
   }
 }
 
-function upsertMeasurementPreviewLayer(map, origin, destination) {
-  if (!map || !origin || !destination) return;
+function upsertMeasurementPreviewLayer(map, coordinates) {
+  if (!map || !Array.isArray(coordinates) || coordinates.length < 2) return;
 
   const data = {
     type: "Feature",
     geometry: {
       type: "LineString",
-      coordinates: [
-        [origin.lng, origin.lat],
-        [destination.lng, destination.lat],
-      ],
+      coordinates,
     },
   };
 
@@ -1979,10 +2040,11 @@ export default function NearbyAreaMap({
     }
 
     let cancelled = false;
-    const midpoint = {
+    const previewCoordinates = getMeasurementPreviewCoordinates(origin, destination, measurementPreview?.geometry);
+    const midpoint = getCoordinateMidpoint(previewCoordinates, {
       lat: (origin.lat + destination.lat) / 2,
       lng: (origin.lng + destination.lng) / 2,
-    };
+    });
 
     setRouteInfo(null);
     setRouteError("");
@@ -1995,7 +2057,7 @@ export default function NearbyAreaMap({
     waitForMapStyle(map).then(() => {
       if (cancelled) return;
 
-      upsertMeasurementPreviewLayer(map, origin, destination);
+      upsertMeasurementPreviewLayer(map, previewCoordinates);
 
       measurementStartMarkerRef.current = new maplibregl.Marker({
         element: createLabeledMarker("START", "#16a34a"),
@@ -2019,6 +2081,7 @@ export default function NearbyAreaMap({
         .addTo(map);
 
       const bounds = new maplibregl.LngLatBounds();
+      previewCoordinates.forEach((coordinate) => bounds.extend(coordinate));
       bounds.extend([origin.lng, origin.lat]);
       bounds.extend([destination.lng, destination.lat]);
 
@@ -2039,7 +2102,6 @@ export default function NearbyAreaMap({
       measurementLabelMarkerRef.current = null;
       clearMeasurementPreviewLayer(map);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- measurement mode owns route cleanup and map markers while active.
   }, [measurementPreview]);
 
   useEffect(() => {

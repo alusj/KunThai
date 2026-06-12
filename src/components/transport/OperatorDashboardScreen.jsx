@@ -124,6 +124,8 @@ export default function OperatorDashboardScreen({
   onOpenCompany,
   onRegisterCompany,
   onEditRegistration,
+  readOnly = false,
+  readOnlyReason = "Company owner view. Only the operator can make changes.",
 }) {
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
   const [activeView, setActiveView] = useState(initialView);
@@ -251,6 +253,11 @@ export default function OperatorDashboardScreen({
   }, [account?.fleetId, refreshDashboard]);
 
   async function handleAvailabilityToggle() {
+    if (readOnly) {
+      setDashboardError("This is a read-only company owner view. Availability can only be changed by the operator.");
+      return;
+    }
+
     const nextActive = !isActive;
     setIsActive(nextActive);
     try {
@@ -286,6 +293,11 @@ export default function OperatorDashboardScreen({
   }
 
   async function handleTripControlsSave(nextControls) {
+    if (readOnly) {
+      setDashboardError("This is a read-only company owner view. Trip controls can only be changed by the operator.");
+      return;
+    }
+
     try {
       setControlsSaving(true);
       await updateTripControls(account?.fleetId, nextControls);
@@ -300,6 +312,11 @@ export default function OperatorDashboardScreen({
   }
 
   async function handleTripStatusUpdate(trip, status, patch = {}) {
+    if (readOnly) {
+      setDashboardError("This is a read-only company owner view. Passenger trips can only be updated by the operator.");
+      return;
+    }
+
     try {
       setDashboardError("");
       if (status === "start_requested") await requestTransportTripStart(trip.id);
@@ -340,18 +357,25 @@ export default function OperatorDashboardScreen({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleAvailabilityToggle}
-            className={`hidden h-10 items-center gap-2 rounded-full border px-3 text-sm font-black transition sm:flex ${
-              isActive
-                ? "border-green-200 bg-green-100 text-green-700"
-                : "border-gray-200 bg-gray-100 text-gray-600"
-            }`}
-          >
-            <span className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-green-600" : "bg-gray-400"}`} />
-            {isActive ? "Active" : "Offline"}
-          </button>
+          {readOnly ? (
+            <span className="hidden h-10 items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 text-sm font-black text-blue-700 sm:flex">
+              <FiShield size={16} />
+              Read only
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAvailabilityToggle}
+              className={`hidden h-10 items-center gap-2 rounded-full border px-3 text-sm font-black transition sm:flex ${
+                isActive
+                  ? "border-green-200 bg-green-100 text-green-700"
+                  : "border-gray-200 bg-gray-100 text-gray-600"
+              }`}
+            >
+              <span className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-green-600" : "bg-gray-400"}`} />
+              {isActive ? "Active" : "Offline"}
+            </button>
+          )}
 
           {hasWaitingPassengers && (
             <button
@@ -413,6 +437,12 @@ export default function OperatorDashboardScreen({
           </div>
         )}
 
+        {readOnly ? (
+          <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
+            {readOnlyReason}
+          </div>
+        ) : null}
+
         {activeView === "waiting" ? (
           <WaitingPassengersScreen
             passengers={waitingPassengers}
@@ -420,6 +450,7 @@ export default function OperatorDashboardScreen({
             isActive={isActive}
             availabilityText={availabilityText}
             account={account}
+            readOnly={readOnly}
             onBack={() => setActiveView("dashboard")}
             onUpdateTrip={handleTripStatusUpdate}
             onViewRoute={openPassengerTripRoute}
@@ -433,17 +464,24 @@ export default function OperatorDashboardScreen({
         ) : (
           <>
         <div className="mb-4 flex sm:hidden">
-          <button
-            type="button"
-            onClick={handleAvailabilityToggle}
-            className={`h-11 w-full rounded-2xl border text-sm font-black ${
-              isActive
-                ? "border-green-200 bg-green-100 text-green-700"
-                : "border-gray-200 bg-white text-gray-600"
-            }`}
-          >
-            {availabilityText}
-          </button>
+          {readOnly ? (
+            <div className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-700">
+              <FiShield size={16} />
+              Read-only company owner view
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAvailabilityToggle}
+              className={`h-11 w-full rounded-2xl border text-sm font-black ${
+                isActive
+                  ? "border-green-200 bg-green-100 text-green-700"
+                  : "border-gray-200 bg-white text-gray-600"
+              }`}
+            >
+              {availabilityText}
+            </button>
+          )}
         </div>
 
         {liveTrip ? (
@@ -495,16 +533,18 @@ export default function OperatorDashboardScreen({
             />
           </div>
 
-          <button
-            type="button"
-            onClick={onEditRegistration}
-            className="mt-5 h-12 w-full rounded-2xl border border-gray-200 text-sm font-black text-gray-700 hover:bg-gray-50"
-          >
-            <span className="flex items-center justify-center gap-2">
-              <FiEdit3 size={17} />
-              Edit Profile
-            </span>
-          </button>
+          {!readOnly ? (
+            <button
+              type="button"
+              onClick={onEditRegistration}
+              className="mt-5 h-12 w-full rounded-2xl border border-gray-200 text-sm font-black text-gray-700 hover:bg-gray-50"
+            >
+              <span className="flex items-center justify-center gap-2">
+                <FiEdit3 size={17} />
+                Edit Profile
+              </span>
+            </button>
+          ) : null}
         </section>
 
         <div className="grid gap-4 xl:grid-cols-2">
@@ -526,12 +566,14 @@ export default function OperatorDashboardScreen({
             pricePerHour={form.pricePerHour || "Not added"}
             waitingCount={waitingPassengers.length}
             verification={verification}
+            readOnly={readOnly}
             onToggle={handleAvailabilityToggle}
             onShowVerification={() => setVerificationOpen(true)}
           />
           <TripControlsContainer
             controls={tripControls}
             saving={controlsSaving}
+            readOnly={readOnly}
             onSave={handleTripControlsSave}
           />
           <VerificationCenterContainer
@@ -544,6 +586,7 @@ export default function OperatorDashboardScreen({
           <OperatorAlertsContainer alerts={alerts} />
           <OperatorToolsContainer
             hasWaitingPassengers={hasWaitingPassengers}
+            readOnly={readOnly}
             onOpenWaiting={hasWaitingPassengers ? () => setActiveView("waiting") : undefined}
             onOpenHistory={() => setActiveView("history")}
           />
@@ -589,6 +632,7 @@ export default function OperatorDashboardScreen({
         documents={account?.documentsSkipped ? "Skipped" : "Submitted"}
         companyAccount={companyAccount}
         companyLoading={companyLoading}
+        readOnly={readOnly}
         onClose={() => setOperatorMenuOpen(false)}
         onToggleAvailability={handleAvailabilityToggle}
         onOpenDashboard={() => {
@@ -973,6 +1017,7 @@ function OperationsContainer({
   pricePerHour,
   waitingCount,
   verification,
+  readOnly = false,
   onToggle,
   onShowVerification,
 }) {
@@ -980,7 +1025,7 @@ function OperationsContainer({
     <DashboardContainer title="Operations" subtitle={availabilityText} icon={FiTruck}>
       <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-3">
         <span className="text-sm font-semibold text-gray-500">Availability</span>
-        <ToggleSwitch checked={isActive} onChange={onToggle} />
+        <ToggleSwitch checked={isActive} onChange={onToggle} disabled={readOnly} />
       </div>
       <div className="mt-3 grid gap-3">
         <MiniRow label="Status" value={isActive ? "Online" : "Offline"} />
@@ -1002,7 +1047,7 @@ function OperationsContainer({
   );
 }
 
-function TripControlsContainer({ controls, saving, onSave }) {
+function TripControlsContainer({ controls, saving, readOnly = false, onSave }) {
   const [draft, setDraft] = useState(() => ({
     acceptsRide: Boolean(controls.acceptsRide),
     acceptsDelivery: Boolean(controls.acceptsDelivery),
@@ -1023,13 +1068,21 @@ function TripControlsContainer({ controls, saving, onSave }) {
     });
   }, [controls.acceptsRide, controls.acceptsDelivery, controls.maxDistanceKm, controls.startTime, controls.endTime, controls.pauseReason]);
 
-  const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+  const update = (field, value) => {
+    if (readOnly) return;
+    setDraft((current) => ({ ...current, [field]: value }));
+  };
 
   return (
     <DashboardContainer title="Trip Controls" subtitle="Routes, modes, limits, and schedule" icon={FiSliders}>
       <div className="grid gap-3">
-        <ToggleRow label="Accept rides" checked={draft.acceptsRide} onChange={() => update("acceptsRide", !draft.acceptsRide)} />
-        <ToggleRow label="Accept deliveries" checked={draft.acceptsDelivery} onChange={() => update("acceptsDelivery", !draft.acceptsDelivery)} />
+        {readOnly ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
+            Company owners can review trip controls but cannot change operator service rules.
+          </div>
+        ) : null}
+        <ToggleRow label="Accept rides" checked={draft.acceptsRide} disabled={readOnly} onChange={() => update("acceptsRide", !draft.acceptsRide)} />
+        <ToggleRow label="Accept deliveries" checked={draft.acceptsDelivery} disabled={readOnly} onChange={() => update("acceptsDelivery", !draft.acceptsDelivery)} />
         <label className="grid gap-1">
           <span className="text-xs font-black uppercase tracking-wide text-gray-400">Max distance km</span>
           <input
@@ -1037,30 +1090,34 @@ function TripControlsContainer({ controls, saving, onSave }) {
             min="0"
             value={draft.maxDistanceKm}
             onChange={(event) => update("maxDistanceKm", event.target.value)}
+            disabled={readOnly}
             className="h-11 rounded-2xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-green-500"
           />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TimeInput label="Start" value={draft.startTime} onChange={(value) => update("startTime", value)} />
-          <TimeInput label="End" value={draft.endTime} onChange={(value) => update("endTime", value)} />
+          <TimeInput label="Start" value={draft.startTime} disabled={readOnly} onChange={(value) => update("startTime", value)} />
+          <TimeInput label="End" value={draft.endTime} disabled={readOnly} onChange={(value) => update("endTime", value)} />
         </div>
         <label className="grid gap-1">
           <span className="text-xs font-black uppercase tracking-wide text-gray-400">Pause reason</span>
           <input
             value={draft.pauseReason}
             onChange={(event) => update("pauseReason", event.target.value)}
+            disabled={readOnly}
             className="h-11 rounded-2xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-green-500"
             placeholder="Optional"
           />
         </label>
-        <button
-          type="button"
-          onClick={() => onSave(draft)}
-          disabled={saving}
-          className="h-11 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:opacity-60"
-        >
-          {saving ? "Saving controls..." : "Save trip controls"}
-        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            onClick={() => onSave(draft)}
+            disabled={saving}
+            className="h-11 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:opacity-60"
+          >
+            {saving ? "Saving controls..." : "Save trip controls"}
+          </button>
+        ) : null}
       </div>
     </DashboardContainer>
   );
@@ -1256,19 +1313,19 @@ function OperatorAlertsDrawer({
   );
 }
 
-function OperatorToolsContainer({ hasWaitingPassengers, onOpenHistory, onOpenWaiting }) {
+function OperatorToolsContainer({ hasWaitingPassengers, readOnly = false, onOpenHistory, onOpenWaiting }) {
   return (
-    <DashboardContainer title="Operator Tools" subtitle="Quick actions for your workspace" icon={FiCalendar}>
+    <DashboardContainer title="Operator Tools" subtitle={readOnly ? "Company owner review tools" : "Quick actions for your workspace"} icon={FiCalendar}>
       <div className="grid gap-2">
         <ActionRow
           icon={FiUsers}
           label="Waiting passengers"
-          detail={hasWaitingPassengers ? "Review nearby demand" : "No passengers waiting now"}
+          detail={hasWaitingPassengers ? "Review passenger requests" : "No passengers waiting now"}
           onClick={onOpenWaiting}
         />
-        <ActionRow icon={FiSliders} label="Trip controls" detail="Fares, route limits, and service rules" />
+        <ActionRow icon={FiSliders} label="Trip controls" detail={readOnly ? "Read-only service rules" : "Fares, route limits, and service rules"} />
         <ActionRow icon={FiMap} label="Trip history" detail="Areas worked, deliveries, and completed routes" onClick={onOpenHistory} />
-        <ActionRow icon={FiCalendar} label="Schedule" detail="Plan shifts and operating hours" />
+        <ActionRow icon={FiCalendar} label="Schedule" detail={readOnly ? "Review operating hours" : "Plan shifts and operating hours"} />
       </div>
     </DashboardContainer>
   );
@@ -1284,16 +1341,16 @@ function MetricCard({ label, value, detail = "" }) {
   );
 }
 
-function ToggleRow({ label, checked, onChange }) {
+function ToggleRow({ label, checked, disabled = false, onChange }) {
   return (
     <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-3">
       <span className="text-sm font-bold text-gray-700">{label}</span>
-      <ToggleSwitch checked={checked} onChange={onChange} />
+      <ToggleSwitch checked={checked} disabled={disabled} onChange={onChange} />
     </div>
   );
 }
 
-function TimeInput({ label, value, onChange }) {
+function TimeInput({ label, value, disabled = false, onChange }) {
   return (
     <label className="grid gap-1">
       <span className="text-xs font-black uppercase tracking-wide text-gray-400">{label}</span>
@@ -1301,7 +1358,8 @@ function TimeInput({ label, value, onChange }) {
         type="time"
         value={value || ""}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 rounded-2xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-green-500"
+        disabled={disabled}
+        className="h-11 rounded-2xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-green-500 disabled:bg-gray-50 disabled:text-gray-500"
       />
     </label>
   );
@@ -1323,13 +1381,14 @@ function MiniRow({ label, value }) {
   );
 }
 
-function ToggleSwitch({ checked, onChange }) {
+function ToggleSwitch({ checked, disabled = false, onChange }) {
   return (
     <button
       type="button"
       aria-pressed={checked}
+      disabled={disabled}
       onClick={onChange}
-      className={`relative h-8 w-14 rounded-full border transition ${
+      className={`relative h-8 w-14 rounded-full border transition disabled:cursor-not-allowed disabled:opacity-70 ${
         checked ? "border-green-500 bg-green-600" : "border-gray-300 bg-gray-200"
       }`}
     >
@@ -1362,7 +1421,7 @@ function ActionRow({ icon, label, detail, onClick }) {
   );
 }
 
-function WaitingPassengersScreen({ passengers, fleetName, account, isActive, availabilityText, onBack, onUpdateTrip, onViewRoute }) {
+function WaitingPassengersScreen({ passengers, fleetName, account, isActive, availabilityText, readOnly = false, onBack, onUpdateTrip, onViewRoute }) {
   return (
     <section className="mx-auto max-w-5xl">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -1401,6 +1460,7 @@ function WaitingPassengersScreen({ passengers, fleetName, account, isActive, ava
               passenger={passenger}
               account={account}
               isActive={isActive}
+              readOnly={readOnly}
               onUpdateTrip={onUpdateTrip}
               onViewRoute={() => onViewRoute(passenger)}
             />
@@ -1415,7 +1475,7 @@ function WaitingPassengersScreen({ passengers, fleetName, account, isActive, ava
   );
 }
 
-function OperatorTripRequestCard({ passenger, account, isActive, onUpdateTrip, onViewRoute }) {
+function OperatorTripRequestCard({ passenger, account, isActive, readOnly = false, onUpdateTrip, onViewRoute }) {
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const status = passenger.status || "requested";
@@ -1481,7 +1541,13 @@ function OperatorTripRequestCard({ passenger, account, isActive, onUpdateTrip, o
         </a>
       </div>
 
-      {isWaiting ? (
+      {readOnly && (isWaiting || isAccepted || isArrived) ? (
+        <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
+          Company owner view: passenger trip actions are read-only and can only be updated by the operator.
+        </div>
+      ) : null}
+
+      {!readOnly && isWaiting ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
           <label className="block">
             <span className="mb-1 block text-xs font-black uppercase tracking-wide text-gray-400">Confirmed fare optional</span>
@@ -1513,7 +1579,7 @@ function OperatorTripRequestCard({ passenger, account, isActive, onUpdateTrip, o
         </div>
       ) : null}
 
-      {isAccepted ? (
+      {!readOnly && isAccepted ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <button
             type="button"
@@ -1534,7 +1600,7 @@ function OperatorTripRequestCard({ passenger, account, isActive, onUpdateTrip, o
         </div>
       ) : null}
 
-      {isArrived ? (
+      {!readOnly && isArrived ? (
         <button
           type="button"
           onClick={() => runAction("start_requested")}
@@ -1616,6 +1682,7 @@ function OperatorMenuDrawer({
   homeBase,
   fleetType,
   documents,
+  readOnly = false,
   onClose,
   onToggleAvailability,
   onOpenDashboard,
@@ -1650,6 +1717,24 @@ function OperatorMenuDrawer({
 
   if (!rendered) return null;
 
+  const companyAction = hasCompanyAccount
+    ? {
+        icon: FiBriefcase,
+        label: "Open Fleet HQ",
+        detail: `${companyAccount.companyName || "Company workspace"} - ${companyAccount.verificationStatus || "pending"}`,
+        onClick: onOpenCompany,
+      }
+    : !readOnly
+      ? {
+          icon: FiBriefcase,
+          label: "Register your transport company",
+          detail: companyLoading
+            ? "Checking company workspace..."
+            : "Create a company workspace for teams, fleets, and operators",
+          onClick: companyLoading ? undefined : onRegisterCompany,
+        }
+      : null;
+
   const actions = [
     {
       icon: FiNavigation,
@@ -1663,16 +1748,7 @@ function OperatorMenuDrawer({
       detail: fleetName,
       onClick: onOpenDashboard,
     },
-    {
-      icon: FiBriefcase,
-      label: hasCompanyAccount ? "Open Fleet HQ" : "Register your transport company",
-      detail: companyLoading
-        ? "Checking company workspace..."
-        : hasCompanyAccount
-          ? `${companyAccount.companyName || "Company workspace"} - ${companyAccount.verificationStatus || "pending"}`
-          : "Create a company workspace for teams, fleets, and operators",
-      onClick: companyLoading ? undefined : hasCompanyAccount ? onOpenCompany : onRegisterCompany,
-    },
+    companyAction,
     {
       icon: FiLifeBuoy,
       label: "Safety & emergency",
@@ -1697,23 +1773,25 @@ function OperatorMenuDrawer({
       detail: verification.shortText,
       onClick: onShowVerification,
     },
-    {
-      icon: FiEdit3,
-      label: "Edit fleet profile",
-      detail: "Operator, base, area, documents, and fleet details",
-      onClick: onEditProfile,
-    },
+    !readOnly
+      ? {
+          icon: FiEdit3,
+          label: "Edit fleet profile",
+          detail: "Operator, base, area, documents, and fleet details",
+          onClick: onEditProfile,
+        }
+      : null,
     {
       icon: FiSliders,
       label: "Trip controls",
-      detail: "Fare hints, routes, and service rules",
+      detail: readOnly ? "Read-only service rules" : "Fare hints, routes, and service rules",
     },
     {
       icon: FiCalendar,
       label: "Schedule",
-      detail: "Plan shifts and operating hours",
+      detail: readOnly ? "Review operating hours" : "Plan shifts and operating hours",
     },
-  ];
+  ].filter(Boolean);
 
   return (
     <div className={`fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
@@ -1754,9 +1832,9 @@ function OperatorMenuDrawer({
               <div className="min-w-0">
                 <p className="text-sm font-black text-gray-950">{operatorName}</p>
                 <p className="mt-1 truncate text-xs font-semibold text-green-800">{operatingArea}</p>
-                <p className="mt-2 text-xs font-black text-green-700">{availabilityText}</p>
+                <p className="mt-2 text-xs font-black text-green-700">{readOnly ? "Read-only company owner view" : availabilityText}</p>
               </div>
-              <ToggleSwitch checked={isActive} onChange={onToggleAvailability} />
+              <ToggleSwitch checked={isActive} disabled={readOnly} onChange={onToggleAvailability} />
             </div>
           </section>
 

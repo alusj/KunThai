@@ -47,24 +47,44 @@ const tripSteps = [
 ];
 
 export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification, initialActionRequest = null }) {
-  const [trips, setTrips] = useState(() => getActiveTrips());
-  const [loading, setLoading] = useState(true);
+  const initialTrips = getActiveTrips();
+  const [trips, setTrips] = useState(() => initialTrips);
+  const [loading, setLoading] = useState(() => initialTrips.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [actionScreen, setActionScreen] = useState(null);
   const [completedTrip, setCompletedTrip] = useState(null);
   const handledInitialActionRef = useRef("");
+  const tripsRef = useRef(trips);
+
+  useEffect(() => {
+    tripsRef.current = trips;
+  }, [trips]);
 
   const loadTrips = useCallback(async ({ quiet = false } = {}) => {
+    const localTrips = getActiveTrips();
+    const hasExistingTrips = tripsRef.current.length > 0 || localTrips.length > 0;
+
     try {
-      if (quiet) setRefreshing(true);
-      else setLoading(true);
+      if (localTrips.length) {
+        setTrips(localTrips);
+        tripsRef.current = localTrips;
+      }
+      if (quiet || hasExistingTrips) {
+        setLoading(false);
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+        setRefreshing(false);
+      }
       setError("");
       setTrips(await fetchActiveTrips());
     } catch (err) {
-      setError(err.message || "Unable to load active trips.");
-      setTrips([]);
+      setError(hasExistingTrips ? "" : err.message || "Unable to load active trips.");
+      if (!hasExistingTrips) {
+        setTrips([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -167,7 +187,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
 
         {error ? (
           <EmptyState title="Unable to load trips" body={error} />
-        ) : loading ? (
+        ) : loading && !trips.length ? (
           <EmptyState title="Loading active trips" body="Checking your current ride and delivery records." />
         ) : trips.length === 0 ? (
           <EmptyState title="No active trips" body="Your live rides, deliveries, and pending bookings will appear here." />
