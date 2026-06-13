@@ -98,6 +98,10 @@ function splitAreas(value = "") {
     .filter(Boolean);
 }
 
+function compactPublicId(value = "") {
+  return String(value).replace(/[^a-z0-9]/gi, "").toUpperCase();
+}
+
 export default function CompanyRegistrationScreen({ existingCompany = null, onBack, onComplete, onSaveExit }) {
   const [step, setStep] = useState(0);
   const [maxStepReached, setMaxStepReached] = useState(0);
@@ -219,6 +223,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
   }
 
   function addOperatorInvite(fleetId, operator) {
+    if (compactPublicId(operator.publicId) && compactPublicId(operator.publicId) === compactPublicId(form.ownerPublicId)) {
+      setStatus("Use the selected fleet operator's KunThai ID. The company owner does not receive operator invitation requests.");
+      return;
+    }
+
     const request = {
       requestId: `invite-${Date.now()}`,
       operatorId: operator.id,

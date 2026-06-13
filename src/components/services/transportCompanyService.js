@@ -97,6 +97,7 @@ function normalizeInvite(invite = {}) {
     id: invite.id || "",
     requestId: invite.requestId || invite.request_id || `invite-${compact(invite.operator_public_id || invite.publicId || Date.now())}`,
     companyId: invite.companyId || invite.company_id || "",
+    companyOwnerUserId: invite.companyOwnerUserId || invite.company_owner_user_id || invite.owner_user_id || "",
     companyName: invite.companyName || invite.company_name || "",
     companyCode: invite.companyCode || invite.company_code || "",
     companyCity: invite.companyCity || invite.company_city || "",
@@ -281,6 +282,7 @@ function enrichInvite(invite, company = {}, fleet = {}) {
   return normalizeInvite({
     ...invite,
     companyId: invite.companyId || invite.company_id || company.id || company.localId,
+    companyOwnerUserId: invite.companyOwnerUserId || invite.company_owner_user_id || company.userId || company.owner_user_id,
     companyName: invite.companyName || company.companyName || company.company_name,
     companyCode: invite.companyCode || company.companyCode || company.company_code,
     companyCity: invite.companyCity || company.city,
@@ -293,6 +295,10 @@ function enrichInvite(invite, company = {}, fleet = {}) {
 }
 
 function inviteMatchesOperator(invite, candidates = {}) {
+  if (candidates.userId && invite.companyOwnerUserId && invite.companyOwnerUserId === candidates.userId) {
+    return false;
+  }
+
   const candidatePublicIds = (candidates.publicIds || []).map(compact).filter(Boolean);
   return Boolean(
     (candidates.userId && invite.userId === candidates.userId) ||
@@ -302,14 +308,28 @@ function inviteMatchesOperator(invite, candidates = {}) {
 }
 
 function getLocalOperatorInvites(candidates = {}) {
-  const accountInvites = getLocalCompanyAccounts().flatMap(({ account }) =>
-    (account.fleets || []).flatMap((fleet) =>
+  const localAccounts = getLocalCompanyAccounts();
+  const ownedCompanyKeys = new Set(
+    localAccounts
+      .filter(({ account, userId }) => candidates.userId && (account.userId === candidates.userId || userId === candidates.userId))
+      .flatMap(({ account }) => [account.id, account.localId, account.companyCode, account.companyName].filter(Boolean)),
+  );
+  const isOwnedCompanyInvite = (invite) => [invite.companyId, invite.companyCode, invite.companyName]
+    .filter(Boolean)
+    .some((key) => ownedCompanyKeys.has(key));
+
+  const accountInvites = localAccounts.flatMap(({ account, userId }) => {
+    if (candidates.userId && (account.userId === candidates.userId || userId === candidates.userId)) return [];
+
+    return (account.fleets || []).flatMap((fleet) =>
       (fleet.operators || [])
         .map((operator) => enrichInvite(operator, account, fleet))
         .filter((invite) => inviteMatchesOperator(invite, candidates)),
-    ),
+    );
+  });
+  const storedInvites = readLocalInviteStore().filter((invite) =>
+    !isOwnedCompanyInvite(invite) && inviteMatchesOperator(invite, candidates)
   );
-  const storedInvites = readLocalInviteStore().filter((invite) => inviteMatchesOperator(invite, candidates));
 
   return dedupeInvites([...accountInvites, ...storedInvites]);
 }
@@ -499,7 +519,7 @@ export async function getOperatorCompanyInvites(operatorAccount = null) {
     const companyIds = uniqueValues((inviteRows || []).map((invite) => invite.company_id));
     const [{ data: companyRows }, { data: fleetRows }] = await Promise.all([
       companyIds.length
-        ? supabase.from("transport_companies").select("id, company_code, company_name, city").in("id", companyIds).catch(() => ({ data: [] }))
+        ? supabase.from("transport_companies").select("id, owner_user_id, company_code, company_name, city").in("id", companyIds).catch(() => ({ data: [] }))
         : { data: [] },
       companyIds.length
         ? supabase.from("transport_company_fleets").select("*").in("company_id", companyIds).catch(() => ({ data: [] }))
@@ -509,10 +529,12 @@ export async function getOperatorCompanyInvites(operatorAccount = null) {
     const companiesById = new Map((companyRows || []).map((company) => [company.id, company]));
     const fleetsById = new Map((fleetRows || []).map((fleet) => [fleet.id, fleet]));
     const fleetsByCode = new Map((fleetRows || []).map((fleet) => [`${fleet.company_id}:${fleet.fleet_code}`, fleet]));
-    const cloudInvites = (inviteRows || []).map((invite) => {
-      const fleet = fleetsById.get(invite.company_fleet_id) || fleetsByCode.get(`${invite.company_id}:${invite.fleet_code}`) || {};
-      return enrichInvite(invite, companiesById.get(invite.company_id) || {}, fleet);
-    });
+    const cloudInvites = (inviteRows || [])
+      .map((invite) => {
+        const fleet = fleetsById.get(invite.company_fleet_id) || fleetsByCode.get(`${invite.company_id}:${invite.fleet_code}`) || {};
+        return enrichInvite(invite, companiesById.get(invite.company_id) || {}, fleet);
+      })
+      .filter((invite) => inviteMatchesOperator(invite, candidates));
 
     return dedupeInvites([...cloudInvites, ...localInvites]);
   } catch (error) {

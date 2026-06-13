@@ -6,7 +6,7 @@ import AppBackTab from "../../../../shared/AppBackTab";
 
 const CONVERSATION_TRANSITION_MS = 360;
 
-export default function CustomerCare() {
+export default function CustomerCare({ onBack } = {}) {
   const { conversations, loading, reload } = useSellerCustomerCare();
   const [activeConversation, setActiveConversation] = useState(null);
   const [closingConversation, setClosingConversation] = useState(null);
@@ -15,6 +15,7 @@ export default function CustomerCare() {
   const [feedback, setFeedback] = useState("");
   const transitionTimerRef = useRef(null);
   const visibleConversation = activeConversation || closingConversation;
+  const standalone = Boolean(onBack);
 
   useEffect(() => {
     return () => {
@@ -45,14 +46,39 @@ export default function CustomerCare() {
     }, CONVERSATION_TRANSITION_MS);
   }
 
+  function renderListHeader() {
+    if (!standalone) return null;
+
+    return (
+      <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
+        <AppBackTab
+          onBack={onBack}
+          label="Back to seller dashboard"
+          historyKey="marketplace-seller-messages"
+          useHistoryLayer={false}
+        />
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase text-emerald-700">Messages</p>
+          <h1 className="truncate text-lg font-black text-gray-950">Buyer Messages</h1>
+          <p className="truncate text-xs font-bold text-gray-500">Reply to product inquiries and customer messages.</p>
+        </div>
+      </header>
+    );
+  }
+
   if (loading) {
     return (
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-busy="true">
-        <div className="h-5 w-44 animate-pulse rounded bg-gray-200" />
-        <div className="mt-4 space-y-3">
-          {[0, 1, 2].map((item) => (
-            <div key={item} className="h-16 animate-pulse rounded-lg bg-gray-100" />
-          ))}
+      <section className={standalone ? "flex h-dvh flex-col bg-gray-50" : "rounded-xl border border-gray-200 bg-white p-5 shadow-sm"} aria-busy="true">
+        {renderListHeader()}
+        <div className={standalone ? "min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8" : ""}>
+          <div className={standalone ? "rounded-xl border border-gray-200 bg-white p-5 shadow-sm" : ""}>
+            <div className="h-5 w-44 animate-pulse rounded bg-gray-200" />
+            <div className="mt-4 space-y-3">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="h-16 animate-pulse rounded-lg bg-gray-100" />
+              ))}
+            </div>
+          </div>
         </div>
       </section>
     );
@@ -161,13 +187,16 @@ export default function CustomerCare() {
   }
 
   return (
-    <section className="relative min-h-[calc(100dvh-9rem)] overflow-hidden bg-gray-50">
+    <section className={`relative overflow-hidden bg-gray-50 ${standalone ? "h-dvh" : "min-h-[calc(100dvh-9rem)]"}`}>
       <section
         aria-hidden={Boolean(visibleConversation)}
         inert={visibleConversation ? "true" : undefined}
-        className="absolute inset-0 overflow-y-auto"
+        className={`absolute inset-0 ${standalone ? "flex flex-col" : "overflow-y-auto"}`}
       >
-        <RecentConversations conversations={conversations} onOpen={openConversation} activeId={activeConversation?.id} />
+        {renderListHeader()}
+        <div className={standalone ? "min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8" : ""}>
+          <RecentConversations conversations={conversations} onOpen={openConversation} activeId={activeConversation?.id} />
+        </div>
       </section>
       {renderConversation(visibleConversation)}
     </section>

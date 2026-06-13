@@ -22,7 +22,7 @@ export default function SellerHeaderActions({
         primary
         onClick={onAddProduct}
       />
-      <ActionWithHint hint="New order waiting" visible={activeHint === "orders"} onClick={onOrders}>
+      <ActionWithHint hint="New order waiting" visible={activeHint === "orders"}>
         <HeaderActionButton
           icon={PackageCheck}
           label="Orders"
@@ -30,7 +30,7 @@ export default function SellerHeaderActions({
           onClick={onOrders}
         />
       </ActionWithHint>
-      <ActionWithHint hint="New buyer message" visible={activeHint === "messages"} onClick={onMessages}>
+      <ActionWithHint hint="New buyer message" visible={activeHint === "messages"}>
         <HeaderActionButton
           icon={MessageSquare}
           label="Messages"
@@ -38,7 +38,7 @@ export default function SellerHeaderActions({
           onClick={onMessages}
         />
       </ActionWithHint>
-      <ActionWithHint hint="Seller alert" visible={activeHint === "alerts"} onClick={onAlerts}>
+      <ActionWithHint hint="Seller alert" visible={activeHint === "alerts"}>
         <HeaderActionButton
           icon={Bell}
           label="Alerts"
@@ -59,19 +59,18 @@ export default function SellerHeaderActions({
   );
 }
 
-function ActionWithHint({ children, hint, onClick, visible }) {
+function ActionWithHint({ children, hint, visible }) {
   return (
     <div className="relative">
       {children}
       {visible ? (
-        <button
-          type="button"
-          onClick={onClick}
+        <div
+          aria-hidden="true"
           className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-36 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left text-xs font-black text-slate-700 shadow-xl shadow-slate-900/10"
         >
           {hint}
           <span className="absolute -top-1 right-5 h-3 w-3 rotate-45 border-l border-t border-emerald-100 bg-white" />
-        </button>
+        </div>
       ) : null}
     </div>
   );

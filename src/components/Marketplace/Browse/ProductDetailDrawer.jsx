@@ -526,6 +526,7 @@ export default function ProductDetailDrawer({
   const [messageOpen, setMessageOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
+  const [verificationAnchor, setVerificationAnchor] = useState(null);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderForm, setOrderForm] = useState(() => ({ ...readDefaultAddress(), quantity: 1, fulfillment: "delivery" }));
   const [savedAddresses, setSavedAddresses] = useState(readSavedAddresses);
@@ -723,6 +724,15 @@ export default function ProductDetailDrawer({
 
   function openVerificationDetails(event) {
     event?.stopPropagation?.();
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
+    setVerificationAnchor(rect ? {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    } : null);
     setVerificationOpen(true);
   }
 
@@ -1122,7 +1132,11 @@ export default function ProductDetailDrawer({
           <MarketplaceVerificationModal
             audience="buyer"
             status={product.seller.verificationStatus}
-            onClose={() => setVerificationOpen(false)}
+            anchorRect={verificationAnchor}
+            onClose={() => {
+              setVerificationOpen(false);
+              setVerificationAnchor(null);
+            }}
             onPrimaryAction={() => null}
             onSecondaryAction={() => setMessageOpen(true)}
           />

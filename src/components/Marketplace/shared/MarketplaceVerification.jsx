@@ -90,6 +90,7 @@ export function MarketplaceVerificationModal({
   status,
   verified,
   audience = "buyer",
+  anchorRect = null,
   onClose,
   onPrimaryAction,
   onSecondaryAction,
@@ -102,10 +103,32 @@ export function MarketplaceVerificationModal({
   const note = audience === "seller" ? config.sellerNote : config.buyerNote;
   const primaryLabel = audience === "seller" ? "Continue carefully" : "Continue carefully";
   const secondaryLabel = audience === "seller" ? "Complete verification" : "Message seller";
+  const anchored = Boolean(anchorRect && typeof window !== "undefined");
+  const anchoredWidth = anchored ? Math.min(420, Math.max(280, window.innerWidth - 24)) : undefined;
+  const anchorStyle = anchored
+    ? {
+        position: "absolute",
+        top: Math.max(12, Math.min((anchorRect.bottom || 0) + 8, window.innerHeight - 320)),
+        left: Math.max(12, Math.min(anchorRect.left || 12, window.innerWidth - anchoredWidth - 12)),
+        width: anchoredWidth,
+        maxHeight: "calc(100dvh - 1.5rem)",
+        overflowY: "auto",
+      }
+    : undefined;
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-end bg-gray-950/45 p-3 sm:items-center sm:justify-center">
-      <section className="w-full rounded-2xl border border-gray-200 bg-white shadow-2xl sm:max-w-md">
+    <div
+      className={[
+        "fixed inset-0 z-[1200] p-3",
+        anchored ? "bg-gray-950/25" : "flex items-end bg-gray-950/45 sm:items-center sm:justify-center",
+      ].join(" ")}
+      onClick={onClose}
+    >
+      <section
+        className="w-full rounded-2xl border border-gray-200 bg-white shadow-2xl sm:max-w-md"
+        style={anchorStyle}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={`rounded-t-2xl border-b p-4 ${config.panelClass}`}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-start gap-3">

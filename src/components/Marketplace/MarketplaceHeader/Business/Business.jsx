@@ -164,13 +164,11 @@ export default function Business({ onBack }) {
       return (
         <SellerFullScreen
           key="messages"
-          eyebrow="Messages"
-          title="Buyer Messages"
-          subtitle="Reply to potential customers, product inquiries, and UrMall messages."
+          hideHeader
           onBack={goBackSellerScreen}
           open={screenPanelOpen}
         >
-          <CustomerCare />
+          <CustomerCare onBack={goBackSellerScreen} />
         </SellerFullScreen>
       );
     }

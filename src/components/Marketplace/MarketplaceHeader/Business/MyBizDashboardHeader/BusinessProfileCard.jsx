@@ -21,6 +21,25 @@ function StatusPill({ icon: Icon, label, active }) {
 
 export default function BusinessProfileCard({ business, status, onEditProfile }) {
   const [verificationOpen, setVerificationOpen] = useState(false);
+  const [verificationAnchor, setVerificationAnchor] = useState(null);
+
+  function openVerificationDetails(event) {
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
+    setVerificationAnchor(rect ? {
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    } : null);
+    setVerificationOpen(true);
+  }
+
+  function closeVerificationDetails() {
+    setVerificationOpen(false);
+    setVerificationAnchor(null);
+  }
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -33,13 +52,13 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
             <VerificationBadge
               status={business.verificationStatus}
               verified={business.verified}
-              onClick={() => setVerificationOpen(true)}
+              onClick={openVerificationDetails}
             />
             <MarketplaceVerificationInline
               audience="seller"
               status={business.verificationStatus}
               verified={business.verified}
-              onReadMore={() => setVerificationOpen(true)}
+              onReadMore={openVerificationDetails}
             />
           </div>
 
@@ -102,7 +121,8 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
           audience="seller"
           status={business.verificationStatus}
           verified={business.verified}
-          onClose={() => setVerificationOpen(false)}
+          anchorRect={verificationAnchor}
+          onClose={closeVerificationDetails}
           onSecondaryAction={onEditProfile}
         />
       ) : null}
