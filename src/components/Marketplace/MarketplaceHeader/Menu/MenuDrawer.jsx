@@ -28,6 +28,7 @@ import {
 import AppPortal from "../../../shared/AppPortal";
 import AppBackTab from "../../../shared/AppBackTab";
 import { SlidePanel, useSlidePanel } from "../../../shared/SlideTransition";
+import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import {
   AddressAreaResolutionCard,
   AddressAreaStatusIcon,
@@ -376,11 +377,11 @@ export default function MenuDrawer({ open, onClose }) {
     if (!open) setAreaPicker(null);
   }, [open]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         if (active) {
@@ -394,7 +395,6 @@ export default function MenuDrawer({ open, onClose }) {
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [active, onClose, open]);
 

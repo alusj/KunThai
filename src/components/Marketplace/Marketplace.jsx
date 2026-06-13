@@ -7,6 +7,7 @@ import Orders from "./Orders";
 import ParentTabs from "./ParentTabs";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
+import useBodyScrollLock from "../shared/useBodyScrollLock";
 
 export default function Marketplace({ nav, setNav, onActivityChange }) {
   const [activeTab, setActiveTab] = useState("new");
@@ -133,11 +134,11 @@ export default function Marketplace({ nav, setNav, onActivityChange }) {
 }
 
 function UtilityScreen({ children, hideHeader = false, open, onClose, subtitle, title }) {
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     function handleKeyDown(event) {
       if (event.key === "Escape") onClose?.();
     }
@@ -145,7 +146,6 @@ function UtilityScreen({ children, hideHeader = false, open, onClose, subtitle, 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [onClose, open]);
 

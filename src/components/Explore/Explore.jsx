@@ -32,6 +32,7 @@ import SettingsScreen from "./SocialMenu/settings/SettingsScreen";
 import SocialScreenHeader from "./SocialMenu/shared/SocialScreenHeader";
 import TermsPoliciesScreen from "./SocialMenu/terms/TermsPoliciesScreen";
 import { MENU_SCREENS } from "./config/menuScreens";
+import useBodyScrollLock from "../shared/useBodyScrollLock";
 
 // UI Components
 import ExploreHeader from "./components/header/ExploreHeader";
@@ -150,16 +151,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
   }, [active]);
 
-  useEffect(() => {
-    if (!anyExploreOverlayVisible) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [anyExploreOverlayVisible]);
+  useBodyScrollLock(anyExploreOverlayVisible);
 
   useEffect(() => {
     const previousStack = previousMenuStackRef.current;

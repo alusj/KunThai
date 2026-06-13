@@ -25,6 +25,7 @@ import {
   Truck,
 } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
+import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerReviews,
@@ -559,11 +560,10 @@ export default function SellerProfileDrawer({
     };
   }, [open, safeSeller.id, onNotice]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     function handleKeyDown(event) {
       if (event.key === "Escape") onClose?.();
     }
@@ -572,7 +572,6 @@ export default function SellerProfileDrawer({
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [onClose, open]);
 

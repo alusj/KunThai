@@ -31,6 +31,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
+import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
 import { createSupportTicket } from "../../Backend/services/explore/supportService";
@@ -1225,12 +1226,10 @@ function OperatorAlertsDrawer({
   onOpenHistory,
 }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
+  useBodyScrollLock(rendered);
 
   useEffect(() => {
     if (!rendered) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event) {
       if (event.key === "Escape") onClose?.();
@@ -1238,7 +1237,6 @@ function OperatorAlertsDrawer({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose, rendered]);
@@ -1697,12 +1695,10 @@ function OperatorMenuDrawer({
 }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
+  useBodyScrollLock(rendered);
 
   useEffect(() => {
     if (!rendered) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event) {
       if (event.key === "Escape") onClose?.();
@@ -1710,7 +1706,6 @@ function OperatorMenuDrawer({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose, rendered]);
@@ -1946,12 +1941,10 @@ const operatorSafetyTopics = [
 
 function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
+  useBodyScrollLock(rendered);
 
   useEffect(() => {
     if (!rendered) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event) {
       if (event.key === "Escape") onClose?.();
@@ -1959,7 +1952,6 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose, rendered]);

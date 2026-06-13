@@ -29,7 +29,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
   }
 
   return (
-    <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <article className={`relative overflow-visible rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${menuOpen ? "z-[60]" : "z-0"}`}>
       <div className="flex items-start gap-4">
         <button type="button" onClick={onViewProfile} className="flex-none" aria-label={`View ${user.name}`}>
           <Avatar name={user.name} src={user.avatar_url} size="md" />
@@ -52,7 +52,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
             </button>
 
             {menuOpen ? (
-              <div className="absolute right-0 top-12 z-20 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-base font-black shadow-xl">
+              <div className="absolute right-0 top-12 z-[80] w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-base font-black shadow-xl">
                 <button
                   type="button"
                   onClick={() => runMenuAction(onViewProfile)}

@@ -1,14 +1,80 @@
-export default function MessageBubble({ mine, message }) {
+import { HiOutlineMapPin, HiOutlineNoSymbol, HiOutlineShieldCheck } from "react-icons/hi2";
+
+export default function MessageBubble({ mine, message, onApproveLocationRequest, onBlockUser, otherUserName = "This user" }) {
   const mediaUrl = message.mediaUrl || message.media_url || "";
   const mediaType = message.type || message.media_type || "text";
+  const bubbleClass = `kuntai-break max-w-[82%] rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 sm:max-w-[78%] ${
+    mine ? "rounded-br-md bg-slate-950 text-white" : "rounded-bl-md bg-slate-100 text-slate-800"
+  }`;
+  const timeLabel = message.pending ? "Sending..." : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  if (mediaType === "location_request") {
+    return (
+      <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
+        <div className={bubbleClass}>
+          <div className="flex items-start gap-3">
+            <span className={`mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-2xl ${mine ? "bg-white/10 text-white" : "bg-emerald-50 text-emerald-700"}`}>
+              <HiOutlineMapPin />
+            </span>
+            <div className="min-w-0">
+              <p className="font-black">{mine ? "Location request sent" : "Location requested"}</p>
+              <p className={mine ? "text-white/80" : "text-slate-600"}>
+                {message.body || `${otherUserName} is requesting your location.`}
+              </p>
+            </div>
+          </div>
+          {!mine ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onApproveLocationRequest?.(message)}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-3 text-xs font-black text-white"
+              >
+                <HiOutlineShieldCheck />
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => onBlockUser?.(message)}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-white px-3 text-xs font-black text-rose-700"
+              >
+                <HiOutlineNoSymbol />
+                Block
+              </button>
+            </div>
+          ) : null}
+          <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
+            {timeLabel}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (mediaType === "location_share") {
+    return (
+      <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
+        <div className={bubbleClass}>
+          <div className="flex items-start gap-3">
+            <span className={`mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-2xl ${mine ? "bg-white/10 text-white" : "bg-sky-50 text-sky-700"}`}>
+              <HiOutlineMapPin />
+            </span>
+            <div className="min-w-0">
+              <p className="font-black">{mine ? "Location sharing" : "Location update"}</p>
+              <p className={mine ? "text-white/80" : "text-slate-600"}>{message.body || "A location is being shared from Area View."}</p>
+            </div>
+          </div>
+          <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
+            {timeLabel}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`kuntai-break max-w-[82%] rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 sm:max-w-[78%] ${
-          mine ? "rounded-br-md bg-slate-950 text-white" : "rounded-bl-md bg-slate-100 text-slate-800"
-        }`}
-      >
+      <div className={bubbleClass}>
         {mediaType === "image" && mediaUrl ? (
           <img src={mediaUrl} alt="Message attachment" className="mb-2 max-h-72 w-full rounded-2xl object-cover" />
         ) : null}
@@ -19,7 +85,7 @@ export default function MessageBubble({ mine, message }) {
         ) : null}
         {message.body ? <p>{message.body}</p> : mediaType === "audio" ? <p>Voice note</p> : mediaType === "image" ? <p>Photo</p> : null}
         <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
-          {message.pending ? "Sending..." : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {timeLabel}
         </p>
       </div>
     </div>

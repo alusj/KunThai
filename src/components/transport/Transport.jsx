@@ -59,8 +59,13 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   const [registrationInvite, setRegistrationInvite] = useState(null);
   const [routeDirection, setRouteDirection] = useState("forward");
   const operatorDashboardCloseTimer = useRef(null);
+  const operatorCompanyInvitesRef = useRef([]);
 
   const routePanelClass = routeDirection === "backward" ? "kt-explore-stack-enter-left" : "kt-explore-stack-enter";
+
+  useEffect(() => {
+    operatorCompanyInvitesRef.current = operatorCompanyInvites;
+  }, [operatorCompanyInvites]);
 
   function handleBookingCreated() {
     setBookingTarget(null);
@@ -200,14 +205,15 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setSavedOperatorsOpen(false);
     setVerificationFleet(null);
     const returnToBooking = options.returnTo === "booking";
+    const returnToExploreMessages = options.returnTo === "explore-messages";
     const bookingSnapshot = returnToBooking ? options.bookingTarget || bookingTarget : null;
     setBookingTarget(null);
     setNearbyAreaRequest(
-      destination
+      destination || Object.keys(options).length
         ? {
             destination,
             autoRoute: options.autoRoute ?? true,
-            returnTo: returnToBooking ? "booking" : "",
+            returnTo: returnToBooking ? "booking" : returnToExploreMessages ? "explore-messages" : "",
             bookingTarget: bookingSnapshot,
           }
         : null,
@@ -302,9 +308,14 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
   const refreshOperatorCompanyInvites = useCallback(async (account = operatorAccount) => {
     try {
-      setOperatorInviteLoading(true);
+      const hasCachedInvites = operatorCompanyInvitesRef.current.length > 0;
+      if (!hasCachedInvites) setOperatorInviteLoading(true);
       const invites = await getOperatorCompanyInvites(account);
-      setOperatorCompanyInvites(invites);
+      setOperatorCompanyInvites((current) => {
+        const next = invites.length || !current.length ? invites : current;
+        operatorCompanyInvitesRef.current = next;
+        return next;
+      });
       setOperatorInviteStatus("");
     } catch (error) {
       if (!/sign in/i.test(error.message || "")) {
@@ -503,7 +514,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   }, []);
 
   useEffect(() => {
-    if (!areaViewRequest?.destination) return;
+    if (!areaViewRequest) return;
 
     if (operatorDashboardCloseTimer.current) {
       window.clearTimeout(operatorDashboardCloseTimer.current);
@@ -711,16 +722,45 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         <NearbyAreaScreen
           onBack={() => {
             const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
+            const returnToExploreMessages = nearbyAreaRequest?.returnTo === "explore-messages";
             setRouteDirection("backward");
             setNearbyAreaOpen(false);
             if (returnToBooking) {
               setBookingTarget(nearbyAreaRequest.bookingTarget);
             }
             setNearbyAreaRequest(null);
+            if (returnToExploreMessages) {
+              window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
+            }
           }}
           initialDestination={nearbyAreaRequest?.destination}
           autoRoute={Boolean(nearbyAreaRequest?.autoRoute)}
-          backLabel={nearbyAreaRequest?.returnTo === "booking" ? "Back to booking form" : "Back to transport"}
+          mode={nearbyAreaRequest?.mode || "standard"}
+          pickerStart={nearbyAreaRequest?.pickerStart || "current"}
+          pickerLabels={nearbyAreaRequest?.pickerLabels || null}
+          onLocationPicked={async (location) => {
+            const request = nearbyAreaRequest;
+            const returnToExploreMessages = request?.returnTo === "explore-messages";
+            try {
+              if (typeof request?.onLocationPicked === "function") {
+                await request.onLocationPicked(location);
+              }
+            } finally {
+              setRouteDirection("backward");
+              setNearbyAreaOpen(false);
+              setNearbyAreaRequest(null);
+              if (returnToExploreMessages) {
+                window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
+              }
+            }
+          }}
+          backLabel={
+            nearbyAreaRequest?.returnTo === "booking"
+              ? "Back to booking form"
+              : nearbyAreaRequest?.returnTo === "explore-messages"
+                ? "Back to messages"
+                : "Back to transport"
+          }
         />
       </div>
     );
@@ -991,7 +1031,7 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
 
 function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onCompleteRegistration, onReject }) {
   const visibleInvites = invites.filter((invite) => invite.status !== "archived");
-  if (!visibleInvites.length && !loading && !status) return null;
+  if (!visibleInvites.length && !status) return null;
 
   return (
     <section className="mx-4 mt-3 rounded-[28px] border border-blue-100 bg-white p-4 shadow-sm">
@@ -1015,9 +1055,9 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
       ) : null}
 
       <div className="mt-4 grid gap-3">
-        {loading && !visibleInvites.length ? (
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-5 text-sm font-bold text-slate-500">
-            Checking company requests...
+        {loading && visibleInvites.length ? (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700">
+            Refreshing company requests...
           </div>
         ) : null}
         {visibleInvites.map((invite) => (

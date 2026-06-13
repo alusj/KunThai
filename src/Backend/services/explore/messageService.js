@@ -4,6 +4,7 @@ import { uploadMediaDataUrl } from "./mediaService";
 const CONVERSATIONS_KEY = "explore-message-conversations";
 const MESSAGES_KEY = "explore-message-items";
 const MESSAGE_ACTIVITY_KEY = "explore-message-activity";
+const MESSAGE_TYPES = ["text", "image", "audio", "video", "location_request", "location_share", "system"];
 export const EXPLORE_MESSAGE_EVENT = "explore-message-event";
 export const EXPLORE_MESSAGE_ACTIVITY_EVENT = "explore-message-activity";
 
@@ -90,7 +91,7 @@ function normalizeMessageInput(input) {
   const body = String(input?.body || "").trim();
   const mediaUrl = String(input?.media_url || input?.mediaUrl || "").trim();
   const requestedType = String(input?.type || input?.media_type || "").toLowerCase();
-  const type = ["image", "audio", "video"].includes(requestedType)
+  const type = MESSAGE_TYPES.includes(requestedType)
     ? requestedType
     : mediaUrl
       ? "image"
@@ -99,16 +100,60 @@ function normalizeMessageInput(input) {
   return {
     body,
     mediaUrl,
-    type: mediaUrl ? type : "text",
+    type: mediaUrl || !["image", "audio", "video"].includes(type) ? type : "text",
   };
 }
 
 function getMessagePreview(message) {
+  if (message.type === "location_request") return "Location request";
+  if (message.type === "location_share") return "Location sharing";
   if (message.body) return message.body;
   if (message.type === "image") return "Photo";
   if (message.type === "audio") return "Voice note";
   if (message.type === "video") return "Video";
   return "Message";
+}
+
+function appendLocalMessage(userId, message) {
+  if (!userId || !message?.conversationId) return;
+  const messages = readArray(MESSAGES_KEY, userId);
+  if (messages.some((item) => item.id === message.id)) return;
+  writeArray(MESSAGES_KEY, [...messages, message], userId);
+}
+
+function updateLocalConversationPreview(userId, conversationId, preview, updatedAt) {
+  if (!userId || !conversationId) return [];
+  const conversations = readArray(CONVERSATIONS_KEY, userId).map((conversation) =>
+    conversation.id === conversationId ? { ...conversation, preview, updatedAt } : conversation,
+  );
+  writeArray(CONVERSATIONS_KEY, conversations, userId);
+  return conversations;
+}
+
+function mirrorLocalMessageToParticipants(conversationId, senderId, message, preview) {
+  const senderConversations = updateLocalConversationPreview(senderId, conversationId, preview, message.createdAt);
+  const conversation = senderConversations.find((item) => item.id === conversationId);
+  const participantIds = conversation?.participantIds || [];
+
+  participantIds
+    .filter((userId) => userId && userId !== senderId)
+    .forEach((userId) => {
+      appendLocalMessage(userId, message);
+      const recipientConversations = readArray(CONVERSATIONS_KEY, userId);
+      const existing = recipientConversations.find((item) => item.id === conversationId);
+      const nextConversation = {
+        ...(existing || conversation),
+        id: conversationId,
+        preview,
+        updatedAt: message.createdAt,
+        participantIds,
+        participants: existing?.participants || conversation?.participants || {},
+      };
+      writeArray(CONVERSATIONS_KEY, [
+        nextConversation,
+        ...recipientConversations.filter((item) => item.id !== conversationId),
+      ], userId);
+    });
 }
 
 async function fetchConversationMemberRows(conversationIds = []) {
@@ -468,22 +513,15 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
     conversationId,
     senderId,
     body: draft.body,
-    type: draft.mediaUrl ? draft.type : "text",
+    type: draft.type,
     mediaUrl,
     read: false,
     createdAt: new Date().toISOString(),
   };
   const preview = getMessagePreview(message);
 
-  if (!options.optimisticManaged) {
-    const messages = readArray(MESSAGES_KEY, senderId);
-    writeArray(MESSAGES_KEY, [...messages, message], senderId);
-  }
-
-  const conversations = readArray(CONVERSATIONS_KEY, senderId).map((conversation) =>
-    conversation.id === conversationId ? { ...conversation, preview, updatedAt: message.createdAt } : conversation,
-  );
-  writeArray(CONVERSATIONS_KEY, conversations, senderId);
+  appendLocalMessage(senderId, message);
+  mirrorLocalMessageToParticipants(conversationId, senderId, message, preview);
   if (!options.optimisticManaged) {
     window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
   }

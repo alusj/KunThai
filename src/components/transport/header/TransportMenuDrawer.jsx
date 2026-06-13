@@ -26,6 +26,7 @@ import {
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
 import { SlidePanel, useSlidePanel } from "../../shared/SlideTransition";
+import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import {
   AddressAreaResolutionCard,
   AddressAreaStatusIcon,
@@ -192,11 +193,10 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
     }
   }, [open]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event) {
       if (event.key !== "Escape") return;
@@ -211,7 +211,6 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [activeScreen, onClose, open]);

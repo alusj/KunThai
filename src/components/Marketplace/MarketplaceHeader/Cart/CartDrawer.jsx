@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, MapPin, PackageCheck, Truck } from "lucide-react";
 import AppPortal from "../../../shared/AppPortal";
 import AppBackTab from "../../../shared/AppBackTab";
+import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { fetchBuyerDeliveryAddresses } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
 import CartItem from "./CartItem";
@@ -78,11 +79,10 @@ export default function CartDrawer({
       .catch(() => null);
   }, [open]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     function handleKeyDown(event) {
       if (event.key === "Escape") onClose?.();
     }
@@ -90,7 +90,6 @@ export default function CartDrawer({
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [onClose, open]);
 

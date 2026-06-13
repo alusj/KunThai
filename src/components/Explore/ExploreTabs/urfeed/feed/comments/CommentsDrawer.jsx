@@ -3,6 +3,7 @@ import { HiOutlineChatBubbleLeftRight, HiOutlineXMark } from "react-icons/hi2";
 
 import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
 import ErrorState from "../../../../shared/ErrorState";
+import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
 
@@ -17,6 +18,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   const sendPreviewTimerRef = useRef(null);
   const comments = useExploreComments(post?.id, currentUserId, post, open || rendered);
   const isSwip = Boolean(post?.video_url || String(post?.feed_scope || "").toLowerCase() === "swip");
+  useBodyScrollLock(rendered);
 
   useEffect(
     () => () => {
@@ -45,30 +47,6 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
 
     return () => window.clearTimeout(timeoutId);
   }, [open, rendered]);
-
-  useEffect(() => {
-    if (!rendered) {
-      return undefined;
-    }
-
-    const previousBody = {
-      overflow: document.body.style.overflow,
-      overscrollBehavior: document.body.style.overscrollBehavior,
-    };
-    const previousHtml = {
-      overflow: document.documentElement.style.overflow,
-    };
-
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "contain";
-    document.documentElement.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousBody.overflow;
-      document.body.style.overscrollBehavior = previousBody.overscrollBehavior;
-      document.documentElement.style.overflow = previousHtml.overflow;
-    };
-  }, [rendered]);
 
   useEffect(() => {
     if (!rendered || closing) return;

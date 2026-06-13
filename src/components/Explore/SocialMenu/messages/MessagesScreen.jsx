@@ -32,6 +32,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
         currentUserId={currentUserId}
         messages={messages.messages}
         onBack={messages.closeConversation}
+        onAction={messages.handleConversationAction}
         onSend={messages.sendMessage}
         onActivity={messages.setActivity}
         onViewProfile={onViewProfile}

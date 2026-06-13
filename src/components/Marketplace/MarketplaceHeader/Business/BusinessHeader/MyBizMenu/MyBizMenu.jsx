@@ -14,6 +14,7 @@ import SellerDrawerNavItem from "./SellerDrawerNavItem";
 import SellerDrawerProfile from "./SellerDrawerProfile";
 import SellerDrawerSection from "./SellerDrawerSection";
 import AppPortal from "../../../../../shared/AppPortal";
+import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 
 import BusinessSettings from "./MyBizPages/BusinessSettings/BusinessSettings";
 import HelpSupport from "./MyBizPages/HelpSupport/HelpSupport";
@@ -144,11 +145,10 @@ export default function MyBizMenu({
     return undefined;
   }, [initialScreenKey, isOpen]);
 
+  useBodyScrollLock(rendered);
+
   useEffect(() => {
     if (!rendered) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event) {
       if (event.key !== "Escape") return;
@@ -163,7 +163,6 @@ export default function MyBizMenu({
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [activeScreenKey, rendered]);
 

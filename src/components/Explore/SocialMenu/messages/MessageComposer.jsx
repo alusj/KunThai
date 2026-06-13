@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlinePhoto, HiOutlineXMark } from "react-icons/hi2";
+import {
+  HiOutlineEllipsisHorizontal,
+  HiOutlineMapPin,
+  HiOutlineMicrophone,
+  HiOutlineNoSymbol,
+  HiOutlinePaperAirplane,
+  HiOutlinePhoto,
+  HiOutlineShieldCheck,
+  HiOutlineXMark,
+} from "react-icons/hi2";
 
 import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
 
@@ -18,7 +27,7 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function MessageComposer({ onActivity, onSend }) {
+export default function MessageComposer({ onAction, onActivity, onSend }) {
   const messageSettings = readExploreSettings().messages;
   const showTypingStatus = messageSettings.showTypingStatus !== false;
   const allowVoiceNotes = messageSettings.allowVoiceNotes !== false;
@@ -28,6 +37,7 @@ export default function MessageComposer({ onActivity, onSend }) {
   const [attachment, setAttachment] = useState(null);
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
@@ -58,6 +68,17 @@ export default function MessageComposer({ onActivity, onSend }) {
       mediaStreamRef.current?.getTracks?.().forEach((track) => track.stop());
     };
   }, []);
+
+  useEffect(() => {
+    if (!actionsOpen) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setActionsOpen(false);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [actionsOpen]);
 
   async function submit(event) {
     event.preventDefault();
@@ -188,10 +209,23 @@ export default function MessageComposer({ onActivity, onSend }) {
     startRecording();
   }
 
+  async function runAction(action) {
+    setActionsOpen(false);
+    setNotice("");
+    try {
+      const result = await onAction?.(action);
+      if (result?.ok === false) {
+        setNotice(result.error || "This action could not be completed.");
+      }
+    } catch (error) {
+      setNotice(error?.message || "This action could not be completed.");
+    }
+  }
+
   const canSend = Boolean(value.trim() || attachment) && !sending && !recording;
 
   return (
-    <form onSubmit={submit} className="border-t border-slate-200 bg-white p-3">
+    <form onSubmit={submit} className="relative border-t border-slate-200 bg-white p-3">
       {recording ? (
         <div className="mb-2 flex items-center justify-between rounded-2xl bg-rose-50 px-3 py-2 text-sm font-black text-rose-700">
           <span className="inline-flex items-center gap-2">
@@ -223,6 +257,35 @@ export default function MessageComposer({ onActivity, onSend }) {
 
       {notice ? <p className="mb-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">{notice}</p> : null}
 
+      {actionsOpen ? (
+        <div className="absolute bottom-[4.35rem] right-3 z-20 w-64 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-2 text-sm font-black text-slate-700 shadow-2xl">
+          <button
+            type="button"
+            onClick={() => runAction("shareLocation")}
+            className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left hover:bg-sky-50 hover:text-sky-700"
+          >
+            <HiOutlineMapPin className="text-lg" />
+            Share location
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction("requestLocation")}
+            className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left hover:bg-emerald-50 hover:text-emerald-700"
+          >
+            <HiOutlineShieldCheck className="text-lg" />
+            Request location
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction("blockUser")}
+            className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-rose-700 hover:bg-rose-50"
+          >
+            <HiOutlineNoSymbol className="text-lg" />
+            Block user
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-2">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
       <button
@@ -249,6 +312,17 @@ export default function MessageComposer({ onActivity, onSend }) {
           <HiOutlineMicrophone />
         </button>
       ) : null}
+      <button
+        type="button"
+        onClick={() => setActionsOpen((current) => !current)}
+        className={`flex h-11 w-11 items-center justify-center rounded-2xl text-xl ${
+          actionsOpen ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-500"
+        }`}
+        aria-label="Open message actions"
+        aria-expanded={actionsOpen}
+      >
+        <HiOutlineEllipsisHorizontal />
+      </button>
       <button
         type="submit"
         disabled={!canSend}

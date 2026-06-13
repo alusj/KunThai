@@ -113,6 +113,14 @@ function getBrowserCurrentPosition() {
   });
 }
 
+function getFriendlyLocationError(error, fallback = "Location permission is needed, or you can use Drop Pin instead.") {
+  const message = String(error?.message || "").trim();
+  if (/kclerrordomain|operation couldn.?t be completed|position unavailable|timeout|permission|denied/i.test(message)) {
+    return "KunThai could not read your device GPS. Use Drop Pin to place the location manually, or keep the selected map point if it is already correct.";
+  }
+  return message || fallback;
+}
+
 function MapCardCollapseButton({ className = "", collapsed, label, onClick }) {
   return (
     <button
@@ -1275,11 +1283,30 @@ export default function NearbyAreaScreen({
       }));
       setAddLocationStatus(`Your current location is ${location.address}. ${coordinatesLabel ? `Coordinates: ${coordinatesLabel}.` : ""}`);
     } catch (error) {
-      setAddLocationStatus(error?.message || "Location permission is needed, or you can use Drop Pin instead.");
+      const fallbackPoint = normalizePosition(mapCenterRef.current) || normalizePosition(userLocationRef.current) || normalizePosition(userLocation);
+      if (fallbackPoint) {
+        const location = await reverseGeocodePoint(fallbackPoint);
+        const coordinatesLabel = formatCoordinatesLabel(location);
+        setAddLocationDraft((current) => ({
+          ...current,
+          address: location.address || current.address,
+          lat: location.lat,
+          lng: location.lng,
+          coordinatesLabel,
+          source: "selectedMapPoint",
+        }));
+        setAddLocationMode("form");
+        setFocusMode(false);
+        setAddLocationStatus(
+          `Device GPS could not confirm your exact position, so KunThai used the selected map point. ${coordinatesLabel ? `Coordinates: ${coordinatesLabel}. ` : ""}Use Drop Pin if you need to move it.`,
+        );
+      } else {
+        setAddLocationStatus(getFriendlyLocationError(error));
+      }
     } finally {
       setAddLocationBusy(false);
     }
-  }, [mapInstance]);
+  }, [mapInstance, userLocation]);
 
   const confirmAddLocationDroppedPin = useCallback(async () => {
     const center = mapInstance?.getCenter?.();
@@ -1310,7 +1337,7 @@ export default function NearbyAreaScreen({
       setFocusMode(false);
       setAddLocationStatus(`Pinned location added to the form. ${coordinatesLabel ? `Coordinates: ${coordinatesLabel}.` : ""}`);
     } catch (error) {
-      setAddLocationStatus(error?.message || "Unable to read the pinned location. Try again.");
+      setAddLocationStatus(getFriendlyLocationError(error, "Unable to read the pinned location. Try again."));
     } finally {
       setAddLocationBusy(false);
     }
@@ -1368,7 +1395,7 @@ export default function NearbyAreaScreen({
       });
       closeAddLocation();
     } catch (error) {
-      setAddLocationStatus(error?.message || "Unable to submit this location for review.");
+      setAddLocationStatus(getFriendlyLocationError(error, "Unable to submit this location for review."));
     } finally {
       setAddLocationBusy(false);
     }

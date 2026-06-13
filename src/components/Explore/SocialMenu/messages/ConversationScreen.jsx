@@ -9,7 +9,7 @@ function getOtherParticipant(conversation, currentUserId) {
   return conversation.participants?.[otherId] || {};
 }
 
-export default function ConversationScreen({ conversation, currentUserId, messages, onActivity, onBack, onSend, onViewProfile }) {
+export default function ConversationScreen({ conversation, currentUserId, messages, onAction, onActivity, onBack, onSend, onViewProfile }) {
   const user = getOtherParticipant(conversation, currentUserId);
   const messagesRef = useRef(null);
 
@@ -30,7 +30,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
   }, [messages.length]);
 
   return (
-    <section className="flex h-[calc(100vh-112px)] min-w-0 flex-col overflow-hidden bg-white">
+    <section className="flex h-dvh min-w-0 flex-col overflow-hidden bg-white">
       <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
         <AppBackTab onBack={onBack} label="Back to inbox" historyKey="explore-conversation" />
         <button type="button" onClick={viewProfile} className="flex-none" aria-label={`View ${user.displayName || "Profile"} profile`}>
@@ -54,11 +54,18 @@ export default function ConversationScreen({ conversation, currentUserId, messag
           </div>
         ) : null}
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} mine={message.senderId === currentUserId} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            mine={message.senderId === currentUserId}
+            otherUserName={user.displayName || user.username || "This user"}
+            onApproveLocationRequest={() => onAction?.("approveLocationRequest", { message, userId: user.userId })}
+            onBlockUser={() => onAction?.("blockUser", { message, userId: user.userId })}
+          />
         ))}
       </div>
 
-      <MessageComposer onActivity={onActivity} onSend={onSend} />
+      <MessageComposer onAction={onAction} onActivity={onActivity} onSend={onSend} />
     </section>
   );
 }

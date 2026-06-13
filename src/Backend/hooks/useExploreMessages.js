@@ -11,9 +11,12 @@ import {
   subscribeToExploreMessages,
 } from "../services/explore/messageService";
 import { readExploreSettings } from "../services/explore/preferencesService";
+import { blockExploreUser } from "../services/explore/safetyService";
+import { showToast } from "../services/toastService";
 
 const MESSAGES_MEMORY = new Map();
 const MESSAGES_MEMORY_TTL = 120_000;
+const MESSAGE_TYPES = ["text", "image", "audio", "video", "location_request", "location_share", "system"];
 
 function normalizeOutgoingMessage(input) {
   if (typeof input === "string") {
@@ -23,7 +26,7 @@ function normalizeOutgoingMessage(input) {
   const body = String(input?.body || "").trim();
   const mediaUrl = String(input?.media_url || input?.mediaUrl || "").trim();
   const requestedType = String(input?.type || input?.media_type || "").toLowerCase();
-  const type = ["image", "audio", "video"].includes(requestedType)
+  const type = MESSAGE_TYPES.includes(requestedType)
     ? requestedType
     : mediaUrl
       ? "image"
@@ -32,16 +35,32 @@ function normalizeOutgoingMessage(input) {
   return {
     body,
     mediaUrl,
-    type: mediaUrl ? type : "text",
+    type: mediaUrl || !["image", "audio", "video"].includes(type) ? type : "text",
   };
 }
 
 function getMessagePreview(message) {
+  if (message.type === "location_request") return "Location request";
+  if (message.type === "location_share") return "Location sharing";
   if (message.body) return message.body;
   if (message.type === "image") return "Photo";
   if (message.type === "audio") return "Voice note";
   if (message.type === "video") return "Video";
   return "Message";
+}
+
+function getOtherParticipant(conversation, currentUserId) {
+  const otherId = conversation?.participantIds?.find((id) => id !== currentUserId);
+  return conversation?.participants?.[otherId] || { userId: otherId || "" };
+}
+
+function formatSharedLocationMessage(location = {}) {
+  const label = location.label || location.address || location.name || "Selected location";
+  const coordinates = location.coordinatesLabel ||
+    (Number.isFinite(Number(location.lat)) && Number.isFinite(Number(location.lng))
+      ? `${Number(location.lat).toFixed(6)}, ${Number(location.lng).toFixed(6)}`
+      : "");
+  return `Shared location: ${label}${coordinates ? ` (${coordinates})` : ""}.`;
 }
 
 function friendlyMessageError(err) {
@@ -224,7 +243,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       conversationId,
       senderId: currentUserId,
       body: draft.body,
-      type: draft.mediaUrl ? draft.type : "text",
+      type: draft.type,
       mediaUrl: draft.mediaUrl,
       read: false,
       createdAt: new Date().toISOString(),
@@ -271,6 +290,104 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     setExploreMessageActivity(activeConversation?.id, currentUserId, activity);
   }
 
+  function openMessageAreaView(action = "shareLocation", onLocationPicked = null) {
+    const title = action === "approveLocationRequest" ? "Share requested location" : "Share my location";
+    window.dispatchEvent(new CustomEvent("kuntai-open-area-view", {
+      detail: {
+        action,
+        autoRoute: false,
+        conversationId: activeConversation?.id,
+        destination: {
+          id: `explore-message-${action}`,
+          name: title,
+          label: title,
+          address: "Use Locate Me or Drop Pin to choose the location for this conversation.",
+          type: "message-location",
+          status: "private",
+        },
+        mode: "businessLocationPicker",
+        onLocationPicked,
+        pickerLabels: {
+          historyKey: "explore-message-location-picker",
+          backLabel: "Back to messages",
+          eyebrow: "Explore message",
+          headerCurrentTitle: "Share current location",
+          headerDropTitle: "Drop a pin",
+          cardEyebrow: "Private location",
+          currentHeading: "Your current location",
+          dropHeading: "Choose a map point",
+          dropInstruction: "Move the map until the pin sits on the location you want to share, then send it.",
+          currentPreparing: "Your current location is being prepared.",
+          currentStatus: "Confirming your current location...",
+          dropStatus: "Move the map until the pin is exactly where you want to share.",
+          currentName: "Shared current location",
+          droppedName: "Shared pinned location",
+        },
+        pickerStart: "current",
+        returnTo: "explore-messages",
+        source: "explore-message",
+      },
+    }));
+  }
+
+  async function handleConversationAction(action, payload = {}) {
+    if (!activeConversation?.id) return { ok: false, error: "Open a conversation first." };
+    const otherUser = getOtherParticipant(activeConversation, currentUserId);
+    const myName = currentProfile?.displayName || currentProfile?.name || currentProfile?.username || "This user";
+    const otherName = otherUser.displayName || otherUser.username || "this contact";
+
+    if (action === "shareLocation") {
+      const result = await sendMessage({
+        type: "location_share",
+        body: `${myName} is choosing a location to share from Area View.`,
+      });
+      if (result?.ok !== false) {
+        const conversationId = activeConversation.id;
+        openMessageAreaView("shareLocation", (location) =>
+          sendExploreMessage(conversationId, currentProfile, {
+            type: "location_share",
+            body: formatSharedLocationMessage(location),
+          }),
+        );
+      }
+      return result;
+    }
+
+    if (action === "requestLocation") {
+      return sendMessage({
+        type: "location_request",
+        body: `${myName} is requesting your location.`,
+      });
+    }
+
+    if (action === "approveLocationRequest") {
+      const result = await sendMessage({
+        type: "location_share",
+        body: `${myName} approved the location request and is choosing a location from Area View.`,
+      });
+      if (result?.ok !== false) {
+        const conversationId = activeConversation.id;
+        openMessageAreaView("approveLocationRequest", (location) =>
+          sendExploreMessage(conversationId, currentProfile, {
+            type: "location_share",
+            body: formatSharedLocationMessage(location),
+          }),
+        );
+      }
+      return result;
+    }
+
+    if (action === "blockUser") {
+      const targetUserId = payload.userId || otherUser.userId;
+      if (!targetUserId) return { ok: false, error: "Unable to identify this account." };
+      await blockExploreUser(targetUserId, "blocked from Explore messages");
+      showToast(`${otherName} has been blocked from Explore messages.`, "success");
+      return { ok: true };
+    }
+
+    return { ok: false, error: "This message action is not available." };
+  }
+
   const requests = useMemo(() => conversations.filter((conversation) => conversation.request), [conversations]);
   const inbox = useMemo(() => conversations.filter((conversation) => !conversation.request), [conversations]);
 
@@ -285,6 +402,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     openConversation,
     reload,
     requests,
+    handleConversationAction,
     sendMessage,
     setActivity,
   };

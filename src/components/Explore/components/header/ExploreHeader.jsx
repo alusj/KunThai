@@ -21,6 +21,7 @@ import {
   subscribeNotificationSeen,
 } from "../../../../Backend/services/notificationSeenStore";
 import PremiumHeader, { PremiumHeaderButton } from "../../../shared/PremiumHeader";
+import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import SearchOverlay from "./search/SearchOverlay";
 
 const EXPLORE_BELL_SEEN_SCOPE = "explore.header.bell";
@@ -38,11 +39,10 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
     )?.message || "",
   [notifications]
 );
+  useBodyScrollLock(createOpen);
+
   useEffect(() => {
     if (!createOpen) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event) {
       if (event.key === "Escape") {
@@ -53,7 +53,6 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [createOpen]);

@@ -6,6 +6,7 @@ import { MapPin, Radio, Target, X } from "lucide-react";
 
 import AppPortal from "../../shared/AppPortal";
 import { PremiumHeaderButton } from "../../shared/PremiumHeader";
+import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 
@@ -76,33 +77,7 @@ export default function Radar({ onOpenChange, onViewFleet }) {
     return () => onOpenChange?.(false);
   }, [onOpenChange, open]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    const previousBody = {
-      overflow: document.body.style.overflow,
-      position: document.body.style.position,
-      top: document.body.style.top,
-      width: document.body.style.width,
-    };
-    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
-
-    document.documentElement.style.overscrollBehavior = "none";
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-
-    return () => {
-      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
-      document.body.style.overflow = previousBody.overflow;
-      document.body.style.position = previousBody.position;
-      document.body.style.top = previousBody.top;
-      document.body.style.width = previousBody.width;
-      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
-    };
-  }, [open]);
+  useBodyScrollLock(open);
 
   return (
     <>

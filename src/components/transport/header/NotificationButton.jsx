@@ -6,6 +6,7 @@ import { Bell, Truck } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
+import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import {
   applySeenNotificationState,
@@ -118,11 +119,10 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
     )));
   }, [notifications.length, open, seenScope]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event) {
       if (event.key === "Escape") setOpen(false);
@@ -130,7 +130,6 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);

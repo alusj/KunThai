@@ -14,6 +14,7 @@ import { clearExploreScreenStack } from "./Backend/services/explore/navigationSe
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
+const PAGE_VISITS_KEY = "kuntai-main-page-visits";
 
 function normalizeMainPage(value) {
   const page = String(value || "").toLowerCase();
@@ -37,12 +38,63 @@ function readLastMainPage() {
   }
 }
 
+function pageVisitsKey(userId = "") {
+  return userId ? `${PAGE_VISITS_KEY}:${userId}` : PAGE_VISITS_KEY;
+}
+
+function readPageVisitCounts(userId = "") {
+  try {
+    const value = JSON.parse(localStorage.getItem(pageVisitsKey(userId)) || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function readFrequentMainPage(userId = "") {
+  const counts = readPageVisitCounts(userId);
+  const ranked = PAGE_ORDER
+    .map((item) => ({ page: item, visits: Number(counts[item] || 0) }))
+    .filter((item) => item.visits > 0)
+    .sort((first, second) => second.visits - first.visits);
+  return ranked[0]?.page || "";
+}
+
+function recordMainPageVisit(page, userId = "") {
+  const normalized = normalizeMainPage(page);
+  if (!normalized) return;
+
+  try {
+    const counts = readPageVisitCounts(userId);
+    localStorage.setItem(pageVisitsKey(userId), JSON.stringify({
+      ...counts,
+      [normalized]: Number(counts[normalized] || 0) + 1,
+    }));
+    if (userId) {
+      const globalCounts = readPageVisitCounts();
+      localStorage.setItem(PAGE_VISITS_KEY, JSON.stringify({
+        ...globalCounts,
+        [normalized]: Number(globalCounts[normalized] || 0) + 1,
+      }));
+    }
+    localStorage.setItem(LAST_PAGE_KEY, normalized);
+  } catch {
+    // Navigation should never depend on storage availability.
+  }
+}
+
+function readPreferredMainPage(fallback = "", userId = "") {
+  return readFrequentMainPage(userId) || readFrequentMainPage() || normalizeMainPage(fallback) || readLastMainPage();
+}
+
 function clearBrowserHash() {
   if (!window.location.hash) return;
   window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
 }
 
 function AppLoading({ page = "explore" }) {
+  const pageTitle = page === "marketplace" ? "UrMall" : page === "transport" ? "Transport" : "Explore";
+
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
@@ -53,7 +105,9 @@ function AppLoading({ page = "explore" }) {
           </div>
           <div className="space-y-2 text-center">
             <div className="mx-auto h-2 w-16 animate-pulse rounded-full bg-sky-100" />
-            <div className="mx-auto h-3 w-20 animate-pulse rounded-full bg-slate-200" />
+            <div className="mx-auto rounded-full bg-slate-200 px-4 py-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+              {pageTitle}
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <div className="h-10 w-10 animate-pulse rounded-xl bg-slate-100" />
@@ -63,23 +117,51 @@ function AppLoading({ page = "explore" }) {
       </div>
 
       <div className="space-y-4 px-4 py-4">
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-12 animate-pulse rounded-[20px] bg-white" />
-          ))}
-        </div>
-        {[1, 2, 3].map((item) => (
-          <div key={item} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 animate-pulse rounded-full bg-slate-200" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-40 animate-pulse rounded-full bg-slate-200" />
-                <div className="h-3 w-24 animate-pulse rounded-full bg-slate-100" />
+        {page === "marketplace" ? (
+          <div className="grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="aspect-square animate-pulse rounded-[18px] bg-slate-100" />
+                <div className="mt-3 h-4 w-4/5 animate-pulse rounded-full bg-slate-200" />
+                <div className="mt-2 h-3 w-1/2 animate-pulse rounded-full bg-emerald-100" />
               </div>
-            </div>
-            <div className="mt-5 h-32 animate-pulse rounded-[20px] bg-slate-100" />
+            ))}
           </div>
-        ))}
+        ) : page === "transport" ? (
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2].map((item) => (
+                <div key={item} className="h-36 animate-pulse rounded-[24px] border border-slate-200 bg-white shadow-sm" />
+              ))}
+            </div>
+            {[1, 2].map((item) => (
+              <div key={item} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="h-5 w-44 animate-pulse rounded-full bg-slate-200" />
+                <div className="mt-4 h-20 animate-pulse rounded-[20px] bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="h-12 animate-pulse rounded-[20px] bg-white" />
+              ))}
+            </div>
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 animate-pulse rounded-full bg-slate-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-40 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-3 w-24 animate-pulse rounded-full bg-slate-100" />
+                  </div>
+                </div>
+                <div className="mt-5 h-32 animate-pulse rounded-[20px] bg-slate-100" />
+              </div>
+            ))}
+          </>
+        )}
         {!navigator.onLine ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
             Showing cached {page} layout while the connection recovers.
@@ -100,7 +182,7 @@ export default function App() {
     isComplete: onboardingComplete,
   } = useOnboarding(user);
   const [page, setPage] = useState(() => {
-    return getMainPageFromHash(window.location.hash) || readLastMainPage();
+    return getMainPageFromHash(window.location.hash) || readPreferredMainPage();
   });
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
@@ -115,15 +197,11 @@ export default function App() {
     stopAllExploreMedia();
     setMarketplaceActivityOpen(false);
     setTransportActivityOpen(false);
-    try {
-      localStorage.setItem(LAST_PAGE_KEY, normalizeMainPage(page) || "explore");
-    } catch {
-      // Keep navigation usable if browser storage is unavailable.
-    }
+    recordMainPageVisit(page, userId);
     if (page !== "explore" && /#\/?(swip|urfeed|connections)/i.test(window.location.hash || "")) {
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     }
-  }, [page]);
+  }, [page, userId]);
 
   useEffect(() => {
     if (!userId || !onboardingComplete) return;
@@ -136,7 +214,7 @@ export default function App() {
     setTransportActivityOpen(false);
     setTransportAreaRequest(null);
     const hashPage = getMainPageFromHash(window.location.hash);
-    const preferredPage = hashPage || normalizeMainPage(onboardingProfile?.primarySurface) || readLastMainPage();
+    const preferredPage = hashPage || readPreferredMainPage(onboardingProfile?.primarySurface, userId);
     setPage(preferredPage);
     if (!hashPage) clearBrowserHash();
   }, [onboardingComplete, onboardingProfile?.primarySurface, userId]);
@@ -160,7 +238,7 @@ export default function App() {
   useEffect(() => {
     function handleOpenAreaView(event) {
       const detail = event.detail || {};
-      if (!detail.destination) return;
+      if (!detail.destination && !detail.returnTo && !detail.action) return;
 
       setMarketplaceNav({ root: "marketplace", sub: null });
       setMarketplaceActivityOpen(false);
@@ -178,7 +256,20 @@ export default function App() {
     }
 
     window.addEventListener("kuntai-open-area-view", handleOpenAreaView);
-    return () => window.removeEventListener("kuntai-open-area-view", handleOpenAreaView);
+    function handleReturnMainPage(event) {
+      const nextPage = normalizeMainPage(event.detail?.page);
+      if (!nextPage) return;
+      const currentIndex = PAGE_ORDER.indexOf(page);
+      const nextIndex = PAGE_ORDER.indexOf(nextPage);
+      setPageSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
+      setPage(nextPage);
+    }
+
+    window.addEventListener("kuntai-return-main-page", handleReturnMainPage);
+    return () => {
+      window.removeEventListener("kuntai-open-area-view", handleOpenAreaView);
+      window.removeEventListener("kuntai-return-main-page", handleReturnMainPage);
+    };
   }, [page]);
 
   if (loading || (user && (!onboardingChecked || onboardingLoading))) {

@@ -24,6 +24,7 @@ import {
   useAddressAreaValidation,
 } from "../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
+import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
@@ -569,11 +570,10 @@ export default function ProductDetailDrawer({
     };
   }, [open, product?.id]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     function handleKeyDown(event) {
       if (event.key === "Escape") onClose?.();
     }
@@ -582,7 +582,6 @@ export default function ProductDetailDrawer({
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [onClose, open]);
 
