@@ -17,8 +17,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperator
       plateNumber: fleet.plateNumber,
     })),
   );
-  const acceptedOperators = requests.filter((request) => request.status === "accepted" && !request.documents?.registrationRequired);
-  const pendingRequests = requests.filter((request) => request.status === "pending" || request.documents?.registrationRequired);
+  const acceptedOperators = requests.filter((request) =>
+    request.status === "accepted" && !request.documents?.registrationRequired && !request.documents?.operatorDocumentsRequired
+  );
+  const pendingRequests = requests.filter((request) =>
+    request.status === "pending" ||
+      request.status === "accepted_pending_documents" ||
+      request.documents?.registrationRequired ||
+      request.documents?.operatorDocumentsRequired
+  );
   const metrics = useMemo(
     () => [
       { label: "Fleets", value: fleets.length, icon: Truck, tone: "emerald" },
@@ -249,11 +256,14 @@ function Requests({ requests }) {
               <p className="text-xs font-black uppercase tracking-wide text-slate-400">{request.status}</p>
               <h3 className="mt-1 font-black text-slate-950">{request.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType}</p>
-              {request.status === "accepted_pending_documents" || request.documents?.registrationRequired ? (
-                <p className="mt-2 text-xs font-bold text-blue-700">Operator accepted. Registration documents are still needed.</p>
+              {request.status === "accepted_pending_documents" || request.documents?.operatorDocumentsRequired || request.documents?.registrationRequired ? (
+                <p className="mt-2 text-xs font-bold text-blue-700">Operator accepted. Identity and license documents are still needed.</p>
               ) : null}
               {request.documents?.reuseNotice ? (
-                <p className="mt-2 text-xs font-bold text-emerald-700">Using documents from the operator's previous registration.</p>
+                <p className="mt-2 text-xs font-bold text-emerald-700">Using the operator identity and license documents previously submitted.</p>
+              ) : null}
+              {request.documents?.operatorDocumentsSubmitted ? (
+                <p className="mt-2 text-xs font-bold text-emerald-700">Operator documents submitted for KunThai review.</p>
               ) : null}
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">{request.plateNumber || "No plate"}</span>

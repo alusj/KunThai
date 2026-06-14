@@ -16,11 +16,13 @@ import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import TransportRegistrationTypeScreen from "./registration/TransportRegistrationTypeScreen";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
+import AppBackTab from "../shared/AppBackTab";
 import { fetchOperatorDashboard, getOperatorAccount } from "../services/transportOperatorAccountService";
 import {
   getOperatorCompanyInvites,
   getTransportCompanyAccount,
   subscribeTransportCompanyUpdates,
+  submitOperatorCompanyInviteDocuments,
   updateOperatorCompanyInvite,
 } from "../services/transportCompanyService";
 import { submitTransportSupportTicket } from "../services/bookingService";
@@ -56,6 +58,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   const [operatorInviteLoading, setOperatorInviteLoading] = useState(false);
   const [operatorInviteStatus, setOperatorInviteStatus] = useState("");
   const [documentReuseInvite, setDocumentReuseInvite] = useState(null);
+  const [operatorInviteDocumentsInvite, setOperatorInviteDocumentsInvite] = useState(null);
   const [registrationInvite, setRegistrationInvite] = useState(null);
   const [routeDirection, setRouteDirection] = useState("forward");
   const operatorDashboardCloseTimer = useRef(null);
@@ -348,14 +351,14 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
     try {
       const updatedInvite = await respondToOperatorInvite(invite, {
-        status: "accepted",
+        status: "accepted_pending_documents",
         documents: {
-          registrationRequired: true,
-          registrationRequestedAt: new Date().toISOString(),
+          operatorDocumentsRequired: true,
+          operatorDocumentsRequestedAt: new Date().toISOString(),
+          registrationRequired: false,
         },
       });
-      setRegistrationInvite(updatedInvite);
-      openSoloRegistration("company-invite");
+      setOperatorInviteDocumentsInvite(updatedInvite);
     } catch (error) {
       setOperatorInviteStatus(error.message || "Unable to accept this company request.");
     }
@@ -364,7 +367,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   async function continueWithExistingOperatorDocuments() {
     if (!documentReuseInvite) return;
     try {
-      const reuseNotice = "KunThai will use the identity, license, and fleet documents this operator previously submitted for review.";
+      const reuseNotice = "KunThai will use the operator identity and license documents you previously submitted for review.";
       await respondToOperatorInvite(documentReuseInvite, {
         status: "accepted",
         documents: {
@@ -375,7 +378,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       });
       setDocumentReuseInvite(null);
       await refreshOperatorCompanyInvites(operatorAccount);
-      setOperatorInviteStatus("Company request accepted. Your existing operator documents will be used for this registration.");
+      setOperatorInviteStatus("Company request accepted. KunThai will use your previously submitted operator documents.");
     } catch (error) {
       setOperatorInviteStatus(error.message || "Unable to continue with existing documents.");
     }
@@ -399,8 +402,39 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   }
 
   function completeRegistrationForInvite(invite) {
-    setRegistrationInvite(invite);
-    openSoloRegistration("company-invite");
+    setOperatorInviteDocumentsInvite(invite);
+  }
+
+  async function submitOperatorInviteDocuments(invite, documents) {
+    if (!invite) return;
+    try {
+      const savedSubmission = await submitOperatorCompanyInviteDocuments(invite, documents);
+      const refreshedAccount = await getOperatorAccount().catch(() => null);
+      if (refreshedAccount) setOperatorAccount(refreshedAccount);
+
+      const updatedInvite = await respondToOperatorInvite(invite, {
+        status: "accepted",
+        operatorId: savedSubmission.operator?.id || refreshedAccount?.id || operatorAccount?.id || invite.operatorId,
+        userId: savedSubmission.operator?.user_id || refreshedAccount?.userId || operatorAccount?.userId || invite.userId,
+        verificationStatus: refreshedAccount?.verificationStatus || savedSubmission.operator?.verification_status || operatorAccount?.verificationStatus || "pending",
+        documents: {
+          operatorDocuments: documents,
+          operatorDocumentsSubmitted: true,
+          operatorDocumentsSubmittedAt: new Date().toISOString(),
+          operatorDocumentsSaved: savedSubmission.documents?.length || Object.keys(documents || {}).length,
+          operatorDocumentsStorage: savedSubmission.storageMode || "cloud",
+          operatorDocumentsWarning: savedSubmission.warning || "",
+          operatorProfileId: savedSubmission.operator?.id || refreshedAccount?.id || operatorAccount?.id || "",
+          operatorDocumentsRequired: false,
+          registrationRequired: false,
+        },
+      });
+      setOperatorInviteDocumentsInvite(null);
+      await refreshOperatorCompanyInvites(operatorAccount);
+      setOperatorInviteStatus(`${updatedInvite.companyName || "Company"} request accepted. Your operator documents were submitted for review.`);
+    } catch (error) {
+      throw new Error(error.message || "Unable to submit operator documents for this request.");
+    }
   }
 
   async function finishOperatorRegistration(account) {
@@ -568,7 +602,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         Boolean(verificationFleet) ||
         Boolean(bookingTarget) ||
         headerActivityOpen ||
-        Boolean(documentReuseInvite),
+        Boolean(documentReuseInvite) ||
+        Boolean(operatorInviteDocumentsInvite),
     );
 
     return () => onActivityChange?.(false);
@@ -583,6 +618,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     headerActivityOpen,
     nearbyAreaOpen,
     onActivityChange,
+    operatorInviteDocumentsInvite,
     operatorDashboardOpen,
     registrationOpen,
     registrationAreaPreviewOpen,
@@ -598,6 +634,21 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onDone={closeRegistrationOneKmPreview}
           mode="oneKmPreview"
           backLabel="Back to price form"
+        />
+      </div>
+    );
+  }
+
+  if (operatorInviteDocumentsInvite) {
+    return (
+      <div className={`${routePanelClass} min-h-dvh`}>
+        <OperatorInviteDocumentsScreen
+          invite={operatorInviteDocumentsInvite}
+          onBack={() => {
+            setRouteDirection("backward");
+            setOperatorInviteDocumentsInvite(null);
+          }}
+          onSubmit={submitOperatorInviteDocuments}
         />
       </div>
     );
@@ -979,7 +1030,158 @@ function hasSubmittedOperatorDocuments(account) {
   if (!account || account.documentsSkipped) return false;
   const documents = account.dashboard?.verificationCenter?.documents || [];
   const status = account.verificationStatus || account.dashboard?.verificationCenter?.status || "";
-  return documents.length > 0 || ["pending", "verified", "recommended"].includes(status);
+  const uploads = account.uploads && typeof account.uploads === "object" ? Object.values(account.uploads).filter(Boolean) : [];
+  return documents.length > 0 || uploads.length > 0 || ["verified", "recommended"].includes(status);
+}
+
+const operatorInviteDocumentFields = [
+  {
+    key: "nationalId",
+    label: "National ID card",
+    detail: "Upload a clear photo or scan of the operator's national identity card.",
+  },
+  {
+    key: "license",
+    label: "Driver or rider license",
+    detail: "Use the license that allows you to operate this transport type.",
+  },
+  {
+    key: "operatorPhoto",
+    label: "Operator selfie/photo",
+    detail: "Upload a recent face photo for identity verification.",
+  },
+  {
+    key: "supportingDocument",
+    label: "Supporting document",
+    detail: "Optional permit, union card, background check, or other operator-only document.",
+    optional: true,
+  },
+];
+
+function OperatorInviteDocumentsScreen({ invite, onBack, onSubmit }) {
+  const [documents, setDocuments] = useState({});
+  const [status, setStatus] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const requiredDocuments = operatorInviteDocumentFields.filter((field) => !field.optional);
+
+  function markDocument(field, file) {
+    setDocuments((current) => ({
+      ...current,
+      [field.key]: {
+        label: field.label,
+        fileName: file?.name || "Selected",
+        uploadedAt: new Date().toISOString(),
+      },
+    }));
+    setStatus("");
+  }
+
+  async function submitDocuments() {
+    const missing = requiredDocuments.filter((field) => !documents[field.key]?.fileName);
+    if (missing.length) {
+      setStatus(`Upload ${missing.map((field) => field.label.toLowerCase()).join(", ")} before submitting.`);
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setStatus("");
+      await onSubmit?.(invite, documents);
+    } catch (error) {
+      setStatus(error.message || "Unable to submit these operator documents.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="min-h-dvh bg-slate-50">
+      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
+        <div className="flex items-center gap-3">
+          <AppBackTab
+            onBack={onBack}
+            label="Back to company request"
+            historyKey="transport-company-invite-documents"
+            className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
+          />
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide text-blue-700">Operator documents</p>
+            <h1 className="truncate text-xl font-black text-slate-950">Complete company invitation</h1>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 py-5 pb-8">
+        <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-sm">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+            <FiFileText size={23} />
+          </span>
+          <p className="mt-4 text-xs font-black uppercase tracking-wide text-blue-700">Company invitation</p>
+          <h2 className="mt-1 text-2xl font-black leading-tight text-slate-950">
+            Upload only your operator documents
+          </h2>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+            {invite?.companyName || "This company"} invited you to operate under {invite?.fleetName || invite?.fleetType || "their Fleet HQ"}. The company already provides company and fleet records. You only need to submit documents that prove your operator identity and license.
+          </p>
+        </section>
+
+        <section className="mt-4 grid gap-3">
+          {operatorInviteDocumentFields.map((field) => {
+            const selected = documents[field.key]?.fileName;
+            return (
+              <label key={field.key} className="block rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-slate-950">
+                      {field.label} {field.optional ? <span className="text-slate-400">(optional)</span> : null}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{field.detail}</p>
+                    {selected ? <p className="mt-2 text-xs font-black text-blue-700">{selected}</p> : null}
+                  </div>
+                  <span className={`flex h-10 w-10 flex-none items-center justify-center rounded-2xl ${selected ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                    {selected ? <FiCheckCircle /> : <FiFileText />}
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="sr-only"
+                  onChange={(event) => markDocument(field, event.target.files?.[0])}
+                />
+                <span className="mt-3 inline-flex h-10 items-center rounded-2xl border border-blue-200 bg-blue-50 px-4 text-xs font-black text-blue-800">
+                  {selected ? "Replace document" : "Choose document"}
+                </span>
+              </label>
+            );
+          })}
+        </section>
+
+        {status ? (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+            {status}
+          </p>
+        ) : null}
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-[auto_1fr]">
+          <button
+            type="button"
+            onClick={onBack}
+            className="h-12 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={submitDocuments}
+            disabled={submitting}
+            className="h-12 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 disabled:opacity-60"
+          >
+            {submitting ? "Submitting documents..." : "Submit operator documents"}
+          </button>
+        </div>
+      </main>
+    </section>
+  );
 }
 
 function normalizeDashboardVerification(value = "pending") {
@@ -1088,7 +1290,7 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
 }
 
 function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, onReject }) {
-  const needsDocuments = invite.status === "accepted_pending_documents" || invite.documents?.registrationRequired;
+  const needsDocuments = invite.status === "accepted_pending_documents" || invite.documents?.operatorDocumentsRequired;
   const accepted = invite.status === "accepted" && !needsDocuments;
   const rejected = invite.status === "rejected";
   const statusLabel = needsDocuments ? "Accepted" : accepted ? "Accepted" : rejected ? "Declined" : "Pending";
@@ -1102,7 +1304,7 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-            {needsDocuments ? "Registration documents needed" : "New request"}
+            {needsDocuments ? "Operator documents needed" : "New request"}
           </p>
           <h3 className="mt-1 break-words text-base font-black text-slate-950">{invite.companyName || "Transport company"}</h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
@@ -1115,10 +1317,10 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
       </div>
       <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
         {needsDocuments
-          ? "Complete your operator registration so this company can add you to its approved operator list."
+          ? "Upload your operator identity and license documents. The company and fleet documents are handled by the company."
           : accepted
             ? invite.documents?.reuseNotice || invite.documents?.reusedExistingDocuments
-              ? "Accepted. KunThai will use your previously submitted identity, license, and fleet documents for this company registration."
+              ? "Accepted. KunThai will use your previously submitted operator identity and license documents for this company invitation."
               : "Accepted. This company can now keep your operator record in its Fleet HQ."
             : rejected
               ? "You declined this company request. The company will see that this invitation was not accepted."
@@ -1132,7 +1334,7 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
           className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
         >
           {needsDocuments ? <FiFileText size={17} /> : <FiCheckCircle size={17} />}
-          {needsDocuments ? "Complete registration" : "Accept"}
+          {needsDocuments ? "Upload documents" : "Accept"}
         </button>
         <button
           type="button"
@@ -1172,7 +1374,7 @@ function DocumentReuseDecisionModal({ invite, onClose, onContinue, onDeny }) {
         <p className="mt-4 text-xs font-black uppercase tracking-wide text-emerald-700">Existing documents available</p>
         <h2 className="mt-1 pr-10 text-2xl font-black leading-tight text-slate-950">Use your submitted operator documents?</h2>
         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-          {invite.companyName || "This company"} invited you to join {invite.fleetName || invite.fleetType || "their fleet"}. Since you have already submitted operator documents, KunThai can use those identity, license, and fleet records for this company registration.
+          {invite.companyName || "This company"} invited you to join {invite.fleetName || invite.fleetType || "their fleet"}. Since you have already submitted operator documents, KunThai can use your previous identity and license records for this company invitation.
         </p>
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
           <button

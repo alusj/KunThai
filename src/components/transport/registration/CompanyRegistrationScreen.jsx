@@ -885,10 +885,10 @@ function FleetCard({ fleet, index, onInvite, onRemove, onUpdate, onUploadDocumen
 }
 
 function getOperatorRequestStatus(status = "pending", documents = {}) {
-  if (status === "accepted_pending_documents" || documents?.registrationRequired) {
+  if (status === "accepted_pending_documents" || documents?.operatorDocumentsRequired || documents?.registrationRequired) {
     return {
-      label: "Accepted - documents needed",
-      body: "The operator accepted the request and must complete the operator registration documents before the dashboard becomes available.",
+      label: "Accepted - operator documents needed",
+      body: "The operator accepted the request and only needs to submit identity and license documents. Company and fleet documents remain under your Fleet HQ.",
       panel: "border-blue-100 bg-blue-50",
       badge: "bg-blue-100 text-blue-700",
     };
@@ -898,8 +898,8 @@ function getOperatorRequestStatus(status = "pending", documents = {}) {
     return {
       label: "Accepted",
       body: documents?.reuseNotice
-        ? "The operator accepted the company request. KunThai will use the documents already submitted on the operator account."
-        : "The operator accepted the company request and can now appear in your Fleet HQ.",
+        ? "The operator accepted the company request. KunThai will use the operator identity and license documents already submitted on that account."
+        : "The operator accepted the company request and submitted the required operator documents for review.",
       panel: "border-emerald-100 bg-emerald-50",
       badge: "bg-emerald-100 text-emerald-700",
     };
@@ -940,7 +940,12 @@ function OperatorRequestCard({ operator }) {
       <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{status.body}</p>
       {operator.documents?.reuseNotice ? (
         <div className="mt-3 rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-xs font-black text-emerald-700">
-          Documents reused from operator registration
+          Operator identity and license documents reused
+        </div>
+      ) : null}
+      {operator.documents?.operatorDocumentsSubmitted ? (
+        <div className="mt-3 rounded-2xl border border-blue-100 bg-white px-3 py-2 text-xs font-black text-blue-700">
+          Operator documents submitted for review
         </div>
       ) : null}
     </div>

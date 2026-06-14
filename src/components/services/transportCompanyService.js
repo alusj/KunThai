@@ -32,6 +32,13 @@ function generateCode(prefix) {
   return `${prefix}-${(random >>> 0).toString(36).toUpperCase().padStart(7, "0").slice(0, 7)}`;
 }
 
+function generateOperatorCode() {
+  const random = typeof crypto !== "undefined" && crypto.getRandomValues
+    ? crypto.getRandomValues(new Uint32Array(1))[0]
+    : Math.floor(Math.random() * 90000);
+  return String(10000 + (random % 90000));
+}
+
 function asUuid(value) {
   const text = String(value || "").trim();
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)
@@ -71,6 +78,79 @@ function isMissingRpc(error) {
     error?.code === "PGRST202" ||
     message.includes("could not find the function") ||
     message.includes("schema cache");
+}
+
+function isMissingColumn(error, columnName) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes(`'${columnName}' column`) ||
+    message.includes(`column "${columnName}"`) ||
+    (message.includes(columnName) && message.includes("schema cache"));
+}
+
+async function upsertSelectSingle(tableName, payload, options = {}, optionalColumns = []) {
+  let nextPayload = { ...payload };
+
+  for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .upsert(nextPayload, options)
+      .select()
+      .maybeSingle();
+
+    if (!error) return data;
+
+    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isMissingColumn(error, column));
+    if (!missingColumn) throw error;
+
+    const { [missingColumn]: _removed, ...withoutMissingColumn } = nextPayload;
+    nextPayload = withoutMissingColumn;
+  }
+
+  return null;
+}
+
+async function updateSelectSingle(tableName, payload, match = {}, optionalColumns = []) {
+  let nextPayload = { ...payload };
+
+  for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
+    let query = supabase.from(tableName).update(nextPayload);
+    Object.entries(match).forEach(([key, value]) => {
+      query = query.eq(key, value);
+    });
+    const { data, error } = await query.select().maybeSingle();
+
+    if (!error) return data;
+
+    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isMissingColumn(error, column));
+    if (!missingColumn) throw error;
+
+    const { [missingColumn]: _removed, ...withoutMissingColumn } = nextPayload;
+    nextPayload = withoutMissingColumn;
+  }
+
+  return null;
+}
+
+async function insertSelectSingle(tableName, payload, optionalColumns = []) {
+  let nextPayload = { ...payload };
+
+  for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .insert(nextPayload)
+      .select()
+      .maybeSingle();
+
+    if (!error) return data;
+
+    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isMissingColumn(error, column));
+    if (!missingColumn) throw error;
+
+    const { [missingColumn]: _removed, ...withoutMissingColumn } = nextPayload;
+    nextPayload = withoutMissingColumn;
+  }
+
+  return null;
 }
 
 function getAccountDisplayName(profile = {}, user = {}) {
@@ -603,6 +683,180 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
   }
 }
 
+function getOperatorCodeFromInvite(invite = {}) {
+  const digits = String(invite.operatorId || invite.publicId || invite.lookupValue || "")
+    .replace(/\D/g, "")
+    .slice(-5);
+  return /^\d{5}$/.test(digits) ? digits : generateOperatorCode();
+}
+
+function keepReviewedOperatorStatus(status = "") {
+  return ["verified", "verified_recommended", "recommended"].includes(status)
+    ? status
+    : "verification_pending";
+}
+
+function normalizeInviteDocumentEntries(documents = {}, invite = {}) {
+  const now = new Date().toISOString();
+  return Object.entries(documents)
+    .map(([key, document]) => {
+      const value = typeof document === "string" ? { fileName: document, label: key } : document || {};
+      const fileName = value.fileName || value.name || "";
+      if (!fileName) return null;
+
+      return {
+        key,
+        documentType: value.documentType || value.label || key,
+        fileName,
+        fileUrl: value.fileUrl || value.url || "",
+        uploadedAt: value.uploadedAt || now,
+        metadata: {
+          source: "company_invite",
+          requestId: invite.requestId || invite.request_id || "",
+          companyId: invite.companyId || invite.company_id || "",
+          companyName: invite.companyName || invite.company_name || "",
+          fleetName: invite.fleetName || invite.fleet_name || "",
+          fieldKey: key,
+        },
+      };
+    })
+    .filter(Boolean);
+}
+
+async function ensureInvitedOperatorRecord(user, profile = {}, invite = {}) {
+  const now = new Date().toISOString();
+  const publicId = invite.publicId || invite.lookupValue || getKunThaiPublicUserId({ ...(profile || {}), userId: user.id });
+  const displayName = invite.name || getAccountDisplayName(profile, user);
+  const phone = invite.phone || profile?.phone || profile?.phone_number || "";
+  const city = invite.city || profile?.city || profile?.address || "";
+  const optionalColumns = [
+    "phone",
+    "city",
+    "display_code",
+    "documents_skipped",
+    "verification_status",
+    "account_status",
+    "profile_completed_at",
+    "updated_at",
+  ];
+
+  const { data: existing, error: existingError } = await supabase
+    .from("transport_operators")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  if (existing?.id) {
+    const payload = {
+      full_name: existing.full_name || displayName || "Operator",
+      phone: existing.phone || phone,
+      city: existing.city || city,
+      display_code: existing.display_code || publicId,
+      documents_skipped: false,
+      verification_status: keepReviewedOperatorStatus(existing.verification_status),
+      account_status: existing.account_status === "approved" ? existing.account_status : "documents_submitted",
+      profile_completed_at: existing.profile_completed_at || now,
+      updated_at: now,
+    };
+
+    return updateSelectSingle("transport_operators", payload, { id: existing.id }, optionalColumns);
+  }
+
+  const seedCode = getOperatorCodeFromInvite(invite);
+  const codeAttempts = uniqueValues([seedCode, ...Array.from({ length: 8 }, generateOperatorCode)]);
+  let lastError = null;
+
+  for (const operatorCode of codeAttempts) {
+    try {
+      return await insertSelectSingle(
+        "transport_operators",
+        {
+          user_id: user.id,
+          operator_code: operatorCode,
+          display_code: publicId,
+          full_name: displayName || "Operator",
+          phone,
+          city,
+          documents_skipped: false,
+          verification_status: "verification_pending",
+          account_status: "documents_submitted",
+          profile_completed_at: now,
+          updated_at: now,
+        },
+        optionalColumns,
+      );
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== "23505") break;
+    }
+  }
+
+  throw lastError || new Error("Unable to create operator verification profile.");
+}
+
+async function saveInvitedOperatorDocumentRows(operatorId, documents = {}, invite = {}) {
+  const entries = normalizeInviteDocumentEntries(documents, invite);
+  if (!operatorId || !entries.length) return [];
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from("transport_operator_documents")
+    .select("*")
+    .eq("operator_id", operatorId);
+
+  if (existingError) throw existingError;
+
+  const existingByType = new Map(
+    (existingRows || []).map((row) => [compact(row.document_type), row]),
+  );
+  const optionalColumns = ["file_name", "file_url", "document_url", "status", "metadata", "uploaded_at", "updated_at"];
+  const savedRows = [];
+
+  for (const entry of entries) {
+    const payload = {
+      operator_id: operatorId,
+      document_type: entry.documentType,
+      file_name: entry.fileName,
+      file_url: entry.fileUrl || null,
+      document_url: entry.fileUrl || null,
+      status: "submitted",
+      metadata: entry.metadata,
+      uploaded_at: entry.uploadedAt,
+      updated_at: new Date().toISOString(),
+    };
+    const existing = existingByType.get(compact(entry.documentType));
+    const saved = existing?.id
+      ? await updateSelectSingle("transport_operator_documents", payload, { id: existing.id }, optionalColumns)
+      : await insertSelectSingle("transport_operator_documents", payload, optionalColumns);
+    savedRows.push(saved || payload);
+  }
+
+  return savedRows;
+}
+
+export async function submitOperatorCompanyInviteDocuments(invite, documents = {}) {
+  const user = await getCurrentUser("Sign in before submitting operator documents.");
+  const profile = await getOnboardingProfile(user).catch(() => null);
+  let operator = null;
+
+  try {
+    operator = await ensureInvitedOperatorRecord(user, profile || {}, invite || {});
+    const savedDocuments = await saveInvitedOperatorDocumentRows(operator?.id, documents, invite || {});
+    return { operator, documents: savedDocuments, storageMode: "cloud" };
+  } catch (error) {
+    if (isMissingTable(error)) {
+      return {
+        operator,
+        documents: [],
+        storageMode: "local",
+        warning: "Operator documents were attached to the invitation locally because the verification tables are not available.",
+      };
+    }
+    throw new Error(error.message || "Unable to save operator documents.");
+  }
+}
+
 export async function saveTransportCompanyAccount(account) {
   const user = await getCurrentUser("Sign in before submitting your company registration.");
   const profile = await getOnboardingProfile(user).catch(() => null);
@@ -643,36 +897,75 @@ export async function saveTransportCompanyAccount(account) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: company, error } = await supabase
-      .from("transport_companies")
-      .upsert(companyPayload, { onConflict: "owner_user_id" })
-      .select()
-      .maybeSingle();
-
-    if (error) throw error;
+    const company = await upsertSelectSingle(
+      "transport_companies",
+      companyPayload,
+      { onConflict: "owner_user_id" },
+      [
+        "owner_public_id",
+        "company_type",
+        "registration_number",
+        "tax_id",
+        "owner_name",
+        "phone",
+        "email",
+        "country",
+        "city",
+        "address",
+        "latitude",
+        "longitude",
+        "operating_areas",
+        "support_policy",
+        "documents",
+        "verification_status",
+        "account_status",
+        "updated_at",
+      ],
+    );
 
     const companyId = company?.id;
     if (companyId) {
       const fleetResults = await Promise.all(normalized.fleets.map((fleet) =>
-        supabase.from("transport_company_fleets").upsert({
-          company_id: companyId,
-          fleet_code: fleet.fleetCode,
-          service_category: fleet.serviceCategory,
-          fleet_type: fleet.fleetType,
-          fleet_name: fleet.fleetName,
-          plate_number: fleet.plateNumber,
-          make: fleet.make,
-          model: fleet.model,
-          manufacture_year: fleet.year ? Number(fleet.year) : null,
-          color: fleet.color,
-          operating_area: fleet.operatingArea,
-          home_base_location: fleet.homeBase,
-          documents: fleet.documents,
-          safety_answers: fleet.safetyAnswers,
-          operators: fleet.operators || [],
-          verification_status: fleet.status || "pending_review",
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "company_id,fleet_code" }).select("id, fleet_code").maybeSingle(),
+        upsertSelectSingle(
+          "transport_company_fleets",
+          {
+            company_id: companyId,
+            fleet_code: fleet.fleetCode,
+            service_category: fleet.serviceCategory,
+            fleet_type: fleet.fleetType,
+            fleet_name: fleet.fleetName,
+            plate_number: fleet.plateNumber,
+            make: fleet.make,
+            model: fleet.model,
+            manufacture_year: fleet.year ? Number(fleet.year) : null,
+            color: fleet.color,
+            operating_area: fleet.operatingArea,
+            home_base_location: fleet.homeBase,
+            documents: fleet.documents,
+            safety_answers: fleet.safetyAnswers,
+            operators: fleet.operators || [],
+            verification_status: fleet.status || "pending_review",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "company_id,fleet_code" },
+          [
+            "service_category",
+            "fleet_type",
+            "fleet_name",
+            "plate_number",
+            "make",
+            "model",
+            "manufacture_year",
+            "color",
+            "operating_area",
+            "home_base_location",
+            "documents",
+            "safety_answers",
+            "operators",
+            "verification_status",
+            "updated_at",
+          ],
+        ).then((data) => ({ data, error: null })).catch((error) => ({ data: null, error })),
       ));
 
       const fleetIdByCode = new Map();
@@ -705,9 +998,24 @@ export async function saveTransportCompanyAccount(account) {
 
       if (inviteRows.length) {
         const inviteResults = await Promise.all(inviteRows.map((invite) =>
-          supabase
-            .from("transport_company_operator_invites")
-            .upsert(invite, { onConflict: "company_id,request_id" }),
+          upsertSelectSingle(
+            "transport_company_operator_invites",
+            invite,
+            { onConflict: "company_id,request_id" },
+            [
+              "company_fleet_id",
+              "fleet_code",
+              "operator_id",
+              "operator_user_id",
+              "operator_public_id",
+              "operator_name",
+              "operator_city",
+              "verification_status",
+              "status",
+              "documents",
+              "updated_at",
+            ],
+          ).then((data) => ({ data, error: null })).catch((error) => ({ data: null, error })),
         ));
         const inviteError = inviteResults.find((result) => result.error)?.error;
         if (inviteError) throw inviteError;

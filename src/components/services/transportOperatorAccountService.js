@@ -1,5 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
-import { isMissingColumn } from "../../Backend/services/explore/errors";
+import { isMissingColumn, isMissingTable } from "../../Backend/services/explore/errors";
 import {
   formatCountryMoney,
   getActiveCountryProfile,
@@ -171,6 +171,115 @@ function hasMissingCountryContextColumn(error) {
 function withoutCountryContext(payload) {
   const { country: _country, country_iso: _countryIso, currency: _currency, ...rest } = payload;
   return rest;
+}
+
+async function updateSelectSingle(tableName, payload, match = {}, optionalColumns = []) {
+  let nextPayload = { ...payload };
+
+  for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
+    let query = supabase.from(tableName).update(nextPayload);
+    Object.entries(match).forEach(([key, value]) => {
+      query = query.eq(key, value);
+    });
+    const { data, error } = await query.select().maybeSingle();
+
+    if (!error) return data;
+
+    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isMissingColumn(error, column));
+    if (!missingColumn) throw error;
+
+    const { [missingColumn]: _removed, ...withoutMissingColumn } = nextPayload;
+    nextPayload = withoutMissingColumn;
+  }
+
+  return null;
+}
+
+async function insertSelectSingle(tableName, payload, optionalColumns = []) {
+  let nextPayload = { ...payload };
+
+  for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .insert(nextPayload)
+      .select()
+      .maybeSingle();
+
+    if (!error) return data;
+
+    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isMissingColumn(error, column));
+    if (!missingColumn) throw error;
+
+    const { [missingColumn]: _removed, ...withoutMissingColumn } = nextPayload;
+    nextPayload = withoutMissingColumn;
+  }
+
+  return null;
+}
+
+function uploadKeyToDocumentType(key = "") {
+  if (key.startsWith("doc-additional-")) {
+    return `Additional document ${key.replace("doc-additional-", "")}`;
+  }
+  if (key.startsWith("doc-")) return key.replace("doc-", "");
+  if (key.startsWith("fleet-")) return `Fleet photo - ${key.replace("fleet-", "")}`;
+  return key;
+}
+
+function normalizeUploadDocumentEntries(uploads = {}) {
+  const now = new Date().toISOString();
+  return Object.entries(uploads)
+    .map(([key, fileName]) => {
+      const name = typeof fileName === "string" ? fileName : fileName?.name || "";
+      if (!name) return null;
+      return {
+        documentType: uploadKeyToDocumentType(key),
+        fileName: name,
+        uploadedAt: now,
+        metadata: {
+          source: key.startsWith("fleet-") ? "fleet_registration" : "operator_registration",
+          fieldKey: key,
+        },
+      };
+    })
+    .filter(Boolean);
+}
+
+async function saveOperatorDocumentRows(operatorId, uploads = {}) {
+  const entries = normalizeUploadDocumentEntries(uploads);
+  if (!operatorId || !entries.length) return [];
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from("transport_operator_documents")
+    .select("*")
+    .eq("operator_id", operatorId);
+
+  if (existingError) throw existingError;
+
+  const existingByType = new Map((existingRows || []).map((row) => [String(row.document_type || "").toLowerCase(), row]));
+  const optionalColumns = ["file_name", "file_url", "document_url", "status", "metadata", "uploaded_at", "updated_at"];
+  const savedRows = [];
+
+  for (const entry of entries) {
+    const payload = {
+      operator_id: operatorId,
+      document_type: entry.documentType,
+      file_name: entry.fileName,
+      file_url: null,
+      document_url: null,
+      status: "submitted",
+      metadata: entry.metadata,
+      uploaded_at: entry.uploadedAt,
+      updated_at: new Date().toISOString(),
+    };
+    const existing = existingByType.get(entry.documentType.toLowerCase());
+    const saved = existing?.id
+      ? await updateSelectSingle("transport_operator_documents", payload, { id: existing.id }, optionalColumns)
+      : await insertSelectSingle("transport_operator_documents", payload, optionalColumns);
+    savedRows.push(saved || payload);
+  }
+
+  return savedRows;
 }
 
 function buildCountryContext(form = {}) {
@@ -417,8 +526,17 @@ export async function fetchOperatorDashboard(operatorId = null) {
       .order("uploaded_at", { ascending: false }),
   ]);
 
-  const errors = [waitingError, todayError, historyError, alertsError, reviewsError, transactionsError, documentsError].filter(Boolean);
+  const errors = [
+    waitingError,
+    todayError,
+    historyError,
+    alertsError,
+    reviewsError,
+    transactionsError,
+    documentsError && !isMissingTable(documentsError) ? documentsError : null,
+  ].filter(Boolean);
   if (errors.length) throw new Error(errors[0].message);
+  const operatorDocuments = documentsError && isMissingTable(documentsError) ? [] : documents || [];
 
   const completedToday = (todayTrips || []).filter((trip) => trip.status === "completed");
   const earningsToday = completedToday.reduce((sum, trip) => sum + Number(trip.fare_amount || 0), 0);
@@ -448,7 +566,7 @@ export async function fetchOperatorDashboard(operatorId = null) {
     verificationCenter: {
       status: normalizeVerification(fleet?.verification_status || operator.verification_status),
       note: operator.verification_note || "",
-      documents: documents || [],
+      documents: operatorDocuments,
     },
     earnings: {
       walletBalance: Number(operator.wallet_balance || 0),
@@ -643,6 +761,14 @@ export async function saveOperatorAccount(account) {
   }
 
   if (fleetError) throw new Error(fleetError.message);
+
+  if (!documentsSkipped) {
+    try {
+      await saveOperatorDocumentRows(operator.id, account.uploads || {});
+    } catch (error) {
+      if (!isMissingTable(error)) throw new Error(error.message || "Unable to save operator documents.");
+    }
+  }
 
   localStorage.removeItem(DRAFT_KEY);
   localStorage.removeItem(getDraftKey(userId));
