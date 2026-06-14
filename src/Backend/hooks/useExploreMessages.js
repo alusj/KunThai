@@ -25,6 +25,7 @@ function normalizeOutgoingMessage(input) {
 
   const body = String(input?.body || "").trim();
   const mediaUrl = String(input?.media_url || input?.mediaUrl || "").trim();
+  const metadata = input?.metadata && typeof input.metadata === "object" ? input.metadata : {};
   const requestedType = String(input?.type || input?.media_type || "").toLowerCase();
   const type = MESSAGE_TYPES.includes(requestedType)
     ? requestedType
@@ -35,6 +36,7 @@ function normalizeOutgoingMessage(input) {
   return {
     body,
     mediaUrl,
+    metadata,
     type: mediaUrl || !["image", "audio", "video"].includes(type) ? type : "text",
   };
 }
@@ -61,6 +63,27 @@ function formatSharedLocationMessage(location = {}) {
       ? `${Number(location.lat).toFixed(6)}, ${Number(location.lng).toFixed(6)}`
       : "");
   return `Shared location: ${label}${coordinates ? ` (${coordinates})` : ""}.`;
+}
+
+function buildSharedLocationMetadata(location = {}) {
+  const lat = Number(location.lat ?? location.latitude);
+  const lng = Number(location.lng ?? location.longitude);
+  return {
+    address: location.address || location.label || location.name || "Shared location",
+    coordinatesLabel: location.coordinatesLabel || (Number.isFinite(lat) && Number.isFinite(lng) ? `${lat.toFixed(6)}, ${lng.toFixed(6)}` : ""),
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
+    name: location.name || "Shared location",
+  };
+}
+
+function parseLocationFromMessageBody(body = "") {
+  const match = String(body || "").match(/\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)/);
+  if (!match) return null;
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
 }
 
 function friendlyMessageError(err) {
@@ -245,6 +268,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       body: draft.body,
       type: draft.type,
       mediaUrl: draft.mediaUrl,
+      metadata: draft.metadata,
       read: false,
       createdAt: new Date().toISOString(),
       pending: true,
@@ -330,6 +354,37 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }));
   }
 
+  function openSharedLocation(message = {}) {
+    const metadata = message.metadata || {};
+    const parsedBodyLocation = parseLocationFromMessageBody(message.body);
+    const lat = Number(metadata.lat ?? metadata.latitude ?? parsedBodyLocation?.lat);
+    const lng = Number(metadata.lng ?? metadata.longitude ?? parsedBodyLocation?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      showToast("This shared location does not include a map point yet.", "warning");
+      return { ok: false };
+    }
+
+    window.dispatchEvent(new CustomEvent("kuntai-open-area-view", {
+      detail: {
+        autoRoute: true,
+        destination: {
+          id: `message-location-${message.id || Date.now()}`,
+          name: metadata.name || "Shared location",
+          label: metadata.name || "Shared location",
+          address: metadata.address || message.body || "Shared from Explore messages",
+          type: "message-location",
+          status: "private",
+          lat,
+          lng,
+        },
+        returnTo: "explore-messages",
+        source: "explore-message-location",
+      },
+    }));
+
+    return { ok: true };
+  }
+
   async function handleConversationAction(action, payload = {}) {
     if (!activeConversation?.id) return { ok: false, error: "Open a conversation first." };
     const otherUser = getOtherParticipant(activeConversation, currentUserId);
@@ -347,6 +402,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
           sendExploreMessage(conversationId, currentProfile, {
             type: "location_share",
             body: formatSharedLocationMessage(location),
+            metadata: buildSharedLocationMetadata(location),
           }),
         );
       }
@@ -371,10 +427,15 @@ export function useExploreMessages(currentProfile, initialRecipient) {
           sendExploreMessage(conversationId, currentProfile, {
             type: "location_share",
             body: formatSharedLocationMessage(location),
+            metadata: buildSharedLocationMetadata(location),
           }),
         );
       }
       return result;
+    }
+
+    if (action === "openSharedLocation") {
+      return openSharedLocation(payload.message);
     }
 
     if (action === "blockUser") {

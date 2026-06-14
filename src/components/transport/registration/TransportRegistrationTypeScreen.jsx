@@ -34,6 +34,7 @@ function scrollViewportTop() {
 
 export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   const [showIntro, setShowIntro] = useState(true);
+  const [cautionAccepted, setCautionAccepted] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
   const [leavingCaution, setLeavingCaution] = useState(false);
 
@@ -51,18 +52,12 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
 
   function handleSelect(type) {
     setSelectedType(type);
-    setLeavingCaution(false);
-  }
-
-  function continueToRegistration() {
-    if (!selectedType) return;
-
     scrollViewportTop();
     setShowIntro(true);
 
     window.setTimeout(() => {
       scrollViewportTop();
-      onSelect(selectedType);
+      onSelect(type);
     }, 700);
   }
 
@@ -70,14 +65,13 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
     setLeavingCaution(true);
 
     window.setTimeout(() => {
-      continueToRegistration();
-    }, 80);
+      setCautionAccepted(true);
+      setLeavingCaution(false);
+      scrollViewportTop();
+    }, 240);
   }
 
-  if (selectedType) {
-    const isCompany = selectedType === "company";
-    const title = isCompany ? "Company / Organization" : "Solo Operator";
-
+  if (!cautionAccepted) {
     return (
       <>
         <TransportEntryAnimation show={showIntro} />
@@ -86,8 +80,8 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
           <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
             <div className="flex items-center gap-3">
               <AppBackTab
-                onBack={() => setSelectedType(null)}
-                label="Back to registration type"
+                onBack={onBack}
+                label="Back to transport"
                 historyKey="transport-registration-policy"
                 className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
               />
@@ -97,7 +91,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                   Before you continue
                 </p>
                 <h1 className="truncate text-xl font-black text-slate-950">
-                  Welcome to {title}
+                  KunThai Transport Registration
                 </h1>
               </div>
             </div>
@@ -117,11 +111,11 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                 </div>
 
                 <h2 className="mt-5 text-3xl font-black text-slate-950">
-                  Welcome to {title}
+                  Before you register with KunThai Transport
                 </h2>
 
                 <p className="mt-8 text-lg font-black text-slate-800">
-                  Learn about {title} registration
+                  Learn about transport registration
                 </p>
 
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
@@ -182,8 +176,8 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                   className="h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:opacity-70"
                 >
                   {leavingCaution
-                    ? "Opening Registration..."
-                    : "I Have Learned and Accepted the Policy and Guidance"}
+                    ? "Opening registration options..."
+                    : "I Have Read and Accepted the Condition"}
                 </button>
               </div>
             </section>

@@ -481,6 +481,19 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   }, [refreshOperatorCompanyInvites]);
 
   useEffect(() => {
+    const refreshInvites = () => {
+      refreshOperatorCompanyInvites(operatorAccount);
+    };
+
+    const unsubscribe = subscribeTransportCompanyUpdates(refreshInvites);
+    window.addEventListener("storage", refreshInvites);
+    return () => {
+      unsubscribe?.();
+      window.removeEventListener("storage", refreshInvites);
+    };
+  }, [operatorAccount, refreshOperatorCompanyInvites]);
+
+  useEffect(() => {
     let alive = true;
 
     async function loadCompanyAccount() {

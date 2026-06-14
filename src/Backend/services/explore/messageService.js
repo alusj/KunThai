@@ -8,6 +8,14 @@ const MESSAGE_TYPES = ["text", "image", "audio", "video", "location_request", "l
 export const EXPLORE_MESSAGE_EVENT = "explore-message-event";
 export const EXPLORE_MESSAGE_ACTIVITY_EVENT = "explore-message-activity";
 
+function safeParse(value, fallback = null) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function scopedKey(key, userId = "") {
   return userId ? `${key}-${userId}` : key;
 }
@@ -78,6 +86,7 @@ function normalizeMessage(row) {
     body: row.body || "",
     type: row.type || row.media_type || "text",
     mediaUrl: row.media_url || row.mediaUrl || "",
+    metadata: typeof row.metadata === "string" ? safeParse(row.metadata, {}) : row.metadata || {},
     read: Boolean(row.read),
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
   };
@@ -90,6 +99,7 @@ function normalizeMessageInput(input) {
 
   const body = String(input?.body || "").trim();
   const mediaUrl = String(input?.media_url || input?.mediaUrl || "").trim();
+  const metadata = input?.metadata && typeof input.metadata === "object" ? input.metadata : {};
   const requestedType = String(input?.type || input?.media_type || "").toLowerCase();
   const type = MESSAGE_TYPES.includes(requestedType)
     ? requestedType
@@ -100,6 +110,7 @@ function normalizeMessageInput(input) {
   return {
     body,
     mediaUrl,
+    metadata,
     type: mediaUrl || !["image", "audio", "video"].includes(type) ? type : "text",
   };
 }
@@ -515,6 +526,7 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
     body: draft.body,
     type: draft.type,
     mediaUrl,
+    metadata: draft.metadata,
     read: false,
     createdAt: new Date().toISOString(),
   };
@@ -522,9 +534,7 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
 
   appendLocalMessage(senderId, message);
   mirrorLocalMessageToParticipants(conversationId, senderId, message, preview);
-  if (!options.optimisticManaged) {
-    window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
-  }
+  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
 
   if (isLocalConversation) {
     return message;
@@ -536,21 +546,36 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
     body: message.body,
     media_type: message.type,
     media_url: message.mediaUrl,
+    metadata: message.metadata || {},
     read: message.read,
     created_at: message.createdAt,
   };
 
-  let { data, error } = await supabase.from("explore_messages").insert(payload).select().single();
+  let data = null;
+  let error = null;
+  let insertPayload = { ...payload };
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const result = await supabase.from("explore_messages").insert(insertPayload).select().single();
+    data = result.data;
+    error = result.error;
+    if (!error) break;
 
-  if (error && isMissingColumn(error, "media_url")) {
-    if (message.mediaUrl && !message.body) {
-      throw new Error("Media messages need the latest Explore message schema.");
+    if (isMissingColumn(error, "metadata")) {
+      const { metadata: _metadata, ...nextPayload } = insertPayload;
+      insertPayload = nextPayload;
+      continue;
     }
 
-    const { media_url: _mediaUrl, media_type: _mediaType, ...textOnlyPayload } = payload;
-    const retry = await supabase.from("explore_messages").insert({ ...textOnlyPayload, media_type: "text" }).select().single();
-    data = retry.data;
-    error = retry.error;
+    if (isMissingColumn(error, "media_url")) {
+      if (message.mediaUrl && !message.body) {
+        throw new Error("Media messages need the latest Explore message schema.");
+      }
+      const { media_url: _mediaUrl, media_type: _mediaType, ...nextPayload } = insertPayload;
+      insertPayload = { ...nextPayload, media_type: "text" };
+      continue;
+    }
+
+    break;
   }
 
   if (error) {

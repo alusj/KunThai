@@ -1,8 +1,14 @@
 import { HiOutlineMapPin, HiOutlineNoSymbol, HiOutlineShieldCheck } from "react-icons/hi2";
 
-export default function MessageBubble({ mine, message, onApproveLocationRequest, onBlockUser, otherUserName = "This user" }) {
+export default function MessageBubble({ mine, message, onApproveLocationRequest, onBlockUser, onOpenSharedLocation, otherUserName = "This user" }) {
   const mediaUrl = message.mediaUrl || message.media_url || "";
   const mediaType = message.type || message.media_type || "text";
+  const metadata = message.metadata || {};
+  const bodyLocationMatch = String(message.body || "").match(/\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)/);
+  const hasSharedMapPoint = (
+    Number.isFinite(Number(metadata.lat ?? metadata.latitude)) &&
+    Number.isFinite(Number(metadata.lng ?? metadata.longitude))
+  ) || Boolean(bodyLocationMatch);
   const bubbleClass = `kuntai-break max-w-[82%] rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 sm:max-w-[78%] ${
     mine ? "rounded-br-md bg-slate-950 text-white" : "rounded-bl-md bg-slate-100 text-slate-800"
   }`;
@@ -64,6 +70,18 @@ export default function MessageBubble({ mine, message, onApproveLocationRequest,
               <p className={mine ? "text-white/80" : "text-slate-600"}>{message.body || "A location is being shared from Area View."}</p>
             </div>
           </div>
+          {hasSharedMapPoint ? (
+            <button
+              type="button"
+              onClick={() => onOpenSharedLocation?.(message)}
+              className={`mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-2xl px-3 text-xs font-black ${
+                mine ? "bg-white text-slate-950" : "bg-sky-600 text-white"
+              }`}
+            >
+              <HiOutlineMapPin />
+              Open in Area View
+            </button>
+          ) : null}
           <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
             {timeLabel}
           </p>

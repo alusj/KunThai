@@ -12,27 +12,25 @@ import { readExploreSettings } from "../services/explore/preferencesService";
 function isFreshActivity(item) {
   return Date.now() - new Date(item.updatedAt || 0).getTime() < 15000;
 }
- const MESSAGE_STATUS_CACHE = {
-  conversations: [],
-  loadedAt: 0,
-};
+const MESSAGE_STATUS_CACHE = new Map();
+
+function getCachedStatus(userId = "") {
+  return MESSAGE_STATUS_CACHE.get(userId) || { conversations: [], loadedAt: 0 };
+}
+
 export function useExploreMessageStatus(currentUserId = "") {
- 
-const [conversations, setConversations] = useState(
-  MESSAGE_STATUS_CACHE.conversations
-);
+  const [conversations, setConversations] = useState(() => getCachedStatus(currentUserId).conversations);
   const [activity, setActivity] = useState(() => fetchExploreMessageActivity());
 
   useEffect(() => {
     function reloadMessages() {
      fetchExploreConversations(currentUserId)
   .then((items) => {
-    MESSAGE_STATUS_CACHE.conversations = items;
-    MESSAGE_STATUS_CACHE.loadedAt = Date.now();
+    MESSAGE_STATUS_CACHE.set(currentUserId, { conversations: items, loadedAt: Date.now() });
     setConversations(items);
   })
   .catch(() => {
-    setConversations(MESSAGE_STATUS_CACHE.conversations || []);
+    setConversations(getCachedStatus(currentUserId).conversations || []);
   });
     }
 
@@ -40,10 +38,9 @@ const [conversations, setConversations] = useState(
       setActivity(fetchExploreMessageActivity());
     }
 
-    if (
-  !MESSAGE_STATUS_CACHE.conversations.length ||
-  Date.now() - MESSAGE_STATUS_CACHE.loadedAt > 120000
-) {
+    const cachedStatus = getCachedStatus(currentUserId);
+    setConversations(cachedStatus.conversations);
+    if (!cachedStatus.conversations.length || Date.now() - cachedStatus.loadedAt > 120000) {
   reloadMessages();
 }
     reloadActivity();

@@ -109,6 +109,8 @@ function normalizeInvite(invite = {}) {
     operatorId: invite.operatorId || invite.operator_id || "",
     userId: invite.userId || invite.operator_user_id || "",
     publicId: invite.publicId || invite.operator_public_id || "",
+    lookupValue: invite.lookupValue || invite.lookup_value || invite.requested_public_id || invite.publicId || invite.operator_public_id || "",
+    publicIdAliases: Array.isArray(invite.publicIdAliases || invite.public_id_aliases) ? (invite.publicIdAliases || invite.public_id_aliases) : [],
     name: invite.name || invite.operator_name || "Registered operator",
     city: invite.city || invite.operator_city || "",
     verificationStatus: invite.verificationStatus || invite.verification_status || "pending",
@@ -300,10 +302,15 @@ function inviteMatchesOperator(invite, candidates = {}) {
   }
 
   const candidatePublicIds = (candidates.publicIds || []).map(compact).filter(Boolean);
+  const invitePublicIds = uniqueValues([
+    invite.publicId,
+    invite.lookupValue,
+    ...(invite.publicIdAliases || []),
+  ].flatMap(buildKunThaiIdCandidates)).map(compact).filter(Boolean);
   return Boolean(
     (candidates.userId && invite.userId === candidates.userId) ||
       (candidates.operatorId && invite.operatorId === candidates.operatorId) ||
-      (invite.publicId && candidatePublicIds.includes(compact(invite.publicId))),
+      invitePublicIds.some((publicId) => candidatePublicIds.includes(publicId)),
   );
 }
 
@@ -685,7 +692,7 @@ export async function saveTransportCompanyAccount(account) {
             request_id: requestId,
             operator_id: asUuid(invite.operatorId),
             operator_user_id: asUuid(invite.userId),
-            operator_public_id: invite.publicId,
+            operator_public_id: invite.publicId || invite.lookupValue,
             operator_name: invite.name,
             operator_city: invite.city,
             verification_status: invite.verificationStatus,
@@ -693,7 +700,7 @@ export async function saveTransportCompanyAccount(account) {
             documents: invite.documents || {},
             updated_at: new Date().toISOString(),
           };
-        }).filter((invite) => invite.operator_public_id),
+        }).filter((invite) => invite.operator_public_id || invite.operator_user_id || invite.operator_id),
       );
 
       if (inviteRows.length) {
@@ -742,6 +749,12 @@ export async function lookupTransportOperatorByKunThaiId(value) {
         id: operator.id,
         userId: operator.user_id,
         publicId: operator.display_code || `KT-${operator.operator_code}` || getKunThaiPublicUserId({ userId: operator.user_id }),
+        lookupValue: requestedId,
+        publicIdAliases: uniqueValues([
+          operator.display_code,
+          operator.operator_code ? `KT-${operator.operator_code}` : "",
+          requestedId,
+        ].flatMap(buildKunThaiIdCandidates)),
         name: operator.full_name || "Registered operator",
         city: operator.city || "",
         phone: operator.phone || "",
@@ -768,6 +781,8 @@ export async function lookupTransportOperatorByKunThaiId(value) {
         id: "",
         userId: account.user_id,
         publicId: account.public_id || requestedId,
+        lookupValue: requestedId,
+        publicIdAliases: uniqueValues([account.public_id, requestedId].flatMap(buildKunThaiIdCandidates)),
         name: account.full_name || account.display_name || account.username || "KunThai account",
         city: account.city || account.address || "",
         phone: account.phone || "",
@@ -790,6 +805,8 @@ export async function lookupTransportOperatorByKunThaiId(value) {
         id: localOperator?.id || "",
         userId: localOperator?.userId || user.id,
         publicId: localOperator?.displayCode || localPublicId,
+        lookupValue: requestedId,
+        publicIdAliases: uniqueValues([localOperator?.displayCode, localPublicId, requestedId].flatMap(buildKunThaiIdCandidates)),
         name: localOperator?.form?.name || getAccountDisplayName({}, user),
         city: localOperator?.form?.city || "",
         phone: localOperator?.form?.phone || "",
@@ -811,6 +828,15 @@ export async function lookupTransportOperatorByKunThaiId(value) {
         id: "",
         userId: user.id,
         publicId: accountPublicId,
+        lookupValue: requestedId,
+        publicIdAliases: uniqueValues([
+          accountPublicId,
+          profile?.publicUserId,
+          profile?.public_user_id,
+          profile?.kunThaiId,
+          profile?.kunthai_id,
+          requestedId,
+        ].flatMap(buildKunThaiIdCandidates)),
         name: getAccountDisplayName(profile || {}, user),
         city: profile?.city || "",
         phone: profile?.phone || "",

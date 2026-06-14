@@ -61,6 +61,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
             otherUserName={user.displayName || user.username || "This user"}
             onApproveLocationRequest={() => onAction?.("approveLocationRequest", { message, userId: user.userId })}
             onBlockUser={() => onAction?.("blockUser", { message, userId: user.userId })}
+            onOpenSharedLocation={() => onAction?.("openSharedLocation", { message, userId: user.userId })}
           />
         ))}
       </div>

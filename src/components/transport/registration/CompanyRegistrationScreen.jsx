@@ -233,6 +233,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
       operatorId: operator.id,
       userId: operator.userId,
       publicId: operator.publicId,
+      lookupValue: operator.lookupValue || operator.publicId,
+      publicIdAliases: operator.publicIdAliases || [],
       name: operator.name,
       city: operator.city,
       verificationStatus: operator.verificationStatus,
