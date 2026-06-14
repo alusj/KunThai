@@ -153,6 +153,31 @@ async function insertSelectSingle(tableName, payload, optionalColumns = []) {
   return null;
 }
 
+async function selectSingleByMatch(tableName, match = {}) {
+  let query = supabase.from(tableName).select("*");
+  Object.entries(match).forEach(([key, value]) => {
+    query = query.eq(key, value);
+  });
+  const { data, error } = await query.order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+async function saveSelectSingleByMatch(tableName, payload, match = {}, optionalColumns = []) {
+  const existing = await selectSingleByMatch(tableName, match);
+  if (existing?.id) {
+    return updateSelectSingle(tableName, payload, { id: existing.id }, optionalColumns);
+  }
+  return insertSelectSingle(tableName, payload, optionalColumns);
+}
+
+function normalizeInviteStatusForDatabase(status = "pending", documents = {}) {
+  if (status === "accepted_pending_documents" || documents?.operatorDocumentsRequired || documents?.registrationRequired) {
+    return "accepted";
+  }
+  return ["pending", "accepted", "rejected", "cancelled", "revoked"].includes(status) ? status : "pending";
+}
+
 function getAccountDisplayName(profile = {}, user = {}) {
   const metadata = user?.user_metadata || {};
   return profile.displayName ||
@@ -646,7 +671,7 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
 
   try {
     const payload = {
-      status: nextPatch.status || invite.status || "pending",
+      status: normalizeInviteStatusForDatabase(nextPatch.status || invite.status || "pending", documents),
       verification_status: nextPatch.verificationStatus || invite.verificationStatus || "pending",
       documents,
       updated_at: new Date().toISOString(),
@@ -897,10 +922,10 @@ export async function saveTransportCompanyAccount(account) {
       updated_at: new Date().toISOString(),
     };
 
-    const company = await upsertSelectSingle(
+    const company = await saveSelectSingleByMatch(
       "transport_companies",
       companyPayload,
-      { onConflict: "owner_user_id" },
+      { owner_user_id: user.id },
       [
         "owner_public_id",
         "company_type",
@@ -924,9 +949,53 @@ export async function saveTransportCompanyAccount(account) {
     );
 
     const companyId = company?.id;
+    if (!companyId) {
+      throw new Error("Company registration could not be saved to Supabase. Please try again.");
+    }
+
+    await saveSelectSingleByMatch(
+      "transport_company_members",
+      {
+        company_id: companyId,
+        user_id: user.id,
+        public_id: normalized.ownerPublicId,
+        full_name: normalized.ownerName,
+        role: "owner",
+        status: "active",
+        invited_by: user.id,
+        joined_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { company_id: companyId, user_id: user.id },
+      ["public_id", "full_name", "role", "status", "invited_by", "joined_at", "updated_at"],
+    ).catch((error) => {
+      if (!isMissingTable(error)) throw error;
+      return null;
+    });
+
+    await insertSelectSingle(
+      "transport_company_activities",
+      {
+        company_id: companyId,
+        actor_user_id: user.id,
+        activity_type: "registration",
+        title: "Company registration submitted",
+        body: `${normalized.companyName || "Company"} submitted Fleet HQ registration.`,
+        metadata: {
+          companyCode: normalized.companyCode,
+          fleetCount: normalized.fleets.length,
+          inviteCount: normalized.fleets.reduce((sum, fleet) => sum + (fleet.operators || []).length, 0),
+        },
+      },
+      ["actor_user_id", "activity_type", "body", "metadata"],
+    ).catch((error) => {
+      if (!isMissingTable(error)) throw error;
+      return null;
+    });
+
     if (companyId) {
       const fleetResults = await Promise.all(normalized.fleets.map((fleet) =>
-        upsertSelectSingle(
+        saveSelectSingleByMatch(
           "transport_company_fleets",
           {
             company_id: companyId,
@@ -947,7 +1016,7 @@ export async function saveTransportCompanyAccount(account) {
             verification_status: fleet.status || "pending_review",
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "company_id,fleet_code" },
+          { company_id: companyId, fleet_code: fleet.fleetCode },
           [
             "service_category",
             "fleet_type",
@@ -978,6 +1047,7 @@ export async function saveTransportCompanyAccount(account) {
         (fleet.operators || []).map((operator) => {
           const invite = normalizeInvite(operator);
           const requestId = invite.requestId || `${fleet.fleetCode}-${compact(invite.publicId)}`;
+          const documents = invite.documents || {};
           return {
             company_id: companyId,
             company_fleet_id: fleetIdByCode.get(fleet.fleetCode) || null,
@@ -989,8 +1059,8 @@ export async function saveTransportCompanyAccount(account) {
             operator_name: invite.name,
             operator_city: invite.city,
             verification_status: invite.verificationStatus,
-            status: invite.status || "pending",
-            documents: invite.documents || {},
+            status: normalizeInviteStatusForDatabase(invite.status, documents),
+            documents,
             updated_at: new Date().toISOString(),
           };
         }).filter((invite) => invite.operator_public_id || invite.operator_user_id || invite.operator_id),
@@ -998,10 +1068,10 @@ export async function saveTransportCompanyAccount(account) {
 
       if (inviteRows.length) {
         const inviteResults = await Promise.all(inviteRows.map((invite) =>
-          upsertSelectSingle(
+          saveSelectSingleByMatch(
             "transport_company_operator_invites",
             invite,
-            { onConflict: "company_id,request_id" },
+            { company_id: companyId, request_id: invite.request_id },
             [
               "company_fleet_id",
               "fleet_code",
@@ -1026,7 +1096,7 @@ export async function saveTransportCompanyAccount(account) {
     return writeLocalCompanyAccount(user.id, cloudAccount);
   } catch (error) {
     if (isMissingTable(error)) return localSaved;
-    return { ...localSaved, syncWarning: error.message || "Company saved locally. Cloud sync will retry later." };
+    throw new Error(error.message || "Company registration could not be saved to Supabase.");
   }
 }
 

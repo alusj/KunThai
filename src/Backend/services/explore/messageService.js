@@ -92,6 +92,22 @@ function normalizeMessage(row) {
   };
 }
 
+async function ensureExploreConversationMembers(conversationId, participantIds = []) {
+  const rows = Array.from(new Set(participantIds.filter(isUuid))).map((userId) => ({
+    conversation_id: conversationId,
+    user_id: userId,
+  }));
+  if (!isUuid(conversationId) || !rows.length) return;
+
+  const { error } = await supabase
+    .from("explore_conversation_members")
+    .upsert(rows, { onConflict: "conversation_id,user_id", ignoreDuplicates: true });
+
+  if (error && !isMissingMessageStore(error)) {
+    throw error;
+  }
+}
+
 function normalizeMessageInput(input) {
   if (typeof input === "string") {
     return { body: input.trim(), mediaUrl: "", type: "text" };
@@ -351,6 +367,7 @@ export async function startExploreConversation(currentProfile, recipient) {
   }
 
   if (keyedConversation) {
+    await ensureExploreConversationMembers(keyedConversation.id, [currentUserId, recipientId]);
     const normalized = hydrateConversations([normalizeConversation(keyedConversation)], [
       { conversation_id: keyedConversation.id, user_id: currentUserId },
       { conversation_id: keyedConversation.id, user_id: recipientId },
@@ -406,6 +423,7 @@ export async function startExploreConversation(currentProfile, recipient) {
       }
 
       if (remoteExisting) {
+        await ensureExploreConversationMembers(existingId, [currentUserId, recipientId]);
         const normalized = hydrateConversations([normalizeConversation(remoteExisting)], [
           { conversation_id: existingId, user_id: currentUserId },
           { conversation_id: existingId, user_id: recipientId },
@@ -468,17 +486,7 @@ export async function startExploreConversation(currentProfile, recipient) {
   }
 
   const remoteConversation = { ...conversation, id: createdConversation.id };
-  const { error: membersError } = await supabase.from("explore_conversation_members").upsert(
-    [
-      { conversation_id: remoteConversation.id, user_id: currentUserId },
-      { conversation_id: remoteConversation.id, user_id: recipientId },
-    ],
-    { onConflict: "conversation_id,user_id", ignoreDuplicates: true },
-  );
-
-  if (membersError && !isMissingMessageStore(membersError)) {
-    throw membersError;
-  }
+  await ensureExploreConversationMembers(remoteConversation.id, [currentUserId, recipientId]);
 
   writeArray(CONVERSATIONS_KEY, [remoteConversation, ...conversations], currentUserId);
   return remoteConversation;

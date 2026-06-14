@@ -51,6 +51,63 @@ function getMessagePreview(message) {
   return "Message";
 }
 
+function normalizeIncomingMessage(row = {}) {
+  return {
+    id: row.id,
+    conversationId: row.conversation_id || row.conversationId,
+    senderId: row.sender_id || row.senderId,
+    body: row.body || "",
+    type: row.type || row.media_type || "text",
+    mediaUrl: row.media_url || row.mediaUrl || "",
+    metadata: typeof row.metadata === "string" ? safeParseObject(row.metadata) : row.metadata || {},
+    read: Boolean(row.read),
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+  };
+}
+
+function safeParseObject(value) {
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function messagesLookLikeSamePending(localMessage = {}, remoteMessage = {}) {
+  const localTime = new Date(localMessage.createdAt || 0).getTime();
+  const remoteTime = new Date(remoteMessage.createdAt || 0).getTime();
+  const timeClose = Number.isFinite(localTime) && Number.isFinite(remoteTime) && Math.abs(localTime - remoteTime) < 10_000;
+  const localIsOptimistic = localMessage.pending ||
+    String(localMessage.id || "").startsWith("pending-message") ||
+    String(localMessage.id || "").startsWith("message-");
+
+  return Boolean(
+    localIsOptimistic &&
+      timeClose &&
+      localMessage.conversationId === remoteMessage.conversationId &&
+      localMessage.senderId === remoteMessage.senderId &&
+      (localMessage.body || "") === (remoteMessage.body || "") &&
+      (localMessage.type || "text") === (remoteMessage.type || "text") &&
+      (localMessage.mediaUrl || "") === (remoteMessage.mediaUrl || ""),
+  );
+}
+
+function mergeMessageList(messages = [], incomingMessage = {}) {
+  if (!incomingMessage?.id && !incomingMessage?.conversationId) return messages;
+  const exactIndex = messages.findIndex((message) => message.id === incomingMessage.id);
+  if (exactIndex >= 0) {
+    return messages.map((message, index) => (index === exactIndex ? { ...message, ...incomingMessage, pending: false } : message));
+  }
+
+  const pendingIndex = messages.findIndex((message) => messagesLookLikeSamePending(message, incomingMessage));
+  if (pendingIndex >= 0) {
+    return messages.map((message, index) => (index === pendingIndex ? { ...message, ...incomingMessage, pending: false } : message));
+  }
+
+  return [...messages, incomingMessage].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+}
+
 function getOtherParticipant(conversation, currentUserId) {
   const otherId = conversation?.participantIds?.find((id) => id !== currentUserId);
   return conversation?.participants?.[otherId] || { userId: otherId || "" };
@@ -203,7 +260,58 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   }, [initialRecipient?.userId, initialRecipient?.username]);
 
   useEffect(() => {
-    function handleMessageEvent() {
+    function syncConversationsQuietly() {
+      fetchExploreConversations(currentUserId)
+        .then(setConversations)
+        .catch((err) => setError(friendlyMessageError(err)));
+    }
+
+    function applyIncomingMessage(incomingMessage) {
+      if (!incomingMessage?.conversationId) return false;
+      const preview = getMessagePreview(incomingMessage);
+      const conversationKnown = conversations.some((conversation) => conversation.id === incomingMessage.conversationId);
+
+      setConversations((current) => {
+        if (!conversationKnown) return current;
+
+        return current
+          .map((conversation) => {
+            if (conversation.id !== incomingMessage.conversationId) return conversation;
+            const unreadCount = incomingMessage.senderId !== currentUserId
+              ? Number(conversation.unreadCount || 0) + (activeConversation?.id === incomingMessage.conversationId ? 0 : 1)
+              : Number(conversation.unreadCount || 0);
+            return {
+              ...conversation,
+              preview,
+              lastMessage: incomingMessage,
+              unreadCount,
+              updatedAt: incomingMessage.createdAt,
+            };
+          })
+          .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+      });
+
+      if (activeConversation?.id === incomingMessage.conversationId) {
+        setMessages((current) => {
+          const nextMessages = mergeMessageList(current, incomingMessage);
+          cacheConversationMessages(incomingMessage.conversationId, nextMessages);
+          return nextMessages;
+        });
+      }
+
+      if (!conversationKnown) syncConversationsQuietly();
+      return true;
+    }
+
+    function handleMessageEvent(payload = {}) {
+      const detail = payload?.detail || payload;
+      const incomingRow = detail?.message || detail?.new;
+
+      if (incomingRow?.conversation_id || incomingRow?.conversationId) {
+        applyIncomingMessage(normalizeIncomingMessage(incomingRow));
+        return;
+      }
+
       reload();
     }
 
@@ -289,7 +397,11 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     try {
       const created = await sendExploreMessage(conversationId, currentProfile, body, { optimisticManaged: true });
       if (created) {
-        setMessages((current) => current.map((message) => (message.id === tempMessage.id ? created : message)));
+        setMessages((current) => {
+          const nextMessages = mergeMessageList(current.filter((message) => message.id !== tempMessage.id), created);
+          cacheConversationMessages(conversationId, nextMessages);
+          return nextMessages;
+        });
         setConversations(await fetchExploreConversations(currentUserId));
       }
       return { ok: true, message: created || tempMessage };

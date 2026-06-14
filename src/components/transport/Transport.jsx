@@ -351,7 +351,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
     try {
       const updatedInvite = await respondToOperatorInvite(invite, {
-        status: "accepted_pending_documents",
+        status: "accepted",
         documents: {
           operatorDocumentsRequired: true,
           operatorDocumentsRequestedAt: new Date().toISOString(),
