@@ -1,5 +1,4 @@
 import supabase from "../../Backend/lib/supabaseClient";
-import { isMissingTable } from "../../Backend/services/explore/errors";
 import { getKunThaiPublicUserId, normalizeKunThaiPublicId } from "../../Backend/services/identityCodeService";
 import { getOnboardingProfile } from "../../Backend/services/onboardingService";
 import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
@@ -14,6 +13,16 @@ function safeParse(value) {
     return value ? JSON.parse(value) : null;
   } catch {
     return null;
+  }
+}
+
+async function safeSelectRows(query, fallback = []) {
+  try {
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || fallback;
+  } catch {
+    return fallback;
   }
 }
 
@@ -85,6 +94,14 @@ function isMissingColumn(error, columnName) {
   return message.includes(`'${columnName}' column`) ||
     message.includes(`column "${columnName}"`) ||
     (message.includes(columnName) && message.includes("schema cache"));
+}
+
+function isMissingTable(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "42P01" ||
+    message.includes("does not exist") ||
+    message.includes("could not find the table") ||
+    (message.includes("schema cache") && message.includes("could not find"));
 }
 
 async function upsertSelectSingle(tableName, payload, options = {}, optionalColumns = []) {
@@ -523,7 +540,6 @@ export async function saveTransportCompanyDraft(draft) {
 
 export async function getTransportCompanyAccount() {
   const user = await getCurrentUser();
-  const localAccount = safeParse(localStorage.getItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id)));
 
   try {
     const { data: company, error } = await supabase
@@ -533,12 +549,15 @@ export async function getTransportCompanyAccount() {
       .maybeSingle();
 
     if (error) throw error;
-    if (!company) return localAccount ? normalizeCompanyAccount(localAccount, user.id) : null;
+    if (!company) {
+      localStorage.removeItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id));
+      return null;
+    }
 
-    const [{ data: fleets }, { data: invites }, { data: activities }] = await Promise.all([
-      supabase.from("transport_company_fleets").select("*").eq("company_id", company.id).order("updated_at", { ascending: false }).catch(() => ({ data: [] })),
-      supabase.from("transport_company_operator_invites").select("*").eq("company_id", company.id).order("created_at", { ascending: false }).catch(() => ({ data: [] })),
-      supabase.from("transport_company_activities").select("*").eq("company_id", company.id).order("created_at", { ascending: false }).limit(30).catch(() => ({ data: [] })),
+    const [fleets, invites, activities] = await Promise.all([
+      safeSelectRows(supabase.from("transport_company_fleets").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
+      safeSelectRows(supabase.from("transport_company_operator_invites").select("*").eq("company_id", company.id).order("created_at", { ascending: false })),
+      safeSelectRows(supabase.from("transport_company_activities").select("*").eq("company_id", company.id).order("created_at", { ascending: false }).limit(30)),
     ]);
 
     const account = normalizeCompanyAccount({
@@ -552,7 +571,7 @@ export async function getTransportCompanyAccount() {
     writeLocalCompanyAccount(user.id, account);
     return account;
   } catch (error) {
-    if (isMissingTable(error) || localAccount) return localAccount ? normalizeCompanyAccount(localAccount, user.id) : null;
+    if (isMissingTable(error)) return null;
     throw new Error(error.message || "Unable to load company workspace.");
   }
 }
@@ -629,13 +648,13 @@ export async function getOperatorCompanyInvites(operatorAccount = null) {
     if (error) throw error;
 
     const companyIds = uniqueValues((inviteRows || []).map((invite) => invite.company_id));
-    const [{ data: companyRows }, { data: fleetRows }] = await Promise.all([
+    const [companyRows, fleetRows] = await Promise.all([
       companyIds.length
-        ? supabase.from("transport_companies").select("id, owner_user_id, company_code, company_name, city").in("id", companyIds).catch(() => ({ data: [] }))
-        : { data: [] },
+        ? safeSelectRows(supabase.from("transport_companies").select("id, owner_user_id, company_code, company_name, city").in("id", companyIds))
+        : [],
       companyIds.length
-        ? supabase.from("transport_company_fleets").select("*").in("company_id", companyIds).catch(() => ({ data: [] }))
-        : { data: [] },
+        ? safeSelectRows(supabase.from("transport_company_fleets").select("*").in("company_id", companyIds))
+        : [],
     ]);
 
     const companiesById = new Map((companyRows || []).map((company) => [company.id, company]));
@@ -894,9 +913,6 @@ export async function saveTransportCompanyAccount(account) {
     savedAt: new Date().toISOString(),
   }, user.id);
 
-  const localSaved = writeLocalCompanyAccount(user.id, normalized);
-  localStorage.removeItem(scopedKey(COMPANY_DRAFT_PREFIX, user.id));
-
   try {
     const companyPayload = {
       owner_user_id: user.id,
@@ -1093,9 +1109,12 @@ export async function saveTransportCompanyAccount(account) {
     }
 
     const cloudAccount = normalizeCompanyAccount({ ...normalized, id: companyId || normalized.id, storageMode: "cloud" }, user.id);
+    localStorage.removeItem(scopedKey(COMPANY_DRAFT_PREFIX, user.id));
     return writeLocalCompanyAccount(user.id, cloudAccount);
   } catch (error) {
-    if (isMissingTable(error)) return localSaved;
+    if (isMissingTable(error)) {
+      throw new Error("Transport company tables are not installed in Supabase. Run the latest database migration, then submit again.");
+    }
     throw new Error(error.message || "Company registration could not be saved to Supabase.");
   }
 }
@@ -1238,5 +1257,17 @@ export function subscribeTransportCompanyUpdates(onChange) {
   if (typeof window === "undefined" || typeof onChange !== "function") return () => {};
   const handler = (event) => onChange(event.detail);
   window.addEventListener(COMPANY_EVENT, handler);
-  return () => window.removeEventListener(COMPANY_EVENT, handler);
+
+  const channel = supabase
+    .channel(`transport-company-updates-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_companies" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_fleets" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_operator_invites" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_members" }, onChange)
+    .subscribe();
+
+  return () => {
+    window.removeEventListener(COMPANY_EVENT, handler);
+    supabase.removeChannel(channel);
+  };
 }

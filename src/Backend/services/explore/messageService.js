@@ -641,19 +641,11 @@ export function fetchExploreMessageActivity() {
 
 export function subscribeToExploreMessages(currentUserId, onChange, conversationIds = []) {
   if (!currentUserId) return () => {};
-  const conversationSet = new Set(conversationIds.filter(Boolean));
-
-  function handleConversationScopedChange(payload) {
-    const conversationId = payload?.new?.conversation_id || payload?.old?.conversation_id || payload?.new?.id || payload?.old?.id || "";
-    if (!conversationSet.size || !conversationId || conversationSet.has(conversationId)) {
-      onChange(payload);
-    }
-  }
 
   const channel = supabase
     .channel(`explore-direct-messages-${currentUserId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "explore_messages" }, handleConversationScopedChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversations" }, handleConversationScopedChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "explore_messages" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversations" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversation_members", filter: `user_id=eq.${currentUserId}` }, onChange)
     .subscribe();
 

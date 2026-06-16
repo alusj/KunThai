@@ -542,8 +542,15 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     }
 
     loadCompanyAccount();
-    const unsubscribe = subscribeTransportCompanyUpdates((account) => {
-      if (alive) setCompanyAccount(account || null);
+    const unsubscribe = subscribeTransportCompanyUpdates(async (account) => {
+      if (!alive) return;
+      if (account?.companyName || account?.company_name || account?.companyCode || account?.company_code) {
+        setCompanyAccount(account || null);
+        return;
+      }
+
+      const nextAccount = await getTransportCompanyAccount().catch(() => null);
+      if (alive) setCompanyAccount(nextAccount);
     });
 
     return () => {
@@ -953,6 +960,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   return (
     <div className={`${routeDirection === "backward" ? "kt-explore-stack-enter-left" : ""} min-h-screen bg-gray-50 relative`}>
       <Header
+        companyAccount={companyAccount}
+        companyLoading={companyLoading}
         operatorAccount={operatorAccount}
         operatorLoading={operatorLoading}
         onActivityChange={setHeaderActivityOpen}
@@ -960,6 +969,12 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         onRegisterFleet={() => {
           if (operatorAccount) {
             openOperatorDashboard("dashboard");
+            return;
+          }
+
+          if (companyAccount) {
+            setRouteDirection("forward");
+            setCompanyWorkspaceOpen(true);
             return;
           }
 

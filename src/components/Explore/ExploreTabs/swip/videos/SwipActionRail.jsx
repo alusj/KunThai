@@ -5,8 +5,6 @@ import {
   HiOutlineArrowsPointingOut,
   HiOutlineArrowsPointingIn,
   HiOutlineHandThumbUp,
-  HiOutlineShare,
-  HiOutlineTrash,
 } from "react-icons/hi2";
 
 function RailButton({ active, children, label, title, onClick, danger = false, emphasis = "tap" }) {
@@ -32,17 +30,17 @@ function RailButton({ active, children, label, title, onClick, danger = false, e
       type="button"
       onClick={handleClick}
       onPointerDown={(event) => event.stopPropagation()}
-      className={`kt-pressable group flex w-12 flex-col items-center gap-0.5 text-white ${danger ? "text-rose-100" : ""}`}
+      className={`kt-pressable group flex w-9 flex-col items-center gap-0.5 text-white xs:w-10 ${danger ? "text-rose-100" : ""}`}
       aria-label={title || String(label || "Swip action")}
       title={title}
     >
       <span
-        className={`flex h-9 w-9 items-center justify-center rounded-full text-[19px] transition ${
+        className={`flex h-8 w-8 items-center justify-center rounded-full text-[17px] transition xs:h-9 xs:w-9 xs:text-[18px] ${
           danger
-            ? "text-rose-200 group-hover:bg-rose-500/25"
+            ? "text-rose-200 group-hover:text-rose-100"
             : active
-              ? "bg-white text-rose-500"
-              : "text-white/92 group-hover:bg-white/12"
+              ? "text-rose-200"
+              : "text-white/92 group-hover:text-white"
         }`}
         style={{
           transform: tapped ? "scale(0.94)" : "scale(1)",
@@ -52,7 +50,7 @@ function RailButton({ active, children, label, title, onClick, danger = false, e
         {children}
       </span>
       {label !== undefined && label !== "" ? (
-        <span className="max-w-12 truncate text-[10px] font-black leading-none text-white/90 drop-shadow">{label}</span>
+        <span className="max-w-9 truncate text-[9px] font-black leading-none text-white/90 drop-shadow xs:max-w-10 xs:text-[10px]">{label}</span>
       ) : null}
     </button>
   );
@@ -63,18 +61,15 @@ export default function SwipActionRail({
   post,
   liked,
   saved,
-  isOwner,
   onComment,
-  onDelete,
   onFullscreen,
   onLike,
   onMore,
   onSave,
-  onShare,
 }) {
   return (
     <div
-      className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-1.5 rounded-full border border-white/14 bg-slate-950/24 px-1.5 py-2 shadow-2xl backdrop-blur-md sm:right-5"
+      className="absolute bottom-28 right-2 z-20 flex flex-col items-center gap-1 rounded-full border border-white/18 bg-black/18 px-1 py-1.5 shadow-xl backdrop-blur-sm xs:right-3 xs:gap-1.5 xs:px-1.5 xs:py-2 sm:right-5"
     >
       <RailButton active={liked} emphasis="like" label={post.likes_count ?? 0} title="Like" onClick={onLike}>
         <HiOutlineHandThumbUp />
@@ -85,19 +80,11 @@ export default function SwipActionRail({
       <RailButton active={saved} label={post.saves_count ?? 0} title={saved ? "Saved" : "Save"} onClick={onSave}>
         <HiOutlineBookmark />
       </RailButton>
-      <RailButton label="" title="Share" onClick={onShare}>
-        <HiOutlineShare />
-      </RailButton>
       <RailButton label="" title={fullscreen ? "Exit full screen" : "Full screen"} onClick={onFullscreen}>
         {fullscreen ? <HiOutlineArrowsPointingIn /> : <HiOutlineArrowsPointingOut />}
       </RailButton>
-      {isOwner ? (
-        <RailButton danger label="" title="Delete video" onClick={onDelete}>
-          <HiOutlineTrash />
-        </RailButton>
-      ) : null}
       <RailButton label="" title="More Swip actions" onClick={onMore}>
-        <span className="text-2xl font-black leading-none">...</span>
+        <span className="text-xl font-black leading-none xs:text-2xl">...</span>
       </RailButton>
     </div>
   );

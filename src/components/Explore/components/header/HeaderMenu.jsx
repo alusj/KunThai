@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { HiOutlineArrowLeft } from "react-icons/hi2";
 
-import { signOutSocialSession, switchSocialAccount } from "../../../../Backend/services/sessionService";
+import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 
 import MenuSection from "./menu/MenuSection";
 import ActivityMenuItem from "./menu/items/ActivityMenuItem";
@@ -41,7 +41,7 @@ export function SocialMenuContent({ onClose, onNavigate }) {
 
   const handleSwitchAccount = async () => {
     onClose?.();
-    await switchSocialAccount();
+    onNavigate?.("SwitchAccount", { fromMenu: true });
   };
 
   const handleSignOut = async () => {

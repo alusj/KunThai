@@ -11,7 +11,7 @@ import {
 } from "react-icons/hi2";
 
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
-import { signOutSocialSession, switchSocialAccount } from "../../../../Backend/services/sessionService";
+import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
 function Toggle({ active, label, onChange }) {
@@ -73,7 +73,7 @@ function SettingsSection({ children, subtitle, title }) {
   );
 }
 
-export default function SettingsScreen({ hideHeader = false }) {
+export default function SettingsScreen({ hideHeader = false, onSwitchAccount }) {
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { notifications, video, feed, messages, account } = settings;
 
@@ -169,7 +169,7 @@ export default function SettingsScreen({ hideHeader = false }) {
 
         <SettingsSection title="Account" subtitle="Session and local device actions.">
           <div className="grid gap-3 lg:grid-cols-3">
-            <button type="button" onClick={switchSocialAccount} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm">
+            <button type="button" onClick={onSwitchAccount} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm">
               <HiOutlineCog6Tooth className="text-2xl text-sky-700" />
               <p className="mt-3 text-base font-black text-slate-950">Switch account</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Change the active Explore session.</p>

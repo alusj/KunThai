@@ -31,6 +31,7 @@ import SavedPostsScreen from "./SocialMenu/savedPosts/SavedPostsScreen";
 import SettingsScreen from "./SocialMenu/settings/SettingsScreen";
 import SocialScreenHeader from "./SocialMenu/shared/SocialScreenHeader";
 import TermsPoliciesScreen from "./SocialMenu/terms/TermsPoliciesScreen";
+import SwitchAccountScreen from "./SocialMenu/account/SwitchAccountScreen";
 import { MENU_SCREENS } from "./config/menuScreens";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 
@@ -639,7 +640,11 @@ setProfileError("");
     }
 
     if (screenKey === "Settings") {
-      return <SettingsScreen hideHeader />;
+      return <SettingsScreen hideHeader onSwitchAccount={() => openMenuScreen("SwitchAccount")} />;
+    }
+
+    if (screenKey === "SwitchAccount") {
+      return <SwitchAccountScreen currentProfile={profile} user={user} />;
     }
 
     if (screenKey === "HelpCenter") {

@@ -10,6 +10,8 @@ import TransportMenuDrawer from "./TransportMenuDrawer";
 import PremiumHeader from "../../shared/PremiumHeader";
 
 export default function Header({
+  companyAccount,
+  companyLoading = false,
   operatorAccount,
   operatorLoading = false,
   onActivityChange,
@@ -21,6 +23,8 @@ export default function Header({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [radarOpen, setRadarOpen] = useState(false);
   const hasOperatorAccount = Boolean(operatorAccount);
+  const hasCompanyAccount = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
+  const accountLoading = operatorLoading || companyLoading;
 
   useEffect(() => {
     onActivityChange?.(menuOpen || searchOpen || notificationsOpen || radarOpen);
@@ -35,10 +39,14 @@ export default function Header({
         title="Transport"
         left={(
           <>
-            {operatorLoading ? (
-              <div className="h-11 w-28 animate-pulse rounded-2xl bg-gray-100" aria-label="Loading operator account" />
+            {accountLoading ? (
+              <div className="h-11 w-28 animate-pulse rounded-2xl bg-gray-100" aria-label="Loading transport account" />
             ) : (
-              <OperatorButton hasOperatorAccount={hasOperatorAccount} onClick={onRegisterFleet} />
+              <OperatorButton
+                hasCompanyAccount={hasCompanyAccount}
+                hasOperatorAccount={hasOperatorAccount}
+                onClick={onRegisterFleet}
+              />
             )}
             <Radar onOpenChange={setRadarOpen} onViewFleet={onViewFleet} />
           </>

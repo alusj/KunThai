@@ -504,21 +504,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     const otherName = otherUser.displayName || otherUser.username || "this contact";
 
     if (action === "shareLocation") {
-      const result = await sendMessage({
-        type: "location_share",
-        body: `${myName} is choosing a location to share from Area View.`,
-      });
-      if (result?.ok !== false) {
-        const conversationId = activeConversation.id;
-        openMessageAreaView("shareLocation", (location) =>
-          sendExploreMessage(conversationId, currentProfile, {
-            type: "location_share",
-            body: formatSharedLocationMessage(location),
-            metadata: buildSharedLocationMetadata(location),
-          }),
-        );
-      }
-      return result;
+      openMessageAreaView("shareLocation", (location) =>
+        sendMessage({
+          type: "location_share",
+          body: formatSharedLocationMessage(location),
+          metadata: buildSharedLocationMetadata(location),
+        }),
+      );
+      return { ok: true };
     }
 
     if (action === "requestLocation") {
@@ -529,21 +522,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
 
     if (action === "approveLocationRequest") {
-      const result = await sendMessage({
-        type: "location_share",
-        body: `${myName} approved the location request and is choosing a location from Area View.`,
-      });
-      if (result?.ok !== false) {
-        const conversationId = activeConversation.id;
-        openMessageAreaView("approveLocationRequest", (location) =>
-          sendExploreMessage(conversationId, currentProfile, {
-            type: "location_share",
-            body: formatSharedLocationMessage(location),
-            metadata: buildSharedLocationMetadata(location),
-          }),
-        );
-      }
-      return result;
+      openMessageAreaView("approveLocationRequest", (location) =>
+        sendMessage({
+          type: "location_share",
+          body: formatSharedLocationMessage(location),
+          metadata: buildSharedLocationMetadata(location),
+        }),
+      );
+      return { ok: true };
     }
 
     if (action === "openSharedLocation") {

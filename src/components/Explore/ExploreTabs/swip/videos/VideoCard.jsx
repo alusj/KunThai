@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, Eye, EyeOff, Flag, Link, Repeat2, Send, ShieldCheck, X } from "lucide-react";
+import { Copy, Download, Eye, EyeOff, Flag, Link, Repeat2, Send, Trash2, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { createExploreNotification } from "../../../../../Backend/services/exploreService";
@@ -230,6 +230,12 @@ export default function VideoCard({
     setDisplayMinimal((current) => !current);
     setActionMenuOpen(false);
     setQuickDeckOpen(false);
+  }
+
+  function openDeleteFromActions() {
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
+    setDeleteOpen(true);
   }
 
   async function confirmDelete() {
@@ -502,7 +508,7 @@ export default function VideoCard({
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
         onTimeUpdate={handleTimeUpdate}
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-contain"
       />
 
       {mediaError ? (
@@ -526,14 +532,11 @@ export default function VideoCard({
           post={post}
           liked={liked}
           saved={saved}
-          isOwner={isOwner}
           onLike={onLike}
           onSave={onSave}
           onComment={() => setCommentOpen(true)}
-          onDelete={() => setDeleteOpen(true)}
           onFullscreen={onFullscreenToggle}
           onMore={() => setActionMenuOpen(true)}
-          onShare={handleShare}
         />
       ) : (
         <button
@@ -605,6 +608,9 @@ export default function VideoCard({
               <SwipActionItem icon={Copy} title="Copy caption" detail="Copy the creator note only." onClick={handleCopyCaption} />
               <SwipActionItem icon={Repeat2} title="Repost kit" detail="Copy a clean repost note and link." onClick={handleRepostKit} />
               <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? "Show display" : "Clear display"} detail="Toggle a focused viewing mode." onClick={toggleDisplayMinimal} />
+              {isOwner ? (
+                <SwipActionItem danger icon={Trash2} title="Delete Swip" detail="Remove this video from Swip and your profile feed." onClick={openDeleteFromActions} />
+              ) : null}
               {!isOwner ? (
                 <SwipActionItem danger icon={Flag} title="Report safety issue" detail="Send this Swip for review." onClick={handleReport} />
               ) : null}
@@ -679,10 +685,10 @@ function SwipActionItem({ danger = false, detail, icon: Icon, onClick, title }) 
       className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${
         danger
           ? "border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100"
-          : "border-slate-100 bg-slate-50 text-slate-900 hover:border-sky-100 hover:bg-sky-50"
+          : "border-slate-100 bg-slate-50 text-slate-900 hover:border-slate-200 hover:bg-slate-100"
       }`}
     >
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white ${danger ? "text-rose-700" : "text-sky-700"}`}>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white ${danger ? "text-rose-700" : "text-slate-700"}`}>
         <Icon size={18} />
       </span>
       <span className="min-w-0">

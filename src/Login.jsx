@@ -18,6 +18,7 @@ import {
   getActiveCountryProfile,
   storeCountryContext,
 } from "./data/westAfricanCountryProfiles";
+import { consumeSwitchAccountPrefill } from "./Backend/services/sessionService";
 
 function AuthMessage({ tone = "info", children }) {
   const tones = {
@@ -220,6 +221,15 @@ export default function Login() {
     () => normalizePhoneDigits(phoneNumber, selectedCountry),
     [phoneNumber, selectedCountry],
   );
+
+  useEffect(() => {
+    const prefill = consumeSwitchAccountPrefill();
+    if (!prefill?.identifier) return;
+
+    setMode("signin");
+    setSignInAccount(prefill.identifier);
+    setMessage(`Sign in to continue as ${prefill.displayName || prefill.identifier}.`);
+  }, []);
 
   function resetMessages() {
     setError("");

@@ -43,6 +43,10 @@ export const MENU_SCREENS = {
     title: "Settings",
     subtitle: "Tune your Explore experience.",
   },
+  SwitchAccount: {
+    title: "Switch Account",
+    subtitle: "Choose an account that has signed in on this device.",
+  },
   HelpCenter: {
     title: "Help Center",
     subtitle: "Guides, reports, support requests, and safety help.",
