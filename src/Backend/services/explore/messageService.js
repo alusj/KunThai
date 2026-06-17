@@ -148,6 +148,15 @@ function appendLocalMessage(userId, message) {
   writeArray(MESSAGES_KEY, [...messages, message], userId);
 }
 
+function removeLocalMessage(userId, messageId) {
+  if (!userId || !messageId) return;
+  writeArray(
+    MESSAGES_KEY,
+    readArray(MESSAGES_KEY, userId).filter((message) => message.id !== messageId),
+    userId,
+  );
+}
+
 function updateLocalConversationPreview(userId, conversationId, preview, updatedAt) {
   if (!userId || !conversationId) return [];
   const conversations = readArray(CONVERSATIONS_KEY, userId).map((conversation) =>
@@ -613,6 +622,29 @@ export async function markExploreConversationRead(conversationId, currentUserId)
     .eq("conversation_id", conversationId)
     .neq("sender_id", currentUserId)
     .eq("read", false);
+
+  if (error && !isMissingMessageStore(error)) {
+    throw error;
+  }
+}
+
+export async function deleteExploreMessage(message, currentUserId, options = {}) {
+  const messageId = typeof message === "string" ? message : message?.id;
+  const conversationId = message?.conversationId || message?.conversation_id || "";
+  if (!messageId || !currentUserId) return;
+
+  removeLocalMessage(currentUserId, messageId);
+  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, {
+    detail: { type: "delete", conversationId, messageId },
+  }));
+
+  if (!options.forEveryone || !isUuid(messageId)) return;
+
+  const { error } = await supabase
+    .from("explore_messages")
+    .delete()
+    .eq("id", messageId)
+    .eq("sender_id", currentUserId);
 
   if (error && !isMissingMessageStore(error)) {
     throw error;

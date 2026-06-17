@@ -37,7 +37,7 @@ export default function MarketplaceHeader({
   const [, setSeenVersion] = useState(0);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const businessLabel = hasBusiness ? "MyBiz" : "REGISTER";
+  const businessLabel = loading || hasBusiness ? "MyBiz" : "REGISTER";
   const orderCount = getUnseenNotificationCount(BUYER_ORDER_SCOPE, orderItems);
   const messageCount = getUnseenNotificationCount(BUYER_MESSAGE_SCOPE, messageItems, { unreadOnly: true });
   const activeHint = orderCount ? "orders" : messageCount ? "messages" : "";
@@ -107,27 +107,6 @@ export default function MarketplaceHeader({
     onMessagesClick?.();
   }
 
-  if (loading) {
-    return (
-      <PremiumHeader
-        accent="emerald"
-        centerIcon={ShoppingBag}
-        title="UrMall"
-        className="z-20"
-        left={<div className="h-11 w-28 animate-pulse rounded-2xl bg-slate-100" />}
-        right={(
-          <>
-            {[PackageCheck, MessageCircle, ShoppingBag, Store].map((Icon, index) => (
-              <span key={index} className="grid h-11 w-11 animate-pulse place-items-center rounded-2xl bg-slate-100 text-slate-300">
-                <Icon size={18} />
-              </span>
-            ))}
-          </>
-        )}
-      />
-    );
-  }
-
   return (
     <PremiumHeader
       accent="emerald"
@@ -140,7 +119,7 @@ export default function MarketplaceHeader({
           accent="emerald"
           icon={Store}
           label={businessLabel}
-          onClick={onMyBizClick}
+          onClick={loading ? undefined : onMyBizClick}
           wide
         >
           {businessLabel}

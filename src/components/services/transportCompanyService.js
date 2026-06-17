@@ -700,13 +700,37 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
     if (operatorId) payload.operator_id = operatorId;
     if (userId) payload.operator_user_id = userId;
 
+    const inviteRowId = asUuid(invite.id);
+    const companyId = asUuid(invite.companyId || invite.company_id);
+    let hasInviteSelector = false;
     let query = supabase.from("transport_company_operator_invites").update(payload);
-    if (invite.id) {
-      query = query.eq("id", invite.id);
+    if (inviteRowId) {
+      query = query.eq("id", inviteRowId);
+      hasInviteSelector = true;
     } else {
-      if (invite.companyId) query = query.eq("company_id", invite.companyId);
-      query = query.eq("request_id", invite.requestId);
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+        hasInviteSelector = true;
+      }
+      if (invite.requestId) {
+        query = query.eq("request_id", invite.requestId);
+        hasInviteSelector = true;
+      }
+      if (!companyId && !invite.requestId && invite.fleetCode) {
+        query = query.eq("fleet_code", invite.fleetCode);
+        hasInviteSelector = true;
+      }
+      if (!companyId && !invite.requestId && userId) {
+        query = query.eq("operator_user_id", userId);
+        hasInviteSelector = true;
+      }
+      if (!companyId && !invite.requestId && !userId && invite.publicId) {
+        query = query.eq("operator_public_id", invite.publicId);
+        hasInviteSelector = true;
+      }
     }
+
+    if (!hasInviteSelector) return localInvite;
 
     const { data, error } = await query.select().maybeSingle();
     if (error) throw error;

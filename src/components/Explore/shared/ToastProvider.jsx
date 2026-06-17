@@ -1,81 +1,128 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HiOutlineCheckCircle, HiOutlineExclamationTriangle, HiOutlineInformationCircle, HiOutlineXMark } from "react-icons/hi2";
 
 import { TOAST_EVENT } from "../../../Backend/services/toastService";
 
+const TOAST_EXIT_MS = 280;
+
 const tones = {
   info: {
     icon: HiOutlineInformationCircle,
-    className: "border-sky-100 bg-white text-slate-800",
-    iconClass: "text-sky-600",
+    title: "Update",
+    accentClass: "from-sky-500 to-blue-600",
+    iconClass: "bg-sky-50 text-sky-700 ring-sky-100",
   },
   success: {
     icon: HiOutlineCheckCircle,
-    className: "border-emerald-100 bg-white text-slate-800",
-    iconClass: "text-emerald-600",
+    title: "Done",
+    accentClass: "from-emerald-500 to-teal-600",
+    iconClass: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  },
+  warning: {
+    icon: HiOutlineExclamationTriangle,
+    title: "Attention",
+    accentClass: "from-amber-400 to-orange-500",
+    iconClass: "bg-amber-50 text-amber-700 ring-amber-100",
   },
   danger: {
     icon: HiOutlineExclamationTriangle,
-    className: "border-rose-100 bg-white text-slate-800",
-    iconClass: "text-rose-600",
+    title: "Action needed",
+    accentClass: "from-rose-500 to-red-600",
+    iconClass: "bg-rose-50 text-rose-700 ring-rose-100",
   },
   error: {
     icon: HiOutlineExclamationTriangle,
-    className: "border-rose-100 bg-white text-slate-800",
-    iconClass: "text-rose-600",
+    title: "Action needed",
+    accentClass: "from-rose-500 to-red-600",
+    iconClass: "bg-rose-50 text-rose-700 ring-rose-100",
   },
 };
 
 export default function ToastProvider({ children }) {
   const [items, setItems] = useState([]);
+  const timersRef = useRef(new Map());
+
+  function dismissToast(id) {
+    if (!id) return;
+
+    const existingTimer = timersRef.current.get(id);
+    if (existingTimer) window.clearTimeout(existingTimer);
+
+    setItems((current) =>
+      current.map((item) => (item.id === id ? { ...item, leaving: true } : item)),
+    );
+
+    const removalTimer = window.setTimeout(() => {
+      setItems((current) => current.filter((item) => item.id !== id));
+      timersRef.current.delete(id);
+    }, TOAST_EXIT_MS);
+    timersRef.current.set(id, removalTimer);
+  }
 
   useEffect(() => {
     function handleToast(event) {
-      const toast = event.detail || {};
+      const toast = { ...(event.detail || {}), leaving: false };
       setItems((current) => [toast, ...current].slice(0, 4));
-      setTimeout(() => {
-        setItems((current) => current.filter((item) => item.id !== toast.id));
-      }, 3600);
+      const timer = window.setTimeout(() => dismissToast(toast.id), Number(toast.duration || 3600));
+      timersRef.current.set(toast.id, timer);
     }
 
     window.addEventListener(TOAST_EVENT, handleToast);
-    return () => window.removeEventListener(TOAST_EVENT, handleToast);
+    return () => {
+      window.removeEventListener(TOAST_EVENT, handleToast);
+      timersRef.current.forEach((timer) => window.clearTimeout(timer));
+      timersRef.current.clear();
+    };
   }, []);
 
   return (
     <>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 top-3 z-[1200] flex flex-col items-center gap-2 px-3 sm:top-5">
+      <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1200] flex flex-col items-center gap-2 px-3 sm:top-5">
         {items.map((item) => {
           const tone = tones[item.tone] || tones.info;
           const Icon = tone.icon;
+          const motionClass = item.leaving
+            ? item.anchor === "notification"
+              ? "kt-toast-collapse-notification"
+              : "kt-toast-collapse-out"
+            : "kt-toast-expand-in";
           return (
             <div
               key={item.id}
-              className={`kt-toast-pop pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-[18px] border px-3 py-3 text-sm font-bold shadow-2xl backdrop-blur transition ${tone.className}`}
+              role="status"
+              className={`${motionClass} pointer-events-auto relative flex w-full max-w-[min(92vw,420px)] overflow-hidden rounded-[26px] border border-white/70 bg-white/95 p-1 text-slate-900 shadow-[0_24px_70px_rgba(15,23,42,0.20)] ring-1 ring-slate-950/5 backdrop-blur-xl`}
             >
-              <Icon className={`flex-none text-xl ${tone.iconClass}`} />
-              <p className="kuntai-break min-w-0 flex-1 leading-5">{item.message}</p>
-              {item.actionLabel && item.onAction ? (
+              <div className={`w-1.5 shrink-0 rounded-full bg-gradient-to-b ${tone.accentClass}`} />
+              <div className="flex min-w-0 flex-1 items-start gap-3 px-3 py-3">
+                <span className={`mt-0.5 flex h-10 w-10 flex-none items-center justify-center rounded-2xl ring-1 ${tone.iconClass}`}>
+                  <Icon className="text-xl" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{item.title || tone.title}</p>
+                  <p className="kuntai-break mt-1 text-sm font-black leading-5 text-slate-950">{item.message}</p>
+                  {item.actionLabel && item.onAction ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        item.onAction?.();
+                        dismissToast(item.id);
+                      }}
+                      className="kt-pressable mt-3 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-black text-white"
+                    >
+                      {item.actionLabel}
+                    </button>
+                  ) : null}
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    item.onAction?.();
-                    setItems((current) => current.filter((toast) => toast.id !== item.id));
-                  }}
-                  className="flex-none rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white"
+                  onClick={() => dismissToast(item.id)}
+                  className="flex h-9 w-9 flex-none items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                  aria-label="Dismiss message"
                 >
-                  {item.actionLabel}
+                  <HiOutlineXMark />
                 </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setItems((current) => current.filter((toast) => toast.id !== item.id))}
-                className="flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-slate-100 text-slate-500"
-                aria-label="Dismiss message"
-              >
-                <HiOutlineXMark />
-              </button>
+              </div>
             </div>
           );
         })}

@@ -48,6 +48,7 @@ export default function VideoCard({
   categoryLabel = "",
   contextLabel = "",
   currentUserId = "",
+  fullBleed = false,
   fullscreen = false,
   liked,
   saved,
@@ -77,6 +78,7 @@ export default function VideoCard({
   const holdTimerRef = useRef(null);
   const holdTriggeredRef = useRef(false);
   const activeRef = useRef(false);
+  const videoFitClass = fullBleed || fullscreen ? "object-cover" : "object-contain";
 
   const clip = useMemo(() => getClipWindow(post, progress.realDuration || 0), [post, progress.realDuration]);
 
@@ -508,7 +510,7 @@ export default function VideoCard({
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
         onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
         onTimeUpdate={handleTimeUpdate}
-        className="absolute inset-0 h-full w-full object-contain"
+        className={`absolute inset-0 h-full w-full ${videoFitClass}`}
       />
 
       {mediaError ? (

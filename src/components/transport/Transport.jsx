@@ -26,6 +26,7 @@ import {
   updateOperatorCompanyInvite,
 } from "../services/transportCompanyService";
 import { submitTransportSupportTicket } from "../services/bookingService";
+import { showToast } from "../../Backend/services/toastService";
 
 export default function Transport({ onActivityChange, areaViewRequest = null }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
@@ -396,6 +397,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       setDocumentReuseInvite(null);
       await refreshOperatorCompanyInvites(operatorAccount);
       setOperatorInviteStatus("Company request declined.");
+      showToast("You've declined this company request.", "warning", {
+        title: "Request declined",
+        anchor: "notification",
+      });
     } catch (error) {
       setOperatorInviteStatus(error.message || "Unable to decline this company request.");
     }
@@ -793,14 +798,14 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         <NearbyAreaScreen
           onBack={() => {
             const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
-            const returnToExploreMessages = nearbyAreaRequest?.returnTo === "explore-messages";
+            const returnToExplore = String(nearbyAreaRequest?.returnTo || "").startsWith("explore-");
             setRouteDirection("backward");
             setNearbyAreaOpen(false);
             if (returnToBooking) {
               setBookingTarget(nearbyAreaRequest.bookingTarget);
             }
             setNearbyAreaRequest(null);
-            if (returnToExploreMessages) {
+            if (returnToExplore) {
               window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
             }
           }}
@@ -811,7 +816,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           pickerLabels={nearbyAreaRequest?.pickerLabels || null}
           onLocationPicked={async (location) => {
             const request = nearbyAreaRequest;
-            const returnToExploreMessages = request?.returnTo === "explore-messages";
+            const returnToExplore = String(request?.returnTo || "").startsWith("explore-");
             try {
               if (typeof request?.onLocationPicked === "function") {
                 await request.onLocationPicked(location);
@@ -820,7 +825,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
               setRouteDirection("backward");
               setNearbyAreaOpen(false);
               setNearbyAreaRequest(null);
-              if (returnToExploreMessages) {
+              if (returnToExplore) {
                 window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
               }
             }

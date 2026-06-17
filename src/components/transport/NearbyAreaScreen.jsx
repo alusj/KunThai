@@ -68,6 +68,7 @@ const MAP_CENTER_PUBLISH_METERS = 35;
 const MAP_CENTER_PUBLISH_DEBOUNCE_MS = 450;
 const WEATHER_REFRESH_METERS = 1200;
 const WEATHER_REFRESH_MS = 1000 * 60 * 16;
+const AREA_CARD_COLLAPSE_MS = 260;
 const WEATHER_REFRESH_DEBOUNCE_MS = 900;
 const LIVE_AREA_REFRESH_METERS = 1600;
 const LIVE_AREA_REFRESH_MS = 1000 * 60 * 2;
@@ -132,6 +133,45 @@ function MapCardCollapseButton({ className = "", collapsed, label, onClick }) {
       {collapsed ? <FiChevronUp strokeWidth={3.2} /> : <FiChevronDown strokeWidth={3.2} />}
     </button>
   );
+}
+
+function useMapCardCollapseTransition(collapsed) {
+  const [renderExpanded, setRenderExpanded] = useState(!collapsed);
+  const [renderCollapsed, setRenderCollapsed] = useState(collapsed);
+  const [motion, setMotion] = useState("idle");
+
+  useEffect(() => {
+    let timer = null;
+
+    if (collapsed) {
+      setRenderExpanded(true);
+      setRenderCollapsed(false);
+      setMotion("collapse");
+      timer = window.setTimeout(() => {
+        setRenderExpanded(false);
+        setRenderCollapsed(true);
+        setMotion("idle");
+      }, AREA_CARD_COLLAPSE_MS);
+      return () => window.clearTimeout(timer);
+    }
+
+    setRenderExpanded(true);
+    setRenderCollapsed(true);
+    setMotion("expand");
+    timer = window.setTimeout(() => {
+      setRenderCollapsed(false);
+      setMotion("idle");
+    }, AREA_CARD_COLLAPSE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [collapsed]);
+
+  return {
+    collapsedButtonClass: motion === "expand" ? "kt-area-card-button-out" : "kt-area-card-button-in",
+    expandedCardClass: motion === "collapse" ? "kt-area-card-collapse-out" : motion === "expand" ? "kt-area-card-expand-in" : "",
+    renderCollapsed,
+    renderExpanded,
+  };
 }
 
 function formatCoordinatesLabel(point) {
@@ -1836,6 +1876,7 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
   const { collapsed, toggle } = useAutoCollapseCard({
     resetKey: ready ? "one-km-ready" : "one-km-waiting",
   });
+  const cardMotion = useMapCardCollapseTransition(collapsed);
   const statusText =
     previewState === "loading"
       ? "Finding a nearby road route for the 1 km preview..."
@@ -1862,16 +1903,17 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
         </div>
       </header>
 
-      {collapsed ? (
-        <div className="absolute bottom-5 right-4 z-30 sm:right-5">
+      {cardMotion.renderCollapsed ? (
+        <div className={`absolute bottom-5 right-4 z-30 sm:right-5 ${cardMotion.collapsedButtonClass}`}>
           <MapCardCollapseButton
             collapsed
             label="Maximize distance view"
             onClick={toggle}
           />
         </div>
-      ) : (
-      <section className="absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur transition-all duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:w-[390px]">
+      ) : null}
+      {cardMotion.renderExpanded ? (
+      <section className={`absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur transition-all duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:w-[390px] ${cardMotion.expandedCardClass}`}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase text-green-700">Distance view</p>
@@ -1897,7 +1939,7 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
           Done
         </button>
       </section>
-      )}
+      ) : null}
     </>
   );
 }
@@ -1926,6 +1968,7 @@ function BusinessLocationPickerChrome({
       currentLocation?.lng,
     ].join("|"),
   });
+  const cardMotion = useMapCardCollapseTransition(collapsed);
 
   return (
     <>
@@ -1960,16 +2003,17 @@ function BusinessLocationPickerChrome({
         </div>
       ) : null}
 
-      {collapsed ? (
-        <div className="absolute bottom-5 right-4 z-30 sm:right-5">
+      {cardMotion.renderCollapsed ? (
+        <div className={`absolute bottom-5 right-4 z-30 sm:right-5 ${cardMotion.collapsedButtonClass}`}>
           <MapCardCollapseButton
             collapsed
             label={isDropPin ? "Maximize drop pin card" : "Maximize location card"}
             onClick={toggle}
           />
         </div>
-      ) : (
-        <section className="absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[420px]">
+      ) : null}
+      {cardMotion.renderExpanded ? (
+        <section className={`absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[420px] ${cardMotion.expandedCardClass}`}>
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-black uppercase text-blue-700">{labels.cardEyebrow}</p>
@@ -2036,7 +2080,7 @@ function BusinessLocationPickerChrome({
             )}
           </div>
         </section>
-      )}
+      ) : null}
     </>
   );
 }
@@ -2323,11 +2367,13 @@ function AddLocationPanel({
     enabled: false,
     resetKey: ["locate-caution", status, busy ? "busy" : "ready"].join("|"),
   });
+  const panelMotion = useMapCardCollapseTransition(panelCollapse.collapsed);
+  const cautionMotion = useMapCardCollapseTransition(cautionCollapse.collapsed);
 
-  if (panelCollapse.collapsed && !cautionOpen) {
+  if (panelCollapse.collapsed && !cautionOpen && !panelMotion.renderExpanded) {
     return (
       <div className="pointer-events-none absolute inset-0 z-40">
-        <div className="pointer-events-auto absolute bottom-5 right-4 sm:right-5">
+        <div className={`pointer-events-auto absolute bottom-5 right-4 sm:right-5 ${panelMotion.collapsedButtonClass}`}>
           <MapCardCollapseButton
             collapsed
             label="Maximize add location form"
@@ -2341,7 +2387,7 @@ function AddLocationPanel({
   return (
     <div className="absolute inset-0 z-40 flex items-end bg-slate-950/45 sm:items-center sm:justify-center">
       <section
-        className="relative flex max-h-[calc(100vh-1.5rem)] w-full flex-col rounded-t-3xl bg-white text-slate-950 shadow-2xl sm:max-w-xl sm:rounded-3xl"
+        className={`relative flex max-h-[calc(100vh-1.5rem)] w-full flex-col rounded-t-3xl bg-white text-slate-950 shadow-2xl sm:max-w-xl sm:rounded-3xl ${panelMotion.expandedCardClass}`}
       >
         <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 p-4 backdrop-blur sm:rounded-t-3xl">
         <div className="flex items-start justify-between gap-4">
@@ -2480,8 +2526,8 @@ function AddLocationPanel({
         </div>
         </div>
 
-        {cautionOpen && cautionCollapse.collapsed ? (
-          <div className="pointer-events-auto absolute bottom-5 right-4 z-30 sm:right-5">
+        {cautionOpen && cautionMotion.renderCollapsed ? (
+          <div className={`pointer-events-auto absolute bottom-5 right-4 z-30 sm:right-5 ${cautionMotion.collapsedButtonClass}`}>
             <MapCardCollapseButton
               collapsed
               label="Maximize locate me confirmation"
@@ -2490,9 +2536,9 @@ function AddLocationPanel({
           </div>
         ) : null}
 
-        {cautionOpen && !cautionCollapse.collapsed ? (
+        {cautionOpen && cautionMotion.renderExpanded ? (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
-            <div className="relative w-full max-w-md rounded-3xl bg-white p-5 text-slate-950 shadow-2xl">
+            <div className={`relative w-full max-w-md rounded-3xl bg-white p-5 text-slate-950 shadow-2xl ${cautionMotion.expandedCardClass}`}>
               <button
                 type="button"
                 onClick={onCloseCaution}

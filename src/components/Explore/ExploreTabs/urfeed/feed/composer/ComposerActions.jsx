@@ -22,8 +22,12 @@ const privacyOptions = [
   { value: "circle", label: "Circle", icon: HiOutlineLockClosed },
 ];
 
-export default function ComposerActions({ privacy, setPrivacy, isRecording, hasVideoAttachment = false, onTool }) {
-  const visibleTools = hasVideoAttachment ? tools.filter((tool) => tool.type !== "voice") : tools;
+export default function ComposerActions({ privacy, setPrivacy, isRecording, hasVideoAttachment = false, advertMode = false, onTool }) {
+  const visibleTools = advertMode
+    ? tools.filter((tool) => ["image", "video", "tag"].includes(tool.type))
+    : hasVideoAttachment
+      ? tools.filter((tool) => tool.type !== "voice")
+      : tools;
 
   return (
     <>
@@ -72,7 +76,7 @@ export default function ComposerActions({ privacy, setPrivacy, isRecording, hasV
 
         <div className="hidden items-center gap-2 text-xs font-semibold text-slate-400 sm:flex">
           <HiOutlinePlayCircle />
-          Videos go to Swip
+          {advertMode ? "Adverts stay in UrFeed" : "Videos go to Swip"}
         </div>
       </div>
     </>

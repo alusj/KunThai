@@ -83,7 +83,7 @@ export default function FeedList({
   }
 
   if (loading && !posts?.length) {
-    return null;
+    return <FeedListSkeleton />;
   }
 
   if (!posts?.length) {
@@ -140,6 +140,31 @@ export default function FeedList({
       </div>
 
       <p className="py-5 text-center text-sm font-bold text-slate-400">You are all caught up.</p>
+    </div>
+  );
+}
+
+function FeedListSkeleton() {
+  return (
+    <div className="mt-4 w-full overflow-x-clip px-4 pb-8 sm:px-5 lg:px-8">
+      <div className="space-y-4">
+        {[1, 2, 3].map((item) => (
+          <article key={item} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 animate-pulse rounded-full bg-slate-200" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-4 w-40 max-w-full animate-pulse rounded-full bg-slate-200" />
+                <div className="h-3 w-24 animate-pulse rounded-full bg-slate-100" />
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="h-3 w-full animate-pulse rounded-full bg-slate-100" />
+              <div className="h-3 w-4/5 animate-pulse rounded-full bg-slate-100" />
+            </div>
+            <div className="mt-4 h-40 animate-pulse rounded-[22px] bg-slate-100" />
+          </article>
+        ))}
+      </div>
     </div>
   );
 }

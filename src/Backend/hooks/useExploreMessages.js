@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  deleteExploreMessage,
   fetchExploreConversations,
   fetchExploreMessages,
   EXPLORE_MESSAGE_EVENT,
@@ -307,6 +308,20 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       const detail = payload?.detail || payload;
       const incomingRow = detail?.message || detail?.new;
 
+      if (detail?.type === "delete" || detail?.old?.id) {
+        const messageId = detail?.messageId || detail?.old?.id;
+        const conversationId = detail?.conversationId || detail?.old?.conversation_id || detail?.old?.conversationId;
+        if (messageId && activeConversation?.id === conversationId) {
+          setMessages((current) => {
+            const nextMessages = current.filter((message) => message.id !== messageId);
+            cacheConversationMessages(conversationId, nextMessages);
+            return nextMessages;
+          });
+        }
+        syncConversationsQuietly();
+        return;
+      }
+
       if (incomingRow?.conversation_id || incomingRow?.conversationId) {
         applyIncomingMessage(normalizeIncomingMessage(incomingRow));
         return;
@@ -415,6 +430,32 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         next.delete(signature);
         return next;
       });
+    }
+  }
+
+  async function deleteConversationMessage(message) {
+    const messageId = message?.id;
+    const conversationId = message?.conversationId || activeConversation?.id;
+    if (!messageId || !conversationId) return { ok: false, error: "Unable to identify this message." };
+
+    const previousMessages = messages;
+    const nextMessages = previousMessages.filter((item) => item.id !== messageId);
+    setMessages(nextMessages);
+    cacheConversationMessages(conversationId, nextMessages);
+
+    try {
+      await deleteExploreMessage(message, currentUserId, {
+        forEveryone: message.senderId === currentUserId,
+      });
+      showToast(message.senderId === currentUserId ? "Message deleted." : "Message hidden from this chat.", "info", {
+        title: "Message action",
+      });
+      setConversations(await fetchExploreConversations(currentUserId));
+      return { ok: true };
+    } catch (err) {
+      setMessages(previousMessages);
+      cacheConversationMessages(conversationId, previousMessages);
+      return { ok: false, error: friendlyMessageError(err) };
     }
   }
 
@@ -542,6 +583,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       await blockExploreUser(targetUserId, "blocked from Explore messages");
       showToast(`${otherName} has been blocked from Explore messages.`, "success");
       return { ok: true };
+    }
+
+    if (action === "deleteMessage") {
+      return deleteConversationMessage(payload.message);
     }
 
     return { ok: false, error: "This message action is not available." };

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CalendarClock, ExternalLink, MapPin, Megaphone, Navigation } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import { createExploreNotification } from "../../../../../../Backend/services/exploreService";
@@ -8,6 +9,60 @@ import PostHeader from "../post/PostHeader";
 import PostMedia from "../post/PostMedia";
 import PostOptionsMenu from "../post/PostOptionsMenu";
 import { copyPostLink, sharePost } from "../post/postUtils";
+
+function getAdvertMeta(post = {}) {
+  const mediaMeta = post.media_meta || post.mediaMeta || {};
+  return mediaMeta?.advert && typeof mediaMeta.advert === "object" ? mediaMeta.advert : null;
+}
+
+function isAdvertPost(post = {}) {
+  return post.post_type === "advert" || post.category === "advert" || Boolean(getAdvertMeta(post));
+}
+
+function normalizeAdvertUrl(value = "") {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^https?:\/\//i.test(text)) return text;
+  return `https://${text}`;
+}
+
+function formatAdvertSchedule(advert = {}) {
+  if (!advert.date && !advert.time) return "";
+  if (!advert.date) return advert.time;
+  const date = new Date(`${advert.date}T${advert.time || "00:00"}`);
+  if (Number.isNaN(date.getTime())) return [advert.date, advert.time].filter(Boolean).join(" ");
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(advert.time ? { hour: "numeric", minute: "2-digit" } : {}),
+  });
+}
+
+function openAdvertAreaView(post, advert = {}) {
+  const lat = Number(advert.lat);
+  const lng = Number(advert.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+  window.dispatchEvent(
+    new CustomEvent("kuntai-open-area-view", {
+      detail: {
+        autoRoute: true,
+        destination: {
+          id: `advert-location-${post.id || Date.now()}`,
+          name: advert.title || post.body || "Advert location",
+          label: advert.title || "Advert location",
+          address: advert.address || "Shared from Explore advert",
+          type: "advert-location",
+          status: "advert",
+          lat,
+          lng,
+        },
+        returnTo: "explore-advert",
+        source: "explore-advert-location",
+      },
+    }),
+  );
+}
 
 export default function FeedPost({
   post,
@@ -36,6 +91,8 @@ export default function FeedPost({
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const optionsRef = useRef(null);
+  const advert = getAdvertMeta(post);
+  const advertPost = isAdvertPost(post);
 
   useBrowserBack(commentsOpen, () => setCommentsOpen(false), `comments-${post.id}`);
 
@@ -170,7 +227,11 @@ export default function FeedPost({
         </div>
       ) : null}
 
-      {post.body ? <div className="kuntai-break whitespace-pre-wrap px-4 pb-4 text-base font-semibold leading-7 text-slate-900">{post.body}</div> : null}
+      {advertPost ? (
+        <AdvertPostCard post={post} advert={advert || {}} />
+      ) : post.body ? (
+        <div className="kuntai-break whitespace-pre-wrap px-4 pb-4 text-base font-semibold leading-7 text-slate-900">{post.body}</div>
+      ) : null}
 
       <PostMedia post={post} />
 
@@ -253,5 +314,80 @@ export default function FeedPost({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function AdvertPostCard({ post, advert }) {
+  const url = normalizeAdvertUrl(advert.link);
+  const schedule = formatAdvertSchedule(advert);
+  const hasLocation = Number.isFinite(Number(advert.lat)) && Number.isFinite(Number(advert.lng));
+  const title = advert.title || "Sponsored advert";
+
+  return (
+    <section className="mx-4 mb-4 overflow-hidden rounded-[24px] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-amber-100 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-amber-700 shadow-sm ring-1 ring-amber-100">
+            <Megaphone size={18} strokeWidth={2.4} absoluteStrokeWidth />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">Post an advert</p>
+            <p className="truncate text-sm font-black text-slate-950">{title}</p>
+          </div>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 ring-1 ring-slate-100">
+          {advert.type || "offer"}
+        </span>
+      </div>
+
+      <div className="space-y-3 px-4 py-4">
+        <h3 className="kuntai-break text-xl font-black leading-7 text-slate-950">{title}</h3>
+        {post.body ? <p className="kuntai-break whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">{post.body}</p> : null}
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          {schedule ? (
+            <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-100">
+              <CalendarClock size={16} strokeWidth={2.35} absoluteStrokeWidth />
+              <span className="truncate">{schedule}</span>
+            </div>
+          ) : null}
+          {advert.address ? (
+            <button
+              type="button"
+              onClick={() => openAdvertAreaView(post, advert)}
+              disabled={!hasLocation}
+              className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 ring-1 ring-slate-100 transition enabled:hover:bg-slate-50 disabled:cursor-default"
+            >
+              <MapPin size={16} strokeWidth={2.35} absoluteStrokeWidth />
+              <span className="truncate">{advert.address}</span>
+            </button>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="kt-pressable flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+            >
+              <ExternalLink size={16} strokeWidth={2.4} absoluteStrokeWidth />
+              {advert.ctaLabel || "Learn more"}
+            </a>
+          ) : null}
+          {hasLocation ? (
+            <button
+              type="button"
+              onClick={() => openAdvertAreaView(post, advert)}
+              className="kt-pressable flex h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-black text-emerald-700"
+            >
+              <Navigation size={16} strokeWidth={2.4} absoluteStrokeWidth />
+              Open in Area View
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </section>
   );
 }

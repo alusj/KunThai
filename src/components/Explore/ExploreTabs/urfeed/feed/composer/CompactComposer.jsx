@@ -1,4 +1,4 @@
-import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlinePhoto } from "react-icons/hi2";
+import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlinePhoto, HiOutlineSparkles } from "react-icons/hi2";
 
 import Avatar from "../../../../shared/Avatar";
 
@@ -46,6 +46,14 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
           </button>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => onOpen?.("advert")}
+        className="mx-auto mt-2 flex w-fit max-w-full items-center gap-2 rounded-full border border-amber-100 bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-amber-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50"
+      >
+        <HiOutlineSparkles className="text-base" />
+        Post an advert
+      </button>
     </div>
   );
 }

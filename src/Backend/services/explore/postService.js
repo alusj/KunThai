@@ -15,7 +15,30 @@ function hasVideoPayload(payload) {
   return Boolean(payload.video_file || payload.video_url);
 }
 
+function getPayloadMediaMeta(payload = {}) {
+  const mediaMeta = payload.media_meta || payload.mediaMeta || {};
+  return mediaMeta && typeof mediaMeta === "object" ? mediaMeta : {};
+}
+
+function isAdvertPayload(payload = {}) {
+  const mediaMeta = getPayloadMediaMeta(payload);
+  return (
+    payload.post_type === "advert" ||
+    payload.category === "advert" ||
+    Boolean(payload.advert) ||
+    Boolean(mediaMeta.advert)
+  );
+}
+
 function buildPostClassification(payload, scope) {
+  if (isAdvertPayload(payload)) {
+    return {
+      feedScope: scope === "connections" ? "connections" : "feed",
+      postType: "advert",
+      category: "advert",
+    };
+  }
+
   const hasVideo = hasVideoPayload(payload);
 
   return {
@@ -170,11 +193,13 @@ export async function fetchExplorePosts(scope = "feed") {
   }
 
   const scopedPosts = (data || []).filter(isExplorePostVisibleInFeed).filter((post) => {
+    const isAdvert = post.post_type === "advert" || post.category === "advert" || Boolean(post.media_meta?.advert);
+
     if (scope === "swip") {
-      return (post.feed_scope ?? "") === "swip" || Boolean(post.video_url);
+      return (post.feed_scope ?? "") === "swip" || (Boolean(post.video_url) && !isAdvert);
     }
 
-    return (post.feed_scope ?? "feed") === scope && !post.video_url;
+    return (post.feed_scope ?? "feed") === scope && (!post.video_url || isAdvert);
   });
   const visiblePosts = scopedPosts.filter((post) => canCurrentUserViewPost(post, context));
 
@@ -273,12 +298,15 @@ export async function createExplorePost(input, scope = "feed") {
       : "public";
   const hashtags = Array.isArray(payload.hashtags) ? payload.hashtags : [];
   const mentions = Array.isArray(payload.mentions) ? payload.mentions : [];
+  const mediaMeta = getPayloadMediaMeta(payload);
+  const hasAdvert = isAdvertPayload(payload);
+  const advertTitle = String(mediaMeta.advert?.title || payload.advert?.title || "").trim();
   const classification = buildPostClassification(payload, scope);
   const videoTrimWindow = buildVideoTrimWindow(payload);
   const moderationStatus = getModerationStatus(payload);
 
-  if (!trimmedBody && !payload.image_url && !payload.audio_url && !hasVideoPayload(payload)) {
-    throw new Error("Add text, an image, a video, or a voice note.");
+  if (!trimmedBody && !payload.image_url && !payload.audio_url && !hasVideoPayload(payload) && !(hasAdvert && advertTitle)) {
+    throw new Error(hasAdvert ? "Add advert details before publishing." : "Add text, an image, a video, or a voice note.");
   }
 
   if (moderationStatus === "blocked") {
@@ -326,6 +354,7 @@ export async function createExplorePost(input, scope = "feed") {
     post_privacy: postPrivacy,
     hashtags,
     mentions,
+    media_meta: mediaMeta,
     likes_count: 0,
     comments_count: 0,
     saves_count: 0,
@@ -358,9 +387,10 @@ export async function createExplorePost(input, scope = "feed") {
   const created = {
     ...draft,
     ...data,
-    feed_scope: hasVideoPayload(payload) ? "swip" : data?.feed_scope || classification.feedScope,
+    feed_scope: data?.feed_scope || classification.feedScope,
     post_type: data?.post_type || classification.postType,
     category: data?.category || classification.category,
+    media_meta: data?.media_meta || mediaMeta,
   };
 
   logExploreFeed("post creation completed", {
@@ -426,6 +456,7 @@ async function insertExplorePostDraft(draft) {
     "video_trim_start",
     "video_trim_end",
     "moderation_status",
+    "media_meta",
   ];
 
   for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {

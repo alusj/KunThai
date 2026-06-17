@@ -190,6 +190,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
           <VideoCard
             post={post}
             active={active && index === activeIndex}
+            fullBleed
             fullscreen={fullscreen}
             contextLabel={getSwipContext(post, currentUserId)}
             categoryLabel={getVideoCategoryLabel(post)}

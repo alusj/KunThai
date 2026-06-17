@@ -59,6 +59,10 @@ function mergePosts(remotePosts, localPosts) {
 }
 
 function getPostMediaType(post) {
+  if (post?.post_type === "advert" || post?.category === "advert" || post?.media_meta?.advert) {
+    return "advert";
+  }
+
   if (post?.audio_url) {
     return "voice note";
   }
@@ -72,6 +76,16 @@ function getPostMediaType(post) {
   }
 
   return "post";
+}
+
+function getDraftMediaMeta(draft = {}) {
+  const mediaMeta = draft.media_meta || draft.mediaMeta || {};
+  return mediaMeta && typeof mediaMeta === "object" ? mediaMeta : {};
+}
+
+function isAdvertDraft(draft = {}) {
+  const mediaMeta = getDraftMediaMeta(draft);
+  return draft.post_type === "advert" || draft.category === "advert" || Boolean(mediaMeta.advert);
 }
 
 function isCurrentUserPost(post, profile) {
@@ -89,15 +103,17 @@ function isCurrentUserPost(post, profile) {
 function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
   const draft = typeof postInput === "string" ? { body: postInput } : postInput || {};
   const hasVideo = Boolean(draft.video_url);
-  const feedScope = hasVideo ? "swip" : scope;
+  const isAdvert = isAdvertDraft(draft);
+  const mediaMeta = getDraftMediaMeta(draft);
+  const feedScope = isAdvert ? (draft.feed_scope || (scope === "connections" ? "connections" : "feed")) : hasVideo ? "swip" : scope;
 
   return {
     id,
     body: String(draft.body || "").trim(),
     created_at: new Date().toISOString(),
     feed_scope: feedScope,
-    post_type: hasVideo ? "video" : "post",
-    category: hasVideo ? "swip" : feedScope === "connections" ? "connections" : "urfeed",
+    post_type: isAdvert ? "advert" : hasVideo ? "video" : "post",
+    category: isAdvert ? "advert" : hasVideo ? "swip" : feedScope === "connections" ? "connections" : "urfeed",
     user_id: draft.user_id || "",
     author_name: draft.author_name || "You",
     author_username: draft.author_username || "you",
@@ -115,6 +131,7 @@ function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
     post_privacy: draft.post_privacy || "public",
     hashtags: Array.isArray(draft.hashtags) ? draft.hashtags : [],
     mentions: Array.isArray(draft.mentions) ? draft.mentions : [],
+    media_meta: mediaMeta,
     likes_count: 0,
     comments_count: 0,
     saves_count: 0,
@@ -496,7 +513,7 @@ export function useExploreFeed(scope = "feed") {
       }
 
       const created = await createExplorePost(postInput, scope);
-      const createdScope = created.video_url ? "swip" : created.feed_scope || scope;
+      const createdScope = created.feed_scope || (created.video_url ? "swip" : scope);
       const createdVisible = isExplorePostVisibleInFeed(created);
 
       if (createdScope === scope) {

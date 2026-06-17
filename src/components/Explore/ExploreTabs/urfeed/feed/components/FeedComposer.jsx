@@ -10,6 +10,7 @@ import { publishPostingNotice } from "../../../../../../Backend/services/explore
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
 import { startPendingVideoReviewJob } from "../../../../../../Backend/services/explore/videoReviewService";
 import Avatar from "../../../../shared/Avatar";
+import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
 import MediaPreview from "../composer/MediaPreview";
@@ -31,12 +32,57 @@ const MAX_LOCAL_VIDEO_BYTES = 150 * 1024 * 1024;
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
+const DEFAULT_ADVERT = {
+  type: "offer",
+  title: "",
+  ctaLabel: "Learn more",
+  link: "",
+  address: "",
+  date: "",
+  time: "",
+  lat: null,
+  lng: null,
+  coordinatesLabel: "",
+  source: "",
+};
+
+function normalizeAdvertDraft(value = {}) {
+  return {
+    ...DEFAULT_ADVERT,
+    ...(value && typeof value === "object" ? value : {}),
+  };
+}
+
+function cleanAdvertForSubmit(advert = {}) {
+  const normalized = normalizeAdvertDraft(advert);
+  return {
+    type: String(normalized.type || DEFAULT_ADVERT.type).trim() || DEFAULT_ADVERT.type,
+    title: String(normalized.title || "").trim(),
+    ctaLabel: String(normalized.ctaLabel || DEFAULT_ADVERT.ctaLabel).trim() || DEFAULT_ADVERT.ctaLabel,
+    link: String(normalized.link || "").trim(),
+    address: String(normalized.address || "").trim(),
+    date: String(normalized.date || "").trim(),
+    time: String(normalized.time || "").trim(),
+    lat: Number.isFinite(Number(normalized.lat)) ? Number(normalized.lat) : null,
+    lng: Number.isFinite(Number(normalized.lng)) ? Number(normalized.lng) : null,
+    coordinatesLabel: String(normalized.coordinatesLabel || "").trim(),
+    source: String(normalized.source || "").trim(),
+  };
+}
+
+function formatLocationLabel(lat, lng) {
+  const safeLat = Number(lat);
+  const safeLng = Number(lng);
+  if (!Number.isFinite(safeLat) || !Number.isFinite(safeLng)) return "";
+  return `${safeLat.toFixed(6)}, ${safeLng.toFixed(6)}`;
+}
 
 export default function FeedComposer({ profile, creating, onSubmit }) {
   const draft = readDraft();
   const privacySettings = readPrivacySettings();
 
   const [open, setOpen] = useState(false);
+  const [composerMode, setComposerMode] = useState(draft.post_type === "advert" || draft.media_meta?.advert ? "advert" : "post");
   const [value, setValue] = useState(draft.body || "");
   const [feedback, setFeedback] = useState("");
   const [imagePreview, setImagePreview] = useState(draft.image_url || "");
@@ -49,6 +95,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [mediaMode, setMediaMode] = useState("image");
   const [mediaMeta, setMediaMeta] = useState(draft.media_meta || {});
+  const [advertForm, setAdvertForm] = useState(() => normalizeAdvertDraft(draft.media_meta?.advert));
   const [pendingVideoFile, setPendingVideoFile] = useState(null);
   const [pendingVideoUrl, setPendingVideoUrl] = useState("");
   const [videoDuration, setVideoDuration] = useState(0);
@@ -69,7 +116,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const trimmedVideoMetaRef = useRef(null);
   const originalVideoFileRef = useRef(null);
 
+  const isAdvertMode = composerMode === "advert";
   const hasContent = Boolean(value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
+  const hasAdvertContent = Boolean(
+    isAdvertMode &&
+      (advertForm.title.trim() || value.trim() || advertForm.link.trim() || advertForm.address.trim() || imagePreview || videoPreview || pendingVideoFile),
+  );
+  const canSubmit = isAdvertMode ? hasAdvertContent : hasContent;
   const hasVideoAttachment = Boolean(videoPreview || pendingVideoFile || pendingVideoUrl);
 
   useBrowserBack(open, () => setOpen(false), "explore-composer");
@@ -104,9 +157,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       audio_url: audioPreview,
       audio_duration_seconds: audioDuration,
       post_privacy: privacy,
-      media_meta: mediaMeta,
+      post_type: isAdvertMode ? "advert" : "post",
+      media_meta: isAdvertMode ? { ...mediaMeta, advert: cleanAdvertForSubmit(advertForm) } : mediaMeta,
     });
-  }, [audioDuration, audioPreview, imagePreview, mediaMeta, privacy, value, videoPreview]);
+  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, privacy, value, videoPreview]);
 
   useEffect(() => {
     function handleCreatePost(event) {
@@ -178,8 +232,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function openComposer(type = "text") {
+    setComposerMode(type === "advert" ? "advert" : "post");
     setOpen(true);
     setTimeout(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
+
+    if (type === "advert") {
+      setFeedback("");
+      return;
+    }
 
     if (type === "image" || type === "video") {
       setMediaMode(type);
@@ -467,6 +527,70 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setFeedback("Location tagging is coming next.");
   }
 
+  function updateAdvertForm(field, nextValue) {
+    setAdvertForm((current) => ({ ...current, [field]: nextValue }));
+    setFeedback("");
+  }
+
+  function openAdvertLocationPicker() {
+    setOpen(false);
+    window.dispatchEvent(
+      new CustomEvent("kuntai-open-area-view", {
+        detail: {
+          action: "exploreAdvertLocation",
+          autoRoute: false,
+          destination: {
+            id: "explore-advert-location",
+            name: advertForm.title || "Advert location",
+            label: advertForm.title || "Advert location",
+            address: advertForm.address || "Use Locate Me or Drop Pin to choose the advert location.",
+            type: "advert-location",
+            status: "private",
+          },
+          mode: "businessLocationPicker",
+          onLocationPicked: (location = {}) => {
+            const lat = Number(location.lat ?? location.latitude);
+            const lng = Number(location.lng ?? location.longitude);
+            const address = location.address || location.label || location.name || formatLocationLabel(lat, lng);
+
+            setComposerMode("advert");
+            setAdvertForm((current) => ({
+              ...current,
+              address: address || current.address,
+              lat: Number.isFinite(lat) ? lat : current.lat,
+              lng: Number.isFinite(lng) ? lng : current.lng,
+              coordinatesLabel: location.coordinatesLabel || formatLocationLabel(lat, lng),
+              source: location.source || "areaView",
+            }));
+            window.setTimeout(() => {
+              setOpen(true);
+              setFeedback("");
+            }, 120);
+          },
+          pickerLabels: {
+            historyKey: "explore-advert-location-picker",
+            backLabel: "Back to advert form",
+            eyebrow: "Explore advert",
+            headerCurrentTitle: "Use current location",
+            headerDropTitle: "Drop a pin",
+            cardEyebrow: "Advert location",
+            currentHeading: "Use your current location",
+            dropHeading: "Place the advert pin",
+            dropInstruction: "Move the map until the pin sits on the business, event, pickup point, or service area. Then add the location.",
+            currentPreparing: "Your advert location is being prepared.",
+            currentStatus: "Confirming your current location...",
+            dropStatus: "Move the map until the pin is exactly where customers should go.",
+            currentName: "Advert current location",
+            droppedName: "Advert pinned location",
+          },
+          pickerStart: "current",
+          returnTo: "explore-advert",
+          source: "explore-advert",
+        },
+      }),
+    );
+  }
+
   function resetComposer() {
     trimRequestRef.current += 1;
     trimmedVideoMetaRef.current = null;
@@ -478,6 +602,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAudioPreview("");
     setAudioDuration(null);
     setMediaMeta({});
+    setComposerMode("post");
+    setAdvertForm(normalizeAdvertDraft());
     setPendingVideoFile(null);
     originalVideoFileRef.current = null;
 
@@ -506,9 +632,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   async function handleSubmit(event) {
     event?.preventDefault?.();
 
-    if (!hasContent) {
+    if (!canSubmit) {
       setOpen(true);
-      setFeedback("Add text, an image, a video, or a voice note.");
+      setFeedback(isAdvertMode ? "Add an advert title, message, link, location, image, or video." : "Add text, an image, a video, or a voice note.");
       return;
     }
 
@@ -526,7 +652,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         }
       }
 
-      const finalMediaMeta = trimmedVideoMetaRef.current || mediaMeta;
+      const advertMeta = isAdvertMode ? cleanAdvertForSubmit(advertForm) : null;
+      const finalMediaMeta = {
+        ...(trimmedVideoMetaRef.current || mediaMeta),
+        ...(advertMeta ? { advert: advertMeta } : {}),
+      };
       const finalAudioPreview = finalVideoPreview ? "" : audioPreview;
       const finalAudioDuration = finalVideoPreview ? null : audioDuration;
 
@@ -541,6 +671,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         video_url: finalVideoPreview,
         audio_duration_seconds: finalAudioDuration,
         post_privacy: privacy,
+        feed_scope: "feed",
+        post_type: isAdvertMode ? "advert" : finalVideoPreview ? "video" : "post",
+        category: isAdvertMode ? "advert" : finalVideoPreview ? "swip" : "urfeed",
+        media_meta: finalMediaMeta,
         mediaMeta: finalMediaMeta,
       };
 
@@ -679,6 +813,11 @@ if (!isMobileVideoDevice) {
             hashtags: tags.hashtags,
             mentions: tags.mentions,
             moderation_status: "pending",
+            feed_scope: postDraft.feed_scope,
+            post_type: postDraft.post_type,
+            category: postDraft.category,
+            media_meta: postDraft.mediaMeta,
+            mediaMeta: postDraft.mediaMeta,
           });
 
           if (pendingResult?.ok && pendingResult.post?.id) {
@@ -742,6 +881,11 @@ if (!isMobileVideoDevice) {
         hashtags: tags.hashtags,
         mentions: tags.mentions,
         moderation_status: postDraft.video_url ? "approved" : "not_required",
+        feed_scope: postDraft.feed_scope,
+        post_type: postDraft.post_type,
+        category: postDraft.category,
+        media_meta: postDraft.mediaMeta,
+        mediaMeta: postDraft.mediaMeta,
       });
 
       if (result?.ok) {
@@ -749,7 +893,7 @@ if (!isMobileVideoDevice) {
         setPostingStage("complete");
         setPostingProgress(100);
 
-        if (postDraft.video_url) {
+        if (postDraft.video_url && !isAdvertMode) {
           window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip" } }));
         }
 
@@ -798,7 +942,7 @@ if (!isMobileVideoDevice) {
         <div className="fixed inset-0 z-50 flex bg-slate-950/30 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
           <form
             onSubmit={handleSubmit}
-            className="flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[min(760px,92vh)] sm:max-w-2xl sm:rounded-[28px]"
+            className="kt-toast-expand-in flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[min(760px,92vh)] sm:max-w-2xl sm:rounded-[28px]"
           >
             <div className="flex h-16 flex-none items-center justify-between border-b border-slate-100 px-4">
               <button
@@ -811,17 +955,17 @@ if (!isMobileVideoDevice) {
               </button>
 
               <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-700">Create</p>
-                <h2 className="text-base font-black text-slate-950">Explore Post</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-700">{isAdvertMode ? "Promote" : "Create"}</p>
+                <h2 className="text-base font-black text-slate-950">{isAdvertMode ? "Advert Post" : "Explore Post"}</h2>
               </div>
 
               <button
                 type="submit"
-                disabled={creating || Boolean(postingStage) || !hasContent}
+                disabled={creating || Boolean(postingStage) || !canSubmit}
                 className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
               >
                 <HiOutlinePaperAirplane />
-                {postingStage ? "Posting" : "Post"}
+                {postingStage ? "Posting" : isAdvertMode ? "Advert" : "Post"}
               </button>
             </div>
 
@@ -834,10 +978,22 @@ if (!isMobileVideoDevice) {
                 </div>
               </div>
 
+              {isAdvertMode ? (
+                <AdvertComposerFields
+                  advert={advertForm}
+                  imagePreview={imagePreview}
+                  onChange={updateAdvertForm}
+                  onPickLocation={openAdvertLocationPicker}
+                  onSelectMedia={handleTool}
+                  pendingVideoFile={pendingVideoFile}
+                  videoPreview={videoPreview}
+                />
+              ) : null}
+
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
                 <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                   <HiOutlineSparkles />
-                  Say it your way
+                  {isAdvertMode ? "Advert message" : "Say it your way"}
                 </div>
 
                 <textarea
@@ -847,12 +1003,14 @@ if (!isMobileVideoDevice) {
                     setFeedback("");
                   }}
                   autoFocus
-                  placeholder="Write a thought, tag someone with @name, or add #topics..."
-                  className="min-h-[180px] w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 sm:min-h-[220px]"
+                  placeholder={isAdvertMode ? "Describe the offer, benefit, schedule, or announcement..." : "Write a thought, tag someone with @name, or add #topics..."}
+                  className={`w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 ${
+                    isAdvertMode ? "min-h-[120px] sm:min-h-[150px]" : "min-h-[180px] sm:min-h-[220px]"
+                  }`}
                 />
               </div>
 
-              {!hasVideoAttachment ? (
+              {!isAdvertMode && !hasVideoAttachment ? (
                 <VoiceCapsuleRecorder
                   isRecording={isRecording}
                   isPaused={recordingPaused}
@@ -940,6 +1098,7 @@ if (!isMobileVideoDevice) {
                 setPrivacy={setPrivacy}
                 isRecording={isRecording}
                 hasVideoAttachment={hasVideoAttachment}
+                advertMode={isAdvertMode}
                 onTool={handleTool}
               />
             </div>
