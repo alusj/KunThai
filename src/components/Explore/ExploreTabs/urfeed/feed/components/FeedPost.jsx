@@ -66,6 +66,7 @@ function openAdvertAreaView(post, advert = {}) {
 
 export default function FeedPost({
   post,
+  animationIndex = 0,
   currentUserId = "",
   liked = false,
   saved = false,
@@ -185,7 +186,8 @@ export default function FeedPost({
   return (
     <article
       id={`post-${post.id}`}
-      className={`relative w-full max-w-full min-w-0 rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${
+      style={{ "--kt-feed-card-delay": `${Math.min(Number(animationIndex || 0), 6) * 45}ms` }}
+      className={`kt-feed-card-in relative w-full max-w-full min-w-0 rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${
         optionsOpen ? "z-40 overflow-visible" : "overflow-hidden"
       }`}
     >

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, Eye, EyeOff, Flag, Link, Repeat2, Send, Trash2, X } from "lucide-react";
+import { Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Trash2, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { createExploreNotification } from "../../../../../Backend/services/exploreService";
@@ -73,9 +73,13 @@ export default function VideoCard({
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [quickDeckOpen, setQuickDeckOpen] = useState(false);
   const [displayMinimal, setDisplayMinimal] = useState(false);
+  const [likeBurst, setLikeBurst] = useState(false);
 
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
+  const tapTimerRef = useRef(null);
+  const lastTapAtRef = useRef(0);
+  const likeBurstTimerRef = useRef(null);
   const holdTriggeredRef = useRef(false);
   const activeRef = useRef(false);
   const videoFitClass = fullBleed || fullscreen ? "object-cover" : "object-contain";
@@ -107,6 +111,8 @@ export default function VideoCard({
   useEffect(
     () => () => {
       window.clearTimeout(holdTimerRef.current);
+      window.clearTimeout(tapTimerRef.current);
+      window.clearTimeout(likeBurstTimerRef.current);
       stopAllExploreMedia(null, { muteVideos: false });
     },
     []
@@ -391,6 +397,41 @@ export default function VideoCard({
     video.pause();
   }
 
+  function triggerDoubleTapLike() {
+    window.clearTimeout(tapTimerRef.current);
+    lastTapAtRef.current = 0;
+    setActionMenuOpen(false);
+    setQuickDeckOpen(false);
+    setLikeBurst(true);
+    window.clearTimeout(likeBurstTimerRef.current);
+    likeBurstTimerRef.current = window.setTimeout(() => setLikeBurst(false), 620);
+
+    if (!liked) {
+      onLike?.();
+    }
+  }
+
+  function handleVideoSurfaceClick(event) {
+    if (holdTriggeredRef.current) {
+      holdTriggeredRef.current = false;
+      return;
+    }
+    if (shouldIgnoreVideoGesture(event)) return;
+
+    const now = Date.now();
+    if (now - lastTapAtRef.current < 280) {
+      triggerDoubleTapLike();
+      return;
+    }
+
+    lastTapAtRef.current = now;
+    window.clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = window.setTimeout(() => {
+      lastTapAtRef.current = 0;
+      handleVideoTap();
+    }, 240);
+  }
+
   function handlePointerDown(event) {
     if (shouldIgnoreVideoGesture(event)) return;
     window.clearTimeout(holdTimerRef.current);
@@ -465,13 +506,7 @@ export default function VideoCard({
   return (
     <article
       id={`post-${post.id}`}
-      onClick={(event) => {
-        if (holdTriggeredRef.current) {
-          holdTriggeredRef.current = false;
-          return;
-        }
-        if (!shouldIgnoreVideoGesture(event)) handleVideoTap();
-      }}
+      onClick={handleVideoSurfaceClick}
       onContextMenu={(event) => {
         event.preventDefault();
         setActionMenuOpen(false);
@@ -525,6 +560,14 @@ export default function VideoCard({
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/35">
             <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/35 border-t-white" />
           </div>
+        </div>
+      ) : null}
+
+      {likeBurst ? (
+        <div className="pointer-events-none absolute inset-0 z-[6] grid place-items-center">
+          <span className="kt-swip-like-burst grid h-24 w-24 place-items-center rounded-full bg-white/16 text-white shadow-[0_24px_80px_rgba(255,255,255,0.22)] backdrop-blur-sm">
+            <Heart size={54} fill="currentColor" strokeWidth={1.8} />
+          </span>
         </div>
       ) : null}
 

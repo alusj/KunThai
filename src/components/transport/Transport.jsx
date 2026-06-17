@@ -337,10 +337,25 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       verificationStatus: operatorAccount?.verificationStatus || invite.verificationStatus,
       ...patch,
     });
-    setOperatorCompanyInvites((items) =>
-      items.map((item) => (item.requestId === updatedInvite.requestId && item.companyId === updatedInvite.companyId ? updatedInvite : item)),
-    );
+    setOperatorCompanyInvites((items) => {
+      const next = items.map((item) => (item.requestId === updatedInvite.requestId && item.companyId === updatedInvite.companyId ? updatedInvite : item));
+      operatorCompanyInvitesRef.current = next;
+      return next;
+    });
     return updatedInvite;
+  }
+
+  function removeOperatorInvite(invite) {
+    if (!invite) return;
+    setOperatorCompanyInvites((items) => {
+      const next = items.filter((item) => {
+        const sameId = invite.id && item.id === invite.id;
+        const sameRequest = item.requestId === invite.requestId && item.companyId === invite.companyId;
+        return !(sameId || sameRequest);
+      });
+      operatorCompanyInvitesRef.current = next;
+      return next;
+    });
   }
 
   async function acceptOperatorCompanyInvite(invite) {
@@ -388,19 +403,20 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   async function rejectOperatorCompanyInvite(invite = documentReuseInvite) {
     if (!invite) return;
     try {
-      await respondToOperatorInvite(invite, {
+      setOperatorInviteStatus("");
+      const rejectedInvite = await respondToOperatorInvite(invite, {
         status: "rejected",
         documents: {
           rejectedAt: new Date().toISOString(),
         },
       });
+      removeOperatorInvite(rejectedInvite);
       setDocumentReuseInvite(null);
-      await refreshOperatorCompanyInvites(operatorAccount);
-      setOperatorInviteStatus("Company request declined.");
-      showToast("You've declined this company request.", "warning", {
-        title: "Request declined",
+      showToast("You've rejected this request.", "warning", {
+        title: "Request rejected",
         anchor: "notification",
       });
+      await refreshOperatorCompanyInvites(operatorAccount);
     } catch (error) {
       setOperatorInviteStatus(error.message || "Unable to decline this company request.");
     }
@@ -1265,7 +1281,9 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
 }
 
 function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onCompleteRegistration, onReject }) {
-  const visibleInvites = invites.filter((invite) => invite.status !== "archived");
+  const visibleInvites = invites.filter((invite) =>
+    !["archived", "cancelled", "canceled", "declined", "rejected", "revoked"].includes(String(invite.status || "").toLowerCase()),
+  );
   if (!visibleInvites.length && !status) return null;
 
   return (

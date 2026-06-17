@@ -170,6 +170,36 @@ async function insertSelectSingle(tableName, payload, optionalColumns = []) {
   return null;
 }
 
+async function recordCompanyInviteActivity({ companyId, actorUserId, invite, activityType, title, body }) {
+  const safeCompanyId = asUuid(companyId || invite?.companyId || invite?.company_id);
+  if (!safeCompanyId) return null;
+
+  return insertSelectSingle(
+    "transport_company_activities",
+    {
+      company_id: safeCompanyId,
+      actor_user_id: actorUserId || null,
+      activity_type: activityType,
+      title,
+      body,
+      metadata: {
+        requestId: invite?.requestId || invite?.request_id || "",
+        operatorId: invite?.operatorId || invite?.operator_id || "",
+        operatorUserId: invite?.userId || invite?.operator_user_id || "",
+        operatorPublicId: invite?.publicId || invite?.operator_public_id || invite?.lookupValue || "",
+        operatorName: invite?.name || invite?.operator_name || "",
+        fleetCode: invite?.fleetCode || invite?.fleet_code || "",
+        fleetName: invite?.fleetName || invite?.fleet_name || "",
+        status: invite?.status || "",
+      },
+    },
+    ["actor_user_id", "activity_type", "body", "metadata"],
+  ).catch((error) => {
+    if (!isMissingTable(error)) throw error;
+    return null;
+  });
+}
+
 async function selectSingleByMatch(tableName, match = {}) {
   let query = supabase.from(tableName).select("*");
   Object.entries(match).forEach(([key, value]) => {
@@ -193,6 +223,11 @@ function normalizeInviteStatusForDatabase(status = "pending", documents = {}) {
     return "accepted";
   }
   return ["pending", "accepted", "rejected", "cancelled", "revoked"].includes(status) ? status : "pending";
+}
+
+function isOperatorFacingInvite(invite = {}) {
+  const status = String(invite.status || "").toLowerCase();
+  return !["archived", "cancelled", "canceled", "declined", "rejected", "revoked"].includes(status);
 }
 
 function getAccountDisplayName(profile = {}, user = {}) {
@@ -460,7 +495,7 @@ function getLocalOperatorInvites(candidates = {}) {
     !isOwnedCompanyInvite(invite) && inviteMatchesOperator(invite, candidates)
   );
 
-  return dedupeInvites([...accountInvites, ...storedInvites]);
+  return dedupeInvites([...accountInvites, ...storedInvites]).filter(isOperatorFacingInvite);
 }
 
 function dedupeInvites(invites = []) {
@@ -667,9 +702,9 @@ export async function getOperatorCompanyInvites(operatorAccount = null) {
       })
       .filter((invite) => inviteMatchesOperator(invite, candidates));
 
-    return dedupeInvites([...cloudInvites, ...localInvites]);
+    return dedupeInvites([...cloudInvites, ...localInvites]).filter(isOperatorFacingInvite);
   } catch (error) {
-    if (isMissingTable(error)) return dedupeInvites(localInvites);
+    if (isMissingTable(error)) return dedupeInvites(localInvites).filter(isOperatorFacingInvite);
     throw new Error(error.message || "Unable to load company registration requests.");
   }
 }
@@ -736,7 +771,7 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
     if (error) throw error;
     if (!data) return localInvite;
 
-    return upsertLocalInviteStore(normalizeInvite({
+    const normalizedInvite = normalizeInvite({
       ...localInvite,
       ...data,
       companyName: localInvite.companyName,
@@ -744,7 +779,20 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
       fleetName: localInvite.fleetName,
       fleetType: localInvite.fleetType,
       plateNumber: localInvite.plateNumber,
-    }));
+    });
+
+    if (payload.status === "rejected") {
+      await recordCompanyInviteActivity({
+        companyId: data.company_id || companyId,
+        actorUserId: user.id,
+        invite: normalizedInvite,
+        activityType: "operator_invite_rejected",
+        title: "Operator invitation rejected",
+        body: `${normalizedInvite.name || "An operator"} rejected the company invitation for ${normalizedInvite.fleetName || normalizedInvite.fleetType || "a fleet"}.`,
+      }).catch(() => null);
+    }
+
+    return upsertLocalInviteStore(normalizedInvite);
   } catch (error) {
     if (isMissingTable(error)) return localInvite;
     throw new Error(error.message || "Unable to update this company request.");

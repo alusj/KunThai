@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   HiOutlineClipboardDocument,
   HiOutlineMapPin,
@@ -17,6 +17,7 @@ export default function MessageBubble({
   otherUserName = "This user",
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const bubbleRef = useRef(null);
   const mediaUrl = message.mediaUrl || message.media_url || "";
   const mediaType = message.type || message.media_type || "text";
   const metadata = message.metadata || {};
@@ -33,6 +34,31 @@ export default function MessageBubble({
   function stop(event) {
     event.stopPropagation();
   }
+
+  function toggleOptions(event) {
+    stop(event);
+    setOptionsOpen((open) => !open);
+  }
+
+  useEffect(() => {
+    if (!optionsOpen) return undefined;
+
+    function handleOutsidePointer(event) {
+      if (bubbleRef.current?.contains(event.target)) return;
+      setOptionsOpen(false);
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setOptionsOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handleOutsidePointer, true);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointer, true);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [optionsOpen]);
 
   async function copyMessage(event) {
     stop(event);
@@ -68,7 +94,7 @@ export default function MessageBubble({
         <MessageAction
           danger
           icon={HiOutlineTrash}
-          label={mine ? "Delete message" : "Hide message"}
+          label="Delete message"
           onClick={(event) => runMessageAction(event, onDeleteMessage)}
         />
         {!mine ? (
@@ -81,7 +107,7 @@ export default function MessageBubble({
   if (mediaType === "location_request") {
     return (
       <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
-        <div className={`${bubbleClass} relative cursor-pointer`} onClick={() => setOptionsOpen((open) => !open)}>
+        <div ref={bubbleRef} className={`${bubbleClass} relative cursor-pointer`} onClick={toggleOptions} onPointerDown={stop}>
           <div className="flex items-start gap-3">
             <span className={`mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-2xl ${mine ? "bg-white/10 text-white" : "bg-emerald-50 text-emerald-700"}`}>
               <HiOutlineMapPin />
@@ -125,7 +151,7 @@ export default function MessageBubble({
   if (mediaType === "location_share") {
     return (
       <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
-        <div className={`${bubbleClass} relative cursor-pointer`} onClick={() => setOptionsOpen((open) => !open)}>
+        <div ref={bubbleRef} className={`${bubbleClass} relative cursor-pointer`} onClick={toggleOptions} onPointerDown={stop}>
           <div className="flex items-start gap-3">
             <span className={`mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-2xl ${mine ? "bg-white/10 text-white" : "bg-sky-50 text-sky-700"}`}>
               <HiOutlineMapPin />
@@ -158,7 +184,7 @@ export default function MessageBubble({
 
   return (
     <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
-      <div className={`${bubbleClass} relative cursor-pointer`} onClick={() => setOptionsOpen((open) => !open)}>
+      <div ref={bubbleRef} className={`${bubbleClass} relative cursor-pointer`} onClick={toggleOptions} onPointerDown={stop}>
         {mediaType === "image" && mediaUrl ? (
           <img src={mediaUrl} alt="Message attachment" className="mb-2 max-h-72 w-full rounded-2xl object-cover" />
         ) : null}

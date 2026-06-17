@@ -93,14 +93,14 @@ function getProductSpecs(product = {}) {
   ].filter(([, value]) => String(value || "").trim());
 }
 
-function ImageViewer({ images, activeIndex, onChange, onClose }) {
+function ImageViewer({ images, activeIndex, onChange, onClose, initialScale = 1 }) {
   const [touchStartX, setTouchStartX] = useState(null);
   const [scale, setScale] = useState(1);
   const hasMultiple = images.length > 1;
 
   useEffect(() => {
-    if (activeIndex >= 0) setScale(1);
-  }, [activeIndex]);
+    if (activeIndex >= 0) setScale(initialScale);
+  }, [activeIndex, initialScale]);
 
   useEffect(() => {
     if (activeIndex < 0) return undefined;
@@ -269,7 +269,12 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
 function Gallery({ product, onOpenImage }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState(null);
+  const clickTimerRef = useRef(null);
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
+
+  useEffect(() => () => {
+    if (clickTimerRef.current) window.clearTimeout(clickTimerRef.current);
+  }, []);
 
   if (!images.length) {
     return (
@@ -299,11 +304,33 @@ function Gallery({ product, onOpenImage }) {
     move(deltaX > 0 ? -1 : 1);
   }
 
+  function openActiveImage(startScale = 1) {
+    onOpenImage(activeIndex, startScale);
+  }
+
+  function handleMainImageClick() {
+    if (clickTimerRef.current) window.clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = window.setTimeout(() => {
+      openActiveImage(1);
+      clickTimerRef.current = null;
+    }, 160);
+  }
+
+  function handleMainImageDoubleClick(event) {
+    event.preventDefault();
+    if (clickTimerRef.current) {
+      window.clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+    openActiveImage(2);
+  }
+
   return (
     <div className="space-y-1.5">
       <button
         type="button"
-        onClick={() => onOpenImage(activeIndex)}
+        onClick={handleMainImageClick}
+        onDoubleClick={handleMainImageDoubleClick}
         onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
         onTouchEnd={handleTouchEnd}
         className="block w-full touch-pan-y overflow-hidden rounded-lg bg-gray-100 text-left"
@@ -536,6 +563,7 @@ export default function ProductDetailDrawer({
   const [messageSending, setMessageSending] = useState(false);
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
+  const [activeImageInitialScale, setActiveImageInitialScale] = useState(1);
   const messageTextareaRef = useRef(null);
   const orderAddressPoint = orderForm.coordinates
     ? {
@@ -735,6 +763,16 @@ export default function ProductDetailDrawer({
     setVerificationOpen(true);
   }
 
+  function openProductImage(index, initialScale = 1) {
+    setActiveImageInitialScale(initialScale);
+    setActiveImageIndex(index);
+  }
+
+  function closeProductImage() {
+    setActiveImageIndex(-1);
+    setActiveImageInitialScale(1);
+  }
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
@@ -754,7 +792,7 @@ export default function ProductDetailDrawer({
         <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-32 sm:p-5 sm:pb-28">
           <div className="grid w-full gap-4 md:grid-cols-[0.9fr_1.1fr]">
             <div className="space-y-2.5">
-              <Gallery product={product} onOpenImage={setActiveImageIndex} />
+              <Gallery product={product} onOpenImage={openProductImage} />
               {product.videoUrl ? (
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-950">
                   <video src={product.videoUrl} controls playsInline preload="metadata" className="aspect-video w-full bg-gray-950 object-contain" />
@@ -1195,8 +1233,12 @@ export default function ProductDetailDrawer({
       <ImageViewer
         images={images}
         activeIndex={activeImageIndex}
-        onChange={setActiveImageIndex}
-        onClose={() => setActiveImageIndex(-1)}
+        onChange={(index) => {
+          setActiveImageInitialScale(1);
+          setActiveImageIndex(index);
+        }}
+        onClose={closeProductImage}
+        initialScale={activeImageInitialScale}
       />
       <ProductReviewDrawer
         comment={comment}

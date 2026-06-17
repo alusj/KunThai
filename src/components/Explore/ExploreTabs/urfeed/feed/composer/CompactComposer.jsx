@@ -37,6 +37,14 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
           </button>
           <button
             type="button"
+            onClick={() => onOpen?.("advert")}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-lg text-amber-700 transition hover:border-amber-200 hover:bg-amber-100 sm:h-10 sm:w-10"
+            aria-label="Post an advert"
+          >
+            <HiOutlineSparkles />
+          </button>
+          <button
+            type="button"
             onClick={onSubmit}
             disabled={creating}
             className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60 sm:h-10 sm:w-10"
@@ -46,14 +54,6 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
           </button>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => onOpen?.("advert")}
-        className="mx-auto mt-2 flex w-fit max-w-full items-center gap-2 rounded-full border border-amber-100 bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-amber-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50"
-      >
-        <HiOutlineSparkles className="text-base" />
-        Post an advert
-      </button>
     </div>
   );
 }

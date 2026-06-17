@@ -399,16 +399,19 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
     onAddToCart: addToCart,
     onToggleSaved: toggleSaved,
   };
+  const initialProductLoading = loading && !catalogHasProducts(catalog);
 
   return (
     <div className="space-y-4">
-      <BuyerDiscoveryBar
-        filters={filters}
-        setFilters={setFilters}
-        categories={options.categories}
-        locations={options.locations}
-        onClear={() => setFilters(DEFAULT_FILTERS)}
-      />
+      {!initialProductLoading ? (
+        <BuyerDiscoveryBar
+          filters={filters}
+          setFilters={setFilters}
+          categories={options.categories}
+          locations={options.locations}
+          onClear={() => setFilters(DEFAULT_FILTERS)}
+        />
+      ) : null}
 
       {notice && (
         <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">
