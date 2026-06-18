@@ -405,7 +405,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-4 sm:py-8">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
         <h1 className="text-center text-3xl font-bold text-slate-900">
-          Welcome to KunTai
+          Welcome to KunThai
         </h1>
 
         {mode === "signin" && (

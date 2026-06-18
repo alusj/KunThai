@@ -88,6 +88,24 @@ function isAdvertDraft(draft = {}) {
   return draft.post_type === "advert" || draft.category === "advert" || Boolean(mediaMeta.advert);
 }
 
+function postBelongsInScope(post = {}, scope = "feed") {
+  const hasVideo = Boolean(post.video_url);
+  const hasImage = Boolean(post.image_url);
+  const isAdvert = isAdvertDraft(post);
+  const feedScope = post.feed_scope || "feed";
+
+  if (scope === "swip") return hasVideo;
+  if (feedScope !== scope) return false;
+  if (!hasVideo) return true;
+  return isAdvert && hasImage;
+}
+
+function getPostTargetScopes(post = {}, fallbackScope = "feed") {
+  const feedScope = post.feed_scope || fallbackScope || "feed";
+  const candidates = Array.from(new Set([feedScope, "swip"]));
+  return candidates.filter((scope) => postBelongsInScope(post, scope));
+}
+
 function isCurrentUserPost(post, profile) {
   if (!post || !profile) {
     return false;
@@ -175,7 +193,9 @@ function buildRemoteReactionSet(remoteIds = []) {
 
 export function useExploreFeed(scope = "feed") {
   const memory = readFeedMemory(scope);
-  const initialPosts = (memory?.posts || readStoredPosts(scope)).filter(isExplorePostVisibleInFeed);
+  const initialPosts = (memory?.posts || readStoredPosts(scope))
+    .filter((post) => postBelongsInScope(post, scope))
+    .filter(isExplorePostVisibleInFeed);
   const [posts, setPosts] = useState(() => initialPosts);
   const [loading, setLoading] = useState(() => initialPosts.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -215,8 +235,10 @@ export function useExploreFeed(scope = "feed") {
     loadIdRef.current = loadId;
     const force = Boolean(options.force);
     const cached = readFeedMemory(scope);
-    const hasCachedPosts = Boolean(cached?.posts?.length || postsRef.current.length || readStoredPosts(scope).length);
-    const cacheFresh = Boolean(cached?.posts?.length && Date.now() - cached.savedAt < FEED_MEMORY_TTL);
+    const cachedScopePosts = (cached?.posts || []).filter((post) => postBelongsInScope(post, scope));
+    const storedScopePosts = readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope));
+    const hasCachedPosts = Boolean(cachedScopePosts.length || postsRef.current.length || storedScopePosts.length);
+    const cacheFresh = Boolean(cachedScopePosts.length && Date.now() - cached.savedAt < FEED_MEMORY_TTL);
 
     if (cacheFresh && !force) {
       refreshCurrentReactions();
@@ -263,6 +285,7 @@ export function useExploreFeed(scope = "feed") {
       setPosts((current) => {
         const localPosts = (current.length ? current : readStoredPosts(scope))
           .filter(isLocalPost)
+          .filter((post) => postBelongsInScope(post, scope))
           .map((post) => applyCurrentProfileToPost(post, currentProfile));
         const mergedPosts = mergePosts(nextPosts, localPosts);
         writeStoredPosts(scope, mergedPosts);
@@ -275,7 +298,9 @@ export function useExploreFeed(scope = "feed") {
       }
       setCurrentUserId(currentProfile?.id || "");
       const cachedPosts = readStoredPosts(scope).map((post) => applyCurrentProfileToPost(post, currentProfile));
-      const visibleFallbackPosts = (cachedPosts.length ? cachedPosts : postsRef.current).filter(isExplorePostVisibleInFeed);
+      const visibleFallbackPosts = (cachedPosts.length ? cachedPosts : postsRef.current)
+        .filter((post) => postBelongsInScope(post, scope))
+        .filter(isExplorePostVisibleInFeed);
       if (visibleFallbackPosts.length) {
         setPosts(visibleFallbackPosts);
         setError("");
@@ -359,10 +384,7 @@ export function useExploreFeed(scope = "feed") {
             visibility: nextPost?.post_privacy || "public",
             feed_scope: nextPost?.feed_scope || "",
           });
-          const belongsInScope =
-            scope === "swip"
-              ? (nextPost?.feed_scope ?? "") === "swip" || Boolean(nextPost?.video_url)
-              : (nextPost?.feed_scope ?? "feed") === scope && !nextPost?.video_url;
+          const belongsInScope = postBelongsInScope(nextPost, scope);
 
           if (!nextPost || !belongsInScope || !isExplorePostVisibleInFeed(nextPost)) {
             return;
@@ -392,10 +414,7 @@ export function useExploreFeed(scope = "feed") {
           }
 
           setPosts((current) => {
-  const belongsInScope =
-    scope === "swip"
-      ? (nextPost?.feed_scope ?? "") === "swip" || Boolean(nextPost?.video_url)
-      : (nextPost?.feed_scope ?? "feed") === scope && !nextPost?.video_url;
+  const belongsInScope = postBelongsInScope(nextPost, scope);
   const withoutUpdatedPost = current.filter((post) => post.id !== nextPost.id);
   const nextPosts = belongsInScope && isExplorePostVisibleInFeed(nextPost)
     ? mergePosts([nextPost], withoutUpdatedPost)
@@ -473,7 +492,7 @@ export function useExploreFeed(scope = "feed") {
   useEffect(() => {
     function handleStorage(event) {
       if (event.key === getPostsStorageKey(scope)) {
-        setPosts(readStoredPosts(scope).filter(isExplorePostVisibleInFeed));
+        setPosts(readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope)).filter(isExplorePostVisibleInFeed));
       }
       if (event.key === HIDE_STORAGE_KEY) setHiddenPosts(readStoredSet(HIDE_STORAGE_KEY));
     }
@@ -481,7 +500,7 @@ export function useExploreFeed(scope = "feed") {
     function handleCacheEvent(event) {
       const detail = event.detail || {};
       if (detail.key === getPostsStorageKey(scope) || detail.scope === scope) {
-        setPosts(readStoredPosts(scope).filter(isExplorePostVisibleInFeed));
+        setPosts(readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope)).filter(isExplorePostVisibleInFeed));
       }
     }
 
@@ -496,7 +515,7 @@ export function useExploreFeed(scope = "feed") {
   async function submitPost(postInput) {
     const localId = `local-${scope}-${Date.now()}`;
     const optimisticPost = buildLocalPost(postInput, scope, localId);
-    const optimisticScope = optimisticPost.feed_scope || scope;
+    const optimisticScopes = getPostTargetScopes(optimisticPost, scope);
     const optimisticVisible = isExplorePostVisibleInFeed(optimisticPost);
 
     try {
@@ -504,40 +523,38 @@ export function useExploreFeed(scope = "feed") {
       logExploreFeed("optimistic post routed", {
         local_id: localId,
         current_scope: scope,
-        target_scope: optimisticScope,
+        target_scopes: optimisticScopes,
         has_video: Boolean(optimisticPost.video_url),
       });
 
-      if (optimisticScope === scope && optimisticVisible) {
+      if (optimisticScopes.includes(scope) && optimisticVisible) {
         setPosts((current) => mergePosts([optimisticPost], current));
       }
 
       const created = await createExplorePost(postInput, scope);
-      const createdScope = created.feed_scope || (created.video_url ? "swip" : scope);
+      const createdScopes = getPostTargetScopes(created, scope);
       const createdVisible = isExplorePostVisibleInFeed(created);
 
-      if (createdScope === scope) {
-        setPosts((current) => {
-          const withoutOptimisticPost = current.filter((post) => post.id !== localId);
-          const nextPosts = createdVisible ? mergePosts([created], withoutOptimisticPost) : withoutOptimisticPost;
-          writeStoredPosts(scope, nextPosts);
-          return nextPosts;
-        });
-      } else {
-        setPosts((current) => {
-          const nextPosts = current.filter((post) => post.id !== localId);
-          writeStoredPosts(scope, nextPosts);
-          return nextPosts;
-        });
+      setPosts((current) => {
+        const withoutOptimisticPost = current.filter((post) => post.id !== localId);
+        const nextPosts = createdVisible && createdScopes.includes(scope)
+          ? mergePosts([created], withoutOptimisticPost)
+          : withoutOptimisticPost;
+        writeStoredPosts(scope, nextPosts);
+        return nextPosts;
+      });
 
-        const currentTargetPosts = (readFeedMemory(createdScope)?.posts || readStoredPosts(createdScope))
+      createdScopes
+        .filter((targetScope) => targetScope !== scope)
+        .forEach((targetScope) => {
+          const currentTargetPosts = (readFeedMemory(targetScope)?.posts || readStoredPosts(targetScope))
           .filter((post) => post.id !== localId)
           .filter(isExplorePostVisibleInFeed);
-        const targetPosts = createdVisible ? mergePosts([created], currentTargetPosts) : currentTargetPosts;
+          const targetPosts = createdVisible ? mergePosts([created], currentTargetPosts) : currentTargetPosts;
 
-        writeStoredPosts(createdScope, targetPosts);
-        writeFeedMemory(createdScope, { posts: targetPosts });
-      }
+          writeStoredPosts(targetScope, targetPosts);
+          writeFeedMemory(targetScope, { posts: targetPosts });
+        });
 
       if (createdVisible) {
         const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
@@ -553,11 +570,13 @@ export function useExploreFeed(scope = "feed") {
           ),
         );
       }
-      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope: createdScope, postId: created.id, type: "post-created" } }));
+      createdScopes.forEach((targetScope) => {
+        window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope: targetScope, postId: created.id, type: "post-created" } }));
+      });
       logExploreFeed("published post routed", {
         post_id: created.id,
         current_scope: scope,
-        target_scope: createdScope,
+        target_scopes: createdScopes,
         has_video: Boolean(created.video_url),
       });
       return {

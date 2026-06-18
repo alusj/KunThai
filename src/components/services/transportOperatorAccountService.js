@@ -267,7 +267,7 @@ async function saveOperatorDocumentRows(operatorId, uploads = {}) {
       file_name: entry.fileName,
       file_url: null,
       document_url: null,
-      status: "submitted",
+      status: "verification_pending",
       metadata: entry.metadata,
       uploaded_at: entry.uploadedAt,
       updated_at: new Date().toISOString(),

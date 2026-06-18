@@ -404,15 +404,15 @@
     transition-timing-function: var(--kt-ease-emphasized);
   }
 
-  .area-route-sheet.collapsed {
+  .area-route-sheet[data-snap="collapsed"] {
     max-height: 10.5rem;
   }
 
-  .area-route-sheet.half {
+  .area-route-sheet[data-snap="half"] {
     max-height: min(58dvh, 31rem);
   }
 
-  .area-route-sheet.expanded {
+  .area-route-sheet[data-snap="expanded"] {
     right: 0.75rem;
     max-height: min(82dvh, 44rem);
   }
@@ -422,7 +422,7 @@
     overscroll-behavior: contain;
   }
 
-  .area-route-sheet.expanded .area-route-sheet-body {
+  .area-route-sheet[data-snap="expanded"] .area-route-sheet-body {
     max-height: calc(82dvh - 6.5rem);
   }
 
@@ -449,7 +449,7 @@
       max-height: min(70dvh, 38rem);
     }
 
-    .area-route-sheet.expanded {
+    .area-route-sheet[data-snap="expanded"] {
       right: auto;
       max-height: min(82dvh, 44rem);
     }

@@ -3,8 +3,9 @@ import { HiOutlineArrowLeft, HiOutlineArrowPath, HiOutlinePhoto, HiOutlineXMark 
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { isAdvertPost } from "../../../../shared/advertUtils";
 
-export default function PostMedia({ post }) {
+export default function PostMedia({ post, imageOnly = false }) {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [imageStatus, setImageStatus] = useState(post.image_url ? "loading" : "idle");
   const [videoStatus, setVideoStatus] = useState(post.video_url ? "loading" : "idle");
@@ -12,6 +13,7 @@ export default function PostMedia({ post }) {
   const [videoRetryKey, setVideoRetryKey] = useState(0);
   const audioRef = useRef(null);
   const videoRef = useRef(null);
+  const advertPost = isAdvertPost(post);
 
   useBrowserBack(imagePreviewOpen, () => setImagePreviewOpen(false), `image-preview-${post.id}`);
 
@@ -49,7 +51,9 @@ export default function PostMedia({ post }) {
             >
               {imageStatus !== "loaded" ? <MediaSkeleton /> : null}
               <img
-                loading="lazy"
+                key={`${post.image_url}-${imageRetryKey}`}
+                loading={advertPost ? "eager" : "lazy"}
+                fetchPriority={advertPost ? "high" : "auto"}
                 src={post.image_url}
                 alt=""
                 onLoad={() => setImageStatus("loaded")}
@@ -63,7 +67,7 @@ export default function PostMedia({ post }) {
         </div>
       ) : null}
 
-      {post.video_url ? (
+      {post.video_url && !imageOnly ? (
         <div className="max-w-full overflow-hidden px-4 pb-4">
           {videoStatus === "error" ? (
             <MediaFallback
@@ -84,10 +88,11 @@ export default function PostMedia({ post }) {
                 muted
                 onLoadedData={() => setVideoStatus("loaded")}
                 onLoadedMetadata={() => setVideoStatus("loaded")}
+                onCanPlay={() => setVideoStatus("loaded")}
                 onError={() => setVideoStatus("error")}
                 onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
                 playsInline
-                preload="none"
+                preload="metadata"
                 src={post.video_url}
                 className={`h-full max-h-[520px] w-full max-w-full object-cover transition-opacity duration-200 ${
                   videoStatus === "loaded" ? "opacity-100" : "opacity-0"
@@ -98,7 +103,7 @@ export default function PostMedia({ post }) {
         </div>
       ) : null}
 
-      {post.audio_url ? (
+      {post.audio_url && !imageOnly ? (
         <div className="max-w-full overflow-hidden px-4 pb-4">
           <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-4">
             <p className="mb-2 text-sm font-bold text-slate-900">Voice note</p>

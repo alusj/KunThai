@@ -1,9 +1,16 @@
 import { HiOutlineCheckBadge } from "react-icons/hi2";
 
 import { formatRelativeTime } from "../../../../../Backend/services/exploreService";
+import AdvertMetaActions from "../../../shared/AdvertMetaActions";
 import Avatar from "../../../shared/Avatar";
+import ExpandablePostText from "../../../shared/ExpandablePostText";
+import { getAdvertMeta, getPostTitle, isAdvertPost } from "../../../shared/advertUtils";
 
 export default function SwipCaption({ categoryLabel, contextLabel, post, onViewProfile }) {
+  const advertPost = isAdvertPost(post);
+  const advert = getAdvertMeta(post) || {};
+  const postTitle = getPostTitle(post);
+
   function openProfile(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -21,19 +28,47 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
               {post.verified ? <HiOutlineCheckBadge className="flex-none text-sky-300" /> : null}
             </span>
             <span className="block truncate text-[13px] font-black text-white/75">
-              @{post.author_username || "user"} · {formatRelativeTime(post.created_at)}
+              @{post.author_username || "user"} &middot; {formatRelativeTime(post.created_at)}
             </span>
           </span>
         </button>
 
-        {post.body ? <p className="kuntai-break line-clamp-3 whitespace-pre-wrap text-base font-bold leading-7 text-white/95">{post.body}</p> : null}
+        {advertPost ? (
+          <div className="space-y-2">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">Advertisement</p>
+            <h3 className="kuntai-break text-lg font-black leading-6 text-white">
+              {advert.title || "Advertisement"}
+            </h3>
+            {post.body ? (
+              <ExpandablePostText
+                text={post.body}
+                className="text-sm font-bold leading-6"
+                textClassName="text-white/90"
+                controlClassName="text-amber-300"
+              />
+            ) : null}
+            <AdvertMetaActions post={post} advert={advert} dark />
+          </div>
+        ) : (
+          <>
+            {postTitle ? <h3 className="kuntai-break text-lg font-black leading-6 text-white">{postTitle}</h3> : null}
+            {post.body ? (
+              <ExpandablePostText
+                text={post.body}
+                className="text-base font-bold leading-7"
+                textClassName="text-white/95"
+                controlClassName="text-sky-300"
+              />
+            ) : null}
 
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{contextLabel || "Suggested"}</span>
-          {categoryLabel ? (
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{categoryLabel}</span>
-          ) : null}
-        </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{contextLabel || "Suggested"}</span>
+              {categoryLabel ? (
+                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{categoryLabel}</span>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

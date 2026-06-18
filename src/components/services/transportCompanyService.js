@@ -104,28 +104,6 @@ function isMissingTable(error) {
     (message.includes("schema cache") && message.includes("could not find"));
 }
 
-async function upsertSelectSingle(tableName, payload, options = {}, optionalColumns = []) {
-  let nextPayload = { ...payload };
-
-  for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
-    const { data, error } = await supabase
-      .from(tableName)
-      .upsert(nextPayload, options)
-      .select()
-      .maybeSingle();
-
-    if (!error) return data;
-
-    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isMissingColumn(error, column));
-    if (!missingColumn) throw error;
-
-    const { [missingColumn]: _removed, ...withoutMissingColumn } = nextPayload;
-    nextPayload = withoutMissingColumn;
-  }
-
-  return null;
-}
-
 async function updateSelectSingle(tableName, payload, match = {}, optionalColumns = []) {
   let nextPayload = { ...payload };
 
@@ -324,11 +302,24 @@ function attachInvitesToFleets(fleets = [], invites = []) {
     const merged = [...existingOperators];
 
     linkedInvites.forEach((invite) => {
-      const exists = merged.some((item) =>
+      const existingIndex = merged.findIndex((item) =>
         item.requestId === invite.requestId ||
         (item.publicId && invite.publicId && item.publicId === invite.publicId)
       );
-      if (!exists) merged.push(invite);
+      if (existingIndex < 0) {
+        merged.push(invite);
+        return;
+      }
+
+      const existing = merged[existingIndex];
+      merged[existingIndex] = normalizeInvite({
+        ...existing,
+        ...invite,
+        documents: {
+          ...(existing.documents || {}),
+          ...(invite.documents || {}),
+        },
+      });
     });
 
     return { ...fleet, operators: merged };
@@ -790,6 +781,30 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
         title: "Operator invitation rejected",
         body: `${normalizedInvite.name || "An operator"} rejected the company invitation for ${normalizedInvite.fleetName || normalizedInvite.fleetType || "a fleet"}.`,
       }).catch(() => null);
+    } else if (payload.status === "accepted") {
+      const documentsSubmitted = Boolean(documents.operatorDocumentsSubmitted);
+      const documentsPending = Boolean(documents.operatorDocumentsRequired || documents.registrationRequired);
+      const reusedDocuments = Boolean(documents.reusedExistingDocuments);
+      const activityType = documentsSubmitted
+        ? "operator_invite_documents_submitted"
+        : documentsPending
+          ? "operator_invite_accepted_pending_documents"
+          : "operator_invite_accepted";
+      const title = documentsSubmitted ? "Operator documents submitted" : "Operator invitation accepted";
+      const body = documentsSubmitted
+        ? `${normalizedInvite.name || "An operator"} submitted operator documents for ${normalizedInvite.fleetName || normalizedInvite.fleetType || "a fleet"}.`
+        : documentsPending
+          ? `${normalizedInvite.name || "An operator"} accepted the company invitation for ${normalizedInvite.fleetName || normalizedInvite.fleetType || "a fleet"}. Operator documents are still required.`
+          : `${normalizedInvite.name || "An operator"} accepted the company invitation for ${normalizedInvite.fleetName || normalizedInvite.fleetType || "a fleet"}.${reusedDocuments ? " Existing operator documents will be reused." : ""}`;
+
+      await recordCompanyInviteActivity({
+        companyId: data.company_id || companyId,
+        actorUserId: user.id,
+        invite: normalizedInvite,
+        activityType,
+        title,
+        body,
+      }).catch(() => null);
     }
 
     return upsertLocalInviteStore(normalizedInvite);
@@ -936,7 +951,7 @@ async function saveInvitedOperatorDocumentRows(operatorId, documents = {}, invit
       file_name: entry.fileName,
       file_url: entry.fileUrl || null,
       document_url: entry.fileUrl || null,
-      status: "submitted",
+      status: "verification_pending",
       metadata: entry.metadata,
       uploaded_at: entry.uploadedAt,
       updated_at: new Date().toISOString(),
@@ -1335,6 +1350,7 @@ export function subscribeTransportCompanyUpdates(onChange) {
     .on("postgres_changes", { event: "*", schema: "public", table: "transport_companies" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_fleets" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_operator_invites" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_activities" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_members" }, onChange)
     .subscribe();
 

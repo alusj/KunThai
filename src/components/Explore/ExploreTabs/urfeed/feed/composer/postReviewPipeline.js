@@ -56,10 +56,10 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
     await wait(180);
   }
 
-  onStage?.("text-scan", 34);
+  onStage?.("text-scan", 64);
   await wait(180);
 
-  onStage?.("media-scan", 62);
+  onStage?.("media-scan", 76);
   await wait(media?.hasMedia ? 260 : 160);
 
   try {

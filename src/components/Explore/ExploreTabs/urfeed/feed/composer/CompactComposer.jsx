@@ -39,7 +39,7 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
             type="button"
             onClick={() => onOpen?.("advert")}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-lg text-amber-700 transition hover:border-amber-200 hover:bg-amber-100 sm:h-10 sm:w-10"
-            aria-label="Post an advert"
+            aria-label="Advertisement"
           >
             <HiOutlineSparkles />
           </button>

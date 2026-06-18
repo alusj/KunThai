@@ -6,6 +6,7 @@ const POSTING_NOTICE_KEY = "explore-posting-notice";
 const VIDEO_REVIEW_JOBS_KEY = "explore-video-review-jobs";
 const MAX_VIDEO_REVIEW_JOBS = 6;
 const COMPLETE_NOTICE_TTL_MS = 4500;
+const ACTIVE_POSTING_NOTICE_TTL_MS = 60_000;
 
 function canUseStorage() {
   return typeof localStorage !== "undefined";
@@ -70,6 +71,11 @@ export function readPostingNotice() {
     return null;
   }
 
+  if (notice.status === "posting" && now() - Number(notice.updatedAt || 0) >= ACTIVE_POSTING_NOTICE_TTL_MS) {
+    clearPostingNotice(notice.id);
+    return null;
+  }
+
   return notice;
 }
 
@@ -111,6 +117,9 @@ export function publishPostingNotice(detail = {}) {
 }
 
 export function getPostingNoticeClearDelay(notice) {
+  if (notice?.status === "posting") {
+    return Math.max(0, Number(notice.updatedAt || now()) + ACTIVE_POSTING_NOTICE_TTL_MS - now());
+  }
   if (!notice?.expiresAt) return null;
   return Math.max(0, Number(notice.expiresAt) - now());
 }

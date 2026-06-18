@@ -2667,7 +2667,8 @@ export default function NearbyAreaMap({
 
       {showNavigationCard && (
         <div
-          className={`area-route-sheet absolute z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur ${navigationSnap}`}
+          data-snap={navigationSnap}
+          className="area-route-sheet absolute z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur"
         >
           <div
             className="area-route-sheet-handle flex cursor-grab touch-none flex-col items-center px-4 pt-3 active:cursor-grabbing"

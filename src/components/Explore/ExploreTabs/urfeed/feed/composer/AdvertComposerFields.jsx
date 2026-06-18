@@ -55,10 +55,12 @@ export default function AdvertComposerFields({
         <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Advert title</span>
         <input
           value={advert.title}
+          maxLength={30}
           onChange={(event) => onChange("title", event.target.value)}
           placeholder="Example: Weekend tailoring discount"
           className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-amber-300 focus:ring-4 focus:ring-amber-100"
         />
+        <span className="mt-1 block text-right text-[11px] font-bold text-slate-400">{String(advert.title || "").length}/30</span>
       </label>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

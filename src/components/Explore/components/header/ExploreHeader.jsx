@@ -207,7 +207,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                     <Megaphone size={20} strokeWidth={2.3} absoluteStrokeWidth />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-base font-black text-slate-950">Post an advert</span>
+                    <span className="block text-base font-black text-slate-950">Advertisement</span>
                     <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Promote an offer, event, service, or location.</span>
                   </span>
                 </button>

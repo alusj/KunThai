@@ -571,7 +571,29 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       }
 
       const nextAccount = await getTransportCompanyAccount().catch(() => null);
-      if (alive) setCompanyAccount(nextAccount);
+      if (!alive) return;
+      setCompanyAccount(nextAccount);
+
+      const inviteUpdate = account?.table === "transport_company_operator_invites" ? account.new : null;
+      if (nextAccount?.id && inviteUpdate?.company_id === nextAccount.id) {
+        const inviteStatus = String(inviteUpdate.status || "").toLowerCase();
+        const inviteDocuments = inviteUpdate.documents || {};
+        const operatorName = inviteUpdate.operator_name || "An operator";
+        const message = inviteStatus === "rejected"
+          ? `${operatorName} declined your company invitation.`
+          : inviteStatus === "accepted" && inviteDocuments.operatorDocumentsSubmitted
+            ? `${operatorName} accepted and submitted operator documents for review.`
+            : inviteStatus === "accepted"
+              ? `${operatorName} accepted your company invitation.`
+              : "";
+
+        if (message) {
+          setCompanyWorkspaceStatus(message);
+          showToast(message, inviteStatus === "rejected" ? "warning" : "success", {
+            title: inviteStatus === "rejected" ? "Invitation declined" : "Invitation accepted",
+          });
+        }
+      }
     });
 
     return () => {

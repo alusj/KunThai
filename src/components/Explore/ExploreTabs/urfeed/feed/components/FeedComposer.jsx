@@ -32,7 +32,10 @@ import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentMode
 const MAX_LOCAL_VIDEO_BYTES = 150 * 1024 * 1024;
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
+const VIDEO_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
+const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
+const MAX_POST_TITLE_LENGTH = 30;
 const DEFAULT_ADVERT = {
   type: "offer",
   title: "",
@@ -58,7 +61,7 @@ function cleanAdvertForSubmit(advert = {}) {
   const normalized = normalizeAdvertDraft(advert);
   return {
     type: String(normalized.type || DEFAULT_ADVERT.type).trim() || DEFAULT_ADVERT.type,
-    title: String(normalized.title || "").trim(),
+    title: String(normalized.title || "").trim().slice(0, MAX_POST_TITLE_LENGTH),
     ctaLabel: String(normalized.ctaLabel || DEFAULT_ADVERT.ctaLabel).trim() || DEFAULT_ADVERT.ctaLabel,
     link: String(normalized.link || "").trim(),
     address: String(normalized.address || "").trim(),
@@ -78,12 +81,45 @@ function formatLocationLabel(lat, lng) {
   return `${safeLat.toFixed(6)}, ${safeLng.toFixed(6)}`;
 }
 
+async function uploadVideoWithProgress(file, onProgress) {
+  let progress = 24;
+  let timedOut = false;
+  let timeoutId = null;
+
+  const uploadPromise = uploadExploreVideoForReview(file);
+  uploadPromise
+    .then((videoUrl) => {
+      if (timedOut && videoUrl) removeExploreVideoUpload(videoUrl).catch(() => {});
+    })
+    .catch(() => {});
+
+  const progressId = window.setInterval(() => {
+    progress = Math.min(56, progress + Math.max(1, Math.ceil((56 - progress) * 0.16)));
+    onProgress?.(progress);
+  }, VIDEO_UPLOAD_PROGRESS_INTERVAL_MS);
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      reject(new Error("The media upload stopped responding. Check your connection and try publishing again."));
+    }, VIDEO_UPLOAD_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([uploadPromise, timeoutPromise]);
+  } finally {
+    window.clearInterval(progressId);
+    window.clearTimeout(timeoutId);
+  }
+}
+
 export default function FeedComposer({ profile, creating, onSubmit }) {
   const draft = readDraft();
   const privacySettings = readPrivacySettings();
 
   const [open, setOpen] = useState(false);
   const [composerMode, setComposerMode] = useState(draft.post_type === "advert" || draft.media_meta?.advert ? "advert" : "post");
+  const [postTitle, setPostTitle] = useState(String(draft.media_meta?.title || "").slice(0, MAX_POST_TITLE_LENGTH));
   const [value, setValue] = useState(draft.body || "");
   const [feedback, setFeedback] = useState("");
   const [imagePreview, setImagePreview] = useState(draft.image_url || "");
@@ -118,7 +154,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const originalVideoFileRef = useRef(null);
 
   const isAdvertMode = composerMode === "advert";
-  const hasContent = Boolean(value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
+  const hasContent = Boolean(postTitle.trim() || value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
   const hasAdvertContent = Boolean(
     isAdvertMode &&
       (advertForm.title.trim() || value.trim() || advertForm.link.trim() || advertForm.address.trim() || imagePreview || videoPreview || pendingVideoFile),
@@ -173,9 +209,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       audio_duration_seconds: audioDuration,
       post_privacy: privacy,
       post_type: isAdvertMode ? "advert" : "post",
-      media_meta: isAdvertMode ? { ...mediaMeta, advert: cleanAdvertForSubmit(advertForm) } : mediaMeta,
+      media_meta: isAdvertMode
+        ? { ...mediaMeta, advert: cleanAdvertForSubmit(advertForm) }
+        : { ...mediaMeta, title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH) },
     });
-  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, privacy, value, videoPreview]);
+  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postTitle, privacy, value, videoPreview]);
 
   useEffect(() => {
     function handleCreatePost(event) {
@@ -272,10 +310,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (!file) return;
 
     try {
-      trimRequestRef.current += 1;
-      trimmedVideoMetaRef.current = null;
-
       if (file.type.startsWith("video/") || mediaMode === "video") {
+        trimRequestRef.current += 1;
+        trimmedVideoMetaRef.current = null;
         cancelVoiceRecording();
 
         const isSupportedVideo = file.type.startsWith("video/") && (!file.type || SUPPORTED_VIDEO_TYPES.includes(file.type));
@@ -299,31 +336,39 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         setVideoTrimStart(0);
         setVideoTrimEnd(Math.min(duration || MAX_VIDEO_SECONDS, MAX_VIDEO_SECONDS));
         setVideoPreview("");
-        setImagePreview("");
+        if (!isAdvertMode) setImagePreview("");
         setOpen(true);
         setFeedback("");
         setTrimError("");
         return;
       } else {
         const nextPreview = await fileToDataUrl(file);
-
-        originalVideoFileRef.current = null;
-        setPendingVideoFile(null);
-        if (pendingVideoUrl) {
-          URL.revokeObjectURL(pendingVideoUrl);
-          setPendingVideoUrl("");
-        }
-        if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
-        setImagePreview(nextPreview);
-        setVideoPreview("");
-        trimmedVideoMetaRef.current = null;
-        setMediaMeta((current) => ({
-          ...current,
+        const imageMetaPatch = {
           imageName: file.name,
           imageType: file.type,
           imageSize: file.size,
-          videoName: "",
-          videoType: "",
+        };
+
+        if (!isAdvertMode) {
+          trimRequestRef.current += 1;
+          trimmedVideoMetaRef.current = null;
+          originalVideoFileRef.current = null;
+          setPendingVideoFile(null);
+          if (pendingVideoUrl) {
+            URL.revokeObjectURL(pendingVideoUrl);
+            setPendingVideoUrl("");
+          }
+          if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
+          setVideoPreview("");
+        }
+        setImagePreview(nextPreview);
+        if (isAdvertMode && trimmedVideoMetaRef.current) {
+          trimmedVideoMetaRef.current = { ...trimmedVideoMetaRef.current, ...imageMetaPatch };
+        }
+        setMediaMeta((current) => ({
+          ...current,
+          ...imageMetaPatch,
+          ...(!isAdvertMode ? { videoName: "", videoType: "", videoSize: 0 } : {}),
         }));
       }
 
@@ -396,15 +441,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         videoTrimEnd: safeEnd,
         sourceVideoTrimStart: safeStart,
         sourceVideoTrimEnd: safeEnd,
-        imageName: "",
-        imageType: "",
+        ...(!isAdvertMode ? { imageName: "", imageType: "", imageSize: 0 } : {}),
         audioName: "",
         audioType: "",
         audioSize: 0,
       };
 
       setVideoPreview(sourcePreview);
-      setImagePreview("");
+      if (!isAdvertMode) setImagePreview("");
       setPendingVideoFile(null);
       trimmedVideoMetaRef.current = nextVideoMeta;
       setMediaMeta(nextVideoMeta);
@@ -543,7 +587,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function updateAdvertForm(field, nextValue) {
-    setAdvertForm((current) => ({ ...current, [field]: nextValue }));
+    const value = field === "title" ? String(nextValue || "").slice(0, MAX_POST_TITLE_LENGTH) : nextValue;
+    setAdvertForm((current) => ({ ...current, [field]: value }));
     setFeedback("");
   }
 
@@ -609,6 +654,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   function resetComposer() {
     trimRequestRef.current += 1;
     trimmedVideoMetaRef.current = null;
+    setPostTitle("");
     setValue("");
     setFeedback("");
     setImagePreview("");
@@ -671,6 +717,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       const finalMediaMeta = {
         ...(trimmedVideoMetaRef.current || mediaMeta),
         ...(advertMeta ? { advert: advertMeta } : {}),
+        ...(!advertMeta ? { title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH) } : {}),
       };
       const finalAudioPreview = finalVideoPreview ? "" : audioPreview;
       const finalAudioDuration = finalVideoPreview ? null : audioDuration;
@@ -681,7 +728,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         author_username: profile?.username || "user",
         author_avatar_url: profile?.avatarUrl || "",
         user_id: profile?.userId || "",
-        image_url: finalVideoPreview ? "" : imagePreview,
+        image_url: isAdvertMode ? imagePreview : finalVideoPreview ? "" : imagePreview,
         audio_url: finalAudioPreview,
         video_url: finalVideoPreview,
         audio_duration_seconds: finalAudioDuration,
@@ -738,7 +785,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   window.innerWidth <= 768;
 
 if (!isMobileVideoDevice) {
-  videoFrameDataUrls = await extractVideoFramesFromDataUrl(finalVideoPreview, 6, {
+  videoFrameDataUrls = await extractVideoFramesFromDataUrl(sourceUrl, 6, {
     start: postDraft.mediaMeta?.videoTrimStart || 0,
     end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
   });
@@ -765,7 +812,15 @@ if (!isMobileVideoDevice) {
               ? "Uploading your original video securely before the safety scan."
               : "Uploading your video securely before publishing.",
           });
-          uploadedReviewVideoUrl = await uploadExploreVideoForReview(originalVideoFileRef.current);
+          uploadedReviewVideoUrl = await uploadVideoWithProgress(originalVideoFileRef.current, (progress) => {
+            setPostingProgress(progress);
+            publishPostingUpdate({
+              status: "posting",
+              stage: "uploading-media",
+              progress,
+              message: "Uploading media securely. Larger videos can take a little longer.",
+            });
+          });
         }
       }
 
@@ -914,7 +969,7 @@ if (!isMobileVideoDevice) {
         setPostingStage("complete");
         setPostingProgress(100);
 
-        if (postDraft.video_url && !isAdvertMode) {
+        if (postDraft.video_url && (!isAdvertMode || !postDraft.image_url)) {
           window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip" } }));
         }
 
@@ -977,7 +1032,7 @@ if (!isMobileVideoDevice) {
 
               <div className="text-center">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-700">{isAdvertMode ? "Promote" : "Create"}</p>
-                <h2 className="text-base font-black text-slate-950">{isAdvertMode ? "Advert Post" : "Explore Post"}</h2>
+                <h2 className="text-base font-black text-slate-950">{isAdvertMode ? "Advertisement" : "Explore Post"}</h2>
               </div>
 
               <button
@@ -1012,6 +1067,25 @@ if (!isMobileVideoDevice) {
               ) : null}
 
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                {!isAdvertMode ? (
+                  <label className="mb-4 block border-b border-slate-200 pb-4">
+                    <span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                      <span>Post title</span>
+                      <span>{postTitle.length}/{MAX_POST_TITLE_LENGTH}</span>
+                    </span>
+                    <input
+                      value={postTitle}
+                      maxLength={MAX_POST_TITLE_LENGTH}
+                      onChange={(event) => {
+                        setPostTitle(event.target.value.slice(0, MAX_POST_TITLE_LENGTH));
+                        setFeedback("");
+                      }}
+                      placeholder="Give your post a short title"
+                      className="mt-2 h-11 w-full bg-transparent text-lg font-black text-slate-950 outline-none placeholder:text-slate-400"
+                    />
+                  </label>
+                ) : null}
+
                 <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                   <HiOutlineSparkles />
                   {isAdvertMode ? "Advert message" : "Say it your way"}

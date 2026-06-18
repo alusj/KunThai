@@ -25,7 +25,6 @@ import NearbyAreaScreen from "../NearbyAreaScreen";
 import { searchLocations } from "../../../Backend/services/locationSearchService";
 import { getCountryPhonePlaceholder } from "../../../data/westAfricanCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
-import { getTransportSavedPlaces } from "../../services/passengerTransportService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
   calculateBookingRoute,
@@ -64,10 +63,6 @@ function selectionFromTarget(target) {
     fleetType: target?.selection?.fleetType || null,
     label: target?.selection?.label || "Available transport",
   };
-}
-
-function getPlaceLabel(place) {
-  return place.category === "Other" ? place.customCategory || "Other" : place.category || "Saved";
 }
 
 function isFleetBookable(fleet) {
@@ -142,7 +137,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const initialSelection = useMemo(() => selectionFromTarget(target), [target]);
   const [selection, setSelection] = useState(initialSelection);
   const [availableFleets, setAvailableFleets] = useState([]);
-  const [savedPlaces, setSavedPlaces] = useState([]);
   const [loadingFleets, setLoadingFleets] = useState(false);
   const [routeEstimate, setRouteEstimate] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -173,10 +167,15 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const activeAvailableFleets = useMemo(() => availableFleets.filter(isFleetBookable), [availableFleets]);
   const nearbyMatchingFleets = useMemo(() => availableFleets.filter(isFleetNearby), [availableFleets]);
   const nearbyActiveFleets = useMemo(() => nearbyMatchingFleets.filter(isFleetBookable), [nearbyMatchingFleets]);
-  const bookingTargetFleets = nearbyMatchingFleets;
+  const selectedFleet = target?.fleet || null;
+  const isDirectedBooking = Boolean(selectedFleet);
+  const bookingTargetFleets = useMemo(
+    () => (selectedFleet ? [selectedFleet] : nearbyMatchingFleets),
+    [nearbyMatchingFleets, selectedFleet],
+  );
   const bookingFleet = useMemo(() => {
-    return bookingTargetFleets[0] || activeAvailableFleets[0] || availableFleets[0] || target?.fleet || null;
-  }, [activeAvailableFleets, availableFleets, bookingTargetFleets, target]);
+    return selectedFleet || bookingTargetFleets[0] || activeAvailableFleets[0] || availableFleets[0] || null;
+  }, [activeAvailableFleets, availableFleets, bookingTargetFleets, selectedFleet]);
 
   const displayFleet = bookingFleet;
   const bookingMode = modeForFleet(bookingFleet, selection.mode);
@@ -187,9 +186,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   };
   const fareEstimate = describeFleetFare(displayFleet, pricingInput);
   const requirementMessage = getBookingRequirementMessage(form, bookingMode);
-  const fleetMessage = loadingFleets
+  const fleetMessage = !isDirectedBooking && loadingFleets
     ? "Checking nearby registered operators for this request."
-    : !bookingTargetFleets.length
+    : !isDirectedBooking && !bookingTargetFleets.length
       ? "No nearby registered operator matches this service and fleet type right now."
       : "";
   const sendBlockMessage = requirementMessage || fleetMessage;
@@ -211,7 +210,6 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     const nextSelection = selectionFromTarget(target);
     const draftForm = target?.draftForm || null;
     setSelection(nextSelection);
-    setSavedPlaces(getTransportSavedPlaces());
     setStatus("");
     setRouteEstimate(null);
     setRouteMessage("");
@@ -295,6 +293,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   useEffect(() => {
     if (!open) return undefined;
 
+    if (target?.fleet) {
+      setAvailableFleets([target.fleet]);
+      setLoadingFleets(false);
+      return undefined;
+    }
+
     let alive = true;
     setLoadingFleets(true);
 
@@ -305,15 +309,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       .then((fleets) => {
         if (!alive) return;
 
-        const nextFleets = target?.fleet
-          ? [target.fleet, ...fleets.filter((fleet) => fleet.id !== target.fleet.id)]
-          : fleets;
-
-        setAvailableFleets(nextFleets);
+        setAvailableFleets(fleets);
       })
       .catch((error) => {
         if (alive) {
-          setAvailableFleets(target?.fleet ? [target.fleet] : []);
+          setAvailableFleets([]);
           setStatus(error.message || "Unable to load available operators.");
         }
       })
@@ -411,7 +411,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       bookingTarget: {
         ...target,
         selection,
-        fleet: null,
+        fleet: selectedFleet,
         draftForm: form,
       },
     });
@@ -461,7 +461,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       });
 
       setStatus(
-        booking?.notifiedFleetCount > 1
+        isDirectedBooking
+          ? `Booking sent directly to ${selectedFleet?.operatorName || selectedFleet?.fleetName || "the selected operator"}.`
+          : booking?.notifiedFleetCount > 1
           ? `Booking sent to ${booking.notifiedFleetCount} nearby matching operators. Any available operator can contact you and respond.`
           : "Booking sent. The operator will see this as a pending passenger request and can contact you.",
       );
@@ -538,7 +540,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             </section>
 
             <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="grid gap-3 md:grid-cols-2">
+              {!isDirectedBooking ? <div className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-1">
                   <span className="text-xs font-black uppercase text-gray-500">Service</span>
                   <select
@@ -564,9 +566,24 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                     ))}
                   </select>
                 </label>
-              </div>
+              </div> : null}
 
-              <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+              {isDirectedBooking ? (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">Direct booking</p>
+                  <p className="mt-1 text-lg font-black text-blue-950">
+                    {selectedFleet?.operatorName || selectedFleet?.fleetName || "Selected operator"}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-blue-800">
+                    This request is attached to this operator only. It will not be offered to other nearby operators.
+                  </p>
+                  <p className="mt-2 text-xs font-black text-blue-700">
+                    {[selectedFleet?.operatorId, selectedFleet?.displayType || selectedFleet?.fleetType, selectedFleet?.plateNumber]
+                      .filter(Boolean)
+                      .join(" - ")}
+                  </p>
+                </div>
+              ) : <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
                 <p className="text-sm font-black text-emerald-950">Open request</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
                   No operator is attached to this booking yet. When you save it, it enters My Trips and notifies every nearby registered operator matching the service and fleet type you selected.
@@ -576,14 +593,16 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                     ? "Checking matching operators..."
                     : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} ready for notification (${nearbyActiveFleets.length} active now).`}
                 </p>
-              </div>
+              </div>}
 
               {displayFleet ? (
                 <div className="mt-4 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-600 sm:grid-cols-2">
                   <InfoLine
                     icon={FiTruck}
                     label="Request"
-                    value={`${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} will be notified`}
+                    value={isDirectedBooking
+                      ? `Only ${selectedFleet?.operatorName || selectedFleet?.fleetName || "the selected operator"} will be notified`
+                      : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} will be notified`}
                   />
                   <InfoLine icon={FiNavigation} label="Location" value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
                   <InfoLine
@@ -591,8 +610,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                     label="Operator status"
                     value={
                       isFleetBookable(displayFleet)
-                        ? "At least one matching fleet is active now"
-                        : `${displayFleet.lastActive || "Offline"}; request will remain available in operator alerts`
+                        ? isDirectedBooking ? "Selected operator is active now" : "At least one matching fleet is active now"
+                        : `${displayFleet.lastActive || "Offline"}; request will remain in this operator's alerts`
                     }
                   />
                   <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
@@ -785,7 +804,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           <footer className="border-t border-gray-100 bg-white px-4 py-3 sm:px-5">
             <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
               <p className={`text-xs font-semibold leading-5 ${sendBlockMessage ? "text-gray-500" : "text-emerald-700"}`}>
-                {requirementMessage || fleetMessage || `Ready to save this ${bookingMode} request in My Trips and notify matching operators.`}
+                {requirementMessage || fleetMessage || (isDirectedBooking
+                  ? `Ready to send this ${bookingMode} request directly to ${selectedFleet?.operatorName || selectedFleet?.fleetName || "the selected operator"}.`
+                  : `Ready to save this ${bookingMode} request in My Trips and notify matching operators.`)}
               </p>
 
               <button
