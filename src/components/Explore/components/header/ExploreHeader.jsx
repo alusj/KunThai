@@ -28,7 +28,7 @@ import SearchOverlay from "./search/SearchOverlay";
 const EXPLORE_BELL_SEEN_SCOPE = "explore.header.bell";
 const CREATE_MENU_EXIT_MS = 280;
 
-export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult }) {
+export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult, onOverlayChange }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createClosing, setCreateClosing] = useState(false);
@@ -45,6 +45,11 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   const createVisible = createOpen || createClosing;
 
   useBodyScrollLock(createVisible);
+
+  useEffect(() => {
+    onOverlayChange?.(searchOpen || createVisible);
+    return () => onOverlayChange?.(false);
+  }, [createVisible, onOverlayChange, searchOpen]);
 
   useEffect(() => {
     if (!createVisible) return undefined;

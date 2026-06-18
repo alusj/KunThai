@@ -1,3 +1,5 @@
+import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
+
 export const POSTING_NOTICE_EVENT = "explore-posting-update";
 
 const POSTING_NOTICE_KEY = "explore-posting-notice";
@@ -47,6 +49,16 @@ export function readPostingNotice() {
 
   const notice = safeJsonParse(localStorage.getItem(POSTING_NOTICE_KEY) || "null", null);
   if (!notice || typeof notice !== "object") return null;
+
+  const moderationNotice =
+    notice.status === "reviewing" ||
+    ["text-scan", "media-scan"].includes(notice.stage) ||
+    /moderation|review|safety scan/i.test(`${notice.title || ""} ${notice.message || ""} ${notice.reason || ""}`);
+
+  if (!CONTENT_MODERATION_ENABLED && moderationNotice) {
+    clearPostingNotice(notice.id);
+    return null;
+  }
 
   if (notice.status === "complete" && !notice.expiresAt) {
     clearPostingNotice(notice.id);

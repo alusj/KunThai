@@ -81,6 +81,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [headerOverlayOpen, setHeaderOverlayOpen] = useState(false);
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
   const [menuStackAction, setMenuStackAction] = useState("idle");
   const topChromeRef = useRef(null);
@@ -93,7 +95,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
-  const anyExploreOverlayVisible = menuOverlayVisible || leftDrawerOpen;
+  const anyExploreOverlayVisible = menuOverlayVisible || leftDrawerOpen || composerOpen || headerOverlayOpen;
   const navHidden = useScrollHidden({
     enabled: active && !anyExploreOverlayVisible,
     threshold: 72,
@@ -114,6 +116,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     minDistance: 58,
     maxVerticalDrift: 92,
   });
+
+  useEffect(() => {
+    function handleComposerVisibility(event) {
+      setComposerOpen(Boolean(event.detail?.open));
+    }
+
+    window.addEventListener("kuntai-explore-composer-visibility", handleComposerVisibility);
+    return () => window.removeEventListener("kuntai-explore-composer-visibility", handleComposerVisibility);
+  }, []);
 
   useLayoutEffect(() => {
     const node = topChromeRef.current;
@@ -756,6 +767,7 @@ setProfileError("");
               onNavigate={openMenuScreen}
               onCreateSelect={exploreNav.openComposer}
               onSearchResult={openSearchResult}
+              onOverlayChange={setHeaderOverlayOpen}
             />
           ) : null}
         </div>

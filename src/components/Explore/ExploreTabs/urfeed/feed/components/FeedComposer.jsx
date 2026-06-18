@@ -27,7 +27,7 @@ import {
   writeDraft,
 } from "../composer/composerUtils";
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
-import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
+import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentModeration";
 
 const MAX_LOCAL_VIDEO_BYTES = 150 * 1024 * 1024;
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
@@ -127,7 +127,20 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const hasVideoAttachment = Boolean(videoPreview || pendingVideoFile || pendingVideoUrl);
 
   useBrowserBack(open, () => setOpen(false), "explore-composer");
-  useBodyScrollLock(open);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("kuntai-explore-composer-visibility", {
+      detail: { open },
+    }));
+
+    return () => {
+      if (open) {
+        window.dispatchEvent(new CustomEvent("kuntai-explore-composer-visibility", {
+          detail: { open: false },
+        }));
+      }
+    };
+  }, [open]);
 
   useEffect(() => {
     return () => {
@@ -703,6 +716,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         const frameSourceUrls = [];
 
         if (
+          CONTENT_MODERATION_ENABLED &&
           originalVideoFileRef.current &&
           Number(originalVideoFileRef.current.size || 0) <= LARGE_VIDEO_BACKGROUND_REVIEW_BYTES
         ) {
@@ -713,7 +727,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           }
         }
 
-        frameSourceUrls.push(finalVideoPreview);
+        if (CONTENT_MODERATION_ENABLED) {
+          frameSourceUrls.push(finalVideoPreview);
+        }
 
         for (const sourceUrl of Array.from(new Set(frameSourceUrls.filter(Boolean)))) {
           try {
@@ -736,7 +752,7 @@ if (!isMobileVideoDevice) {
           if (videoFrameDataUrls.length) break;
         }
 
-        videoFrameExtractionFailed = videoFrameDataUrls.length === 0;
+        videoFrameExtractionFailed = CONTENT_MODERATION_ENABLED && videoFrameDataUrls.length === 0;
 
         if (originalVideoFileRef.current) {
           setPostingStage("uploading-media");
@@ -745,7 +761,9 @@ if (!isMobileVideoDevice) {
             status: "posting",
             stage: "uploading-media",
             progress: 24,
-            message: "Uploading your original video securely before the safety scan.",
+            message: CONTENT_MODERATION_ENABLED
+              ? "Uploading your original video securely before the safety scan."
+              : "Uploading your video securely before publishing.",
           });
           uploadedReviewVideoUrl = await uploadExploreVideoForReview(originalVideoFileRef.current);
         }
@@ -754,6 +772,7 @@ if (!isMobileVideoDevice) {
       const tags = parseTags(postDraft.body);
       const uploadedVideoSize = Number(postDraft.mediaMeta?.videoSize || originalVideoFileRef.current?.size || 0);
       const shouldUseBackgroundReview = Boolean(
+        CONTENT_MODERATION_ENABLED &&
         postDraft.video_url &&
         (uploadedVideoSize >= LARGE_VIDEO_BACKGROUND_REVIEW_BYTES || videoFrameExtractionFailed),
       );
@@ -941,15 +960,10 @@ if (!isMobileVideoDevice) {
       />
 
       {open ? (
-        <div
-          className="fixed inset-0 z-50 flex bg-slate-950/30 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
-          onTouchMove={(event) => event.stopPropagation()}
-          onWheel={(event) => event.stopPropagation()}
-        >
+        <div className="fixed inset-0 z-50 flex bg-slate-950/30 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
           <form
             onSubmit={handleSubmit}
-            onPointerDown={(event) => event.stopPropagation()}
-            className="kt-toast-expand-in flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[min(760px,92vh)] sm:max-w-2xl sm:rounded-[28px]"
+            className="flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[min(760px,92vh)] sm:max-w-2xl sm:rounded-[28px]"
           >
             <div className="flex h-16 flex-none items-center justify-between border-b border-slate-100 px-4">
               <button

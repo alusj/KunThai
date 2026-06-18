@@ -6,80 +6,22 @@ import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/
 
 export default function PostMedia({ post }) {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
-  const [imagePreviewScale, setImagePreviewScale] = useState(1);
   const [imageStatus, setImageStatus] = useState(post.image_url ? "loading" : "idle");
   const [videoStatus, setVideoStatus] = useState(post.video_url ? "loading" : "idle");
   const [imageRetryKey, setImageRetryKey] = useState(0);
   const [videoRetryKey, setVideoRetryKey] = useState(0);
   const audioRef = useRef(null);
   const videoRef = useRef(null);
-  const imageOpenTimerRef = useRef(null);
-  const imagePreviewCloseTimerRef = useRef(null);
 
-  useBrowserBack(imagePreviewOpen, closeImagePreview, `image-preview-${post.id}`);
+  useBrowserBack(imagePreviewOpen, () => setImagePreviewOpen(false), `image-preview-${post.id}`);
 
-  useEffect(() => () => {
-    stopAllExploreMedia();
-    clearTimer(imageOpenTimerRef);
-    clearTimer(imagePreviewCloseTimerRef);
-  }, []);
+  useEffect(() => () => stopAllExploreMedia(), []);
 
   useEffect(() => {
     setImageStatus(post.image_url ? "loading" : "idle");
     setImageRetryKey(0);
-    closeImagePreview();
-  }, [post.image_url]);
-
-  function openImagePreview(startScale = 1) {
-    if (imageStatus !== "loaded") return;
-    clearTimer(imageOpenTimerRef);
-    clearTimer(imagePreviewCloseTimerRef);
-    setImagePreviewScale(startScale);
-    setImagePreviewOpen(true);
-  }
-
-  function closeImagePreview() {
-    clearTimer(imageOpenTimerRef);
-    clearTimer(imagePreviewCloseTimerRef);
     setImagePreviewOpen(false);
-    setImagePreviewScale(1);
-  }
-
-  function clearTimer(ref) {
-    if (!ref.current) return;
-    window.clearTimeout(ref.current);
-    ref.current = null;
-  }
-
-  function handleImageOpenClick() {
-    if (imageStatus !== "loaded") return;
-    clearTimer(imageOpenTimerRef);
-    imageOpenTimerRef.current = window.setTimeout(() => {
-      openImagePreview(1);
-      imageOpenTimerRef.current = null;
-    }, 150);
-  }
-
-  function handleImageOpenDoubleClick(event) {
-    event.preventDefault();
-    clearTimer(imageOpenTimerRef);
-    openImagePreview(2);
-  }
-
-  function handlePreviewSurfaceClick() {
-    clearTimer(imagePreviewCloseTimerRef);
-    imagePreviewCloseTimerRef.current = window.setTimeout(() => {
-      closeImagePreview();
-      imagePreviewCloseTimerRef.current = null;
-    }, 180);
-  }
-
-  function handlePreviewSurfaceDoubleClick(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    clearTimer(imagePreviewCloseTimerRef);
-    setImagePreviewScale((current) => (current > 1 ? 1 : 2));
-  }
+  }, [post.image_url]);
 
   useEffect(() => {
     setVideoStatus(post.video_url ? "loading" : "idle");
@@ -101,8 +43,7 @@ export default function PostMedia({ post }) {
           ) : (
             <button
               type="button"
-              onClick={handleImageOpenClick}
-              onDoubleClick={handleImageOpenDoubleClick}
+              onClick={() => imageStatus === "loaded" && setImagePreviewOpen(true)}
               className="kt-pressable relative block aspect-[4/3] w-full overflow-hidden rounded-[20px] bg-slate-100 text-left"
               aria-label="Preview image"
             >
@@ -177,11 +118,11 @@ export default function PostMedia({ post }) {
       ) : null}
 
       {imagePreviewOpen && imageStatus === "loaded" ? (
-        <div className="kt-image-preview-shell fixed inset-0 z-[90] flex flex-col bg-slate-950">
+        <div className="fixed inset-0 z-[90] flex flex-col bg-slate-950">
           <div className="flex h-16 flex-none items-center justify-between px-3 text-white">
             <button
               type="button"
-              onClick={closeImagePreview}
+              onClick={() => setImagePreviewOpen(false)}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-2xl backdrop-blur"
               aria-label="Back to feed"
             >
@@ -190,7 +131,7 @@ export default function PostMedia({ post }) {
             <p className="truncate px-3 text-sm font-black">Image preview</p>
             <button
               type="button"
-              onClick={closeImagePreview}
+              onClick={() => setImagePreviewOpen(false)}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-2xl backdrop-blur"
               aria-label="Close image preview"
             >
@@ -199,24 +140,19 @@ export default function PostMedia({ post }) {
           </div>
           <button
             type="button"
-            onClick={handlePreviewSurfaceClick}
-            onDoubleClick={handlePreviewSurfaceDoubleClick}
-            className="flex min-h-0 flex-1 items-center justify-center overflow-hidden px-2 pb-4"
+            onClick={() => setImagePreviewOpen(false)}
+            className="flex min-h-0 flex-1 items-center justify-center px-2 pb-4"
             aria-label="Close image preview and return to feed"
           >
             <img
-              loading="lazy"
-              src={post.image_url}
+  loading="lazy"
+  src={post.image_url}
               alt=""
               onError={() => {
                 setImageStatus("error");
-                closeImagePreview();
+                setImagePreviewOpen(false);
               }}
-              className="max-h-full max-w-full select-none object-contain transition-transform duration-300"
-              style={{
-                transform: `scale(${imagePreviewScale})`,
-                cursor: imagePreviewScale > 1 ? "zoom-out" : "zoom-in",
-              }}
+              className="max-h-full max-w-full object-contain"
             />
           </button>
         </div>

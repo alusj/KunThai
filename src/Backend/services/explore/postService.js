@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
 import { isMissingColumn, isMissingTable } from "./errors";
 import { removeUploadedMediaUrl, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
@@ -68,6 +69,10 @@ function getModerationStatus(payload) {
     return "not_required";
   }
 
+  if (!CONTENT_MODERATION_ENABLED) {
+    return "approved";
+  }
+
   const status = String(payload.moderation_status || "").toLowerCase();
 
   if (["approved", "pending", "blocked"].includes(status)) {
@@ -81,6 +86,10 @@ function getModerationStatus(payload) {
 
 export function isExplorePostVisibleInFeed(post) {
   if (!post?.video_url) {
+    return true;
+  }
+
+  if (!CONTENT_MODERATION_ENABLED) {
     return true;
   }
 
@@ -218,23 +227,6 @@ export async function fetchExplorePostCounts(postIds = []) {
   const ids = Array.from(new Set((postIds || []).filter(Boolean)));
   if (!ids.length) {
     return new Map();
-  }
-
-  const rpcResult = await supabase
-    .rpc("explore_get_post_action_counts", { target_post_ids: ids })
-    .catch((error) => ({ data: null, error }));
-
-  if (!rpcResult.error && Array.isArray(rpcResult.data)) {
-    return new Map(
-      rpcResult.data.map((item) => [
-        item.post_id,
-        {
-          likes_count: Number(item.likes_count || 0),
-          comments_count: Number(item.comments_count || 0),
-          saves_count: Number(item.saves_count || 0),
-        },
-      ]),
-    );
   }
 
   const [likesResult, commentsResult, savesResult] = await Promise.all([

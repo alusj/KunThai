@@ -91,6 +91,9 @@ export function useExploreNavigation(menuScreens) {
         rememberScrollPosition();
         setNavigation((current) => ({ ...current, activeTab: "UrFeed", menuStack: [] }));
         window.scrollTo({ top: 0, behavior: "instant" });
+        window.dispatchEvent(new CustomEvent("kuntai-explore-composer-visibility", {
+          detail: { open: true },
+        }));
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent("explore-create-post", { detail: { type } }));
         }, 80);

@@ -188,16 +188,9 @@ export default function App() {
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
-  const [pageSlideDirection, setPageSlideDirection] = useState("forward");
-  const [screenNavigationFeedback, setScreenNavigationFeedback] = useState("");
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
   const appGestureRef = useRef(null);
-  const navigationFeedbackTimerRef = useRef(null);
   const userId = user?.id || "";
-
-  useEffect(() => () => {
-    if (navigationFeedbackTimerRef.current) window.clearTimeout(navigationFeedbackTimerRef.current);
-  }, []);
 
   useEffect(() => {
     stopAllExploreMedia();
@@ -255,14 +248,14 @@ export default function App() {
         requestedAt: Date.now(),
       });
 
-      changePage("transport");
+      setPage("transport");
     }
 
     window.addEventListener("kuntai-open-area-view", handleOpenAreaView);
     function handleReturnMainPage(event) {
       const nextPage = normalizeMainPage(event.detail?.page);
       if (!nextPage) return;
-      changePage(nextPage);
+      setPage(nextPage);
     }
 
     window.addEventListener("kuntai-return-main-page", handleReturnMainPage);
@@ -293,32 +286,7 @@ export default function App() {
       return;
     }
 
-    const currentIndex = PAGE_ORDER.indexOf(page);
-    const nextIndex = PAGE_ORDER.indexOf(nextPage);
-    const direction = nextIndex >= currentIndex ? "forward" : "backward";
-    setPageSlideDirection(direction);
-    triggerScreenNavigationFeedback(direction);
     setPage(nextPage);
-  }
-
-  function triggerScreenNavigationFeedback(direction) {
-    if (navigationFeedbackTimerRef.current) {
-      window.clearTimeout(navigationFeedbackTimerRef.current);
-    }
-
-    setScreenNavigationFeedback("");
-    window.requestAnimationFrame(() => {
-      setScreenNavigationFeedback(
-        direction === "backward"
-          ? "kt-main-screen-response-backward"
-          : "kt-main-screen-response-forward",
-      );
-    });
-
-    navigationFeedbackTimerRef.current = window.setTimeout(() => {
-      setScreenNavigationFeedback("");
-      navigationFeedbackTimerRef.current = null;
-    }, 320);
   }
 
   function handleAppTouchStart(event) {
@@ -389,7 +357,7 @@ export default function App() {
       return "hidden";
     }
 
-    return `${pageSlideDirection === "backward" ? "kt-main-slide-backward" : "kt-main-slide-forward"} block min-h-screen`;
+    return "block min-h-screen";
   }
 
   return (
@@ -402,7 +370,7 @@ export default function App() {
         appGestureRef.current = null;
       }}
     >
-      <PageTransition active className={`kt-main-screen-shell min-h-screen ${screenNavigationFeedback}`}>
+      <PageTransition active className="min-h-screen">
         <section className={pagePanelClass("explore")} aria-hidden={page !== "explore"}>
           <Explore
   active={page === "explore"}

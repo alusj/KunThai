@@ -57,7 +57,7 @@ export default function VoiceCapsuleRecorder({
         </span>
 
         <span className="text-xs font-bold text-sky-200">
-          AI safety scan before publishing
+          Ready to publish when you are
         </span>
       </div>
 

@@ -2,8 +2,9 @@ import {
   buildModerationMediaPayload,
   moderateExplorePost,
 } from "../../../../../../Backend/services/explore/safetyService";
+import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentModeration";
 
-export const postingStages = [
+const standardPostingStages = [
   { key: "preparing", label: "Securing draft" },
   { key: "uploading-media", label: "Uploading media securely" },
   { key: "text-scan", label: "Scanning for policy violations" },
@@ -12,6 +13,10 @@ export const postingStages = [
   { key: "syncing", label: "Syncing feed" },
   { key: "complete", label: "Post live" },
 ];
+
+export const postingStages = CONTENT_MODERATION_ENABLED
+  ? standardPostingStages
+  : standardPostingStages.filter((stage) => !["text-scan", "media-scan"].includes(stage.key));
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -32,6 +37,20 @@ function logSafetyReview(event, detail = {}) {
 }
 
 export async function runPostReviewPipeline({ body, media, onStage }) {
+  if (!CONTENT_MODERATION_ENABLED) {
+    onStage?.("publishing", 84);
+    return {
+      ok: true,
+      decision: "approved",
+      review: {
+        ok: true,
+        decision: "approved",
+        reason: "Automated moderation is currently disabled.",
+        flags: ["moderation-disabled"],
+      },
+    };
+  }
+
   if (!media?.videoReviewRequired) {
     onStage?.("preparing", 12);
     await wait(180);

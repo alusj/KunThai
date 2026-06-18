@@ -252,6 +252,20 @@ export default async function handler(req, res) {
     });
   }
 
+  const moderationEnabled = ["1", "true", "yes", "on"].includes(
+    String(process.env.KUNTHAI_CONTENT_MODERATION_ENABLED || "").trim().toLowerCase()
+  );
+
+  if (!moderationEnabled) {
+    return json(res, 200, {
+      ok: true,
+      decision: "approved",
+      reason: "Automated moderation is currently disabled.",
+      flags: ["moderation-disabled"],
+      results: [],
+    });
+  }
+
   try {
     const { body = "", media = {} } = req.body || {};
     const results = [];

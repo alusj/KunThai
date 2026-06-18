@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
 import { isMissingTable } from "./errors";
 
 const BLOCKED_USERS_KEY = "explore-blocked-users";
@@ -199,6 +200,16 @@ export function contentHasModerationFlags(value) {
 }
 
 export async function moderateExplorePost({ body = "", media = {}, signal = undefined }) {
+  if (!CONTENT_MODERATION_ENABLED) {
+    return {
+      ok: true,
+      decision: "approved",
+      reason: "Automated moderation is currently disabled.",
+      flags: ["moderation-disabled"],
+      results: [],
+    };
+  }
+
   const response = await fetch(`${window.location.origin}/api/moderate-post`, {
     method: "POST",
     headers: {

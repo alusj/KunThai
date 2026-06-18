@@ -108,11 +108,10 @@ export default function FeedList({
       </div>
 
       <div className="w-full max-w-full space-y-4 overflow-x-clip">
-        {(posts || []).map((post, index) => (
+        {(posts || []).map((post) => (
           <FeedPost
             key={post.id}
             post={post}
-            animationIndex={index}
             currentUserId={currentUserId}
             liked={(actionsByScope?.[post.feed_scope || "feed"]?.likedPosts || likedPosts)?.has?.(post.id)}
             saved={(actionsByScope?.[post.feed_scope || "feed"]?.savedPosts || savedPosts)?.has?.(post.id)}

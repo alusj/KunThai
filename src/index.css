@@ -244,23 +244,6 @@
     animation: kt-page-slide-backward 260ms var(--kt-ease-standard) backwards;
   }
 
-  .kt-main-screen-shell {
-    transform-origin: center;
-    will-change: transform, filter;
-  }
-
-  .kt-main-screen-response-forward {
-    animation: kt-main-screen-response-forward 320ms var(--kt-ease-emphasized) both;
-  }
-
-  .kt-main-screen-response-backward {
-    animation: kt-main-screen-response-backward 320ms var(--kt-ease-emphasized) both;
-  }
-
-  .kt-image-preview-shell {
-    animation: kt-image-preview-enter 220ms var(--kt-ease-emphasized) both;
-  }
-
   .kt-form-step-slide-forward {
     animation: kt-form-step-slide-forward 260ms var(--kt-ease-standard) both;
   }
@@ -626,47 +609,6 @@
   }
 }
 
-@keyframes kt-main-screen-response-forward {
-  0% {
-    filter: saturate(0.98) brightness(0.99);
-    transform: translate3d(10px, 0, 0) scale(0.996);
-  }
-  58% {
-    filter: saturate(1.02) brightness(1);
-    transform: translate3d(-2px, 0, 0) scale(1.001);
-  }
-  100% {
-    filter: none;
-    transform: none;
-  }
-}
-
-@keyframes kt-main-screen-response-backward {
-  0% {
-    filter: saturate(0.98) brightness(0.99);
-    transform: translate3d(-10px, 0, 0) scale(0.996);
-  }
-  58% {
-    filter: saturate(1.02) brightness(1);
-    transform: translate3d(2px, 0, 0) scale(1.001);
-  }
-  100% {
-    filter: none;
-    transform: none;
-  }
-}
-
-@keyframes kt-image-preview-enter {
-  from {
-    opacity: 0.96;
-    transform: scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 @keyframes kt-form-step-slide-forward {
   from {
     opacity: 0.96;
@@ -962,16 +904,6 @@
   transform-origin: top right;
 }
 
-.kt-feed-card-in {
-  animation: kt-feed-card-in 340ms var(--kt-ease-emphasized) both;
-  animation-delay: var(--kt-feed-card-delay, 0ms);
-  transform-origin: top center;
-}
-
-.kt-swip-like-burst {
-  animation: kt-swip-like-burst 620ms var(--kt-ease-emphasized) both;
-}
-
 @keyframes kt-toast-expand-in {
   from {
     opacity: 0;
@@ -990,22 +922,8 @@
   }
 }
 
-@keyframes kt-feed-card-in {
-  from {
-    opacity: 0;
-    filter: blur(5px);
-    transform: translate3d(0, 18px, 0) scale(0.975);
-  }
-  68% {
-    opacity: 1;
-    filter: blur(0);
-    transform: translate3d(0, -2px, 0) scale(1.01);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-    transform: none;
-  }
+.kt-swip-like-burst {
+  animation: kt-swip-like-burst 620ms var(--kt-ease-emphasized) both;
 }
 
 @keyframes kt-swip-like-burst {
@@ -1019,11 +937,11 @@
   }
   62% {
     opacity: 1;
-    transform: scale(0.96) rotate(0deg);
+    transform: scale(0.96);
   }
   100% {
     opacity: 0;
-    transform: scale(1.35) rotate(0deg);
+    transform: scale(1.35);
   }
 }
 
