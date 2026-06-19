@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { clearExploreMessageCache } from "./explore/messageService";
 
 const SOCIAL_CACHE_KEYS = [
   "explore-liked-posts",
@@ -101,6 +102,7 @@ export function clearTransientSessionNavigation() {
 }
 
 export async function signOutSocialSession() {
+  clearExploreMessageCache();
   clearSocialSessionCache();
   clearTransientSessionNavigation();
   const { error } = await supabase.auth.signOut();

@@ -422,6 +422,22 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     }
   }
 
+  async function dismissCompletedOperatorInvite(invite) {
+    if (!invite) return;
+    try {
+      const completedInvite = await respondToOperatorInvite(invite, {
+        status: "accepted",
+        documents: {
+          operatorAcknowledgedAt: new Date().toISOString(),
+        },
+      });
+      removeOperatorInvite(completedInvite);
+      setOperatorInviteStatus("");
+    } catch (error) {
+      setOperatorInviteStatus(error.message || "Unable to dismiss this completed request.");
+    }
+  }
+
   function completeRegistrationForInvite(invite) {
     setOperatorInviteDocumentsInvite(invite);
   }
@@ -793,6 +809,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         <CompanyWorkspaceScreen
           company={companyAccount}
           statusMessage={companyWorkspaceStatus}
+          onCompanyUpdate={setCompanyAccount}
           onBack={() => {
             setRouteDirection("backward");
             setCompanyWorkspaceOpen(false);
@@ -815,10 +832,10 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           onBack={closeOperatorDashboard}
           onAccountUpdate={setOperatorAccount}
           onLocateArea={openNearbyAreaRoute}
-          onOpenCompany={() => {
+          onOpenCompany={companyAccount?.access?.canViewCompanyHq ? () => {
             setRouteDirection("forward");
             setCompanyWorkspaceOpen(true);
-          }}
+          } : undefined}
           onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}
           onEditRegistration={() => {
             setRouteDirection("forward");
@@ -1042,6 +1059,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         status={operatorInviteStatus}
         onAccept={acceptOperatorCompanyInvite}
         onCompleteRegistration={completeRegistrationForInvite}
+        onDone={dismissCompletedOperatorInvite}
         onReject={rejectOperatorCompanyInvite}
       />
       <Body
@@ -1302,9 +1320,10 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
   };
 }
 
-function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onCompleteRegistration, onReject }) {
+function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onCompleteRegistration, onDone, onReject }) {
   const visibleInvites = invites.filter((invite) =>
-    !["archived", "cancelled", "canceled", "declined", "rejected", "revoked"].includes(String(invite.status || "").toLowerCase()),
+    !invite.documents?.operatorAcknowledgedAt &&
+      !["archived", "cancelled", "canceled", "declined", "rejected", "revoked"].includes(String(invite.status || "").toLowerCase()),
   );
   if (!visibleInvites.length && !status) return null;
 
@@ -1341,6 +1360,7 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
             invite={invite}
             onAccept={onAccept}
             onCompleteRegistration={onCompleteRegistration}
+            onDone={onDone}
             onReject={onReject}
           />
         ))}
@@ -1349,7 +1369,7 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
   );
 }
 
-function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, onReject }) {
+function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, onDone, onReject }) {
   const needsDocuments = invite.status === "accepted_pending_documents" || invite.documents?.operatorDocumentsRequired;
   const accepted = invite.status === "accepted" && !needsDocuments;
   const rejected = invite.status === "rejected";
@@ -1405,9 +1425,18 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
           Reject
         </button>
         </div>
+      ) : accepted ? (
+        <button
+          type="button"
+          onClick={() => onDone?.(invite)}
+          className="kt-pressable mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white shadow-lg shadow-emerald-700/15 transition hover:bg-emerald-700"
+        >
+          <FiCheckCircle size={17} />
+          Done
+        </button>
       ) : (
         <div className="mt-4 rounded-2xl border border-white bg-white px-4 py-3 text-xs font-black text-slate-600">
-          {accepted ? "No further action is needed." : "No active action remains on this request."}
+          No active action remains on this request.
         </div>
       )}
     </article>

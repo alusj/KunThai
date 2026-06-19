@@ -145,6 +145,12 @@ export default function OperatorDashboardScreen({
   const verification =
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
+  const canOpenCompanyHq = Boolean(hasCompanyAccount && companyAccount?.access?.canViewCompanyHq && onOpenCompany);
+  const isCompanySuspended = companyAccount?.access?.serviceStatus === "suspended";
+  const dashboardReadOnly = readOnly || isCompanySuspended;
+  const dashboardReadOnlyReason = isCompanySuspended
+    ? `${companyAccount?.companyName || "Your company"} suspended company service access. Your personal operator information remains available, but service controls are paused until the company restores access.`
+    : readOnlyReason;
   const operatorName = form.name || "Operator not added";
   const fleetName = form.fleetName || "Registered Fleet";
   const operatingArea = form.operatingArea || form.city || "Operating area not added";
@@ -254,8 +260,8 @@ export default function OperatorDashboardScreen({
   }, [account?.fleetId, refreshDashboard]);
 
   async function handleAvailabilityToggle() {
-    if (readOnly) {
-      setDashboardError("This is a read-only company owner view. Availability can only be changed by the operator.");
+    if (dashboardReadOnly) {
+      setDashboardError(dashboardReadOnlyReason);
       return;
     }
 
@@ -294,8 +300,8 @@ export default function OperatorDashboardScreen({
   }
 
   async function handleTripControlsSave(nextControls) {
-    if (readOnly) {
-      setDashboardError("This is a read-only company owner view. Trip controls can only be changed by the operator.");
+    if (dashboardReadOnly) {
+      setDashboardError(dashboardReadOnlyReason);
       return;
     }
 
@@ -313,8 +319,8 @@ export default function OperatorDashboardScreen({
   }
 
   async function handleTripStatusUpdate(trip, status, patch = {}) {
-    if (readOnly) {
-      setDashboardError("This is a read-only company owner view. Passenger trips can only be updated by the operator.");
+    if (dashboardReadOnly) {
+      setDashboardError(dashboardReadOnlyReason);
       return;
     }
 
@@ -358,7 +364,7 @@ export default function OperatorDashboardScreen({
             </p>
           </div>
 
-          {readOnly ? (
+          {dashboardReadOnly ? (
             <span className="hidden h-10 items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 text-sm font-black text-blue-700 sm:flex">
               <FiShield size={16} />
               Read only
@@ -398,15 +404,25 @@ export default function OperatorDashboardScreen({
           )}
 
           {hasCompanyAccount ? (
-            <button
-              type="button"
-              aria-label="Open Fleet HQ"
-              title="Open Fleet HQ"
-              onClick={onOpenCompany}
-              className="kt-touchable flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
-            >
-              <FiBriefcase size={18} />
-            </button>
+            canOpenCompanyHq ? (
+              <button
+                type="button"
+                aria-label={`Open ${companyAccount.companyName || "Fleet HQ"}`}
+                title={`Open ${companyAccount.companyName || "Fleet HQ"}`}
+                onClick={onOpenCompany}
+                className="kt-touchable flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
+              >
+                <FiBriefcase size={18} />
+              </button>
+            ) : (
+              <span
+                aria-label={`Member of ${companyAccount.companyName || "company"}`}
+                title={`Member of ${companyAccount.companyName || "company"}`}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm"
+              >
+                <FiBriefcase size={18} />
+              </span>
+            )
           ) : null}
 
           <button
@@ -438,9 +454,9 @@ export default function OperatorDashboardScreen({
           </div>
         )}
 
-        {readOnly ? (
+        {dashboardReadOnly ? (
           <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
-            {readOnlyReason}
+            {dashboardReadOnlyReason}
           </div>
         ) : null}
 
@@ -451,7 +467,7 @@ export default function OperatorDashboardScreen({
             isActive={isActive}
             availabilityText={availabilityText}
             account={account}
-            readOnly={readOnly}
+            readOnly={dashboardReadOnly}
             onBack={() => setActiveView("dashboard")}
             onUpdateTrip={handleTripStatusUpdate}
             onViewRoute={openPassengerTripRoute}
@@ -465,10 +481,10 @@ export default function OperatorDashboardScreen({
         ) : (
           <>
         <div className="mb-4 flex sm:hidden">
-          {readOnly ? (
+          {dashboardReadOnly ? (
             <div className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-700">
               <FiShield size={16} />
-              Read-only company owner view
+              {isCompanySuspended ? "Company service suspended" : "Read-only company owner view"}
             </div>
           ) : (
             <button
@@ -534,7 +550,7 @@ export default function OperatorDashboardScreen({
             />
           </div>
 
-          {!readOnly ? (
+          {!dashboardReadOnly ? (
             <button
               type="button"
               onClick={onEditRegistration}
@@ -567,14 +583,14 @@ export default function OperatorDashboardScreen({
             pricePerHour={form.pricePerHour || "Not added"}
             waitingCount={waitingPassengers.length}
             verification={verification}
-            readOnly={readOnly}
+            readOnly={dashboardReadOnly}
             onToggle={handleAvailabilityToggle}
             onShowVerification={() => setVerificationOpen(true)}
           />
           <TripControlsContainer
             controls={tripControls}
             saving={controlsSaving}
-            readOnly={readOnly}
+            readOnly={dashboardReadOnly}
             onSave={handleTripControlsSave}
           />
           <VerificationCenterContainer
@@ -587,7 +603,7 @@ export default function OperatorDashboardScreen({
           <OperatorAlertsContainer alerts={alerts} />
           <OperatorToolsContainer
             hasWaitingPassengers={hasWaitingPassengers}
-            readOnly={readOnly}
+            readOnly={dashboardReadOnly}
             onOpenWaiting={hasWaitingPassengers ? () => setActiveView("waiting") : undefined}
             onOpenHistory={() => setActiveView("history")}
           />
@@ -633,7 +649,7 @@ export default function OperatorDashboardScreen({
         documents={account?.documentsSkipped ? "Skipped" : "Submitted"}
         companyAccount={companyAccount}
         companyLoading={companyLoading}
-        readOnly={readOnly}
+        readOnly={dashboardReadOnly}
         onClose={() => setOperatorMenuOpen(false)}
         onToggleAvailability={handleAvailabilityToggle}
         onOpenDashboard={() => {
@@ -1695,6 +1711,7 @@ function OperatorMenuDrawer({
 }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
+  const canOpenCompanyHq = Boolean(hasCompanyAccount && companyAccount?.access?.canViewCompanyHq && onOpenCompany);
   useBodyScrollLock(rendered);
 
   useEffect(() => {
@@ -1712,14 +1729,22 @@ function OperatorMenuDrawer({
 
   if (!rendered) return null;
 
-  const companyAction = hasCompanyAccount
+  const companyAction = canOpenCompanyHq
     ? {
         icon: FiBriefcase,
         label: "Open Fleet HQ",
         detail: `${companyAccount.companyName || "Company workspace"} - ${companyAccount.verificationStatus || "pending"}`,
         onClick: onOpenCompany,
       }
-    : !readOnly
+    : hasCompanyAccount
+      ? {
+          icon: FiBriefcase,
+          label: companyAccount.companyName || "Company membership",
+          detail: companyAccount?.access?.serviceStatus === "suspended"
+            ? "Company service is suspended. Your personal operator information remains available."
+            : "Operator-only access - your dashboard and bookings stay private",
+        }
+      : !readOnly
       ? {
           icon: FiBriefcase,
           label: "Register your transport company",

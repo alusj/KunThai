@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  dedupeExploreConversations,
+  EXPLORE_MESSAGE_CACHE_CLEARED_EVENT,
   EXPLORE_MESSAGE_ACTIVITY_EVENT,
   EXPLORE_MESSAGE_EVENT,
   fetchExploreConversations,
@@ -26,8 +28,9 @@ export function useExploreMessageStatus(currentUserId = "") {
     function reloadMessages() {
      fetchExploreConversations(currentUserId)
   .then((items) => {
-    MESSAGE_STATUS_CACHE.set(currentUserId, { conversations: items, loadedAt: Date.now() });
-    setConversations(items);
+    const deduped = dedupeExploreConversations(items);
+    MESSAGE_STATUS_CACHE.set(currentUserId, { conversations: deduped, loadedAt: Date.now() });
+    setConversations(deduped);
   })
   .catch(() => {
     setConversations(getCachedStatus(currentUserId).conversations || []);
@@ -36,6 +39,12 @@ export function useExploreMessageStatus(currentUserId = "") {
 
     function reloadActivity() {
       setActivity(fetchExploreMessageActivity());
+    }
+
+    function clearMessageStatusCache() {
+      MESSAGE_STATUS_CACHE.clear();
+      setConversations([]);
+      setActivity([]);
     }
 
     const cachedStatus = getCachedStatus(currentUserId);
@@ -47,6 +56,7 @@ export function useExploreMessageStatus(currentUserId = "") {
     const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, reloadMessages);
     window.addEventListener(EXPLORE_MESSAGE_EVENT, reloadMessages);
     window.addEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
+    window.addEventListener(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT, clearMessageStatusCache);
     window.addEventListener("storage", reloadMessages);
 
     const interval = window.setInterval(reloadActivity, 30000);
@@ -55,6 +65,7 @@ export function useExploreMessageStatus(currentUserId = "") {
       unsubscribeRealtime();
       window.removeEventListener(EXPLORE_MESSAGE_EVENT, reloadMessages);
       window.removeEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
+      window.removeEventListener(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT, clearMessageStatusCache);
       window.removeEventListener("storage", reloadMessages);
       window.clearInterval(interval);
     };

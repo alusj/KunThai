@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import supabase from "../lib/supabaseClient";
+import { clearExploreMessageCache } from "../services/explore/messageService";
 import { clearTransientSessionNavigation, rememberSocialAccount } from "../services/sessionService";
 
 export const useAuth = () => {
@@ -20,7 +21,10 @@ export const useAuth = () => {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_, session) => {
+      (event, session) => {
+        if (event === "SIGNED_OUT") {
+          clearExploreMessageCache();
+        }
         if (session?.user) {
           rememberSocialAccount(session.user);
           clearTransientSessionNavigation();

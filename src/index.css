@@ -904,6 +904,21 @@
   transform-origin: top right;
 }
 
+.kt-image-viewer-backdrop {
+  transition: opacity 300ms var(--kt-ease-standard);
+}
+
+.kt-image-viewer-controls {
+  transition: opacity 220ms var(--kt-ease-standard);
+}
+
+.kt-image-viewer-shared {
+  will-change: left, top, width, height, border-radius, transform;
+  transition-duration: 340ms;
+  transition-property: left, top, width, height, border-radius, transform;
+  transition-timing-function: var(--kt-ease-emphasized);
+}
+
 @keyframes kt-toast-expand-in {
   from {
     opacity: 0;

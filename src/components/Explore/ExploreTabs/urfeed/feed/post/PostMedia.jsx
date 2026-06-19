@@ -1,34 +1,172 @@
-import { useEffect, useRef, useState } from "react";
-import { HiOutlineArrowLeft, HiOutlineArrowPath, HiOutlinePhoto, HiOutlineXMark } from "react-icons/hi2";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { HiOutlineArrowLeft, HiOutlineArrowPath, HiOutlinePhoto } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { isAdvertPost } from "../../../../shared/advertUtils";
+import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
+
+const VIEWER_TRANSITION_MS = 340;
+const DOUBLE_TAP_MS = 280;
+
+function getContainedImageRect(image) {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const margin = Math.min(16, Math.max(8, viewportWidth * 0.025));
+  const availableWidth = Math.max(1, viewportWidth - margin * 2);
+  const availableHeight = Math.max(1, viewportHeight - margin * 2);
+  const naturalWidth = Math.max(1, Number(image?.naturalWidth || availableWidth));
+  const naturalHeight = Math.max(1, Number(image?.naturalHeight || availableHeight));
+  const scale = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight);
+  const width = naturalWidth * scale;
+  const height = naturalHeight * scale;
+
+  return {
+    left: (viewportWidth - width) / 2,
+    top: (viewportHeight - height) / 2,
+    width,
+    height,
+  };
+}
+
+function readElementRect(element) {
+  if (!element) return null;
+  const rect = element.getBoundingClientRect();
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
 
 export default function PostMedia({ post, imageOnly = false }) {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [viewerPhase, setViewerPhase] = useState("closed");
+  const [viewerOrigin, setViewerOrigin] = useState(null);
+  const [viewerTarget, setViewerTarget] = useState(null);
+  const [viewerZoomed, setViewerZoomed] = useState(false);
+  const [viewerZoomOrigin, setViewerZoomOrigin] = useState("50% 50%");
   const [imageStatus, setImageStatus] = useState(post.image_url ? "loading" : "idle");
   const [videoStatus, setVideoStatus] = useState(post.video_url ? "loading" : "idle");
   const [imageRetryKey, setImageRetryKey] = useState(0);
   const [videoRetryKey, setVideoRetryKey] = useState(0);
   const audioRef = useRef(null);
   const videoRef = useRef(null);
+  const thumbnailButtonRef = useRef(null);
+  const thumbnailImageRef = useRef(null);
+  const viewerTimerRef = useRef(null);
+  const viewerFrameRef = useRef(null);
+  const viewerSecondFrameRef = useRef(null);
+  const lastViewerTapRef = useRef(0);
   const advertPost = isAdvertPost(post);
 
-  useBrowserBack(imagePreviewOpen, () => setImagePreviewOpen(false), `image-preview-${post.id}`);
+  const closeImagePreview = useCallback(() => {
+    if (!imagePreviewOpen || viewerPhase === "exiting") return;
 
-  useEffect(() => () => stopAllExploreMedia(), []);
+    window.clearTimeout(viewerTimerRef.current);
+    setViewerZoomed(false);
+    setViewerPhase("exiting");
+    viewerTimerRef.current = window.setTimeout(() => {
+      setImagePreviewOpen(false);
+      setViewerPhase("closed");
+      setViewerOrigin(null);
+      setViewerTarget(null);
+      lastViewerTapRef.current = 0;
+    }, VIEWER_TRANSITION_MS);
+  }, [imagePreviewOpen, viewerPhase]);
+
+  useBrowserBack(imagePreviewOpen, closeImagePreview, `image-preview-${post.id}`);
+  useBodyScrollLock(imagePreviewOpen);
+
+  useEffect(() => () => {
+    stopAllExploreMedia();
+    window.clearTimeout(viewerTimerRef.current);
+    window.cancelAnimationFrame(viewerFrameRef.current);
+    window.cancelAnimationFrame(viewerSecondFrameRef.current);
+  }, []);
 
   useEffect(() => {
     setImageStatus(post.image_url ? "loading" : "idle");
     setImageRetryKey(0);
     setImagePreviewOpen(false);
+    setViewerPhase("closed");
+    setViewerZoomed(false);
   }, [post.image_url]);
 
   useEffect(() => {
     setVideoStatus(post.video_url ? "loading" : "idle");
     setVideoRetryKey(0);
   }, [post.video_url]);
+
+  useLayoutEffect(() => {
+    if (!imagePreviewOpen || viewerPhase !== "entering") return undefined;
+
+    viewerFrameRef.current = window.requestAnimationFrame(() => {
+      viewerSecondFrameRef.current = window.requestAnimationFrame(() => setViewerPhase("open"));
+    });
+
+    return () => {
+      window.cancelAnimationFrame(viewerFrameRef.current);
+      window.cancelAnimationFrame(viewerSecondFrameRef.current);
+    };
+  }, [imagePreviewOpen, viewerPhase]);
+
+  useEffect(() => {
+    if (!imagePreviewOpen) return undefined;
+
+    function updateViewerTarget() {
+      setViewerTarget(getContainedImageRect(thumbnailImageRef.current));
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") closeImagePreview();
+    }
+
+    window.addEventListener("resize", updateViewerTarget);
+    window.addEventListener("orientationchange", updateViewerTarget);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("resize", updateViewerTarget);
+      window.removeEventListener("orientationchange", updateViewerTarget);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeImagePreview, imagePreviewOpen]);
+
+  function openImagePreview() {
+    if (imageStatus !== "loaded" || !thumbnailButtonRef.current || !thumbnailImageRef.current) return;
+
+    const origin = readElementRect(thumbnailButtonRef.current);
+    if (!origin) return;
+
+    window.clearTimeout(viewerTimerRef.current);
+    setViewerOrigin(origin);
+    setViewerTarget(getContainedImageRect(thumbnailImageRef.current));
+    setViewerZoomed(false);
+    setViewerZoomOrigin("50% 50%");
+    setViewerPhase("entering");
+    setImagePreviewOpen(true);
+  }
+
+  function handleViewerTap(event) {
+    if (viewerPhase !== "open") return;
+
+    const now = Date.now();
+    if (now - lastViewerTapRef.current > DOUBLE_TAP_MS) {
+      lastViewerTapRef.current = now;
+      return;
+    }
+
+    lastViewerTapRef.current = 0;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / Math.max(1, rect.width)) * 100));
+    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / Math.max(1, rect.height)) * 100));
+    if (!viewerZoomed) setViewerZoomOrigin(`${x}% ${y}%`);
+    setViewerZoomed((current) => !current);
+  }
 
   return (
     <>
@@ -44,13 +182,18 @@ export default function PostMedia({ post, imageOnly = false }) {
             />
           ) : (
             <button
+              ref={thumbnailButtonRef}
               type="button"
-              onClick={() => imageStatus === "loaded" && setImagePreviewOpen(true)}
-              className="kt-pressable relative block aspect-[4/3] w-full overflow-hidden rounded-[20px] bg-slate-100 text-left"
+              onClick={openImagePreview}
+              className={`kt-pressable relative block aspect-[4/3] w-full overflow-hidden rounded-[20px] bg-slate-100 text-left ${
+                imagePreviewOpen ? "opacity-0" : "opacity-100"
+              }`}
               aria-label="Preview image"
+              aria-hidden={imagePreviewOpen}
             >
               {imageStatus !== "loaded" ? <MediaSkeleton /> : null}
               <img
+                ref={thumbnailImageRef}
                 key={`${post.image_url}-${imageRetryKey}`}
                 loading={advertPost ? "eager" : "lazy"}
                 fetchPriority={advertPost ? "high" : "auto"}
@@ -122,46 +265,65 @@ export default function PostMedia({ post, imageOnly = false }) {
         </div>
       ) : null}
 
-      {imagePreviewOpen && imageStatus === "loaded" ? (
-        <div className="fixed inset-0 z-[90] flex flex-col bg-slate-950">
-          <div className="flex h-16 flex-none items-center justify-between px-3 text-white">
-            <button
-              type="button"
-              onClick={() => setImagePreviewOpen(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-2xl backdrop-blur"
-              aria-label="Back to feed"
-            >
-              <HiOutlineArrowLeft />
-            </button>
-            <p className="truncate px-3 text-sm font-black">Image preview</p>
-            <button
-              type="button"
-              onClick={() => setImagePreviewOpen(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-2xl backdrop-blur"
-              aria-label="Close image preview"
-            >
-              <HiOutlineXMark />
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => setImagePreviewOpen(false)}
-            className="flex min-h-0 flex-1 items-center justify-center px-2 pb-4"
-            aria-label="Close image preview and return to feed"
-          >
-            <img
-  loading="lazy"
-  src={post.image_url}
-              alt=""
-              onError={() => {
-                setImageStatus("error");
-                setImagePreviewOpen(false);
+      {imagePreviewOpen && imageStatus === "loaded" && viewerOrigin && viewerTarget
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[1200] overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Full-screen image viewer"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) closeImagePreview();
               }}
-              className="max-h-full max-w-full object-contain"
-            />
-          </button>
-        </div>
-      ) : null}
+            >
+              <button
+                type="button"
+                className="kt-image-viewer-backdrop absolute inset-0 h-full w-full bg-slate-950"
+                style={{ opacity: viewerPhase === "open" ? 0.96 : 0 }}
+                onClick={closeImagePreview}
+                aria-label="Close image viewer"
+              />
+
+              <div
+                className="kt-image-viewer-controls pointer-events-none fixed inset-x-0 top-0 z-20 flex items-center px-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white"
+                style={{ opacity: viewerPhase === "open" ? 1 : 0 }}
+              >
+                <button
+                  type="button"
+                  onClick={closeImagePreview}
+                  className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-2xl text-white shadow-xl backdrop-blur-md"
+                  aria-label="Back to feed"
+                >
+                  <HiOutlineArrowLeft />
+                </button>
+              </div>
+
+              <img
+                src={post.image_url}
+                alt=""
+                draggable="false"
+                onPointerUp={handleViewerTap}
+                onError={() => {
+                  setImageStatus("error");
+                  closeImagePreview();
+                }}
+                className="kt-image-viewer-shared fixed z-10 select-none object-cover shadow-2xl"
+                style={{
+                  left: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).left}px`,
+                  top: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).top}px`,
+                  width: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).width}px`,
+                  height: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).height}px`,
+                  borderRadius: viewerPhase === "open" ? "0px" : "20px",
+                  transform: viewerPhase === "open" && viewerZoomed ? "scale(2)" : "scale(1)",
+                  transformOrigin: viewerZoomOrigin,
+                  cursor: viewerZoomed ? "zoom-out" : "zoom-in",
+                  touchAction: viewerZoomed ? "none" : "manipulation",
+                }}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

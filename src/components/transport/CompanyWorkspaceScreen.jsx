@@ -1,15 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
+  Bell,
   Building2,
+  CalendarClock,
+  Check,
   ClipboardList,
   Clock3,
   Eye,
   FileCheck2,
   FileText,
   Menu as MenuIcon,
+  MoreHorizontal,
   Pencil,
+  PlayCircle,
+  Shield,
   ShieldCheck,
+  Trash2,
   Truck,
   UserRoundPlus,
   UsersRound,
@@ -20,14 +27,29 @@ import { FiActivity, FiMapPin } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
+import { showToast } from "../../Backend/services/toastService";
+import {
+  COMPANY_OPERATOR_ROLES,
+  getTransportCompanyBookingQueue,
+  manageTransportCompanyOperator,
+} from "../services/transportCompanyService";
 
-const tabs = ["Overview", "Fleets", "Colleagues", "Requests", "Activity"];
+const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
 
-export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperatorDashboard, onRegisterCompany, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdate, onOpenOperatorDashboard, onRegisterCompany, statusMessage = "" }) {
   const [activeTab, setActiveTab] = useState("Overview");
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuScreen, setActiveMenuScreen] = useState(null);
+  const [operatorAction, setOperatorAction] = useState(null);
+  const [responsibilityOperator, setResponsibilityOperator] = useState(null);
+  const [removeOperator, setRemoveOperator] = useState(null);
+  const [companyNotificationsOpen, setCompanyNotificationsOpen] = useState(false);
+  const [bookingQueueOpen, setBookingQueueOpen] = useState(false);
+  const [bookingQueue, setBookingQueue] = useState([]);
+  const [bookingQueueLoading, setBookingQueueLoading] = useState(false);
+  const [managementBusy, setManagementBusy] = useState(false);
+  const [localStatus, setLocalStatus] = useState("");
   const menuActionTimerRef = useRef(null);
   const { visibleKey: visibleMenuScreen, action: menuScreenAction } = useSlidePanel(activeMenuScreen);
   const fleets = company?.fleets || [];
@@ -47,6 +69,14 @@ export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperator
       request.status === "accepted_pending_documents" ||
       request.documents?.registrationRequired ||
       request.documents?.operatorDocumentsRequired
+  );
+  const access = company?.access || {};
+  const canManageOperators = Boolean(access.canManageOperators);
+  const canAddOperators = Boolean(access.isOwner);
+  const canViewOperatorDashboard = Boolean(access.isOwner || access.canManageOperators);
+  const canViewAllBookings = Boolean(access.canViewAllBookings);
+  const companyNotifications = (company?.activities || []).filter((activity) =>
+    String(activity.activity_type || activity.activityType || "").startsWith("operator_invite_")
   );
   const metrics = useMemo(
     () => [
@@ -112,6 +142,55 @@ export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperator
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    if (!company?.id || !canViewAllBookings) {
+      setBookingQueue([]);
+      return undefined;
+    }
+
+    async function loadQueue() {
+      try {
+        setBookingQueueLoading(true);
+        const queue = await getTransportCompanyBookingQueue(company);
+        if (active) setBookingQueue(queue);
+      } catch {
+        if (active) setBookingQueue([]);
+      } finally {
+        if (active) setBookingQueueLoading(false);
+      }
+    }
+
+    loadQueue();
+    return () => {
+      active = false;
+    };
+  }, [canViewAllBookings, company]);
+
+  async function runOperatorAction(operator, action, options = {}) {
+    try {
+      setManagementBusy(true);
+      const updatedCompany = await manageTransportCompanyOperator(company, operator, action, options);
+      const copy = action === "responsibility"
+        ? "Operator responsibility updated."
+        : action === "suspend"
+          ? "Operator service suspended."
+          : action === "restore"
+            ? "Operator service restored."
+            : "Operator removed from Fleet HQ.";
+      setLocalStatus(copy);
+      onCompanyUpdate?.(updatedCompany);
+      setOperatorAction(null);
+      setResponsibilityOperator(null);
+      setRemoveOperator(null);
+      showToast(copy, "success");
+    } catch (error) {
+      showToast(error.message || "Unable to update this operator.", "danger");
+    } finally {
+      setManagementBusy(false);
+    }
+  }
+
   function runAfterDrawerClose(callback) {
     if (menuActionTimerRef.current) window.clearTimeout(menuActionTimerRef.current);
     setMenuOpen(false);
@@ -145,6 +224,38 @@ export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperator
               {company?.companyName || "Company Workspace"}
             </h1>
           </div>
+          {company ? (
+            <button
+              type="button"
+              onClick={() => setCompanyNotificationsOpen(true)}
+              aria-label="Fleet HQ notifications"
+              title="Fleet HQ notifications"
+              className="kt-touchable relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-800 transition hover:border-blue-200 hover:bg-blue-50"
+            >
+              <Bell size={19} />
+              {companyNotifications.length ? (
+                <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-600 px-1 text-center text-[10px] font-black leading-5 text-white">
+                  {Math.min(companyNotifications.length, 99)}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
+          {company && canViewAllBookings ? (
+            <button
+              type="button"
+              onClick={() => setBookingQueueOpen(true)}
+              aria-label="Company waiting bookings"
+              title="Company waiting bookings"
+              className="kt-touchable relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+            >
+              <CalendarClock size={19} />
+              {bookingQueue.length ? (
+                <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-emerald-600 px-1 text-center text-[10px] font-black leading-5 text-white">
+                  {Math.min(bookingQueue.length, 99)}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
           {company ? (
             <button
               type="button"
@@ -235,14 +346,22 @@ export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperator
           </div>
 
           <section className="mt-4">
-            {statusMessage ? (
+            {statusMessage || localStatus ? (
               <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
-                {statusMessage}
+                {localStatus || statusMessage}
               </div>
             ) : null}
             {activeTab === "Overview" ? <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} /> : null}
             {activeTab === "Fleets" ? <FleetList fleets={fleets} /> : null}
-            {activeTab === "Colleagues" ? <Colleagues operators={acceptedOperators} onOpenOperatorDashboard={onOpenOperatorDashboard} /> : null}
+            {activeTab === "Operators" ? (
+              <Colleagues
+                canManageOperators={canManageOperators}
+                onAddOperator={canAddOperators ? onRegisterCompany : undefined}
+                onManageOperator={setOperatorAction}
+                operators={acceptedOperators}
+                onOpenOperatorDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
+              />
+            ) : null}
             {activeTab === "Requests" ? <Requests requests={requests} /> : null}
             {activeTab === "Activity" ? <Activity company={company} /> : null}
           </section>
@@ -255,7 +374,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperator
             menuItems={menuItems}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
-            onEdit={openCompanyEditor}
+            onEdit={access.isOwner ? openCompanyEditor : undefined}
             onNavigate={openMenuScreen}
           />
           {visibleMenuScreen ? (
@@ -265,14 +384,67 @@ export default function CompanyWorkspaceScreen({ company, onBack, onOpenOperator
               fleets={fleets}
               item={visibleMenuItem}
               onBack={() => setActiveMenuScreen(null)}
-              onEdit={openCompanyEditor}
-              onOpenOperatorDashboard={onOpenOperatorDashboard}
+              onEdit={access.isOwner ? openCompanyEditor : undefined}
+              onOpenOperatorDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
+              canManageOperators={canManageOperators}
+              onAddOperator={canAddOperators ? onRegisterCompany : undefined}
+              onManageOperator={setOperatorAction}
               operators={acceptedOperators}
               pendingRequests={pendingRequests}
               requests={requests}
               screen={visibleMenuScreen}
             />
           ) : null}
+          <CompanyActivityDrawer
+            activities={companyNotifications}
+            company={company}
+            open={companyNotificationsOpen}
+            onClose={() => setCompanyNotificationsOpen(false)}
+          />
+          <CompanyBookingQueueDrawer
+            bookings={bookingQueue}
+            company={company}
+            loading={bookingQueueLoading}
+            open={bookingQueueOpen}
+            onClose={() => setBookingQueueOpen(false)}
+          />
+          <OperatorActionDrawer
+            busy={managementBusy}
+            canManage={canManageOperators}
+            company={company}
+            onAddOperator={canAddOperators ? onRegisterCompany : undefined}
+            onClose={() => setOperatorAction(null)}
+            onOpenDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
+            onResponsibility={(operator) => {
+              setOperatorAction(null);
+              setResponsibilityOperator(operator);
+            }}
+            onRemove={(operator) => {
+              setOperatorAction(null);
+              setRemoveOperator(operator);
+            }}
+            onRestore={(operator) => runOperatorAction(operator, "restore")}
+            onSuspend={(operator) => runOperatorAction(operator, "suspend")}
+            open={Boolean(operatorAction)}
+            operator={operatorAction}
+          />
+          <ResponsibilityDrawer
+            busy={managementBusy}
+            onAssign={(role) => runOperatorAction(responsibilityOperator, "responsibility", {
+              role,
+              responsibilities: [COMPANY_OPERATOR_ROLES[role]?.label || "Operator only"],
+            })}
+            onClose={() => setResponsibilityOperator(null)}
+            open={Boolean(responsibilityOperator)}
+            operator={responsibilityOperator}
+          />
+          <RemoveOperatorDrawer
+            busy={managementBusy}
+            onClose={() => setRemoveOperator(null)}
+            onConfirm={() => runOperatorAction(removeOperator, "remove")}
+            open={Boolean(removeOperator)}
+            operator={removeOperator}
+          />
         </>
       ) : null}
     </div>
@@ -361,14 +533,16 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
                 <X size={20} />
               </button>
             </div>
-            <button
-              type="button"
-              onClick={onEdit}
-              className="kt-pressable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-700/15 transition hover:bg-blue-700"
-            >
-              <Pencil size={18} />
-              Edit company details
-            </button>
+            {onEdit ? (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="kt-pressable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-700/15 transition hover:bg-blue-700"
+              >
+                <Pencil size={18} />
+                Edit company details
+              </button>
+            ) : null}
           </div>
 
           <nav className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-4 py-4">
@@ -413,11 +587,11 @@ function FleetHqMenuItem({ item, onClick }) {
   );
 }
 
-function MenuStat({ icon: Icon, label, value }) {
+function MenuStat({ icon, label, value }) {
   return (
     <div className="min-w-0 rounded-2xl bg-slate-50 px-3 py-3">
       <div className="flex items-center gap-2 text-blue-700">
-        <Icon size={16} />
+        {createElement(icon, { size: 16 })}
         <p className="truncate text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
       </div>
       <p className="mt-1 truncate text-sm font-black text-slate-950">{value}</p>
@@ -427,11 +601,14 @@ function MenuStat({ icon: Icon, label, value }) {
 
 function FleetHqMenuScreen({
   action,
+  canManageOperators,
   company,
   fleets,
   item,
   onBack,
   onEdit,
+  onAddOperator,
+  onManageOperator,
   onOpenOperatorDashboard,
   operators,
   pendingRequests,
@@ -460,7 +637,15 @@ function FleetHqMenuScreen({
           <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
             {screen === "profile" ? <CompanyProfilePanel company={company} /> : null}
             {screen === "fleets" ? <FleetRecordsPanel fleets={fleets} onEdit={onEdit} /> : null}
-            {screen === "operators" ? <OperatorAccessPanel operators={operators} onOpenOperatorDashboard={onOpenOperatorDashboard} /> : null}
+            {screen === "operators" ? (
+              <OperatorAccessPanel
+                canManageOperators={canManageOperators}
+                onAddOperator={onAddOperator}
+                onManageOperator={onManageOperator}
+                operators={operators}
+                onOpenOperatorDashboard={onOpenOperatorDashboard}
+              />
+            ) : null}
             {screen === "requests" ? <RequestsPanel requests={requests} pendingRequests={pendingRequests} /> : null}
             {screen === "verification" ? <VerificationCenterPanel company={company} fleets={fleets} pendingRequests={pendingRequests} onEdit={onEdit} /> : null}
             {screen === "activity" ? <ActivityPanel company={company} /> : null}
@@ -521,14 +706,16 @@ function FleetRecordsPanel({ fleets, onEdit }) {
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet records</p>
             <h3 className="text-2xl font-black text-slate-950">{fleets.length} registered fleet{fleets.length === 1 ? "" : "s"}</h3>
           </div>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="kt-pressable flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
-          >
-            <Pencil size={17} />
-            Edit records
-          </button>
+          {onEdit ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="kt-pressable flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
+            >
+              <Pencil size={17} />
+              Edit records
+            </button>
+          ) : null}
         </div>
       </section>
       <FleetList fleets={fleets} />
@@ -536,7 +723,7 @@ function FleetRecordsPanel({ fleets, onEdit }) {
   );
 }
 
-function OperatorAccessPanel({ operators, onOpenOperatorDashboard }) {
+function OperatorAccessPanel({ canManageOperators, onAddOperator, onManageOperator, operators, onOpenOperatorDashboard }) {
   return (
     <div className="grid gap-4">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -546,7 +733,13 @@ function OperatorAccessPanel({ operators, onOpenOperatorDashboard }) {
           Company owners can review passenger records, trip history, documents, and activity from here without changing the operator account.
         </p>
       </section>
-      <Colleagues operators={operators} onOpenOperatorDashboard={onOpenOperatorDashboard} />
+      <Colleagues
+        canManageOperators={canManageOperators}
+        onAddOperator={onAddOperator}
+        onManageOperator={onManageOperator}
+        operators={operators}
+        onOpenOperatorDashboard={onOpenOperatorDashboard}
+      />
     </div>
   );
 }
@@ -580,14 +773,16 @@ function VerificationCenterPanel({ company, fleets, pendingRequests, onEdit }) {
           <ReadinessItem ready={documents.length > 0} label="Company documents attached" />
           <ReadinessItem ready={pendingRequests.length === 0} label="Operator requests reviewed" />
         </div>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="kt-pressable mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
-        >
-          <Pencil size={17} />
-          Update verification file
-        </button>
+        {onEdit ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="kt-pressable mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+          >
+            <Pencil size={17} />
+            Update verification file
+          </button>
+        ) : null}
       </section>
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
         <h3 className="font-black text-slate-950">Submitted documents</h3>
@@ -708,29 +903,79 @@ function FleetList({ fleets }) {
   );
 }
 
-function Colleagues({ operators, onOpenOperatorDashboard }) {
-  if (!operators.length) return <EmptyPanel title="No colleagues accepted yet" body="Accepted operators and admins will appear here." />;
-  return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {operators.map((operator) => (
-        <section key={operator.requestId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Operator</p>
-          <h3 className="mt-1 text-lg font-black text-slate-950">{operator.name}</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">{operator.publicId}</p>
-          <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
-            Assigned to {operator.fleetName || operator.fleetType}
-          </p>
+function Colleagues({ canManageOperators, onAddOperator, onManageOperator, operators, onOpenOperatorDashboard }) {
+  if (!operators.length) {
+    return (
+      <div className="grid gap-3">
+        <EmptyPanel title="No operators accepted yet" body="Accepted operators and delegated staff will appear here." />
+        {canManageOperators && onAddOperator ? (
           <button
             type="button"
-            onClick={() => onOpenOperatorDashboard?.(operator)}
-            disabled={!operator.operatorId || !onOpenOperatorDashboard}
-            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+            onClick={onAddOperator}
+            className="kt-pressable flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-700/15"
           >
-            <Eye size={17} />
-            {operator.operatorId ? "View dashboard" : "Dashboard pending"}
+            <UserRoundPlus size={18} />
+            Add an operator
           </button>
-        </section>
-      ))}
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-4">
+      {canManageOperators && onAddOperator ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onAddOperator}
+            className="kt-pressable flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-700/15"
+          >
+            <UserRoundPlus size={17} />
+            Add operator
+          </button>
+        </div>
+      ) : null}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {operators.map((operator) => {
+          const suspended = operator.serviceStatus === "suspended";
+          const role = COMPANY_OPERATOR_ROLES[operator.memberRole] || COMPANY_OPERATOR_ROLES.operator;
+          return (
+            <section key={operator.operatorId || operator.requestId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs font-black uppercase tracking-wide ${suspended ? "text-amber-700" : "text-emerald-700"}`}>
+                    {suspended ? "Service suspended" : role.label}
+                  </p>
+                  <h3 className="mt-1 truncate text-lg font-black text-slate-950">{operator.name}</h3>
+                  <p className="mt-1 truncate text-sm font-semibold text-slate-500">{operator.publicId}</p>
+                </div>
+                {canManageOperators ? (
+                  <button
+                    type="button"
+                    aria-label={`Manage ${operator.name || "operator"}`}
+                    onClick={() => onManageOperator?.(operator)}
+                    className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <MoreHorizontal size={20} />
+                  </button>
+                ) : null}
+              </div>
+              <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${suspended ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>
+                Assigned to {operator.fleetName || operator.fleetType}
+              </p>
+              <button
+                type="button"
+                onClick={() => onOpenOperatorDashboard?.(operator)}
+                disabled={!operator.operatorId || !onOpenOperatorDashboard}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+              >
+                <Eye size={17} />
+                {operator.operatorId ? "View dashboard" : "Dashboard pending"}
+              </button>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -783,6 +1028,270 @@ function Activity({ company }) {
         </section>
       ))}
     </div>
+  );
+}
+
+function FleetHqActionSheet({ children, label, onClose, open, widthClass = "max-w-lg" }) {
+  const { rendered, panelOpen } = useDrawerTransition(open);
+
+  useEffect(() => {
+    if (!rendered || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose, rendered]);
+
+  if (!rendered) return null;
+  return (
+    <AppPortal>
+      <div className="fixed inset-0 z-[1320] flex items-end justify-center px-3 py-4 sm:items-center">
+        <button
+          type="button"
+          aria-label={`Close ${label}`}
+          onClick={onClose}
+          className={`absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-sm transition-opacity duration-300 ${panelOpen ? "opacity-100" : "opacity-0"}`}
+        />
+        <section
+          aria-label={label}
+          className={`relative max-h-[88dvh] w-full ${widthClass} overflow-hidden rounded-[30px] border border-white/70 bg-white shadow-2xl transition duration-300 ease-[var(--kt-ease-emphasized)] ${
+            panelOpen ? "kt-toast-expand-in translate-y-0 scale-100 opacity-100" : "translate-y-6 scale-95 opacity-0"
+          }`}
+        >
+          {children}
+        </section>
+      </div>
+    </AppPortal>
+  );
+}
+
+function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
+  return (
+    <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+        {createElement(icon, { size: 22 })}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{eyebrow}</p>
+        <h2 className="truncate text-xl font-black text-slate-950">{title}</h2>
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+      >
+        <X size={20} />
+      </button>
+    </div>
+  );
+}
+
+function CompanyActivityDrawer({ activities, company, onClose, open }) {
+  return (
+    <FleetHqActionSheet label="Fleet HQ notifications" onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow="Company notifications" icon={Bell} onClose={onClose} title={company?.companyName || "Fleet HQ"} />
+      <div className="max-h-[65dvh] overflow-y-auto bg-slate-50 p-4">
+        {activities.length ? (
+          <div className="grid gap-3">
+            {activities.map((activity) => (
+              <article key={activity.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                    <Bell size={17} />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-950">{activity.title}</h3>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{activity.body}</p>
+                    {activity.created_at ? (
+                      <p className="mt-2 text-[11px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel title="No company notifications" body="Operator invitation responses will appear here." />
+        )}
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+function CompanyBookingQueueDrawer({ bookings, company, loading, onClose, open }) {
+  return (
+    <FleetHqActionSheet label="Company waiting bookings" onClose={onClose} open={open} widthClass="max-w-xl">
+      <ActionSheetHeader eyebrow="Waiting bookings" icon={CalendarClock} onClose={onClose} title={company?.companyName || "Fleet HQ"} />
+      <div className="max-h-[65dvh] overflow-y-auto bg-slate-50 p-4">
+        {loading ? (
+          <div className="rounded-2xl bg-white p-5 text-center text-sm font-black text-slate-500">Loading company bookings...</div>
+        ) : bookings.length ? (
+          <div className="grid gap-3">
+            {bookings.map((booking) => (
+              <article key={booking.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{booking.status.replaceAll("_", " ")}</p>
+                    <h3 className="mt-1 truncate font-black text-slate-950">{booking.passengerName}</h3>
+                    <p className="mt-1 text-xs font-bold text-slate-500">{booking.operatorName} · {booking.fleetName}</p>
+                  </div>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase text-emerald-700">{booking.tripType}</span>
+                </div>
+                <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{booking.pickup} → {booking.destination}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyPanel title="No waiting bookings" body="New passenger and delivery requests assigned to company operators will appear here." />
+        )}
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+function OperatorActionButton({ danger = false, detail, disabled, icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`kt-touchable flex w-full items-center gap-3 rounded-2xl border bg-white p-4 text-left shadow-sm transition disabled:cursor-wait disabled:opacity-60 ${
+        danger ? "border-rose-100 hover:border-rose-200 hover:bg-rose-50" : "border-slate-100 hover:border-blue-200 hover:bg-blue-50/60"
+      }`}
+    >
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${danger ? "bg-rose-50 text-rose-700" : "bg-slate-50 text-slate-800"}`}>
+        {createElement(icon, { size: 19 })}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-sm font-black ${danger ? "text-rose-800" : "text-slate-950"}`}>{label}</span>
+        <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{detail}</span>
+      </span>
+    </button>
+  );
+}
+
+function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose, onOpenDashboard, onRemove, onResponsibility, onRestore, onSuspend, open, operator }) {
+  if (!operator && !open) return null;
+  const suspended = operator?.serviceStatus === "suspended";
+  return (
+    <FleetHqActionSheet label="Operator actions" onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow={company?.companyName || "Fleet HQ"} icon={MoreHorizontal} onClose={onClose} title={operator?.name || "Operator actions"} />
+      <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
+        <div className="grid gap-3">
+          <OperatorActionButton
+            detail="Review this operator's bookings, trips, documents, and service record."
+            disabled={!operator?.operatorId || !onOpenDashboard || busy}
+            icon={Eye}
+            label="View operator dashboard"
+            onClick={() => {
+              onClose?.();
+              onOpenDashboard?.(operator);
+            }}
+          />
+          {canManage ? (
+            <>
+              <OperatorActionButton
+                detail="Choose operator-only, dispatcher, fleet manager, or company admin access."
+                disabled={busy}
+                icon={Shield}
+                label="Give responsibility"
+                onClick={() => onResponsibility?.(operator)}
+              />
+              <OperatorActionButton
+                detail={suspended ? "Restore company service access for this operator." : "Pause company service and hide the operator's fleet from new passengers."}
+                disabled={busy}
+                icon={suspended ? PlayCircle : ShieldCheck}
+                label={suspended ? "Restore service" : "Suspend service"}
+                onClick={() => (suspended ? onRestore?.(operator) : onSuspend?.(operator))}
+              />
+              {onAddOperator ? (
+                <OperatorActionButton
+                  detail="Open company registration to invite another operator by KunThai ID."
+                  disabled={busy}
+                  icon={UserRoundPlus}
+                  label="Add another operator"
+                  onClick={() => {
+                    onClose?.();
+                    onAddOperator?.();
+                  }}
+                />
+              ) : null}
+              <OperatorActionButton
+                danger
+                detail="Detach this operator from Fleet HQ without deleting their personal KunThai account."
+                disabled={busy}
+                icon={Trash2}
+                label="Remove from company"
+                onClick={() => onRemove?.(operator)}
+              />
+            </>
+          ) : null}
+        </div>
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
+  return (
+    <FleetHqActionSheet label="Give operator responsibility" onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow="Access and responsibility" icon={Shield} onClose={onClose} title={operator?.name || "Operator"} />
+      <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
+        <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">
+          Choose the smallest role this person needs. Operator-only access stays limited to their own dashboard and bookings.
+        </p>
+        <div className="grid gap-3">
+          {Object.entries(COMPANY_OPERATOR_ROLES).map(([role, preset]) => {
+            const selected = (operator?.memberRole || "operator") === role;
+            return (
+              <button
+                key={role}
+                type="button"
+                disabled={busy}
+                onClick={() => onAssign?.(role)}
+                className={`kt-touchable flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition disabled:cursor-wait disabled:opacity-60 ${
+                  selected ? "border-blue-300 bg-blue-50 shadow-sm" : "border-slate-100 bg-white hover:border-blue-200"
+                }`}
+              >
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${selected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}>
+                  {selected ? <Check size={18} /> : <Shield size={18} />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-black text-slate-950">{preset.label}</span>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{preset.description}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+function RemoveOperatorDrawer({ busy, onClose, onConfirm, open, operator }) {
+  return (
+    <FleetHqActionSheet label="Remove operator from company" onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow="Company access" icon={Trash2} onClose={onClose} title={`Remove ${operator?.name || "operator"}?`} />
+      <div className="p-5">
+        <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">
+          This removes the operator from Fleet HQ and stops company service. It does not delete their KunThai account, personal records, or identity.
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60">Keep operator</button>
+          <button type="button" disabled={busy} onClick={onConfirm} className="h-12 rounded-2xl bg-rose-600 px-4 text-sm font-black text-white shadow-lg shadow-rose-700/15 disabled:opacity-60">
+            {busy ? "Removing..." : "Remove from company"}
+          </button>
+        </div>
+      </div>
+    </FleetHqActionSheet>
   );
 }
 

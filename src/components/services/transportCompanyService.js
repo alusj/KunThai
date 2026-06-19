@@ -8,6 +8,46 @@ const COMPANY_ACCOUNT_PREFIX = "kuntai.transport.companyAccount.";
 const COMPANY_INVITES_KEY = "kuntai.transport.companyInvites";
 const COMPANY_EVENT = "kunthai-transport-company-updated";
 
+export const COMPANY_OPERATOR_ROLES = {
+  operator: {
+    label: "Operator only",
+    description: "Can access only their own operator dashboard and bookings.",
+    permissions: {},
+  },
+  dispatcher: {
+    label: "Dispatcher",
+    description: "Can open Fleet HQ, view the waiting queue, and coordinate bookings.",
+    permissions: {
+      view_company_hq: true,
+      view_all_bookings: true,
+      dispatch_bookings: true,
+      view_company_activity: true,
+    },
+  },
+  fleet_manager: {
+    label: "Fleet manager",
+    description: "Can review fleets, operators, bookings, and company activity.",
+    permissions: {
+      view_company_hq: true,
+      view_all_bookings: true,
+      manage_fleets: true,
+      view_company_activity: true,
+    },
+  },
+  admin: {
+    label: "Company admin",
+    description: "Can manage operators, responsibilities, fleets, bookings, and activity.",
+    permissions: {
+      view_company_hq: true,
+      view_all_bookings: true,
+      manage_operators: true,
+      manage_fleets: true,
+      dispatch_bookings: true,
+      view_company_activity: true,
+    },
+  },
+};
+
 function safeParse(value) {
   try {
     return value ? JSON.parse(value) : null;
@@ -251,9 +291,97 @@ function normalizeInvite(invite = {}) {
     verificationStatus: invite.verificationStatus || invite.verification_status || "pending",
     status: invite.status || "pending",
     documents: safeParse(invite.documents) || invite.documents || {},
+    memberId: invite.memberId || invite.member_id || "",
+    memberRole: invite.memberRole || invite.member_role || "operator",
+    memberStatus: invite.memberStatus || invite.member_status || "active",
+    serviceStatus: invite.serviceStatus || invite.service_status || "active",
+    permissions: safeParse(invite.permissions) || invite.permissions || {},
+    responsibilities: Array.isArray(invite.responsibilities) ? invite.responsibilities : [],
     createdAt: invite.createdAt || invite.created_at || new Date().toISOString(),
     updatedAt: invite.updatedAt || invite.updated_at || invite.createdAt || invite.created_at || new Date().toISOString(),
   };
+}
+
+function normalizeCompanyMember(member = {}) {
+  return {
+    id: member.id || "",
+    companyId: member.companyId || member.company_id || "",
+    userId: member.userId || member.user_id || "",
+    operatorId: member.operatorId || member.operator_id || "",
+    publicId: member.publicId || member.public_id || "",
+    fullName: member.fullName || member.full_name || "Company member",
+    role: member.role || "operator",
+    status: member.status || "pending",
+    serviceStatus: member.serviceStatus || member.service_status || "active",
+    permissions: safeParse(member.permissions) || member.permissions || {},
+    responsibilities: Array.isArray(member.responsibilities) ? member.responsibilities : [],
+    suspendedAt: member.suspendedAt || member.suspended_at || "",
+    joinedAt: member.joinedAt || member.joined_at || "",
+    updatedAt: member.updatedAt || member.updated_at || "",
+  };
+}
+
+function permissionEnabled(member = {}, key) {
+  const permissions = safeParse(member.permissions) || member.permissions || {};
+  if (permissions?.[key] === true) return true;
+  if (member.role === "admin") return true;
+  if (member.role === "fleet_manager") {
+    return ["view_company_hq", "view_all_bookings", "manage_fleets", "view_company_activity"].includes(key);
+  }
+  if (member.role === "dispatcher") {
+    return ["view_company_hq", "view_all_bookings", "dispatch_bookings", "view_company_activity"].includes(key);
+  }
+  return false;
+}
+
+function buildCompanyAccess(company = {}, member = null, userId = "") {
+  const isOwner = Boolean(userId && (company.owner_user_id || company.userId) === userId);
+  const normalizedMember = member ? normalizeCompanyMember(member) : null;
+  const active = isOwner || (
+    normalizedMember?.status === "active" && normalizedMember?.serviceStatus === "active"
+  );
+  const can = (key) => isOwner || (active && permissionEnabled(normalizedMember || {}, key));
+
+  return {
+    isOwner,
+    role: isOwner ? "owner" : normalizedMember?.role || "operator",
+    memberId: normalizedMember?.id || "",
+    memberStatus: normalizedMember?.status || (isOwner ? "active" : "pending"),
+    serviceStatus: normalizedMember?.serviceStatus || "active",
+    responsibilities: normalizedMember?.responsibilities || [],
+    permissions: normalizedMember?.permissions || {},
+    canViewCompanyHq: isOwner || can("view_company_hq"),
+    canViewAllBookings: isOwner || can("view_all_bookings"),
+    canManageOperators: isOwner || can("manage_operators"),
+    canManageFleets: isOwner || can("manage_fleets"),
+    canDispatchBookings: isOwner || can("dispatch_bookings"),
+    canViewCompanyActivity: isOwner || can("view_company_activity"),
+  };
+}
+
+function attachMembersToFleets(fleets = [], members = []) {
+  const normalizedMembers = (members || []).map(normalizeCompanyMember);
+  return (fleets || []).map((fleet) => ({
+    ...fleet,
+    operators: (fleet.operators || []).map((operator) => {
+      const normalized = normalizeInvite(operator);
+      const member = normalizedMembers.find((candidate) =>
+        (normalized.operatorId && candidate.operatorId === normalized.operatorId) ||
+        (normalized.userId && candidate.userId === normalized.userId) ||
+        (normalized.publicId && candidate.publicId === normalized.publicId)
+      );
+      if (!member) return normalized;
+      return normalizeInvite({
+        ...normalized,
+        memberId: member.id,
+        memberRole: member.role,
+        memberStatus: member.status,
+        serviceStatus: member.serviceStatus,
+        permissions: member.permissions,
+        responsibilities: member.responsibilities,
+      });
+    }),
+  }));
 }
 
 function normalizeFleet(fleet = {}, index = 0) {
@@ -359,7 +487,9 @@ function normalizeCompanyAccount(input = {}, userId = "") {
     documents: company.documents || {},
     fleets: (input.fleets || company.fleets || []).map(normalizeFleet),
     invites: input.invites || company.invites || [],
+    members: (input.members || company.members || []).map(normalizeCompanyMember),
     activities: input.activities || company.activities || [],
+    access: input.access || company.access || buildCompanyAccess(company, input.currentMember || company.currentMember, userId),
     verificationStatus: company.verificationStatus || company.verification_status || "pending",
     accountStatus: company.accountStatus || company.account_status || "draft",
     savedAt: company.savedAt || company.updated_at || company.created_at || new Date().toISOString(),
@@ -568,29 +698,63 @@ export async function getTransportCompanyAccount() {
   const user = await getCurrentUser();
 
   try {
-    const { data: company, error } = await supabase
+    const { data: ownedCompany, error: ownerError } = await supabase
       .from("transport_companies")
       .select("*")
       .eq("owner_user_id", user.id)
       .maybeSingle();
 
-    if (error) throw error;
+    if (ownerError) throw ownerError;
+    let company = ownedCompany || null;
+    let currentMember = null;
+
+    if (!company) {
+      const { data: memberships, error: membershipError } = await supabase
+        .from("transport_company_members")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("status", ["active", "suspended"])
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (membershipError) throw membershipError;
+      currentMember = memberships?.[0] || null;
+
+      if (currentMember?.company_id) {
+        const { data: memberCompany, error: companyError } = await supabase
+          .from("transport_companies")
+          .select("*")
+          .eq("id", currentMember.company_id)
+          .maybeSingle();
+        if (companyError) throw companyError;
+        company = memberCompany || null;
+      }
+    }
+
     if (!company) {
       localStorage.removeItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id));
       return null;
     }
 
-    const [fleets, invites, activities] = await Promise.all([
+    const access = buildCompanyAccess(company, currentMember, user.id);
+    const [fleets, invites, activities, members] = await Promise.all([
       safeSelectRows(supabase.from("transport_company_fleets").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
       safeSelectRows(supabase.from("transport_company_operator_invites").select("*").eq("company_id", company.id).order("created_at", { ascending: false })),
       safeSelectRows(supabase.from("transport_company_activities").select("*").eq("company_id", company.id).order("created_at", { ascending: false }).limit(30)),
+      safeSelectRows(supabase.from("transport_company_members").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
     ]);
+    const companyFleets = attachMembersToFleets(
+      attachInvitesToFleets(fleets || [], invites || []),
+      members || [],
+    );
 
     const account = normalizeCompanyAccount({
       company,
-      fleets: attachInvitesToFleets(fleets || [], invites || []),
+      fleets: companyFleets,
       invites: invites || [],
       activities: activities || [],
+      members: members || [],
+      currentMember,
+      access,
       storageMode: "cloud",
     }, user.id);
 
@@ -1340,6 +1504,207 @@ export async function updateTransportCompanyAccount(patch) {
   return writeLocalCompanyAccount(user.id, next);
 }
 
+function findCompanyOperatorMember(company = {}, operator = {}) {
+  return (company.members || []).map(normalizeCompanyMember).find((member) =>
+    (operator.memberId && member.id === operator.memberId) ||
+    (operator.operatorId && member.operatorId === operator.operatorId) ||
+    (operator.userId && member.userId === operator.userId) ||
+    (operator.publicId && member.publicId === operator.publicId)
+  );
+}
+
+async function recordCompanyManagementActivity(companyId, userId, type, title, body, metadata = {}) {
+  return insertSelectSingle(
+    "transport_company_activities",
+    {
+      company_id: companyId,
+      actor_user_id: userId,
+      activity_type: type,
+      title,
+      body,
+      metadata,
+    },
+    ["actor_user_id", "activity_type", "body", "metadata"],
+  );
+}
+
+export async function manageTransportCompanyOperator(companyAccount, operator, action, options = {}) {
+  const user = await getCurrentUser("Sign in to manage company operators.");
+  const company = companyAccount?.id ? companyAccount : await getTransportCompanyAccount();
+  if (!company?.id || !company?.access?.canManageOperators) {
+    throw new Error("Only the company creator or an authorized admin can manage operators.");
+  }
+
+  const member = findCompanyOperatorMember(company, operator);
+  if (!member?.id) throw new Error("This operator membership is not ready yet. Refresh Fleet HQ and try again.");
+  if (member.role === "owner") throw new Error("The company creator cannot be changed from the operator action menu.");
+
+  const now = new Date().toISOString();
+  let memberPatch = null;
+  let activity = null;
+
+  if (action === "responsibility") {
+    const role = COMPANY_OPERATOR_ROLES[options.role] ? options.role : "operator";
+    const preset = COMPANY_OPERATOR_ROLES[role];
+    memberPatch = {
+      role,
+      permissions: preset.permissions,
+      responsibilities: Array.isArray(options.responsibilities) ? options.responsibilities : [preset.label],
+      service_status: "active",
+      status: "active",
+      suspended_at: null,
+      managed_by: user.id,
+      updated_at: now,
+    };
+    activity = {
+      type: "operator_responsibility_updated",
+      title: "Operator responsibility updated",
+      body: `${operator.name || member.fullName} is now ${preset.label.toLowerCase()}.`,
+      metadata: { memberId: member.id, operatorId: operator.operatorId || member.operatorId, role },
+    };
+  } else if (action === "suspend") {
+    memberPatch = {
+      service_status: "suspended",
+      suspended_at: now,
+      managed_by: user.id,
+      updated_at: now,
+    };
+    activity = {
+      type: "operator_service_suspended",
+      title: "Operator service suspended",
+      body: `${operator.name || member.fullName}'s company service access was suspended.`,
+      metadata: { memberId: member.id, operatorId: operator.operatorId || member.operatorId },
+    };
+  } else if (action === "restore") {
+    memberPatch = {
+      service_status: "active",
+      status: "active",
+      suspended_at: null,
+      managed_by: user.id,
+      updated_at: now,
+    };
+    activity = {
+      type: "operator_service_restored",
+      title: "Operator service restored",
+      body: `${operator.name || member.fullName}'s company service access was restored.`,
+      metadata: { memberId: member.id, operatorId: operator.operatorId || member.operatorId },
+    };
+  } else if (action === "remove") {
+    memberPatch = {
+      status: "removed",
+      service_status: "removed",
+      managed_by: user.id,
+      updated_at: now,
+    };
+    activity = {
+      type: "operator_removed",
+      title: "Operator removed from company",
+      body: `${operator.name || member.fullName} was removed from Fleet HQ. Their personal KunThai account was not deleted.`,
+      metadata: { memberId: member.id, operatorId: operator.operatorId || member.operatorId },
+    };
+  } else {
+    throw new Error("Unsupported operator action.");
+  }
+
+  const { error: memberError } = await supabase
+    .from("transport_company_members")
+    .update(memberPatch)
+    .eq("id", member.id)
+    .eq("company_id", company.id);
+  if (memberError) throw memberError;
+
+  if (["suspend", "remove"].includes(action) && (operator.operatorId || member.operatorId)) {
+    const { error: fleetError } = await supabase
+      .from("transport_fleets")
+      .update({ active_status: "offline", is_visible_to_passengers: false, updated_at: now })
+      .eq("operator_id", operator.operatorId || member.operatorId);
+    if (fleetError) throw fleetError;
+  }
+
+  if (action === "remove") {
+    let inviteQuery = supabase
+      .from("transport_company_operator_invites")
+      .update({ status: "revoked", updated_at: now })
+      .eq("company_id", company.id);
+    if (operator.id) inviteQuery = inviteQuery.eq("id", operator.id);
+    else if (operator.operatorId || member.operatorId) inviteQuery = inviteQuery.eq("operator_id", operator.operatorId || member.operatorId);
+    else inviteQuery = inviteQuery.eq("operator_user_id", operator.userId || member.userId);
+    const { error: inviteError } = await inviteQuery;
+    if (inviteError) throw inviteError;
+  }
+
+  await recordCompanyManagementActivity(
+    company.id,
+    user.id,
+    activity.type,
+    activity.title,
+    activity.body,
+    activity.metadata,
+  ).catch(() => null);
+
+  return getTransportCompanyAccount();
+}
+
+export async function getTransportCompanyBookingQueue(companyAccount = null) {
+  const company = companyAccount?.id ? companyAccount : await getTransportCompanyAccount();
+  if (!company?.id || !company?.access?.canViewAllBookings) return [];
+
+  const companyOperators = [
+    ...(company.invites || []),
+    ...(company.fleets || []).flatMap((fleet) => fleet.operators || []),
+  ].map(normalizeInvite);
+  const operatorIds = uniqueValues([
+    ...companyOperators
+      .filter((invite) => invite.status === "accepted" && invite.operatorId)
+      .map((invite) => invite.operatorId),
+    ...(company.members || [])
+      .map(normalizeCompanyMember)
+      .filter((member) => member.status === "active" && member.serviceStatus === "active" && member.operatorId)
+      .map((member) => member.operatorId),
+  ]);
+  if (!operatorIds.length) return [];
+
+  const { data: fleets, error: fleetError } = await supabase
+    .from("transport_fleets")
+    .select("id, operator_id, fleet_name, plate_number")
+    .in("operator_id", operatorIds);
+  if (fleetError) throw fleetError;
+  if (!fleets?.length) return [];
+
+  const { data: trips, error: tripError } = await supabase
+    .from("transport_trips")
+    .select("*")
+    .in("fleet_id", fleets.map((fleet) => fleet.id))
+    .in("status", ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "start_requested", "in_progress", "paused"])
+    .order("created_at", { ascending: false });
+  if (tripError) throw tripError;
+
+  const fleetById = new Map(fleets.map((fleet) => [fleet.id, fleet]));
+  const operatorById = new Map(companyOperators.map((invite) => [invite.operatorId, invite]));
+  (company.members || []).map(normalizeCompanyMember).forEach((member) => {
+    if (!member.operatorId || operatorById.has(member.operatorId)) return;
+    operatorById.set(member.operatorId, { name: member.fullName, publicId: member.publicId });
+  });
+  return (trips || []).map((trip) => {
+    const fleet = fleetById.get(trip.fleet_id) || {};
+    const operator = operatorById.get(fleet.operator_id) || {};
+    return {
+      id: trip.id,
+      fleetId: trip.fleet_id,
+      operatorId: fleet.operator_id,
+      operatorName: operator.name || "Company operator",
+      fleetName: fleet.fleet_name || operator.fleetName || "Company fleet",
+      plateNumber: fleet.plate_number || operator.plateNumber || "",
+      passengerName: trip.passenger_name || "Passenger",
+      pickup: trip.pickup_label || "Pickup pending",
+      destination: trip.destination_label || "Destination pending",
+      status: trip.status || "waiting_operator",
+      tripType: trip.trip_type || trip.trip_mode || "ride",
+      createdAt: trip.created_at || "",
+    };
+  });
+}
+
 export function subscribeTransportCompanyUpdates(onChange) {
   if (typeof window === "undefined" || typeof onChange !== "function") return () => {};
   const handler = (event) => onChange(event.detail);
@@ -1352,6 +1717,8 @@ export function subscribeTransportCompanyUpdates(onChange) {
     .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_operator_invites" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_activities" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_members" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_fleets" }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_trips" }, onChange)
     .subscribe();
 
   return () => {

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   deleteExploreMessage,
+  dedupeExploreConversations,
+  EXPLORE_MESSAGE_CACHE_CLEARED_EVENT,
   fetchExploreConversations,
   fetchExploreMessages,
   EXPLORE_MESSAGE_EVENT,
@@ -152,15 +154,67 @@ function friendlyMessageError(err) {
   return message || "Unable to load messages.";
 }
 
+function mergeConversationUpdate(existing = {}, row = {}) {
+  return {
+    ...existing,
+    id: row.id || existing.id,
+    participantIds: row.participant_ids || row.participantIds || existing.participantIds || [],
+    participants: { ...(existing.participants || {}), ...(row.participants || {}) },
+    request: row.request ?? existing.request ?? false,
+    updatedAt: row.updated_at || row.updatedAt || existing.updatedAt || new Date().toISOString(),
+  };
+}
+
 export function useExploreMessages(currentProfile, initialRecipient) {
   const currentUserId = currentProfile?.userId || "";
   const memory = MESSAGES_MEMORY.get(currentUserId) || {};
   const [activeConversation, setActiveConversation] = useState(null);
-  const [conversations, setConversations] = useState(() => memory.conversations || []);
+  const [conversations, setConversationState] = useState(() => dedupeExploreConversations(memory.conversations || []));
   const [loading, setLoading] = useState(() => Boolean(currentUserId && !memory.conversations?.length));
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([]);
   const [pendingMessageKeys, setPendingMessageKeys] = useState(new Set());
+  const conversationsRef = useRef(conversations);
+  const activeConversationRef = useRef(activeConversation);
+
+  function setConversationList(nextValue) {
+    setConversationState((current) => {
+      const resolved = typeof nextValue === "function" ? nextValue(current) : nextValue;
+      const deduped = dedupeExploreConversations(resolved || []);
+      conversationsRef.current = deduped;
+      return deduped;
+    });
+  }
+
+  useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
+
+  useEffect(() => {
+    const cached = MESSAGES_MEMORY.get(currentUserId) || {};
+    const nextConversations = dedupeExploreConversations(cached.conversations || []);
+    conversationsRef.current = nextConversations;
+    setConversationState(nextConversations);
+    setActiveConversation(null);
+    setMessages([]);
+    setPendingMessageKeys(new Set());
+    setError("");
+    setLoading(Boolean(currentUserId && !nextConversations.length));
+  }, [currentUserId]);
+
+  useEffect(() => {
+    function clearMessageMemory() {
+      MESSAGES_MEMORY.clear();
+      conversationsRef.current = [];
+      setConversationState([]);
+      setActiveConversation(null);
+      setMessages([]);
+      setPendingMessageKeys(new Set());
+    }
+
+    window.addEventListener(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT, clearMessageMemory);
+    return () => window.removeEventListener(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT, clearMessageMemory);
+  }, []);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -173,7 +227,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
     MESSAGES_MEMORY.set(currentUserId, {
       ...currentMemory,
-      conversations,
+      conversations: dedupeExploreConversations(conversations),
       messagesByConversation,
       savedAt: Date.now(),
     });
@@ -194,7 +248,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
   async function reload() {
     if (!currentUserId) {
-      setConversations([]);
+      setConversationList([]);
       setMessages([]);
       setLoading(false);
       return;
@@ -202,11 +256,11 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
     try {
       const cached = MESSAGES_MEMORY.get(currentUserId);
-      const hasCachedConversations = Boolean(cached?.conversations?.length || conversations.length);
+      const hasCachedConversations = Boolean(cached?.conversations?.length || conversationsRef.current.length);
       const fresh = cached?.conversations?.length && Date.now() - cached.savedAt < MESSAGES_MEMORY_TTL;
 
       if (cached?.conversations) {
-        setConversations(cached.conversations);
+        setConversationList(cached.conversations);
         if (activeConversation?.id && cached.messagesByConversation?.[activeConversation.id]) {
           setMessages(cached.messagesByConversation[activeConversation.id]);
         }
@@ -227,7 +281,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       }
       setError("");
       const nextConversations = await fetchExploreConversations(currentUserId);
-      setConversations(nextConversations);
+      setConversationList(nextConversations);
       if (activeConversation?.id) {
         const nextMessages = await fetchExploreMessages(activeConversation.id, currentUserId);
         setMessages(nextMessages);
@@ -253,7 +307,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         setMessages(nextMessages);
         cacheConversationMessages(conversation.id, nextMessages);
         setActiveConversation(conversation);
-        setConversations(await fetchExploreConversations(currentUserId));
+        setConversationList(await fetchExploreConversations(currentUserId));
       }).catch((err) => setError(friendlyMessageError(err)));
     }
     // Only the target recipient identity should open the initial chat.
@@ -263,23 +317,23 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   useEffect(() => {
     function syncConversationsQuietly() {
       fetchExploreConversations(currentUserId)
-        .then(setConversations)
+        .then(setConversationList)
         .catch((err) => setError(friendlyMessageError(err)));
     }
 
     function applyIncomingMessage(incomingMessage) {
       if (!incomingMessage?.conversationId) return false;
       const preview = getMessagePreview(incomingMessage);
-      const conversationKnown = conversations.some((conversation) => conversation.id === incomingMessage.conversationId);
+      const conversationKnown = conversationsRef.current.some((conversation) => conversation.id === incomingMessage.conversationId);
 
-      setConversations((current) => {
+      setConversationList((current) => {
         if (!conversationKnown) return current;
 
         return current
           .map((conversation) => {
             if (conversation.id !== incomingMessage.conversationId) return conversation;
             const unreadCount = incomingMessage.senderId !== currentUserId
-              ? Number(conversation.unreadCount || 0) + (activeConversation?.id === incomingMessage.conversationId ? 0 : 1)
+              ? Number(conversation.unreadCount || 0) + (activeConversationRef.current?.id === incomingMessage.conversationId ? 0 : 1)
               : Number(conversation.unreadCount || 0);
             return {
               ...conversation,
@@ -292,7 +346,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
           .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
       });
 
-      if (activeConversation?.id === incomingMessage.conversationId) {
+      if (activeConversationRef.current?.id === incomingMessage.conversationId) {
         setMessages((current) => {
           const nextMessages = mergeMessageList(current, incomingMessage);
           cacheConversationMessages(incomingMessage.conversationId, nextMessages);
@@ -307,11 +361,34 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     function handleMessageEvent(payload = {}) {
       const detail = payload?.detail || payload;
       const incomingRow = detail?.message || detail?.new;
+      const table = detail?.table || "";
+      const eventType = String(detail?.eventType || "").toUpperCase();
 
-      if (detail?.type === "delete" || detail?.old?.id) {
+      if (table === "explore_conversation_members") {
+        syncConversationsQuietly();
+        return;
+      }
+
+      if (table === "explore_conversations") {
+        const conversationId = incomingRow?.id || detail?.old?.id;
+        if (eventType === "DELETE") {
+          setConversationList((current) => current.filter((conversation) => conversation.id !== conversationId));
+          return;
+        }
+
+        const existing = conversationsRef.current.find((conversation) => conversation.id === conversationId);
+        if (existing && incomingRow?.id) {
+          const updated = mergeConversationUpdate(existing, incomingRow);
+          setConversationList((current) => [updated, ...current.filter((conversation) => conversation.id !== updated.id)]);
+        }
+        syncConversationsQuietly();
+        return;
+      }
+
+      if (detail?.type === "delete" || eventType === "DELETE") {
         const messageId = detail?.messageId || detail?.old?.id;
         const conversationId = detail?.conversationId || detail?.old?.conversation_id || detail?.old?.conversationId;
-        if (messageId && activeConversation?.id === conversationId) {
+        if (messageId && activeConversationRef.current?.id === conversationId) {
           setMessages((current) => {
             const nextMessages = current.filter((message) => message.id !== messageId);
             cacheConversationMessages(conversationId, nextMessages);
@@ -330,7 +407,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       reload();
     }
 
-    const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, handleMessageEvent, conversations.map((conversation) => conversation.id));
+    const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, handleMessageEvent);
     window.addEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
     window.addEventListener("storage", handleMessageEvent);
     return () => {
@@ -338,16 +415,16 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       window.removeEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
       window.removeEventListener("storage", handleMessageEvent);
     };
-    // Realtime subscription is keyed by user, active conversation, and known ids.
+    // The realtime channel stays stable for the active user; refs provide current UI state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversation?.id, currentUserId, conversations]);
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!activeConversation?.id || !currentUserId || !readExploreSettings().messages.readReceipts) {
       return;
     }
 
-    markExploreConversationRead(activeConversation.id, currentUserId).then(() => fetchExploreConversations(currentUserId).then(setConversations));
+    markExploreConversationRead(activeConversation.id, currentUserId).then(() => fetchExploreConversations(currentUserId).then(setConversationList));
   }, [activeConversation?.id, currentUserId, messages.length]);
 
   async function openConversation(conversation) {
@@ -362,7 +439,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       if (readExploreSettings().messages.readReceipts) {
         await markExploreConversationRead(conversation.id, currentUserId);
       }
-      setConversations(await fetchExploreConversations(currentUserId));
+      setConversationList(await fetchExploreConversations(currentUserId));
     } catch (err) {
       setError(friendlyMessageError(err));
     }
@@ -401,10 +478,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     setError("");
     setPendingMessageKeys((current) => new Set(current).add(signature));
     setMessages((current) => [...current, tempMessage]);
-    setConversations((current) =>
+    setConversationList((current) =>
       current.map((conversation) =>
         conversation.id === conversationId
-          ? { ...conversation, preview, updatedAt: tempMessage.createdAt }
+          ? { ...conversation, preview, lastMessage: tempMessage, updatedAt: tempMessage.createdAt }
           : conversation,
       ),
     );
@@ -417,7 +494,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
           cacheConversationMessages(conversationId, nextMessages);
           return nextMessages;
         });
-        setConversations(await fetchExploreConversations(currentUserId));
+        setConversationList(await fetchExploreConversations(currentUserId));
       }
       return { ok: true, message: created || tempMessage };
     } catch (err) {
@@ -450,7 +527,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       showToast(message.senderId === currentUserId ? "Message deleted." : "Message hidden from this chat.", "info", {
         title: "Message action",
       });
-      setConversations(await fetchExploreConversations(currentUserId));
+      setConversationList(await fetchExploreConversations(currentUserId));
       return { ok: true };
     } catch (err) {
       setMessages(previousMessages);
@@ -592,13 +669,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     return { ok: false, error: "This message action is not available." };
   }
 
-  const requests = useMemo(() => conversations.filter((conversation) => conversation.request), [conversations]);
-  const inbox = useMemo(() => conversations.filter((conversation) => !conversation.request), [conversations]);
+  const visibleConversations = useMemo(() => dedupeExploreConversations(conversations), [conversations]);
+  const requests = useMemo(() => visibleConversations.filter((conversation) => conversation.request === true), [visibleConversations]);
+  const inbox = useMemo(() => visibleConversations.filter((conversation) => conversation.request !== true), [visibleConversations]);
 
   return {
     activeConversation,
     closeConversation,
-    conversations,
+    conversations: visibleConversations,
     error,
     inbox,
     loading,

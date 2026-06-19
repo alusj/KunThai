@@ -7,6 +7,7 @@ const MESSAGE_ACTIVITY_KEY = "explore-message-activity";
 const MESSAGE_TYPES = ["text", "image", "audio", "video", "location_request", "location_share", "system"];
 export const EXPLORE_MESSAGE_EVENT = "explore-message-event";
 export const EXPLORE_MESSAGE_ACTIVITY_EVENT = "explore-message-activity";
+export const EXPLORE_MESSAGE_CACHE_CLEARED_EVENT = "explore-message-cache-cleared";
 
 function safeParse(value, fallback = null) {
   try {
@@ -31,6 +32,76 @@ function readArray(key, userId = "") {
 
 function writeArray(key, value, userId = "") {
   localStorage.setItem(scopedKey(key, userId), JSON.stringify(value));
+}
+
+function getConversationTimestamp(conversation = {}) {
+  return new Date(conversation.lastMessage?.createdAt || conversation.updatedAt || 0).getTime() || 0;
+}
+
+export function dedupeExploreConversations(conversations = []) {
+  const byId = new Map();
+
+  conversations.forEach((conversation) => {
+    const id = String(conversation?.id || "").trim();
+    if (!id) return;
+
+    const incoming = { ...conversation, id };
+    const existing = byId.get(id);
+    if (!existing) {
+      byId.set(id, incoming);
+      return;
+    }
+
+    const incomingIsNewer = getConversationTimestamp(incoming) >= getConversationTimestamp(existing);
+    const older = incomingIsNewer ? existing : incoming;
+    const newer = incomingIsNewer ? incoming : existing;
+    byId.set(id, {
+      ...older,
+      ...newer,
+      participantIds: Array.from(new Set([...(older.participantIds || []), ...(newer.participantIds || [])].filter(Boolean))),
+      participants: { ...(older.participants || {}), ...(newer.participants || {}) },
+    });
+  });
+
+  return Array.from(byId.values()).sort((a, b) => getConversationTimestamp(b) - getConversationTimestamp(a));
+}
+
+function readConversations(userId = "") {
+  return dedupeExploreConversations(readArray(CONVERSATIONS_KEY, userId));
+}
+
+function writeConversations(conversations, userId = "") {
+  const next = dedupeExploreConversations(conversations);
+  writeArray(CONVERSATIONS_KEY, next, userId);
+  return next;
+}
+
+function replaceConversationForParticipantPair(conversations, incomingConversation) {
+  const participantKey = [...(incomingConversation?.participantIds || [])].filter(Boolean).sort().join("__");
+  const withoutReplacedPair = participantKey
+    ? conversations.filter((conversation) => {
+        if (conversation.id === incomingConversation.id) return false;
+        return [...(conversation.participantIds || [])].filter(Boolean).sort().join("__") !== participantKey;
+      })
+    : conversations.filter((conversation) => conversation.id !== incomingConversation.id);
+
+  return dedupeExploreConversations([incomingConversation, ...withoutReplacedPair]);
+}
+
+export function clearExploreMessageCache() {
+  if (typeof localStorage !== "undefined") {
+    const prefixes = [`${CONVERSATIONS_KEY}-`, `${MESSAGES_KEY}-`];
+    const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index));
+    keys.forEach((key) => {
+      if (key === CONVERSATIONS_KEY || key === MESSAGES_KEY || key === MESSAGE_ACTIVITY_KEY || prefixes.some((prefix) => key?.startsWith(prefix))) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT));
+  }
 }
 
 function readObject(key) {
@@ -159,11 +230,10 @@ function removeLocalMessage(userId, messageId) {
 
 function updateLocalConversationPreview(userId, conversationId, preview, updatedAt) {
   if (!userId || !conversationId) return [];
-  const conversations = readArray(CONVERSATIONS_KEY, userId).map((conversation) =>
+  const conversations = readConversations(userId).map((conversation) =>
     conversation.id === conversationId ? { ...conversation, preview, updatedAt } : conversation,
   );
-  writeArray(CONVERSATIONS_KEY, conversations, userId);
-  return conversations;
+  return writeConversations(conversations, userId);
 }
 
 function mirrorLocalMessageToParticipants(conversationId, senderId, message, preview) {
@@ -175,7 +245,7 @@ function mirrorLocalMessageToParticipants(conversationId, senderId, message, pre
     .filter((userId) => userId && userId !== senderId)
     .forEach((userId) => {
       appendLocalMessage(userId, message);
-      const recipientConversations = readArray(CONVERSATIONS_KEY, userId);
+      const recipientConversations = readConversations(userId);
       const existing = recipientConversations.find((item) => item.id === conversationId);
       const nextConversation = {
         ...(existing || conversation),
@@ -185,7 +255,7 @@ function mirrorLocalMessageToParticipants(conversationId, senderId, message, pre
         participantIds,
         participants: existing?.participants || conversation?.participants || {},
       };
-      writeArray(CONVERSATIONS_KEY, [
+      writeConversations([
         nextConversation,
         ...recipientConversations.filter((item) => item.id !== conversationId),
       ], userId);
@@ -242,11 +312,12 @@ function hydrateConversations(conversations, members, profiles) {
     const participantIds = conversation.participantIds?.length
       ? conversation.participantIds
       : membersByConversation.get(conversation.id) || [];
+    const uniqueParticipantIds = Array.from(new Set(participantIds.filter(Boolean)));
 
     return {
       ...conversation,
-      participantIds,
-      participants: participantIds.reduce((items, userId) => {
+      participantIds: uniqueParticipantIds,
+      participants: uniqueParticipantIds.reduce((items, userId) => {
         items[userId] = profiles[userId] || { userId, displayName: "Profile", username: "user", avatarUrl: "" };
         return items;
       }, conversation.participants || {}),
@@ -255,18 +326,17 @@ function hydrateConversations(conversations, members, profiles) {
 }
 
 function fetchLocalConversations(currentUserId) {
-  const conversations = readArray(CONVERSATIONS_KEY, currentUserId);
+  const conversations = readConversations(currentUserId);
   const messages = readArray(MESSAGES_KEY, currentUserId);
 
-  return conversations
+  return dedupeExploreConversations(conversations
     .filter((conversation) => conversation.participantIds?.includes(currentUserId))
     .map((conversation) => {
       const conversationMessages = messages.filter((message) => message.conversationId === conversation.id);
       const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
       const unreadCount = conversationMessages.filter((message) => message.senderId !== currentUserId && !message.read).length;
       return { ...conversation, lastMessage, unreadCount };
-    })
-    .sort((a, b) => new Date(b.lastMessage?.createdAt || b.updatedAt || 0) - new Date(a.lastMessage?.createdAt || a.updatedAt || 0));
+    }));
 }
 
 export async function fetchExploreConversations(currentUserId) {
@@ -282,8 +352,12 @@ export async function fetchExploreConversations(currentUserId) {
     throw memberError;
   }
 
-  const conversationIds = (memberRows || []).map((item) => item.conversation_id).filter(Boolean);
-  if (!conversationIds.length) return [];
+  const conversationIds = Array.from(new Set((memberRows || []).map((item) => item.conversation_id).filter(Boolean)));
+  if (!conversationIds.length) {
+    writeConversations([], currentUserId);
+    writeArray(MESSAGES_KEY, [], currentUserId);
+    return [];
+  }
 
   const { data, error } = await supabase
     .from("explore_conversations")
@@ -296,11 +370,11 @@ export async function fetchExploreConversations(currentUserId) {
     throw error;
   }
 
-  const conversations = (data || []).map(normalizeConversation);
+  const conversations = dedupeExploreConversations((data || []).map(normalizeConversation));
   const fetchedConversationIds = conversations.map((conversation) => conversation.id);
   const allMembers = await fetchConversationMemberRows(fetchedConversationIds);
   const profiles = await fetchProfilesByIds(allMembers.map((member) => member.user_id));
-  const hydratedConversations = hydrateConversations(conversations, allMembers, profiles);
+  const hydratedConversations = dedupeExploreConversations(hydrateConversations(conversations, allMembers, profiles));
   const { data: messageRows, error: messageError } = fetchedConversationIds.length
     ? await supabase.from("explore_messages").select("*").in("conversation_id", fetchedConversationIds).order("created_at", { ascending: true })
     : { data: [], error: null };
@@ -311,17 +385,17 @@ export async function fetchExploreConversations(currentUserId) {
   }
 
   const messages = (messageRows || []).map(normalizeMessage);
-  writeArray(CONVERSATIONS_KEY, hydratedConversations, currentUserId);
   writeArray(MESSAGES_KEY, messages, currentUserId);
 
-  return hydratedConversations
+  const nextConversations = dedupeExploreConversations(hydratedConversations
     .map((conversation) => {
       const conversationMessages = messages.filter((message) => message.conversationId === conversation.id);
       const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
       const unreadCount = conversationMessages.filter((message) => message.senderId !== currentUserId && !message.read).length;
       return { ...conversation, lastMessage, unreadCount };
-    })
-    .sort((a, b) => new Date(b.lastMessage?.createdAt || b.updatedAt || 0) - new Date(a.lastMessage?.createdAt || a.updatedAt || 0));
+    }));
+  writeConversations(nextConversations, currentUserId);
+  return nextConversations;
 }
 
 export async function fetchExploreMessages(conversationId, currentUserId = "") {
@@ -356,12 +430,13 @@ export async function startExploreConversation(currentProfile, recipient) {
 
   const localConversationId = getConversationId(currentUserId, recipientId);
   const conversationKey = localConversationId;
-  const conversations = readArray(CONVERSATIONS_KEY, currentUserId);
+  const conversations = readConversations(currentUserId);
   const existing = conversations.find(
     (conversation) => conversation.participantIds?.includes(currentUserId) && conversation.participantIds?.includes(recipientId),
   );
 
   if (existing && isUuid(existing.id)) {
+    writeConversations(replaceConversationForParticipantPair(conversations, existing), currentUserId);
     return existing;
   }
 
@@ -394,7 +469,7 @@ export async function startExploreConversation(currentProfile, recipient) {
         avatarUrl: recipient?.avatarUrl || recipient?.avatar_url || "",
       },
     })[0];
-    writeArray(CONVERSATIONS_KEY, [normalized, ...conversations.filter((item) => item.id !== normalized.id)], currentUserId);
+    writeConversations(replaceConversationForParticipantPair(conversations, normalized), currentUserId);
     return normalized;
   }
 
@@ -450,7 +525,7 @@ export async function startExploreConversation(currentProfile, recipient) {
             avatarUrl: recipient?.avatarUrl || recipient?.avatar_url || "",
           },
         })[0];
-        writeArray(CONVERSATIONS_KEY, [normalized, ...conversations.filter((item) => item.id !== normalized.id)], currentUserId);
+        writeConversations(replaceConversationForParticipantPair(conversations, normalized), currentUserId);
         return normalized;
       }
     }
@@ -490,14 +565,14 @@ export async function startExploreConversation(currentProfile, recipient) {
   }
 
   if (!createdConversation) {
-    writeArray(CONVERSATIONS_KEY, [conversation, ...conversations], currentUserId);
+    writeConversations(replaceConversationForParticipantPair(conversations, conversation), currentUserId);
     return conversation;
   }
 
   const remoteConversation = { ...conversation, id: createdConversation.id };
   await ensureExploreConversationMembers(remoteConversation.id, [currentUserId, recipientId]);
 
-  writeArray(CONVERSATIONS_KEY, [remoteConversation, ...conversations], currentUserId);
+  writeConversations(replaceConversationForParticipantPair(conversations, remoteConversation), currentUserId);
   return remoteConversation;
 }
 
@@ -550,7 +625,11 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
   const preview = getMessagePreview(message);
 
   appendLocalMessage(senderId, message);
-  mirrorLocalMessageToParticipants(conversationId, senderId, message, preview);
+  if (options.optimisticManaged) {
+    updateLocalConversationPreview(senderId, conversationId, preview, message.createdAt);
+  } else {
+    mirrorLocalMessageToParticipants(conversationId, senderId, message, preview);
+  }
   window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "message", conversationId, message } }));
 
   if (isLocalConversation) {
@@ -671,7 +750,7 @@ export function fetchExploreMessageActivity() {
   return Object.values(readObject(MESSAGE_ACTIVITY_KEY));
 }
 
-export function subscribeToExploreMessages(currentUserId, onChange, conversationIds = []) {
+export function subscribeToExploreMessages(currentUserId, onChange) {
   if (!currentUserId) return () => {};
 
   const channel = supabase
