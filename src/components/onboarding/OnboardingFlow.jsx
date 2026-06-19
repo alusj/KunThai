@@ -6,6 +6,7 @@ import WelcomeStep from "./WelcomeStep";
 import ProfileStep from "./ProfileStep";
 import InterestsStep from "./InterestsStep";
 import ReadyStep from "./ReadyStep";
+import { StepSlideTransition } from "../shared/motion";
 
 function splitDisplayName(displayName = "") {
   const parts = displayName.trim().split(/\s+/).filter(Boolean);
@@ -48,6 +49,9 @@ export default function OnboardingFlow({ profile, onComplete }) {
   const [step, setStep] = useState(Math.min(Math.max(profile?.onboardingStep ?? 1, 1), 4));
   const [values, setValues] = useState(() => normalizeProfile(profile));
   const [saving, setSaving] = useState(false);
+  const [direction, setDirection] = useState("forward");
+  const [finishing, setFinishing] = useState(false);
+  const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
 
   const safeValues = useMemo(() => normalizeProfile(values), [values]);
 
@@ -87,37 +91,46 @@ export default function OnboardingFlow({ profile, onComplete }) {
 
   const handleNext = async () => {
     const nextStep = Math.min(step + 1, 4);
+    setDirection("forward");
     await persistStep(nextStep);
     setStep(nextStep);
   };
 
   const handleBack = async () => {
     const nextStep = Math.max(step - 1, 1);
+    setDirection("backward");
     await persistStep(nextStep);
     setStep(nextStep);
   };
 
-  const handleFinish = async () => {
+  const handleFinish = async (event) => {
+    const buttonRect = event?.currentTarget?.getBoundingClientRect?.();
+    const origin = buttonRect
+      ? { x: `${buttonRect.left + buttonRect.width / 2}px`, y: `${buttonRect.top + buttonRect.height / 2}px` }
+      : { x: "50%", y: "70%" };
+
     setSaving(true);
 
     try {
       await markOnboardingComplete(safeValues);
-      onComplete?.();
-    } finally {
+      setTransitionOrigin(origin);
+      setFinishing(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 480));
+      onComplete?.(origin);
+    } catch (error) {
       setSaving(false);
+      throw error;
     }
   };
 
+  let content;
+
   if (step === 1) {
-    return <WelcomeStep profile={safeValues} onNext={handleNext} />;
-  }
-
-  if (step === 2) {
-    return <ProfileStep values={safeValues} onChange={updateField} onBack={handleBack} onNext={handleNext} />;
-  }
-
-  if (step === 3) {
-    return (
+    content = <WelcomeStep profile={safeValues} onNext={handleNext} />;
+  } else if (step === 2) {
+    content = <ProfileStep values={safeValues} onChange={updateField} onBack={handleBack} onNext={handleNext} />;
+  } else if (step === 3) {
+    content = (
       <InterestsStep
         values={safeValues}
         onToggleInterest={toggleInterest}
@@ -126,7 +139,18 @@ export default function OnboardingFlow({ profile, onComplete }) {
         onNext={handleNext}
       />
     );
+  } else {
+    content = <ReadyStep values={safeValues} saving={saving} onBack={handleBack} onFinish={handleFinish} />;
   }
 
-  return <ReadyStep values={safeValues} saving={saving} onBack={handleBack} onFinish={handleFinish} />;
+  return (
+    <div
+      className={finishing ? "kt-onboarding-collapse-out" : ""}
+      style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
+    >
+      <StepSlideTransition direction={direction} stepKey={step}>
+        {content}
+      </StepSlideTransition>
+    </div>
+  );
 }

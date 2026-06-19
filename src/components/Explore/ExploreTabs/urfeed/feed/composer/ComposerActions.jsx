@@ -1,4 +1,5 @@
 import {
+  HiOutlineAtSymbol,
   HiOutlineHashtag,
   HiOutlineLockClosed,
   HiOutlineMapPin,
@@ -13,6 +14,7 @@ const tools = [
   { type: "image", label: "Image", icon: HiOutlinePhoto },
   { type: "video", label: "Video", icon: HiOutlineVideoCamera },
   { type: "voice", label: "Voice", icon: HiOutlineMicrophone },
+  { type: "mention", label: "Mention", icon: HiOutlineAtSymbol },
   { type: "tag", label: "Tags", icon: HiOutlineHashtag },
   { type: "location", label: "Location", icon: HiOutlineMapPin },
 ];
@@ -24,7 +26,7 @@ const privacyOptions = [
 
 export default function ComposerActions({ privacy, setPrivacy, isRecording, hasVideoAttachment = false, advertMode = false, onTool }) {
   const visibleTools = advertMode
-    ? tools.filter((tool) => ["image", "video", "tag"].includes(tool.type))
+    ? tools.filter((tool) => ["image", "video"].includes(tool.type))
     : hasVideoAttachment
       ? tools.filter((tool) => tool.type !== "voice")
       : tools;

@@ -1,11 +1,23 @@
-import { HiOutlineBellAlert, HiOutlineChatBubbleOvalLeft, HiOutlineHandThumbUp, HiOutlineRectangleStack, HiOutlineUserPlus } from "react-icons/hi2";
+import {
+  HiOutlineAtSymbol,
+  HiOutlineBellAlert,
+  HiOutlineChatBubbleOvalLeft,
+  HiOutlineFire,
+  HiOutlineHandThumbUp,
+  HiOutlineRectangleStack,
+  HiOutlineUserPlus,
+} from "react-icons/hi2";
+import { MessageCircle } from "lucide-react";
 
 const settings = [
-  { key: "reactions", label: "Reactions", icon: HiOutlineHandThumbUp },
-  { key: "comments", label: "Comments", icon: HiOutlineChatBubbleOvalLeft },
-  { key: "follows", label: "Follows", icon: HiOutlineUserPlus },
-  { key: "followedPosts", label: "Posts", icon: HiOutlineRectangleStack },
-  { key: "safetyAlerts", label: "Alerts", icon: HiOutlineBellAlert },
+  { key: "reactions", label: "Reactions", detail: "Likes, saves, shares, and reactions", icon: HiOutlineHandThumbUp },
+  { key: "comments", label: "Comments & replies", detail: "Comments, replies, and thread activity", icon: HiOutlineChatBubbleOvalLeft },
+  { key: "mentions", label: "Mentions & tags", detail: "Posts or comments that include your @username", icon: HiOutlineAtSymbol },
+  { key: "follows", label: "Follows & connections", detail: "New followers and connection activity", icon: HiOutlineUserPlus },
+  { key: "messages", label: "Messages", detail: "New private messages and requests", icon: MessageCircle },
+  { key: "followedPosts", label: "New posts", detail: "Posts from accounts you follow", icon: HiOutlineRectangleStack },
+  { key: "milestones", label: "Milestones", detail: "Trending posts, views, and profile growth", icon: HiOutlineFire },
+  { key: "safetyAlerts", label: "Safety & account", detail: "Security, verification, reports, and moderation", icon: HiOutlineBellAlert },
 ];
 
 export default function NotificationSettings({ values, onToggle }) {
@@ -21,7 +33,7 @@ export default function NotificationSettings({ values, onToggle }) {
             role="switch"
             aria-checked={active}
             onClick={() => onToggle(item.key)}
-            className={`flex h-14 items-center justify-between gap-3 rounded-2xl border px-3 text-left transition ${
+            className={`flex min-h-16 items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left transition ${
               active ? "border-sky-100 bg-sky-50 text-sky-800" : "border-slate-200 bg-white text-slate-500"
             }`}
           >
@@ -31,6 +43,7 @@ export default function NotificationSettings({ values, onToggle }) {
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-black">{item.label}</span>
+                <span className="block truncate text-[11px] font-semibold text-slate-500">{item.detail}</span>
                 <span className={`block text-[11px] font-black uppercase tracking-[0.14em] ${active ? "text-sky-600" : "text-slate-400"}`}>
                   {active ? "On" : "Off"}
                 </span>

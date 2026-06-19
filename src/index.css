@@ -252,6 +252,19 @@
     animation: kt-form-step-slide-backward 260ms var(--kt-ease-standard) both;
   }
 
+  .kt-onboarding-collapse-out {
+    animation: kt-onboarding-collapse-out 480ms var(--kt-ease-emphasized) both;
+    pointer-events: none;
+    transform-origin: var(--kt-transition-x, 50%) var(--kt-transition-y, 70%);
+    will-change: clip-path, filter, opacity, transform;
+  }
+
+  .kt-main-grow-from-onboarding {
+    animation: kt-main-grow-from-onboarding 560ms var(--kt-ease-emphasized) both;
+    transform-origin: var(--kt-transition-x, 50%) var(--kt-transition-y, 70%);
+    will-change: clip-path, filter, opacity, transform;
+  }
+
   .kt-screen-slide-forward {
     animation: kt-screen-slide-forward 300ms var(--kt-ease-emphasized) both;
   }
@@ -902,6 +915,36 @@
 .kt-live-actions-pop {
   animation: kt-live-actions-pop 260ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
   transform-origin: top right;
+}
+
+@keyframes kt-onboarding-collapse-out {
+  from {
+    clip-path: circle(150vmax at var(--kt-transition-x, 50%) var(--kt-transition-y, 70%));
+    filter: blur(0);
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    clip-path: circle(0 at var(--kt-transition-x, 50%) var(--kt-transition-y, 70%));
+    filter: blur(4px);
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes kt-main-grow-from-onboarding {
+  from {
+    clip-path: circle(0 at var(--kt-transition-x, 50%) var(--kt-transition-y, 70%));
+    filter: blur(4px);
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    clip-path: circle(150vmax at var(--kt-transition-x, 50%) var(--kt-transition-y, 70%));
+    filter: blur(0);
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .kt-image-viewer-backdrop {

@@ -82,7 +82,7 @@ export default function ReadyStep({ values, saving, onBack, onFinish }) {
         </button>
         <button
           type="button"
-          onClick={onFinish}
+          onClick={(event) => onFinish?.(event)}
           disabled={saving}
           className="rounded-[20px] bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >

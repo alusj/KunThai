@@ -26,6 +26,7 @@ supabase/*
 supabase/migrations/*
 !supabase/migrations/20260619220000_explore_messages_auth_realtime_hardening.sql
 !supabase/migrations/20260619223000_explore_direct_conversation_rpc.sql
+!supabase/migrations/20260619224500_explore_mentions_notification_delivery.sql
 
 
 # Editor directories and files

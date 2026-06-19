@@ -3,14 +3,17 @@ import { isMissingTable } from "./errors";
 
 const EXPLORE_SETTINGS_KEY = "explore-user-settings";
 const PREFERENCES_TABLE = "explore_user_preferences";
+export const EXPLORE_SETTINGS_EVENT = "kuntai-explore-settings-updated";
 
 export const DEFAULT_EXPLORE_SETTINGS = {
   notifications: {
     reactions: true,
     comments: true,
+    mentions: true,
     follows: true,
     messages: true,
     followedPosts: true,
+    milestones: true,
     safetyAlerts: true,
   },
   video: {
@@ -65,6 +68,9 @@ export function readExploreSettings() {
 export function writeExploreSettings(settings) {
   const next = mergeSettings(settings);
   localStorage.setItem(EXPLORE_SETTINGS_KEY, JSON.stringify(next));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(EXPLORE_SETTINGS_EVENT, { detail: next }));
+  }
   return next;
 }
 

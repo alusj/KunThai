@@ -47,17 +47,6 @@ const EXPLORE_STACK_ANIMATION_MS = 280;
 const LEFT_SIDE_MENU_SCREENS = new Set(["Menu", "Messages"]);
 const COMMENT_TARGET_NOTIFICATION_TYPES = new Set(["comment", "reply", "creator_reply", "thread_reply", "mention"]);
 
-function PlaceholderMenuScreen({ screen }) {
-  return (
-      <div className="px-4 py-4 sm:px-5">
-      <div className="kuntai-card p-6 text-center">
-        <h3 className="text-lg font-semibold text-slate-950">{screen.emptyTitle}</h3>
-        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">{screen.emptyMessage}</p>
-      </div>
-    </div>
-  );
-}
-
 /*
   Explore.jsx
   -----------
@@ -677,7 +666,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       return <TermsPoliciesScreen hideHeader />;
     }
 
-    return <PlaceholderMenuScreen screen={MENU_SCREENS[screenKey]} />;
+    return null;
   }
 
   function renderMenuStack() {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Megaphone } from "lucide-react";
+import { AtSign, Hash, MapPin, Megaphone } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import { createExploreNotification } from "../../../../../../Backend/services/exploreService";
@@ -43,6 +43,15 @@ export default function FeedPost({
   const advert = getAdvertMeta(post);
   const advertPost = isAdvertPost(post);
   const postTitle = getPostTitle(post);
+  const postLocation = post.media_meta?.location || post.mediaMeta?.location || null;
+  const hashtags = Array.from(new Set([
+    ...(Array.isArray(post.hashtags) ? post.hashtags : []),
+    ...((String(post.body || "").match(/#[a-z0-9_]+/gi) || []).map((tag) => tag.slice(1))),
+  ].filter(Boolean).map((tag) => String(tag).replace(/^#/, "").toLowerCase())));
+  const mentions = Array.from(new Set([
+    ...(Array.isArray(post.mentions) ? post.mentions : []),
+    ...((String(post.body || "").match(/@[a-z0-9_]+/gi) || []).map((mention) => mention.slice(1))),
+  ].filter(Boolean).map((mention) => String(mention).replace(/^@/, "").toLowerCase())));
 
   useBrowserBack(commentsOpen, () => setCommentsOpen(false), `comments-${post.id}`);
 
@@ -132,6 +141,32 @@ export default function FeedPost({
     setDeleteOpen(false);
   }
 
+  function openExploreSearch(query) {
+    window.dispatchEvent(new CustomEvent("explore-search-query", { detail: { query } }));
+  }
+
+  function openPostLocation() {
+    if (!postLocation) return;
+    window.dispatchEvent(new CustomEvent("kuntai-open-area-view", {
+      detail: {
+        action: "explorePostLocationView",
+        autoRoute: false,
+        destination: {
+          id: `explore-post-${post.id}-location`,
+          name: postLocation.label || postLocation.address || "Post location",
+          label: postLocation.label || postLocation.address || "Post location",
+          address: postLocation.address || postLocation.label || "Explore post location",
+          lat: postLocation.lat,
+          lng: postLocation.lng,
+          type: "post-location",
+          status: "public",
+        },
+        returnTo: "explore",
+        source: "explore-post",
+      },
+    }));
+  }
+
   return (
     <article
       id={`post-${post.id}`}
@@ -189,6 +224,43 @@ export default function FeedPost({
               textClassName="text-slate-900"
               controlClassName="text-sky-700"
             />
+          ) : null}
+        </div>
+      ) : null}
+
+      {!advertPost && (hashtags.length || mentions.length || postLocation) ? (
+        <div className="flex flex-wrap gap-2 px-4 pb-4">
+          {hashtags.map((tag) => (
+            <button
+              key={`tag-${tag}`}
+              type="button"
+              onClick={() => openExploreSearch(`#${tag}`)}
+              className="kt-pressable inline-flex h-9 items-center gap-1.5 rounded-2xl bg-sky-50 px-3 text-xs font-black text-sky-700"
+            >
+              <Hash size={14} strokeWidth={2.5} />
+              {tag}
+            </button>
+          ))}
+          {mentions.map((mention) => (
+            <button
+              key={`mention-${mention}`}
+              type="button"
+              onClick={() => openExploreSearch(`@${mention}`)}
+              className="kt-pressable inline-flex h-9 items-center gap-1.5 rounded-2xl bg-violet-50 px-3 text-xs font-black text-violet-700"
+            >
+              <AtSign size={14} strokeWidth={2.5} />
+              {mention}
+            </button>
+          ))}
+          {postLocation ? (
+            <button
+              type="button"
+              onClick={openPostLocation}
+              className="kt-pressable inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-2xl bg-emerald-50 px-3 text-left text-xs font-black text-emerald-700"
+            >
+              <MapPin size={14} strokeWidth={2.5} className="flex-none" />
+              <span className="truncate">{postLocation.label || postLocation.address || "Post location"}</span>
+            </button>
           ) : null}
         </div>
       ) : null}

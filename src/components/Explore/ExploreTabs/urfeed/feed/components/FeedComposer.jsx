@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { HiOutlinePaperAirplane, HiOutlineSparkles, HiOutlineXMark } from "react-icons/hi2";
+import {
+  HiOutlineAtSymbol,
+  HiOutlineHashtag,
+  HiOutlineMapPin,
+  HiOutlinePaperAirplane,
+  HiOutlineSparkles,
+  HiOutlineXMark,
+} from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import {
@@ -7,6 +14,7 @@ import {
   uploadExploreVideoForReview,
 } from "../../../../../../Backend/services/exploreService";
 import { publishPostingNotice } from "../../../../../../Backend/services/explore/postingProgressService";
+import { searchExplore } from "../../../../../../Backend/services/explore/searchService";
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
 import { startPendingVideoReviewJob } from "../../../../../../Backend/services/explore/videoReviewService";
 import Avatar from "../../../../shared/Avatar";
@@ -142,8 +150,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [trimError, setTrimError] = useState("");
   const [postingStage, setPostingStage] = useState("");
   const [postingProgress, setPostingProgress] = useState(0);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionResults, setMentionResults] = useState([]);
+  const [mentionLoading, setMentionLoading] = useState(false);
 
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
   const composerRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -225,6 +240,36 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     return () => window.removeEventListener("explore-create-post", handleCreatePost);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const query = mentionQuery.trim().replace(/^@/, "");
+
+    if (!mentionPickerOpen || !query) {
+      setMentionResults([]);
+      setMentionLoading(false);
+      return undefined;
+    }
+
+    setMentionLoading(true);
+    const timeout = window.setTimeout(() => {
+      searchExplore(`@${query}`, "people")
+        .then((results) => {
+          if (active) setMentionResults(results.filter((item) => item.type === "people"));
+        })
+        .catch(() => {
+          if (active) setMentionResults([]);
+        })
+        .finally(() => {
+          if (active) setMentionLoading(false);
+        });
+    }, 180);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [mentionPickerOpen, mentionQuery]);
 
   function startRecordingTimer() {
     window.clearInterval(recordingTimerRef.current);
@@ -562,6 +607,37 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
   }
 
+  function appendComposerToken(prefix, rawValue) {
+    const normalized = String(rawValue || "")
+      .trim()
+      .replace(/^[@#]+/, "")
+      .replace(/[^a-zA-Z0-9_]/g, "");
+
+    if (!normalized) return;
+
+    const token = `${prefix}${normalized}`;
+    setValue((current) => {
+      const tokens = current.match(/(?:^|\s)[@#][a-zA-Z0-9_]+/g) || [];
+      if (tokens.some((item) => item.trim().toLowerCase() === token.toLowerCase())) return current;
+      return `${current.trimEnd()}${current.trim() ? " " : ""}${token} `;
+    });
+    setFeedback("");
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
+  function addHashtag() {
+    appendComposerToken("#", tagDraft);
+    setTagDraft("");
+    setTagPickerOpen(false);
+  }
+
+  function addMention(profileResult) {
+    appendComposerToken("@", profileResult?.username);
+    setMentionQuery("");
+    setMentionResults([]);
+    setMentionPickerOpen(false);
+  }
+
   function handleTool(type) {
     if (type === "image" || type === "video") {
       setMediaMode(type);
@@ -579,11 +655,22 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     if (type === "tag") {
-      setValue((current) => (current.includes("#") ? current : `${current}${current ? " " : ""}#`));
+      setTagPickerOpen((current) => !current);
+      setMentionPickerOpen(false);
+      setFeedback("");
       return;
     }
 
-    setFeedback("Location tagging is coming next.");
+    if (type === "mention") {
+      setMentionPickerOpen((current) => !current);
+      setTagPickerOpen(false);
+      setFeedback("");
+      return;
+    }
+
+    if (type === "location") {
+      openPostLocationPicker();
+    }
   }
 
   function updateAdvertForm(field, nextValue) {
@@ -651,6 +738,68 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     );
   }
 
+  function openPostLocationPicker() {
+    setOpen(false);
+    window.dispatchEvent(
+      new CustomEvent("kuntai-open-area-view", {
+        detail: {
+          action: "explorePostLocation",
+          autoRoute: false,
+          destination: {
+            id: "explore-post-location",
+            name: mediaMeta.location?.label || "Post location",
+            label: mediaMeta.location?.label || "Post location",
+            address: mediaMeta.location?.address || "Use Locate Me or Drop Pin to tag this post.",
+            type: "post-location",
+            status: "private",
+          },
+          mode: "businessLocationPicker",
+          onLocationPicked: (location = {}) => {
+            const lat = Number(location.lat ?? location.latitude);
+            const lng = Number(location.lng ?? location.longitude);
+            const label = location.address || location.label || location.name || formatLocationLabel(lat, lng);
+
+            setComposerMode("post");
+            setMediaMeta((current) => ({
+              ...current,
+              location: {
+                label: label || "Tagged location",
+                address: label || "Tagged location",
+                lat: Number.isFinite(lat) ? lat : null,
+                lng: Number.isFinite(lng) ? lng : null,
+                coordinatesLabel: location.coordinatesLabel || formatLocationLabel(lat, lng),
+                source: location.source || "areaView",
+              },
+            }));
+            window.setTimeout(() => {
+              setOpen(true);
+              setFeedback("");
+            }, 120);
+          },
+          pickerLabels: {
+            historyKey: "explore-post-location-picker",
+            backLabel: "Back to post",
+            eyebrow: "Explore post",
+            headerCurrentTitle: "Use current location",
+            headerDropTitle: "Drop a pin",
+            cardEyebrow: "Post location",
+            currentHeading: "Tag your current location",
+            dropHeading: "Place the post pin",
+            dropInstruction: "Move the map until the pin marks the place you want attached to this post, then add it.",
+            currentPreparing: "Your post location is being prepared.",
+            currentStatus: "Confirming your current location...",
+            dropStatus: "Move the map until the pin is exactly where you want it.",
+            currentName: "Current post location",
+            droppedName: "Pinned post location",
+          },
+          pickerStart: "current",
+          returnTo: "explore-post",
+          source: "explore-post",
+        },
+      }),
+    );
+  }
+
   function resetComposer() {
     trimRequestRef.current += 1;
     trimmedVideoMetaRef.current = null;
@@ -679,6 +828,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setTrimError("");
     setPostingStage("");
     setPostingProgress(0);
+    setTagPickerOpen(false);
+    setTagDraft("");
+    setMentionPickerOpen(false);
+    setMentionQuery("");
+    setMentionResults([]);
     setRecordingPaused(false);
     setRecordingSeconds(0);
     stopRecordingTimer();
@@ -1092,6 +1246,7 @@ if (!isMobileVideoDevice) {
                 </div>
 
                 <textarea
+                  ref={textareaRef}
                   value={value}
                   onChange={(event) => {
                     setValue(event.target.value);
@@ -1104,6 +1259,99 @@ if (!isMobileVideoDevice) {
                   }`}
                 />
               </div>
+
+              {!isAdvertMode && tagPickerOpen ? (
+                <div className="rounded-[24px] border border-sky-100 bg-sky-50/70 p-4">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+                    <HiOutlineHashtag className="text-base" />
+                    Add a topic
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={tagDraft}
+                      onChange={(event) => setTagDraft(event.target.value.replace(/^#/, ""))}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addHashtag();
+                        }
+                      }}
+                      autoFocus
+                      placeholder="education"
+                      className="h-11 min-w-0 flex-1 rounded-2xl border border-sky-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-sky-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={addHashtag}
+                      disabled={!tagDraft.trim()}
+                      className="h-11 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-slate-500">Use letters, numbers, or underscores. The topic becomes searchable after publishing.</p>
+                </div>
+              ) : null}
+
+              {!isAdvertMode && mentionPickerOpen ? (
+                <div className="rounded-[24px] border border-violet-100 bg-violet-50/70 p-4">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-violet-700">
+                    <HiOutlineAtSymbol className="text-base" />
+                    Mention someone
+                  </div>
+                  <input
+                    value={mentionQuery}
+                    onChange={(event) => setMentionQuery(event.target.value.replace(/^@/, ""))}
+                    autoFocus
+                    placeholder="Search by name or username"
+                    className="mt-3 h-11 w-full rounded-2xl border border-violet-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-violet-300"
+                  />
+                  <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
+                    {mentionLoading ? <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">Finding people...</p> : null}
+                    {!mentionLoading && mentionQuery.trim() && !mentionResults.length ? (
+                      <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">No matching Explore profile.</p>
+                    ) : null}
+                    {mentionResults.map((result) => (
+                      <button
+                        key={result.id}
+                        type="button"
+                        onClick={() => addMention(result)}
+                        className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm transition hover:bg-violet-50"
+                      >
+                        <Avatar name={result.title || result.username || "Profile"} src={result.avatarUrl} size="sm" />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-black text-slate-950">{result.title}</span>
+                          <span className="block truncate text-xs font-bold text-slate-500">@{result.username}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-slate-500">The selected person will receive a mention notification when this post is published.</p>
+                </div>
+              ) : null}
+
+              {!isAdvertMode && mediaMeta.location ? (
+                <div className="flex items-center gap-3 rounded-[22px] border border-emerald-100 bg-emerald-50/70 p-3">
+                  <span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-emerald-700 shadow-sm">
+                    <HiOutlineMapPin className="text-xl" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Post location</p>
+                    <p className="truncate text-sm font-bold text-slate-800">{mediaMeta.location.label || mediaMeta.location.address}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMediaMeta((current) => {
+                      const { location: _location, ...rest } = current;
+                      return rest;
+                    })}
+                    className="grid h-9 w-9 flex-none place-items-center rounded-2xl bg-white text-slate-500"
+                    aria-label="Remove post location"
+                  >
+                    <HiOutlineXMark />
+                  </button>
+                </div>
+              ) : null}
 
               {!isAdvertMode && !hasVideoAttachment ? (
                 <VoiceCapsuleRecorder

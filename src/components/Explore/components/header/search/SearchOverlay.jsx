@@ -6,15 +6,18 @@ import { useExploreSearch } from "../../../../../Backend/hooks/useExploreSearch"
 import SearchFilters from "./SearchFilters";
 import SearchResultItem from "./SearchResultItem";
 
-export default function SearchOverlay({ onClose, onOpenResult, open }) {
+export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult, open }) {
   const inputRef = useRef(null);
   const search = useExploreSearch();
 
   useEffect(() => {
     if (open) {
+      if (initialQuery) search.setQuery(initialQuery);
       setTimeout(() => inputRef.current?.focus(), 60);
     }
-  }, [open]);
+    // search is intentionally omitted: the hook returns a new object each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery, open]);
 
   if (!open) {
     return null;

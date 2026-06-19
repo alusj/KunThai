@@ -6,9 +6,9 @@ import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { isAdvertPost } from "../../../../shared/advertUtils";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
+import useImageViewerGestures from "../../../../../shared/useImageViewerGestures";
 
 const VIEWER_TRANSITION_MS = 340;
-const DOUBLE_TAP_MS = 280;
 
 function getContainedImageRect(image) {
   const viewportWidth = window.innerWidth;
@@ -46,8 +46,6 @@ export default function PostMedia({ post, imageOnly = false }) {
   const [viewerPhase, setViewerPhase] = useState("closed");
   const [viewerOrigin, setViewerOrigin] = useState(null);
   const [viewerTarget, setViewerTarget] = useState(null);
-  const [viewerZoomed, setViewerZoomed] = useState(false);
-  const [viewerZoomOrigin, setViewerZoomOrigin] = useState("50% 50%");
   const [imageStatus, setImageStatus] = useState(post.image_url ? "loading" : "idle");
   const [videoStatus, setVideoStatus] = useState(post.video_url ? "loading" : "idle");
   const [imageRetryKey, setImageRetryKey] = useState(0);
@@ -59,23 +57,26 @@ export default function PostMedia({ post, imageOnly = false }) {
   const viewerTimerRef = useRef(null);
   const viewerFrameRef = useRef(null);
   const viewerSecondFrameRef = useRef(null);
-  const lastViewerTapRef = useRef(0);
   const advertPost = isAdvertPost(post);
 
   const closeImagePreview = useCallback(() => {
     if (!imagePreviewOpen || viewerPhase === "exiting") return;
 
     window.clearTimeout(viewerTimerRef.current);
-    setViewerZoomed(false);
     setViewerPhase("exiting");
     viewerTimerRef.current = window.setTimeout(() => {
       setImagePreviewOpen(false);
       setViewerPhase("closed");
       setViewerOrigin(null);
       setViewerTarget(null);
-      lastViewerTapRef.current = 0;
     }, VIEWER_TRANSITION_MS);
   }, [imagePreviewOpen, viewerPhase]);
+
+  const viewerGestures = useImageViewerGestures({
+    enabled: imagePreviewOpen && viewerPhase === "open",
+    onClose: closeImagePreview,
+    resetKey: post.image_url,
+  });
 
   useBrowserBack(imagePreviewOpen, closeImagePreview, `image-preview-${post.id}`);
   useBodyScrollLock(imagePreviewOpen);
@@ -92,7 +93,6 @@ export default function PostMedia({ post, imageOnly = false }) {
     setImageRetryKey(0);
     setImagePreviewOpen(false);
     setViewerPhase("closed");
-    setViewerZoomed(false);
   }, [post.image_url]);
 
   useEffect(() => {
@@ -143,29 +143,8 @@ export default function PostMedia({ post, imageOnly = false }) {
     window.clearTimeout(viewerTimerRef.current);
     setViewerOrigin(origin);
     setViewerTarget(getContainedImageRect(thumbnailImageRef.current));
-    setViewerZoomed(false);
-    setViewerZoomOrigin("50% 50%");
     setViewerPhase("entering");
     setImagePreviewOpen(true);
-  }
-
-  function handleViewerTap(event) {
-    if (viewerPhase !== "open") return;
-
-    const now = Date.now();
-    if (now - lastViewerTapRef.current > DOUBLE_TAP_MS) {
-      lastViewerTapRef.current = now;
-      return;
-    }
-
-    lastViewerTapRef.current = 0;
-    event.preventDefault();
-    event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / Math.max(1, rect.width)) * 100));
-    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / Math.max(1, rect.height)) * 100));
-    if (!viewerZoomed) setViewerZoomOrigin(`${x}% ${y}%`);
-    setViewerZoomed((current) => !current);
   }
 
   return (
@@ -268,20 +247,18 @@ export default function PostMedia({ post, imageOnly = false }) {
       {imagePreviewOpen && imageStatus === "loaded" && viewerOrigin && viewerTarget
         ? createPortal(
             <div
+              ref={viewerGestures.viewportRef}
               className="fixed inset-0 z-[1200] overflow-hidden"
               role="dialog"
               aria-modal="true"
               aria-label="Full-screen image viewer"
-              onClick={(event) => {
-                if (event.target === event.currentTarget) closeImagePreview();
-              }}
+              style={{ touchAction: "none" }}
+              {...viewerGestures.stageHandlers}
             >
-              <button
-                type="button"
+              <div
                 className="kt-image-viewer-backdrop absolute inset-0 h-full w-full bg-slate-950"
                 style={{ opacity: viewerPhase === "open" ? 0.96 : 0 }}
-                onClick={closeImagePreview}
-                aria-label="Close image viewer"
+                aria-hidden="true"
               />
 
               <div
@@ -291,6 +268,8 @@ export default function PostMedia({ post, imageOnly = false }) {
                 <button
                   type="button"
                   onClick={closeImagePreview}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onPointerUp={(event) => event.stopPropagation()}
                   className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-2xl text-white shadow-xl backdrop-blur-md"
                   aria-label="Back to feed"
                 >
@@ -299,25 +278,30 @@ export default function PostMedia({ post, imageOnly = false }) {
               </div>
 
               <img
+                ref={viewerGestures.imageRef}
                 src={post.image_url}
                 alt=""
                 draggable="false"
-                onPointerUp={handleViewerTap}
                 onError={() => {
                   setImageStatus("error");
                   closeImagePreview();
                 }}
-                className="kt-image-viewer-shared fixed z-10 select-none object-cover shadow-2xl"
+                className="kt-image-viewer-shared fixed z-10 select-none object-contain shadow-2xl"
                 style={{
                   left: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).left}px`,
                   top: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).top}px`,
                   width: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).width}px`,
                   height: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).height}px`,
                   borderRadius: viewerPhase === "open" ? "0px" : "20px",
-                  transform: viewerPhase === "open" && viewerZoomed ? "scale(2)" : "scale(1)",
-                  transformOrigin: viewerZoomOrigin,
-                  cursor: viewerZoomed ? "zoom-out" : "zoom-in",
-                  touchAction: viewerZoomed ? "none" : "manipulation",
+                  transform: viewerPhase === "open"
+                    ? `translate3d(${viewerGestures.pan.x}px, ${viewerGestures.pan.y}px, 0) scale(${viewerGestures.scale})`
+                    : "translate3d(0, 0, 0) scale(1)",
+                  transformOrigin: "center",
+                  cursor: viewerGestures.scale > 1
+                    ? viewerGestures.isDragging ? "grabbing" : "grab"
+                    : "zoom-in",
+                  touchAction: "none",
+                  transitionDuration: viewerGestures.isDragging ? "0ms" : undefined,
                 }}
               />
             </div>,

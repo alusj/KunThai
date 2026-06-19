@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Heart,
@@ -13,8 +14,6 @@ import {
   Star,
   Truck,
   X,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
 import {
@@ -25,6 +24,8 @@ import {
 } from "../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
+import useImageViewerGestures from "../../shared/useImageViewerGestures";
+import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
@@ -94,13 +95,17 @@ function getProductSpecs(product = {}) {
 }
 
 function ImageViewer({ images, activeIndex, onChange, onClose }) {
-  const [touchStartX, setTouchStartX] = useState(null);
-  const [scale, setScale] = useState(1);
   const hasMultiple = images.length > 1;
+  const open = activeIndex >= 0 && images.length > 0;
 
-  useEffect(() => {
-    if (activeIndex >= 0) setScale(1);
-  }, [activeIndex]);
+  const viewerGestures = useImageViewerGestures({
+    enabled: open,
+    onClose,
+    onSwipe: hasMultiple ? move : undefined,
+    resetKey: activeIndex,
+  });
+  useBrowserBack(open, onClose, "urmall-product-image-viewer");
+  useBodyScrollLock(open);
 
   useEffect(() => {
     if (activeIndex < 0) return undefined;
@@ -132,101 +137,82 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
     onChange(index);
   }
 
-  function zoomBy(delta) {
-    setScale((current) => Math.min(3, Math.max(1, Number((current + delta).toFixed(2)))));
-  }
+  if (!open) return null;
 
-  function handleTouchEnd(event) {
-    if (touchStartX === null || !hasMultiple) return;
-
-    const deltaX = event.changedTouches[0].clientX - touchStartX;
-    setTouchStartX(null);
-    if (Math.abs(deltaX) < 45) return;
-    move(deltaX > 0 ? -1 : 1);
-  }
-
-  return (
-    <div className="fixed inset-0 z-[1500] flex h-dvh flex-col bg-black">
-      <header className="flex h-16 items-center justify-between gap-3 px-4 text-white">
-        <p className="text-sm font-black">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1500] flex h-dvh flex-col overflow-hidden bg-slate-950 text-white"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Full-screen product image viewer"
+    >
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
+          aria-label="Back to product"
+        >
+          <ArrowLeft size={22} />
+        </button>
+        <div className="rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs font-black shadow-lg backdrop-blur-md">
           Image {activeIndex + 1} of {images.length}
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => zoomBy(-0.25)}
-            disabled={scale <= 1}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-40"
-            aria-label="Zoom out"
-          >
-            <ZoomOut size={19} />
-          </button>
-          <span className="min-w-12 rounded-full bg-white/10 px-2 py-1 text-center text-xs font-black">
-            {Math.round(scale * 100)}%
-          </span>
-          <button
-            type="button"
-            onClick={() => zoomBy(0.25)}
-            disabled={scale >= 3}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-40"
-            aria-label="Zoom in"
-          >
-            <ZoomIn size={19} />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-            aria-label="Close image viewer"
-          >
-            <X size={20} />
-          </button>
+        </div>
+        <div className="ml-auto rounded-full border border-white/10 bg-black/30 px-3 py-2 text-[11px] font-bold text-white/80 shadow-lg backdrop-blur-md">
+          {viewerGestures.scale > 1 ? `${Math.round(viewerGestures.scale * 100)}% · Drag to move` : "Double-tap to zoom"}
         </div>
       </header>
 
       <div
+        ref={viewerGestures.viewportRef}
         className="relative min-h-0 flex-1 overflow-hidden"
-        onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
-        onTouchEnd={handleTouchEnd}
-        onDoubleClick={() => setScale((current) => (current > 1 ? 1 : 2))}
-        onWheel={(event) => {
-          if (!event.ctrlKey && !event.metaKey) return;
-          event.preventDefault();
-          zoomBy(event.deltaY > 0 ? -0.2 : 0.2);
-        }}
+        style={{ touchAction: "none" }}
+        {...viewerGestures.stageHandlers}
       >
         <div
           className="flex h-full transition-transform duration-300 ease-out"
           style={{ transform: `translate3d(-${activeIndex * 100}%, 0, 0)` }}
         >
-          {images.map((image, index) => (
-            <div
-              key={`${image}-${index}`}
-              className="flex h-full w-full shrink-0 items-center justify-center overflow-auto p-4"
-            >
-              <img
-                src={image}
-                alt=""
-                draggable="false"
-                className={`max-h-full max-w-full select-none rounded-2xl object-contain shadow-2xl transition-all duration-300 ${
-                  index === activeIndex ? "opacity-100" : "opacity-60"
-                }`}
-                style={{
-                  transform: `scale(${index === activeIndex ? scale : 1})`,
-                  transformOrigin: "center",
-                  cursor: scale > 1 ? "zoom-out" : "zoom-in",
-                }}
-              />
-            </div>
-          ))}
+          {images.map((image, index) => {
+            const active = index === activeIndex;
+            return (
+              <div
+                key={`${image}-${index}`}
+                className="flex h-full w-full shrink-0 items-center justify-center overflow-hidden px-2 py-4 sm:px-4"
+              >
+                <img
+                  ref={active ? viewerGestures.imageRef : undefined}
+                  src={image}
+                  alt=""
+                  draggable="false"
+                  className={`max-h-full max-w-full select-none object-contain shadow-2xl transition-[transform,opacity] duration-300 ${
+                    active ? "opacity-100" : "opacity-50"
+                  }`}
+                  style={{
+                    transform: active
+                      ? `translate3d(${viewerGestures.pan.x}px, ${viewerGestures.pan.y}px, 0) scale(${viewerGestures.scale})`
+                      : "translate3d(0, 0, 0) scale(1)",
+                    transformOrigin: "center",
+                    cursor: active && viewerGestures.scale > 1
+                      ? viewerGestures.isDragging ? "grabbing" : "grab"
+                      : "zoom-in",
+                    touchAction: "none",
+                    transitionDuration: active && viewerGestures.isDragging ? "0ms" : undefined,
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
 
-        {hasMultiple && (
+        {hasMultiple ? (
           <>
             <button
               type="button"
               onClick={() => move(-1)}
-              className="fixed left-3 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              className="absolute left-3 top-1/2 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/30 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
               aria-label="Previous image"
             >
               <ChevronLeft size={24} />
@@ -234,25 +220,27 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
             <button
               type="button"
               onClick={() => move(1)}
-              className="fixed right-3 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              className="absolute right-3 top-1/2 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/30 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
               aria-label="Next image"
             >
               <ChevronRight size={24} />
             </button>
           </>
-        )}
+        ) : null}
       </div>
 
       {hasMultiple ? (
-        <div className="border-t border-white/10 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-          <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="relative z-20 border-t border-white/10 bg-black/25 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-md">
+          <div className="flex justify-center gap-2 overflow-x-auto pb-1">
             {images.map((image, index) => (
               <button
                 key={`${image}-${index}`}
                 type="button"
                 onClick={() => changeImage(index)}
-                className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border ${
-                  index === activeIndex ? "border-emerald-400" : "border-white/20"
+                className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                  index === activeIndex ? "border-white shadow-lg" : "border-white/20 opacity-70"
                 }`}
                 aria-label={`Open image ${index + 1}`}
               >
@@ -262,7 +250,8 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

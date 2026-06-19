@@ -8,7 +8,7 @@ import {
   markExploreNotificationRead,
   NOTIFICATION_EVENT,
 } from "../services/exploreService";
-import { readExploreSettings } from "../services/explore/preferencesService";
+import { EXPLORE_SETTINGS_EVENT, readExploreSettings } from "../services/explore/preferencesService";
 
 const NOTIFICATIONS_MEMORY = {
   items: [],
@@ -39,10 +39,12 @@ function getCategory(type) {
 function notificationEnabled(item) {
   const settings = readExploreSettings().notifications;
   if (item.type === "like" || item.type === "save" || item.type === "share" || item.type === "reaction") return settings.reactions;
-  if (item.type === "comment" || item.type === "reply" || item.type === "mention" || item.type === "creator_reply" || item.type === "thread_reply") return settings.comments;
-  if (item.type === "follow") return settings.follows;
+  if (item.type === "comment" || item.type === "reply" || item.type === "creator_reply" || item.type === "thread_reply") return settings.comments;
+  if (item.type === "mention" || item.type === "tag") return settings.mentions;
+  if (["follow", "connect", "connection", "connection_request"].includes(item.type)) return settings.follows;
   if (item.type === "post") return settings.followedPosts;
-  if (item.type === "message") return false;
+  if (item.type === "message") return settings.messages;
+  if (["post_trending", "video_milestone", "profile_milestone", "follower_milestone"].includes(item.type)) return settings.milestones;
   return settings.safetyAlerts;
 }
 
@@ -59,8 +61,19 @@ function mergeNotificationList(items) {
   return Array.from(merged.values()).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 }
 
+function storeNotificationMemory(items) {
+  const next = mergeNotificationList(items);
+  NOTIFICATIONS_MEMORY.items = next;
+  NOTIFICATIONS_MEMORY.savedAt = Date.now();
+  return next;
+}
+
+function visibleNotifications(items = NOTIFICATIONS_MEMORY.items) {
+  return items.filter(notificationEnabled);
+}
+
 export function useExploreNotifications() {
-  const [notifications, setNotifications] = useState(() => NOTIFICATIONS_MEMORY.items || []);
+  const [notifications, setNotifications] = useState(() => visibleNotifications());
   const [loading, setLoading] = useState(() => !NOTIFICATIONS_MEMORY.items?.length);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -77,7 +90,7 @@ export function useExploreNotifications() {
         const fresh = hasCachedItems && Date.now() - NOTIFICATIONS_MEMORY.savedAt < NOTIFICATIONS_MEMORY_TTL;
 
         if (hasCachedItems) {
-          setNotifications(NOTIFICATIONS_MEMORY.items.filter(notificationEnabled));
+          setNotifications(visibleNotifications());
           setLoading(false);
         }
 
@@ -91,10 +104,8 @@ export function useExploreNotifications() {
         setError("");
         const nextItems = await fetchExploreNotifications({ limit: PAGE_SIZE });
         if (active) {
-          const visibleItems = nextItems.filter(notificationEnabled);
-          NOTIFICATIONS_MEMORY.items = visibleItems;
-          NOTIFICATIONS_MEMORY.savedAt = Date.now();
-          setNotifications(visibleItems);
+          const storedItems = storeNotificationMemory(nextItems);
+          setNotifications(visibleNotifications(storedItems));
           setHasMore(nextItems.length >= PAGE_SIZE);
         }
       } catch (err) {
@@ -132,13 +143,8 @@ export function useExploreNotifications() {
             }
 
             const nextItem = normalizeNotification(payload.new);
-            if (!notificationEnabled(nextItem)) return;
-            setNotifications((current) => {
-              const next = mergeNotificationList([nextItem, ...current]);
-              NOTIFICATIONS_MEMORY.items = next;
-              NOTIFICATIONS_MEMORY.savedAt = Date.now();
-              return next;
-            });
+            const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items]);
+            setNotifications(visibleNotifications(storedItems));
           },
         )
         .on(
@@ -155,12 +161,10 @@ export function useExploreNotifications() {
             }
 
             const nextItem = normalizeNotification(payload.new);
-            setNotifications((current) => {
-              const next = current.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item));
-              NOTIFICATIONS_MEMORY.items = next;
-              NOTIFICATIONS_MEMORY.savedAt = Date.now();
-              return next;
-            });
+            const storedItems = storeNotificationMemory(
+              NOTIFICATIONS_MEMORY.items.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item)),
+            );
+            setNotifications(visibleNotifications(storedItems));
           },
         )
         .subscribe();
@@ -176,22 +180,22 @@ export function useExploreNotifications() {
       }
 
       const nextItem = normalizeNotification(event.detail);
-      if (!notificationEnabled(nextItem)) {
-        return;
-      }
-      setNotifications((current) => {
-        const next = mergeNotificationList([nextItem, ...current]);
-        NOTIFICATIONS_MEMORY.items = next;
-        NOTIFICATIONS_MEMORY.savedAt = Date.now();
-        return next;
-      });
+      const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items]);
+      setNotifications(visibleNotifications(storedItems));
+    }
+
+    function handleSettingsUpdated() {
+      if (!active) return;
+      setNotifications(visibleNotifications());
     }
 
     window.addEventListener(NOTIFICATION_EVENT, handleNotificationCreated);
+    window.addEventListener(EXPLORE_SETTINGS_EVENT, handleSettingsUpdated);
 
     return () => {
       active = false;
       window.removeEventListener(NOTIFICATION_EVENT, handleNotificationCreated);
+      window.removeEventListener(EXPLORE_SETTINGS_EVENT, handleSettingsUpdated);
       if (channel) {
         supabase.removeChannel(channel);
       }
@@ -209,13 +213,8 @@ export function useExploreNotifications() {
       setLoadingMore(true);
       setError("");
       const nextItems = await fetchExploreNotifications({ limit: PAGE_SIZE, before: lastItem.created_at });
-      const visibleItems = nextItems.filter(notificationEnabled);
-      setNotifications((current) => {
-        const next = mergeNotificationList([...current, ...visibleItems]);
-        NOTIFICATIONS_MEMORY.items = next;
-        NOTIFICATIONS_MEMORY.savedAt = Date.now();
-        return next;
-      });
+      const storedItems = storeNotificationMemory([...NOTIFICATIONS_MEMORY.items, ...nextItems]);
+      setNotifications(visibleNotifications(storedItems));
       setHasMore(nextItems.length >= PAGE_SIZE);
     } catch (err) {
       setError(err.message || "Unable to load more notifications.");
@@ -225,20 +224,18 @@ export function useExploreNotifications() {
   }
 
   async function markRead(notificationId) {
-    setNotifications((current) => {
-      const next = current.map((item) => (item.id === notificationId ? { ...item, read: true } : item));
-      NOTIFICATIONS_MEMORY.items = next;
-      return next;
-    });
+    const optimisticItems = storeNotificationMemory(
+      NOTIFICATIONS_MEMORY.items.map((item) => (item.id === notificationId ? { ...item, read: true } : item)),
+    );
+    setNotifications(visibleNotifications(optimisticItems));
 
     try {
       const updated = await markExploreNotificationRead(notificationId, true);
       if (updated) {
-        setNotifications((current) => {
-          const next = current.map((item) => (item.id === notificationId ? { ...item, ...updated } : item));
-          NOTIFICATIONS_MEMORY.items = next;
-          return next;
-        });
+        const storedItems = storeNotificationMemory(
+          NOTIFICATIONS_MEMORY.items.map((item) => (item.id === notificationId ? { ...item, ...updated } : item)),
+        );
+        setNotifications(visibleNotifications(storedItems));
       }
     } catch (err) {
       setError(err.message || "Unable to update notification.");
@@ -246,11 +243,8 @@ export function useExploreNotifications() {
   }
 
   async function markAllRead() {
-    setNotifications((current) => {
-      const next = current.map((item) => ({ ...item, read: true }));
-      NOTIFICATIONS_MEMORY.items = next;
-      return next;
-    });
+    const optimisticItems = storeNotificationMemory(NOTIFICATIONS_MEMORY.items.map((item) => ({ ...item, read: true })));
+    setNotifications(visibleNotifications(optimisticItems));
 
     try {
       await markAllExploreNotificationsRead();

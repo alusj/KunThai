@@ -189,6 +189,7 @@ export default function App() {
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
+  const [onboardingReveal, setOnboardingReveal] = useState(null);
   const appGestureRef = useRef(null);
   const userId = user?.id || "";
 
@@ -217,6 +218,12 @@ export default function App() {
     setPage(preferredPage);
     if (!hashPage) clearBrowserHash();
   }, [onboardingComplete, onboardingProfile?.primarySurface, userId]);
+
+  useEffect(() => {
+    if (!onboardingReveal || !onboardingComplete) return undefined;
+    const timeout = window.setTimeout(() => setOnboardingReveal(null), 620);
+    return () => window.clearTimeout(timeout);
+  }, [onboardingComplete, onboardingReveal]);
 
   useEffect(() => {
     function cleanupMedia() {
@@ -265,15 +272,23 @@ export default function App() {
     };
   }, [page]);
 
-  if (loading || (user && (!onboardingChecked || onboardingLoading))) {
+  if (loading || (user && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
   return <AppLoading page={page} />;
 }
   if (!user) {
     return <Login />;
   }
 
-  if (!onboardingComplete) {
-    return <OnboardingFlow profile={onboardingProfile} onComplete={refreshOnboarding} />;
+  if (!onboardingComplete && !onboardingReveal) {
+    return (
+      <OnboardingFlow
+        profile={onboardingProfile}
+        onComplete={(origin) => {
+          setOnboardingReveal(origin);
+          refreshOnboarding();
+        }}
+      />
+    );
   }
 
   const bottomTabsHidden =
@@ -362,7 +377,11 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen w-full max-w-full overflow-x-clip bg-slate-100"
+      className={`min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 ${onboardingReveal ? "kt-main-grow-from-onboarding" : ""}`}
+      style={onboardingReveal ? {
+        "--kt-transition-x": onboardingReveal.x,
+        "--kt-transition-y": onboardingReveal.y,
+      } : undefined}
       onTouchStart={handleAppTouchStart}
       onTouchMove={handleAppTouchMove}
       onTouchEnd={handleAppTouchEnd}

@@ -30,6 +30,7 @@ const CREATE_MENU_EXIT_MS = 280;
 
 export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult, onOverlayChange }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchInitialQuery, setSearchInitialQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [createClosing, setCreateClosing] = useState(false);
   const [bellBadgeCount, setBellBadgeCount] = useState(0);
@@ -47,6 +48,19 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   useBodyScrollLock(createVisible);
 
   useEffect(() => {
+    function handleSearchQuery(event) {
+      const query = String(event.detail?.query || "").trim();
+      if (!query) return;
+      setCreateOpen(false);
+      setSearchInitialQuery(query);
+      setSearchOpen(true);
+    }
+
+    window.addEventListener("explore-search-query", handleSearchQuery);
+    return () => window.removeEventListener("explore-search-query", handleSearchQuery);
+  }, []);
+
+  useEffect(() => {
     onOverlayChange?.(searchOpen || createVisible);
     return () => onOverlayChange?.(false);
   }, [createVisible, onOverlayChange, searchOpen]);
@@ -56,7 +70,9 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
 
     function handleKeyDown(event) {
       if (event.key === "Escape") {
-        closeCreateMenu();
+        setCreateOpen(false);
+        setCreateClosing(true);
+        window.setTimeout(() => setCreateClosing(false), CREATE_MENU_EXIT_MS);
       }
     }
 
@@ -114,7 +130,15 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   return (
     <>
       <div className="w-full max-w-full overflow-x-clip">
-        <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onOpenResult={onSearchResult} />
+        <SearchOverlay
+          initialQuery={searchInitialQuery}
+          open={searchOpen}
+          onClose={() => {
+            setSearchOpen(false);
+            setSearchInitialQuery("");
+          }}
+          onOpenResult={onSearchResult}
+        />
         <PremiumHeader
           accent="sky"
           title="Explore"
@@ -138,6 +162,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                 label="Search Explore"
                 onClick={() => {
                   setCreateOpen(false);
+                  setSearchInitialQuery("");
                   setSearchOpen(true);
                 }}
               />

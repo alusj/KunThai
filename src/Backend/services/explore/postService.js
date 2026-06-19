@@ -410,6 +410,18 @@ async function notifyMentionedUsers(post, draft) {
     return;
   }
 
+  const { error: rpcError } = await supabase.rpc("notify_explore_mentions", {
+    post_uuid: post.id,
+    comment_uuid: null,
+    mentioned_usernames: draft.mentions,
+  });
+
+  if (!rpcError) {
+    return;
+  }
+
+  // Keep the legacy insert as a temporary compatibility fallback while older
+  // environments receive the notify_explore_mentions migration.
   const { data, error } = await supabase
     .from("explore_profiles")
     .select("user_id, username")

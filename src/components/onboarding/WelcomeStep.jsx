@@ -1,4 +1,4 @@
-import { Compass, ShoppingBag, CarFront } from "lucide-react";
+import { CarFront, Compass, ShoppingBag } from "lucide-react";
 
 import OnboardingFrame from "./OnboardingFrame";
 
@@ -39,7 +39,7 @@ export default function WelcomeStep({ profile, onNext }) {
           : "Let’s set up your account before you enter KunThai."
       }
     >
-      {isSocialProvider && (
+      {isSocialProvider ? (
         <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-4">
             {profile?.avatarUrl ? (
@@ -55,13 +55,13 @@ export default function WelcomeStep({ profile, onNext }) {
             </div>
           </div>
 
-          {!!grantedItems.length && (
+          {grantedItems.length ? (
             <p className="mt-4 text-sm leading-6 text-slate-600">
               Granted information: {grantedItems.join(", ")}.
             </p>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         {cards.map((card) => {
