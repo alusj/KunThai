@@ -388,10 +388,11 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       if (detail?.type === "delete" || eventType === "DELETE") {
         const messageId = detail?.messageId || detail?.old?.id;
         const conversationId = detail?.conversationId || detail?.old?.conversation_id || detail?.old?.conversationId;
-        if (messageId && activeConversationRef.current?.id === conversationId) {
+        const activeConversationId = activeConversationRef.current?.id;
+        if (messageId && activeConversationId && (!conversationId || activeConversationId === conversationId)) {
           setMessages((current) => {
             const nextMessages = current.filter((message) => message.id !== messageId);
-            cacheConversationMessages(conversationId, nextMessages);
+            cacheConversationMessages(activeConversationId, nextMessages);
             return nextMessages;
           });
         }

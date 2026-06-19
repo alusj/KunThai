@@ -76,6 +76,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [profileFetched, setProfileFetched] = useState(false);
   const [viewedProfile, setViewedProfile] = useState(null);
   const [messageRecipient, setMessageRecipient] = useState(null);
+  const [messageRecipientOwnerId, setMessageRecipientOwnerId] = useState("");
   const [messageConversationActive, setMessageConversationActive] = useState(false);
   const [postingNotice, setPostingNotice] = useState(() => readPostingNotice());
   const [topChromeHeight, setTopChromeHeight] = useState(0);
@@ -91,6 +92,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const previousMenuStackRef = useRef([]);
   const stackCleanupTimerRef = useRef(null);
   const postingNoticeClearTimerRef = useRef(null);
+  const authenticatedUserRef = useRef(user);
+  authenticatedUserRef.current = user;
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   const isSwipTab = activeTab === "Swip";
@@ -105,7 +108,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     cooldownMs: 280,
   });
   const authProfile = buildExploreProfileFromUser(user);
-  const profile = profileOverride || authProfile;
+  const profileOverrideMatchesUser = Boolean(user?.id && profileOverride?.userId === user.id);
+  const profile = profileOverrideMatchesUser ? profileOverride : authProfile;
   const currentUserId = profile?.userId || user?.id || "";
   const profileExists = !authLoading && Boolean(user?.id && profile);
   const showProfileSkeleton = false;
@@ -217,11 +221,13 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }, []);
 
   useEffect(() => {
+    const authenticatedUser = authenticatedUserRef.current;
+
     if (authLoading) {
   return undefined;
 }
 
-    if (!user?.id) {
+    if (!authenticatedUser?.id) {
       setProfileOverride(null);
       setProfileLoading(false);
       setProfileFetched(true);
@@ -229,14 +235,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     let alive = true;
-    if (!profileOverride) {
-  setProfileLoading(true);
-  setProfileFetched(false);
-}
+    setProfileOverride((current) => (current?.userId === authenticatedUser.id ? current : null));
+    setViewedProfile(null);
+    setMessageRecipient(null);
+    setMessageRecipientOwnerId("");
+    setMessageConversationActive(false);
+    setProfileLoading(true);
+    setProfileFetched(false);
+    setProfileError("");
 
-setProfileError("");
-
-    ensureExploreProfile(user)
+    ensureExploreProfile(authenticatedUser)
       .then((profileData) => {
         if (alive) {
           setProfileOverride(profileData);
@@ -259,7 +267,7 @@ setProfileError("");
     return () => {
       alive = false;
     };
-  }, [authLoading, user]);
+  }, [authLoading, user?.id]);
 
   useEffect(() => {
     function handleOpenTab(event) {
@@ -438,6 +446,7 @@ setProfileError("");
     stopAllExploreMedia();
     exploreNav.rememberScrollPosition();
     setMessageRecipient(recipient);
+    setMessageRecipientOwnerId(currentUserId);
     exploreNav.openMenuScreen("Messages");
   }
   
@@ -456,6 +465,7 @@ setProfileError("");
     setMenuStackAction("push");
     if (screen === "Messages") {
       setMessageRecipient(null);
+      setMessageRecipientOwnerId("");
     }
     exploreNav.openMenuScreen(screen, options);
   }
@@ -633,9 +643,10 @@ setProfileError("");
     if (screenKey === "Messages") {
       return (
         <MessagesScreen keepAlive
+          key={currentUserId}
           currentProfile={profile}
           hideHeader
-          initialRecipient={messageRecipient}
+          initialRecipient={messageRecipientOwnerId === currentUserId ? messageRecipient : null}
           onConversationActiveChange={setMessageConversationActive}
           onViewProfile={openViewedProfile}
         />

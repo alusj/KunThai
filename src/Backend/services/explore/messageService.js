@@ -8,6 +8,7 @@ const MESSAGE_TYPES = ["text", "image", "audio", "video", "location_request", "l
 export const EXPLORE_MESSAGE_EVENT = "explore-message-event";
 export const EXPLORE_MESSAGE_ACTIVITY_EVENT = "explore-message-activity";
 export const EXPLORE_MESSAGE_CACHE_CLEARED_EVENT = "explore-message-cache-cleared";
+let realtimeSubscriptionSequence = 0;
 
 function safeParse(value, fallback = null) {
   try {
@@ -125,6 +126,21 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
 }
 
+async function getAuthenticatedUserId(profileUserId = "") {
+  const { data, error } = await supabase.auth.getUser();
+  const authenticatedUserId = data?.user?.id || "";
+
+  if (error || !isUuid(authenticatedUserId)) {
+    throw new Error("Please sign in again before opening messages.");
+  }
+
+  if (profileUserId && profileUserId !== authenticatedUserId) {
+    throw new Error("Your account changed while opening this conversation. Please try again.");
+  }
+
+  return authenticatedUserId;
+}
+
 function isLocalConversationId(value) {
   return !isUuid(value);
 }
@@ -132,6 +148,14 @@ function isLocalConversationId(value) {
 function isMissingMessageStore(error) {
   const message = String(error?.message || "").toLowerCase();
   return error?.code === "42P01" || message.includes("does not exist") || message.includes("schema cache") || message.includes("infinite recursion");
+}
+
+function isMissingConversationRpc(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "PGRST202" || (
+    message.includes("get_or_create_explore_direct_conversation")
+    && (message.includes("schema cache") || message.includes("could not find"))
+  );
 }
 
 function isMissingColumn(error, columnName) {
@@ -422,10 +446,14 @@ export async function fetchExploreMessages(conversationId, currentUserId = "") {
 }
 
 export async function startExploreConversation(currentProfile, recipient) {
-  const currentUserId = currentProfile?.userId || currentProfile?.id || "";
+  const profileUserId = currentProfile?.userId || currentProfile?.id || "";
+  const currentUserId = await getAuthenticatedUserId(profileUserId);
   const recipientId = recipient?.userId || recipient?.id || "";
   if (!isUuid(currentUserId) || !isUuid(recipientId)) {
     throw new Error("Unable to start this chat right now.");
+  }
+  if (currentUserId === recipientId) {
+    throw new Error("You cannot message your own profile.");
   }
 
   const localConversationId = getConversationId(currentUserId, recipientId);
@@ -438,6 +466,36 @@ export async function startExploreConversation(currentProfile, recipient) {
   if (existing && isUuid(existing.id)) {
     writeConversations(replaceConversationForParticipantPair(conversations, existing), currentUserId);
     return existing;
+  }
+
+  const { data: rpcConversation, error: rpcError } = await supabase
+    .rpc("get_or_create_explore_direct_conversation", { recipient_user_id: recipientId })
+    .maybeSingle();
+
+  if (rpcError && !isMissingConversationRpc(rpcError)) {
+    throw rpcError;
+  }
+
+  if (rpcConversation) {
+    const normalized = hydrateConversations([normalizeConversation(rpcConversation)], [
+      { conversation_id: rpcConversation.id, user_id: currentUserId },
+      { conversation_id: rpcConversation.id, user_id: recipientId },
+    ], {
+      [currentUserId]: {
+        userId: currentUserId,
+        displayName: currentProfile?.displayName || currentProfile?.name || "You",
+        username: currentProfile?.username || "you",
+        avatarUrl: currentProfile?.avatarUrl || currentProfile?.avatar_url || "",
+      },
+      [recipientId]: {
+        userId: recipientId,
+        displayName: recipient?.displayName || recipient?.name || "Profile",
+        username: recipient?.username || "user",
+        avatarUrl: recipient?.avatarUrl || recipient?.avatar_url || "",
+      },
+    })[0];
+    writeConversations(replaceConversationForParticipantPair(conversations, normalized), currentUserId);
+    return normalized;
   }
 
   const { data: keyedConversation, error: keyedError } = await supabase
@@ -606,7 +664,8 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
   const draft = normalizeMessageInput(body);
   if (!conversationId || (!draft.body && !draft.mediaUrl)) return null;
 
-  const senderId = senderProfile?.userId || senderProfile?.id || "me";
+  const profileUserId = senderProfile?.userId || senderProfile?.id || "";
+  const senderId = await getAuthenticatedUserId(profileUserId);
   const isLocalConversation = isLocalConversationId(conversationId);
   const mediaUrl = !isLocalConversation && draft.mediaUrl
     ? await uploadMediaDataUrl(draft.mediaUrl, draft.type, senderId)
@@ -751,10 +810,12 @@ export function fetchExploreMessageActivity() {
 }
 
 export function subscribeToExploreMessages(currentUserId, onChange) {
-  if (!currentUserId) return () => {};
+  if (!isUuid(currentUserId)) return () => {};
+
+  realtimeSubscriptionSequence += 1;
 
   const channel = supabase
-    .channel(`explore-direct-messages-${currentUserId}`)
+    .channel(`explore-direct-messages-${currentUserId}-${realtimeSubscriptionSequence}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "explore_messages" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversations" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "explore_conversation_members", filter: `user_id=eq.${currentUserId}` }, onChange)

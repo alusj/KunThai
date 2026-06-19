@@ -19,9 +19,13 @@ supabase/.branches
 supabase/explore_foundation_hardening.sql
 supabase/marketplace_seller_schema.sql
 supabase/marketplace_buyer_schema.sql
-supabase/
-# supabase
-supabase/
+# Keep linked-project state and legacy SQL snapshots local. New reviewed
+# migrations are opted into source control explicitly below.
+supabase/*
+!supabase/migrations/
+supabase/migrations/*
+!supabase/migrations/20260619220000_explore_messages_auth_realtime_hardening.sql
+!supabase/migrations/20260619223000_explore_direct_conversation_rpc.sql
 
 
 # Editor directories and files
