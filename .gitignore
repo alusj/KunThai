@@ -27,6 +27,9 @@ supabase/migrations/*
 !supabase/migrations/20260619220000_explore_messages_auth_realtime_hardening.sql
 !supabase/migrations/20260619223000_explore_direct_conversation_rpc.sql
 !supabase/migrations/20260619224500_explore_mentions_notification_delivery.sql
+!supabase/migrations/20260620124500_public_transport_company_affiliations.sql
+!supabase/migrations/20260620150000_transport_company_fleet_runtime.sql
+!supabase/migrations/20260620223000_restore_sole_operator_discovery.sql
 
 
 # Editor directories and files

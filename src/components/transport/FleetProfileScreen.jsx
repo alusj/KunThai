@@ -1,7 +1,8 @@
-import { createElement, useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import {
   FiAlertCircle,
   FiBox,
+  FiBriefcase,
   FiCheckCircle,
   FiClock,
   FiMapPin,
@@ -230,6 +231,28 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
             status={status}
           />
 
+          {fleet.isCompanyFleet ? (
+            <section className="rounded-3xl border border-blue-100 bg-blue-50/70 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white">
+                  <FiBriefcase size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Company fleet</p>
+                  <h2 className="mt-1 truncate text-lg font-black text-slate-950">{fleet.companyName}</h2>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                    This operator provides service under {fleet.companyName}. The operator remains responsible for this fleet and passenger bookings.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-blue-800">
+                    {fleet.companyCode ? <span className="rounded-full bg-white px-3 py-1.5">{fleet.companyCode}</span> : null}
+                    {fleet.companyType ? <span className="rounded-full bg-white px-3 py-1.5">{fleet.companyType}</span> : null}
+                    {fleet.companyCity ? <span className="rounded-full bg-white px-3 py-1.5">{fleet.companyCity}</span> : null}
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
           <section className="grid gap-3 md:grid-cols-3">
             <ProfileMetric
               icon={FiStar}
@@ -365,7 +388,7 @@ function OperatorHeroCard({
               {initials}
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-100">Transport operator</p>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-100">{fleet.isCompanyFleet ? "Company fleet operator" : "Transport operator"}</p>
               <h2 className="mt-1 truncate text-2xl font-black">{fleet.operatorName || "Transport operator"}</h2>
               <p className="mt-1 truncate text-sm font-bold text-emerald-50">
                 {fleet.fleetName} - {fleet.displayType} - {fleet.plateNumber}
@@ -395,9 +418,10 @@ function OperatorHeroCard({
           <button
             type="button"
             onClick={onBook}
-            className="kt-touchable h-11 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700"
+            disabled={!isActive}
+            className="kt-touchable h-11 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-500"
           >
-            Request this fleet type
+            {isActive ? "Request this fleet type" : "Fleet currently offline"}
           </button>
           <button
             type="button"

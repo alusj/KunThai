@@ -513,7 +513,9 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
     try {
       setCompanyWorkspaceStatus("Opening operator dashboard...");
-      const dashboard = await fetchOperatorDashboard(operator.operatorId);
+      const dashboard = operator.transportFleetId
+        ? await fetchOperatorDashboard(operator.operatorId, operator.transportFleetId, { fleetScoped: true })
+        : null;
       const account = buildReadOnlyOperatorAccount(operator, dashboard);
       setCompanyOperatorAccount(account);
       setCompanyOperatorDashboardOpen(true);
@@ -785,7 +787,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           companyLoading={companyLoading}
           initialView="dashboard"
           readOnly
-          readOnlyReason="Company owner view. You can review passengers, trips, earnings, documents, and activity, but only the operator can make changes."
+          readOnlyReason="Company owner view. You can review this company fleet and its trips, but only the assigned operator can change service controls."
           onBack={() => {
             setRouteDirection("backward");
             setCompanyOperatorDashboardOpen(false);
@@ -1294,27 +1296,28 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
   return {
     id: operator.id || invite.operatorId,
     userId: operator.user_id || invite.userId,
-    fleetId: fleet.id || invite.companyFleetId,
+    fleetId: fleet.id || invite.transportFleetId || "",
+    companyFleetId: invite.companyFleetId || fleet.company_fleet_id || "",
     operatorId: operator.operator_code || "",
-    displayCode: operator.display_code || invite.publicId,
+    displayCode: invite.publicId || operator.display_code,
     form: {
-      name: operator.full_name || invite.name || "Registered operator",
-      phone: operator.phone || "",
-      country: fleet.country || operator.country || "",
-      countryCode: fleet.country_iso || operator.country_iso || "",
+      name: invite.name || "Registered operator",
+      phone: "",
+      country: invite.companyCountry || fleet.country || "",
+      countryCode: fleet.country_iso || "",
       currency: fleet.currency || operator.currency || "",
-      city: operator.city || invite.city || "",
-      category: titleCaseTransportValue(fleet.service_category, "Transport"),
-      fleetType: titleCaseTransportValue(fleet.fleet_type || invite.fleetType, "Fleet"),
-      fleetName: fleet.fleet_name || invite.fleetName || "Registered Fleet",
-      plateNumber: fleet.plate_number || invite.plateNumber || "",
-      make: fleet.make || "",
-      model: fleet.model || "",
-      year: fleet.manufacture_year ? String(fleet.manufacture_year) : "",
-      color: fleet.color || "",
-      operatingArea: fleet.operating_area || invite.companyCity || "",
+      city: invite.city || invite.companyCity || "",
+      category: invite.serviceCategory || titleCaseTransportValue(fleet.service_category, "Transport"),
+      fleetType: invite.fleetType || titleCaseTransportValue(fleet.fleet_type, "Fleet"),
+      fleetName: invite.fleetName || fleet.fleet_name || "Registered Fleet",
+      plateNumber: invite.plateNumber || fleet.plate_number || "",
+      make: invite.make || fleet.make || "",
+      model: invite.model || fleet.model || "",
+      year: invite.year ? String(invite.year) : fleet.manufacture_year ? String(fleet.manufacture_year) : "",
+      color: invite.color || fleet.color || "",
+      operatingArea: invite.operatingArea || invite.companyCity || fleet.operating_area || "",
       availability: fleet.availability || "",
-      homeBaseLocation: fleet.home_base_location || "",
+      homeBaseLocation: invite.homeBase || fleet.home_base_location || "",
       baseFare: fleet.base_fare ? String(fleet.base_fare) : "",
       pricePerKm: fleet.price_per_km ? String(fleet.price_per_km) : "",
       pricePerHour: fleet.price_per_hour ? String(fleet.price_per_hour) : "",
@@ -1322,11 +1325,11 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
     answers: fleet.safety_answers || {},
     uploads: {},
     documentsSkipped: Boolean(operator.documents_skipped),
-    verificationStatus: normalizeDashboardVerification(fleet.verification_status || operator.verification_status || invite.verificationStatus),
-    activeStatus: fleet.active_status || "offline",
-    isVisibleToPassengers: Boolean(fleet.is_visible_to_passengers ?? true),
-    walletBalance: Number(operator.wallet_balance || 0),
-    pendingPayout: Number(operator.pending_payout || 0),
+    verificationStatus: normalizeDashboardVerification(invite.fleetVerificationStatus || fleet.verification_status || invite.verificationStatus),
+    activeStatus: fleet.active_status || invite.fleetActiveStatus || "offline",
+    isVisibleToPassengers: Boolean(fleet.is_visible_to_passengers ?? invite.fleetVisibleToPassengers ?? false),
+    walletBalance: 0,
+    pendingPayout: 0,
     status: operator.account_status || "submitted",
     savedAt: operator.updated_at || fleet.updated_at || invite.updatedAt,
     dashboard,

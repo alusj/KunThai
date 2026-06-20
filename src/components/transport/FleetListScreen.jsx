@@ -1,5 +1,5 @@
 import { createElement, useEffect, useRef, useState } from "react";
-import { FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
+import { FiBriefcase, FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
 import {
   fetchTransportFleets,
   getTransportFleets,
@@ -171,6 +171,12 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
         <div className="flex items-start justify-between gap-3 lg:block">
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold text-gray-950">{fleet.fleetName}</h2>
+            {fleet.isCompanyFleet ? (
+              <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700">
+                <FiBriefcase className="shrink-0" />
+                <span className="truncate">Company fleet · {fleet.companyName}</span>
+              </span>
+            ) : null}
             <p className="mt-1 text-xs text-gray-500">
               {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
             </p>

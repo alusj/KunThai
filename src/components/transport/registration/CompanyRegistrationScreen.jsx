@@ -20,6 +20,7 @@ import {
 import { getKunThaiPublicUserId } from "../../../Backend/services/identityCodeService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import {
+  createTransportCompanyFleetCode,
   getTransportCompanyDraft,
   lookupTransportOperatorByKunThaiId,
   saveTransportCompanyAccount,
@@ -73,7 +74,7 @@ function createCompanyForm(profile = {}) {
 function createFleetDraft(index = 0) {
   return {
     localId: `fleet-${Date.now()}-${index}`,
-    fleetCode: "",
+    fleetCode: createTransportCompanyFleetCode(),
     fleetType: fleetTypes[index % fleetTypes.length],
     serviceCategory: "Ride and delivery",
     fleetName: "",
@@ -822,6 +823,10 @@ function FleetCard({ fleet, index, onInvite, onRemove, onUpdate, onUploadDocumen
         ) : null}
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+          <p className="text-xs font-black uppercase tracking-wide text-blue-600">Unique fleet code</p>
+          <p className="mt-1 font-black text-slate-950">{fleet.fleetCode}</p>
+        </div>
         <SelectField label="Fleet type" value={fleet.fleetType} options={fleetTypes} onChange={(value) => onUpdate(fleet.localId, { fleetType: value })} />
         <SelectField label="Service category" value={fleet.serviceCategory} options={serviceCategories} onChange={(value) => onUpdate(fleet.localId, { serviceCategory: value })} />
         <FormInput label="Fleet name" value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder="Example: Lumley taxi 01" />
@@ -977,7 +982,7 @@ function CompanyReviewStep({ fleets, form }) {
       <div className="grid gap-3">
         {fleets.map((fleet) => (
           <div key={fleet.localId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">{fleet.fleetType}</p>
+            <p className="text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode}</p>
             <h4 className="mt-1 font-black text-slate-950">{fleet.fleetName || "Unnamed fleet"}</h4>
             <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.plateNumber || "No plate"} - {fleet.serviceCategory}</p>
           </div>

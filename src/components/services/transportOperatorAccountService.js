@@ -168,6 +168,27 @@ function hasMissingCountryContextColumn(error) {
   return ["country", "country_iso", "currency"].some((column) => isMissingColumn(error, column));
 }
 
+async function selectLatestPersonalFleet(operatorId) {
+  let result = await supabase
+    .from("transport_fleets")
+    .select("*")
+    .eq("operator_id", operatorId)
+    .is("company_fleet_id", null)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (result.error && isMissingColumn(result.error, "company_fleet_id")) {
+    result = await supabase
+      .from("transport_fleets")
+      .select("*")
+      .eq("operator_id", operatorId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+  }
+
+  return result;
+}
+
 function withoutCountryContext(payload) {
   const { country: _country, country_iso: _countryIso, currency: _currency, ...rest } = payload;
   return rest;
@@ -417,12 +438,7 @@ export async function getOperatorAccount() {
   }
 
   const [{ data: fleets, error: fleetError }, dashboard] = await Promise.all([
-    supabase
-      .from("transport_fleets")
-      .select("*")
-      .eq("operator_id", operator.id)
-      .order("updated_at", { ascending: false })
-      .limit(1),
+    selectLatestPersonalFleet(operator.id),
     fetchOperatorDashboard(operator.id),
   ]);
 
@@ -433,7 +449,8 @@ export async function getOperatorAccount() {
   return account;
 }
 
-export async function fetchOperatorDashboard(operatorId = null) {
+export async function fetchOperatorDashboard(operatorId = null, preferredFleetId = null, options = {}) {
+  const fleetScoped = options.fleetScoped === true;
   let resolvedOperatorId = operatorId;
 
   if (!resolvedOperatorId) {
@@ -457,12 +474,15 @@ export async function fetchOperatorDashboard(operatorId = null) {
   if (operatorError) throw new Error(operatorError.message);
   if (!operator) return null;
 
-  const { data: fleets, error: fleetError } = await supabase
-    .from("transport_fleets")
-    .select("*")
-    .eq("operator_id", operator.id)
-    .order("updated_at", { ascending: false })
-    .limit(1);
+  const fleetResult = preferredFleetId
+    ? await supabase
+        .from("transport_fleets")
+        .select("*")
+        .eq("id", preferredFleetId)
+        .eq("operator_id", operator.id)
+        .limit(1)
+    : await selectLatestPersonalFleet(operator.id);
+  const { data: fleets, error: fleetError } = fleetResult;
   if (fleetError) throw new Error(fleetError.message);
 
   const fleet = fleets?.[0] || null;
@@ -501,29 +521,37 @@ export async function fetchOperatorDashboard(operatorId = null) {
           .order("created_at", { ascending: false })
           .limit(20)
       : { data: [], error: null },
-    supabase
-      .from("transport_operator_alerts")
-      .select("*")
-      .eq("operator_id", operator.id)
-      .order("created_at", { ascending: false })
-      .limit(8),
-    supabase
-      .from("transport_operator_reviews")
-      .select("*")
-      .eq("operator_id", operator.id)
-      .order("created_at", { ascending: false })
-      .limit(6),
-    supabase
-      .from("transport_operator_transactions")
-      .select("*")
-      .eq("operator_id", operator.id)
-      .order("created_at", { ascending: false })
-      .limit(8),
-    supabase
-      .from("transport_operator_documents")
-      .select("*")
-      .eq("operator_id", operator.id)
-      .order("uploaded_at", { ascending: false }),
+    fleetScoped
+      ? { data: [], error: null }
+      : supabase
+          .from("transport_operator_alerts")
+          .select("*")
+          .eq("operator_id", operator.id)
+          .order("created_at", { ascending: false })
+          .limit(8),
+    fleetScoped
+      ? { data: [], error: null }
+      : supabase
+          .from("transport_operator_reviews")
+          .select("*")
+          .eq("operator_id", operator.id)
+          .order("created_at", { ascending: false })
+          .limit(6),
+    fleetScoped
+      ? { data: [], error: null }
+      : supabase
+          .from("transport_operator_transactions")
+          .select("*")
+          .eq("operator_id", operator.id)
+          .order("created_at", { ascending: false })
+          .limit(8),
+    fleetScoped
+      ? { data: [], error: null }
+      : supabase
+          .from("transport_operator_documents")
+          .select("*")
+          .eq("operator_id", operator.id)
+          .order("uploaded_at", { ascending: false }),
   ]);
 
   const errors = [
@@ -569,8 +597,8 @@ export async function fetchOperatorDashboard(operatorId = null) {
       documents: operatorDocuments,
     },
     earnings: {
-      walletBalance: Number(operator.wallet_balance || 0),
-      pendingPayout: Number(operator.pending_payout || 0),
+      walletBalance: fleetScoped ? 0 : Number(operator.wallet_balance || 0),
+      pendingPayout: fleetScoped ? 0 : Number(operator.pending_payout || 0),
       today: earningsToday,
       transactions: (transactions || []).map(mapTransaction),
     },
@@ -701,12 +729,7 @@ export async function saveOperatorAccount(account) {
     throw new Error("This plate number is already registered to another operator.");
   }
 
-  const { data: existingFleets, error: existingFleetError } = await supabase
-    .from("transport_fleets")
-    .select("*")
-    .eq("operator_id", operator.id)
-    .order("updated_at", { ascending: false })
-    .limit(1);
+  const { data: existingFleets, error: existingFleetError } = await selectLatestPersonalFleet(operator.id);
 
   if (existingFleetError) throw new Error(existingFleetError.message);
 

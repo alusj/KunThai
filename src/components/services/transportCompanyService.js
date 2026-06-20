@@ -81,6 +81,10 @@ function generateCode(prefix) {
   return `${prefix}-${(random >>> 0).toString(36).toUpperCase().padStart(7, "0").slice(0, 7)}`;
 }
 
+export function createTransportCompanyFleetCode() {
+  return generateCode("KTF");
+}
+
 function generateOperatorCode() {
   const random = typeof crypto !== "undefined" && crypto.getRandomValues
     ? crypto.getRandomValues(new Uint32Array(1))[0]
@@ -277,6 +281,7 @@ function normalizeInvite(invite = {}) {
     companyCode: invite.companyCode || invite.company_code || "",
     companyCity: invite.companyCity || invite.company_city || "",
     companyFleetId: invite.companyFleetId || invite.company_fleet_id || "",
+    transportFleetId: invite.transportFleetId || invite.transport_fleet_id || "",
     fleetCode: invite.fleetCode || invite.fleet_code || "",
     fleetName: invite.fleetName || invite.fleet_name || "",
     fleetType: invite.fleetType || invite.fleet_type || "",
@@ -392,7 +397,7 @@ function attachMembersToFleets(fleets = [], members = []) {
 }
 
 function normalizeFleet(fleet = {}, index = 0) {
-  const fleetCode = fleet.fleetCode || fleet.fleet_code || generateCode("KTF");
+  const fleetCode = fleet.fleetCode || fleet.fleet_code || createTransportCompanyFleetCode();
   const rawOperators = Array.isArray(fleet.operators)
     ? fleet.operators
     : Array.isArray(safeParse(fleet.operators))
@@ -403,6 +408,8 @@ function normalizeFleet(fleet = {}, index = 0) {
     id: fleet.id || fleet.localId || `fleet-${index + 1}`,
     localId: fleet.localId || fleet.id || `fleet-${index + 1}`,
     fleetCode,
+    operatorId: fleet.operatorId || fleet.operator_id || "",
+    transportFleetId: fleet.transportFleetId || fleet.transport_fleet_id || "",
     fleetType: fleet.fleetType || fleet.fleet_type || "Motorbike",
     serviceCategory: fleet.serviceCategory || fleet.service_category || "Ride and delivery",
     fleetName: fleet.fleetName || fleet.fleet_name || "",
@@ -417,7 +424,60 @@ function normalizeFleet(fleet = {}, index = 0) {
     safetyAnswers: fleet.safetyAnswers || fleet.safety_answers || {},
     operators: rawOperators.map(normalizeInvite),
     status: fleet.status || fleet.verification_status || "pending_review",
+    activeStatus: fleet.activeStatus || fleet.active_status || "offline",
+    isVisibleToPassengers: Boolean(fleet.isVisibleToPassengers ?? fleet.is_visible_to_passengers ?? false),
   };
+}
+
+export function resolveTransportCompanyOperatorAssignment(company = {}, targetOperator = null) {
+  const access = company?.access || {};
+  const target = targetOperator || {};
+  const targetOperatorId = target.operatorId || access.operatorId || "";
+  const targetUserId = target.userId || access.userId || "";
+  const targetPublicId = target.publicId || access.publicId || "";
+
+  for (const fleetInput of company?.fleets || []) {
+    const fleet = normalizeFleet(fleetInput);
+    const operators = (fleet.operators || []).map(normalizeInvite);
+    const operator = operators.find((candidate) =>
+      (target.id && candidate.id === target.id) ||
+      (target.requestId && candidate.requestId === target.requestId) ||
+      (targetOperatorId && candidate.operatorId === targetOperatorId) ||
+      (targetUserId && candidate.userId === targetUserId) ||
+      (targetPublicId && compact(candidate.publicId) === compact(targetPublicId))
+    );
+
+    const assignedByFleet = fleet.operatorId && targetOperatorId && fleet.operatorId === targetOperatorId;
+    if (!operator && !assignedByFleet) continue;
+
+    return {
+      companyId: company.id || "",
+      companyFleetId: fleet.id || target.companyFleetId || "",
+      transportFleetId: fleet.transportFleetId || operator?.transportFleetId || target.transportFleetId || "",
+      fleetCode: fleet.fleetCode,
+      fleetName: fleet.fleetName || fleet.fleetType || "Company fleet",
+      fleetType: fleet.fleetType,
+      serviceCategory: fleet.serviceCategory,
+      plateNumber: fleet.plateNumber,
+      make: fleet.make,
+      model: fleet.model,
+      year: fleet.year,
+      color: fleet.color,
+      operatingArea: fleet.operatingArea || company.city || "",
+      homeBase: fleet.homeBase || company.address || "",
+      verificationStatus: fleet.status,
+      activeStatus: fleet.activeStatus,
+      isVisibleToPassengers: fleet.isVisibleToPassengers,
+      operatorId: operator?.operatorId || targetOperatorId || fleet.operatorId,
+      userId: operator?.userId || targetUserId,
+      publicId: operator?.publicId || targetPublicId,
+      operatorName: operator?.name || target.name || access.fullName || "Company operator",
+      memberRole: operator?.memberRole || target.memberRole || access.role || "operator",
+      serviceStatus: operator?.serviceStatus || target.serviceStatus || access.serviceStatus || "active",
+    };
+  }
+
+  return null;
 }
 
 function attachInvitesToFleets(fleets = [], invites = []) {
@@ -574,6 +634,7 @@ function enrichInvite(invite, company = {}, fleet = {}) {
     companyCode: invite.companyCode || company.companyCode || company.company_code,
     companyCity: invite.companyCity || company.city,
     companyFleetId: invite.companyFleetId || invite.company_fleet_id || fleet.id || fleet.localId,
+    transportFleetId: invite.transportFleetId || invite.transport_fleet_id || fleet.transportFleetId || fleet.transport_fleet_id,
     fleetCode: invite.fleetCode || invite.fleet_code || fleet.fleetCode || fleet.fleet_code,
     fleetName: invite.fleetName || fleet.fleetName || fleet.fleet_name,
     fleetType: invite.fleetType || fleet.fleetType || fleet.fleet_type,
@@ -1288,6 +1349,7 @@ export async function saveTransportCompanyAccount(account) {
             safety_answers: fleet.safetyAnswers,
             operators: fleet.operators || [],
             verification_status: fleet.status || "pending_review",
+            is_visible_to_passengers: Boolean(fleet.isVisibleToPassengers),
             updated_at: new Date().toISOString(),
           },
           { company_id: companyId, fleet_code: fleet.fleetCode },
@@ -1306,6 +1368,7 @@ export async function saveTransportCompanyAccount(account) {
             "safety_answers",
             "operators",
             "verification_status",
+            "is_visible_to_passengers",
             "updated_at",
           ],
         ).then((data) => ({ data, error: null })).catch((error) => ({ data: null, error })),
@@ -1375,6 +1438,19 @@ export async function saveTransportCompanyAccount(account) {
     }
     throw new Error(error.message || "Company registration could not be saved to Supabase.");
   }
+}
+
+export async function updateTransportCompanyOperatorAvailability(assignment, active) {
+  const companyFleetId = asUuid(assignment?.companyFleetId || assignment?.company_fleet_id);
+  if (!companyFleetId) throw new Error("Company fleet assignment is missing.");
+
+  const { data, error } = await supabase.rpc("set_transport_company_operator_availability", {
+    company_fleet_uuid: companyFleetId,
+    active: Boolean(active),
+  });
+  if (error) throw new Error(error.message || "Unable to update company fleet availability.");
+
+  return Array.isArray(data) ? data[0] || null : data || null;
 }
 
 export async function lookupTransportOperatorByKunThaiId(value) {
@@ -1711,23 +1787,21 @@ export async function getTransportCompanyBookingQueue(companyAccount = null) {
     ...(company.invites || []),
     ...(company.fleets || []).flatMap((fleet) => fleet.operators || []),
   ].map(normalizeInvite);
-  const operatorIds = canViewAllBookings
-    ? uniqueValues([
-        ...companyOperators
-          .filter((invite) => invite.status === "accepted" && invite.operatorId)
-          .map((invite) => invite.operatorId),
-        ...(company.members || [])
-          .map(normalizeCompanyMember)
-          .filter((member) => member.status === "active" && member.serviceStatus === "active" && member.operatorId)
-          .map((member) => member.operatorId),
-      ])
-    : [ownOperatorId];
-  if (!operatorIds.length) return [];
+  const assignedCompanyFleets = (company.fleets || [])
+    .map(normalizeFleet)
+    .filter((fleet) => {
+      if (!fleet.transportFleetId) return false;
+      if (canViewAllBookings) return true;
+      if (fleet.operatorId === ownOperatorId) return true;
+      return (fleet.operators || []).some((operator) => operator.operatorId === ownOperatorId && operator.status === "accepted");
+    });
+  const runtimeFleetIds = uniqueValues(assignedCompanyFleets.map((fleet) => fleet.transportFleetId));
+  if (!runtimeFleetIds.length) return [];
 
   const { data: fleets, error: fleetError } = await supabase
     .from("transport_fleets")
     .select("id, operator_id, fleet_name, plate_number")
-    .in("operator_id", operatorIds);
+    .in("id", runtimeFleetIds);
   if (fleetError) throw fleetError;
   if (!fleets?.length) return [];
 

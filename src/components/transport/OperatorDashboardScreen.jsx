@@ -235,10 +235,19 @@ export default function OperatorDashboardScreen({
   }
 
   const refreshDashboard = useCallback(async () => {
+    if (account?.companyFleetId && !account?.fleetId) {
+      setDashboardError("This company fleet is not linked to passenger service yet.");
+      return;
+    }
+
     try {
       setDashboardLoading(true);
       setDashboardError("");
-      const nextDashboard = await fetchOperatorDashboard(account?.id);
+      const nextDashboard = await fetchOperatorDashboard(
+        account?.id,
+        account?.fleetId || null,
+        { fleetScoped: Boolean(account?.companyFleetId) },
+      );
       setDashboard(nextDashboard);
       if (nextDashboard?.fleet?.active_status) {
         setIsActive(nextDashboard.fleet.active_status === "active");
@@ -248,7 +257,7 @@ export default function OperatorDashboardScreen({
     } finally {
       setDashboardLoading(false);
     }
-  }, [account?.id]);
+  }, [account?.companyFleetId, account?.fleetId, account?.id]);
 
   useEffect(() => {
     if (account?.id) refreshDashboard();

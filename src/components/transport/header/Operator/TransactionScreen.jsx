@@ -7,13 +7,13 @@ const transactionTabs = ["cashout", "cashin"];
 
 export default function TransactionsScreen({ setActiveScreen }) {
   const [activeTab, setActiveTab] = useState("cashout");
-  const [tabDirection, setTabDirection] = useState("forward");
 
   function selectTab(tab) {
     if (tab === activeTab) return;
-    setTabDirection(transactionTabs.indexOf(tab) > transactionTabs.indexOf(activeTab) ? "forward" : "backward");
     setActiveTab(tab);
   }
+
+  const activeSlide = transactionTabs.indexOf(activeTab);
 
   return (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col">
@@ -51,12 +51,24 @@ export default function TransactionsScreen({ setActiveScreen }) {
       </div>
 
       {/* Content */}
-      <div
-        key={activeTab}
-        className={`flex-1 p-6 ${tabDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`}
-      >
-        {activeTab === "cashout" && <CashOut />}
-        {activeTab === "cashin" && <CashIn />}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div
+          className="flex h-full w-full transition-transform duration-300 ease-[var(--kt-ease-emphasized)] motion-reduce:transition-none"
+          style={{ transform: `translateX(-${activeSlide * 100}%)` }}
+        >
+          <section
+            aria-hidden={activeTab !== "cashout"}
+            className="h-full min-w-full overflow-y-auto p-6"
+          >
+            <CashOut />
+          </section>
+          <section
+            aria-hidden={activeTab !== "cashin"}
+            className="h-full min-w-full overflow-y-auto p-6"
+          >
+            <CashIn />
+          </section>
+        </div>
       </div>
 
     </div>

@@ -11,6 +11,7 @@ import {
   Eye,
   FileCheck2,
   FileText,
+  History,
   LogOut,
   Menu as MenuIcon,
   MoreHorizontal,
@@ -18,6 +19,7 @@ import {
   PlayCircle,
   Shield,
   ShieldCheck,
+  Star,
   Trash2,
   Truck,
   UserRoundPlus,
@@ -35,14 +37,20 @@ import {
   getTransportCompanyBookingQueue,
   leaveTransportCompany,
   manageTransportCompanyOperator,
+  resolveTransportCompanyOperatorAssignment,
+  updateTransportCompanyOperatorAvailability,
 } from "../services/transportCompanyService";
-import { updateOperatorAvailability } from "../services/transportOperatorAccountService";
+import { fetchOperatorDashboard, subscribeOperatorTrips } from "../services/transportOperatorAccountService";
 
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
 
-export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onOpenOperatorDashboard, onOpenPersonalDashboard, onOperatorAccountUpdate, onRegisterCompany, operatorAccount = null, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
+  const companyOperatorAssignment = useMemo(
+    () => basicOperator ? resolveTransportCompanyOperatorAssignment(company) : null,
+    [basicOperator, company],
+  );
   const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs), [basicOperator]);
   const [activeTab, setActiveTab] = useState(() => (basicOperator ? "My Dashboard" : "Overview"));
   const [menuOpen, setMenuOpen] = useState(false);
@@ -56,7 +64,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const [bookingQueueLoading, setBookingQueueLoading] = useState(false);
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
   const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
-  const [operatorAvailable, setOperatorAvailable] = useState(operatorAccount?.activeStatus === "active");
+  const [operatorAvailable, setOperatorAvailable] = useState(companyOperatorAssignment?.activeStatus === "active");
+  const [operatorDashboardData, setOperatorDashboardData] = useState(null);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [managementBusy, setManagementBusy] = useState(false);
   const [localStatus, setLocalStatus] = useState("");
@@ -66,9 +75,22 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const requests = fleets.flatMap((fleet) =>
     (fleet.operators || []).map((operator) => ({
       ...operator,
+      companyFleetId: fleet.id,
+      transportFleetId: fleet.transportFleetId,
+      fleetCode: fleet.fleetCode,
       fleetName: fleet.fleetName,
       fleetType: fleet.fleetType,
       plateNumber: fleet.plateNumber,
+      serviceCategory: fleet.serviceCategory,
+      make: fleet.make,
+      model: fleet.model,
+      year: fleet.year,
+      color: fleet.color,
+      operatingArea: fleet.operatingArea,
+      homeBase: fleet.homeBase,
+      fleetVerificationStatus: fleet.status,
+      fleetActiveStatus: fleet.activeStatus,
+      fleetVisibleToPassengers: fleet.isVisibleToPassengers,
     })),
   );
   const acceptedOperators = requests.filter((request) =>
@@ -192,28 +214,65 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   }, [bookingQueue.length, bookingQueueLoading, bookingQueueOpen]);
 
   useEffect(() => {
-    setOperatorAvailable(operatorAccount?.activeStatus === "active");
-  }, [operatorAccount?.activeStatus]);
+    setOperatorAvailable(companyOperatorAssignment?.activeStatus === "active");
+    setOperatorDashboardData(null);
+  }, [companyOperatorAssignment?.activeStatus, companyOperatorAssignment?.companyFleetId]);
+
+  useEffect(() => {
+    if (!basicOperator || !companyOperatorAssignment?.operatorId || !companyOperatorAssignment?.transportFleetId) return undefined;
+    let active = true;
+
+    async function refreshOperatorSummary() {
+      try {
+        const [nextDashboard, nextQueue] = await Promise.all([
+          fetchOperatorDashboard(
+            companyOperatorAssignment.operatorId,
+            companyOperatorAssignment.transportFleetId,
+            { fleetScoped: true },
+          ),
+          getTransportCompanyBookingQueue(company).catch(() => null),
+        ]);
+        if (!active || !nextDashboard) return;
+        setOperatorDashboardData(nextDashboard);
+        if (nextQueue) setBookingQueue(nextQueue);
+      } catch {
+        // Keep the last successful dashboard snapshot visible if a refresh fails.
+      }
+    }
+
+    refreshOperatorSummary();
+    const unsubscribe = companyOperatorAssignment.transportFleetId
+      ? subscribeOperatorTrips(companyOperatorAssignment.transportFleetId, refreshOperatorSummary)
+      : undefined;
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [basicOperator, company, companyOperatorAssignment?.operatorId, companyOperatorAssignment?.transportFleetId]);
 
   async function toggleOperatorAvailability() {
-    if (!operatorAccount?.fleetId || availabilitySaving) return;
+    if (!companyOperatorAssignment?.companyFleetId || availabilitySaving) return;
     const nextActive = !operatorAvailable;
     setOperatorAvailable(nextActive);
     try {
       setAvailabilitySaving(true);
-      const updatedFleet = await updateOperatorAvailability(operatorAccount.fleetId, nextActive);
+      const updatedFleet = await updateTransportCompanyOperatorAvailability(companyOperatorAssignment, nextActive);
       const activeNow = updatedFleet?.active_status === "active";
       setOperatorAvailable(activeNow);
-      onOperatorAccountUpdate?.((current) => current ? {
+      setOperatorDashboardData((current) => current ? {
         ...current,
-        activeStatus: updatedFleet?.active_status || (activeNow ? "active" : "offline"),
-        isVisibleToPassengers: Boolean(updatedFleet?.is_visible_to_passengers ?? activeNow),
-        dashboard: current.dashboard ? {
-          ...current.dashboard,
-          fleet: { ...(current.dashboard.fleet || {}), ...(updatedFleet || {}) },
-        } : current.dashboard,
+        fleet: { ...(current.fleet || {}), ...(updatedFleet || {}) },
       } : current);
-      showToast(activeNow ? "You are discoverable by passengers." : "You are now offline.", "success");
+      onCompanyUpdate?.({
+        ...company,
+        fleets: (company.fleets || []).map((fleet) => fleet.id === companyOperatorAssignment.companyFleetId ? {
+          ...fleet,
+          activeStatus: updatedFleet?.active_status || (activeNow ? "active" : "offline"),
+          isVisibleToPassengers: Boolean(updatedFleet?.is_visible_to_passengers ?? activeNow),
+          transportFleetId: updatedFleet?.id || fleet.transportFleetId,
+        } : fleet),
+      });
+      showToast(activeNow ? "Your company fleet is now visible to passengers." : "Your company fleet is offline and hidden from passengers.", "success");
     } catch (error) {
       setOperatorAvailable(!nextActive);
       showToast(error.message || "Unable to update discoverability.", "danger");
@@ -434,9 +493,10 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             {activeTab === "Overview" ? <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} /> : null}
             {activeTab === "My Dashboard" ? (
               <BasicOperatorCompanyDashboard
-                bookingCount={bookingQueue.length}
+                bookingCount={Math.max(bookingQueue.length, operatorDashboardData?.waitingPassengers?.length || 0)}
                 company={company}
-                operatorAccount={operatorAccount}
+                dashboard={operatorDashboardData}
+                assignment={companyOperatorAssignment}
                 available={operatorAvailable}
                 availabilitySaving={availabilitySaving}
                 onOpenBookings={bookingQueue.length ? () => setBookingQueueOpen(true) : undefined}
@@ -848,7 +908,7 @@ function OperatorAccessPanel({ canManageOperators, onAddOperator, onManageOperat
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">Operator access</p>
         <h3 className="text-2xl font-black text-slate-950">{operators.length} accepted operator{operators.length === 1 ? "" : "s"}</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          Company owners can review passenger records, trip history, documents, and activity from here without changing the operator account.
+          Company owners can review the assigned company fleet and its trips here without changing the operator's personal account.
         </p>
       </section>
       <Colleagues
@@ -993,12 +1053,22 @@ function Overview({ company, fleets, pendingRequests }) {
   );
 }
 
-function BasicOperatorCompanyDashboard({ available, availabilitySaving, bookingCount = 0, company, onOpenBookings, onToggleAvailability, operatorAccount }) {
-  const form = operatorAccount?.form || {};
+function BasicOperatorCompanyDashboard({ assignment, available, availabilitySaving, bookingCount = 0, company, dashboard, onOpenBookings, onToggleAvailability }) {
   const access = company?.access || {};
   const responsibilities = access.responsibilities || [];
-  const fleetName = form.fleetName || form.fleetType || "Fleet assignment pending";
-  const verification = String(operatorAccount?.verificationStatus || "pending").replaceAll("_", " ");
+  const operatorName = assignment?.operatorName || access.fullName || "Company operator";
+  const fleetName = assignment?.fleetName || assignment?.fleetType || "Fleet assignment pending";
+  const verification = String(assignment?.verificationStatus || "pending").replaceAll("_", " ");
+  const today = dashboard?.today || {};
+  const reviews = dashboard?.reviews || {};
+  const tripHistory = dashboard?.tripHistory || [];
+  const tripControls = dashboard?.tripControls || {};
+  const currency = dashboard?.fleet?.currency || "";
+  const formatRate = (value, suffix = "") => {
+    const numeric = Number(value || 0);
+    if (!numeric) return "Not set";
+    return `${currency ? `${currency} ` : ""}${numeric.toLocaleString()}${suffix}`;
+  };
 
   return (
     <div className="grid gap-4">
@@ -1011,16 +1081,16 @@ function BasicOperatorCompanyDashboard({ available, availabilitySaving, bookingC
               </span>
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Company operator</p>
-                <h2 className="mt-1 truncate text-2xl font-black">{fleetName}</h2>
-                <p className="mt-1 truncate text-sm font-bold text-white/65">{company?.companyName || "Fleet HQ"}</p>
+                <h2 className="mt-1 truncate text-2xl font-black">{operatorName}</h2>
+                <p className="mt-1 truncate text-sm font-bold text-white/65">{fleetName} · {company?.companyName || "Fleet HQ"}</p>
               </div>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={available}
-              aria-label={available ? "Go offline" : "Become discoverable"}
-              disabled={!operatorAccount?.fleetId || availabilitySaving}
+              aria-label={available ? "Go offline" : "Go online"}
+              disabled={!assignment?.companyFleetId || availabilitySaving}
               onClick={onToggleAvailability}
               className={`relative h-8 w-14 flex-none rounded-full p-1 transition disabled:cursor-wait disabled:opacity-60 ${available ? "bg-emerald-400" : "bg-white/25"}`}
             >
@@ -1029,18 +1099,26 @@ function BasicOperatorCompanyDashboard({ available, availabilitySaving, bookingC
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-3 py-1.5 text-xs font-black ${available ? "bg-emerald-400/15 text-emerald-200" : "bg-white/10 text-white/70"}`}>
-              {availabilitySaving ? "Updating..." : available ? "Online - discoverable" : "Offline - hidden from passengers"}
+              {availabilitySaving ? "Updating..." : available ? "Online - visible to passengers" : "Offline - hidden from passengers"}
             </span>
             <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black capitalize text-white/75">{verification}</span>
           </div>
         </div>
 
         <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
-          <ProfileFact label="Operator" value={form.name || access.fullName || "Company operator"} />
-          <ProfileFact label="Operator ID" value={operatorAccount?.displayCode || access.publicId || "Pending"} />
-          <ProfileFact label="Operating area" value={form.operatingArea || form.city || "Not added"} />
+          <ProfileFact label="Operator" value={operatorName} />
+          <ProfileFact label="Operator ID" value={assignment?.publicId || access.publicId || "Pending"} />
+          <ProfileFact label="Fleet code" value={assignment?.fleetCode || "Pending"} />
+          <ProfileFact label="Operating area" value={assignment?.operatingArea || company?.city || "Not added"} />
           <ProfileFact label="Service status" value={access.serviceStatus || "active"} />
         </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <CompanyOperatorMetric icon={CalendarClock} label="Waiting" value={bookingCount} detail="bookings" tone="emerald" />
+        <CompanyOperatorMetric icon={History} label="History" value={tripHistory.length} detail="recent trips" tone="blue" />
+        <CompanyOperatorMetric icon={Star} label="Rating" value={Number(reviews.averageRating || 0).toFixed(1)} detail={`${reviews.count || 0} reviews`} tone="amber" />
+        <CompanyOperatorMetric icon={Clock3} label="Earnings" value={formatRate(dashboard?.earnings?.today)} detail={`${today.trips || 0} trips today`} tone="slate" />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
@@ -1076,14 +1154,116 @@ function BasicOperatorCompanyDashboard({ available, availabilitySaving, bookingC
           <p className="text-xs font-black uppercase tracking-wide text-blue-700">Company membership</p>
           <h3 className="mt-1 text-xl font-black text-slate-950">{company?.companyName || "Fleet HQ"}</h3>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {company?.companyType || "Transport company"} - {company?.city || form.city || "Location not added"}
+            {company?.companyType || "Transport company"} - {company?.city || assignment?.operatingArea || "Location not added"}
           </p>
           <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-400">Company code</p>
           <p className="mt-1 font-black text-slate-950">{company?.companyCode || "Pending"}</p>
         </section>
       </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-700"><ClipboardList size={20} /></span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-blue-700">Rates & service</p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">Passenger pricing</h3>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <ProfileFact label="Base fare" value={formatRate(dashboard?.fleet?.base_fare)} />
+            <ProfileFact label="Per kilometre" value={formatRate(dashboard?.fleet?.price_per_km, " / km")} />
+            <ProfileFact label="Per hour" value={formatRate(dashboard?.fleet?.price_per_hour, " / hour")} />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {tripControls.acceptsRide ? <ServiceChip label="Passenger rides" /> : null}
+            {tripControls.acceptsDelivery ? <ServiceChip label="Deliveries" /> : null}
+            {tripControls.maxDistanceKm ? <ServiceChip label={`Up to ${tripControls.maxDistanceKm} km`} /> : null}
+            {tripControls.startTime && tripControls.endTime ? <ServiceChip label={`${tripControls.startTime} - ${tripControls.endTime}`} /> : null}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-700"><Star size={20} /></span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-amber-700">Passenger trust</p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">Ratings & reviews</h3>
+            </div>
+          </div>
+          <div className="mt-4 flex items-end gap-3">
+            <span className="text-4xl font-black text-slate-950">{Number(reviews.averageRating || 0).toFixed(1)}</span>
+            <span className="pb-1 text-sm font-bold text-slate-500">from {reviews.count || 0} review{reviews.count === 1 ? "" : "s"}</span>
+          </div>
+          <div className="mt-4 grid gap-2">
+            {(reviews.items || []).slice(0, 2).map((review) => (
+              <article key={review.id} className="rounded-2xl bg-slate-50 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-black text-slate-900">{review.passengerName || "Passenger"}</p>
+                  <span className="text-xs font-black text-amber-700">{Number(review.rating || 0).toFixed(1)} ★</span>
+                </div>
+                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{review.reviewText || "Rating submitted without a written review."}</p>
+              </article>
+            ))}
+            {!reviews.items?.length ? <EmptyCompanyOperatorLine text="Passenger reviews will appear after completed company trips." /> : null}
+          </div>
+        </section>
+      </div>
+
+      <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><History size={20} /></span>
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Company service</p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">Trip history</h3>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {tripHistory.slice(0, 6).map((trip) => (
+            <article key={trip.id} className="rounded-2xl bg-slate-50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-950">{trip.name || trip.title || "Passenger trip"}</p>
+                  <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{trip.route || `${trip.pickup} to ${trip.destination}`}</p>
+                </div>
+                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">{trip.status || "completed"}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs font-black">
+                <span className="text-slate-500">{trip.mode || "Ride"}</span>
+                <span className="text-emerald-700">{trip.fare || "Fare pending"}</span>
+              </div>
+            </article>
+          ))}
+          {!tripHistory.length ? <EmptyCompanyOperatorLine text="Completed and cancelled company trips will appear here." /> : null}
+        </div>
+      </section>
     </div>
   );
+}
+
+function CompanyOperatorMetric({ detail, icon, label, tone, value }) {
+  const tones = {
+    emerald: "bg-emerald-50 text-emerald-700",
+    blue: "bg-blue-50 text-blue-700",
+    amber: "bg-amber-50 text-amber-700",
+    slate: "bg-slate-100 text-slate-700",
+  };
+  return (
+    <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+      <span className={`grid h-10 w-10 place-items-center rounded-2xl ${tones[tone] || tones.slate}`}>{createElement(icon, { size: 18 })}</span>
+      <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
+      <p className="text-xs font-bold text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
+function ServiceChip({ label }) {
+  return <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">{label}</span>;
+}
+
+function EmptyCompanyOperatorLine({ text }) {
+  return <p className="rounded-2xl bg-slate-50 px-4 py-5 text-center text-sm font-bold text-slate-500">{text}</p>;
 }
 
 function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonalDashboard, open }) {
@@ -1149,9 +1329,14 @@ function FleetList({ fleets }) {
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {fleets.map((fleet) => (
         <section key={fleet.localId || fleet.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetType}</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode || "Fleet code pending"}</p>
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.activeStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+              {fleet.activeStatus || "offline"}
+            </span>
+          </div>
           <h3 className="mt-1 text-lg font-black text-slate-950">{fleet.fleetName || "Unnamed fleet"}</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.plateNumber || "No plate"} - {fleet.serviceCategory}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.fleetType} · {fleet.plateNumber || "No plate"} · {fleet.serviceCategory}</p>
           <div className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-500">
             <FiMapPin />
             {fleet.homeBase || fleet.operatingArea || "Home base not added"}
