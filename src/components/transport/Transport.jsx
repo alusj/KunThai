@@ -811,9 +811,21 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           operatorAccount={operatorAccount}
           statusMessage={companyWorkspaceStatus}
           onCompanyUpdate={setCompanyAccount}
+          onOperatorAccountUpdate={setOperatorAccount}
+          onCompanyLeft={() => {
+            setRouteDirection("backward");
+            setCompanyAccount(null);
+            setCompanyWorkspaceOpen(false);
+          }}
           onBack={() => {
             setRouteDirection("backward");
             setCompanyWorkspaceOpen(false);
+          }}
+          onOpenPersonalDashboard={() => {
+            setRouteDirection("backward");
+            setCompanyWorkspaceOpen(false);
+            setOperatorDashboardView("dashboard");
+            setOperatorDashboardOpen(true);
           }}
           onOpenOperatorDashboard={openCompanyOperatorDashboard}
           onRegisterCompany={() => openCompanyRegistration("company-workspace")}

@@ -7,9 +7,11 @@ import {
   Check,
   ClipboardList,
   Clock3,
+  Copy,
   Eye,
   FileCheck2,
   FileText,
+  LogOut,
   Menu as MenuIcon,
   MoreHorizontal,
   Pencil,
@@ -31,13 +33,15 @@ import { showToast } from "../../Backend/services/toastService";
 import {
   COMPANY_OPERATOR_ROLES,
   getTransportCompanyBookingQueue,
+  leaveTransportCompany,
   manageTransportCompanyOperator,
 } from "../services/transportCompanyService";
+import { updateOperatorAvailability } from "../services/transportOperatorAccountService";
 
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
 
-export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdate, onOpenOperatorDashboard, onRegisterCompany, operatorAccount = null, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onOpenOperatorDashboard, onOpenPersonalDashboard, onOperatorAccountUpdate, onRegisterCompany, operatorAccount = null, statusMessage = "" }) {
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs), [basicOperator]);
   const [activeTab, setActiveTab] = useState(() => (basicOperator ? "My Dashboard" : "Overview"));
@@ -50,6 +54,10 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
   const [bookingQueueOpen, setBookingQueueOpen] = useState(false);
   const [bookingQueue, setBookingQueue] = useState([]);
   const [bookingQueueLoading, setBookingQueueLoading] = useState(false);
+  const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
+  const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
+  const [operatorAvailable, setOperatorAvailable] = useState(operatorAccount?.activeStatus === "active");
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [managementBusy, setManagementBusy] = useState(false);
   const [localStatus, setLocalStatus] = useState("");
   const menuActionTimerRef = useRef(null);
@@ -183,6 +191,53 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
     }
   }, [bookingQueue.length, bookingQueueLoading, bookingQueueOpen]);
 
+  useEffect(() => {
+    setOperatorAvailable(operatorAccount?.activeStatus === "active");
+  }, [operatorAccount?.activeStatus]);
+
+  async function toggleOperatorAvailability() {
+    if (!operatorAccount?.fleetId || availabilitySaving) return;
+    const nextActive = !operatorAvailable;
+    setOperatorAvailable(nextActive);
+    try {
+      setAvailabilitySaving(true);
+      const updatedFleet = await updateOperatorAvailability(operatorAccount.fleetId, nextActive);
+      const activeNow = updatedFleet?.active_status === "active";
+      setOperatorAvailable(activeNow);
+      onOperatorAccountUpdate?.((current) => current ? {
+        ...current,
+        activeStatus: updatedFleet?.active_status || (activeNow ? "active" : "offline"),
+        isVisibleToPassengers: Boolean(updatedFleet?.is_visible_to_passengers ?? activeNow),
+        dashboard: current.dashboard ? {
+          ...current.dashboard,
+          fleet: { ...(current.dashboard.fleet || {}), ...(updatedFleet || {}) },
+        } : current.dashboard,
+      } : current);
+      showToast(activeNow ? "You are discoverable by passengers." : "You are now offline.", "success");
+    } catch (error) {
+      setOperatorAvailable(!nextActive);
+      showToast(error.message || "Unable to update discoverability.", "danger");
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  }
+
+  async function confirmLeaveCompany() {
+    try {
+      setManagementBusy(true);
+      await leaveTransportCompany(company);
+      setLeaveCompanyOpen(false);
+      setOperatorMenuOpen(false);
+      onCompanyUpdate?.(null);
+      showToast("You have left the company. Your personal operator account is unchanged.", "success");
+      onCompanyLeft?.();
+    } catch (error) {
+      showToast(error.message || "Unable to leave this company.", "danger");
+    } finally {
+      setManagementBusy(false);
+    }
+  }
+
   async function runOperatorAction(operator, action, options = {}) {
     try {
       setManagementBusy(true);
@@ -281,6 +336,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
               <MenuIcon size={18} />
               Menu
             </button>
+          ) : company && basicOperator ? (
+            <button
+              type="button"
+              onClick={() => setOperatorMenuOpen(true)}
+              aria-label="Company operator actions"
+              className="kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-900"
+            >
+              <MoreHorizontal size={21} />
+            </button>
           ) : (
             <button
               type="button"
@@ -325,7 +389,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
         </main>
       ) : (
         <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
-          <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
+          {!basicOperator ? <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-wide text-blue-700">{company.companyCode}</p>
@@ -344,9 +408,9 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
                 <MetricCard key={metric.label} metric={metric} />
               ))}
             </div>
-          </section>
+          </section> : null}
 
-          <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto rounded-3xl border border-slate-100 bg-white p-2 shadow-sm">
+          {!basicOperator ? <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto rounded-3xl border border-slate-100 bg-white p-2 shadow-sm">
             {availableTabs.map((tab) => (
               <button
                 key={tab}
@@ -359,9 +423,9 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
                 {tab}
               </button>
             ))}
-          </div>
+          </div> : null}
 
-          <section className="mt-4">
+          <section className={basicOperator ? "" : "mt-4"}>
             {statusMessage || localStatus ? (
               <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
                 {localStatus || statusMessage}
@@ -369,7 +433,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
             ) : null}
             {activeTab === "Overview" ? <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} /> : null}
             {activeTab === "My Dashboard" ? (
-              <BasicOperatorCompanyDashboard company={company} operatorAccount={operatorAccount} />
+              <BasicOperatorCompanyDashboard
+                bookingCount={bookingQueue.length}
+                company={company}
+                operatorAccount={operatorAccount}
+                available={operatorAvailable}
+                availabilitySaving={availabilitySaving}
+                onOpenBookings={bookingQueue.length ? () => setBookingQueueOpen(true) : undefined}
+                onToggleAvailability={toggleOperatorAvailability}
+              />
             ) : null}
             {activeTab === "Fleets" ? <FleetList fleets={fleets} /> : null}
             {activeTab === "Operators" ? (
@@ -426,6 +498,33 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
             loading={bookingQueueLoading}
             open={bookingQueueOpen}
             onClose={() => setBookingQueueOpen(false)}
+          />
+          {basicOperator ? (
+            <CompanyOperatorMenu
+              company={company}
+              onClose={() => setOperatorMenuOpen(false)}
+              onCopy={() => {
+                navigator.clipboard?.writeText(company?.companyCode || company?.companyName || "");
+                showToast("Company code copied.", "success");
+                setOperatorMenuOpen(false);
+              }}
+              onLeave={() => {
+                setOperatorMenuOpen(false);
+                window.setTimeout(() => setLeaveCompanyOpen(true), 150);
+              }}
+              onOpenPersonalDashboard={() => {
+                setOperatorMenuOpen(false);
+                onOpenPersonalDashboard?.();
+              }}
+              open={operatorMenuOpen}
+            />
+          ) : null}
+          <LeaveCompanyDrawer
+            busy={managementBusy}
+            company={company}
+            onClose={() => setLeaveCompanyOpen(false)}
+            onConfirm={confirmLeaveCompany}
+            open={leaveCompanyOpen}
           />
           <OperatorActionDrawer
             busy={managementBusy}
@@ -894,47 +993,144 @@ function Overview({ company, fleets, pendingRequests }) {
   );
 }
 
-function BasicOperatorCompanyDashboard({ company, operatorAccount }) {
+function BasicOperatorCompanyDashboard({ available, availabilitySaving, bookingCount = 0, company, onOpenBookings, onToggleAvailability, operatorAccount }) {
   const form = operatorAccount?.form || {};
   const access = company?.access || {};
   const responsibilities = access.responsibilities || [];
+  const fleetName = form.fleetName || form.fleetType || "Fleet assignment pending";
+  const verification = String(operatorAccount?.verificationStatus || "pending").replaceAll("_", " ");
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
-        <div className="flex items-start gap-3">
-          <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-blue-50 text-blue-700">
-            <Truck size={22} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-wide text-blue-700">My company dashboard</p>
-            <h3 className="mt-1 truncate text-2xl font-black text-slate-950">{form.name || access.fullName || "Company operator"}</h3>
-            <p className="mt-1 text-sm font-bold text-slate-500">{operatorAccount?.displayCode || access.publicId || "Operator ID pending"}</p>
+    <div className="grid gap-4">
+      <section className="overflow-hidden rounded-[30px] border border-blue-100 bg-white shadow-sm">
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 text-white sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-white/10 text-sky-200 backdrop-blur">
+                <Truck size={22} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Company operator</p>
+                <h2 className="mt-1 truncate text-2xl font-black">{fleetName}</h2>
+                <p className="mt-1 truncate text-sm font-bold text-white/65">{company?.companyName || "Fleet HQ"}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={available}
+              aria-label={available ? "Go offline" : "Become discoverable"}
+              disabled={!operatorAccount?.fleetId || availabilitySaving}
+              onClick={onToggleAvailability}
+              className={`relative h-8 w-14 flex-none rounded-full p-1 transition disabled:cursor-wait disabled:opacity-60 ${available ? "bg-emerald-400" : "bg-white/25"}`}
+            >
+              <span className={`block h-6 w-6 rounded-full bg-white shadow-lg transition-transform ${available ? "translate-x-6" : "translate-x-0"}`} />
+            </button>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-3 py-1.5 text-xs font-black ${available ? "bg-emerald-400/15 text-emerald-200" : "bg-white/10 text-white/70"}`}>
+              {availabilitySaving ? "Updating..." : available ? "Online - discoverable" : "Offline - hidden from passengers"}
+            </span>
+            <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black capitalize text-white/75">{verification}</span>
           </div>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <ProfileFact label="Company" value={company?.companyName || "Fleet HQ"} />
-          <ProfileFact label="Role" value="Operator only" />
-          <ProfileFact label="Fleet" value={form.fleetName || form.fleetType || "Fleet assignment pending"} />
-          <ProfileFact label="Service status" value={access.serviceStatus || "active"} />
+
+        <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
+          <ProfileFact label="Operator" value={form.name || access.fullName || "Company operator"} />
+          <ProfileFact label="Operator ID" value={operatorAccount?.displayCode || access.publicId || "Pending"} />
           <ProfileFact label="Operating area" value={form.operatingArea || form.city || "Not added"} />
-          <ProfileFact label="Verification" value={operatorAccount?.verificationStatus || "pending"} />
+          <ProfileFact label="Service status" value={access.serviceStatus || "active"} />
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Private operator access</p>
-        <h3 className="mt-1 text-xl font-black text-slate-950">Your information only</h3>
-        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          You can review your company membership, assigned fleet, and your own waiting passengers. Other operators, company records, and management controls remain private unless the company owner gives you responsibility.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {(responsibilities.length ? responsibilities : ["Operator only"]).map((item) => (
-            <span key={item} className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{item}</span>
-          ))}
-        </div>
-      </section>
+      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        {bookingCount > 0 && onOpenBookings ? (
+          <button
+            type="button"
+            onClick={onOpenBookings}
+            className="kt-pressable flex items-center gap-4 rounded-3xl border border-emerald-100 bg-emerald-50 p-5 text-left shadow-sm"
+          >
+            <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-emerald-600 text-white"><CalendarClock size={22} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-black uppercase tracking-wide text-emerald-700">Waiting bookings</span>
+              <span className="mt-1 block text-xl font-black text-slate-950">{bookingCount} passenger{bookingCount === 1 ? "" : "s"}</span>
+              <span className="mt-1 block text-sm font-semibold text-slate-600">Open your current company queue.</span>
+            </span>
+          </button>
+        ) : null}
+
+        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Private operator access</p>
+          <h3 className="mt-1 text-xl font-black text-slate-950">Your dashboard, your passengers</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            You can see your company membership and your own bookings. Other operator records stay private unless the company creator assigns you responsibility.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(responsibilities.length ? responsibilities : ["Operator only"]).map((item) => (
+              <span key={item} className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{item}</span>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">Company membership</p>
+          <h3 className="mt-1 text-xl font-black text-slate-950">{company?.companyName || "Fleet HQ"}</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            {company?.companyType || "Transport company"} - {company?.city || form.city || "Location not added"}
+          </p>
+          <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-400">Company code</p>
+          <p className="mt-1 font-black text-slate-950">{company?.companyCode || "Pending"}</p>
+        </section>
+      </div>
     </div>
+  );
+}
+
+function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonalDashboard, open }) {
+  return (
+    <FleetHqActionSheet label="Company operator actions" onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow={company?.companyName || "Fleet HQ"} icon={MoreHorizontal} onClose={onClose} title="Operator actions" />
+      <div className="grid gap-3 bg-slate-50 p-4">
+        <OperatorActionButton
+          detail="Return to your full personal operator dashboard, trips, documents, and earnings."
+          icon={Truck}
+          label="Personal operator dashboard"
+          onClick={onOpenPersonalDashboard}
+        />
+        <OperatorActionButton
+          detail="Copy this Fleet HQ code for company support or verification."
+          icon={Copy}
+          label="Copy company code"
+          onClick={onCopy}
+        />
+        <OperatorActionButton
+          danger
+          detail="Disconnect your operator membership without deleting your KunThai account."
+          icon={LogOut}
+          label="Leave company"
+          onClick={onLeave}
+        />
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+function LeaveCompanyDrawer({ busy, company, onClose, onConfirm, open }) {
+  return (
+    <FleetHqActionSheet label="Leave company" onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow="Company membership" icon={LogOut} onClose={onClose} title={`Leave ${company?.companyName || "company"}?`} />
+      <div className="p-5">
+        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">
+          Your company access and company bookings will stop. Your personal operator profile, identity, and records will remain in KunThai.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">Stay</button>
+          <button type="button" disabled={busy} onClick={onConfirm} className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
+            {busy ? "Leaving..." : "Leave company"}
+          </button>
+        </div>
+      </div>
+    </FleetHqActionSheet>
   );
 }
 

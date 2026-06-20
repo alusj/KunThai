@@ -33,8 +33,8 @@ export default function PostOptionsMenu({ closing, followed, isOwner, onClose, o
   ];
 
   return (
-    <ExploreActionDrawer closing={closing} eyebrow="UrFeed" onClose={onClose} title="Post actions">
-      <div className="space-y-2">
+    <ExploreActionDrawer closing={closing} onClose={onClose} title="Post actions">
+      <div className="space-y-1">
       {(isOwner ? ownerActions : viewerActions).map((item) => {
         const Icon = item.icon;
         return (
@@ -42,11 +42,11 @@ export default function PostOptionsMenu({ closing, followed, isOwner, onClose, o
             key={item.label}
             type="button"
             onClick={item.action}
-            className={`flex w-full min-w-0 items-center gap-3 rounded-[18px] border px-3 py-3 text-sm font-black transition hover:bg-slate-100 ${
-              item.danger ? "border-rose-100 bg-rose-50 text-rose-600" : item.active ? "border-sky-100 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-700"
+            className={`flex w-full min-w-0 items-center gap-3 rounded-[18px] px-3 py-3 text-sm font-black transition ${
+              item.danger ? "bg-rose-500/10 text-rose-700 hover:bg-rose-500/15" : item.active ? "bg-sky-500/10 text-sky-800 hover:bg-sky-500/15" : "text-slate-800 hover:bg-white/55"
             }`}
           >
-            <span className="grid h-10 w-10 flex-none place-items-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <span className={`grid h-10 w-10 flex-none place-items-center rounded-2xl ${item.danger ? "bg-rose-500/10" : "bg-white/60"}`}>
               <Icon className="text-lg" />
             </span>
             <span className="truncate">{item.label}</span>

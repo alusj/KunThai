@@ -1,4 +1,5 @@
 import { Component, useEffect, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { useExploreFeed } from "../../../../../Backend/hooks/useExploreFeed";
@@ -11,9 +12,10 @@ import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipP
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
 
-export default function All({ active = true, currentUserId = "", onlyUserId = "", onViewProfile, profile }) {
+export default function All({ active = true, currentUserId = "", focusPostId = "", onlyUserId = "", onReturnToRepost, onViewProfile, profile }) {
   const feed = useExploreFeed("swip");
   const videos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
+  const focusedVideoIndex = focusPostId ? videos.findIndex((post) => post.id === focusPostId) : -1;
   const [activeIndex, setActiveIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const scrollerRef = useRef(null);
@@ -114,6 +116,22 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     requestSwipActivePlay(160, true);
   }
 
+  useEffect(() => {
+    if (!active || focusedVideoIndex < 0) return undefined;
+    const timer = window.setTimeout(() => {
+      const node = itemRefs.current[focusedVideoIndex];
+      if (!node) return;
+      stopAllExploreMedia(null, { muteVideos: false });
+      setActiveIndex(focusedVideoIndex);
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.clearTimeout(scrollPlayTimerRef.current);
+      scrollPlayTimerRef.current = window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("swip-active-play", { detail: { sound: true } }));
+      }, 160);
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [active, focusedVideoIndex]);
+
  function handleWheel(event) {
   if (event.cancelable) {
     event.preventDefault();
@@ -162,9 +180,21 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
   }
 
   return (
-    <div
-      ref={scrollerRef}
-      className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    <div className="relative h-full min-h-0 w-full bg-slate-950">
+      {onReturnToRepost ? (
+        <button
+          type="button"
+          onClick={onReturnToRepost}
+          aria-label="Back to repost"
+          className="kt-pressable absolute left-3 top-3 z-40 flex h-11 items-center gap-2 rounded-full border border-white/15 bg-slate-950/55 px-4 text-sm font-black text-white shadow-2xl backdrop-blur-xl"
+        >
+          <ArrowLeft size={19} />
+          Back
+        </button>
+      ) : null}
+      <div
+        ref={scrollerRef}
+        className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       onScroll={handleScroll}
       onWheel={handleWheel}
       style={{
@@ -172,7 +202,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
         touchAction: "pan-y",
         overscrollBehavior: "contain",
       }}
-    >
+      >
       {videos.map((post, index) => {
   const shouldMountVideo = Math.abs(index - activeIndex) <= 1;
 
@@ -223,6 +253,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
     </section>
   );
 })}
+      </div>
     </div>
   );
 }

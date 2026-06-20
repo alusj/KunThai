@@ -660,8 +660,8 @@ export default function VideoCard({
       ) : null}
 
       {actionMenuOpen ? (
-        <ExploreActionDrawer closing={actionMenuClosing} eyebrow="Swip actions" onClose={() => closeActionMenu()} title="Manage this video">
-            <div className="grid gap-2">
+        <ExploreActionDrawer closing={actionMenuClosing} onClose={() => closeActionMenu()} title="Manage this video">
+            <div className="grid gap-1">
               <SwipActionItem icon={Send} title="Share Swip" detail="Send through your phone share sheet." onClick={handleShare} />
               <SwipActionItem icon={Link} title="Copy link" detail="Keep a direct link to this Swip." onClick={handleCopyLink} />
               <SwipActionItem icon={Download} title="Save video" detail="Download the video file when the browser allows it." onClick={handleDownload} />
@@ -749,13 +749,13 @@ function SwipActionItem({ danger = false, detail, icon, onClick, title }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${
+      className={`flex items-center gap-3 rounded-2xl p-3 text-left transition ${
         danger
-          ? "border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100"
-          : "border-slate-100 bg-slate-50 text-slate-900 hover:border-slate-200 hover:bg-slate-100"
+          ? "bg-rose-500/10 text-rose-700 hover:bg-rose-500/15"
+          : "text-slate-900 hover:bg-white/55"
       }`}
     >
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm ${danger ? "text-rose-700" : "text-slate-700"}`}>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${danger ? "bg-rose-500/10 text-rose-700" : "bg-white/60 text-slate-700"}`}>
         {useMemo(() => {
           const ActionIcon = icon;
           return <ActionIcon size={18} />;

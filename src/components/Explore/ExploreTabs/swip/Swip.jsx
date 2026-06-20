@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { stopAllExploreMedia } from "../../shared/singleMediaPlayback";
 import All from "./tabs/All";
 
-export default function Swip({ active = true, currentUserId = "", onViewProfile, profile }) {
+export default function Swip({ active = true, currentUserId = "", focusPostId = "", onReturnToRepost, onViewProfile, profile }) {
   useEffect(() => {
     if (!active) {
       stopAllExploreMedia(null, { muteVideos: false });
@@ -47,7 +47,7 @@ export default function Swip({ active = true, currentUserId = "", onViewProfile,
   return (
     <div className="flex h-[calc(100dvh-var(--explore-top-chrome-height,57px))] min-h-0 flex-col overflow-hidden bg-slate-950">
       <div className="min-h-0 flex-1 overflow-hidden">
-        <All active={active} currentUserId={currentUserId} onViewProfile={onViewProfile} profile={profile} />
+        <All active={active} currentUserId={currentUserId} focusPostId={focusPostId} onReturnToRepost={onReturnToRepost} onViewProfile={onViewProfile} profile={profile} />
       </div>
     </div>
   );

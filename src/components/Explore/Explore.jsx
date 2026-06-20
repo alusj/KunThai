@@ -70,6 +70,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [postingNotice, setPostingNotice] = useState(() => readPostingNotice());
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
+  const [swipPreviewTarget, setSwipPreviewTarget] = useState("");
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [headerOverlayOpen, setHeaderOverlayOpen] = useState(false);
@@ -81,10 +82,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const previousMenuStackRef = useRef([]);
   const stackCleanupTimerRef = useRef(null);
   const postingNoticeClearTimerRef = useRef(null);
+  const switchExploreTabRef = useRef(null);
   const authenticatedUserRef = useRef(user);
   authenticatedUserRef.current = user;
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
+  switchExploreTabRef.current = switchExploreTab;
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
   const anyExploreOverlayVisible = menuOverlayVisible || leftDrawerOpen || composerOpen || headerOverlayOpen;
@@ -104,6 +107,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const showProfileSkeleton = false;
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
+  useBrowserBack(Boolean(swipPreviewTarget && activeTab === "Swip"), returnFromRepostedSwip, "explore-reposted-swip");
   const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, {
     edgeWidth: Math.min(280, Math.max(160, Math.round(window.innerWidth * 0.45))),
     minDistance: 58,
@@ -117,6 +121,18 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     window.addEventListener("kuntai-explore-composer-visibility", handleComposerVisibility);
     return () => window.removeEventListener("kuntai-explore-composer-visibility", handleComposerVisibility);
+  }, []);
+
+  useEffect(() => {
+    function openRepostedSwip(event) {
+      const postId = String(event.detail?.postId || "");
+      if (!postId) return;
+      setSwipPreviewTarget(postId);
+      switchExploreTabRef.current?.("Swip");
+    }
+
+    window.addEventListener("explore-open-reposted-swip", openRepostedSwip);
+    return () => window.removeEventListener("explore-open-reposted-swip", openRepostedSwip);
   }, []);
 
   useLayoutEffect(() => {
@@ -475,6 +491,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     });
   }
 
+  function returnFromRepostedSwip() {
+    setSwipPreviewTarget("");
+    switchExploreTab("UrFeed");
+  }
+
   function getExploreTabPanelClass(tab) {
     if (activeTab !== tab) {
       return "hidden";
@@ -801,6 +822,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       <Swip
         active={active && activeTab === "Swip"}
         currentUserId={profile.userId}
+        focusPostId={swipPreviewTarget}
+        onReturnToRepost={swipPreviewTarget ? returnFromRepostedSwip : undefined}
         profile={profile}
         onViewProfile={openViewedProfile}
       />

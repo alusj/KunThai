@@ -20,6 +20,8 @@ export function buildExploreRepostSnapshot(post = {}) {
     body: post.body || "",
     imageUrl: post.image_url || "",
     videoUrl: post.video_url || "",
+    videoTrimStart: post.video_trim_start ?? post.videoTrimStart ?? post.media_meta?.videoTrimStart ?? post.mediaMeta?.videoTrimStart ?? 0,
+    videoTrimEnd: post.video_trim_end ?? post.videoTrimEnd ?? post.media_meta?.videoTrimEnd ?? post.mediaMeta?.videoTrimEnd ?? null,
     audioUrl: post.audio_url || "",
     audioDurationSeconds: post.audio_duration_seconds || null,
     createdAt: post.created_at || null,
