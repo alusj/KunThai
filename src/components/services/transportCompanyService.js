@@ -344,13 +344,20 @@ function buildCompanyAccess(company = {}, member = null, userId = "") {
 
   return {
     isOwner,
+    isActiveMember: Boolean(active),
     role: isOwner ? "owner" : normalizedMember?.role || "operator",
     memberId: normalizedMember?.id || "",
+    operatorId: normalizedMember?.operatorId || "",
+    userId: normalizedMember?.userId || userId || "",
+    publicId: normalizedMember?.publicId || "",
+    fullName: normalizedMember?.fullName || "",
     memberStatus: normalizedMember?.status || (isOwner ? "active" : "pending"),
     serviceStatus: normalizedMember?.serviceStatus || "active",
     responsibilities: normalizedMember?.responsibilities || [],
     permissions: normalizedMember?.permissions || {},
-    canViewCompanyHq: isOwner || can("view_company_hq"),
+    // Every active company operator can enter Fleet HQ. RLS and the client
+    // workspace still limit basic operators to their own company information.
+    canViewCompanyHq: Boolean(active),
     canViewAllBookings: isOwner || can("view_all_bookings"),
     canManageOperators: isOwner || can("manage_operators"),
     canManageFleets: isOwner || can("manage_fleets"),
@@ -1647,21 +1654,25 @@ export async function manageTransportCompanyOperator(companyAccount, operator, a
 
 export async function getTransportCompanyBookingQueue(companyAccount = null) {
   const company = companyAccount?.id ? companyAccount : await getTransportCompanyAccount();
-  if (!company?.id || !company?.access?.canViewAllBookings) return [];
+  const canViewAllBookings = Boolean(company?.access?.canViewAllBookings);
+  const ownOperatorId = company?.access?.operatorId || "";
+  if (!company?.id || (!canViewAllBookings && !ownOperatorId)) return [];
 
   const companyOperators = [
     ...(company.invites || []),
     ...(company.fleets || []).flatMap((fleet) => fleet.operators || []),
   ].map(normalizeInvite);
-  const operatorIds = uniqueValues([
-    ...companyOperators
-      .filter((invite) => invite.status === "accepted" && invite.operatorId)
-      .map((invite) => invite.operatorId),
-    ...(company.members || [])
-      .map(normalizeCompanyMember)
-      .filter((member) => member.status === "active" && member.serviceStatus === "active" && member.operatorId)
-      .map((member) => member.operatorId),
-  ]);
+  const operatorIds = canViewAllBookings
+    ? uniqueValues([
+        ...companyOperators
+          .filter((invite) => invite.status === "accepted" && invite.operatorId)
+          .map((invite) => invite.operatorId),
+        ...(company.members || [])
+          .map(normalizeCompanyMember)
+          .filter((member) => member.status === "active" && member.serviceStatus === "active" && member.operatorId)
+          .map((member) => member.operatorId),
+      ])
+    : [ownOperatorId];
   if (!operatorIds.length) return [];
 
   const { data: fleets, error: fleetError } = await supabase
@@ -1692,7 +1703,7 @@ export async function getTransportCompanyBookingQueue(companyAccount = null) {
       id: trip.id,
       fleetId: trip.fleet_id,
       operatorId: fleet.operator_id,
-      operatorName: operator.name || "Company operator",
+      operatorName: operator.name || company.access?.fullName || "Company operator",
       fleetName: fleet.fleet_name || operator.fleetName || "Company fleet",
       plateNumber: fleet.plate_number || operator.plateNumber || "",
       passengerName: trip.passenger_name || "Passenger",

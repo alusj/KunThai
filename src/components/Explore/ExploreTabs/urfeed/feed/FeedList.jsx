@@ -23,6 +23,7 @@ export default function FeedList({
   onViewProfile,
   currentUserId,
   actionsByScope,
+  profile,
   emptyTitle = "No posts yet",
   emptyMessage = "The feed is empty right now. Be the first to share something.",
   showEmpty = false,
@@ -112,6 +113,7 @@ export default function FeedList({
           <FeedPost
             key={post.id}
             post={post}
+            profile={profile}
             currentUserId={currentUserId}
             liked={(actionsByScope?.[post.feed_scope || "feed"]?.likedPosts || likedPosts)?.has?.(post.id)}
             saved={(actionsByScope?.[post.feed_scope || "feed"]?.savedPosts || savedPosts)?.has?.(post.id)}

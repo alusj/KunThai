@@ -60,7 +60,7 @@ function getNotificationPriority(type) {
     return "high";
   }
 
-  if (["like", "share", "save", "reaction"].includes(type)) {
+  if (["like", "share", "save", "reaction", "repost"].includes(type)) {
     return "medium";
   }
 
@@ -99,6 +99,8 @@ function getNotificationMessage(type, actorName, mediaType = "post") {
       return `${name} bookmarked your ${target}`;
     case "share":
       return `${name} shared your ${target}`;
+    case "repost":
+      return `${name} reposted your ${target}`;
     case "reaction":
       return `${name} reacted to your ${target}`;
     case "tag":

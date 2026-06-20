@@ -17,7 +17,7 @@ const NOTIFICATIONS_MEMORY = {
 const NOTIFICATIONS_MEMORY_TTL = 120_000;
 const PAGE_SIZE = 30;
 const HIGH_PRIORITY_TYPES = new Set(["comment", "reply", "mention", "follow", "message", "creator_reply", "thread_reply"]);
-const MEDIUM_PRIORITY_TYPES = new Set(["like", "share", "save", "reaction"]);
+const MEDIUM_PRIORITY_TYPES = new Set(["like", "share", "save", "reaction", "repost"]);
 
 function normalizeNotification(item) {
   return {
@@ -38,7 +38,7 @@ function getCategory(type) {
 
 function notificationEnabled(item) {
   const settings = readExploreSettings().notifications;
-  if (item.type === "like" || item.type === "save" || item.type === "share" || item.type === "reaction") return settings.reactions;
+  if (item.type === "like" || item.type === "save" || item.type === "share" || item.type === "reaction" || item.type === "repost") return settings.reactions;
   if (item.type === "comment" || item.type === "reply" || item.type === "creator_reply" || item.type === "thread_reply") return settings.comments;
   if (item.type === "mention" || item.type === "tag") return settings.mentions;
   if (["follow", "connect", "connection", "connection_request"].includes(item.type)) return settings.follows;

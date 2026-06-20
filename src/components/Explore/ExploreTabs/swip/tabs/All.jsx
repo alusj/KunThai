@@ -11,7 +11,7 @@ import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipP
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
 
-export default function All({ active = true, currentUserId = "", onlyUserId = "", onViewProfile }) {
+export default function All({ active = true, currentUserId = "", onlyUserId = "", onViewProfile, profile }) {
   const feed = useExploreFeed("swip");
   const videos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -188,6 +188,7 @@ export default function All({ active = true, currentUserId = "", onlyUserId = ""
       {shouldMountVideo ? (
         <SwipPostBoundary postId={post.id}>
           <VideoCard
+            profile={profile}
             post={post}
             active={active && index === activeIndex}
             fullBleed

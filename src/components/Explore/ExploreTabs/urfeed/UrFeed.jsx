@@ -40,6 +40,7 @@ export default function UrFeed({ profile, onViewProfile }) {
         onSubmit={(postInput) => feed.submitPost(postInput)}
       />
       <FeedList
+        profile={profile}
         posts={posts}
         loading={(feed.loading || circleFeed.loading) && posts.length === 0}
         error={feed.error || circleFeed.error}

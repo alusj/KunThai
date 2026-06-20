@@ -184,6 +184,7 @@ export default function App() {
   const [page, setPage] = useState(() => {
     return getMainPageFromHash(window.location.hash) || readPreferredMainPage();
   });
+  const [mainPageDirection, setMainPageDirection] = useState("forward");
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
@@ -301,6 +302,9 @@ export default function App() {
       return;
     }
 
+    const currentIndex = PAGE_ORDER.indexOf(page);
+    const nextIndex = PAGE_ORDER.indexOf(nextPage);
+    setMainPageDirection(nextIndex >= currentIndex ? "forward" : "backward");
     setPage(nextPage);
   }
 
@@ -372,7 +376,7 @@ export default function App() {
       return "hidden";
     }
 
-    return "block min-h-screen";
+    return `${mainPageDirection === "backward" ? "kt-main-slide-backward" : "kt-main-slide-forward"} block min-h-screen`;
   }
 
   return (

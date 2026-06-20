@@ -808,6 +808,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
       <div className={`${routePanelClass} min-h-screen`}>
         <CompanyWorkspaceScreen
           company={companyAccount}
+          operatorAccount={operatorAccount}
           statusMessage={companyWorkspaceStatus}
           onCompanyUpdate={setCompanyAccount}
           onBack={() => {

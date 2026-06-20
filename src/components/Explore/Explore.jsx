@@ -801,6 +801,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       <Swip
         active={active && activeTab === "Swip"}
         currentUserId={profile.userId}
+        profile={profile}
         onViewProfile={openViewedProfile}
       />
     </section>

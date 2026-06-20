@@ -37,8 +37,10 @@ import {
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
 
-export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdate, onOpenOperatorDashboard, onRegisterCompany, statusMessage = "" }) {
-  const [activeTab, setActiveTab] = useState("Overview");
+export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdate, onOpenOperatorDashboard, onRegisterCompany, operatorAccount = null, statusMessage = "" }) {
+  const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
+  const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs), [basicOperator]);
+  const [activeTab, setActiveTab] = useState(() => (basicOperator ? "My Dashboard" : "Overview"));
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuScreen, setActiveMenuScreen] = useState(null);
   const [operatorAction, setOperatorAction] = useState(null);
@@ -75,6 +77,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
   const canAddOperators = Boolean(access.isOwner);
   const canViewOperatorDashboard = Boolean(access.isOwner || access.canManageOperators);
   const canViewAllBookings = Boolean(access.canViewAllBookings);
+  const canViewBookingQueue = Boolean(canViewAllBookings || access.operatorId);
+  const canViewCompanyNotifications = Boolean(access.isOwner || access.canViewCompanyActivity);
   const companyNotifications = (company?.activities || []).filter((activity) =>
     String(activity.activity_type || activity.activityType || "").startsWith("operator_invite_")
   );
@@ -143,8 +147,14 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
   }, []);
 
   useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
+    }
+  }, [activeTab, availableTabs]);
+
+  useEffect(() => {
     let active = true;
-    if (!company?.id || !canViewAllBookings) {
+    if (!company?.id || !canViewBookingQueue) {
       setBookingQueue([]);
       return undefined;
     }
@@ -165,7 +175,13 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
     return () => {
       active = false;
     };
-  }, [canViewAllBookings, company]);
+  }, [canViewBookingQueue, company]);
+
+  useEffect(() => {
+    if (bookingQueueOpen && !bookingQueueLoading && bookingQueue.length === 0) {
+      setBookingQueueOpen(false);
+    }
+  }, [bookingQueue.length, bookingQueueLoading, bookingQueueOpen]);
 
   async function runOperatorAction(operator, action, options = {}) {
     try {
@@ -224,7 +240,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
               {company?.companyName || "Company Workspace"}
             </h1>
           </div>
-          {company ? (
+          {company && canViewCompanyNotifications ? (
             <button
               type="button"
               onClick={() => setCompanyNotificationsOpen(true)}
@@ -240,7 +256,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
               ) : null}
             </button>
           ) : null}
-          {company && canViewAllBookings ? (
+          {company && canViewBookingQueue && bookingQueue.length > 0 ? (
             <button
               type="button"
               onClick={() => setBookingQueueOpen(true)}
@@ -256,7 +272,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
               ) : null}
             </button>
           ) : null}
-          {company ? (
+          {company && !basicOperator ? (
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
@@ -331,7 +347,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
           </section>
 
           <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto rounded-3xl border border-slate-100 bg-white p-2 shadow-sm">
-            {tabs.map((tab) => (
+            {availableTabs.map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -352,6 +368,9 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
               </div>
             ) : null}
             {activeTab === "Overview" ? <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} /> : null}
+            {activeTab === "My Dashboard" ? (
+              <BasicOperatorCompanyDashboard company={company} operatorAccount={operatorAccount} />
+            ) : null}
             {activeTab === "Fleets" ? <FleetList fleets={fleets} /> : null}
             {activeTab === "Operators" ? (
               <Colleagues
@@ -369,14 +388,14 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyUpdat
       )}
       {company ? (
         <>
-          <FleetHqMenuDrawer
+          {!basicOperator ? <FleetHqMenuDrawer
             company={company}
             menuItems={menuItems}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
             onEdit={access.isOwner ? openCompanyEditor : undefined}
             onNavigate={openMenuScreen}
-          />
+          /> : null}
           {visibleMenuScreen ? (
             <FleetHqMenuScreen
               action={menuScreenAction}
@@ -875,6 +894,50 @@ function Overview({ company, fleets, pendingRequests }) {
   );
 }
 
+function BasicOperatorCompanyDashboard({ company, operatorAccount }) {
+  const form = operatorAccount?.form || {};
+  const access = company?.access || {};
+  const responsibilities = access.responsibilities || [];
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+      <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-blue-50 text-blue-700">
+            <Truck size={22} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide text-blue-700">My company dashboard</p>
+            <h3 className="mt-1 truncate text-2xl font-black text-slate-950">{form.name || access.fullName || "Company operator"}</h3>
+            <p className="mt-1 text-sm font-bold text-slate-500">{operatorAccount?.displayCode || access.publicId || "Operator ID pending"}</p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <ProfileFact label="Company" value={company?.companyName || "Fleet HQ"} />
+          <ProfileFact label="Role" value="Operator only" />
+          <ProfileFact label="Fleet" value={form.fleetName || form.fleetType || "Fleet assignment pending"} />
+          <ProfileFact label="Service status" value={access.serviceStatus || "active"} />
+          <ProfileFact label="Operating area" value={form.operatingArea || form.city || "Not added"} />
+          <ProfileFact label="Verification" value={operatorAccount?.verificationStatus || "pending"} />
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Private operator access</p>
+        <h3 className="mt-1 text-xl font-black text-slate-950">Your information only</h3>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          You can review your company membership, assigned fleet, and your own waiting passengers. Other operators, company records, and management controls remain private unless the company owner gives you responsibility.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(responsibilities.length ? responsibilities : ["Operator only"]).map((item) => (
+            <span key={item} className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{item}</span>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ReadinessItem({ label, ready }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
@@ -1071,6 +1134,59 @@ function FleetHqActionSheet({ children, label, onClose, open, widthClass = "max-
   );
 }
 
+function FleetHqFullScreen({ children, label, onClose, open }) {
+  const { rendered, panelOpen } = useDrawerTransition(open);
+
+  useEffect(() => {
+    if (!rendered || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose, rendered]);
+
+  if (!rendered) return null;
+
+  return (
+    <AppPortal>
+      <section
+        aria-label={label}
+        className={`${panelOpen ? "kt-toast-expand-in" : "kt-toast-collapse-out"} fixed inset-0 z-[1320] flex h-dvh w-screen flex-col overflow-hidden bg-white`}
+      >
+        {children}
+      </section>
+    </AppPortal>
+  );
+}
+
+function FleetHqFullScreenHeader({ eyebrow, icon, label, onBack, title }) {
+  return (
+    <header className="kt-header-glass flex flex-none items-start gap-3 border-b border-slate-100 px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] shadow-sm">
+      <AppBackTab
+        onBack={onBack}
+        label={label}
+        historyKey={`fleet-hq-${String(eyebrow || "screen").toLowerCase().replaceAll(" ", "-")}`}
+        iconSize={28}
+        className="mt-0.5 shrink-0 rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+        useHistoryLayer={false}
+      />
+      <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-blue-700">
+        {createElement(icon, { size: 20 })}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{eyebrow}</p>
+        <h2 className="mt-1 truncate text-xl font-black text-slate-950">{title}</h2>
+      </div>
+    </header>
+  );
+}
+
 function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
   return (
     <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
@@ -1095,9 +1211,9 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
 
 function CompanyActivityDrawer({ activities, company, onClose, open }) {
   return (
-    <FleetHqActionSheet label="Fleet HQ notifications" onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow="Company notifications" icon={Bell} onClose={onClose} title={company?.companyName || "Fleet HQ"} />
-      <div className="max-h-[65dvh] overflow-y-auto bg-slate-50 p-4">
+    <FleetHqFullScreen label="Fleet HQ notifications" onClose={onClose} open={open}>
+      <FleetHqFullScreenHeader eyebrow="Company notifications" icon={Bell} label="Back to Fleet HQ" onBack={onClose} title={company?.companyName || "Fleet HQ"} />
+      <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
         {activities.length ? (
           <div className="grid gap-3">
             {activities.map((activity) => (
@@ -1121,15 +1237,15 @@ function CompanyActivityDrawer({ activities, company, onClose, open }) {
           <EmptyPanel title="No company notifications" body="Operator invitation responses will appear here." />
         )}
       </div>
-    </FleetHqActionSheet>
+    </FleetHqFullScreen>
   );
 }
 
 function CompanyBookingQueueDrawer({ bookings, company, loading, onClose, open }) {
   return (
-    <FleetHqActionSheet label="Company waiting bookings" onClose={onClose} open={open} widthClass="max-w-xl">
-      <ActionSheetHeader eyebrow="Waiting bookings" icon={CalendarClock} onClose={onClose} title={company?.companyName || "Fleet HQ"} />
-      <div className="max-h-[65dvh] overflow-y-auto bg-slate-50 p-4">
+    <FleetHqFullScreen label="Company waiting bookings" onClose={onClose} open={open}>
+      <FleetHqFullScreenHeader eyebrow="Waiting bookings" icon={CalendarClock} label="Back to Fleet HQ" onBack={onClose} title={company?.companyName || "Fleet HQ"} />
+      <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
         {loading ? (
           <div className="rounded-2xl bg-white p-5 text-center text-sm font-black text-slate-500">Loading company bookings...</div>
         ) : bookings.length ? (
@@ -1152,7 +1268,7 @@ function CompanyBookingQueueDrawer({ bookings, company, loading, onClose, open }
           <EmptyPanel title="No waiting bookings" body="New passenger and delivery requests assigned to company operators will appear here." />
         )}
       </div>
-    </FleetHqActionSheet>
+    </FleetHqFullScreen>
   );
 }
 

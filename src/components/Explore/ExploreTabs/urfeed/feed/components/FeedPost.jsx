@@ -12,6 +12,8 @@ import { copyPostLink, sharePost } from "../post/postUtils";
 import AdvertMetaActions from "../../../../shared/AdvertMetaActions";
 import ExpandablePostText from "../../../../shared/ExpandablePostText";
 import { getAdvertMeta, getPostTitle, isAdvertPost, normalizeAdvertUrl } from "../../../../shared/advertUtils";
+import RepostComposer from "../../../../shared/RepostComposer";
+import RepostPreview from "../../../../shared/RepostPreview";
 
 export default function FeedPost({
   post,
@@ -30,8 +32,11 @@ export default function FeedPost({
   onViewProfile,
   followed = false,
   onFollow,
+  profile,
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [optionsClosing, setOptionsClosing] = useState(false);
+  const [repostOpen, setRepostOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -39,7 +44,7 @@ export default function FeedPost({
   const [menuMessage, setMenuMessage] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
-  const optionsRef = useRef(null);
+  const optionsTimerRef = useRef(null);
   const advert = getAdvertMeta(post);
   const advertPost = isAdvertPost(post);
   const postTitle = getPostTitle(post);
@@ -54,6 +59,9 @@ export default function FeedPost({
   ].filter(Boolean).map((mention) => String(mention).replace(/^@/, "").toLowerCase())));
 
   useBrowserBack(commentsOpen, () => setCommentsOpen(false), `comments-${post.id}`);
+  useBrowserBack(optionsOpen, () => closeOptions(), `post-options-${post.id}`);
+
+  useEffect(() => () => window.clearTimeout(optionsTimerRef.current), []);
 
   useEffect(() => {
     function handleOpenPostComments(event) {
@@ -65,39 +73,8 @@ export default function FeedPost({
     return () => window.removeEventListener("explore-open-post-comments", handleOpenPostComments);
   }, [post.id]);
 
-  useEffect(() => {
-    if (!optionsOpen) {
-      return undefined;
-    }
-
-    function handlePointerDown(event) {
-      if (event.target?.closest?.(`[data-post-options-toggle="${post.id}"]`)) {
-        return;
-      }
-
-      if (optionsRef.current?.contains(event.target)) {
-        return;
-      }
-
-      setOptionsOpen(false);
-    }
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        setOptionsOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [optionsOpen, post.id]);
-
   async function runAction(action) {
-    setOptionsOpen(false);
+    closeOptions();
 
     try {
       const message = await action?.();
@@ -141,6 +118,26 @@ export default function FeedPost({
     setDeleteOpen(false);
   }
 
+  function closeOptions(afterClose) {
+    if (!optionsOpen || optionsClosing) return;
+    setOptionsClosing(true);
+    window.clearTimeout(optionsTimerRef.current);
+    optionsTimerRef.current = window.setTimeout(() => {
+      setOptionsOpen(false);
+      setOptionsClosing(false);
+      afterClose?.();
+    }, 280);
+  }
+
+  function toggleOptions() {
+    if (optionsOpen) {
+      closeOptions();
+      return;
+    }
+    setOptionsClosing(false);
+    setOptionsOpen(true);
+  }
+
   function openExploreSearch(query) {
     window.dispatchEvent(new CustomEvent("explore-search-query", { detail: { query } }));
   }
@@ -170,7 +167,7 @@ export default function FeedPost({
   return (
     <article
       id={`post-${post.id}`}
-      className={`relative w-full max-w-full min-w-0 rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${
+      className={`kt-toast-expand-in relative w-full max-w-full min-w-0 rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${
         optionsOpen ? "z-40 overflow-visible" : "overflow-hidden"
       }`}
     >
@@ -179,32 +176,28 @@ export default function FeedPost({
         isOwner={isOwner}
         followed={followed}
         onFollow={() => runAction(onFollow)}
-        onOptions={() => setOptionsOpen((current) => !current)}
+        onOptions={toggleOptions}
         onViewProfile={onViewProfile}
       />
 
       {optionsOpen ? (
-        <div ref={optionsRef}>
+        <div>
           <PostOptionsMenu
+            closing={optionsClosing}
             followed={followed}
             isOwner={isOwner}
             saved={saved}
             onCopy={() => runAction(() => copyPostLink(post.id))}
-            onDelete={() => {
-              setOptionsOpen(false);
-              setDeleteOpen(true);
-            }}
-            onEdit={() => {
-              setOptionsOpen(false);
+            onClose={() => closeOptions()}
+            onDelete={() => closeOptions(() => setDeleteOpen(true))}
+            onEdit={() => closeOptions(() => {
               setEditValue(post.body || "");
               setEditOpen(true);
-            }}
+            })}
             onFollow={() => runAction(onFollow)}
             onHide={() => runAction(onHide)}
-            onReport={() => {
-              setOptionsOpen(false);
-              setReportOpen(true);
-            }}
+            onReport={() => closeOptions(() => setReportOpen(true))}
+            onRepost={() => closeOptions(() => setRepostOpen(true))}
             onSave={() => runAction(onSave)}
             onShare={() => runAction(shareAndNotify)}
             onViewActivity={() => runAction(onViewActivity)}
@@ -264,6 +257,8 @@ export default function FeedPost({
           ) : null}
         </div>
       ) : null}
+
+      <RepostPreview post={post} />
 
       <PostMedia post={post} imageOnly={advertPost} />
 
@@ -344,6 +339,14 @@ export default function FeedPost({
             </div>
           </div>
         </div>
+      ) : null}
+      {repostOpen ? (
+        <RepostComposer
+          profile={profile}
+          sourcePost={post}
+          onClose={() => setRepostOpen(false)}
+          onSuccess={() => setMenuMessage("Repost published to UrFeed.")}
+        />
       ) : null}
     </article>
   );

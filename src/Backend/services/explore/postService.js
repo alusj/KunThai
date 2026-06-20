@@ -31,12 +31,27 @@ function isAdvertPayload(payload = {}) {
   );
 }
 
+function isRepostPayload(payload = {}) {
+  const mediaMeta = getPayloadMediaMeta(payload);
+  return payload.post_type === "repost" || Boolean(mediaMeta.repost);
+}
+
 function buildPostClassification(payload, scope) {
   if (isAdvertPayload(payload)) {
     return {
       feedScope: scope === "connections" ? "connections" : "feed",
       postType: "advert",
       category: "advert",
+    };
+  }
+
+  if (isRepostPayload(payload)) {
+    return {
+      feedScope: "feed",
+      // Repost identity lives in media_meta.repost. Keep the persisted type
+      // compatible with the existing database constraint and feed trigger.
+      postType: "post",
+      category: "urfeed",
     };
   }
 
@@ -295,13 +310,14 @@ export async function createExplorePost(input, scope = "feed") {
   const mentions = Array.isArray(payload.mentions) ? payload.mentions : [];
   const mediaMeta = getPayloadMediaMeta(payload);
   const hasAdvert = isAdvertPayload(payload);
+  const hasRepost = isRepostPayload(payload);
   const advertTitle = String(mediaMeta.advert?.title || payload.advert?.title || "").trim();
   const postTitle = String(mediaMeta.title || "").trim().slice(0, 30);
   const classification = buildPostClassification(payload, scope);
   const videoTrimWindow = buildVideoTrimWindow(payload);
   const moderationStatus = getModerationStatus(payload);
 
-  if (!postTitle && !trimmedBody && !payload.image_url && !payload.audio_url && !hasVideoPayload(payload) && !(hasAdvert && advertTitle)) {
+  if (!postTitle && !trimmedBody && !payload.image_url && !payload.audio_url && !hasVideoPayload(payload) && !(hasAdvert && advertTitle) && !hasRepost) {
     throw new Error(hasAdvert ? "Add advert details before publishing." : "Add text, an image, a video, or a voice note.");
   }
 

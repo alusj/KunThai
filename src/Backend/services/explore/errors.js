@@ -1,6 +1,6 @@
 export function isMissingTable(error) {
   const message = error?.message?.toLowerCase?.() || "";
-  return message.includes("does not exist") || message.includes("could not find the table") || message.includes("relation");
+  return /relation\s+["']?[^"']+["']?\s+does not exist/i.test(message) || message.includes("could not find the table");
 }
 
 export function isMissingColumn(error, columnName) {

@@ -139,6 +139,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [recordingPaused, setRecordingPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [mediaMode, setMediaMode] = useState("image");
+  const [attachmentMode, setAttachmentMode] = useState(() => (
+    draft.video_url ? "video" : draft.image_url ? "image" : "voice"
+  ));
   const [mediaMeta, setMediaMeta] = useState(draft.media_meta || {});
   const [advertForm, setAdvertForm] = useState(() => normalizeAdvertDraft(draft.media_meta?.advert));
   const [pendingVideoFile, setPendingVideoFile] = useState(null);
@@ -238,7 +241,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     window.addEventListener("explore-create-post", handleCreatePost);
     return () => window.removeEventListener("explore-create-post", handleCreatePost);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -340,12 +342,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     if (type === "image" || type === "video") {
+      setAttachmentMode(type);
       setMediaMode(type);
       setTimeout(() => fileInputRef.current?.click(), 180);
     }
 
     if (type === "voice") {
-      setTimeout(() => handleAudioClick(), 180);
+      setAttachmentMode("voice");
     }
   }
 
@@ -356,6 +359,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     try {
       if (file.type.startsWith("video/") || mediaMode === "video") {
+        setAttachmentMode("video");
         trimRequestRef.current += 1;
         trimmedVideoMetaRef.current = null;
         cancelVoiceRecording();
@@ -387,6 +391,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         setTrimError("");
         return;
       } else {
+        setAttachmentMode("image");
         const nextPreview = await fileToDataUrl(file);
         const imageMetaPatch = {
           imageName: file.name,
@@ -640,6 +645,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   function handleTool(type) {
     if (type === "image" || type === "video") {
+      setAttachmentMode(type);
       setMediaMode(type);
       fileInputRef.current?.click();
       return;
@@ -650,7 +656,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         setFeedback("Remove the Swip video before adding a voice note.");
         return;
       }
-      handleAudioClick();
+      setAttachmentMode("voice");
+      setFeedback("");
       return;
     }
 
@@ -812,6 +819,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAudioPreview("");
     setAudioDuration(null);
     setMediaMeta({});
+    setAttachmentMode("voice");
     setComposerMode("post");
     setAdvertForm(normalizeAdvertDraft());
     setPendingVideoFile(null);
@@ -1353,7 +1361,7 @@ if (!isMobileVideoDevice) {
                 </div>
               ) : null}
 
-              {!isAdvertMode && !hasVideoAttachment ? (
+              {!isAdvertMode && attachmentMode === "voice" && !hasVideoAttachment ? (
                 <VoiceCapsuleRecorder
                   isRecording={isRecording}
                   isPaused={recordingPaused}
