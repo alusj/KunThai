@@ -39,7 +39,9 @@ function mapOperatorAlert(row) {
 
 export async function fetchTransportNotifications(operatorAccount) {
   const passengerTrips = await fetchActiveTrips();
-  const tripNotifications = passengerTrips.map(mapTripNotification);
+  const tripNotifications = passengerTrips
+    .filter((trip) => !["requested", "waiting_operator", "pending_confirmation"].includes(trip.rawStatus))
+    .map(mapTripNotification);
 
   if (!operatorAccount?.id) {
     return tripNotifications;

@@ -156,9 +156,22 @@ async function getCurrentPassengerId() {
   return data?.user?.id || "";
 }
 
-async function mapTrip(row) {
+async function fetchTripOperatorContacts(trips = []) {
+  const tripIds = trips.map((trip) => trip.id).filter(Boolean);
+  if (!tripIds.length) return new Map();
+
+  const { data, error } = await supabase.rpc("get_transport_trip_operator_contacts", {
+    trip_ids: tripIds,
+  });
+  if (error) return new Map();
+  return new Map((data || []).map((contact) => [contact.trip_id, contact]));
+}
+
+async function mapTrip(row, operatorContact = null) {
   const tripType = row.trip_type || row.trip_mode;
   const fleet = row.fleet_id ? await fetchTransportFleetById(row.fleet_id) : null;
+  const operatorPhone = operatorContact?.operator_phone || fleet?.operatorPhone || "";
+  const operatorName = operatorContact?.operator_name || fleet?.operatorName || "";
   return {
     id: row.id,
     mode: tripType === "delivery" ? "Delivery" : "Ride",
@@ -188,7 +201,9 @@ async function mapTrip(row) {
     pausedSeconds: Number(row.paused_seconds || 0),
     lastLocationLatitude: row.last_location_latitude == null ? null : Number(row.last_location_latitude),
     lastLocationLongitude: row.last_location_longitude == null ? null : Number(row.last_location_longitude),
-    fleet,
+    operatorPhone,
+    operatorName,
+    fleet: fleet ? { ...fleet, operatorPhone, operatorName: operatorName || fleet.operatorName } : fleet,
   };
 }
 
@@ -207,7 +222,8 @@ export async function fetchActiveTrips() {
     throw error;
   }
 
-  return Promise.all((data || []).map(mapTrip));
+  const contacts = await fetchTripOperatorContacts(data || []);
+  return Promise.all((data || []).map((trip) => mapTrip(trip, contacts.get(trip.id))));
 }
 
 export async function fetchPassengerTrips() {
@@ -226,7 +242,8 @@ export async function fetchPassengerTrips() {
     throw error;
   }
 
-  return Promise.all((data || []).map(mapTrip));
+  const contacts = await fetchTripOperatorContacts(data || []);
+  return Promise.all((data || []).map((trip) => mapTrip(trip, contacts.get(trip.id))));
 }
 
 export function subscribePassengerTrips(onChange) {

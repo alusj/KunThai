@@ -1498,7 +1498,7 @@ function WaitingPassengersScreen({ passengers, fleetName, account, isActive, ava
   );
 }
 
-function OperatorTripRequestCard({ passenger, account, isActive, readOnly = false, onUpdateTrip, onViewRoute }) {
+export function OperatorTripRequestCard({ passenger, account, isActive, readOnly = false, onUpdateTrip, onViewRoute }) {
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const status = passenger.status || "requested";
@@ -1509,6 +1509,18 @@ function OperatorTripRequestCard({ passenger, account, isActive, readOnly = fals
   const isStartRequested = status === "start_requested";
   const isInProgress = status === "in_progress";
   const isPaused = status === "paused";
+  const statusLabel = {
+    requested: "Waiting for operator",
+    waiting_operator: "Waiting for operator",
+    pending_confirmation: "Waiting for operator",
+    accepted: "Accepted by operator",
+    arrived: "Operator arrived",
+    start_requested: "Start requested",
+    in_progress: "Trip in progress",
+    paused: "Trip paused",
+    completed: "Trip completed",
+    cancelled: "Declined or cancelled",
+  }[status] || String(status).replaceAll("_", " ");
 
   async function runAction(nextStatus, patch = {}) {
     setBusy(true);
@@ -1529,9 +1541,12 @@ function OperatorTripRequestCard({ passenger, account, isActive, readOnly = fals
           {passenger.packageDescription ? <p className="mt-1 text-xs font-semibold text-gray-600">Package: {passenger.packageDescription}</p> : null}
           <p className="mt-1 text-xs font-semibold text-gray-500">{passenger.note}</p>
         </div>
-        <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-gray-700">
-          {passenger.time}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className={`rounded-full px-3 py-1 text-xs font-black ${status === "cancelled" ? "bg-red-50 text-red-700" : isWaiting ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+            {statusLabel}
+          </span>
+          {passenger.time ? <span className="text-[11px] font-bold text-gray-400">{passenger.time}</span> : null}
+        </div>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">

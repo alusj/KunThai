@@ -32,6 +32,8 @@ import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
+import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
+import { OperatorTripRequestCard } from "./OperatorDashboardScreen";
 import {
   COMPANY_OPERATOR_ROLES,
   getTransportCompanyBookingQueue,
@@ -45,7 +47,7 @@ import { fetchOperatorDashboard, subscribeOperatorTrips } from "../services/tran
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
 
-export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   const companyOperatorAssignment = useMemo(
     () => basicOperator ? resolveTransportCompanyOperatorAssignment(company) : null,
@@ -110,8 +112,11 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const canViewBookingQueue = Boolean(canViewAllBookings || access.operatorId);
   const canViewCompanyNotifications = Boolean(access.isOwner || access.canViewCompanyActivity);
   const companyNotifications = (company?.activities || []).filter((activity) =>
-    String(activity.activity_type || activity.activityType || "").startsWith("operator_invite_")
+    String(activity.activity_type || activity.activityType || "").startsWith("operator_invite_") ||
+    String(activity.activity_type || activity.activityType || "") === "trip_status_updated"
   );
+  const operatorTripRequests = operatorDashboardData?.waitingPassengers || [];
+  const visibleBookingQueue = basicOperator && operatorTripRequests.length ? operatorTripRequests : bookingQueue;
   const metrics = useMemo(
     () => [
       { label: "Fleets", value: fleets.length, icon: Truck, tone: "emerald" },
@@ -279,6 +284,82 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     } finally {
       setAvailabilitySaving(false);
     }
+  }
+
+  async function refreshCompanyTripData() {
+    const [nextQueue, nextDashboard] = await Promise.all([
+      getTransportCompanyBookingQueue(company),
+      basicOperator && companyOperatorAssignment?.operatorId && companyOperatorAssignment?.transportFleetId
+        ? fetchOperatorDashboard(
+            companyOperatorAssignment.operatorId,
+            companyOperatorAssignment.transportFleetId,
+            { fleetScoped: true },
+          )
+        : Promise.resolve(null),
+    ]);
+    setBookingQueue(nextQueue);
+    if (nextDashboard) setOperatorDashboardData(nextDashboard);
+  }
+
+  async function updateCompanyOperatorTrip(trip, status, patch = {}) {
+    if (!basicOperator) return;
+    try {
+      if (status === "start_requested") await requestTransportTripStart(trip.id);
+      else await updateTransportTripStatus(trip.id, status, patch);
+      const statusCopy = {
+        accepted: "Booking accepted. The passenger and company owner can see the update.",
+        arrived: "Arrival marked. The passenger and company owner can see the update.",
+        start_requested: "Trip start requested. Waiting for passenger approval.",
+        cancelled: "Booking declined or cancelled.",
+      };
+      showToast(statusCopy[status] || "Company trip updated.", "success");
+      await refreshCompanyTripData();
+    } catch (error) {
+      showToast(error.message || "Unable to update this company trip.", "danger");
+      throw error;
+    }
+  }
+
+  function openCompanyTripRoute(trip) {
+    if (!trip?.pickup || !trip?.destination) return;
+    const pickup = {
+      id: `company-trip-${trip.id}-pickup`,
+      type: "transport-trip-pickup",
+      name: "Pick up point",
+      label: "Pick up point",
+      address: trip.pickup,
+      searchQuery: trip.pickup,
+      ...(trip.raw?.pickup_latitude != null ? {
+        lat: Number(trip.raw.pickup_latitude),
+        lng: Number(trip.raw.pickup_longitude),
+      } : {}),
+    };
+    const dropoff = {
+      id: `company-trip-${trip.id}-dropoff`,
+      type: "transport-trip-dropoff",
+      name: "Drop off point",
+      label: "Drop off point",
+      address: trip.destination,
+      searchQuery: trip.destination,
+      ...(trip.raw?.destination_latitude != null ? {
+        lat: Number(trip.raw.destination_latitude),
+        lng: Number(trip.raw.destination_longitude),
+      } : {}),
+    };
+    setBookingQueueOpen(false);
+    onLocateArea?.({
+      ...dropoff,
+      id: `company-operator-trip-route-${trip.id}`,
+      type: "operator-trip-route",
+      category: "Passenger destination",
+      description: `Company operator route for ${trip.name || trip.passengerName || "passenger"}.`,
+      routePlan: {
+        id: trip.id,
+        passengerName: trip.name || trip.passengerName,
+        pickup,
+        dropoff,
+      },
+    }, { autoRoute: true });
   }
 
   async function confirmLeaveCompany() {
@@ -553,11 +634,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             onClose={() => setCompanyNotificationsOpen(false)}
           />
           <CompanyBookingQueueDrawer
-            bookings={bookingQueue}
+            bookings={visibleBookingQueue}
             company={company}
+            isActive={operatorAvailable}
             loading={bookingQueueLoading}
+            operatorMode={basicOperator}
             open={bookingQueueOpen}
             onClose={() => setBookingQueueOpen(false)}
+            onUpdateTrip={updateCompanyOperatorTrip}
+            onViewRoute={openCompanyTripRoute}
           />
           {basicOperator ? (
             <CompanyOperatorMenu
@@ -1622,7 +1707,7 @@ function CompanyActivityDrawer({ activities, company, onClose, open }) {
   );
 }
 
-function CompanyBookingQueueDrawer({ bookings, company, loading, onClose, open }) {
+function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClose, onUpdateTrip, onViewRoute, open, operatorMode }) {
   return (
     <FleetHqFullScreen label="Company waiting bookings" onClose={onClose} open={open}>
       <FleetHqFullScreenHeader eyebrow="Waiting bookings" icon={CalendarClock} label="Back to Fleet HQ" onBack={onClose} title={company?.companyName || "Fleet HQ"} />
@@ -1632,17 +1717,21 @@ function CompanyBookingQueueDrawer({ bookings, company, loading, onClose, open }
         ) : bookings.length ? (
           <div className="grid gap-3">
             {bookings.map((booking) => (
-              <article key={booking.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{booking.status.replaceAll("_", " ")}</p>
-                    <h3 className="mt-1 truncate font-black text-slate-950">{booking.passengerName}</h3>
-                    <p className="mt-1 text-xs font-bold text-slate-500">{booking.operatorName} · {booking.fleetName}</p>
-                  </div>
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase text-emerald-700">{booking.tripType}</span>
-                </div>
-                <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{booking.pickup} → {booking.destination}</p>
-              </article>
+              <div key={booking.id}>
+                {!operatorMode ? (
+                  <p className="mb-2 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
+                    {booking.operatorName} · {booking.fleetName}
+                  </p>
+                ) : null}
+                <OperatorTripRequestCard
+                  passenger={booking}
+                  account={{ form: { country: company?.country, countryCode: company?.countryCode } }}
+                  isActive={operatorMode ? isActive : true}
+                  readOnly={!operatorMode}
+                  onUpdateTrip={onUpdateTrip}
+                  onViewRoute={() => onViewRoute?.(booking)}
+                />
+              </div>
             ))}
           </div>
         ) : (

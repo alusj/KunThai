@@ -30,6 +30,7 @@ supabase/migrations/*
 !supabase/migrations/20260620124500_public_transport_company_affiliations.sql
 !supabase/migrations/20260620150000_transport_company_fleet_runtime.sql
 !supabase/migrations/20260620223000_restore_sole_operator_discovery.sql
+!supabase/migrations/20260621090000_transport_company_trip_experience.sql
 
 
 # Editor directories and files

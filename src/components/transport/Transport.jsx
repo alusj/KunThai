@@ -813,6 +813,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
           operatorAccount={operatorAccount}
           statusMessage={companyWorkspaceStatus}
           onCompanyUpdate={setCompanyAccount}
+          onLocateArea={openNearbyAreaRoute}
           onOperatorAccountUpdate={setOperatorAccount}
           onCompanyLeft={() => {
             setRouteDirection("backward");

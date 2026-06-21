@@ -244,6 +244,7 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
   const isLive = ["in_progress", "paused"].includes(trip.rawStatus);
   const canCancel = ["requested", "waiting_operator", "pending_confirmation", "accepted", "arrived"].includes(trip.rawStatus);
   const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || "Your operator";
+  const operatorPhone = trip.operatorPhone || trip.fleet?.operatorPhone || "";
   const statusTone = isLive ? "bg-green-100 text-green-700" : trip.rawStatus === "start_requested" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-800";
 
   return (
@@ -297,6 +298,18 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
         <button type="button" onClick={onViewFleet} disabled={!trip.fleetId} className="h-8 rounded-full border border-gray-200 px-3 text-xs font-black text-gray-600 disabled:opacity-50">
           Fleet profile
         </button>
+        <a
+          href={operatorPhone ? `tel:${operatorPhone}` : undefined}
+          aria-disabled={!operatorPhone}
+          className={`inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-black ${
+            operatorPhone
+              ? "bg-emerald-600 text-white"
+              : "pointer-events-none border border-gray-200 bg-gray-100 text-gray-400"
+          }`}
+        >
+          <FiPhone size={14} />
+          Call
+        </a>
       </div>
 
       {canCancel ? (

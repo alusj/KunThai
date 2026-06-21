@@ -1830,11 +1830,22 @@ export async function getTransportCompanyBookingQueue(companyAccount = null) {
       fleetName: fleet.fleet_name || operator.fleetName || "Company fleet",
       plateNumber: fleet.plate_number || operator.plateNumber || "",
       passengerName: trip.passenger_name || "Passenger",
+      name: trip.passenger_name || "Passenger",
       pickup: trip.pickup_label || "Pickup pending",
       destination: trip.destination_label || "Destination pending",
+      route: `${trip.pickup_label || "Pickup pending"} to ${trip.destination_label || "Destination pending"}`,
       status: trip.status || "waiting_operator",
       tripType: trip.trip_type || trip.trip_mode || "ride",
+      requestType: trip.trip_type === "delivery" || trip.trip_mode === "delivery" ? "Delivery" : "Passenger ride",
+      bookingMethod: trip.booking_method || "distance",
+      contactPhone: trip.contact_phone || "",
+      packageDescription: trip.package_description || "",
+      note: trip.trip_note || "No additional note.",
+      fare: trip.fare_amount ? `${trip.fare_currency || ""} ${Number(trip.fare_amount).toLocaleString()}`.trim() : "Fare pending",
+      time: trip.updated_at ? new Date(trip.updated_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
       createdAt: trip.created_at || "",
+      updatedAt: trip.updated_at || trip.created_at || "",
+      raw: trip,
     };
   });
 }
