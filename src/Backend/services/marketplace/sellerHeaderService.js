@@ -46,8 +46,13 @@ export async function fetchSellerHeaderState() {
       id: `seller-order:${order.id}`,
       unread: true,
     }));
-    const messageItems = (messagesResult.data || []).map((message) => ({
-      id: `seller-message:${message.conversation_key || message.id}`,
+    const latestMessageByConversation = new Map();
+    (messagesResult.data || []).forEach((message) => {
+      const conversationKey = message.conversation_key || message.id;
+      if (!latestMessageByConversation.has(conversationKey)) latestMessageByConversation.set(conversationKey, message);
+    });
+    const messageItems = Array.from(latestMessageByConversation.entries()).map(([conversationKey, message]) => ({
+      id: `seller-message:${conversationKey}:${message.created_at || message.id}`,
       unread: true,
     }));
     const notificationItems = (attentionItems || []).map((item) => ({

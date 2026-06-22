@@ -35,6 +35,7 @@ import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
 import {
+  applySeenNotificationState,
   getUnseenNotificationCount,
   markNotificationsSeen,
   subscribeNotificationSeen,
@@ -172,7 +173,9 @@ export default function OperatorDashboardScreen({
   const reviews = dashboard?.reviews || {};
   const alerts = dashboard?.alerts || [];
   const alertSeenScope = `transport:${account?.id || "operator"}`;
+  const alertReadScope = `${alertSeenScope}:read`;
   const alertNotificationItems = alerts.map((alert) => ({ ...alert, id: `operator-alert-${alert.id}`, unread: alert.status !== "read" }));
+  const alertRows = applySeenNotificationState(alertReadScope, alertNotificationItems).map((alert) => ({ ...alert, read: alert.unread === false }));
   const unreadAlertCount = getUnseenNotificationCount(alertSeenScope, alertNotificationItems, { unreadOnly: true });
   const tripHistory = dashboard?.tripHistory || [];
   const liveTrip = useMemo(
@@ -628,7 +631,7 @@ export default function OperatorDashboardScreen({
           />
           <EarningsContainer earnings={earnings} account={account} />
           <ReviewsContainer reviews={reviews} />
-          <OperatorAlertsContainer alerts={alerts} />
+          <OperatorAlertsContainer alerts={alertRows} />
           <OperatorToolsContainer
             hasWaitingPassengers={hasWaitingPassengers}
             readOnly={dashboardReadOnly}
@@ -649,10 +652,14 @@ export default function OperatorDashboardScreen({
 
       <OperatorAlertsDrawer
         open={operatorAlertsOpen}
-        alerts={alerts}
+        alerts={alertRows}
         fleetName={fleetName}
         operatorName={operatorName}
         onClose={() => setOperatorAlertsOpen(false)}
+        onRead={(alert) => {
+          markNotificationsSeen(alertReadScope, [alert]);
+          setSeenVersion((version) => version + 1);
+        }}
         onOpenWaiting={hasWaitingPassengers ? () => {
           setActiveView("waiting");
           setOperatorAlertsOpen(false);
@@ -1246,7 +1253,7 @@ function OperatorAlertsContainer({ alerts }) {
     <DashboardContainer title="Operator Alerts" subtitle="Verification, demand, payment, and system notices" icon={FiBell}>
       <div className="grid gap-2">
         {alerts.length ? alerts.slice(0, 4).map((alert) => (
-          <div key={alert.id} className="rounded-2xl border border-gray-100 px-4 py-3">
+          <div key={alert.id} className={`rounded-2xl border px-4 py-3 ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}>
             <p className="text-sm font-black text-gray-950">{alert.title}</p>
             <p className="mt-1 text-xs font-semibold text-gray-500">{alert.body}</p>
           </div>
@@ -1266,6 +1273,7 @@ function OperatorAlertsDrawer({
   fleetName,
   operatorName,
   onClose,
+  onRead,
   onOpenWaiting,
   onOpenHistory,
 }) {
@@ -1323,7 +1331,11 @@ function OperatorAlertsDrawer({
         <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-gray-50 px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-3">
             {alerts.length ? alerts.map((alert) => (
-              <article key={alert.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              <article
+                key={alert.id}
+                onClick={() => onRead?.(alert)}
+                className={`rounded-2xl border p-4 shadow-sm transition ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}
+              >
                 <p className="text-sm font-black text-gray-950">{alert.title}</p>
                 <p className="mt-1 text-sm font-semibold leading-6 text-gray-600">{alert.body}</p>
               </article>

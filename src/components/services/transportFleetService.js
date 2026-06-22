@@ -84,6 +84,18 @@ async function fetchPublicCompanyAffiliations(operatorIds = []) {
   return new Map((data || []).map((row) => [row.transport_fleet_id || row.operator_id, row]));
 }
 
+async function fetchPublicFleetStats(fleetIds = []) {
+  const ids = Array.from(new Set(fleetIds.filter(Boolean)));
+  if (!ids.length) return new Map();
+
+  const { data, error } = await supabase.rpc("get_public_transport_fleet_stats", {
+    fleet_ids: ids,
+  });
+  if (error) return new Map();
+
+  return new Map((data || []).map((row) => [row.fleet_id, row]));
+}
+
 function formatLastActive(value) {
   if (!value) return "Last active time unavailable";
 
@@ -103,13 +115,19 @@ function formatLastActive(value) {
 function buildSafety(row) {
   const answers = row.safety_answers || {};
   const items = [];
+  const confirmed = (value) => String(value || "").trim().toLowerCase() === "yes";
 
-  if (answers.helmet === "yes") items.push("Passenger helmet confirmed");
-  if (answers.passengerFootrest === "yes") items.push("Passenger footrest checked");
-  if (answers.doorsWorking === "yes") items.push("Passenger doors working");
-  if (answers.seatbelt === "yes") items.push("Seatbelts confirmed");
-  if (answers.deliveryBox === "yes" || row.delivery_body_type) items.push("Delivery storage confirmed");
-  if (answers.insurance === "yes") items.push("Insurance details submitted");
+  if (confirmed(answers.helmet)) items.push("Passenger helmet confirmed");
+  if (confirmed(answers.brakes)) items.push("Brake system confirmed");
+  if (confirmed(answers.passengerFootrest)) items.push("Passenger footrest checked");
+  if (confirmed(answers.doorsWorking)) items.push("Passenger doors working");
+  if (confirmed(answers.seatbelt) || confirmed(answers.seatbelts)) items.push("Seatbelts confirmed");
+  if (confirmed(answers.lightsMirrors)) items.push("Lights, mirrors, indicators, and horn checked");
+  if (confirmed(answers.entrySafe)) items.push("Passenger entry checked");
+  if (confirmed(answers.coveredSpace)) items.push("Passenger or cargo space checked");
+  if (confirmed(answers.sideBar)) items.push("Passenger supports checked");
+  if (confirmed(answers.deliveryBox) || row.delivery_body_type) items.push("Delivery storage confirmed");
+  if (confirmed(answers.insurance)) items.push("Insurance details submitted");
   if (!items.length && row.verification_status === "verified") items.push("KunThai verification checks passed");
   if (!items.length) items.push("Fleet details submitted by operator");
 
@@ -138,13 +156,13 @@ function mapOperatorReview(row) {
   };
 }
 
-function mapLiveFleet(row, companyAffiliation = null) {
+function mapLiveFleet(row, companyAffiliation = null, publicStats = null) {
   const operator = row.transport_operators || {};
   const serviceCategory = displayCategory(row.service_category);
   const fleetType = displayFleetType(row.fleet_type);
   const isActive = row.active_status === "active";
-  const rating = Number(row.rating || 0);
-  const trips = Number(row.completed_trips || row.trips_completed || 0);
+  const rating = Number(publicStats?.average_rating ?? row.rating ?? 0);
+  const trips = Number(publicStats?.completed_trips ?? row.completed_trips ?? row.trips_completed ?? 0);
   const countryCode = normalizeCountryIso(row.country_iso || row.country_code || row.country || operator.country || operator.country_iso);
   const country = row.country || operator.country || "";
   const currency = row.currency || getCountryCurrencyCode(countryCode || country);
@@ -181,6 +199,8 @@ function mapLiveFleet(row, companyAffiliation = null) {
     distanceKm: Number(row.distance_km || row.max_distance_km || 0),
     etaMinutes: row.eta_minutes ? Number(row.eta_minutes) : null,
     rating: rating || null,
+    reviewCount: Number(publicStats?.review_count || 0),
+    latestReviewAt: publicStats?.latest_review_at || "",
     trips,
     priceHint: row.price_hint || (baseFare ? `From ${formatCountryMoney(baseFare, currency)}` : "Fare confirmed on booking"),
     baseFare,
@@ -282,8 +302,11 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
     throw error;
   }
 
-  const affiliations = await fetchPublicCompanyAffiliations((data || []).map((row) => row.operator_id));
-  const liveFleets = dedupeLiveFleets((data || []).map((row) => mapLiveFleet(row, affiliations.get(row.id))));
+  const [affiliations, stats] = await Promise.all([
+    fetchPublicCompanyAffiliations((data || []).map((row) => row.operator_id)),
+    fetchPublicFleetStats((data || []).map((row) => row.id)),
+  ]);
+  const liveFleets = dedupeLiveFleets((data || []).map((row) => mapLiveFleet(row, affiliations.get(row.id), stats.get(row.id))));
   const scopedFleets = filterCountryScopedItems(liveFleets, (fleet) => [fleet.countryCode, fleet.country], selection.country || selection.countryCode);
   const scopedFleetIds = new Set(scopedFleets.items.map((fleet) => fleet.id));
   const soleFleetsWithoutCountry = liveFleets.filter((fleet) =>
@@ -317,13 +340,21 @@ export async function fetchTransportFleetById(id) {
   }
 
   if (!data) return null;
-  const affiliations = await fetchPublicCompanyAffiliations([data.operator_id]);
-  return mapLiveFleet(data, affiliations.get(data.id));
+  const [affiliations, stats] = await Promise.all([
+    fetchPublicCompanyAffiliations([data.operator_id]),
+    fetchPublicFleetStats([data.id]),
+  ]);
+  return mapLiveFleet(data, affiliations.get(data.id), stats.get(data.id));
 }
 
 export async function fetchTransportFleetReviews(fleet) {
   const operatorId = fleet?.operatorRecordId || fleet?.operator_id || fleet?.operatorId;
   if (!operatorId) return [];
+
+  const publicResult = await supabase.rpc("get_public_transport_operator_reviews", {
+    operator_uuid: operatorId,
+  });
+  if (!publicResult.error) return (publicResult.data || []).map(mapOperatorReview);
 
   const { data, error } = await supabase
     .from("transport_operator_reviews")

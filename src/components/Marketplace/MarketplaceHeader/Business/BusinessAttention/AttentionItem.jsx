@@ -3,7 +3,7 @@ import AttentionPriorityBadge from "./AttentionPriorityBadge";
 
 export default function AttentionItem({ item, onAction }) {
   return (
-    <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <article className={`rounded-xl border p-4 shadow-sm transition ${item.read ? "border-gray-200 bg-white" : "border-emerald-200 bg-emerald-50/90"}`}>
       <div className="flex gap-3">
         <AttentionIcon type={item.type} priority={item.priority} />
 

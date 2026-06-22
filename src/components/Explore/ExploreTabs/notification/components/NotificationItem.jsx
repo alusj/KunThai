@@ -81,7 +81,6 @@ export default function NotificationItem({ followed, item, onFollowBack, onOpen 
         <button type="button" onClick={() => onOpen?.(item)} className="w-full text-left">
           <div className="flex items-start gap-2">
             <p className="min-w-0 flex-1 text-sm font-bold leading-6 text-slate-800">{getMessage(item)}</p>
-            {!item.read ? <span className="mt-2 h-2.5 w-2.5 flex-none rounded-full bg-sky-600" /> : null}
           </div>
           {item.post_preview ? <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">"{item.post_preview}"</p> : null}
           <div className="mt-2 flex flex-wrap items-center gap-2">

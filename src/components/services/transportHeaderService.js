@@ -14,7 +14,7 @@ function formatTime(value) {
 
 function mapTripNotification(trip) {
   return {
-    id: `trip-${trip.id}`,
+    id: `trip-${trip.id}:${trip.rawStatus || trip.status || trip.stage || "updated"}`,
     type: "trip",
     title: trip.title,
     body: `${trip.status} - ${trip.stage}`,

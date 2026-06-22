@@ -32,7 +32,11 @@ export default function ConversationRow({ conversation, currentUserId, onOpen, o
     <button
       type="button"
       onClick={() => onOpen(conversation)}
-      className="flex w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
+      className={`flex w-full items-center gap-3 rounded-[24px] border p-4 text-left shadow-sm transition ${
+        conversation.unreadCount
+          ? "border-sky-100 bg-sky-50/90 hover:bg-sky-100/80"
+          : "border-slate-200 bg-white hover:bg-slate-50"
+      }`}
     >
       <span role="button" tabIndex={0} onClick={viewProfile} onKeyDown={(event) => event.key === "Enter" && viewProfile(event)} className="flex-none" aria-label={`View ${user.displayName || "Profile"} profile`}>
         <Avatar name={user.displayName} src={user.avatarUrl} />

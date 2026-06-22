@@ -11,8 +11,11 @@ import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { useSellerHeader } from "../../Backend/hooks/useSellerHeader";
 import { showToast } from "../../Backend/services/toastService";
 
+const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
+
 export default function Marketplace({ active = false, nav, setNav, onActivityChange, onNotificationCountChange }) {
   const [activeTab, setActiveTab] = useState("new");
+  const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [activeUtility, setActiveUtility] = useState(null);
   const [productMode, setProductMode] = useState(false);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
@@ -52,6 +55,14 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
     window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product } }));
     }, 0);
+  }
+
+  function switchMarketplaceTab(tab) {
+    if (!tab || tab === activeTab) return;
+    const currentIndex = MARKETPLACE_TAB_ORDER.indexOf(activeTab);
+    const nextIndex = MARKETPLACE_TAB_ORDER.indexOf(tab);
+    setTabSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
+    setActiveTab(tab);
   }
 
   function openMyBiz() {
@@ -123,14 +134,19 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
           <ParentTabs
             activeTab={activeTab}
             setActiveTab={(tab) => {
-              setActiveTab(tab);
+              switchMarketplaceTab(tab);
               setActiveUtility(null);
             }}
           />
         </>
       )}
 
-      <div className={productMode ? "" : "px-4 pb-28 pt-4 sm:px-6 lg:px-8"}>
+      <div
+        key={activeTab}
+        className={`${productMode ? "" : "px-4 pb-28 pt-4 sm:px-6 lg:px-8"} ${
+          tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"
+        }`}
+      >
         <Browse activeTab={activeTab} onProductModeChange={setMarketplaceScreenMode} />
       </div>
 

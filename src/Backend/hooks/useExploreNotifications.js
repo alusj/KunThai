@@ -9,12 +9,13 @@ import {
   NOTIFICATION_EVENT,
 } from "../services/exploreService";
 import { EXPLORE_SETTINGS_EVENT, readExploreSettings } from "../services/explore/preferencesService";
+import { EXPLORE_NOTIFICATION_SEEN_SCOPE, markNotificationsSeen } from "../services/notificationSeenStore";
 
 const NOTIFICATIONS_MEMORY = {
   items: [],
   savedAt: 0,
+  userId: "",
 };
-const NOTIFICATIONS_MEMORY_TTL = 120_000;
 const PAGE_SIZE = 30;
 const HIGH_PRIORITY_TYPES = new Set(["comment", "reply", "mention", "follow", "message", "creator_reply", "thread_reply"]);
 const MEDIUM_PRIORITY_TYPES = new Set(["like", "share", "save", "reaction", "repost"]);
@@ -61,10 +62,11 @@ function mergeNotificationList(items) {
   return Array.from(merged.values()).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 }
 
-function storeNotificationMemory(items) {
+function storeNotificationMemory(items, userId = NOTIFICATIONS_MEMORY.userId) {
   const next = mergeNotificationList(items);
   NOTIFICATIONS_MEMORY.items = next;
   NOTIFICATIONS_MEMORY.savedAt = Date.now();
+  NOTIFICATIONS_MEMORY.userId = userId || "";
   return next;
 }
 
@@ -73,8 +75,8 @@ function visibleNotifications(items = NOTIFICATIONS_MEMORY.items) {
 }
 
 export function useExploreNotifications() {
-  const [notifications, setNotifications] = useState(() => visibleNotifications());
-  const [loading, setLoading] = useState(() => !NOTIFICATIONS_MEMORY.items?.length);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState("");
@@ -86,16 +88,12 @@ export function useExploreNotifications() {
 
     async function load() {
       try {
-        const hasCachedItems = Boolean(NOTIFICATIONS_MEMORY.items?.length);
-        const fresh = hasCachedItems && Date.now() - NOTIFICATIONS_MEMORY.savedAt < NOTIFICATIONS_MEMORY_TTL;
-
+        const { data: authData } = await supabase.auth.getUser();
+        const loadUserId = authData?.user?.id || "";
+        const hasCachedItems = NOTIFICATIONS_MEMORY.userId === loadUserId && Boolean(NOTIFICATIONS_MEMORY.items?.length);
         if (hasCachedItems) {
           setNotifications(visibleNotifications());
           setLoading(false);
-        }
-
-        if (fresh) {
-          return;
         }
 
         if (!hasCachedItems) {
@@ -104,7 +102,7 @@ export function useExploreNotifications() {
         setError("");
         const nextItems = await fetchExploreNotifications({ limit: PAGE_SIZE });
         if (active) {
-          const storedItems = storeNotificationMemory(nextItems);
+          const storedItems = storeNotificationMemory(nextItems, loadUserId);
           setNotifications(visibleNotifications(storedItems));
           setHasMore(nextItems.length >= PAGE_SIZE);
         }
@@ -143,7 +141,7 @@ export function useExploreNotifications() {
             }
 
             const nextItem = normalizeNotification(payload.new);
-            const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items]);
+            const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items], currentUserId);
             setNotifications(visibleNotifications(storedItems));
           },
         )
@@ -163,6 +161,7 @@ export function useExploreNotifications() {
             const nextItem = normalizeNotification(payload.new);
             const storedItems = storeNotificationMemory(
               NOTIFICATIONS_MEMORY.items.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item)),
+              currentUserId,
             );
             setNotifications(visibleNotifications(storedItems));
           },
@@ -180,7 +179,7 @@ export function useExploreNotifications() {
       }
 
       const nextItem = normalizeNotification(event.detail);
-      const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items]);
+      const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items], currentUserId);
       setNotifications(visibleNotifications(storedItems));
     }
 
@@ -224,6 +223,8 @@ export function useExploreNotifications() {
   }
 
   async function markRead(notificationId) {
+    const selected = NOTIFICATIONS_MEMORY.items.find((item) => item.id === notificationId);
+    if (selected) markNotificationsSeen(EXPLORE_NOTIFICATION_SEEN_SCOPE, [selected]);
     const optimisticItems = storeNotificationMemory(
       NOTIFICATIONS_MEMORY.items.map((item) => (item.id === notificationId ? { ...item, read: true } : item)),
     );
@@ -243,6 +244,7 @@ export function useExploreNotifications() {
   }
 
   async function markAllRead() {
+    markNotificationsSeen(EXPLORE_NOTIFICATION_SEEN_SCOPE, NOTIFICATIONS_MEMORY.items);
     const optimisticItems = storeNotificationMemory(NOTIFICATIONS_MEMORY.items.map((item) => ({ ...item, read: true })));
     setNotifications(visibleNotifications(optimisticItems));
 

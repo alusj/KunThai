@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageCircle, Send } from "lucide-react";
 import {
   fetchBuyerMessages,
+  markBuyerMarketplaceConversationRead,
   sendBuyerMarketplaceMessage,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import AppBackTab from "../shared/AppBackTab";
@@ -63,11 +64,16 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
     }
   }
 
-  function openConversation(messageId) {
+  async function openConversation(messageId) {
     clearTransitionTimer();
     setClosingMessage(null);
     setScreenAction("push");
     setActiveId(messageId);
+    const conversation = messages.find((message) => message.id === messageId);
+    if (conversation?.unread) {
+      setMessages((current) => current.map((message) => message.id === messageId ? { ...message, unread: false } : message));
+      markBuyerMarketplaceConversationRead(conversation).catch(() => loadMessages());
+    }
     transitionTimerRef.current = window.setTimeout(() => {
       setScreenAction("idle");
       transitionTimerRef.current = null;
@@ -172,12 +178,15 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
                   key={message.id}
                   type="button"
                   onClick={() => openConversation(message.id)}
-                  className="kt-touchable w-full rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
+                  className={`kt-touchable w-full rounded-2xl border p-4 text-left shadow-sm transition ${
+                    message.unread
+                      ? "border-emerald-200 bg-emerald-50/90 hover:bg-emerald-100/80"
+                      : "border-gray-200 bg-white hover:bg-gray-50"
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="min-w-0 truncate text-base font-black text-gray-950">
                       {message.sellerName}
-                      {message.unread ? <span className="ml-2 inline-block h-2 w-2 rounded-full bg-emerald-600" /> : null}
                     </p>
                     <span className="shrink-0 text-xs font-bold text-gray-400">{formatDate(message.createdAt)}</span>
                   </div>

@@ -17,6 +17,7 @@ import {
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
 import { useExploreMessageStatus } from "../../../../Backend/hooks/useExploreMessageStatus";
 import {
+  EXPLORE_NOTIFICATION_SEEN_SCOPE,
   getUnseenNotificationCount,
   markNotificationsSeen,
   subscribeNotificationSeen,
@@ -25,7 +26,6 @@ import PremiumHeader, { PremiumHeaderButton } from "../../../shared/PremiumHeade
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import SearchOverlay from "./search/SearchOverlay";
 
-const EXPLORE_BELL_SEEN_SCOPE = "explore.header.bell";
 const CREATE_MENU_EXIT_MS = 280;
 
 export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult, onOverlayChange }) {
@@ -85,12 +85,12 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
 
   useEffect(() => {
     function refreshBadge() {
-      setBellBadgeCount(getUnseenNotificationCount(EXPLORE_BELL_SEEN_SCOPE, notifications));
+      setBellBadgeCount(getUnseenNotificationCount(EXPLORE_NOTIFICATION_SEEN_SCOPE, notifications));
     }
 
     refreshBadge();
     return subscribeNotificationSeen((event) => {
-      if (event.detail?.scope === EXPLORE_BELL_SEEN_SCOPE) refreshBadge();
+      if (event.detail?.scope === EXPLORE_NOTIFICATION_SEEN_SCOPE || event.detail?.scope === "*") refreshBadge();
     });
   }, [notifications]);
 
@@ -122,7 +122,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   }
 
   function openAlerts() {
-    markNotificationsSeen(EXPLORE_BELL_SEEN_SCOPE, notifications);
+    markNotificationsSeen(EXPLORE_NOTIFICATION_SEEN_SCOPE, notifications);
     setBellBadgeCount(0);
     onAlertsClick?.();
   }

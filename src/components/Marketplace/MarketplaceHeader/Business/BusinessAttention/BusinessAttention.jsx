@@ -1,10 +1,29 @@
+import { useEffect, useState } from "react";
 import { useSellerAttention } from "../../../../../Backend/hooks/useSellerAttention";
+import {
+  applySeenNotificationState,
+  markNotificationsSeen,
+  subscribeNotificationSeen,
+} from "../../../../../Backend/services/notificationSeenStore";
 import AttentionEmptyState from "./AttentionEmptyState";
 import AttentionItem from "./AttentionItem";
 
 export default function BusinessAttention({ onAction }) {
   const { items, summary, loading } = useSellerAttention();
-  const urgentItems = items.filter((item) => item.priority === "high");
+  const [, setSeenVersion] = useState(0);
+  const readScope = "urmall:seller:notifications:read";
+  const urgentItems = applySeenNotificationState(
+    readScope,
+    items.filter((item) => item.priority === "high").map((item) => ({ ...item, unread: true })),
+  ).map((item) => ({ ...item, read: item.unread === false }));
+
+  useEffect(() => subscribeNotificationSeen(() => setSeenVersion((version) => version + 1)), []);
+
+  function handleAction(item) {
+    markNotificationsSeen(readScope, [item]);
+    setSeenVersion((version) => version + 1);
+    onAction?.(item);
+  }
 
   if (loading) {
     return (
@@ -43,7 +62,7 @@ export default function BusinessAttention({ onAction }) {
 
       <div className="grid gap-3 lg:grid-cols-2">
         {urgentItems.map((item) => (
-          <AttentionItem key={item.id} item={item} onAction={onAction} />
+          <AttentionItem key={item.id} item={item} onAction={handleAction} />
         ))}
       </div>
     </section>

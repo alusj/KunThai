@@ -33,6 +33,7 @@ import AppPortal from "../shared/AppPortal";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
 import {
+  applySeenNotificationState,
   getUnseenNotificationCount,
   markNotificationsSeen,
   subscribeNotificationSeen,
@@ -60,6 +61,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   );
   const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs), [basicOperator]);
   const [activeTab, setActiveTab] = useState(() => (basicOperator ? "My Dashboard" : "Overview"));
+  const [companyTabOpen, setCompanyTabOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuScreen, setActiveMenuScreen] = useState(null);
   const [operatorAction, setOperatorAction] = useState(null);
@@ -122,19 +124,30 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     String(activity.activity_type || activity.activityType || "") === "trip_status_updated"
   );
   const notificationSeenScope = `transport:${company?.id || "company"}`;
+  const notificationReadScope = `${notificationSeenScope}:read`;
   const companyNotificationItems = companyNotifications.map((activity) => ({
     ...activity,
     id: `company-activity-${activity.id}`,
     unread: true,
   }));
-  const bookingNotificationItems = bookingQueue.map((booking) => ({
+  const companyNotificationRows = applySeenNotificationState(notificationReadScope, companyNotificationItems).map((activity) => ({
+    ...activity,
+    read: activity.unread === false,
+  }));
+  const operatorTripRequests = operatorDashboardData?.waitingPassengers || [];
+  const visibleBookingQueue = basicOperator && operatorTripRequests.length ? operatorTripRequests : bookingQueue;
+  const bookingNotificationItems = visibleBookingQueue.map((booking) => ({
     id: `company-booking-${booking.id}`,
     unread: true,
   }));
+  const bookingReadScope = `${notificationSeenScope}:booking-read`;
+  const readBookingIds = new Set(
+    applySeenNotificationState(bookingReadScope, bookingNotificationItems)
+      .filter((item) => item.unread === false)
+      .map((item) => item.id),
+  );
   const companyNotificationCount = getUnseenNotificationCount(notificationSeenScope, companyNotificationItems, { unreadOnly: true });
   const bookingNotificationCount = getUnseenNotificationCount(notificationSeenScope, bookingNotificationItems, { unreadOnly: true });
-  const operatorTripRequests = operatorDashboardData?.waitingPassengers || [];
-  const visibleBookingQueue = basicOperator && operatorTripRequests.length ? operatorTripRequests : bookingQueue;
   const metrics = useMemo(
     () => [
       { label: "Fleets", value: fleets.length, icon: Truck, tone: "emerald" },
@@ -439,6 +452,25 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     runAfterDrawerClose(() => (onEditCompany || onRegisterCompany)?.());
   }
 
+  function renderDashboardTab(tab = activeTab) {
+    if (tab === "Overview") return <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} />;
+    if (tab === "Fleets") return <FleetList fleets={fleets} />;
+    if (tab === "Operators") {
+      return (
+        <Colleagues
+          canManageOperators={canManageOperators}
+          onAddOperator={canAddOperators ? onRegisterCompany : undefined}
+          onManageOperator={setOperatorAction}
+          operators={acceptedOperators}
+          onOpenOperatorDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
+        />
+      );
+    }
+    if (tab === "Requests") return <Requests requests={requests} />;
+    if (tab === "Activity") return <Activity company={company} />;
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-8">
@@ -583,9 +615,12 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               <button
                 key={tab}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setCompanyTabOpen(true);
+                }}
                 className={`h-11 min-w-28 rounded-2xl px-4 text-sm font-black transition ${
-                  activeTab === tab ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"
+                  companyTabOpen && activeTab === tab ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"
                 }`}
               >
                 {tab}
@@ -599,7 +634,6 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
                 {localStatus || statusMessage}
               </div>
             ) : null}
-            {activeTab === "Overview" ? <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} /> : null}
             {activeTab === "My Dashboard" ? (
               <BasicOperatorCompanyDashboard
                 bookingCount={Math.max(bookingQueue.length, operatorDashboardData?.waitingPassengers?.length || 0)}
@@ -612,18 +646,6 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
                 onToggleAvailability={toggleOperatorAvailability}
               />
             ) : null}
-            {activeTab === "Fleets" ? <FleetList fleets={fleets} /> : null}
-            {activeTab === "Operators" ? (
-              <Colleagues
-                canManageOperators={canManageOperators}
-                onAddOperator={canAddOperators ? onRegisterCompany : undefined}
-                onManageOperator={setOperatorAction}
-                operators={acceptedOperators}
-                onOpenOperatorDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
-              />
-            ) : null}
-            {activeTab === "Requests" ? <Requests requests={requests} /> : null}
-            {activeTab === "Activity" ? <Activity company={company} /> : null}
           </section>
         </main>
       )}
@@ -656,19 +678,40 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             />
           ) : null}
           <CompanyActivityDrawer
-            activities={companyNotifications}
+            activities={companyNotificationRows}
             company={company}
             open={companyNotificationsOpen}
             onClose={() => setCompanyNotificationsOpen(false)}
+            onRead={(activity) => {
+              markNotificationsSeen(notificationReadScope, [activity]);
+              setSeenVersion((version) => version + 1);
+            }}
           />
+          {!basicOperator ? (
+            <CompanyDashboardTabDrawer
+              company={company}
+              open={companyTabOpen}
+              tab={activeTab}
+              onClose={() => setCompanyTabOpen(false)}
+            >
+              {renderDashboardTab(activeTab)}
+            </CompanyDashboardTabDrawer>
+          ) : null}
           <CompanyBookingQueueDrawer
-            bookings={visibleBookingQueue}
+            bookings={visibleBookingQueue.map((booking) => ({
+              ...booking,
+              read: readBookingIds.has(`company-booking-${booking.id}`),
+            }))}
             company={company}
             isActive={operatorAvailable}
             loading={bookingQueueLoading}
             operatorMode={basicOperator}
             open={bookingQueueOpen}
             onClose={() => setBookingQueueOpen(false)}
+            onRead={(booking) => {
+              markNotificationsSeen(bookingReadScope, [{ id: `company-booking-${booking.id}` }]);
+              setSeenVersion((version) => version + 1);
+            }}
             onUpdateTrip={updateCompanyOperatorTrip}
             onViewRoute={openCompanyTripRoute}
           />
@@ -1628,6 +1671,63 @@ function FleetHqActionSheet({ children, label, onClose, open, widthClass = "max-
   );
 }
 
+function CompanyDashboardTabDrawer({ children, company, onClose, open, tab }) {
+  const { rendered, panelOpen } = useDrawerTransition(open);
+
+  useEffect(() => {
+    if (!rendered || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose, rendered]);
+
+  if (!rendered) return null;
+  return (
+    <AppPortal>
+      <div className={`fixed inset-0 z-[1320] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+        <button
+          type="button"
+          aria-label={`Close ${tab}`}
+          onClick={onClose}
+          className={`absolute inset-0 h-full w-full border-0 bg-slate-950/40 p-0 backdrop-blur-sm transition-opacity duration-300 ${panelOpen ? "opacity-100" : "opacity-0"}`}
+        />
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${tab} dashboard`}
+          className={`absolute bottom-0 left-0 right-0 mx-auto flex h-[86dvh] w-full max-w-4xl transform flex-col overflow-hidden rounded-t-[2rem] border border-white/70 bg-white shadow-2xl transition-transform duration-300 ${panelOpen ? "translate-y-0" : "translate-y-full"}`}
+        >
+          <header className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">Fleet HQ</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">{tab}</h2>
+              <p className="mt-1 truncate text-sm font-semibold text-slate-500">{company?.companyName || "Company dashboard"}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={`Close ${tab}`}
+              className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
+            >
+              <X size={22} />
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
+            {children}
+          </div>
+        </section>
+      </div>
+    </AppPortal>
+  );
+}
+
 function FleetHqFullScreen({ children, label, onClose, open }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
 
@@ -1703,7 +1803,7 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
   );
 }
 
-function CompanyActivityDrawer({ activities, company, onClose, open }) {
+function CompanyActivityDrawer({ activities, company, onClose, onRead, open }) {
   return (
     <FleetHqFullScreen label="Fleet HQ notifications" onClose={onClose} open={open}>
       <FleetHqFullScreenHeader eyebrow="Company notifications" icon={Bell} label="Back to Fleet HQ" onBack={onClose} title={company?.companyName || "Fleet HQ"} />
@@ -1711,7 +1811,11 @@ function CompanyActivityDrawer({ activities, company, onClose, open }) {
         {activities.length ? (
           <div className="grid gap-3">
             {activities.map((activity) => (
-              <article key={activity.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <article
+                key={activity.id}
+                onClick={() => onRead?.(activity)}
+                className={`rounded-2xl border p-4 shadow-sm transition ${activity.read ? "border-slate-100 bg-white" : "border-blue-100 bg-blue-50/90"}`}
+              >
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
                     <Bell size={17} />
@@ -1735,7 +1839,7 @@ function CompanyActivityDrawer({ activities, company, onClose, open }) {
   );
 }
 
-function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClose, onUpdateTrip, onViewRoute, open, operatorMode }) {
+function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClose, onRead, onUpdateTrip, onViewRoute, open, operatorMode }) {
   return (
     <FleetHqFullScreen label="Company waiting bookings" onClose={onClose} open={open}>
       <FleetHqFullScreenHeader eyebrow="Waiting bookings" icon={CalendarClock} label="Back to Fleet HQ" onBack={onClose} title={company?.companyName || "Fleet HQ"} />
@@ -1745,7 +1849,11 @@ function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClo
         ) : bookings.length ? (
           <div className="grid gap-3">
             {bookings.map((booking) => (
-              <div key={booking.id}>
+              <div
+                key={booking.id}
+                onClick={() => onRead?.(booking)}
+                className={`rounded-3xl border p-2 transition ${booking.read ? "border-transparent bg-transparent" : "border-emerald-100 bg-emerald-50/90"}`}
+              >
                 {!operatorMode ? (
                   <p className="mb-2 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
                     {booking.operatorName} · {booking.fleetName}

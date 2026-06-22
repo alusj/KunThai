@@ -1,11 +1,23 @@
 const SEEN_KEY_PREFIX = "kuntai.notificationSeen.";
 const SEEN_EVENT = "kuntai-notifications-seen";
+export const EXPLORE_NOTIFICATION_SEEN_SCOPE = "explore.header.bell";
+let activeSeenUserId = "guest";
+
+export function setNotificationSeenUser(userId = "") {
+  const nextUserId = String(userId || "guest").trim() || "guest";
+  if (nextUserId === activeSeenUserId) return;
+  activeSeenUserId = nextUserId;
+}
 
 function getItemId(item) {
   return String(item?.id || item?.alertId || item?.orderId || item?.messageId || "").trim();
 }
 
 function getStorageKey(scope) {
+  return `${SEEN_KEY_PREFIX}${activeSeenUserId}.${String(scope || "general")}`;
+}
+
+function getLegacyStorageKey(scope) {
   return `${SEEN_KEY_PREFIX}${String(scope || "general")}`;
 }
 
@@ -13,7 +25,15 @@ export function readSeenNotificationIds(scope) {
   if (typeof window === "undefined") return new Set();
 
   try {
-    const saved = window.localStorage.getItem(getStorageKey(scope));
+    const storageKey = getStorageKey(scope);
+    let saved = window.localStorage.getItem(storageKey);
+    if (!saved && activeSeenUserId !== "guest") {
+      saved = window.localStorage.getItem(getLegacyStorageKey(scope));
+      if (saved) {
+        window.localStorage.setItem(storageKey, saved);
+        window.localStorage.removeItem(getLegacyStorageKey(scope));
+      }
+    }
     const ids = saved ? JSON.parse(saved) : [];
     return new Set(Array.isArray(ids) ? ids.map((id) => String(id)) : []);
   } catch {

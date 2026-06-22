@@ -17,17 +17,17 @@ export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = 
   const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.id === activeTab));
 
   return (
-    <div className="border-b border-slate-200 bg-white">
+    <div className="border-y border-white/70 bg-white/50 px-2 py-2 shadow-sm backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40">
       <div
-        className={`relative grid w-full grid-cols-3 gap-1.5 px-2 py-3 sm:gap-2 sm:px-3 ${
+        className={`relative grid w-full grid-cols-3 gap-1 rounded-[24px] border border-white/80 bg-white/55 p-1 ring-1 ring-slate-950/5 ${
           slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"
         }`}
       >
       <span
-        className="pointer-events-none absolute bottom-3 top-3 rounded-full bg-slate-950 shadow-sm transition-[left] duration-300 ease-out"
+        className="pointer-events-none absolute bottom-1 top-1 rounded-[20px] bg-slate-950/90 shadow-md shadow-slate-950/15 transition-[left] duration-300 ease-out"
         style={{
-          left: `calc(0.5rem + ${activeIndex} * ((100% - 1.75rem) / 3 + 0.375rem))`,
-          width: "calc((100% - 1.75rem) / 3)",
+          left: `calc(0.25rem + ${activeIndex} * ((100% - 1rem) / 3 + 0.25rem))`,
+          width: "calc((100% - 1rem) / 3)",
         }}
         aria-hidden="true"
       />
@@ -41,15 +41,15 @@ export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = 
             type="button"
             onClick={() => setActiveTab(tab.id)}
             className={`
-              kt-touchable relative z-10 inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-2 text-[13px] font-black transition sm:gap-2 sm:px-3 sm:text-sm
+              kt-touchable relative z-10 inline-flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-[18px] px-1.5 py-1.5 text-xs font-black transition sm:gap-2 sm:px-3 sm:text-[13px]
               ${
                 isActive
                   ? "text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
               }
             `}
           >
-            <Icon className="flex-none" size={16} strokeWidth={2.25} absoluteStrokeWidth />
+            <Icon className="flex-none" size={15} strokeWidth={2.25} absoluteStrokeWidth />
             <span className="whitespace-nowrap">{tab.label}</span>
           </button>
         );

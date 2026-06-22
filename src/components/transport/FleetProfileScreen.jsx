@@ -253,13 +253,19 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
             </section>
           ) : null}
 
-          <section className="grid gap-3 md:grid-cols-3">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <ProfileMetric
               icon={FiStar}
               label="Passenger rating"
               value={formatRating(reviewAverage)}
               detail={`${reviewCount || 0} review${reviewCount === 1 ? "" : "s"}`}
               onClick={() => setReviewsOpen(true)}
+            />
+            <ProfileMetric
+              icon={FiTruck}
+              label="Completed trips"
+              value={Number(fleet.trips || 0).toLocaleString()}
+              detail="Live completed service count"
             />
             <ProfileMetric
               icon={FiClock}

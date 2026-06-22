@@ -12,16 +12,17 @@ export default function ConversationItem({ conversation, onOpen, active }) {
       type="button"
       onClick={() => onOpen?.(conversation)}
       className={`w-full rounded-lg border p-4 text-left transition ${
-        active ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white hover:bg-gray-50"
+        conversation.unread
+          ? "border-emerald-200 bg-emerald-50/90 hover:bg-emerald-100/80"
+          : active
+            ? "border-gray-300 bg-gray-50"
+            : "border-gray-200 bg-white hover:bg-gray-50"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="line-clamp-2 font-black text-gray-950">{conversationTitle(conversation)}</p>
-            {conversation.unread ? (
-              <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-label="Unread" />
-            ) : null}
           </div>
           <p className="mt-1 text-xs font-bold uppercase text-gray-400">{conversation.productName ? "Product message" : "UrMall message"}</p>
         </div>

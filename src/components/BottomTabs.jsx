@@ -31,16 +31,16 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
       type="button"
       onClick={() => setPage(id)}
       aria-current={page === id ? "page" : undefined}
-      className={`kt-pressable flex min-h-[58px] w-full flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-xs font-black select-none ${
+      className={`kt-pressable flex min-h-[48px] w-full flex-col items-center justify-center gap-0.5 rounded-[20px] px-1.5 py-1.5 text-[11px] font-black select-none ${
         page === id ? "text-white" : "text-slate-500 hover:text-slate-950"
       }`}
     >
       <span
-        className={`grid h-8 w-8 place-items-center rounded-xl ${
+        className={`grid h-7 w-7 place-items-center rounded-xl ${
           page === id ? "bg-white/10" : "bg-white/80"
         } relative`}
       >
-        {createElement(icon, { size: 20, strokeWidth: 2.25, absoluteStrokeWidth: true })}
+        {createElement(icon, { size: 18, strokeWidth: 2.25, absoluteStrokeWidth: true })}
         {id !== page && Number(badges[id] || 0) > 0 ? (
           <span className="absolute -right-2 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-rose-600 px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
             {Number(badges[id]) > 9 ? "9+" : Number(badges[id])}
@@ -53,18 +53,18 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
 
   return (
     <nav
-      className={`fixed inset-x-3 bg-transparent transition-transform duration-300 sm:inset-x-6 ${
+      className={`fixed inset-x-6 bg-transparent transition-transform duration-300 sm:inset-x-10 ${
         hidden ? "translate-y-[calc(100%+1.25rem)]" : "translate-y-0"
       }`}
       style={{ zIndex: 50, bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       aria-label="Main navigation"
     >
-      <div className="relative mx-auto grid max-w-xl grid-cols-3 gap-1 rounded-[24px] border border-slate-200 bg-white/95 p-1.5 shadow-2xl shadow-slate-950/10 backdrop-blur-xl">
+      <div className="relative mx-auto grid max-w-md grid-cols-3 gap-1 rounded-[26px] border border-white/80 bg-white/65 p-1 shadow-2xl shadow-slate-950/15 ring-1 ring-slate-950/10 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55">
         <span
-          className="pointer-events-none absolute bottom-1.5 top-1.5 z-0 rounded-[20px] bg-slate-950 shadow-lg shadow-slate-950/15 transition-[left] duration-300 ease-out"
+          className="pointer-events-none absolute bottom-1 top-1 z-0 rounded-[22px] bg-slate-950/90 shadow-lg shadow-slate-950/20 transition-[left] duration-300 ease-out"
           style={{
-            left: `calc(0.375rem + ${activeIndex} * ((100% - 1.25rem) / 3 + 0.25rem))`,
-            width: "calc((100% - 1.25rem) / 3)",
+            left: `calc(0.25rem + ${activeIndex} * ((100% - 1rem) / 3 + 0.25rem))`,
+            width: "calc((100% - 1rem) / 3)",
           }}
           aria-hidden="true"
         />

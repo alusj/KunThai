@@ -857,6 +857,23 @@ export async function fetchBuyerMessages() {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
+export async function markBuyerMarketplaceConversationRead(conversation) {
+  const buyerId = await getCurrentUserId("Sign in to update your messages.");
+  const sellerMessageIds = (conversation?.messages || [])
+    .filter((message) => message.from === "seller" && message.id)
+    .map((message) => message.id);
+  if (!sellerMessageIds.length) return;
+
+  const { error } = await supabase
+    .from("marketplace_customer_messages")
+    .update({ unread: false })
+    .eq("buyer_id", buyerId)
+    .in("id", sellerMessageIds);
+
+  if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
+}
+
 export async function sendBuyerMarketplaceMessage({ seller, product, topic, message, messageType = "message" }) {
   const buyer = await getCurrentBuyer("Sign in to message this seller.");
   const businessId = seller?.id || product?.businessId;

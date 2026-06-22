@@ -421,7 +421,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   }, [currentUserId]);
 
   useEffect(() => {
-    if (!activeConversation?.id || !currentUserId || !readExploreSettings().messages.readReceipts) {
+    if (!activeConversation?.id || !currentUserId) {
       return;
     }
 
@@ -437,9 +437,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       const nextMessages = await fetchExploreMessages(conversation.id, currentUserId);
       setMessages(nextMessages);
       cacheConversationMessages(conversation.id, nextMessages);
-      if (readExploreSettings().messages.readReceipts) {
-        await markExploreConversationRead(conversation.id, currentUserId);
-      }
+      await markExploreConversationRead(conversation.id, currentUserId);
       setConversationList(await fetchExploreConversations(currentUserId));
     } catch (err) {
       setError(friendlyMessageError(err));

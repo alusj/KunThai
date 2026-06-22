@@ -11,6 +11,7 @@ import Login from "./Login";
 import { PageTransition } from "./components/shared/motion";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 import { clearExploreScreenStack } from "./Backend/services/explore/navigationService";
+import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
@@ -194,6 +195,7 @@ export default function App() {
   const [onboardingReveal, setOnboardingReveal] = useState(null);
   const appGestureRef = useRef(null);
   const userId = user?.id || "";
+  setNotificationSeenUser(userId);
 
   const updateMarketplaceBadge = useCallback((count) => {
     setMainPageBadges((current) => current.marketplace === count ? current : { ...current, marketplace: count });

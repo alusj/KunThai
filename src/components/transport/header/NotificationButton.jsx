@@ -25,6 +25,7 @@ export default function NotificationButton({ active = false, companyAccount, ope
   const previousActiveRef = useRef(false);
   const previousUnreadIdsRef = useRef(new Set());
   const seenScope = `transport:${companyAccount?.id || operatorAccount?.id || "passenger"}`;
+  const readScope = `${seenScope}:read`;
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => notification.unread).length,
@@ -39,9 +40,14 @@ export default function NotificationButton({ active = false, companyAccount, ope
     fetchTransportNotifications(operatorAccount, companyAccount)
       .then((items) => {
         if (!alive) return;
-        const nextItems = open
+        const badgeItems = open
           ? applySeenNotificationState(seenScope, items.map((item) => ({ ...item, unread: false })))
           : applySeenNotificationState(seenScope, items);
+        const readItems = applySeenNotificationState(readScope, items);
+        const nextItems = badgeItems.map((item, index) => ({
+          ...item,
+          read: items[index]?.unread === false || readItems[index]?.unread === false,
+        }));
         if (open) markNotificationsSeen(seenScope, items);
         setNotifications(nextItems);
 
@@ -59,7 +65,7 @@ export default function NotificationButton({ active = false, companyAccount, ope
     return () => {
       alive = false;
     };
-    }, [companyAccount, open, operatorAccount, seenScope]);
+    }, [companyAccount, open, operatorAccount, readScope, seenScope]);
 
   useEffect(() => {
     onUnreadCountChange?.(unreadCount);
@@ -77,6 +83,12 @@ export default function NotificationButton({ active = false, companyAccount, ope
   }, [active, companyAccount, notifications, operatorAccount, unreadCount]);
 
   useEffect(() => subscribeNotificationSeen(() => refreshNotifications({ quiet: true })), [refreshNotifications]);
+
+  function markNotificationRead(notification) {
+    if (!notification || notification.read) return;
+    markNotificationsSeen(readScope, [notification]);
+    setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read: true } : item));
+  }
 
   useEffect(() => {
     return refreshNotifications({ quiet: !open });
@@ -205,8 +217,9 @@ export default function NotificationButton({ active = false, companyAccount, ope
                   {notifications.map((notification) => (
                     <article
                       key={notification.id}
+                      onClick={() => markNotificationRead(notification)}
                       className={`rounded-2xl border p-3 ${
-                        notification.unread
+                        !notification.read
                           ? "border-green-100 bg-green-50"
                           : "border-slate-100 bg-white"
                       }`}
@@ -218,11 +231,6 @@ export default function NotificationButton({ active = false, companyAccount, ope
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">
                             <h3 className="text-sm font-black text-slate-950">{notification.title}</h3>
-                            {notification.unread ? (
-                              <span className="shrink-0 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-black text-white">
-                                New
-                              </span>
-                            ) : null}
                           </div>
                           <p className="mt-1 text-sm font-semibold text-slate-600">{notification.body}</p>
                           {notification.meta ? (
