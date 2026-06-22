@@ -8,14 +8,35 @@ import ParentTabs from "./ParentTabs";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
+import { useSellerHeader } from "../../Backend/hooks/useSellerHeader";
+import { showToast } from "../../Backend/services/toastService";
 
-export default function Marketplace({ nav, setNav, onActivityChange }) {
+export default function Marketplace({ active = false, nav, setNav, onActivityChange, onNotificationCountChange }) {
   const [activeTab, setActiveTab] = useState("new");
   const [activeUtility, setActiveUtility] = useState(null);
   const [productMode, setProductMode] = useState(false);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
   const [businessClosing, setBusinessClosing] = useState(false);
+  const [buyerNotificationCount, setBuyerNotificationCount] = useState(0);
+  const sellerHeader = useSellerHeader();
+  const sellerNotificationCount = sellerHeader.orderCount + sellerHeader.messageCount + sellerHeader.notificationCount;
+  const totalNotificationCount = buyerNotificationCount + sellerNotificationCount;
   const businessCloseTimer = useRef(null);
+  const previousActiveRef = useRef(false);
+  const previousUnreadRef = useRef(0);
+
+  useEffect(() => {
+    onNotificationCountChange?.(totalNotificationCount);
+    const becameActive = active && !previousActiveRef.current;
+    const receivedWhileActive = active && totalNotificationCount > previousUnreadRef.current;
+    previousActiveRef.current = active;
+    previousUnreadRef.current = totalNotificationCount;
+    if (!totalNotificationCount || (!becameActive && !receivedWhileActive)) return;
+    const message = sellerNotificationCount
+      ? "Your UrMall business has a new order, message, or seller alert. Open MyBiz to review it."
+      : "Your UrMall activity has a new order or message update. Open the highlighted action to review it.";
+    showToast(message, "info", { title: "UrMall update" });
+  }, [active, onNotificationCountChange, sellerNotificationCount, totalNotificationCount]);
 
   const setMarketplaceScreenMode = useCallback((enabled) => {
     setProductMode(enabled);
@@ -95,6 +116,8 @@ export default function Marketplace({ nav, setNav, onActivityChange }) {
             onOrdersClick={() => setActiveUtility((current) => (current === "orders" ? null : "orders"))}
             onMessagesClick={() => setActiveUtility((current) => (current === "messages" ? null : "messages"))}
             onMyBizClick={openMyBiz}
+            onNotificationCountChange={setBuyerNotificationCount}
+            sellerNotificationCount={sellerNotificationCount}
           />
 
           <ParentTabs

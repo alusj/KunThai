@@ -32,6 +32,11 @@ import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
+import {
+  getUnseenNotificationCount,
+  markNotificationsSeen,
+  subscribeNotificationSeen,
+} from "../../Backend/services/notificationSeenStore";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
 import { OperatorTripRequestCard } from "./OperatorDashboardScreen";
 import {
@@ -47,7 +52,7 @@ import { fetchOperatorDashboard, subscribeOperatorTrips } from "../services/tran
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
 
-export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   const companyOperatorAssignment = useMemo(
     () => basicOperator ? resolveTransportCompanyOperatorAssignment(company) : null,
@@ -71,6 +76,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [managementBusy, setManagementBusy] = useState(false);
   const [localStatus, setLocalStatus] = useState("");
+  const [, setSeenVersion] = useState(0);
   const menuActionTimerRef = useRef(null);
   const { visibleKey: visibleMenuScreen, action: menuScreenAction } = useSlidePanel(activeMenuScreen);
   const fleets = company?.fleets || [];
@@ -115,6 +121,18 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     String(activity.activity_type || activity.activityType || "").startsWith("operator_invite_") ||
     String(activity.activity_type || activity.activityType || "") === "trip_status_updated"
   );
+  const notificationSeenScope = `transport:${company?.id || "company"}`;
+  const companyNotificationItems = companyNotifications.map((activity) => ({
+    ...activity,
+    id: `company-activity-${activity.id}`,
+    unread: true,
+  }));
+  const bookingNotificationItems = bookingQueue.map((booking) => ({
+    id: `company-booking-${booking.id}`,
+    unread: true,
+  }));
+  const companyNotificationCount = getUnseenNotificationCount(notificationSeenScope, companyNotificationItems, { unreadOnly: true });
+  const bookingNotificationCount = getUnseenNotificationCount(notificationSeenScope, bookingNotificationItems, { unreadOnly: true });
   const operatorTripRequests = operatorDashboardData?.waitingPassengers || [];
   const visibleBookingQueue = basicOperator && operatorTripRequests.length ? operatorTripRequests : bookingQueue;
   const metrics = useMemo(
@@ -180,6 +198,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       if (menuActionTimerRef.current) window.clearTimeout(menuActionTimerRef.current);
     };
   }, []);
+
+  useEffect(() => subscribeNotificationSeen(() => setSeenVersion((version) => version + 1)), []);
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
@@ -416,7 +436,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   }
 
   function openCompanyEditor() {
-    runAfterDrawerClose(() => onRegisterCompany?.());
+    runAfterDrawerClose(() => (onEditCompany || onRegisterCompany)?.());
   }
 
   return (
@@ -438,15 +458,19 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
           {company && canViewCompanyNotifications ? (
             <button
               type="button"
-              onClick={() => setCompanyNotificationsOpen(true)}
+              onClick={() => {
+                markNotificationsSeen(notificationSeenScope, companyNotificationItems);
+                setSeenVersion((version) => version + 1);
+                setCompanyNotificationsOpen(true);
+              }}
               aria-label="Fleet HQ notifications"
               title="Fleet HQ notifications"
               className="kt-touchable relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-800 transition hover:border-blue-200 hover:bg-blue-50"
             >
               <Bell size={19} />
-              {companyNotifications.length ? (
+              {companyNotificationCount ? (
                 <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-600 px-1 text-center text-[10px] font-black leading-5 text-white">
-                  {Math.min(companyNotifications.length, 99)}
+                  {Math.min(companyNotificationCount, 99)}
                 </span>
               ) : null}
             </button>
@@ -454,15 +478,19 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
           {company && canViewBookingQueue && bookingQueue.length > 0 ? (
             <button
               type="button"
-              onClick={() => setBookingQueueOpen(true)}
+              onClick={() => {
+                markNotificationsSeen(notificationSeenScope, bookingNotificationItems);
+                setSeenVersion((version) => version + 1);
+                setBookingQueueOpen(true);
+              }}
               aria-label="Company waiting bookings"
               title="Company waiting bookings"
               className="kt-touchable relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
             >
               <CalendarClock size={19} />
-              {bookingQueue.length ? (
+              {bookingNotificationCount ? (
                 <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-emerald-600 px-1 text-center text-[10px] font-black leading-5 text-white">
-                  {Math.min(bookingQueue.length, 99)}
+                  {Math.min(bookingNotificationCount, 99)}
                 </span>
               ) : null}
             </button>

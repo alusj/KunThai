@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiBriefcase,
@@ -47,7 +47,58 @@ const fleetTypes = ["Motorbike", "Tricycle", "Taxi", "Van"];
 const serviceCategories = ["Ride only", "Delivery only", "Ride and delivery"];
 const companyTypes = ["Transport company", "Delivery company", "Taxi union", "Bike riders group", "Community fleet", "Other organization"];
 const companyDocuments = ["Business registration", "Transport permit", "Tax or business ID", "Owner national ID"];
-const fleetDocuments = ["Fleet registration", "Insurance", "Roadworthiness", "Fleet photos"];
+const fleetDocuments = [
+  "Vehicle registration",
+  "Insurance document",
+  "Road worthiness or inspection certificate",
+  "Passenger interior or seating photo",
+];
+const requiredFleetImages = ["Front view", "Back view", "Left side", "Right side"];
+const fleetSafetyQuestions = {
+  Taxi: [
+    { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
+    { key: "doorsWorking", label: "Are all passenger doors working?", type: "select" },
+    { key: "seatbelts", label: "Are seatbelts available and usable?", type: "select" },
+    { key: "acOrVentilation", label: "Is AC or clear ventilation available?", type: "select" },
+    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
+    { key: "spareTire", label: "Is a spare tire or emergency repair kit available?", type: "select" },
+    { key: "interiorClean", label: "Is the passenger interior clean and safe?", type: "select" },
+  ],
+  Van: [
+    { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
+    { key: "doorsWorking", label: "Are all passenger and cargo doors working?", type: "select" },
+    { key: "seatbelts", label: "Are passenger seatbelts available and usable?", type: "select" },
+    { key: "acOrVentilation", label: "Is AC or clear ventilation available?", type: "select" },
+    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
+    { key: "spareTire", label: "Is a spare tire or emergency repair kit available?", type: "select" },
+    { key: "interiorClean", label: "Is the passenger or cargo area clean and safe?", type: "select" },
+  ],
+  Motorbike: [
+    { key: "helmet", label: "Is a passenger helmet available?", type: "select" },
+    { key: "brakes", label: "Is the brake system in good condition?", type: "select" },
+    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
+    { key: "passengerFootrest", label: "Is the passenger footrest safe and usable?", type: "select" },
+    { key: "deliveryBox", label: "Is there a delivery box or secure bag when used for delivery?", type: "select" },
+  ],
+  Tricycle: [
+    { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
+    { key: "entrySafe", label: "Is the passenger entry safe and easy to access?", type: "select" },
+    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
+    { key: "coveredSpace", label: "Is the passenger or cargo space clean and covered?", type: "select" },
+    { key: "sideBar", label: "Are side bars, rails, or passenger supports firm?", type: "select" },
+  ],
+};
+
+function createSafetyAnswers(fleetType) {
+  return (fleetSafetyQuestions[fleetType] || []).reduce((answers, question) => ({
+    ...answers,
+    [question.key]: question.type === "select" ? "Yes" : "",
+  }), {});
+}
+
+function fleetImageDocumentKey(image) {
+  return `Fleet image - ${image}`;
+}
 
 function createCompanyForm(profile = {}) {
   const name = String(profile.displayName || profile.fullName || "").trim();
@@ -86,7 +137,7 @@ function createFleetDraft(index = 0) {
     operatingArea: "",
     homeBase: "",
     documents: {},
-    safetyAnswers: {},
+    safetyAnswers: createSafetyAnswers(fleetTypes[index % fleetTypes.length]),
     operators: [],
     status: "pending_review",
   };
@@ -103,9 +154,10 @@ function compactPublicId(value = "") {
   return String(value).replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
-export default function CompanyRegistrationScreen({ existingCompany = null, onBack, onComplete, onSaveExit }) {
-  const [step, setStep] = useState(0);
-  const [maxStepReached, setMaxStepReached] = useState(0);
+export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaveExit }) {
+  const addOperatorMode = mode === "addOperator";
+  const [step, setStep] = useState(() => (addOperatorMode ? 2 : 0));
+  const [maxStepReached, setMaxStepReached] = useState(() => (addOperatorMode ? 2 : 0));
   const [form, setForm] = useState(() => createCompanyForm());
   const [fleets, setFleets] = useState(() => [createFleetDraft(0)]);
   const [areaText, setAreaText] = useState("");
@@ -140,7 +192,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
       const draft = await getTransportCompanyDraft().catch(() => null);
       if (!alive) return;
 
-      const source = existingCompany || draft;
+      const source = existingCompany || (addOperatorMode ? null : draft);
       if (source?.companyName || source?.company?.companyName) {
         const company = source.company || source;
         setForm({
@@ -149,10 +201,12 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
           ownerPublicId: company.ownerPublicId || getKunThaiPublicUserId({ ...(profile || {}), userId: source.userId }),
           documents: company.documents || {},
         });
-        setFleets((source.fleets || [createFleetDraft(0)]).length ? source.fleets : [createFleetDraft(0)]);
+        setFleets(addOperatorMode
+          ? [createFleetDraft(0)]
+          : ((source.fleets || [createFleetDraft(0)]).length ? source.fleets : [createFleetDraft(0)]));
         setAreaText((company.operatingAreas || []).join(", "));
-        setStep(source.step || 0);
-        setMaxStepReached(source.maxStepReached || source.step || 0);
+        setStep(addOperatorMode ? 2 : source.step || 0);
+        setMaxStepReached(addOperatorMode ? 2 : source.maxStepReached || source.step || 0);
         return;
       }
 
@@ -163,7 +217,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
     return () => {
       alive = false;
     };
-  }, [existingCompany]);
+  }, [addOperatorMode, existingCompany]);
 
   const completion = useMemo(() => {
     const companyReady = Boolean(form.companyName && form.ownerName && form.phone);
@@ -270,8 +324,26 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
 
     if (targetStep === 2) {
       if (!fleets.length) return "Add at least one fleet.";
-      const incompleteFleet = fleets.find((fleet) => !fleet.plateNumber.trim() || !fleet.fleetName.trim());
-      if (incompleteFleet) return "Each fleet needs a fleet name and plate number.";
+      const incompleteFleet = fleets.find((fleet) => [
+        fleet.fleetName,
+        fleet.plateNumber,
+        fleet.make,
+        fleet.model,
+        fleet.year,
+        fleet.color,
+        fleet.operatingArea,
+        fleet.homeBase,
+      ].some((value) => !String(value || "").trim()));
+      if (incompleteFleet) return "Each fleet needs its name, plate, make, model, year, color, operating area, and home base.";
+      const missingImageFleet = fleets.find((fleet) => requiredFleetImages.some((image) => !fleet.documents?.[fleetImageDocumentKey(image)]));
+      if (missingImageFleet) return "Upload the front, back, left-side, and right-side image for every fleet.";
+      const missingDocumentFleet = fleets.find((fleet) => fleetDocuments.some((document) => !fleet.documents?.[document]));
+      if (missingDocumentFleet) return "Upload all required vehicle documents for every fleet.";
+      const incompleteSafetyFleet = fleets.find((fleet) => (fleetSafetyQuestions[fleet.fleetType] || []).some((question) => !String(fleet.safetyAnswers?.[question.key] || "").trim()));
+      if (incompleteSafetyFleet) return "Answer every security and safety question for each fleet.";
+      if (addOperatorMode && fleets.some((fleet) => !(fleet.operators || []).length)) {
+        return "Add the operator's KunThai ID before sending the company request.";
+      }
     }
 
     return "";
@@ -300,10 +372,21 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
   }
 
   function buildPayload(accountStatus = "draft") {
+    const normalizedNewFleets = fleets.map((fleet) => ({
+      ...fleet,
+      safetyAnswers: {
+        ...createSafetyAnswers(fleet.fleetType),
+        ...(fleet.safetyAnswers || {}),
+      },
+    }));
+    const payloadFleets = addOperatorMode
+      ? [...(existingCompany?.fleets || []), ...normalizedNewFleets]
+      : normalizedNewFleets;
     return {
       ...form,
+      actionMode: addOperatorMode ? "add_operator" : "registration",
       operatingAreas: splitAreas(areaText),
-      fleets,
+      fleets: payloadFleets,
       step,
       maxStepReached,
       accountStatus,
@@ -311,7 +394,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
         {
           id: `activity-${Date.now()}`,
           title: accountStatus === "submitted" ? "Company registration submitted" : "Company draft saved",
-          body: `${form.companyName || "Company"} has ${fleets.length} fleet${fleets.length === 1 ? "" : "s"} in Fleet HQ.`,
+          body: addOperatorMode
+            ? `A new fleet operator request was prepared for ${form.companyName || "the company"}.`
+            : `${form.companyName || "Company"} has ${payloadFleets.length} fleet${payloadFleets.length === 1 ? "" : "s"} in Fleet HQ.`,
           createdAt: new Date().toISOString(),
         },
       ],
@@ -352,7 +437,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
   }
 
   async function submitCompany() {
-    const firstError = [0, 1, 2].map(validateStep).find(Boolean);
+    const firstError = (addOperatorMode ? [2] : [0, 1, 2]).map(validateStep).find(Boolean);
     if (firstError) {
       setStatus(firstError);
       return;
@@ -426,16 +511,16 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
-            <h1 className="truncate text-lg font-black text-slate-950">Company / Organization Registration</h1>
+            <h1 className="truncate text-lg font-black text-slate-950">{addOperatorMode ? "Add company operator" : "Company / Organization Registration"}</h1>
           </div>
           <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-            {completion}/4 ready
+            {addOperatorMode ? "Fleet stage" : `${completion}/4 ready`}
           </span>
         </div>
       </header>
 
-      <main ref={formTopRef} className="grid w-full gap-5 px-3 py-4 sm:px-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8">
-        <aside className="lg:sticky lg:top-20 lg:h-fit">
+      <main ref={formTopRef} className={`grid w-full gap-5 px-3 py-4 sm:px-5 lg:px-8 ${addOperatorMode ? "mx-auto max-w-6xl" : "lg:grid-cols-[280px_minmax(0,1fr)]"}`}>
+        {!addOperatorMode ? <aside className="lg:sticky lg:top-20 lg:h-fit">
           <div className="grid grid-cols-2 gap-2 rounded-3xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-4 lg:grid-cols-1">
             {steps.map((item, index) => {
               const Icon = item.icon;
@@ -462,7 +547,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
               );
             })}
           </div>
-        </aside>
+        </aside> : null}
 
         <section className="min-w-0 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
           {status ? (
@@ -486,8 +571,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
                 onLocateMe={() => setLocationCautionOpen(true)}
               />
             ) : null}
-            {step === 2 ? (
+            {step === 2 || addOperatorMode ? (
               <FleetBuilderStep
+                acceptedOperators={(existingCompany?.fleets || []).flatMap((fleet) => fleet.operators || []).filter((operator) => operator.status === "accepted")}
+                allowMultiple={!addOperatorMode}
                 fleets={fleets}
                 onAddFleet={addFleet}
                 onInvite={addOperatorInvite}
@@ -505,22 +592,31 @@ export default function CompanyRegistrationScreen({ existingCompany = null, onBa
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
-                onClick={prevStep}
-                disabled={step === 0}
+                onClick={addOperatorMode ? onBack : prevStep}
+                disabled={!addOperatorMode && step === 0}
                 className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-700 disabled:opacity-40"
               >
                 <span className="flex items-center justify-center gap-2"><FiChevronLeft /> Back</span>
               </button>
               <div className="grid gap-2 sm:flex sm:justify-end">
-                <button
+                {!addOperatorMode ? <button
                   type="button"
                   onClick={handleSaveDraft}
                   disabled={saving}
                   className="h-11 rounded-2xl border border-blue-200 bg-blue-50 px-5 text-sm font-black text-blue-700 disabled:opacity-60"
                 >
                   {saving ? "Saving..." : "Save"}
-                </button>
-                {step < steps.length - 1 ? (
+                </button> : null}
+                {addOperatorMode ? (
+                  <button
+                    type="button"
+                    onClick={submitCompany}
+                    disabled={submitting}
+                    className="h-11 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {submitting ? "Sending request..." : "Send operator request"}
+                  </button>
+                ) : step < steps.length - 1 ? (
                   <button
                     type="button"
                     onClick={nextStep}
@@ -703,7 +799,8 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
   );
 }
 
-function FleetBuilderStep({ fleets, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument }) {
+function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument }) {
+  const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -711,15 +808,16 @@ function FleetBuilderStep({ fleets, onAddFleet, onInvite, onRemoveFleet, onUpdat
           <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet builder</p>
           <h2 className="mt-1 text-2xl font-black text-slate-950">Add every company fleet and invite operators by KunThai ID.</h2>
         </div>
-        <button type="button" onClick={onAddFleet} className="h-11 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white">
+        {allowMultiple ? <button type="button" onClick={onAddFleet} className="h-11 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white">
           <span className="flex items-center justify-center gap-2"><FiPlus /> Add Fleet</span>
-        </button>
+        </button> : null}
       </div>
       <div className="grid gap-4">
         {fleets.map((fleet, index) => (
           <FleetCard
             key={fleet.localId}
             fleet={fleet}
+            acceptedPublicIds={acceptedPublicIds}
             index={index}
             onInvite={onInvite}
             onRemove={onRemoveFleet}
@@ -733,16 +831,21 @@ function FleetBuilderStep({ fleets, onAddFleet, onInvite, onRemoveFleet, onUpdat
   );
 }
 
-function FleetCard({ fleet, index, onInvite, onRemove, onUpdate, onUploadDocument, removable }) {
+function FleetCard({ acceptedPublicIds = [], fleet, index, onInvite, onRemove, onUpdate, onUploadDocument, removable }) {
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
 
-  function applyLookupResult(match) {
+  const applyLookupResult = useCallback((match) => {
+    if (match && acceptedPublicIds.includes(compactPublicId(match.publicId))) {
+      setOperatorMatch(null);
+      setLookupStatus("This operator is already accepted by the company and cannot be invited again.");
+      return;
+    }
     setOperatorMatch(match);
     setLookupStatus(match ? `Account available as ${match.name}` : "KunThai ID not found. Check the account ID and try again.");
-  }
+  }, [acceptedPublicIds]);
 
   async function lookupOperator(query = operatorId) {
     const target = String(query || "").trim();
@@ -799,7 +902,7 @@ function FleetCard({ fleet, index, onInvite, onRemove, onUpdate, onUploadDocumen
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [operatorId]);
+  }, [applyLookupResult, operatorId]);
 
   function addMatchedOperator() {
     if (!operatorMatch) return;
@@ -827,7 +930,7 @@ function FleetCard({ fleet, index, onInvite, onRemove, onUpdate, onUploadDocumen
           <p className="text-xs font-black uppercase tracking-wide text-blue-600">Unique fleet code</p>
           <p className="mt-1 font-black text-slate-950">{fleet.fleetCode}</p>
         </div>
-        <SelectField label="Fleet type" value={fleet.fleetType} options={fleetTypes} onChange={(value) => onUpdate(fleet.localId, { fleetType: value })} />
+        <SelectField label="Fleet type" value={fleet.fleetType} options={fleetTypes} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value) })} />
         <SelectField label="Service category" value={fleet.serviceCategory} options={serviceCategories} onChange={(value) => onUpdate(fleet.localId, { serviceCategory: value })} />
         <FormInput label="Fleet name" value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder="Example: Lumley taxi 01" />
         <FormInput label="Plate number" value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder="Plate number" />
@@ -835,9 +938,16 @@ function FleetCard({ fleet, index, onInvite, onRemove, onUpdate, onUploadDocumen
         <FormInput label="Model" value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder="Model" />
         <FormInput label="Year" type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder="Year" />
         <FormInput label="Color" value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder="Color" />
+        <FormInput label="Operating area" value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder="Main service area" />
         <FormInput label="Home base" value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder="Station, park, or yard" />
       </div>
-      <DocumentGrid documents={fleetDocuments} uploads={fleet.documents} onUpload={(document, file) => onUploadDocument(fleet.localId, document, file)} />
+      <FleetImagesSection fleet={fleet} onUploadDocument={onUploadDocument} />
+      <section className="mt-5">
+        <h4 className="font-black text-slate-950">Required vehicle documents</h4>
+        <p className="mt-1 text-xs font-semibold text-slate-500">Use clear PDF or image files, matching the sole-operator document style.</p>
+        <DocumentGrid documents={fleetDocuments} uploads={fleet.documents} onUpload={(document, file) => onUploadDocument(fleet.localId, document, file)} />
+      </section>
+      <FleetSafetySection fleet={fleet} onUpdate={onUpdate} />
 
       <div className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
         <div className="flex items-start gap-3">
@@ -877,13 +987,66 @@ function FleetCard({ fleet, index, onInvite, onRemove, onUpdate, onUploadDocumen
           </div>
         ) : null}
         <div className="mt-4 grid gap-3">
-          {(fleet.operators || []).map((operator) => (
+          {(fleet.operators || []).filter((operator) => operator.status !== "accepted").map((operator) => (
             <OperatorRequestCard
               key={operator.requestId}
               operator={operator}
             />
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function FleetImagesSection({ fleet, onUploadDocument }) {
+  const imageCount = requiredFleetImages.filter((image) => fleet.documents?.[fleetImageDocumentKey(image)]).length;
+  return (
+    <section className="mt-5 rounded-3xl border border-slate-100 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="font-black text-slate-950">Required fleet images</h4>
+          <p className="mt-1 text-xs font-semibold text-slate-500">Upload at least front, back, left side, and right side views.</p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{imageCount}/4</span>
+      </div>
+      <DocumentGrid
+        documents={requiredFleetImages.map(fleetImageDocumentKey)}
+        uploads={fleet.documents}
+        onUpload={(document, file) => onUploadDocument(fleet.localId, document, file)}
+      />
+    </section>
+  );
+}
+
+function FleetSafetySection({ fleet, onUpdate }) {
+  const questions = fleetSafetyQuestions[fleet.fleetType] || [];
+  const answers = fleet.safetyAnswers || {};
+  function updateAnswer(key, value) {
+    onUpdate(fleet.localId, { safetyAnswers: { ...answers, [key]: value } });
+  }
+  return (
+    <section className="mt-5 rounded-3xl border border-amber-100 bg-amber-50 p-4">
+      <div className="flex items-start gap-3">
+        <FiShield className="mt-1 shrink-0 text-amber-700" />
+        <div>
+          <h4 className="font-black text-slate-950">Security and safety questions</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">KunThai reviews these answers for every company fleet, using the same checks as a sole operator.</p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {questions.map((question) => (
+          <label key={question.key} className="rounded-2xl border border-amber-100 bg-white p-3">
+            <span className="text-sm font-bold text-slate-800">{question.label}</span>
+            {question.type === "number" ? (
+              <input type="number" min="0" value={answers[question.key] || ""} onChange={(event) => updateAnswer(question.key, event.target.value)} placeholder="0" className="mt-3 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
+            ) : (
+              <select value={answers[question.key] || "Yes"} onChange={(event) => updateAnswer(question.key, event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500">
+                <option>Yes</option><option>No</option><option>Needs admin check</option>
+              </select>
+            )}
+          </label>
+        ))}
       </div>
     </section>
   );
@@ -1003,9 +1166,10 @@ function DocumentGrid({ compact = false, documents, onUpload, uploads = {} }) {
 }
 
 function UploadField({ label, onChange, value }) {
+  const displayLabel = String(label || "").replace(/^Fleet image - /, "");
   return (
     <label className="block rounded-2xl border border-dashed border-slate-200 bg-white p-3">
-      <span className="flex items-center gap-2 text-sm font-black text-slate-800"><FiFileText /> {label}</span>
+      <span className="flex items-center gap-2 text-sm font-black text-slate-800"><FiFileText /> {displayLabel}</span>
       <input type="file" className="mt-3 block w-full text-xs font-semibold text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white" onChange={(event) => onChange(event.target.files?.[0])} />
       {value ? <span className="mt-2 block truncate text-xs font-black text-emerald-700">{value}</span> : null}
     </label>

@@ -76,9 +76,13 @@ export function useSellerHeader() {
         setRefreshing(false);
       }
     });
+    const interval = window.setInterval(() => {
+      loadHeaderState(() => active).catch(() => {});
+    }, 20000);
 
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
   }, []);
 

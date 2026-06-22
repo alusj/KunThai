@@ -34,6 +34,11 @@ import AppBackTab from "../shared/AppBackTab";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
+import {
+  getUnseenNotificationCount,
+  markNotificationsSeen,
+  subscribeNotificationSeen,
+} from "../../Backend/services/notificationSeenStore";
 import { createSupportTicket } from "../../Backend/services/explore/supportService";
 import { formatCountryMoney, getCountryCurrencyCode } from "../../data/westAfricanCountryProfiles";
 import {
@@ -138,6 +143,7 @@ export default function OperatorDashboardScreen({
   const [dashboardError, setDashboardError] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [controlsSaving, setControlsSaving] = useState(false);
+  const [, setSeenVersion] = useState(0);
   const form = account?.form || {};
   const verificationStatus = account?.documentsSkipped
     ? "notVerified"
@@ -165,11 +171,16 @@ export default function OperatorDashboardScreen({
   const earnings = dashboard?.earnings || {};
   const reviews = dashboard?.reviews || {};
   const alerts = dashboard?.alerts || [];
+  const alertSeenScope = `transport:${account?.id || "operator"}`;
+  const alertNotificationItems = alerts.map((alert) => ({ ...alert, id: `operator-alert-${alert.id}`, unread: alert.status !== "read" }));
+  const unreadAlertCount = getUnseenNotificationCount(alertSeenScope, alertNotificationItems, { unreadOnly: true });
   const tripHistory = dashboard?.tripHistory || [];
   const liveTrip = useMemo(
     () => waitingPassengers.find((passenger) => ["in_progress", "paused", "start_requested"].includes(passenger.status)) || null,
     [waitingPassengers],
   );
+
+  useEffect(() => subscribeNotificationSeen(() => setSeenVersion((version) => version + 1)), []);
 
   function openOperatorArea(areaText, kind = "operating-area") {
     const cleanText = String(areaText || "").trim();
@@ -437,11 +448,19 @@ export default function OperatorDashboardScreen({
           <button
             type="button"
             aria-label="Operator notifications"
-            onClick={() => setOperatorAlertsOpen(true)}
+            onClick={() => {
+              markNotificationsSeen(alertSeenScope, alertNotificationItems);
+              setSeenVersion((version) => version + 1);
+              setOperatorAlertsOpen(true);
+            }}
             className="kt-touchable relative h-10 w-10 rounded-full border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50"
           >
             <FiBell size={18} />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+            {unreadAlertCount ? (
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-500 px-1 text-center text-[10px] font-black leading-5 text-white">
+                {unreadAlertCount > 9 ? "9+" : unreadAlertCount}
+              </span>
+            ) : null}
           </button>
 
           <button

@@ -1222,6 +1222,7 @@ export async function submitOperatorCompanyInviteDocuments(invite, documents = {
 
 export async function saveTransportCompanyAccount(account) {
   const user = await getCurrentUser("Sign in before submitting your company registration.");
+  const addOperatorMode = account?.actionMode === "add_operator";
   const profile = await getOnboardingProfile(user).catch(() => null);
   const normalized = normalizeCompanyAccount({
     ...account,
@@ -1313,9 +1314,11 @@ export async function saveTransportCompanyAccount(account) {
       {
         company_id: companyId,
         actor_user_id: user.id,
-        activity_type: "registration",
-        title: "Company registration submitted",
-        body: `${normalized.companyName || "Company"} submitted Fleet HQ registration.`,
+        activity_type: addOperatorMode ? "operator_invite_created" : "registration",
+        title: addOperatorMode ? "Operator invitation created" : "Company registration submitted",
+        body: addOperatorMode
+          ? `${normalized.companyName || "Company"} added a new fleet operator request.`
+          : `${normalized.companyName || "Company"} submitted Fleet HQ registration.`,
         metadata: {
           companyCode: normalized.companyCode,
           fleetCount: normalized.fleets.length,

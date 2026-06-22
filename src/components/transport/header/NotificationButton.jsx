@@ -11,20 +11,20 @@ import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import {
   applySeenNotificationState,
   markNotificationsSeen,
+  subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
 import { fetchTransportNotifications } from "../../services/transportHeaderService";
 import { subscribePassengerTrips } from "../../services/passengerTransportService";
 import { showToast } from "../../../Backend/services/toastService";
 
-export default function NotificationButton({ operatorAccount, onOpenChange, onViewFleet }) {
+export default function NotificationButton({ active = false, companyAccount, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const announcedArrivalIdsRef = useRef(new Set());
-  const announcedHintIdsRef = useRef(new Set());
-  const notificationsInitializedRef = useRef(false);
-  const seenScope = `transport:${operatorAccount?.id || "passenger"}`;
+  const previousActiveRef = useRef(false);
+  const previousUnreadIdsRef = useRef(new Set());
+  const seenScope = `transport:${companyAccount?.id || operatorAccount?.id || "passenger"}`;
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => notification.unread).length,
@@ -36,7 +36,7 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
     if (open && !quiet) setLoading(true);
     setError("");
 
-    fetchTransportNotifications(operatorAccount)
+    fetchTransportNotifications(operatorAccount, companyAccount)
       .then((items) => {
         if (!alive) return;
         const nextItems = open
@@ -45,33 +45,6 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
         if (open) markNotificationsSeen(seenScope, items);
         setNotifications(nextItems);
 
-        const unseenUnreadItems = nextItems.filter((notification) => notification.unread);
-        if (!notificationsInitializedRef.current) {
-          unseenUnreadItems.forEach((notification) => announcedHintIdsRef.current.add(notification.id));
-        } else if (quiet && unseenUnreadItems.length) {
-          const nextHint = unseenUnreadItems.find((notification) => !announcedHintIdsRef.current.has(notification.id));
-          if (nextHint) {
-            announcedHintIdsRef.current.add(nextHint.id);
-            showToast("New transport notification. Tap the bell icon in the Transport header to review it.", "info");
-          }
-        }
-
-        const arrivedTrips = items.filter(
-          (notification) =>
-            notification.type === "trip" &&
-            /operator arrived/i.test(`${notification.title} ${notification.body}`),
-        );
-        if (!notificationsInitializedRef.current) {
-          arrivedTrips.forEach((notification) => announcedArrivalIdsRef.current.add(notification.id));
-          notificationsInitializedRef.current = true;
-          return;
-        }
-
-        arrivedTrips.forEach((notification) => {
-          if (!quiet || announcedArrivalIdsRef.current.has(notification.id)) return;
-          announcedArrivalIdsRef.current.add(notification.id);
-          showToast(`${notification.title}: operator arrived at the pickup point.`, "success");
-        });
       })
       .catch((err) => {
         if (alive) {
@@ -86,7 +59,24 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
     return () => {
       alive = false;
     };
-    }, [open, operatorAccount, seenScope]);
+    }, [companyAccount, open, operatorAccount, seenScope]);
+
+  useEffect(() => {
+    onUnreadCountChange?.(unreadCount);
+  }, [onUnreadCountChange, unreadCount]);
+
+  useEffect(() => {
+    const becameActive = active && !previousActiveRef.current;
+    const unreadNotifications = notifications.filter((notification) => notification.unread);
+    const newUnread = unreadNotifications.find((notification) => !previousUnreadIdsRef.current.has(notification.id));
+    previousActiveRef.current = active;
+    previousUnreadIdsRef.current = new Set(unreadNotifications.map((notification) => notification.id));
+    if (!active || !unreadCount || (!becameActive && !newUnread)) return;
+    const newest = newUnread || unreadNotifications[0];
+    if (newest) showToast(getTransportToastMessage(newest, companyAccount, operatorAccount), "info", { title: "Transport update" });
+  }, [active, companyAccount, notifications, operatorAccount, unreadCount]);
+
+  useEffect(() => subscribeNotificationSeen(() => refreshNotifications({ quiet: true })), [refreshNotifications]);
 
   useEffect(() => {
     return refreshNotifications({ quiet: !open });
@@ -111,12 +101,16 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
   }, [onOpenChange, open]);
 
   useEffect(() => {
-    if (!open || !notifications.length) return;
+    if (!open) return;
 
-    markNotificationsSeen(seenScope, notifications);
-    setNotifications((current) => current.map((notification) => (
-      notification.unread ? { ...notification, unread: false } : notification
-    )));
+    setNotifications((current) => {
+      if (!current.length) return current;
+      markNotificationsSeen(seenScope, current);
+      if (!current.some((notification) => notification.unread)) return current;
+      return current.map((notification) => (
+        notification.unread ? { ...notification, unread: false } : notification
+      ));
+    });
   }, [notifications.length, open, seenScope]);
 
   useBodyScrollLock(open);
@@ -259,6 +253,19 @@ export default function NotificationButton({ operatorAccount, onOpenChange, onVi
       </AppPortal>
     </>
   );
+}
+
+function getTransportToastMessage(notification, companyAccount, operatorAccount) {
+  if (/operator arrived/i.test(`${notification?.title || ""} ${notification?.body || ""}`)) {
+    return "Your operator has arrived at the pickup point. Open Transport to review the trip.";
+  }
+  if (notification?.type === "company_booking" || (companyAccount?.access?.isOwner && !operatorAccount?.id)) {
+    return "A company operator has received a booking request. Open Fleet HQ to review the assignment and status.";
+  }
+  if (notification?.type === "operator" && operatorAccount?.id) {
+    return "You have a pending booking request. Open Transport notifications to review and respond.";
+  }
+  return "Your transport activity has a new update. Open Transport notifications to review it.";
 }
 
 function NotificationState({ title, body }) {

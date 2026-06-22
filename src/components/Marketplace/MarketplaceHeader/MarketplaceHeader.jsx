@@ -30,6 +30,8 @@ export default function MarketplaceHeader({
   onMessagesClick,
   activeUtility,
   onActivityChange,
+  onNotificationCountChange,
+  sellerNotificationCount = 0,
 }) {
   const { loading, hasBusiness } = useSellerBusinessStatus();
   const [orderItems, setOrderItems] = useState([]);
@@ -41,6 +43,11 @@ export default function MarketplaceHeader({
   const orderCount = getUnseenNotificationCount(BUYER_ORDER_SCOPE, orderItems);
   const messageCount = getUnseenNotificationCount(BUYER_MESSAGE_SCOPE, messageItems, { unreadOnly: true });
   const activeHint = orderCount ? "orders" : messageCount ? "messages" : "";
+  const unreadCount = orderCount + messageCount;
+
+  useEffect(() => {
+    onNotificationCountChange?.(unreadCount);
+  }, [onNotificationCountChange, unreadCount]);
 
   useEffect(() => {
     onActivityChange?.(cartOpen || menuOpen);
@@ -60,9 +67,11 @@ export default function MarketplaceHeader({
     }
 
     loadOrderCount();
+    const interval = window.setInterval(loadOrderCount, 20000);
     window.addEventListener("marketplace-orders-updated", loadOrderCount);
     return () => {
       alive = false;
+      window.clearInterval(interval);
       window.removeEventListener("marketplace-orders-updated", loadOrderCount);
     };
   }, []);
@@ -82,10 +91,12 @@ export default function MarketplaceHeader({
     }
 
     loadMessageCount();
+    const interval = window.setInterval(loadMessageCount, 20000);
     window.addEventListener("marketplace-message-sent", loadMessageCount);
     window.addEventListener("marketplace-seller-messages-updated", loadMessageCount);
     return () => {
       alive = false;
+      window.clearInterval(interval);
       window.removeEventListener("marketplace-message-sent", loadMessageCount);
       window.removeEventListener("marketplace-seller-messages-updated", loadMessageCount);
     };
@@ -117,6 +128,7 @@ export default function MarketplaceHeader({
         <PremiumHeaderButton
           active={!hasBusiness}
           accent="emerald"
+          badge={sellerNotificationCount}
           icon={Store}
           label={businessLabel}
           onClick={loading ? undefined : onMyBizClick}

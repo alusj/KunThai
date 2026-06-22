@@ -28,9 +28,10 @@ import {
 import { submitTransportSupportTicket } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
 
-export default function Transport({ onActivityChange, areaViewRequest = null }) {
+export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
+  const [companyRegistrationMode, setCompanyRegistrationMode] = useState("full");
   const [registrationSource, setRegistrationSource] = useState(null);
   const [registrationAreaPreviewOpen, setRegistrationAreaPreviewOpen] = useState(false);
   const [operatorAccount, setOperatorAccount] = useState(null);
@@ -64,12 +65,17 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   const [routeDirection, setRouteDirection] = useState("forward");
   const operatorDashboardCloseTimer = useRef(null);
   const operatorCompanyInvitesRef = useRef([]);
+  const activeRef = useRef(active);
 
   const routePanelClass = routeDirection === "backward" ? "kt-explore-stack-enter-left" : "kt-explore-stack-enter";
 
   useEffect(() => {
     operatorCompanyInvitesRef.current = operatorCompanyInvites;
   }, [operatorCompanyInvites]);
+
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   function handleBookingCreated() {
     setBookingTarget(null);
@@ -117,8 +123,9 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setRouteDirection("forward");
   }
 
-  function openCompanyRegistration(source = "transport-chooser") {
+  function openCompanyRegistration(source = "transport-chooser", mode = "full") {
     setRegistrationSource(source);
+    setCompanyRegistrationMode(mode);
     setRegistrationType("company");
     setRegistrationOpen(true);
     setCompanyWorkspaceOpen(false);
@@ -137,6 +144,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
     setRegistrationOpen(false);
     setRegistrationType(null);
+    setCompanyRegistrationMode("full");
 
     if (registrationSource === "operator-dashboard") {
       setOperatorDashboardOpen(true);
@@ -157,6 +165,7 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
     setRouteDirection("backward");
     setRegistrationOpen(false);
     setRegistrationType(null);
+    setCompanyRegistrationMode("full");
 
     if (registrationSource === "operator-dashboard") {
       setOperatorDashboardOpen(true);
@@ -607,9 +616,11 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
 
         if (message) {
           setCompanyWorkspaceStatus(message);
-          showToast(message, inviteStatus === "rejected" ? "warning" : "success", {
-            title: inviteStatus === "rejected" ? "Invitation declined" : "Invitation accepted",
-          });
+          if (activeRef.current) {
+            showToast(message, inviteStatus === "rejected" ? "warning" : "success", {
+              title: inviteStatus === "rejected" ? "Invitation declined" : "Invitation accepted",
+            });
+          }
         }
       }
     });
@@ -751,12 +762,14 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
         <div className={`${routePanelClass} min-h-dvh`}>
           <CompanyRegistrationScreen
             existingCompany={companyAccount}
+            mode={companyRegistrationMode}
             onBack={closeRegistrationFlow}
             onSaveExit={exitRegistrationFlow}
             onComplete={(account) => {
               setCompanyAccount(account);
               setRegistrationOpen(false);
               setRegistrationType(null);
+              setCompanyRegistrationMode("full");
               setRegistrationSource(null);
               setRouteDirection("forward");
               setCompanyWorkspaceOpen(true);
@@ -831,7 +844,8 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
             setOperatorDashboardOpen(true);
           }}
           onOpenOperatorDashboard={openCompanyOperatorDashboard}
-          onRegisterCompany={() => openCompanyRegistration("company-workspace")}
+          onEditCompany={() => openCompanyRegistration("company-workspace", "full")}
+          onRegisterCompany={() => openCompanyRegistration("company-workspace", "addOperator")}
         />
       </div>
     );
@@ -1036,10 +1050,12 @@ export default function Transport({ onActivityChange, areaViewRequest = null }) 
   return (
     <div className={`${routeDirection === "backward" ? "kt-explore-stack-enter-left" : ""} min-h-screen bg-gray-50 relative`}>
       <Header
+        active={active}
         companyAccount={companyAccount}
         companyLoading={companyLoading}
         operatorAccount={operatorAccount}
         operatorLoading={operatorLoading}
+        onNotificationCountChange={onNotificationCountChange}
         onActivityChange={setHeaderActivityOpen}
         onViewFleet={setActiveFleetId}
         onRegisterFleet={() => {

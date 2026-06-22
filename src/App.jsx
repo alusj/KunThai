@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "./Backend/hooks/useAuth";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
@@ -190,9 +190,18 @@ export default function App() {
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
+  const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
   const [onboardingReveal, setOnboardingReveal] = useState(null);
   const appGestureRef = useRef(null);
   const userId = user?.id || "";
+
+  const updateMarketplaceBadge = useCallback((count) => {
+    setMainPageBadges((current) => current.marketplace === count ? current : { ...current, marketplace: count });
+  }, []);
+
+  const updateTransportBadge = useCallback((count) => {
+    setMainPageBadges((current) => current.transport === count ? current : { ...current, transport: count });
+  }, []);
 
   useEffect(() => {
     stopAllExploreMedia();
@@ -410,6 +419,7 @@ export default function App() {
             setNav={setMarketplaceNav}
             onActivityChange={setMarketplaceActivityOpen}
             active={page === "marketplace"}
+            onNotificationCountChange={updateMarketplaceBadge}
           />
         </section>
 
@@ -418,11 +428,12 @@ export default function App() {
             onActivityChange={setTransportActivityOpen}
             areaViewRequest={transportAreaRequest}
             active={page === "transport"}
+            onNotificationCountChange={updateTransportBadge}
           />
         </section>
       </PageTransition>
 
-      {!bottomTabsHidden ? <BottomTabs page={page} setPage={changePage} /> : null}
+      {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
     </div>
   );
 }

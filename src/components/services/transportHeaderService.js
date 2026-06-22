@@ -1,5 +1,6 @@
 import supabase from "../../Backend/lib/supabaseClient";
 import { fetchActiveTrips } from "./passengerTransportService";
+import { getTransportCompanyBookingQueue } from "./transportCompanyService";
 
 function formatTime(value) {
   if (!value) return "";
@@ -37,14 +38,52 @@ function mapOperatorAlert(row) {
   };
 }
 
-export async function fetchTransportNotifications(operatorAccount) {
+function mapCompanyBooking(booking) {
+  return {
+    id: `company-booking-${booking.id}`,
+    type: "company_booking",
+    title: "Company operator booking",
+    body: `${booking.operatorName || "A company operator"} received a pending ${String(booking.requestType || "booking").toLowerCase()} request.`,
+    meta: [booking.fleetName, booking.time].filter(Boolean).join(" - "),
+    fleetId: booking.fleetId,
+    createdAt: booking.createdAt || booking.time || "",
+    unread: true,
+  };
+}
+
+function mapCompanyActivity(activity) {
+  return {
+    id: `company-activity-${activity.id}`,
+    type: "company_activity",
+    title: activity.title || "Fleet HQ update",
+    body: activity.body || "A company transport action was updated.",
+    meta: formatTime(activity.created_at || activity.createdAt),
+    createdAt: activity.created_at || activity.createdAt || "",
+    unread: true,
+  };
+}
+
+export async function fetchTransportNotifications(operatorAccount, companyAccount) {
   const passengerTrips = await fetchActiveTrips();
   const tripNotifications = passengerTrips
     .filter((trip) => !["requested", "waiting_operator", "pending_confirmation"].includes(trip.rawStatus))
     .map(mapTripNotification);
 
+  const companyItems = companyAccount?.id
+    ? await Promise.all([
+        getTransportCompanyBookingQueue(companyAccount).catch(() => []),
+        Promise.resolve((companyAccount.activities || []).filter((activity) => {
+          const type = String(activity.activity_type || activity.activityType || "");
+          return type.startsWith("operator_invite_") || type === "trip_status_updated";
+        })),
+      ]).then(([bookings, activities]) => [
+        ...bookings.map(mapCompanyBooking),
+        ...activities.map(mapCompanyActivity),
+      ])
+    : [];
+
   if (!operatorAccount?.id) {
-    return tripNotifications;
+    return [...companyItems, ...tripNotifications];
   }
 
   const { data, error } = await supabase
@@ -58,7 +97,7 @@ export async function fetchTransportNotifications(operatorAccount) {
     throw error;
   }
 
-  return [...(data || []).map(mapOperatorAlert), ...tripNotifications].sort((a, b) => {
+  return [...(data || []).map(mapOperatorAlert), ...companyItems, ...tripNotifications].sort((a, b) => {
     if (!a.createdAt) return 1;
     if (!b.createdAt) return -1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
