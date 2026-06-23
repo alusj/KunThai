@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiFlag,
@@ -31,7 +31,48 @@ function isHeaderTrip(trip) {
 export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
   const [trips, setTrips] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuClosing, setMenuClosing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const menuRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const closeTimerRef = useRef(null);
+
+  const clearCloseTimer = useCallback(() => {
+    if (!closeTimerRef.current || typeof window === "undefined") return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  }, []);
+
+  const closeMenu = useCallback((immediate = false) => {
+    clearCloseTimer();
+    if (immediate) {
+      setMenuOpen(false);
+      setMenuClosing(false);
+      return;
+    }
+
+    setMenuOpen((wasOpen) => {
+      if (wasOpen) {
+        setMenuClosing(true);
+        closeTimerRef.current = window.setTimeout(() => {
+          setMenuClosing(false);
+          closeTimerRef.current = null;
+        }, 190);
+      }
+      return false;
+    });
+  }, [clearCloseTimer]);
+
+  const openMenu = useCallback(() => {
+    clearCloseTimer();
+    setMenuClosing(false);
+    setMenuOpen(true);
+  }, [clearCloseTimer]);
+
+  const toggleMenu = useCallback(() => {
+    if (menuOpen && !menuClosing) closeMenu();
+    else openMenu();
+  }, [closeMenu, menuClosing, menuOpen, openMenu]);
 
   const refresh = useCallback(async () => {
     try {
@@ -49,8 +90,31 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
   const trip = useMemo(() => trips.find(isHeaderTrip) || null, [trips]);
 
   useEffect(() => {
-    setMenuOpen(false);
-  }, [trip?.id, trip?.rawStatus]);
+    closeMenu(true);
+  }, [closeMenu, trip?.id, trip?.rawStatus]);
+
+  useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    function handlePointerDown(event) {
+      const target = event.target;
+      if (menuRef.current?.contains(target) || menuButtonRef.current?.contains(target)) return;
+      closeMenu();
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") closeMenu();
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeMenu, menuOpen]);
 
   async function run(action, successMessage) {
     try {
@@ -66,7 +130,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
   }
 
   function openAction(type) {
-    setMenuOpen(false);
+    closeMenu(true);
     onOpenTrips?.({ tripId: trip.id, type });
   }
 
@@ -123,8 +187,9 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
             </div>
 
             <button
+              ref={menuButtonRef}
               type="button"
-              onClick={() => setMenuOpen((open) => !open)}
+              onClick={toggleMenu}
               className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-950 text-white shadow-sm"
               aria-expanded={menuOpen}
               aria-label="Open trip safety actions"
@@ -137,8 +202,13 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
             <LiveTripMetric trip={trip} compact />
           </div>
 
-          {menuOpen ? (
-            <div className="kt-live-actions-pop mt-3 rounded-[24px] border border-slate-100 bg-slate-950 p-3 text-white shadow-2xl">
+          {menuOpen || menuClosing ? (
+            <div
+              ref={menuRef}
+              className={`absolute right-4 top-14 z-40 w-[min(86vw,390px)] rounded-[24px] border border-slate-100 bg-slate-950 p-3 text-white shadow-2xl shadow-slate-950/25 ${
+                menuClosing ? "kt-live-actions-pop-out pointer-events-none" : "kt-live-actions-pop"
+              }`}
+            >
               <div className="mb-3 rounded-2xl bg-white/10 px-3 py-2">
                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">Safety ready</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-200">

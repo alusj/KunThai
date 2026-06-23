@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiBell,
@@ -807,16 +807,80 @@ function LocateAreaIconButton({ label, onClick }) {
   );
 }
 
-function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
+export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuClosing, setMenuClosing] = useState(false);
+  const menuRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const closeTimerRef = useRef(null);
   const passengerPhone = trip.contactPhone || trip.raw?.contact_phone || "";
   const paused = trip.status === "paused";
   const awaitingStart = trip.status === "start_requested";
   const statusLabel = awaitingStart ? "Waiting for passenger approval" : paused ? "Trip paused" : "Trip in progress";
 
+  const clearCloseTimer = useCallback(() => {
+    if (!closeTimerRef.current || typeof window === "undefined") return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  }, []);
+
+  const closeMenu = useCallback((immediate = false) => {
+    clearCloseTimer();
+    if (immediate) {
+      setMenuOpen(false);
+      setMenuClosing(false);
+      return;
+    }
+
+    setMenuOpen((wasOpen) => {
+      if (wasOpen) {
+        setMenuClosing(true);
+        closeTimerRef.current = window.setTimeout(() => {
+          setMenuClosing(false);
+          closeTimerRef.current = null;
+        }, 190);
+      }
+      return false;
+    });
+  }, [clearCloseTimer]);
+
+  const openMenu = useCallback(() => {
+    clearCloseTimer();
+    setMenuClosing(false);
+    setMenuOpen(true);
+  }, [clearCloseTimer]);
+
+  const toggleMenu = useCallback(() => {
+    if (menuOpen && !menuClosing) closeMenu();
+    else openMenu();
+  }, [closeMenu, menuClosing, menuOpen, openMenu]);
+
   useEffect(() => {
-    setMenuOpen(false);
-  }, [trip?.id, trip?.status]);
+    closeMenu(true);
+  }, [closeMenu, trip?.id, trip?.status]);
+
+  useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    function handlePointerDown(event) {
+      const target = event.target;
+      if (menuRef.current?.contains(target) || menuButtonRef.current?.contains(target)) return;
+      closeMenu();
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") closeMenu();
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeMenu, menuOpen]);
 
   async function shareRouteStatus() {
     const text = [
@@ -833,13 +897,13 @@ function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
           title: "KunThai live route status",
           text,
         });
-        setMenuOpen(false);
+        closeMenu(true);
         return;
       }
 
       if (!navigator.clipboard) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(text);
-      setMenuOpen(false);
+      closeMenu(true);
       showToast("Route status copied.", "success");
     } catch (error) {
       if (error?.name === "AbortError") return;
@@ -863,7 +927,7 @@ function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
           `Drop-off: ${trip.destination}`,
         ].join("\n"),
       });
-      setMenuOpen(false);
+      closeMenu(true);
       showToast("Transport concern sent to support.", "success");
     } catch (error) {
       showToast(error.message || "Unable to submit this transport concern.", "danger");
@@ -884,8 +948,9 @@ function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
           </p>
         </div>
         <button
+          ref={menuButtonRef}
           type="button"
-          onClick={() => setMenuOpen((open) => !open)}
+          onClick={toggleMenu}
           className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-950 text-white shadow-sm"
           aria-expanded={menuOpen}
           aria-label="Open operator trip actions"
@@ -919,8 +984,13 @@ function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
         )}
       </div>
 
-      {menuOpen ? (
-        <div className="kt-live-actions-pop mt-3 rounded-[24px] border border-slate-100 bg-slate-950 p-3 text-white shadow-2xl">
+      {menuOpen || menuClosing ? (
+        <div
+          ref={menuRef}
+          className={`absolute right-4 top-14 z-40 w-[min(86vw,410px)] rounded-[24px] border border-slate-100 bg-slate-950 p-3 text-white shadow-2xl shadow-slate-950/25 ${
+            menuClosing ? "kt-live-actions-pop-out pointer-events-none" : "kt-live-actions-pop"
+          }`}
+        >
           <div className="mb-3 rounded-2xl bg-white/10 px-3 py-2">
             <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">
               <FiShield size={14} />
@@ -931,7 +1001,10 @@ function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <OperatorLiveAction icon={FiNavigation} label="View route" onClick={onViewRoute} />
+            <OperatorLiveAction icon={FiNavigation} label="View route" onClick={() => {
+              closeMenu(true);
+              onViewRoute?.();
+            }} />
             <OperatorLiveAction icon={FiPhone} label={passengerPhone ? "Call passenger" : "Passenger phone unavailable"} href={passengerPhone ? `tel:${passengerPhone}` : ""} disabled={!passengerPhone} />
             <OperatorLiveAction icon={FiShare2} label="Share route status" onClick={shareRouteStatus} />
             <OperatorLiveAction icon={FiAlertTriangle} label="Emergency 112" href="tel:112" danger />

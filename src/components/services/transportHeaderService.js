@@ -63,13 +63,26 @@ function mapCompanyActivity(activity) {
   };
 }
 
-export async function fetchTransportNotifications(operatorAccount, companyAccount) {
-  const passengerTrips = await fetchActiveTrips();
-  const tripNotifications = passengerTrips
-    .filter((trip) => !["requested", "waiting_operator", "pending_confirmation"].includes(trip.rawStatus))
-    .map(mapTripNotification);
+function sortNotifications(items = []) {
+  return [...items].sort((a, b) => {
+    if (!a.createdAt) return 1;
+    if (!b.createdAt) return -1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
 
-  const companyItems = companyAccount?.id
+export async function fetchTransportNotifications(operatorAccount, companyAccount, options = {}) {
+  const includePassenger = options.includePassenger !== false;
+  const includeOperator = options.includeOperator !== false;
+  const includeCompany = options.includeCompany !== false;
+
+  const tripNotifications = includePassenger
+    ? (await fetchActiveTrips())
+      .filter((trip) => !["requested", "waiting_operator", "pending_confirmation"].includes(trip.rawStatus))
+      .map(mapTripNotification)
+    : [];
+
+  const companyItems = includeCompany && companyAccount?.id
     ? await Promise.all([
         getTransportCompanyBookingQueue(companyAccount).catch(() => []),
         Promise.resolve((companyAccount.activities || []).filter((activity) => {
@@ -82,8 +95,8 @@ export async function fetchTransportNotifications(operatorAccount, companyAccoun
       ])
     : [];
 
-  if (!operatorAccount?.id) {
-    return [...companyItems, ...tripNotifications];
+  if (!includeOperator || !operatorAccount?.id) {
+    return sortNotifications([...companyItems, ...tripNotifications]);
   }
 
   const { data, error } = await supabase
@@ -97,9 +110,5 @@ export async function fetchTransportNotifications(operatorAccount, companyAccoun
     throw error;
   }
 
-  return [...(data || []).map(mapOperatorAlert), ...companyItems, ...tripNotifications].sort((a, b) => {
-    if (!a.createdAt) return 1;
-    if (!b.createdAt) return -1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  return sortNotifications([...(data || []).map(mapOperatorAlert), ...companyItems, ...tripNotifications]);
 }

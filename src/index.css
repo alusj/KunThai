@@ -928,6 +928,11 @@
   transform-origin: top right;
 }
 
+.kt-live-actions-pop-out {
+  animation: kt-live-actions-pop-out 180ms var(--kt-ease-standard) both;
+  transform-origin: top right;
+}
+
 @keyframes kt-onboarding-collapse-out {
   from {
     clip-path: circle(150vmax at var(--kt-transition-x, 50%) var(--kt-transition-y, 70%));
@@ -1146,6 +1151,19 @@
     opacity: 1;
     filter: blur(0);
     transform: none;
+  }
+}
+
+@keyframes kt-live-actions-pop-out {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translate3d(12px, -8px, 0) scale(0.88);
   }
 }
 

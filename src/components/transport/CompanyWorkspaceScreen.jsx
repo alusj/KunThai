@@ -39,7 +39,7 @@ import {
   subscribeNotificationSeen,
 } from "../../Backend/services/notificationSeenStore";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
-import { OperatorTripRequestCard } from "./OperatorDashboardScreen";
+import { OperatorLiveTripHeaderCard, OperatorTripRequestCard } from "./OperatorDashboardScreen";
 import {
   COMPANY_OPERATOR_ROLES,
   getTransportCompanyBookingQueue,
@@ -636,14 +636,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             ) : null}
             {activeTab === "My Dashboard" ? (
               <BasicOperatorCompanyDashboard
-                bookingCount={Math.max(bookingQueue.length, operatorDashboardData?.waitingPassengers?.length || 0)}
+                bookingCount={visibleBookingQueue.length}
                 company={company}
                 dashboard={operatorDashboardData}
                 assignment={companyOperatorAssignment}
                 available={operatorAvailable}
                 availabilitySaving={availabilitySaving}
-                onOpenBookings={bookingQueue.length ? () => setBookingQueueOpen(true) : undefined}
+                onOpenBookings={visibleBookingQueue.length ? () => setBookingQueueOpen(true) : undefined}
                 onToggleAvailability={toggleOperatorAvailability}
+                onViewRoute={openCompanyTripRoute}
               />
             ) : null}
           </section>
@@ -1209,7 +1210,7 @@ function Overview({ company, fleets, pendingRequests }) {
   );
 }
 
-function BasicOperatorCompanyDashboard({ assignment, available, availabilitySaving, bookingCount = 0, company, dashboard, onOpenBookings, onToggleAvailability }) {
+function BasicOperatorCompanyDashboard({ assignment, available, availabilitySaving, bookingCount = 0, company, dashboard, onOpenBookings, onToggleAvailability, onViewRoute }) {
   const access = company?.access || {};
   const responsibilities = access.responsibilities || [];
   const operatorName = assignment?.operatorName || access.fullName || "Company operator";
@@ -1220,6 +1221,9 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
   const tripHistory = dashboard?.tripHistory || [];
   const tripControls = dashboard?.tripControls || {};
   const currency = dashboard?.fleet?.currency || "";
+  const liveTrip = (dashboard?.waitingPassengers || []).find((trip) =>
+    ["in_progress", "paused", "start_requested"].includes(trip.status),
+  );
   const formatRate = (value, suffix = "") => {
     const numeric = Number(value || 0);
     if (!numeric) return "Not set";
@@ -1228,6 +1232,14 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
 
   return (
     <div className="grid gap-4">
+      {liveTrip ? (
+        <OperatorLiveTripHeaderCard
+          trip={liveTrip}
+          fleetName={fleetName}
+          onViewRoute={() => onViewRoute?.(liveTrip)}
+        />
+      ) : null}
+
       <section className="overflow-hidden rounded-[30px] border border-blue-100 bg-white shadow-sm">
         <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 text-white sm:p-6">
           <div className="flex items-start justify-between gap-4">

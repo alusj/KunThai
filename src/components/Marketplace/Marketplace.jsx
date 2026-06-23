@@ -26,20 +26,17 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
   const totalNotificationCount = buyerNotificationCount + sellerNotificationCount;
   const businessCloseTimer = useRef(null);
   const previousActiveRef = useRef(false);
-  const previousUnreadRef = useRef(0);
+  const previousBuyerUnreadRef = useRef(0);
 
   useEffect(() => {
     onNotificationCountChange?.(totalNotificationCount);
     const becameActive = active && !previousActiveRef.current;
-    const receivedWhileActive = active && totalNotificationCount > previousUnreadRef.current;
+    const receivedWhileActive = active && buyerNotificationCount > previousBuyerUnreadRef.current;
     previousActiveRef.current = active;
-    previousUnreadRef.current = totalNotificationCount;
-    if (!totalNotificationCount || (!becameActive && !receivedWhileActive)) return;
-    const message = sellerNotificationCount
-      ? "Your UrMall business has a new order, message, or seller alert. Open MyBiz to review it."
-      : "Your UrMall activity has a new order or message update. Open the highlighted action to review it.";
-    showToast(message, "info", { title: "UrMall update" });
-  }, [active, onNotificationCountChange, sellerNotificationCount, totalNotificationCount]);
+    previousBuyerUnreadRef.current = buyerNotificationCount;
+    if (!buyerNotificationCount || (!becameActive && !receivedWhileActive)) return;
+    showToast("Your UrMall activity has a new order or message update. Open the highlighted action to review it.", "info", { title: "UrMall update" });
+  }, [active, buyerNotificationCount, onNotificationCountChange, totalNotificationCount]);
 
   const setMarketplaceScreenMode = useCallback((enabled) => {
     setProductMode(enabled);

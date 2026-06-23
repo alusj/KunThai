@@ -24,7 +24,7 @@ export default function NotificationButton({ active = false, companyAccount, ope
   const [error, setError] = useState("");
   const previousActiveRef = useRef(false);
   const previousUnreadIdsRef = useRef(new Set());
-  const seenScope = `transport:${companyAccount?.id || operatorAccount?.id || "passenger"}`;
+  const seenScope = "transport:passenger";
   const readScope = `${seenScope}:read`;
 
   const unreadCount = useMemo(
@@ -37,7 +37,11 @@ export default function NotificationButton({ active = false, companyAccount, ope
     if (open && !quiet) setLoading(true);
     setError("");
 
-    fetchTransportNotifications(operatorAccount, companyAccount)
+    fetchTransportNotifications(operatorAccount, companyAccount, {
+      includeCompany: false,
+      includeOperator: false,
+      includePassenger: true,
+    })
       .then((items) => {
         if (!alive) return;
         const badgeItems = open
@@ -79,8 +83,8 @@ export default function NotificationButton({ active = false, companyAccount, ope
     previousUnreadIdsRef.current = new Set(unreadNotifications.map((notification) => notification.id));
     if (!active || !unreadCount || (!becameActive && !newUnread)) return;
     const newest = newUnread || unreadNotifications[0];
-    if (newest) showToast(getTransportToastMessage(newest, companyAccount, operatorAccount), "info", { title: "Transport update" });
-  }, [active, companyAccount, notifications, operatorAccount, unreadCount]);
+    if (newest) showToast(getTransportToastMessage(newest), "info", { title: "Transport update" });
+  }, [active, notifications, unreadCount]);
 
   useEffect(() => subscribeNotificationSeen(() => refreshNotifications({ quiet: true })), [refreshNotifications]);
 
@@ -200,7 +204,7 @@ export default function NotificationButton({ active = false, companyAccount, ope
                   Notifications
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Passenger trip updates and operator fleet alerts.
+                  Passenger ride, delivery, and active-trip updates.
                 </p>
               </div>
             </header>
@@ -263,15 +267,9 @@ export default function NotificationButton({ active = false, companyAccount, ope
   );
 }
 
-function getTransportToastMessage(notification, companyAccount, operatorAccount) {
+function getTransportToastMessage(notification) {
   if (/operator arrived/i.test(`${notification?.title || ""} ${notification?.body || ""}`)) {
     return "Your operator has arrived at the pickup point. Open Transport to review the trip.";
-  }
-  if (notification?.type === "company_booking" || (companyAccount?.access?.isOwner && !operatorAccount?.id)) {
-    return "A company operator has received a booking request. Open Fleet HQ to review the assignment and status.";
-  }
-  if (notification?.type === "operator" && operatorAccount?.id) {
-    return "You have a pending booking request. Open Transport notifications to review and respond.";
   }
   return "Your transport activity has a new update. Open Transport notifications to review it.";
 }
