@@ -20,6 +20,7 @@ import AppBackTab from "../shared/AppBackTab";
 import { fetchOperatorDashboard, getOperatorAccount } from "../services/transportOperatorAccountService";
 import {
   getOperatorCompanyInvites,
+  getTransportCompanyBookingQueue,
   getTransportCompanyAccount,
   subscribeTransportCompanyUpdates,
   submitOperatorCompanyInviteDocuments,
@@ -38,6 +39,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   const [operatorLoading, setOperatorLoading] = useState(true);
   const [operatorError, setOperatorError] = useState("");
   const [companyAccount, setCompanyAccount] = useState(null);
+  const [companyOperationBadgeCount, setCompanyOperationBadgeCount] = useState(0);
   const [companyLoading, setCompanyLoading] = useState(true);
   const [companyWorkspaceOpen, setCompanyWorkspaceOpen] = useState(false);
   const [companyWorkspaceStatus, setCompanyWorkspaceStatus] = useState("");
@@ -632,6 +634,39 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }, []);
 
   useEffect(() => {
+    let alive = true;
+    let intervalId = null;
+
+    async function refreshCompanyOperationBadge() {
+      if (!companyAccount?.id) {
+        if (alive) setCompanyOperationBadgeCount(0);
+        return;
+      }
+
+      try {
+        const queue = await getTransportCompanyBookingQueue(companyAccount);
+        if (alive) setCompanyOperationBadgeCount(queue.length);
+      } catch {
+        if (alive) setCompanyOperationBadgeCount(0);
+      }
+    }
+
+    refreshCompanyOperationBadge();
+    intervalId = window.setInterval(refreshCompanyOperationBadge, 20000);
+    const unsubscribe = subscribeTransportCompanyUpdates(refreshCompanyOperationBadge);
+    window.addEventListener("transport-trip-updated", refreshCompanyOperationBadge);
+    window.addEventListener("transport-booking-created", refreshCompanyOperationBadge);
+
+    return () => {
+      alive = false;
+      if (intervalId) window.clearInterval(intervalId);
+      unsubscribe?.();
+      window.removeEventListener("transport-trip-updated", refreshCompanyOperationBadge);
+      window.removeEventListener("transport-booking-created", refreshCompanyOperationBadge);
+    };
+  }, [companyAccount]);
+
+  useEffect(() => {
     return () => {
       if (operatorDashboardCloseTimer.current) {
         window.clearTimeout(operatorDashboardCloseTimer.current);
@@ -797,6 +832,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         <OperatorDashboardScreen
           account={companyOperatorAccount}
           companyAccount={companyAccount}
+          companyOperationBadgeCount={companyOperationBadgeCount}
           companyLoading={companyLoading}
           initialView="dashboard"
           readOnly
@@ -857,6 +893,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         <OperatorDashboardScreen
           account={operatorAccount}
           companyAccount={companyAccount}
+          companyOperationBadgeCount={companyOperationBadgeCount}
           companyLoading={companyLoading}
           initialView={operatorDashboardView}
           onBack={closeOperatorDashboard}

@@ -58,7 +58,7 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Notifications</p>
             <h3 className="mt-1 text-xl font-black text-slate-950">{unreadCount ? `${unreadCount} unread` : "You're caught up"}</h3>
-            <p className="mt-1 text-xs font-semibold text-slate-500">Realtime Explore alerts from activity, mentions, and connections.</p>
+            
           </div>
           <div className="flex gap-2">
             <button

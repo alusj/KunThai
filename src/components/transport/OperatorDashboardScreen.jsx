@@ -123,6 +123,7 @@ function isUsableAreaText(value) {
 export default function OperatorDashboardScreen({
   account,
   companyAccount,
+  companyOperationBadgeCount = 0,
   companyLoading = false,
   initialView = "dashboard",
   onBack,
@@ -153,6 +154,7 @@ export default function OperatorDashboardScreen({
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
   const canOpenCompanyHq = Boolean(hasCompanyAccount && companyAccount?.access?.canViewCompanyHq && onOpenCompany);
+  const companyBadgeCount = Number(companyOperationBadgeCount || 0);
   const isCompanySuspended = companyAccount?.access?.serviceStatus === "suspended";
   const dashboardReadOnly = readOnly || isCompanySuspended;
   const dashboardReadOnlyReason = isCompanySuspended
@@ -433,17 +435,27 @@ export default function OperatorDashboardScreen({
                 aria-label={`Open ${companyAccount.companyName || "Fleet HQ"}`}
                 title={`Open ${companyAccount.companyName || "Fleet HQ"}`}
                 onClick={onOpenCompany}
-                className="kt-touchable flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
+                className="kt-touchable relative flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
               >
                 <FiBriefcase size={18} />
+                {companyBadgeCount ? (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-green-600 px-1 text-center text-[10px] font-black leading-5 text-white ring-2 ring-white">
+                    {companyBadgeCount > 9 ? "9+" : companyBadgeCount}
+                  </span>
+                ) : null}
               </button>
             ) : (
               <span
                 aria-label={`Member of ${companyAccount.companyName || "company"}`}
                 title={`Member of ${companyAccount.companyName || "company"}`}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm"
               >
                 <FiBriefcase size={18} />
+                {companyBadgeCount ? (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-green-600 px-1 text-center text-[10px] font-black leading-5 text-white ring-2 ring-white">
+                    {companyBadgeCount > 9 ? "9+" : companyBadgeCount}
+                  </span>
+                ) : null}
               </span>
             )
           ) : null}
@@ -683,6 +695,7 @@ export default function OperatorDashboardScreen({
         fleetType={form.fleetType || "Not added"}
         documents={account?.documentsSkipped ? "Skipped" : "Submitted"}
         companyAccount={companyAccount}
+        companyOperationBadgeCount={companyBadgeCount}
         companyLoading={companyLoading}
         readOnly={dashboardReadOnly}
         onClose={() => setOperatorMenuOpen(false)}
@@ -1814,6 +1827,7 @@ function OperatorMenuDrawer({
   open,
   account,
   companyAccount,
+  companyOperationBadgeCount = 0,
   companyLoading = false,
   fleetName,
   operatorName,
@@ -1840,6 +1854,7 @@ function OperatorMenuDrawer({
   const { rendered, panelOpen } = useDrawerTransition(open);
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
   const canOpenCompanyHq = Boolean(hasCompanyAccount && companyAccount?.access?.canViewCompanyHq && onOpenCompany);
+  const companyBadgeCount = Number(companyOperationBadgeCount || 0);
   useBodyScrollLock(rendered);
 
   useEffect(() => {
@@ -1863,6 +1878,7 @@ function OperatorMenuDrawer({
         label: "Open Fleet HQ",
         detail: `${companyAccount.companyName || "Company workspace"} - ${companyAccount.verificationStatus || "pending"}`,
         onClick: onOpenCompany,
+        badge: companyBadgeCount,
       }
     : hasCompanyAccount
       ? {
@@ -1871,6 +1887,7 @@ function OperatorMenuDrawer({
           detail: companyAccount?.access?.serviceStatus === "suspended"
             ? "Company service is suspended. Your personal operator information remains available."
             : "Operator-only access - your dashboard and bookings stay private",
+          badge: companyBadgeCount,
         }
       : !readOnly
       ? {
@@ -2026,8 +2043,13 @@ function OperatorMenuDrawer({
                 className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-3 text-left transition hover:border-green-200 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="flex items-center gap-3">
-                  <span className="h-10 w-10 rounded-full bg-gray-100 text-green-700 flex items-center justify-center">
+                  <span className="relative h-10 w-10 rounded-full bg-gray-100 text-green-700 flex items-center justify-center">
                     {createElement(item.icon, { size: 18 })}
+                    {item.badge ? (
+                      <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-green-600 px-1 text-center text-[10px] font-black leading-5 text-white ring-2 ring-white">
+                        {item.badge > 9 ? "9+" : item.badge}
+                      </span>
+                    ) : null}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-black text-gray-950">{item.label}</span>

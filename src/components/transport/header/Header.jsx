@@ -9,10 +9,9 @@ import Radar from "./Radar";
 import TransportMenuDrawer from "./TransportMenuDrawer";
 import PremiumHeader from "../../shared/PremiumHeader";
 import {
-  getUnseenNotificationCount,
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
-import { fetchTransportNotifications } from "../../services/transportHeaderService";
+import { fetchTransportOperationBadgeCount } from "../../services/transportHeaderService";
 
 export default function Header({
   active = false,
@@ -53,19 +52,8 @@ export default function Header({
       }
 
       try {
-        const items = await fetchTransportNotifications(operatorAccount, companyAccount, {
-          includePassenger: false,
-        });
-        const operatorItems = items.filter((item) => item.type === "operator");
-        const companyItems = items.filter((item) => String(item.type || "").startsWith("company_"));
-        const operatorCount = operatorAccount?.id
-          ? getUnseenNotificationCount(`transport:${operatorAccount.id}`, operatorItems, { unreadOnly: true })
-          : 0;
-        const companyCount = companyAccount?.id
-          ? getUnseenNotificationCount(`transport:${companyAccount.id}`, companyItems, { unreadOnly: true })
-          : 0;
-
-        if (alive) setOperatorBadgeCount(operatorCount + companyCount);
+        const count = await fetchTransportOperationBadgeCount(operatorAccount, companyAccount);
+        if (alive) setOperatorBadgeCount(count);
       } catch {
         if (alive) setOperatorBadgeCount(0);
       }

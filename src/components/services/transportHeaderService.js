@@ -1,6 +1,7 @@
 import supabase from "../../Backend/lib/supabaseClient";
 import { fetchActiveTrips } from "./passengerTransportService";
 import { getTransportCompanyBookingQueue } from "./transportCompanyService";
+import { fetchOperatorDashboard } from "./transportOperatorAccountService";
 
 function formatTime(value) {
   if (!value) return "";
@@ -111,4 +112,21 @@ export async function fetchTransportNotifications(operatorAccount, companyAccoun
   }
 
   return sortNotifications([...(data || []).map(mapOperatorAlert), ...companyItems, ...tripNotifications]);
+}
+
+export async function fetchTransportOperationBadgeCount(operatorAccount, companyAccount) {
+  const counts = await Promise.all([
+    operatorAccount?.id
+      ? fetchOperatorDashboard(operatorAccount.id, operatorAccount.fleetId || null)
+        .then((dashboard) => dashboard?.waitingPassengers?.length || 0)
+        .catch(() => operatorAccount?.dashboard?.waitingPassengers?.length || 0)
+      : Promise.resolve(0),
+    companyAccount?.id
+      ? getTransportCompanyBookingQueue(companyAccount)
+        .then((bookings) => bookings.length)
+        .catch(() => 0)
+      : Promise.resolve(0),
+  ]);
+
+  return counts.reduce((sum, count) => sum + Number(count || 0), 0);
 }

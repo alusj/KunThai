@@ -62,6 +62,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs), [basicOperator]);
   const [activeTab, setActiveTab] = useState(() => (basicOperator ? "My Dashboard" : "Overview"));
   const [companyTabOpen, setCompanyTabOpen] = useState(false);
+  const [companyTabDirection, setCompanyTabDirection] = useState("forward");
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuScreen, setActiveMenuScreen] = useState(null);
   const [operatorAction, setOperatorAction] = useState(null);
@@ -452,6 +453,17 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     runAfterDrawerClose(() => (onEditCompany || onRegisterCompany)?.());
   }
 
+  function switchCompanyTab(tab) {
+    if (!tab) return;
+    const currentIndex = availableTabs.indexOf(activeTab);
+    const nextIndex = availableTabs.indexOf(tab);
+    if (currentIndex !== -1 && nextIndex !== -1 && tab !== activeTab) {
+      setCompanyTabDirection(nextIndex >= currentIndex ? "forward" : "backward");
+    }
+    setActiveTab(tab);
+    setCompanyTabOpen(true);
+  }
+
   function renderDashboardTab(tab = activeTab) {
     if (tab === "Overview") return <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} />;
     if (tab === "Fleets") return <FleetList fleets={fleets} />;
@@ -615,10 +627,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               <button
                 key={tab}
                 type="button"
-                onClick={() => {
-                  setActiveTab(tab);
-                  setCompanyTabOpen(true);
-                }}
+                onClick={() => switchCompanyTab(tab)}
                 className={`h-11 min-w-28 rounded-2xl px-4 text-sm font-black transition ${
                   companyTabOpen && activeTab === tab ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"
                 }`}
@@ -648,6 +657,18 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               />
             ) : null}
           </section>
+
+          {!basicOperator ? (
+            <CompanyDashboardTabDrawer
+              company={company}
+              direction={companyTabDirection}
+              open={companyTabOpen}
+              tab={activeTab}
+              onClose={() => setCompanyTabOpen(false)}
+            >
+              {renderDashboardTab(activeTab)}
+            </CompanyDashboardTabDrawer>
+          ) : null}
         </main>
       )}
       {company ? (
@@ -688,16 +709,6 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               setSeenVersion((version) => version + 1);
             }}
           />
-          {!basicOperator ? (
-            <CompanyDashboardTabDrawer
-              company={company}
-              open={companyTabOpen}
-              tab={activeTab}
-              onClose={() => setCompanyTabOpen(false)}
-            >
-              {renderDashboardTab(activeTab)}
-            </CompanyDashboardTabDrawer>
-          ) : null}
           <CompanyBookingQueueDrawer
             bookings={visibleBookingQueue.map((booking) => ({
               ...booking,
@@ -1683,60 +1694,52 @@ function FleetHqActionSheet({ children, label, onClose, open, widthClass = "max-
   );
 }
 
-function CompanyDashboardTabDrawer({ children, company, onClose, open, tab }) {
+function CompanyDashboardTabDrawer({ children, company, direction = "forward", onClose, open, tab }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
 
   useEffect(() => {
-    if (!rendered || typeof document === "undefined") return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (!rendered || typeof window === "undefined") return undefined;
     const onKeyDown = (event) => {
       if (event.key === "Escape") onClose?.();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [onClose, rendered]);
 
   if (!rendered) return null;
   return (
-    <AppPortal>
-      <div className={`fixed inset-0 z-[1320] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <section
+      aria-label={`${tab} dashboard`}
+      className={`mt-4 overflow-hidden rounded-3xl border border-white/80 bg-white shadow-xl shadow-slate-950/10 ring-1 ring-slate-950/5 ${
+        panelOpen ? "kt-toast-expand-in" : "kt-toast-collapse-out"
+      }`}
+    >
+      <header className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">Fleet HQ</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">{tab}</h2>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-500">{company?.companyName || "Company dashboard"}</p>
+        </div>
         <button
           type="button"
-          aria-label={`Close ${tab}`}
           onClick={onClose}
-          className={`absolute inset-0 h-full w-full border-0 bg-slate-950/40 p-0 backdrop-blur-sm transition-opacity duration-300 ${panelOpen ? "opacity-100" : "opacity-0"}`}
-        />
-        <section
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${tab} dashboard`}
-          className={`absolute bottom-0 left-0 right-0 mx-auto flex h-[86dvh] w-full max-w-4xl transform flex-col overflow-hidden rounded-t-[2rem] border border-white/70 bg-white shadow-2xl transition-transform duration-300 ${panelOpen ? "translate-y-0" : "translate-y-full"}`}
+          aria-label={`Close ${tab}`}
+          className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
         >
-          <header className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">Fleet HQ</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">{tab}</h2>
-              <p className="mt-1 truncate text-sm font-semibold text-slate-500">{company?.companyName || "Company dashboard"}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={`Close ${tab}`}
-              className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
-            >
-              <X size={22} />
-            </button>
-          </header>
-          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
-            {children}
-          </div>
-        </section>
+          <X size={22} />
+        </button>
+      </header>
+      <div className="overflow-hidden bg-slate-50 p-4 sm:p-6">
+        <div
+          key={tab}
+          className={direction === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}
+        >
+          {children}
+        </div>
       </div>
-    </AppPortal>
+    </section>
   );
 }
 

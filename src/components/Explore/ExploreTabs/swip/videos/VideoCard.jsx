@@ -659,24 +659,26 @@ export default function VideoCard({
         </p>
       ) : null}
 
-      {actionMenuOpen ? (
-        <ExploreActionDrawer closing={actionMenuClosing} onClose={() => closeActionMenu()} title="Manage this video">
-            <div className="grid gap-1">
-              <SwipActionItem icon={Send} title="Share Swip" detail="Send through your phone share sheet." onClick={handleShare} />
-              <SwipActionItem icon={Link} title="Copy link" detail="Keep a direct link to this Swip." onClick={handleCopyLink} />
-              <SwipActionItem icon={Download} title="Save video" detail="Download the video file when the browser allows it." onClick={handleDownload} />
-              <SwipActionItem icon={Copy} title="Copy caption" detail="Copy the creator note only." onClick={handleCopyCaption} />
-              <SwipActionItem icon={Repeat2} title="Repost" detail="Add a thought and publish this Swip to UrFeed." onClick={handleRepost} />
-              <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? "Show display" : "Clear display"} detail="Toggle a focused viewing mode." onClick={toggleDisplayMinimal} />
-              {isOwner ? (
-                <SwipActionItem danger icon={Trash2} title="Delete Swip" detail="Remove this video from Swip and your profile feed." onClick={openDeleteFromActions} />
-              ) : null}
-              {!isOwner ? (
-                <SwipActionItem danger icon={Flag} title="Report safety issue" detail="Send this Swip for review." onClick={handleReport} />
-              ) : null}
-            </div>
-        </ExploreActionDrawer>
+     {actionMenuOpen ? (
+  <ExploreActionDrawer closing={actionMenuClosing} onClose={() => closeActionMenu()} title="Manage this video">
+    <div className="flex flex-col items-end gap-1">
+      <SwipActionItem icon={Send} title="Share Swip" onClick={handleShare} />
+      <SwipActionItem icon={Link} title="Copy link" onClick={handleCopyLink} />
+      <SwipActionItem icon={Download} title="Save video" onClick={handleDownload} />
+      <SwipActionItem icon={Copy} title="Copy caption" onClick={handleCopyCaption} />
+      <SwipActionItem icon={Repeat2} title="Repost" onClick={handleRepost} />
+      <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? "Show display" : "Clear display"} onClick={toggleDisplayMinimal} />
+
+      {isOwner ? (
+        <SwipActionItem danger icon={Trash2} title="Delete Swip" onClick={openDeleteFromActions} />
       ) : null}
+
+      {!isOwner ? (
+        <SwipActionItem danger icon={Flag} title="Report Swip" onClick={handleReport} />
+      ) : null}
+    </div>
+  </ExploreActionDrawer>
+) : null}
 
       {quickDeckOpen ? (
         <div
@@ -744,27 +746,28 @@ export default function VideoCard({
   );
 }
 
-function SwipActionItem({ danger = false, detail, icon, onClick, title }) {
+function SwipActionItem({ danger = false, icon, onClick, title }) {
+  const ActionIcon = icon;
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-2xl p-3 text-left transition ${
+      className={`flex w-fit min-w-[230px] items-center gap-3 rounded-[22px] px-4 py-3 pr-8 text-left text-sm font-black shadow-lg backdrop-blur-xl transition ${
         danger
-          ? "bg-rose-500/10 text-rose-700 hover:bg-rose-500/15"
-          : "text-slate-900 hover:bg-white/55"
+          ? "bg-rose-100/95 text-rose-700 hover:bg-rose-100"
+          : "bg-white/95 text-slate-800 hover:bg-white"
       }`}
     >
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${danger ? "bg-rose-500/10 text-rose-700" : "bg-white/60 text-slate-700"}`}>
-        {useMemo(() => {
-          const ActionIcon = icon;
-          return <ActionIcon size={18} />;
-        }, [icon])}
+      <span
+        className={`grid h-11 w-11 flex-none place-items-center rounded-2xl ${
+          danger ? "bg-rose-200/60 text-rose-700" : "bg-slate-100 text-slate-700"
+        }`}
+      >
+        <ActionIcon size={18} />
       </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-black">{title}</span>
-        <span className={`mt-0.5 block text-xs font-semibold leading-5 ${danger ? "text-rose-600" : "text-slate-500"}`}>{detail}</span>
-      </span>
+
+      <span className="truncate">{title}</span>
     </button>
   );
 }
