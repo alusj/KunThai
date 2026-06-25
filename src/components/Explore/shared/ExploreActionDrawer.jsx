@@ -12,7 +12,7 @@ export default function ExploreActionDrawer({ children, closing = false, onClose
         type="button"
         aria-label={`Close ${title}`}
         onClick={onClose}
-        className={`absolute inset-0 bg-slate-950/30 backdrop-blur-[2px] ${
+        className={`absolute inset-0 bg-slate-950/35 backdrop-blur-[2px] ${
           closing ? "opacity-0 transition-opacity duration-200" : "opacity-100"
         }`}
       />
@@ -21,7 +21,7 @@ export default function ExploreActionDrawer({ children, closing = false, onClose
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`${closing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} fixed right-3 top-14 w-[min(84vw,340px)] max-w-[340px] sm:right-5`}
+        className={`${closing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} fixed right-3 top-16 w-fit max-w-[90vw] sm:right-5`}
         onClick={(event) => event.stopPropagation()}
       >
         <button

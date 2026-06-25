@@ -659,9 +659,9 @@ export default function VideoCard({
         </p>
       ) : null}
 
-     {actionMenuOpen ? (
+    {actionMenuOpen ? (
   <ExploreActionDrawer closing={actionMenuClosing} onClose={() => closeActionMenu()} title="Manage this video">
-    <div className="flex flex-col items-end gap-1">
+    <div className="overflow-hidden rounded-[26px] border border-white/70 bg-white/90 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.28)] backdrop-blur-2xl">
       <SwipActionItem icon={Send} title="Share Swip" onClick={handleShare} />
       <SwipActionItem icon={Link} title="Copy link" onClick={handleCopyLink} />
       <SwipActionItem icon={Download} title="Save video" onClick={handleDownload} />
@@ -753,43 +753,21 @@ function SwipActionItem({ danger = false, icon, onClick, title }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-fit min-w-[230px] items-center gap-3 rounded-[22px] px-4 py-3 pr-8 text-left text-sm font-black shadow-lg backdrop-blur-xl transition ${
+      className={`flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-sm font-black transition ${
         danger
-          ? "bg-rose-100/95 text-rose-700 hover:bg-rose-100"
-          : "bg-white/95 text-slate-800 hover:bg-white"
+          ? "bg-rose-500/10 text-rose-700 hover:bg-rose-500/15"
+          : "text-slate-800 hover:bg-slate-100/80"
       }`}
     >
       <span
-        className={`grid h-11 w-11 flex-none place-items-center rounded-2xl ${
-          danger ? "bg-rose-200/60 text-rose-700" : "bg-slate-100 text-slate-700"
+        className={`grid h-10 w-10 flex-none place-items-center rounded-2xl ${
+          danger ? "bg-rose-500/10 text-rose-700" : "bg-slate-100 text-slate-700"
         }`}
       >
         <ActionIcon size={18} />
       </span>
 
       <span className="truncate">{title}</span>
-    </button>
-  );
-}
-
-function SwipQuickAction({ danger = false, icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl border px-2 text-xs font-black transition ${
-        danger
-          ? "border-rose-300/60 bg-rose-500/18 text-rose-100"
-          : "border-white/35 bg-white/10 text-white hover:bg-white/16"
-      }`}
-    >
-      <span className="grid h-9 w-9 place-items-center rounded-xl border border-white/30 bg-white/8">
-        {useMemo(() => {
-          const ActionIcon = icon;
-          return <ActionIcon size={19} />;
-        }, [icon])}
-      </span>
-      <span className="text-center leading-tight">{label}</span>
     </button>
   );
 }

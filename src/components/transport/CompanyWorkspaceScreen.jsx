@@ -454,15 +454,18 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   }
 
   function switchCompanyTab(tab) {
-    if (!tab) return;
-    const currentIndex = availableTabs.indexOf(activeTab);
-    const nextIndex = availableTabs.indexOf(tab);
-    if (currentIndex !== -1 && nextIndex !== -1 && tab !== activeTab) {
-      setCompanyTabDirection(nextIndex >= currentIndex ? "forward" : "backward");
-    }
-    setActiveTab(tab);
-    setCompanyTabOpen(true);
+  if (!tab) return;
+
+  const currentIndex = availableTabs.indexOf(activeTab);
+  const nextIndex = availableTabs.indexOf(tab);
+
+  if (currentIndex !== -1 && nextIndex !== -1 && tab !== activeTab) {
+    setCompanyTabDirection(nextIndex >= currentIndex ? "forward" : "backward");
   }
+
+  setActiveTab(tab);
+  setCompanyTabOpen(true);
+}
 
   function renderDashboardTab(tab = activeTab) {
     if (tab === "Overview") return <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} />;
@@ -622,22 +625,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             </div>
           </section> : null}
 
-          {!basicOperator ? <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto rounded-3xl border border-slate-100 bg-white p-2 shadow-sm">
-            {availableTabs.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => switchCompanyTab(tab)}
-                className={`h-11 min-w-28 rounded-2xl px-4 text-sm font-black transition ${
-                  companyTabOpen && activeTab === tab ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div> : null}
-
-          <section className={basicOperator ? "" : "mt-4"}>
+         <section className={basicOperator ? "" : "mt-4"}>
             {statusMessage || localStatus ? (
               <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
                 {localStatus || statusMessage}
@@ -658,17 +646,19 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             ) : null}
           </section>
 
-          {!basicOperator ? (
-            <CompanyDashboardTabDrawer
-              company={company}
-              direction={companyTabDirection}
-              open={companyTabOpen}
-              tab={activeTab}
-              onClose={() => setCompanyTabOpen(false)}
-            >
-              {renderDashboardTab(activeTab)}
-            </CompanyDashboardTabDrawer>
-          ) : null}
+         {!basicOperator ? (
+  <CompanyDashboardTabDrawer
+    activeTab={activeTab}
+    company={company}
+    direction={companyTabDirection}
+    expanded={companyTabOpen}
+    tabs={availableTabs}
+    onCollapse={() => setCompanyTabOpen(false)}
+    onTabChange={switchCompanyTab}
+  >
+    {renderDashboardTab(activeTab)}
+  </CompanyDashboardTabDrawer>
+) : null}
         </main>
       )}
       {company ? (
@@ -1694,46 +1684,115 @@ function FleetHqActionSheet({ children, label, onClose, open, widthClass = "max-
   );
 }
 
-function CompanyDashboardTabDrawer({ children, company, direction = "forward", onClose, open, tab }) {
-  const { rendered, panelOpen } = useDrawerTransition(open);
+function CompanyDashboardTabDrawer({
+  activeTab,
+  children,
+  company,
+  direction = "forward",
+  expanded,
+  onCollapse,
+  onTabChange,
+  tabs = [],
+}) {
+  const [portalRendered, setPortalRendered] = useState(expanded);
+  const [portalOpen, setPortalOpen] = useState(false);
 
   useEffect(() => {
-    if (!rendered || typeof window === "undefined") return undefined;
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") onClose?.();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose, rendered]);
+    let frameId = null;
+    let timerId = null;
 
-  if (!rendered) return null;
-  return (
+    if (expanded) {
+      setPortalRendered(true);
+      frameId = window.requestAnimationFrame(() => setPortalOpen(true));
+      return () => {
+        if (frameId) window.cancelAnimationFrame(frameId);
+      };
+    }
+
+    setPortalOpen(false);
+    timerId = window.setTimeout(() => setPortalRendered(false), 720);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      if (timerId) window.clearTimeout(timerId);
+    };
+  }, [expanded]);
+
+  function handleTabClick(tab) {
+    onTabChange(tab);
+  }
+
+  const drawerContent = (
     <section
-      aria-label={`${tab} dashboard`}
-      className={`mt-4 overflow-hidden rounded-3xl border border-white/80 bg-white shadow-xl shadow-slate-950/10 ring-1 ring-slate-950/5 ${
-        panelOpen ? "kt-toast-expand-in" : "kt-toast-collapse-out"
+      aria-label={`${activeTab} dashboard`}
+      className={`overflow-hidden border border-white/80 bg-white shadow-2xl shadow-slate-950/20 ring-1 ring-slate-950/5 transition-all duration-[900ms] ease-[var(--kt-ease-emphasized)] ${
+        portalRendered
+          ? portalOpen
+         ? "h-[82dvh] w-full translate-y-0 scale-100 rounded-t-[34px] opacity-100"
+: "h-[18dvh] w-[92vw] translate-x-[4vw] translate-y-[72dvh] scale-[0.88] rounded-[30px] opacity-100"
+          : "h-[240px] rounded-[30px]"
       }`}
     >
-      <header className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">Fleet HQ</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">{tab}</h2>
-          <p className="mt-1 truncate text-sm font-semibold text-slate-500">{company?.companyName || "Company dashboard"}</p>
+      <button
+        type="button"
+        onClick={portalRendered ? onCollapse : undefined}
+        aria-label="Collapse Fleet HQ drawer"
+        className="flex w-full justify-center px-5 pt-4"
+      >
+        <span className="h-1.5 w-12 rounded-full bg-slate-300" />
+      </button>
+
+      <header className="px-4 pb-3 pt-2">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
+              Fleet HQ
+            </p>
+            <h2 className="mt-1 truncate text-xl font-black text-slate-950">
+              {activeTab}
+            </h2>
+            <p className="mt-1 truncate text-sm font-semibold text-slate-500">
+              {company?.companyName || "Company dashboard"}
+            </p>
+          </div>
+
+          {portalRendered ? (
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Collapse drawer"
+              className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
+            >
+              <X size={21} />
+            </button>
+          ) : null}
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={`Close ${tab}`}
-          className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
-        >
-          <X size={22} />
-        </button>
+
+        <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => handleTabClick(tab)}
+              className={`h-10 min-w-24 rounded-xl px-3 text-sm font-black transition ${
+                activeTab === tab
+                  ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
+                  : "text-slate-500 hover:bg-white hover:text-slate-900"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </header>
-      <div className="overflow-hidden bg-slate-50 p-4 sm:p-6">
+
+      <div
+        className={`min-h-0 overflow-y-auto border-t border-slate-100 bg-slate-50 p-4 transition-all duration-300 sm:p-6 ${
+          portalRendered ? "h-[calc(82dvh-155px)] opacity-100" : "h-0 p-0 opacity-0 sm:p-0"
+        }`}
+      >
         <div
-          key={tab}
+          key={activeTab}
           className={direction === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}
         >
           {children}
@@ -1741,8 +1800,30 @@ function CompanyDashboardTabDrawer({ children, company, direction = "forward", o
       </div>
     </section>
   );
-}
 
+  if (portalRendered) {
+    return (
+      <AppPortal>
+        <div className="fixed inset-0 z-[1210]">
+          <button
+            type="button"
+            aria-label="Collapse Fleet HQ drawer"
+            onClick={onCollapse}
+            className={`absolute inset-0 bg-slate-950/35 backdrop-blur-[2px] transition-opacity duration-700 ${
+              portalOpen ? "opacity-100" : "opacity-0"
+            }`}
+          />
+
+          <div className="absolute bottom-0 left-0 right-0 px-0 pb-0">
+            {drawerContent}
+          </div>
+        </div>
+      </AppPortal>
+    );
+  }
+
+  return <div className="mt-4">{drawerContent}</div>;
+}
 function FleetHqFullScreen({ children, label, onClose, open }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
 
