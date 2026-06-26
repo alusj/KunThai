@@ -1725,7 +1725,7 @@ function CompanyDashboardTabDrawer({
   const drawerContent = (
     <section
       aria-label={`${activeTab} dashboard`}
-      className={`overflow-hidden border border-white/80 bg-white shadow-2xl shadow-slate-950/20 ring-1 ring-slate-950/5 transition-all duration-[900ms] ease-[var(--kt-ease-emphasized)] ${
+      className={`overflow-hidden border border-white/80 bg-white shadow-2xl shadow-slate-950/20 ring-1 ring-slate-950/5 transition-all duration-[620ms] ease-[var(--kt-ease-emphasized)] ${
         portalRendered
           ? portalOpen
          ? "h-[82dvh] w-full translate-y-0 scale-100 rounded-t-[34px] opacity-100"
