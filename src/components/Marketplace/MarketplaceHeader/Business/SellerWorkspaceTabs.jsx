@@ -4,6 +4,7 @@ export default function SellerWorkspaceTabs({ activeTab, onTabChange }) {
     { id: "sales", label: "Sales & Orders" },
     { id: "store", label: "Store" },
     { id: "catalog", label: "Catalog" },
+    { id: "drafts", label: "Draft" },
   ];
 
   return (

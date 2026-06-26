@@ -89,6 +89,7 @@ export const INITIAL_PRODUCT_FORM = {
     warranty: "",
     variants: "",
     specifications: "",
+    tierPricing: [],
   },
   media: {
     coverImageFile: null,
@@ -118,8 +119,30 @@ function countByStatus(products, status) {
   return products.filter((product) => product.status === status).length;
 }
 
+function normalizeTierPricing(tiers = []) {
+  if (!Array.isArray(tiers)) return [];
+
+  return tiers
+    .map((tier) => {
+      const minQty = Number(tier.minQty ?? tier.min_qty ?? 0);
+      const maxQty = Number(tier.maxQty ?? tier.max_qty ?? 0);
+      const price = Number(tier.price ?? 0);
+      return {
+        minQty: Number.isFinite(minQty) ? minQty : 0,
+        maxQty: Number.isFinite(maxQty) ? maxQty : 0,
+        price: Number.isFinite(price) ? price : 0,
+      };
+    })
+    .filter((tier) => tier.price > 0 && (tier.minQty > 0 || tier.maxQty > 0));
+}
+
 function normalizeSellerProduct(product) {
   if (!product) return null;
+
+  const attributes = product.product_attributes && typeof product.product_attributes === "object"
+    ? product.product_attributes
+    : {};
+  const tierPricing = normalizeTierPricing(product.tier_pricing || attributes.tierPricing);
 
   return {
     id: product.id,
@@ -131,7 +154,8 @@ function normalizeSellerProduct(product) {
     condition: product.condition,
     brand: product.brand,
     model: product.model,
-    details: product.product_attributes || {},
+    details: { ...attributes, tierPricing },
+    tierPricing,
     status: product.status,
     stock: product.stock,
     sku: product.sku,
@@ -268,15 +292,18 @@ function normalizeProductAttributes(details = {}) {
     warranty: String(details.warranty || "").trim(),
     variants: String(details.variants || "").trim(),
     specifications: String(details.specifications || "").trim(),
+    tierPricing: normalizeTierPricing(details.tierPricing),
   };
 }
 
 async function insertProductPayload(payload) {
   let { data, error } = await supabase.from("marketplace_products").insert(payload).select().maybeSingle();
 
-  if (error && ["product_attributes", "country", "country_iso", "currency"].some((column) => isMissingColumn(error, column))) {
+  if (error && ["user_id", "product_attributes", "tier_pricing", "country", "country_iso", "currency"].some((column) => isMissingColumn(error, column))) {
     const {
+      user_id: _userId,
       product_attributes: _attributes,
+      tier_pricing: _tierPricing,
       country: _country,
       country_iso: _countryIso,
       currency: _currency,
@@ -293,9 +320,11 @@ async function insertProductPayload(payload) {
 async function updateProductPayload(productId, businessId, payload) {
   let { data, error } = await supabase.from("marketplace_products").update(payload).eq("id", productId).eq("business_id", businessId).select().maybeSingle();
 
-  if (error && ["product_attributes", "country", "country_iso", "currency"].some((column) => isMissingColumn(error, column))) {
+  if (error && ["user_id", "product_attributes", "tier_pricing", "country", "country_iso", "currency"].some((column) => isMissingColumn(error, column))) {
     const {
+      user_id: _userId,
       product_attributes: _attributes,
+      tier_pricing: _tierPricing,
       country: _country,
       country_iso: _countryIso,
       currency: _currency,
@@ -375,6 +404,7 @@ export async function submitSellerProduct(form, onProgress) {
   onProgress?.("Saving product details...");
   const payload = {
     business_id: business.id,
+    user_id: userId,
     name: form.basics.name.trim(),
     description: form.basics.description.trim(),
     category: form.basics.category,
@@ -382,6 +412,7 @@ export async function submitSellerProduct(form, onProgress) {
     brand: form.basics.brand.trim(),
     model: form.basics.model.trim(),
     product_attributes: normalizeProductAttributes(form.details),
+    tier_pricing: normalizeTierPricing(form.details.tierPricing),
     price: Number(form.pricing.price || 0),
     discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
     country: business.location.country || countryProfile.name,
@@ -464,6 +495,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
   const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("Updating product listing...");
   const payload = {
+    user_id: userId,
     name: form.basics.name.trim(),
     description: form.basics.description.trim(),
     category: form.basics.category,
@@ -471,6 +503,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
     brand: form.basics.brand.trim(),
     model: form.basics.model.trim(),
     product_attributes: normalizeProductAttributes(form.details),
+    tier_pricing: normalizeTierPricing(form.details.tierPricing),
     price: Number(form.pricing.price || 0),
     discount_price: form.pricing.discountPrice ? Number(form.pricing.discountPrice) : null,
     country: business.location.country || countryProfile.name,
@@ -535,6 +568,26 @@ export async function updateSellerProduct(productId, patch) {
 
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function deleteSellerProduct(productId) {
+  const business = await readRegisteredBusiness();
+  if (!business) throw new Error("Register a business before managing products.");
+
+  const { error } = await supabase
+    .from("marketplace_products")
+    .delete()
+    .eq("id", productId)
+    .eq("business_id", business.id);
+
+  if (error) throw new Error(error.message);
+}
+
+export function createSellerProductShareLink(product) {
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const productId = encodeURIComponent(product?.id || "");
+  if (!origin || !productId) return "";
+  return `${origin}/#urmall/product/${productId}`;
 }
 
 export async function promoteSellerProduct(product) {

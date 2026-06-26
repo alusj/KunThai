@@ -366,6 +366,16 @@ export default function Business({ onBack }) {
                 }}
               />
             ) : null}
+            {activeTab === "drafts" ? (
+                <BusinessCatalog
+                  mode="drafts"
+                  onViewProduct={openSellerProductDetail}
+                  onEditProduct={(product) => {
+                    setEditingProduct(product);
+                    openSellerScreen("addProduct");
+                }}
+              />
+            ) : null}
           </main>
         </div>
       </div>

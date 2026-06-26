@@ -53,6 +53,12 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
   const displayImage = images[activeImage] || images[0] || "";
   const displayPrice = product?.discountPrice || product?.price || 0;
   const hasDiscount = product?.discountPrice && Number(product.discountPrice) < Number(product.price || 0);
+  const tierPricing = Array.isArray(product?.tierPricing)
+    ? product.tierPricing
+    : Array.isArray(product?.details?.tierPricing)
+      ? product.details.tierPricing
+      : [];
+  const visibleTierPricing = tierPricing.filter((tier) => Number(tier.price) > 0);
 
   if (!product) {
     return (
@@ -171,6 +177,22 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
                 <DetailMetric icon={DollarSign} label="Revenue" value={formatCurrency(product.revenue || 0)} />
               </div>
             </div>
+
+            {visibleTierPricing.length ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+                <h3 className="text-lg font-black text-gray-950">Quantity pricing</h3>
+                <div className="mt-3 grid gap-2">
+                  {visibleTierPricing.map((tier, index) => (
+                    <div key={`tier-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2">
+                      <p className="text-sm font-black text-gray-950">
+                        {tier.minQty || 1}-{tier.maxQty || "+"} items
+                      </p>
+                      <p className="text-sm font-black text-emerald-700">{formatCurrency(tier.price)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-3 lg:grid-cols-2">
               <InfoPanel icon={Tag} label="Category" value={product.category || "Not set"} />

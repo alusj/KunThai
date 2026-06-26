@@ -1694,81 +1694,28 @@ function CompanyDashboardTabDrawer({
   onTabChange,
   tabs = [],
 }) {
-  const [portalRendered, setPortalRendered] = useState(expanded);
-  const [portalOpen, setPortalOpen] = useState(false);
-
-  useEffect(() => {
-    let frameId = null;
-    let timerId = null;
-
-    if (expanded) {
-      setPortalRendered(true);
-      frameId = window.requestAnimationFrame(() => setPortalOpen(true));
-      return () => {
-        if (frameId) window.cancelAnimationFrame(frameId);
-      };
-    }
-
-    setPortalOpen(false);
-    timerId = window.setTimeout(() => setPortalRendered(false), 720);
-
-    return () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-      if (timerId) window.clearTimeout(timerId);
-    };
-  }, [expanded]);
+  const { rendered, panelOpen } = useDrawerTransition(expanded, DRAWER_TRANSITION_MS);
+  const activeIndex = Math.max(0, tabs.indexOf(activeTab));
 
   function handleTabClick(tab) {
     onTabChange(tab);
   }
 
-  const drawerContent = (
-    <section
-      aria-label={`${activeTab} dashboard`}
-      className={`overflow-hidden border border-white/80 bg-white shadow-2xl shadow-slate-950/20 ring-1 ring-slate-950/5 transition-all duration-[620ms] ease-[var(--kt-ease-emphasized)] ${
-        portalRendered
-          ? portalOpen
-         ? "h-[82dvh] w-full translate-y-0 scale-100 rounded-t-[34px] opacity-100"
-: "h-[18dvh] w-[92vw] translate-x-[4vw] translate-y-[72dvh] scale-[0.88] rounded-[30px] opacity-100"
-          : "h-[240px] rounded-[30px]"
-      }`}
-    >
-      <button
-        type="button"
-        onClick={portalRendered ? onCollapse : undefined}
-        aria-label="Collapse Fleet HQ drawer"
-        className="flex w-full justify-center px-5 pt-4"
-      >
-        <span className="h-1.5 w-12 rounded-full bg-slate-300" />
-      </button>
-
-      <header className="px-4 pb-3 pt-2">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
-              Fleet HQ
-            </p>
-            <h2 className="mt-1 truncate text-xl font-black text-slate-950">
-              {activeTab}
-            </h2>
-            <p className="mt-1 truncate text-sm font-semibold text-slate-500">
-              {company?.companyName || "Company dashboard"}
-            </p>
-          </div>
-
-          {portalRendered ? (
-            <button
-              type="button"
-              onClick={onCollapse}
-              aria-label="Collapse drawer"
-              className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
-            >
-              <X size={21} />
-            </button>
-          ) : null}
+  if (!rendered) {
+    return (
+      <section className="mt-4 rounded-[30px] border border-slate-200/80 bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
+            Fleet HQ
+          </p>
+          <h2 className="mt-1 truncate text-xl font-black text-slate-950">
+            Company dashboard
+          </h2>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-500">
+            {company?.companyName || "Transport company"}
+          </p>
         </div>
-
-        <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5">
+        <div className="no-scrollbar mt-5 flex gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5">
           {tabs.map((tab) => (
             <button
               key={tab}
@@ -1784,45 +1731,100 @@ function CompanyDashboardTabDrawer({
             </button>
           ))}
         </div>
-      </header>
-
-      <div
-        className={`min-h-0 overflow-y-auto border-t border-slate-100 bg-slate-50 p-4 transition-all duration-300 sm:p-6 ${
-          portalRendered ? "h-[calc(82dvh-155px)] opacity-100" : "h-0 p-0 opacity-0 sm:p-0"
-        }`}
-      >
-        <div
-          key={activeTab}
-          className={direction === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}
-        >
-          {children}
-        </div>
-      </div>
-    </section>
-  );
-
-  if (portalRendered) {
-    return (
-      <AppPortal>
-        <div className="fixed inset-0 z-[1210]">
-          <button
-            type="button"
-            aria-label="Collapse Fleet HQ drawer"
-            onClick={onCollapse}
-            className={`absolute inset-0 bg-slate-950/35 backdrop-blur-[2px] transition-opacity duration-700 ${
-              portalOpen ? "opacity-100" : "opacity-0"
-            }`}
-          />
-
-          <div className="absolute bottom-0 left-0 right-0 px-0 pb-0">
-            {drawerContent}
-          </div>
-        </div>
-      </AppPortal>
+      </section>
     );
   }
 
-  return <div className="mt-4">{drawerContent}</div>;
+  return (
+    <AppPortal>
+      <div
+        aria-hidden={!panelOpen}
+        inert={panelOpen ? undefined : "true"}
+        className="fixed inset-0 z-[1210] overflow-hidden"
+      >
+        <button
+          type="button"
+          aria-label="Collapse Fleet HQ drawer"
+          onClick={onCollapse}
+          tabIndex={panelOpen ? 0 : -1}
+          className={`absolute inset-0 border-0 bg-slate-950/35 p-0 backdrop-blur-sm transition-opacity duration-300 ${
+            panelOpen ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
+        <section
+          aria-label={`${activeTab} dashboard`}
+          className={`absolute bottom-0 left-0 right-0 mx-auto flex h-[86dvh] max-w-2xl transform flex-col overflow-hidden rounded-t-[2rem] bg-white shadow-2xl transition-transform duration-300 ${
+            panelOpen ? "translate-y-0" : "translate-y-full"
+          }`}
+        >
+          <header className="shrink-0 border-b border-slate-100 px-5 py-4">
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Collapse Fleet HQ dashboard"
+              className="mb-3 flex w-full justify-center"
+            >
+              <span className="h-1.5 w-12 rounded-full bg-slate-300" />
+            </button>
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
+                  Fleet HQ
+                </p>
+                <h2 className="mt-1 truncate text-xl font-black text-slate-950">
+                  {activeTab}
+                </h2>
+                <p className="mt-1 truncate text-sm font-semibold text-slate-500">
+                  {company?.companyName || "Company dashboard"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onCollapse}
+                className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
+                aria-label="Close Fleet HQ dashboard"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5">
+              {tabs.map((tab, index) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => handleTabClick(tab)}
+                  className={`h-10 min-w-24 rounded-xl px-3 text-sm font-black transition ${
+                    activeTab === tab
+                      ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
+                      : "text-slate-500 hover:bg-white hover:text-slate-900"
+                  }`}
+                  style={{ transitionDelay: `${Math.abs(index - activeIndex) * 18}ms` }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-5 py-4">
+            <div
+              key={activeTab}
+              className={[
+                "mx-auto w-full",
+                direction === "backward"
+                  ? "kt-parent-tab-slide-backward"
+                  : "kt-parent-tab-slide-forward",
+              ].join(" ")}
+            >
+              {children}
+            </div>
+          </div>
+        </section>
+      </div>
+    </AppPortal>
+  );
 }
 function FleetHqFullScreen({ children, label, onClose, open }) {
   const { rendered, panelOpen } = useDrawerTransition(open);

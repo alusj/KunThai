@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import {
+  createSellerProductShareLink,
+  deleteSellerProduct,
   fetchSellerProducts,
   promoteSellerProduct,
   updateSellerProduct,
@@ -78,6 +80,8 @@ export function useSellerProducts() {
     setActionMessage("");
 
     try {
+      let shouldReload = true;
+
       if (action === "restock") {
         const nextStock = Number(window.prompt("Enter new stock quantity", String(Math.max(product.stock, 1))));
         if (Number.isNaN(nextStock) || nextStock < 0) return;
@@ -105,7 +109,36 @@ export function useSellerProducts() {
         setActionMessage("Promotion draft created.");
       }
 
-      await loadProducts(() => true);
+      if (action === "publish") {
+        await updateSellerProduct(product.id, {
+          status: "active",
+          published_at: product.publishedAt || new Date().toISOString(),
+        });
+        setActionMessage("Draft published.");
+      }
+
+      if (action === "delete") {
+        const confirmed = window.confirm(`Delete ${product.name}? This removes it from Store, Catalog, and Drafts.`);
+        if (!confirmed) return;
+        await deleteSellerProduct(product.id);
+        setActionMessage("Product deleted.");
+      }
+
+      if (action === "share") {
+        const link = createSellerProductShareLink(product);
+        if (!link) throw new Error("Unable to create product link.");
+        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(link);
+        } else {
+          window.prompt("Copy product link", link);
+        }
+        setActionMessage("Product link copied.");
+        shouldReload = false;
+      }
+
+      if (shouldReload) {
+        await loadProducts(() => true);
+      }
     } catch (error) {
       setActionError(error.message || "Unable to update product.");
     }
@@ -114,6 +147,7 @@ export function useSellerProducts() {
   return {
     ...productState,
     availableProducts: productState.products.filter((product) => product.status === "active" && product.stock > 0),
+    draftProducts: productState.products.filter((product) => product.status === "draft"),
     actionMessage,
     actionError,
     handleProductAction,

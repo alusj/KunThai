@@ -1,11 +1,15 @@
+import { getActiveCountryProfile } from "../../../../../data/westAfricanCountryProfiles";
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductToggle from "./ProductToggle";
-import { getActiveCountryProfile } from "../../../../../data/westAfricanCountryProfiles";
 
 export default function ProductDeliveryReviewStep({ productForm }) {
   const { form, errors, updateSection } = productForm;
   const countryProfile = getActiveCountryProfile();
+  const currencySymbol = countryProfile.currency?.symbol || "Le";
+  const tierPricing = Array.isArray(form.details.tierPricing)
+    ? form.details.tierPricing.filter((tier) => Number(tier.price) > 0 && (Number(tier.minQty) > 0 || Number(tier.maxQty) > 0))
+    : [];
 
   return (
     <div className="space-y-5">
@@ -48,7 +52,15 @@ export default function ProductDeliveryReviewStep({ productForm }) {
           <p>Condition: {form.basics.condition || "Missing"}</p>
           {form.details.size || form.details.color || form.details.variants ? (
             <p>
-              Details: {[form.details.size, form.details.color, form.details.variants].filter(Boolean).join(" · ")}
+              Details: {[form.details.size, form.details.color, form.details.variants].filter(Boolean).join(" - ")}
+            </p>
+          ) : null}
+          {tierPricing.length ? (
+            <p>
+              Bulk prices:{" "}
+              {tierPricing
+                .map((tier) => `${tier.minQty || 1}-${tier.maxQty || "+"} ${currencySymbol} ${tier.price}`)
+                .join("; ")}
             </p>
           ) : null}
           <p>Price: {form.pricing.price || "Missing"}</p>

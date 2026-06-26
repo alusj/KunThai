@@ -36,6 +36,7 @@ function buildProductForm(product, options) {
     details: {
       ...INITIAL_PRODUCT_FORM.details,
       ...(product.details || {}),
+      tierPricing: product.tierPricing || product.details?.tierPricing || [],
     },
     media: {
       coverImageFile: null,

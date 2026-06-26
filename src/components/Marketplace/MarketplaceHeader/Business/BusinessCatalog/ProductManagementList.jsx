@@ -1,6 +1,6 @@
 import ProductManagementRow from "./ProductManagementRow";
 
-export default function ProductManagementList({ products, onAction, onViewProduct }) {
+export default function ProductManagementList({ mode = "store", products, onAction, onViewProduct }) {
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="px-4 py-4">
@@ -14,6 +14,7 @@ export default function ProductManagementList({ products, onAction, onViewProduc
         {products.map((product) => (
           <ProductManagementRow
             key={product.id}
+            mode={mode}
             product={product}
             onAction={onAction}
             onViewProduct={onViewProduct}

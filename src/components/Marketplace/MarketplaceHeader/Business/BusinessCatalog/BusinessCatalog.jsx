@@ -9,6 +9,7 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onViewP
     summary,
     products,
     availableProducts,
+    draftProducts,
     topSellingProducts,
     actionMessage,
     actionError,
@@ -18,12 +19,30 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onViewP
 
   if (loading || !summary) return <SectionSkeleton title="Loading catalog" />;
 
-  const visibleProducts = mode === "catalog" ? availableProducts : products;
-  const title = mode === "catalog" ? "Catalog" : "Store";
+  const storeProducts = products.filter((product) => product.status !== "draft");
+  const visibleProducts = mode === "catalog" ? availableProducts : mode === "drafts" ? draftProducts : storeProducts;
+  const title = mode === "catalog" ? "Catalog" : mode === "drafts" ? "Draft" : "Store";
   const description =
     mode === "catalog"
       ? "Buyer-facing products that are available and in stock."
-      : "All products, including drafts, sold out, pending review, paused, and available items.";
+      : mode === "drafts"
+        ? "Saved products waiting to be finished or published."
+      : "All live store products, including sold out, pending review, paused, and available items.";
+  const emptyState =
+    mode === "catalog"
+      ? {
+        title: "No catalog products",
+        description: "Publish active products with stock so buyers can see them here.",
+      }
+      : mode === "drafts"
+        ? {
+          title: "No drafts",
+          description: "Draft listings you save for later will appear here.",
+        }
+        : {
+          title: "No store products",
+          description: "Add your first product to start selling.",
+        };
 
   return (
     <section className="space-y-4">
@@ -52,9 +71,10 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onViewP
       ) : null}
 
       {visibleProducts.length === 0 ? (
-        <EmptyCatalogState />
+        <EmptyCatalogState title={emptyState.title} description={emptyState.description} />
       ) : (
         <ProductManagementList
+          mode={mode}
           products={visibleProducts}
           onViewProduct={onViewProduct}
           onAction={(product, action) => {

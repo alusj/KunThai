@@ -12,7 +12,8 @@ export default function SellerHeaderActions({
   onAlerts,
   onMenu,
 }) {
-  const activeHint = orderCount ? "orders" : messageCount ? "messages" : notificationCount ? "alerts" : "";
+  const hasNotifications = Number(notificationCount || 0) > 0;
+  const activeHint = orderCount ? "orders" : messageCount ? "messages" : hasNotifications ? "alerts" : "";
 
   return (
     <div className="flex items-center gap-2">
@@ -38,14 +39,16 @@ export default function SellerHeaderActions({
           onClick={onMessages}
         />
       </ActionWithHint>
-      <ActionWithHint hint="Seller alert" visible={activeHint === "alerts"}>
-        <HeaderActionButton
-          icon={Bell}
-          label="Alerts"
-          badge={notificationCount}
-          onClick={onAlerts}
-        />
-      </ActionWithHint>
+      {hasNotifications ? (
+        <ActionWithHint hint="Seller alert" visible={activeHint === "alerts"}>
+          <HeaderActionButton
+            icon={Bell}
+            label="Alerts"
+            badge={notificationCount}
+            onClick={onAlerts}
+          />
+        </ActionWithHint>
+      ) : null}
       <button
         type="button"
         onClick={onMenu}
