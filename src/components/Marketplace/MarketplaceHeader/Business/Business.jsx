@@ -12,6 +12,7 @@ import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
 import BusinessAttention from "./BusinessAttention/BusinessAttention";
 import BusinessActivity from "./BusinessActivity/BusinessActivity";
 import BusinessCatalog from "./BusinessCatalog/BusinessCatalog";
+import SellerProductDetail from "./BusinessCatalog/SellerProductDetail";
 import BusinessPromotions from "./BusinessPromotions/BusinessPromotions";
 import CustomerCare from "./CustomerCare/CustomerCare";
 import MyBizDashboardHeader from "./MyBizDashboardHeader/MyBizDashboardHeader";
@@ -22,6 +23,7 @@ import ProductSuccessToast from "./ProductSuccessToast";
 //import RecentOrders from "./RecentOrders";
 //import RecentMessages from "./RecentMessages";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
+import { resolveSellerActivityProduct } from "../../../../Backend/services/marketplace/sellerProductService";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
 import { useSellerOverview } from "../../../../Backend/hooks/useSellerOverview";
 import { useEffect, useRef, useState } from "react";
@@ -31,14 +33,18 @@ import BusinessSkeleton from "./BusinessSkeleton";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
-function SellerFullScreen({ children, hideHeader = false, eyebrow, onBack, open, subtitle, title }) {
+function SellerFullScreen({ animation = "stack", children, hideHeader = false, eyebrow, onBack, open, subtitle, title }) {
+  const animationClass = animation === "zoom"
+    ? open ? "kt-route-zoom-open" : "kt-route-zoom-close"
+    : open ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right";
+
   return (
     <AppPortal>
       <section
         aria-hidden={!open}
         inert={open ? undefined : "true"}
         className={`kt-urmall-screen-panel fixed inset-0 z-[1150] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50 shadow-2xl ${
-          open ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
+          animationClass
         }`}
       >
         {!hideHeader ? (
@@ -76,6 +82,7 @@ export default function Business({ onBack }) {
   const [menuInitialScreen, setMenuInitialScreen] = useState(null);
   const [profileInitialView, setProfileInitialView] = useState("menu");
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [visibleScreen, setVisibleScreen] = useState("dashboard");
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
   const sellerScreenTimerRef = useRef(null);
@@ -131,6 +138,22 @@ export default function Business({ onBack }) {
     setActiveScreen(screen);
   }
 
+  function openSellerProductDetail(product) {
+    if (!product) {
+      setToastMessage("Product could not be opened.");
+      window.setTimeout(() => setToastMessage(""), 3500);
+      return;
+    }
+
+    setSelectedProduct(product);
+    openSellerScreen("productDetail");
+  }
+
+  async function openProductFromActivity(activity) {
+    const product = await resolveSellerActivityProduct(activity);
+    openSellerProductDetail(product);
+  }
+
   function goBackSellerScreen() {
     setScreenHistory((history) => {
       const previousScreen = history.at(-1) || "dashboard";
@@ -154,6 +177,27 @@ export default function Business({ onBack }) {
               setEditingProduct(null);
               setToastMessage(wasEditing ? "Product listing updated successfully" : "Product added successfully");
               setTimeout(() => setToastMessage(""), 4500);
+            }}
+          />
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "productDetail") {
+      return (
+        <SellerFullScreen
+          key="productDetail"
+          animation="zoom"
+          hideHeader
+          open={screenPanelOpen}
+          onBack={goBackSellerScreen}
+        >
+          <SellerProductDetail
+            product={selectedProduct}
+            onBack={goBackSellerScreen}
+            onEdit={(product) => {
+              setEditingProduct(product);
+              openSellerScreen("addProduct");
             }}
           />
         </SellerFullScreen>
@@ -222,7 +266,7 @@ export default function Business({ onBack }) {
                 if (item.type === "profile") replaceSellerScreen("dashboard");
               }}
             />
-            <BusinessActivity />
+            <BusinessActivity onViewProduct={openProductFromActivity} />
           </div>
         </SellerFullScreen>
       );
@@ -303,20 +347,22 @@ export default function Business({ onBack }) {
             ) : null}
             {activeTab === "sales" ? <BusinessStats /> : null}
             {activeTab === "store" ? (
-              <BusinessCatalog
-                mode="store"
-                onEditProduct={(product) => {
-                  setEditingProduct(product);
-                  openSellerScreen("addProduct");
+                <BusinessCatalog
+                  mode="store"
+                  onViewProduct={openSellerProductDetail}
+                  onEditProduct={(product) => {
+                    setEditingProduct(product);
+                    openSellerScreen("addProduct");
                 }}
               />
             ) : null}
             {activeTab === "catalog" ? (
-              <BusinessCatalog
-                mode="catalog"
-                onEditProduct={(product) => {
-                  setEditingProduct(product);
-                  openSellerScreen("addProduct");
+                <BusinessCatalog
+                  mode="catalog"
+                  onViewProduct={openSellerProductDetail}
+                  onEditProduct={(product) => {
+                    setEditingProduct(product);
+                    openSellerScreen("addProduct");
                 }}
               />
             ) : null}

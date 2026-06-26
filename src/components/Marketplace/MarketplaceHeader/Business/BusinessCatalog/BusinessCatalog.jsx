@@ -4,7 +4,7 @@ import ProductManagementList from "./ProductManagementList";
 import ProductSummaryGrid from "./ProductSummaryGrid";
 import TopSellingProducts from "./TopSellingProducts";
 
-export default function BusinessCatalog({ mode = "store", onEditProduct }) {
+export default function BusinessCatalog({ mode = "store", onEditProduct, onViewProduct }) {
   const {
     summary,
     products,
@@ -56,7 +56,12 @@ export default function BusinessCatalog({ mode = "store", onEditProduct }) {
       ) : (
         <ProductManagementList
           products={visibleProducts}
+          onViewProduct={onViewProduct}
           onAction={(product, action) => {
+            if (action === "view-product") {
+              onViewProduct?.(product);
+              return;
+            }
             if (action === "edit-listing") {
               onEditProduct?.(product);
               return;

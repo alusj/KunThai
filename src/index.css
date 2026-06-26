@@ -325,6 +325,13 @@
     animation: kt-soft-pop 200ms var(--kt-ease-standard) backwards;
   }
 
+  .kt-notification-wipe-out {
+    animation: kt-notification-wipe-out 320ms var(--kt-ease-emphasized) forwards;
+    overflow: hidden;
+    pointer-events: none;
+    transform-origin: right center;
+  }
+
   .kt-create-popup-backdrop {
     background:
       radial-gradient(circle at 50% 0%, rgb(14 165 233 / 0.14), transparent 32rem),
@@ -945,6 +952,25 @@
     filter: blur(4px);
     opacity: 0;
     transform: scale(0.94);
+  }
+}
+
+@keyframes kt-notification-wipe-out {
+  from {
+    border-color: rgb(243 244 246);
+    clip-path: inset(0 0 0 0 round 0);
+    max-height: 220px;
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    border-color: transparent;
+    clip-path: inset(0 0 0 100% round 1rem);
+    max-height: 0;
+    opacity: 0;
+    padding-bottom: 0;
+    padding-top: 0;
+    transform: translate3d(34px, 0, 0) scale(0.98);
   }
 }
 

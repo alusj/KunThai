@@ -1,9 +1,19 @@
 import ActivityIcon from "./ActivityIcon";
 import ActivityStatusBadge from "./ActivityStatusBadge";
 
-export default function ActivityItem({ activity }) {
+export default function ActivityItem({ actionBusy = false, activity, dismissing = false, onAction, onDone }) {
+  function handleDone(event) {
+    event.stopPropagation();
+    onDone?.(activity);
+  }
+
+  function handleAction(event) {
+    event.stopPropagation();
+    onAction?.(activity);
+  }
+
   return (
-    <article className="relative flex gap-3 border-t border-gray-100 py-4 first:border-t-0 first:pt-0 last:pb-0">
+    <article className={`relative flex gap-3 border-t border-gray-100 py-4 first:border-t-0 first:pt-0 last:pb-0 ${dismissing ? "kt-notification-wipe-out" : ""}`}>
       <ActivityIcon type={activity.type} status={activity.status} />
 
       <div className="min-w-0 flex-1">
@@ -14,7 +24,7 @@ export default function ActivityItem({ activity }) {
               {activity.description}
             </p>
           </div>
-          <ActivityStatusBadge status={activity.status} />
+          <ActivityStatusBadge status={activity.status} onDone={handleDone} />
         </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -32,9 +42,10 @@ export default function ActivityItem({ activity }) {
             <button
               type="button"
               className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-black text-gray-800 hover:bg-gray-50"
-              onClick={() => console.log(activity.actionLabel, activity.id)}
+              disabled={actionBusy}
+              onClick={handleAction}
             >
-              {activity.actionLabel}
+              {actionBusy ? "Opening..." : activity.actionLabel}
             </button>
           ) : null}
         </div>

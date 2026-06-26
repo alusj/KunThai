@@ -828,7 +828,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
 
   if (companyOperatorDashboardOpen && companyOperatorAccount) {
     return (
-      <div className={`${routePanelClass} min-h-screen`}>
+      <div className={`${routePanelClass} h-dvh overflow-hidden`}>
         <OperatorDashboardScreen
           account={companyOperatorAccount}
           companyAccount={companyAccount}
@@ -889,7 +889,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
 
   if (operatorDashboardOpen && operatorAccount) {
     return (
-      <div className={`${operatorDashboardClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} min-h-screen`}>
+      <div className={`${operatorDashboardClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} h-dvh overflow-hidden`}>
         <OperatorDashboardScreen
           account={operatorAccount}
           companyAccount={companyAccount}

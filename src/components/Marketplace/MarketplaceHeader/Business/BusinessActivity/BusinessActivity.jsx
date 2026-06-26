@@ -1,9 +1,49 @@
+import { useEffect, useRef, useState } from "react";
+
 import { useSellerActivities } from "../../../../../Backend/hooks/useSellerActivities";
 import ActivityItem from "./ActivityItem";
 import ActivitySummary from "./ActivitySummary";
 
-export default function BusinessActivity() {
-  const { activities, summary, loading } = useSellerActivities();
+const ACTIVITY_WIPE_MS = 320;
+
+export default function BusinessActivity({ onViewProduct }) {
+  const { activities, dismissActivity, summary, loading } = useSellerActivities();
+  const [dismissingIds, setDismissingIds] = useState(() => new Set());
+  const [actionBusyId, setActionBusyId] = useState("");
+  const timersRef = useRef([]);
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      timersRef.current = [];
+    };
+  }, []);
+
+  function handleDone(activity) {
+    if (!activity?.id || dismissingIds.has(activity.id)) return;
+
+    setDismissingIds((current) => new Set(current).add(activity.id));
+    const timerId = window.setTimeout(() => {
+      dismissActivity(activity.id);
+      setDismissingIds((current) => {
+        const next = new Set(current);
+        next.delete(activity.id);
+        return next;
+      });
+    }, ACTIVITY_WIPE_MS);
+    timersRef.current.push(timerId);
+  }
+
+  async function handleAction(activity) {
+    if (!activity?.actionLabel || actionBusyId) return;
+
+    try {
+      setActionBusyId(activity.id);
+      await onViewProduct?.(activity);
+    } finally {
+      setActionBusyId("");
+    }
+  }
 
   if (loading) return null;
 
@@ -21,7 +61,14 @@ export default function BusinessActivity() {
 
       <div>
         {activities.map((activity) => (
-          <ActivityItem key={activity.id} activity={activity} />
+          <ActivityItem
+            key={activity.id}
+            actionBusy={actionBusyId === activity.id}
+            activity={activity}
+            dismissing={dismissingIds.has(activity.id)}
+            onAction={handleAction}
+            onDone={handleDone}
+          />
         ))}
       </div>
     </section>

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { fetchSellerActivities } from "../services/marketplace/sellerActivityService";
+import {
+  dismissSellerActivity,
+  fetchSellerActivities,
+} from "../services/marketplace/sellerActivityService";
 
 const SELLER_ACTIVITIES_MEMORY = {
   loaded: false,
@@ -48,6 +51,22 @@ export function useSellerActivities() {
     };
   }, []);
 
+  function updateActivities(updater) {
+    setActivities((current) => {
+      const nextActivities = updater(current);
+      SELLER_ACTIVITIES_MEMORY.loaded = true;
+      SELLER_ACTIVITIES_MEMORY.activities = nextActivities;
+      SELLER_ACTIVITIES_MEMORY.savedAt = Date.now();
+      return nextActivities;
+    });
+  }
+
+  function dismissActivity(activityId) {
+    if (!activityId) return;
+    updateActivities((current) => current.filter((activity) => activity.id !== activityId));
+    dismissSellerActivity(activityId).catch(() => {});
+  }
+
   const summary = useMemo(
     () => ({
       total: activities.length,
@@ -60,6 +79,7 @@ export function useSellerActivities() {
   return {
     activities,
     summary,
+    dismissActivity,
     loading,
     isInitialLoading: loading && !SELLER_ACTIVITIES_MEMORY.loaded,
     refreshing,

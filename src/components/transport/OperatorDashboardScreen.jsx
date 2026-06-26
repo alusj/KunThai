@@ -369,8 +369,8 @@ export default function OperatorDashboardScreen({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
+    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-gray-50">
+      <header className="shrink-0 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
           <AppBackTab
             onBack={onBack}
@@ -490,7 +490,7 @@ export default function OperatorDashboardScreen({
         </div>
       </header>
 
-      <main className="w-full px-3 py-4 sm:px-5 xl:px-8">
+      <main className="min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch]">
         {dashboardError && (
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
             {dashboardError}

@@ -118,21 +118,10 @@ function countByStatus(products, status) {
   return products.filter((product) => product.status === status).length;
 }
 
-export async function fetchSellerProducts() {
-  const business = await readRegisteredBusiness();
-  if (!business) {
-    return { summary: null, products: [], topSellingProducts: [] };
-  }
+function normalizeSellerProduct(product) {
+  if (!product) return null;
 
-  const { data, error } = await supabase
-    .from("marketplace_products")
-    .select("*")
-    .eq("business_id", business.id)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
-
-  const products = (data || []).map((product) => ({
+  return {
     id: product.id,
     name: product.name,
     category: product.category,
@@ -160,7 +149,24 @@ export async function fetchSellerProducts() {
     sales: product.sales,
     revenue: Number(product.revenue || 0),
     trend: product.sales > 0 ? "Selling" : "No sales yet",
-  }));
+  };
+}
+
+export async function fetchSellerProducts() {
+  const business = await readRegisteredBusiness();
+  if (!business) {
+    return { summary: null, products: [], topSellingProducts: [] };
+  }
+
+  const { data, error } = await supabase
+    .from("marketplace_products")
+    .select("*")
+    .eq("business_id", business.id)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  const products = (data || []).map(normalizeSellerProduct).filter(Boolean);
 
   return {
     summary: {
@@ -177,6 +183,50 @@ export async function fetchSellerProducts() {
       .sort((a, b) => b.sales - a.sales)
       .slice(0, 3),
   };
+}
+
+export async function fetchSellerProductById(productId) {
+  if (!productId) return null;
+
+  const business = await readRegisteredBusiness();
+  if (!business) return null;
+
+  const { data, error } = await supabase
+    .from("marketplace_products")
+    .select("*")
+    .eq("business_id", business.id)
+    .eq("id", productId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return normalizeSellerProduct(data);
+}
+
+function extractProductNameFromActivity(activity = {}) {
+  const description = String(activity.description || "").trim();
+  const title = String(activity.title || "").trim();
+  const candidates = [
+    description.match(/^(.+?)\s+was\s+(?:added|saved)/i)?.[1],
+    description.match(/^(.+?)\s+listing details were updated/i)?.[1],
+    title.match(/^(.+?)\s+listing$/i)?.[1],
+  ];
+
+  return candidates.find(Boolean)?.trim() || "";
+}
+
+export async function resolveSellerActivityProduct(activity) {
+  if (!activity) return null;
+
+  if (activity.productId) {
+    const product = await fetchSellerProductById(activity.productId).catch(() => null);
+    if (product) return product;
+  }
+
+  const productName = extractProductNameFromActivity(activity).toLowerCase();
+  if (!productName) return null;
+
+  const productState = await fetchSellerProducts();
+  return productState.products.find((product) => product.name?.trim?.().toLowerCase() === productName) || null;
 }
 
 async function getCurrentUserId() {
@@ -257,6 +307,22 @@ async function updateProductPayload(productId, businessId, payload) {
   }
 
   return { data, error };
+}
+
+async function insertMarketplaceActivity(payload) {
+  let { error } = await supabase.from("marketplace_activities").insert(payload);
+
+  if (error && ["product_id", "action_target"].some((column) => isMissingColumn(error, column))) {
+    const {
+      product_id: _productId,
+      action_target: _actionTarget,
+      ...fallbackPayload
+    } = payload;
+    const fallback = await supabase.from("marketplace_activities").insert(fallbackPayload);
+    error = fallback.error;
+  }
+
+  if (error) throw new Error(error.message);
 }
 
 export async function fetchProductFormOptions() {
@@ -344,14 +410,16 @@ export async function submitSellerProduct(form, onProgress) {
 
   onProgress?.("Updating activity timeline...");
   withTimeout(
-    supabase.from("marketplace_activities").insert({
+    insertMarketplaceActivity({
       business_id: business.id,
+      product_id: data?.id || null,
       activity_type: "product",
       title: status === "draft" ? "Product saved as draft" : "Product added",
       description: `${form.basics.name.trim()} was ${status === "draft" ? "saved as a draft" : "added to your catalog"}.`,
       status: status === "draft" ? "active" : "completed",
       meta: form.basics.category,
       action_label: "View product",
+      action_target: "seller-product-detail",
     }),
     "Activity logging timed out.",
     8000,
@@ -432,14 +500,16 @@ export async function updateSellerProductListing(product, form, onProgress) {
 
   onProgress?.("Updating activity timeline...");
   withTimeout(
-    supabase.from("marketplace_activities").insert({
+    insertMarketplaceActivity({
       business_id: business.id,
+      product_id: product.id,
       activity_type: "product",
       title: "Product listing updated",
       description: `${form.basics.name.trim()} listing details were updated.`,
       status: "completed",
       meta: form.basics.category,
       action_label: "View product",
+      action_target: "seller-product-detail",
     }),
     "Activity logging timed out.",
     8000,
