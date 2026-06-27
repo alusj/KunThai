@@ -1,10 +1,11 @@
-export default function MenuSection({ title, children }) {
+export default function MenuSection({ title, description = "", children }) {
   return (
-    <section className="space-y-1.5">
-      <p className="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 sm:px-5">
-        {title}
-      </p>
-      {children}
+    <section className="min-w-0">
+      <div className="px-2 pb-2">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{title}</p>
+        {description ? <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{description}</p> : null}
+      </div>
+      <div className="space-y-1 rounded-[24px] border border-slate-200 bg-white p-1.5 shadow-sm">{children}</div>
     </section>
   );
 }

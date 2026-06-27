@@ -1,23 +1,67 @@
 import { createPortal } from "react-dom";
-import { HiOutlineArrowLeft } from "react-icons/hi2";
+import {
+  HiOutlineArrowLeft,
+  HiOutlineArrowRightOnRectangle,
+  HiOutlineArrowsRightLeft,
+  HiOutlineBolt,
+  HiOutlineBookmark,
+  HiOutlineChatBubbleLeftRight,
+  HiOutlineCircleStack,
+  HiOutlineCog6Tooth,
+  HiOutlineDevicePhoneMobile,
+  HiOutlineDocumentText,
+  HiOutlineExclamationTriangle,
+  HiOutlineInformationCircle,
+  HiOutlineKey,
+  HiOutlineQuestionMarkCircle,
+  HiOutlineScale,
+  HiOutlineShieldCheck,
+  HiOutlineUserCircle,
+  HiOutlineUserGroup,
+} from "react-icons/hi2";
 
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 
 import MenuSection from "./menu/MenuSection";
-import ActivityMenuItem from "./menu/items/ActivityMenuItem";
-import ConnectionsMenuItem from "./menu/items/ConnectionsMenuItem";
-import HelpCenterMenuItem from "./menu/items/HelpCenterMenuItem";
-import MessagesMenuItem from "./menu/items/MessagesMenuItem";
-import MyPostsMenuItem from "./menu/items/MyPostsMenuItem";
-import PrivacyMenuItem from "./menu/items/PrivacyMenuItem";
-import ProfileMenuItem from "./menu/items/ProfileMenuItem";
-import SavedPostsMenuItem from "./menu/items/SavedPostsMenuItem";
-import SettingsMenuItem from "./menu/items/SettingsMenuItem";
-import SignOutMenuItem from "./menu/items/SignOutMenuItem";
-import SwitchAccountMenuItem from "./menu/items/SwitchAccountMenuItem";
-import TermsPoliciesMenuItem from "./menu/items/TermsPoliciesMenuItem";
+import MenuActionButton from "./menu/MenuActionButton";
 
-export function SocialMenuContent({ onClose, onNavigate }) {
+const MENU_GROUPS = [
+  {
+    title: "Social",
+    description: "Conversations, people, and the things you keep.",
+    items: [
+      ["messages", "Messages", "Open conversations and message requests.", HiOutlineChatBubbleLeftRight],
+      ["connections", "Connections", "Manage your circle and discover people.", HiOutlineUserGroup],
+      ["activity", "Activity", "Review reactions, comments, and social updates.", HiOutlineBolt],
+      ["saved-posts", "Saved Posts", "Return to posts you kept for later.", HiOutlineBookmark],
+      ["my-posts", "My Posts", "View the content you shared.", HiOutlineDocumentText],
+    ],
+  },
+  {
+    title: "Settings & Privacy",
+    description: "Shape how Explore works for you.",
+    items: [
+      ["settings", "Settings", "Notifications, feed, video, and messaging.", HiOutlineCog6Tooth],
+      ["privacy", "Privacy Center", "Audience, messages, activity, and blocks.", HiOutlineShieldCheck],
+      ["security", "Security", "Sign-in protection and account sessions.", HiOutlineKey],
+      ["permissions", "Permissions", "Camera, microphone, location, and alerts.", HiOutlineDevicePhoneMobile],
+      ["data-mobile-use", "Data & Mobile Use", "Media quality, autoplay, and device storage.", HiOutlineCircleStack],
+    ],
+  },
+  {
+    title: "Support & About",
+    description: "Guidance, safety, policies, and product information.",
+    items: [
+      ["help-center", "Help Center", "Search guidance across KunThai services.", HiOutlineQuestionMarkCircle],
+      ["report-problem", "Report a Problem", "Tell support what went wrong.", HiOutlineExclamationTriangle],
+      ["safety-center", "Safety Center", "Reporting, blocking, and safer service use.", HiOutlineShieldCheck],
+      ["terms-policies", "Terms & Policies", "Rules and policies for every KunThai service.", HiOutlineScale],
+      ["about-kunthai", "About KunThai", "Our connected super-app and its services.", HiOutlineInformationCircle],
+    ],
+  },
+];
+
+export function SocialMenuContent({ compact = false, onClose, onNavigate }) {
   const handleSelect = (target) => {
     onClose?.();
 
@@ -30,8 +74,14 @@ export function SocialMenuContent({ onClose, onNavigate }) {
       connections: "Connections",
       privacy: "Privacy",
       settings: "Settings",
+      security: "Security",
+      permissions: "Permissions",
+      "data-mobile-use": "DataMobileUse",
       "help-center": "HelpCenter",
+      "report-problem": "ReportProblem",
+      "safety-center": "SafetyCenter",
       "terms-policies": "TermsPolicies",
+      "about-kunthai": "AboutKunThai",
     };
 
     if (navigationMap[target]) {
@@ -51,33 +101,45 @@ export function SocialMenuContent({ onClose, onNavigate }) {
 
   return (
     <>
-      <div className="grid flex-1 content-start gap-3 overflow-y-auto p-4 sm:p-6 lg:grid-cols-2 xl:grid-cols-3">
-        <MenuSection title="You">
-          <ProfileMenuItem onSelect={handleSelect} />
-          <MyPostsMenuItem onSelect={handleSelect} />
-          <SavedPostsMenuItem onSelect={handleSelect} />
-          <ActivityMenuItem onSelect={handleSelect} />
-        </MenuSection>
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
+        <div className="mx-auto max-w-6xl space-y-5">
+          <div className="rounded-[26px] border border-sky-100 bg-gradient-to-br from-white to-sky-50 p-2 shadow-sm">
+            <MenuActionButton
+              icon={HiOutlineUserCircle}
+              label="Your Explore profile"
+              description="View your public identity, bio, links, and profile activity."
+              tone="strong"
+              onClick={() => handleSelect("profile")}
+            />
+          </div>
 
-        <MenuSection title="Social">
-          <MessagesMenuItem onSelect={handleSelect} />
-          <ConnectionsMenuItem onSelect={handleSelect} />
-        </MenuSection>
+          <div className={`grid gap-5 ${compact ? "grid-cols-1" : "lg:grid-cols-2 xl:grid-cols-3"}`}>
+            {MENU_GROUPS.map((group) => (
+              <MenuSection key={group.title} title={group.title} description={group.description}>
+                {group.items.map(([target, label, description, icon]) => (
+                  <MenuActionButton key={target} icon={icon} label={label} description={description} onClick={() => handleSelect(target)} />
+                ))}
+              </MenuSection>
+            ))}
 
-        <MenuSection title="Preferences">
-          <PrivacyMenuItem onSelect={handleSelect} />
-          <SettingsMenuItem onSelect={handleSelect} />
-        </MenuSection>
-
-        <MenuSection title="Support">
-          <HelpCenterMenuItem onSelect={handleSelect} />
-          <TermsPoliciesMenuItem onSelect={handleSelect} />
-        </MenuSection>
-      </div>
-
-      <div className="grid gap-2 border-t border-slate-200 p-4 sm:p-6 lg:grid-cols-2">
-        <SwitchAccountMenuItem onSwitchAccount={handleSwitchAccount} />
-        <SignOutMenuItem onSignOut={handleSignOut} />
+            <MenuSection title="Account" description="Session controls for this device.">
+              <MenuActionButton
+                icon={HiOutlineArrowsRightLeft}
+                label="Switch Account"
+                description="Choose another account saved on this device."
+                tone="strong"
+                onClick={handleSwitchAccount}
+              />
+              <MenuActionButton
+                icon={HiOutlineArrowRightOnRectangle}
+                label="Sign Out"
+                description="Securely end this KunThai session."
+                tone="danger"
+                onClick={handleSignOut}
+              />
+            </MenuSection>
+          </div>
+        </div>
       </div>
     </>
   );

@@ -32,6 +32,14 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   }, [videos.length]);
 
   useEffect(() => {
+    if (active && feed.hasMore && !feed.loadingMore && videos.length > 0 && activeIndex >= videos.length - 3) {
+      feed.loadMore();
+    }
+    // The feed object is recreated by the hook; page position is the useful trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, activeIndex, videos.length, feed.hasMore, feed.loadingMore]);
+
+  useEffect(() => {
     if (!active) {
       stopAllExploreMedia(null, { muteVideos: false });
     }

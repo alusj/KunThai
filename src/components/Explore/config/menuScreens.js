@@ -1,7 +1,7 @@
 export const MENU_SCREENS = {
   Menu: {
     title: "Social Menu",
-    subtitle: "Choose where to go next in Explore.",
+    subtitle: "Social tools, account controls, support, and trusted information in one place.",
   },
   Profile: {
     title: "Profile",
@@ -36,12 +36,24 @@ export const MENU_SCREENS = {
     subtitle: "Manage your circle and discover people to follow.",
   },
   Privacy: {
-    title: "Privacy",
-    subtitle: "Control who can see your social activity.",
+    title: "Privacy Center",
+    subtitle: "Manage audiences, messages, visibility, blocks, and data choices.",
   },
   Settings: {
     title: "Settings",
-    subtitle: "Tune your Explore experience.",
+    subtitle: "Tune notifications, media, feed behavior, messages, and device preferences.",
+  },
+  Security: {
+    title: "Security",
+    subtitle: "Review sign-in protection, sessions, alerts, and account recovery readiness.",
+  },
+  Permissions: {
+    title: "Permissions",
+    subtitle: "Understand which device permissions KunThai may request and why.",
+  },
+  DataMobileUse: {
+    title: "Data & Mobile Use",
+    subtitle: "Control autoplay, lighter media use, downloads, and temporary device data.",
   },
   SwitchAccount: {
     title: "Switch Account",
@@ -51,9 +63,21 @@ export const MENU_SCREENS = {
     title: "Help Center",
     subtitle: "Guides, reports, support requests, and safety help.",
   },
+  ReportProblem: {
+    title: "Report a Problem",
+    subtitle: "Send a support request with the details KunThai needs to investigate.",
+  },
+  SafetyCenter: {
+    title: "Safety Center",
+    subtitle: "Practical guidance for reports, blocks, trusted transactions, and urgent concerns.",
+  },
   TermsPolicies: {
     title: "Terms & Policies",
     subtitle: "Understand your rights, responsibilities, and safety rules.",
+  },
+  AboutKunThai: {
+    title: "About KunThai",
+    subtitle: "Learn how KunThai brings social, marketplace, transport, and money tools together.",
   },
   ViewedProfile: {
     title: "Profile",

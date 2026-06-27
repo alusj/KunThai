@@ -4,6 +4,7 @@ import { isMissingColumn, isMissingTable } from "./explore/errors";
 import { getCurrentUserProfile } from "./explore/profileService";
 import { buildExploreProfileFromUser } from "./explore/profileStorage";
 import { formatRelativeTime } from "./explore/time";
+import { fetchRecommendedPeople } from "./explore/recommendationService";
 export {
   createExplorePost,
   deleteExplorePost,
@@ -29,6 +30,11 @@ export {
 export { ensureExploreProfile, fetchExploreProfile, getCurrentUserProfile, updateExploreProfile } from "./explore/profileService";
 export { fetchExploreFollowers, fetchExploreFollowing, fetchExploreFollowStats, syncExploreFollow } from "./explore/followService";
 export { fetchExploreProfileStats } from "./explore/profileStatsService";
+export {
+  fetchRecommendedExplorePosts,
+  fetchRecommendedPeople,
+  recordRecommendationSignal,
+} from "./explore/recommendationService";
 
 function readStoredNotifications() {
   try {
@@ -513,6 +519,16 @@ export async function fetchExploreConnections(kind = "discover", profileUserId =
   const currentUserId = profileUserId || (await getCurrentUserId());
 
   if (currentUserId) {
+    if (kind === "discover") {
+      const authenticatedUserId = await getCurrentUserId();
+      if (authenticatedUserId === currentUserId) {
+        const recommendedItems = await fetchRecommendedPeople(currentUserId, 20);
+        if (recommendedItems) {
+          return recommendedItems;
+        }
+      }
+    }
+
     const liveItems = await fetchProfileConnections(kind, currentUserId);
     if (liveItems) {
       return liveItems;

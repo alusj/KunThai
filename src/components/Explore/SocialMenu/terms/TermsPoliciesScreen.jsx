@@ -198,7 +198,78 @@ const policies = [
       },
     ],
   },
+  {
+    id: "cookies",
+    title: "Cookie Policy",
+    icon: HiOutlineArchiveBox,
+    summary: "How browser storage and similar tools support sessions, preferences, safety, and reliability.",
+    updated: "May 9, 2026",
+    overview: "KunThai may use cookies and local browser storage to keep you signed in, remember choices, protect services, and understand whether essential features are working.",
+    sections: [
+      { title: "Essential storage", text: "Some storage is needed for sign-in, security, navigation, and preferences that make the app function correctly." },
+      { title: "Preference storage", text: "KunThai may remember choices such as feed, video, notification, and display preferences on your device." },
+      { title: "Service measurement", text: "Limited reliability information may help identify broken screens, failed requests, and performance problems." },
+      { title: "Your choices", text: "Browser controls can clear stored data, although doing so may sign you out or reset device preferences." },
+    ],
+  },
+  {
+    id: "intellectual-property",
+    title: "Intellectual Property Policy",
+    icon: HiOutlineDocumentText,
+    summary: "Respect for original work, brand identity, ownership claims, and content removal requests.",
+    updated: "May 9, 2026",
+    overview: "People should share work they created or have permission to use. KunThai may review clear reports involving copied media, misleading brand use, or other ownership concerns.",
+    sections: [
+      { title: "Share responsibly", text: "Only upload content, product media, names, and designs you created or are allowed to use." },
+      { title: "Ownership reports", text: "A report should identify the protected work, the KunThai content involved, and why the reporter is authorized to act." },
+      { title: "Fair review", text: "KunThai may request more information before limiting or removing disputed content." },
+      { title: "Repeated misuse", text: "Repeated serious ownership violations may lead to content or account restrictions." },
+    ],
+  },
+  {
+    id: "open-source",
+    title: "Open Source Licenses",
+    icon: HiOutlineCheckBadge,
+    summary: "Notices for open source software that helps power the KunThai experience.",
+    updated: "May 9, 2026",
+    overview: "KunThai is built with open source software from many contributors. Their license notices and attribution requirements remain important parts of the product.",
+    sections: [
+      { title: "Third-party software", text: "The app uses libraries and tools that are licensed separately from KunThai product content." },
+      { title: "License notices", text: "Required notices should be made available with release information as the production license inventory is finalized." },
+      { title: "No ownership transfer", text: "Using KunThai does not change the ownership or license terms of included open source projects." },
+      { title: "Corrections", text: "License or attribution questions can be sent through Help Center for review." },
+    ],
+  },
+  {
+    id: "kunthai-money",
+    title: "KunThai Money Policy",
+    icon: HiOutlineBanknotes,
+    summary: "Account, transfer, payment, fraud-prevention, and transaction-record expectations.",
+    updated: "May 9, 2026",
+    overview: "KunThai Money features should make payment actions clear and traceable. Availability, limits, and verification requirements may differ by service and country.",
+    sections: [
+      { title: "Confirm before paying", text: "Review the recipient, amount, reason, and funding method before approving a payment or transfer." },
+      { title: "Protect access", text: "Never share passwords, one-time codes, or account-recovery details with another person." },
+      { title: "Transaction records", text: "References and status records may be retained for account support, disputes, fraud prevention, and legal requirements." },
+      { title: "Report concerns", text: "Use Help Center promptly when a payment looks unfamiliar, delayed, duplicated, or connected to suspected fraud." },
+    ],
+  },
 ];
+
+const policyOrder = [
+  "community",
+  "terms",
+  "privacy",
+  "cookies",
+  "intellectual-property",
+  "open-source",
+  "marketplace",
+  "transport",
+  "kunthai-money",
+  "content",
+  "data",
+];
+const orderedPolicies = policyOrder.map((id) => policies.find((policy) => policy.id === id)).filter(Boolean);
 
 function PolicyCard({ policy, onClick }) {
   const Icon = policy.icon;
@@ -307,7 +378,7 @@ export default function TermsPoliciesScreen({ hideHeader = false }) {
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {policies.map((policy) => (
+          {orderedPolicies.map((policy) => (
             <PolicyCard key={policy.id} policy={policy} onClick={() => setActiveId(policy.id)} />
           ))}
         </section>

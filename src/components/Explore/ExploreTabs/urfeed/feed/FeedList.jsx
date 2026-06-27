@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollows";
+import { recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import FeedPost from "./components/FeedPost";
@@ -27,6 +28,9 @@ export default function FeedList({
   emptyTitle = "No posts yet",
   emptyMessage = "The feed is empty right now. Be the first to share something.",
   showEmpty = false,
+  onLoadMore,
+  hasMore = false,
+  loadingMore = false,
 }) {
   const [refreshing, setRefreshing] = useState(false);
   const touchStartRef = useRef(null);
@@ -110,8 +114,8 @@ export default function FeedList({
 
       <div className="w-full max-w-full space-y-4 overflow-x-clip">
         {(posts || []).map((post) => (
-          <FeedPost
-            key={post.id}
+          <ObservedFeedPost key={post.id} post={post}>
+            <FeedPost
             post={post}
             profile={profile}
             currentUserId={currentUserId}
@@ -137,13 +141,69 @@ export default function FeedList({
             followed={Boolean(post.user_id && followedUsers.has(post.user_id))}
             onFollow={() => handleFollow(post)}
             isOwner={Boolean(currentUserId && post.user_id === currentUserId)}
-          />
+            />
+          </ObservedFeedPost>
         ))}
       </div>
 
-      <p className="py-5 text-center text-sm font-bold text-slate-400">You are all caught up.</p>
+      {hasMore ? (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          disabled={loadingMore}
+          className="mx-auto mt-5 block rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-sky-700 shadow-sm disabled:opacity-60"
+        >
+          {loadingMore ? "Loading more..." : "Show more"}
+        </button>
+      ) : (
+        <p className="py-5 text-center text-sm font-bold text-slate-400">You are all caught up.</p>
+      )}
     </div>
   );
+}
+
+const IMPRESSION_SESSION = new Set();
+const VIEW_SESSION = new Set();
+
+function ObservedFeedPost({ children, post }) {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node || !post?.id || typeof IntersectionObserver === "undefined") return undefined;
+
+    let viewTimer = null;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          window.clearTimeout(viewTimer);
+          viewTimer = null;
+          return;
+        }
+
+        if (!IMPRESSION_SESSION.has(post.id)) {
+          IMPRESSION_SESSION.add(post.id);
+          recordRecommendationSignal(post, "impression", { surface: "urfeed" }).catch(() => false);
+        }
+
+        if (!VIEW_SESSION.has(post.id) && !viewTimer) {
+          viewTimer = window.setTimeout(() => {
+            VIEW_SESSION.add(post.id);
+            recordRecommendationSignal(post, "view", { surface: "urfeed" }).catch(() => false);
+          }, 1200);
+        }
+      },
+      { threshold: 0.55 },
+    );
+
+    observer.observe(node);
+    return () => {
+      window.clearTimeout(viewTimer);
+      observer.disconnect();
+    };
+  }, [post]);
+
+  return <div ref={containerRef}>{children}</div>;
 }
 
 function FeedListSkeleton() {

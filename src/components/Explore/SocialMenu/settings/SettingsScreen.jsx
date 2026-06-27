@@ -5,9 +5,12 @@ import {
   HiOutlineCircleStack,
   HiOutlineCog6Tooth,
   HiOutlineFilm,
+  HiOutlineKey,
   HiOutlineLanguage,
+  HiOutlineDevicePhoneMobile,
   HiOutlineRectangleStack,
   HiOutlineSignal,
+  HiOutlineShieldCheck,
 } from "react-icons/hi2";
 
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
@@ -73,7 +76,7 @@ function SettingsSection({ children, subtitle, title }) {
   );
 }
 
-export default function SettingsScreen({ hideHeader = false, onSwitchAccount }) {
+export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, onOpenPermissions, onOpenPrivacy, onOpenSecurity, onSwitchAccount }) {
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { notifications, video, feed, messages, account } = settings;
 
@@ -92,6 +95,15 @@ export default function SettingsScreen({ hideHeader = false, onSwitchAccount }) 
           </p>
           {feedback ? <p className="mt-3 text-sm font-black text-sky-700">{feedback}</p> : null}
         </div>
+
+        <SettingsSection title="Control center" subtitle="Open focused account and device controls without losing your place in Settings.">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SettingsShortcut icon={HiOutlineShieldCheck} title="Privacy Center" description="Visibility, messages, blocks, and data choices." onClick={onOpenPrivacy} />
+            <SettingsShortcut icon={HiOutlineKey} title="Security" description="Sign-in protection and account sessions." onClick={onOpenSecurity} />
+            <SettingsShortcut icon={HiOutlineDevicePhoneMobile} title="Permissions" description="Optional camera, microphone, location, and alerts." onClick={onOpenPermissions} />
+            <SettingsShortcut icon={HiOutlineCircleStack} title="Data & Mobile Use" description="Media, bandwidth, autoplay, and device cache." onClick={onOpenDataMobile} />
+          </div>
+        </SettingsSection>
 
         <div className="grid gap-6 xl:grid-cols-2">
           <SettingsSection title="Notifications" subtitle="Choose which actions should light up your bell and alert surfaces.">
@@ -191,5 +203,15 @@ export default function SettingsScreen({ hideHeader = false, onSwitchAccount }) 
         </SettingsSection>
       </div>
     </div>
+  );
+}
+
+function SettingsShortcut({ description, icon: Icon, onClick, title }) {
+  return (
+    <button type="button" onClick={onClick} className="rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-200 hover:bg-sky-50">
+      <span className="grid h-11 w-11 place-items-center rounded-2xl bg-sky-50 text-sky-700"><Icon className="text-xl" /></span>
+      <p className="mt-3 text-sm font-black text-slate-950">{title}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{description}</p>
+    </button>
   );
 }

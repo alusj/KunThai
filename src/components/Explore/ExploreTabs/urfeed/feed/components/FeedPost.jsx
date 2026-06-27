@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AtSign, Hash, MapPin, Megaphone } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
-import { createExploreNotification } from "../../../../../../Backend/services/exploreService";
+import { createExploreNotification, recordRecommendationSignal } from "../../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../comments/CommentsDrawer";
 import PostActions from "../post/PostActions";
 import PostHeader from "../post/PostHeader";
@@ -88,6 +88,7 @@ export default function FeedPost({
 
   async function shareAndNotify() {
     const message = await sharePost(post);
+    recordRecommendationSignal(post, "share", { surface: "urfeed" }).catch(() => false);
     if (post.user_id && post.user_id !== currentUserId) {
       await createExploreNotification({
         user_id: post.user_id,

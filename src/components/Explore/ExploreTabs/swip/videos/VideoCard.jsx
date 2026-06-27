@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Trash2, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
-import { createExploreNotification } from "../../../../../Backend/services/exploreService";
+import { createExploreNotification, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
@@ -90,13 +90,107 @@ export default function VideoCard({
   const quickDeckTimerRef = useRef(null);
   const holdTriggeredRef = useRef(false);
   const activeRef = useRef(false);
+  const playbackSignalRef = useRef({
+    started: false,
+    viewed: false,
+    completionSent: false,
+    watchedSeconds: 0,
+    maxCompletionRate: 0,
+    lastMediaTime: null,
+  });
+  const trackingPostRef = useRef(post);
+  const trackingClipDurationRef = useRef(MAX_SWIP_SECONDS);
   const videoFitClass = fullBleed || fullscreen ? "object-cover" : "object-contain";
 
   const clip = useMemo(() => getClipWindow(post, progress.realDuration || 0), [post, progress.realDuration]);
+  trackingPostRef.current = post;
+  trackingClipDurationRef.current = clip.duration;
 
   useBrowserBack(commentOpen, () => setCommentOpen(false), `swip-comments-${post.id}`);
   useBrowserBack(actionMenuOpen, closeActionMenu, `swip-actions-${post.id}`);
   useBrowserBack(quickDeckOpen, closeQuickDeck, `swip-quick-tools-${post.id}`);
+
+  const startPlaybackSignals = useCallback(() => {
+    const tracking = playbackSignalRef.current;
+    if (tracking.started) return;
+
+    playbackSignalRef.current = {
+      started: true,
+      viewed: false,
+      completionSent: false,
+      watchedSeconds: 0,
+      maxCompletionRate: 0,
+      lastMediaTime: null,
+    };
+    recordRecommendationSignal(trackingPostRef.current, "impression", { surface: "swip" }).catch(() => false);
+  }, []);
+
+  const markPlaybackViewed = useCallback(() => {
+    const tracking = playbackSignalRef.current;
+    if (!tracking.started || tracking.viewed) return;
+    tracking.viewed = true;
+    recordRecommendationSignal(trackingPostRef.current, "view", { surface: "swip" }).catch(() => false);
+  }, []);
+
+  const trackPlaybackProgress = useCallback((video, nextClip) => {
+    const tracking = playbackSignalRef.current;
+    if (!tracking.started || !activeRef.current) return;
+
+    const relativeTime = Math.max(0, video.currentTime - nextClip.start);
+    const previousTime = tracking.lastMediaTime;
+    if (Number.isFinite(previousTime) && relativeTime >= previousTime) {
+      const delta = relativeTime - previousTime;
+      if (delta <= 2) tracking.watchedSeconds += delta;
+    }
+    tracking.lastMediaTime = relativeTime;
+    tracking.maxCompletionRate = Math.max(
+      tracking.maxCompletionRate,
+      Math.min(1, relativeTime / Math.max(nextClip.duration, 0.5)),
+    );
+  }, []);
+
+  const markPlaybackLoopCompleted = useCallback(() => {
+    const tracking = playbackSignalRef.current;
+    if (!tracking.started) return;
+
+    tracking.maxCompletionRate = 1;
+    tracking.lastMediaTime = 0;
+    if (!tracking.completionSent) {
+      tracking.completionSent = true;
+      recordRecommendationSignal(trackingPostRef.current, "complete", {
+        completionRate: 1,
+        surface: "swip",
+      }).catch(() => false);
+      return;
+    }
+
+    recordRecommendationSignal(trackingPostRef.current, "rewatch", {
+      completionRate: 1,
+      surface: "swip",
+    }).catch(() => false);
+  }, []);
+
+  const flushPlaybackSignals = useCallback(() => {
+    const tracking = playbackSignalRef.current;
+    if (!tracking.started) return;
+
+    tracking.started = false;
+    if (tracking.watchedSeconds >= 0.2) {
+      recordRecommendationSignal(trackingPostRef.current, "watch", {
+        value: Math.min(60, tracking.watchedSeconds),
+        completionRate: tracking.maxCompletionRate,
+        surface: "swip",
+      }).catch(() => false);
+    }
+
+    const skipThreshold = Math.max(1.5, trackingClipDurationRef.current * 0.2);
+    if (!tracking.completionSent && tracking.watchedSeconds < skipThreshold) {
+      recordRecommendationSignal(trackingPostRef.current, "skip", {
+        completionRate: tracking.maxCompletionRate,
+        surface: "swip",
+      }).catch(() => false);
+    }
+  }, []);
 
   const pauseInactiveVideo = useCallback((video) => {
     video.pause();
@@ -178,9 +272,10 @@ export default function VideoCard({
       window.clearTimeout(likeBurstTimerRef.current);
       window.clearTimeout(actionMenuTimerRef.current);
       window.clearTimeout(quickDeckTimerRef.current);
+      flushPlaybackSignals();
       stopAllExploreMedia(null, { muteVideos: false });
     },
-    []
+    [flushPlaybackSignals]
   );
 
   useEffect(() => {
@@ -190,13 +285,15 @@ export default function VideoCard({
     activeRef.current = active;
 
     if (active) {
+      startPlaybackSignals();
       video.currentTime = clip.start;
       requestActivePlayback();
       return;
     }
 
+    flushPlaybackSignals();
     pauseInactiveVideo(video);
-  }, [active, post.video_url, clip.start, pauseInactiveVideo, requestActivePlayback]);
+  }, [active, post.video_url, clip.start, flushPlaybackSignals, pauseInactiveVideo, requestActivePlayback, startPlaybackSignals]);
 
   useEffect(() => {
   if (!active) return undefined;
@@ -211,6 +308,7 @@ export default function VideoCard({
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
+    recordRecommendationSignal(post, "share", { surface: "swip" }).catch(() => false);
     if (post.user_id && post.user_id !== currentUserId) {
       await createExploreNotification({
         user_id: post.user_id,
@@ -359,8 +457,10 @@ export default function VideoCard({
     const video = event.currentTarget;
     const realDuration = Number.isFinite(video.duration) ? video.duration : 0;
     const nextClip = getClipWindow(post, realDuration);
+    trackPlaybackProgress(video, nextClip);
 
     if (video.currentTime >= nextClip.end) {
+      markPlaybackLoopCompleted();
       video.currentTime = nextClip.start;
       video.play().catch(() => {});
       setProgress({ currentTime: 0, duration: nextClip.duration, realDuration });
@@ -389,6 +489,7 @@ export default function VideoCard({
     const clampedRelative = Math.min(Math.max(nextTime, 0), nextClip.duration);
 
     video.currentTime = nextClip.start + clampedRelative;
+    playbackSignalRef.current.lastMediaTime = clampedRelative;
 
     setProgress({
       currentTime: clampedRelative,
@@ -496,12 +597,14 @@ export default function VideoCard({
       ([entry]) => {
         if (entry.isIntersecting && active) {
           activeRef.current = true;
+          startPlaybackSignals();
           video.currentTime = clip.start;
           requestActivePlayback();
           return;
         }
 
         activeRef.current = false;
+        flushPlaybackSignals();
         pauseInactiveVideo(video);
       },
       { threshold: 0.72 }
@@ -513,7 +616,7 @@ export default function VideoCard({
       observer.disconnect();
       pauseInactiveVideo(video);
     };
-  }, [active, post.video_url, clip.start, pauseInactiveVideo, requestActivePlayback]);
+  }, [active, post.video_url, clip.start, flushPlaybackSignals, pauseInactiveVideo, requestActivePlayback, startPlaybackSignals]);
 
 
 
@@ -571,7 +674,10 @@ export default function VideoCard({
           if (activeRef.current || active) requestActivePlayback();
         }}
         onLoadStart={() => setVideoLoading(true)}
-        onPlaying={() => setVideoLoading(false)}
+        onPlaying={() => {
+          setVideoLoading(false);
+          markPlaybackViewed();
+        }}
         onStalled={() => setVideoLoading(true)}
         onWaiting={() => setVideoLoading(true)}
         onDurationChange={(event) => updateVideoProgress(event.currentTarget)}

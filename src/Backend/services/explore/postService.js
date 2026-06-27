@@ -184,13 +184,15 @@ function canCurrentUserViewPost(post, context) {
   return false;
 }
 
-export async function fetchExplorePosts(scope = "feed") {
+export async function fetchExplorePosts(scope = "feed", options = {}) {
   const context = await getCurrentUserContext();
+  const limit = Math.max(1, Math.min(Number(options.limit) || 30, 50));
+  const offset = Math.max(0, Number(options.offset) || 0);
   let query = supabase
     .from("explore_posts")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .range(offset, offset + limit - 1);
 
   if (scope !== "swip") {
     query = query.eq("feed_scope", scope);
@@ -203,7 +205,7 @@ export async function fetchExplorePosts(scope = "feed") {
       .from("explore_posts")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .range(offset, offset + limit - 1);
 
     data = fallback.data;
     error = fallback.error;

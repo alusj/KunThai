@@ -25,9 +25,11 @@ import {
   fetchCurrentUserReactions,
   fetchExplorePostCounts,
   fetchExplorePosts,
+  fetchRecommendedExplorePosts,
   getCurrentUserProfile,
   isExplorePostVisibleInFeed,
   reportExplorePost,
+  recordRecommendationSignal,
   syncExploreReaction,
   updateExplorePost,
   updateExplorePostCounts,
@@ -55,7 +57,18 @@ function mergePosts(remotePosts, localPosts) {
     merged.set(post.id, existing ? { ...existing, ...post } : post);
   });
 
-  return Array.from(merged.values()).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  return Array.from(merged.values()).sort((a, b) => {
+    const aScore = Number(a.recommendation_score ?? a.score);
+    const bScore = Number(b.recommendation_score ?? b.score);
+    const hasRankedPost = Number.isFinite(aScore) || Number.isFinite(bScore);
+
+    if (hasRankedPost) {
+      const scoreDifference = (Number.isFinite(bScore) ? bScore : 0) - (Number.isFinite(aScore) ? aScore : 0);
+      if (scoreDifference !== 0) return scoreDifference;
+    }
+
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  });
 }
 
 function getPostMediaType(post) {
@@ -95,6 +108,9 @@ function postBelongsInScope(post = {}, scope = "feed") {
   const feedScope = post.feed_scope || "feed";
 
   if (scope === "swip") return hasVideo;
+  if (scope === "feed" && post.recommendation_surface === "feed") {
+    return !hasVideo || (isAdvert && hasImage);
+  }
   if (feedScope !== scope) return false;
   if (!hasVideo) return true;
   return isAdvert && hasImage;
@@ -172,6 +188,7 @@ function applyCurrentProfileToPost(post, profile) {
 
 const FEED_MEMORY = new Map();
 const FEED_MEMORY_TTL = 900_000;
+const FEED_PAGE_SIZE = 24;
 
 function readFeedMemory(scope) {
   const cached = FEED_MEMORY.get(scope);
@@ -201,6 +218,8 @@ export function useExploreFeed(scope = "feed") {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [likedPosts, setLikedPosts] = useState(() => memory?.likedPosts || readStoredSet(LIKE_STORAGE_KEY));
   const [savedPosts, setSavedPosts] = useState(() => memory?.savedPosts || readStoredSet(SAVE_STORAGE_KEY));
   const [hiddenPosts, setHiddenPosts] = useState(() => readStoredSet(HIDE_STORAGE_KEY));
@@ -210,6 +229,7 @@ export function useExploreFeed(scope = "feed") {
   const savedPostsRef = useRef(savedPosts);
   const loadIdRef = useRef(0);
   const pendingReactionRef = useRef(new Set());
+  const nextOffsetRef = useRef(initialPosts.filter((post) => !isLocalPost(post)).length);
 
   useEffect(() => {
     postsRef.current = posts;
@@ -259,7 +279,9 @@ export function useExploreFeed(scope = "feed") {
     try {
       setError("");
       const [rawPosts, reactions, currentProfile] = await Promise.all([
-        fetchExplorePosts(scope),
+        ["feed", "swip"].includes(scope)
+          ? fetchRecommendedExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset: 0 })
+          : fetchExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset: 0 }),
         fetchCurrentUserReactions(),
         getCurrentUserProfile(),
       ]);
@@ -272,6 +294,8 @@ export function useExploreFeed(scope = "feed") {
         feed_query_result_count: rawPosts.length,
       });
       const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
+      nextOffsetRef.current = rawPosts.length;
+      setHasMore(rawPosts.length === FEED_PAGE_SIZE);
       setCurrentUserId(currentProfile?.id || "");
 
       const nextLikedPosts = buildRemoteReactionSet(reactions.likes);
@@ -326,6 +350,36 @@ export function useExploreFeed(scope = "feed") {
       writeStoredSet(SAVE_STORAGE_KEY, nextSavedPosts);
     } catch {
       // Keep local reaction state if the network is unavailable.
+    }
+  }
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) {
+      return;
+    }
+
+    const offset = nextOffsetRef.current;
+    setLoadingMore(true);
+
+    try {
+      const [rawPosts, currentProfile] = await Promise.all([
+        ["feed", "swip"].includes(scope)
+          ? fetchRecommendedExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset })
+          : fetchExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset }),
+        getCurrentUserProfile(),
+      ]);
+      const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
+      nextOffsetRef.current = offset + rawPosts.length;
+      setHasMore(rawPosts.length === FEED_PAGE_SIZE);
+      setPosts((current) => {
+        const mergedPosts = mergePosts(nextPosts, current);
+        writeStoredPosts(scope, mergedPosts);
+        return mergedPosts;
+      });
+    } catch {
+      // Keep the current page stable; the user can retry by scrolling again.
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -810,6 +864,11 @@ export function useExploreFeed(scope = "feed") {
   }
 
   function hidePost(postId) {
+    const targetPost = postsRef.current.find((post) => post.id === postId);
+    if (targetPost) {
+      recordRecommendationSignal(targetPost, "hide", { surface: scope }).catch(() => false);
+    }
+
     setHiddenPosts((current) => {
       const next = new Set(current);
       next.add(postId);
@@ -877,11 +936,14 @@ export function useExploreFeed(scope = "feed") {
     isRefreshing: refreshing,
     error,
     creating,
+    loadingMore,
+    hasMore,
     likedPosts,
     savedPosts,
     reload() {
       return load({ force: true });
     },
+    loadMore,
     submitPost,
     toggleLike(postId) {
       return toggleReaction(postId, "like");

@@ -21,14 +21,19 @@ import Swip from "./ExploreTabs/swip/Swip";
 import Connections from "./ExploreTabs/connections/Connections"
 import Notifications from "./ExploreTabs/notification/Notifications";
 import ActivityScreen from "./SocialMenu/activity/ActivityScreen";
+import AboutKunThaiScreen from "./SocialMenu/about/AboutKunThaiScreen";
 import HelpCenterScreen from "./SocialMenu/help/HelpCenterScreen";
 import MessagesScreen from "./SocialMenu/messages/MessagesScreen";
 import MyPostsScreen from "./SocialMenu/myPosts/MyPostsScreen";
 import PrivacyScreen from "./SocialMenu/privacy/PrivacyScreen";
+import PermissionsScreen from "./SocialMenu/permissions/PermissionsScreen";
 import ProfileEditScreen from "./SocialMenu/profile/ProfileEditScreen";
 import ProfileScreen from "./SocialMenu/profile/ProfileScreen";
 import SavedPostsScreen from "./SocialMenu/savedPosts/SavedPostsScreen";
 import SettingsScreen from "./SocialMenu/settings/SettingsScreen";
+import DataMobileUseScreen from "./SocialMenu/settings/DataMobileUseScreen";
+import SecurityScreen from "./SocialMenu/security/SecurityScreen";
+import SafetyCenterScreen from "./SocialMenu/safety/SafetyCenterScreen";
 import SocialScreenHeader from "./SocialMenu/shared/SocialScreenHeader";
 import TermsPoliciesScreen from "./SocialMenu/terms/TermsPoliciesScreen";
 import SwitchAccountScreen from "./SocialMenu/account/SwitchAccountScreen";
@@ -668,11 +673,32 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (screenKey === "Privacy") {
-      return <PrivacyScreen hideHeader />;
+      return <PrivacyScreen hideHeader onOpenPermissions={() => openMenuScreen("Permissions")} />;
     }
 
     if (screenKey === "Settings") {
-      return <SettingsScreen hideHeader onSwitchAccount={() => openMenuScreen("SwitchAccount")} />;
+      return (
+        <SettingsScreen
+          hideHeader
+          onOpenDataMobile={() => openMenuScreen("DataMobileUse")}
+          onOpenPermissions={() => openMenuScreen("Permissions")}
+          onOpenPrivacy={() => openMenuScreen("Privacy")}
+          onOpenSecurity={() => openMenuScreen("Security")}
+          onSwitchAccount={() => openMenuScreen("SwitchAccount")}
+        />
+      );
+    }
+
+    if (screenKey === "Security") {
+      return <SecurityScreen hideHeader onOpenHelp={() => openMenuScreen("HelpCenter")} onSwitchAccount={() => openMenuScreen("SwitchAccount")} />;
+    }
+
+    if (screenKey === "Permissions") {
+      return <PermissionsScreen hideHeader onOpenPrivacy={() => openMenuScreen("Privacy")} />;
+    }
+
+    if (screenKey === "DataMobileUse") {
+      return <DataMobileUseScreen hideHeader />;
     }
 
     if (screenKey === "SwitchAccount") {
@@ -683,8 +709,27 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       return <HelpCenterScreen hideHeader />;
     }
 
+    if (screenKey === "ReportProblem") {
+      return <HelpCenterScreen focusReport hideHeader />;
+    }
+
+    if (screenKey === "SafetyCenter") {
+      return (
+        <SafetyCenterScreen
+          hideHeader
+          onOpenPrivacy={() => openMenuScreen("Privacy")}
+          onOpenReport={() => openMenuScreen("ReportProblem")}
+          onOpenTerms={() => openMenuScreen("TermsPolicies")}
+        />
+      );
+    }
+
     if (screenKey === "TermsPolicies") {
       return <TermsPoliciesScreen hideHeader />;
+    }
+
+    if (screenKey === "AboutKunThai") {
+      return <AboutKunThaiScreen hideHeader onOpenTerms={() => openMenuScreen("TermsPolicies")} />;
     }
 
     return null;
@@ -866,6 +911,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             </div>
           </header>
           <SocialMenuContent
+            compact
             onClose={() => setLeftDrawerOpen(false)}
             onNavigate={(screen, options) => {
               setLeftDrawerOpen(false);
