@@ -93,6 +93,25 @@ export async function findKunThaiAccount({ email, phone, country = "" }) {
   };
 }
 
+export async function getKunThaiAccountEmailHint({ phone, country = "" }) {
+  const normalizedPhone = normalizePhoneForIdentity(phone, country);
+  const { data, error } = await supabase.rpc("get_kunthai_account_email_hint", {
+    input_country: typeof country === "object" ? country.iso2 || country.name || "" : country,
+    input_phone: normalizedPhone,
+  });
+
+  if (error) {
+    throw new Error("We could not securely load the email hint.");
+  }
+
+  const result = firstRpcRow(data) || {};
+  if (result.rate_limited) {
+    throw new Error("Too many recovery attempts. Please wait 15 minutes and try again.");
+  }
+
+  return result.hint_found ? result.masked_email || "" : "";
+}
+
 export async function sendKunThaiAccountVerificationLink(email, redirectTo) {
   const normalizedEmail = normalizeEmailForIdentity(email);
   const { error } = await supabase.auth.signInWithOtp({

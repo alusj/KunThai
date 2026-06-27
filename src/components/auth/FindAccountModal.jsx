@@ -3,6 +3,7 @@ import { ArrowLeft, Mail, ShieldCheck, X } from "lucide-react";
 
 import {
   findKunThaiAccount,
+  getKunThaiAccountEmailHint,
   sendKunThaiAccountVerificationLink,
 } from "../../Backend/services/accountIdentityService";
 
@@ -14,6 +15,8 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
   const [account, setAccount] = useState(null);
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hintLoading, setHintLoading] = useState(true);
+  const [emailHint, setEmailHint] = useState("");
   const [error, setError] = useState("");
   const emailRef = useRef(null);
 
@@ -27,6 +30,26 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  useEffect(() => {
+    let active = true;
+
+    setHintLoading(true);
+    getKunThaiAccountEmailHint({ phone, country })
+      .then((hint) => {
+        if (active) setEmailHint(hint);
+      })
+      .catch(() => {
+        if (active) setEmailHint("");
+      })
+      .finally(() => {
+        if (active) setHintLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [country, phone]);
 
   async function handleLookup(event) {
     event.preventDefault();
@@ -141,8 +164,14 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
           ) : (
             <form onSubmit={handleLookup} className="mt-4 space-y-4">
               <p className="text-sm leading-6 text-slate-600">
-                Enter the email connected to the phone number you just used.
+                Use the hint below, then enter the full email to verify the match.
               </p>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                <span className="text-sm font-semibold text-blue-700">Email hint</span>
+                <span className="min-w-0 break-all text-right text-sm font-bold text-slate-950" aria-live="polite">
+                  {hintLoading ? "Loading..." : emailHint || "Not available"}
+                </span>
+              </div>
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-slate-700">Connected email</span>
                 <input
@@ -150,7 +179,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="name@example.com"
+                  placeholder="Enter the full email"
                   autoComplete="email"
                   required
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
