@@ -91,7 +91,7 @@ The second argument appoints a `super_admin` when `true` and a `chief_admin` whe
 
 All production administrators must complete TOTP multi-factor authentication. The service-role key must never be exposed to the browser.
 
-Scheduled notification delivery calls `/api/admin-publish-scheduled` every ten minutes. Configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET` in the server deployment environment.
+Scheduled notification delivery calls `/api/admin-publish-scheduled` once daily at 00:00 UTC on the Vercel Hobby plan. Configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET` in the server deployment environment.
 
 During local development only, `/admin?preview=chief` opens a non-production Chief Admin preview with sample operational data. Production builds remove this preview path.
 
