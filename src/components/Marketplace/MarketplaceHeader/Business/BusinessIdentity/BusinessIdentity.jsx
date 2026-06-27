@@ -2,7 +2,7 @@ import { getActiveCountryProfile } from "../../../../../data/westAfricanCountryP
 import BusinessStatus from "./BusinessStatus";
 import EditBusinessButton from "./EditBusinessButton";
 
-export default function BusinessIdentity() {
+export default function BusinessIdentity({ onEditProfile }) {
   const countryProfile = getActiveCountryProfile();
 
   return (
@@ -16,7 +16,7 @@ export default function BusinessIdentity() {
         <BusinessStatus status="open" />
       </div>
 
-      <EditBusinessButton />
+      <EditBusinessButton onClick={onEditProfile} />
     </section>
   );
 }

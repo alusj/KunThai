@@ -1,4 +1,3 @@
-const OPEN_ROUTE_SERVICE_KEY = import.meta.env.VITE_OPENROUTESERVICE_KEY;
 const ROUTE_API_PATH = "/api/route-directions";
 
 function hasValidPoint(point) {
@@ -90,28 +89,6 @@ async function getRouteFromServer(start, end) {
   return parseRouteResponse(response);
 }
 
-async function getRouteFromOpenRouteService(start, end) {
-  if (!OPEN_ROUTE_SERVICE_KEY) {
-    throw new Error("Missing OPENROUTESERVICE_KEY");
-  }
-
-  const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
-    method: "POST",
-    headers: {
-      Authorization: OPEN_ROUTE_SERVICE_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      coordinates: [
-        [start.lng, start.lat],
-        [end.lng, end.lat],
-      ],
-    }),
-  });
-
-  return parseRouteResponse(response);
-}
-
 async function getRouteFromOsrm(start, end) {
   const params = new URLSearchParams({
     overview: "full",
@@ -144,13 +121,7 @@ export async function getRouteBetweenPoints(start, end) {
   const normalizedStart = normalizePoint(start);
   const normalizedEnd = normalizePoint(end);
 
-  const routeAttempts = [getRouteFromServer];
-
-  if (OPEN_ROUTE_SERVICE_KEY) {
-    routeAttempts.push(getRouteFromOpenRouteService);
-  }
-
-  routeAttempts.push(getRouteFromOsrm);
+  const routeAttempts = [getRouteFromServer, getRouteFromOsrm];
 
   for (const attempt of routeAttempts) {
     try {

@@ -1,19 +1,10 @@
-// src/components/Marketplace/MarketplaceHeader/Business/BusinessIdentity/EditBusinessButton.jsx
-
-/**
- * EditBusinessButton
- * ------------------
- * Call-to-action for editing business profile.
- * Navigation logic can be added later.
- */
-
-export default function EditBusinessButton() {
+export default function EditBusinessButton({ onClick }) {
   return (
     <button
-      className="w-full rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-      onClick={() => {
-        console.log("Edit business clicked");
-      }}
+      type="button"
+      className="w-full rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+      disabled={typeof onClick !== "function"}
+      onClick={onClick}
     >
       Edit Business Profile
     </button>

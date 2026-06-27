@@ -1,6 +1,6 @@
 import SuggestedProductCard from "./SuggestedProductCard";
 
-export default function SuggestedProducts({ products }) {
+export default function SuggestedProducts({ onPromote, products }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <h3 className="text-lg font-black text-gray-950">Suggested products to promote</h3>
@@ -10,7 +10,7 @@ export default function SuggestedProducts({ products }) {
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         {products.map((product) => (
-          <SuggestedProductCard key={product.id} product={product} />
+          <SuggestedProductCard key={product.id} onPromote={onPromote} product={product} />
         ))}
       </div>
     </section>

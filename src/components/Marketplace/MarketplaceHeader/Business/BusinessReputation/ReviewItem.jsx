@@ -1,6 +1,6 @@
 import ReviewStars from "./ReviewStars";
 
-export default function ReviewItem({ review, showRespond = false }) {
+export default function ReviewItem({ onRespond, review, showRespond = false }) {
   return (
     <article className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
@@ -24,8 +24,9 @@ export default function ReviewItem({ review, showRespond = false }) {
       {showRespond ? (
         <button
           type="button"
-          className="mt-3 rounded-lg border border-gray-200 px-3 py-2 text-xs font-black text-gray-800 hover:bg-gray-50"
-          onClick={() => console.log("Respond to review", review.id)}
+          className="mt-3 rounded-lg border border-gray-200 px-3 py-2 text-xs font-black text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={typeof onRespond !== "function"}
+          onClick={() => onRespond?.(review)}
         >
           Respond
         </button>

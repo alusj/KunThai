@@ -23,7 +23,30 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', {
+        argsIgnorePattern: '^[A-Z_]',
+        varsIgnorePattern: '^(motion|[A-Z_])',
+      }],
+    },
+  },
+  {
+    files: ['api/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+  },
+  {
+    files: [
+      'src/components/Marketplace/shared/MarketplaceVerification.jsx',
+      'src/components/shared/AddressAreaValidation.jsx',
+      'src/components/shared/SlideTransition.jsx',
+      'src/components/shared/motion.jsx',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

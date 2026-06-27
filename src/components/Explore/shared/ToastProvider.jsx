@@ -60,18 +60,20 @@ export default function ToastProvider({ children }) {
   }
 
   useEffect(() => {
+    const timers = timersRef.current;
+
     function handleToast(event) {
       const toast = { ...(event.detail || {}), leaving: false };
       setItems((current) => [toast, ...current].slice(0, 4));
       const timer = window.setTimeout(() => dismissToast(toast.id), Number(toast.duration || 3600));
-      timersRef.current.set(toast.id, timer);
+      timers.set(toast.id, timer);
     }
 
     window.addEventListener(TOAST_EVENT, handleToast);
     return () => {
       window.removeEventListener(TOAST_EVENT, handleToast);
-      timersRef.current.forEach((timer) => window.clearTimeout(timer));
-      timersRef.current.clear();
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
     };
   }, []);
 

@@ -1,4 +1,4 @@
-import { Component, useEffect, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
@@ -43,11 +43,11 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     stopAllExploreMedia(null, { muteVideos: false });
   }, []);
 
-  function dispatchSwipActivePlay(sound = true) {
+  const dispatchSwipActivePlay = useCallback((sound = true) => {
     window.dispatchEvent(new CustomEvent("swip-active-play", { detail: { sound } }));
-  }
+  }, []);
 
-  function requestSwipActivePlay(delay = 0, sound = true) {
+  const requestSwipActivePlay = useCallback((delay = 0, sound = true) => {
     window.clearTimeout(scrollPlayTimerRef.current);
     if (delay <= 0) {
       dispatchSwipActivePlay(sound);
@@ -57,7 +57,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     scrollPlayTimerRef.current = window.setTimeout(() => {
       dispatchSwipActivePlay(sound);
     }, delay);
-  }
+  }, [dispatchSwipActivePlay]);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -92,7 +92,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     });
 
     return () => observer.disconnect();
-  }, [videos.length]);
+  }, [requestSwipActivePlay, videos.length]);
 
   function lockWheel() {
     wheelLockedRef.current = true;
@@ -124,13 +124,10 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       stopAllExploreMedia(null, { muteVideos: false });
       setActiveIndex(focusedVideoIndex);
       node.scrollIntoView({ behavior: "smooth", block: "start" });
-      window.clearTimeout(scrollPlayTimerRef.current);
-      scrollPlayTimerRef.current = window.setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("swip-active-play", { detail: { sound: true } }));
-      }, 160);
+      requestSwipActivePlay(160, true);
     }, 80);
     return () => window.clearTimeout(timer);
-  }, [active, focusedVideoIndex]);
+  }, [active, focusedVideoIndex, requestSwipActivePlay]);
 
  function handleWheel(event) {
   if (event.cancelable) {

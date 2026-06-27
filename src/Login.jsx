@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FaApple } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
 
 import supabase from "./Backend/lib/supabaseClient";
 import FlagIcon from "./components/FlagIcon";
@@ -18,7 +20,16 @@ import {
   getActiveCountryProfile,
   storeCountryContext,
 } from "./data/westAfricanCountryProfiles";
-import { consumeSwitchAccountPrefill } from "./Backend/services/sessionService";
+import {
+  clearOAuthFlow,
+  consumeSwitchAccountPrefill,
+  rememberOAuthFlow,
+} from "./Backend/services/sessionService";
+import {
+  isPhoneAlreadyLinkedError,
+  PHONE_ALREADY_LINKED_MESSAGE,
+} from "./Backend/services/accountIdentityService";
+import FindAccountModal from "./components/auth/FindAccountModal";
 
 function AuthMessage({ tone = "info", children }) {
   const tones = {
@@ -87,7 +98,18 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
             {country.dialCode}
           </span>
         ) : null}
-        <span className="text-slate-400">v</span>
+        <svg
+  className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
+  viewBox="0 0 20 20"
+  fill="currentColor"
+  aria-hidden="true"
+>
+  <path
+    fillRule="evenodd"
+    d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+    clipRule="evenodd"
+  />
+</svg>
       </button>
 
       {open ? (
@@ -138,7 +160,7 @@ function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "P
           value={phone}
           onChange={(event) => onPhoneChange(event.target.value)}
           placeholder={country.placeholder}
-          className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           required
         />
       </div>
@@ -192,7 +214,6 @@ const buildPhoneForAuth = (value, country) => {
 
   return `${country.dialCode}${normalizePhoneDigits(trimmed, country)}`;
 };
-
 export default function Login() {
   const [mode, setMode] = useState("signin");
   const [signupStep, setSignupStep] = useState("options");
@@ -214,6 +235,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [phoneConflict, setPhoneConflict] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryPhone, setRecoveryPhone] = useState("");
 
   const redirectTo = window.location.origin;
   const isPhoneSignup = mode === "signup" && signupMethod === "Phone";
@@ -234,6 +258,7 @@ export default function Login() {
   function resetMessages() {
     setError("");
     setMessage("");
+    setPhoneConflict(false);
   }
 
   function switchMode(nextMode) {
@@ -243,18 +268,24 @@ export default function Login() {
     setConfirmPassword("");
     setOtpCode("");
     setPendingPhone("");
+    setRecoveryOpen(false);
+    setRecoveryPhone("");
     resetMessages();
   }
 
-  async function handleOAuth(provider) {
+  async function handleOAuth(provider, intent = "signin") {
     try {
       resetMessages();
       setProviderLoading(provider);
+      rememberOAuthFlow(provider, intent);
 
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo,
+          queryParams: provider === "google"
+            ? { prompt: intent === "signup" ? "select_account consent" : "select_account" }
+            : undefined,
         },
       });
 
@@ -262,6 +293,7 @@ export default function Login() {
         throw authError;
       }
     } catch (err) {
+      clearOAuthFlow();
       setError(err.message || `Failed to continue with ${provider}.`);
     } finally {
       setProviderLoading("");
@@ -290,10 +322,6 @@ export default function Login() {
   }
 
   function validatePhoneSignup() {
-    if (!isPhoneSignup) {
-      return true;
-    }
-
     return validatePhoneDigits(phoneDigits, selectedCountry);
   }
 
@@ -337,22 +365,31 @@ export default function Login() {
       resetMessages();
       setLoading(true);
 
+      const signupPhone = buildPhoneForAuth(phoneNumber, selectedCountry);
+
       const { error: authError } = isPhoneSignup
-        ? await signUpWithPhone(`${selectedCountry.dialCode}${phoneDigits}`, password)
-        : await signUpWithEmailAccount(email, password, redirectTo);
+        ? await signUpWithPhone(signupPhone, password, selectedCountry)
+        : await signUpWithEmailAccount(email, signupPhone, password, redirectTo, selectedCountry);
 
       if (authError) {
         throw authError;
       }
 
       if (isPhoneSignup) {
-        setPendingPhone(`${selectedCountry.dialCode}${phoneDigits}`);
+        setPendingPhone(signupPhone);
         setSignupStep("otp");
         setMessage("OTP sent. Please verify your phone number.");
       } else {
         setMessage("Verification sent. Please check your email.");
       }
     } catch (err) {
+      if (isPhoneAlreadyLinkedError(err)) {
+        setPhoneConflict(true);
+        setRecoveryPhone(buildPhoneForAuth(phoneNumber, selectedCountry));
+        setError(PHONE_ALREADY_LINKED_MESSAGE);
+        return;
+      }
+
       setError(err.message || "Unable to create your account.");
     } finally {
       setLoading(false);
@@ -435,38 +472,41 @@ export default function Login() {
               {loading ? "Logging In..." : "Log in with Phone / Email"}
             </button>
 
-            <div className="space-y-3 pt-2">
+            <div className="flex items-center gap-4 py-2">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                OR
+              </span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <div className="space-y-3 pt-1">
               <button
                 type="button"
                 onClick={() => handleOAuth("google")}
                 disabled={isLoading}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               >
-                {providerLoading === "google"
-                  ? "Connecting Google..."
-                  : "Sign in with Google"}
+                <FcGoogle className="h-6 w-6 shrink-0" aria-hidden="true" />
+                <span>
+                  {providerLoading === "google"
+                    ? "Connecting Google..."
+                    : "Continue with Google"}
+                </span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleOAuth("facebook")}
+                onClick={() => handleOAuth("apple")}
                 disabled={isLoading}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               >
-                {providerLoading === "facebook"
-                  ? "Connecting Facebook..."
-                  : "Sign in with Facebook"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setMessage("KunTaiMoney sign in will be connected next.")
-                }
-                disabled={isLoading}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-              >
-                Sign in with KunTaiMoney
+                <FaApple className="h-7 w-7 shrink-0 text-black" aria-hidden="true" />
+                <span>
+                  {providerLoading === "apple"
+                    ? "Connecting Apple..."
+                    : "Continue with Apple"}
+                </span>
               </button>
             </div>
           </form>
@@ -476,13 +516,16 @@ export default function Login() {
           <div className="mt-8 space-y-3">
             <button
               type="button"
-              onClick={() => handleOAuth("google")}
+              onClick={() => handleOAuth("google", "signup")}
               disabled={isLoading}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
-              {providerLoading === "google"
-                ? "Connecting Google..."
-                : "Sign up with Google"}
+              <FcGoogle className="h-6 w-6 shrink-0" aria-hidden="true" />
+              <span>
+                {providerLoading === "google"
+                  ? "Creating Google account..."
+                  : "Sign up with Google"}
+              </span>
             </button>
 
             <button
@@ -527,15 +570,24 @@ export default function Login() {
                 onPhoneChange={setPhoneNumber}
               />
             ) : (
-              <AuthInput
-                label="Email Account"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="Enter email account"
-                autoComplete="email"
-                required
-              />
+              <>
+                <AuthInput
+                  label="Email Account"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="Enter email account"
+                  autoComplete="email"
+                  required
+                />
+                <PhoneInput
+                  country={selectedCountry}
+                  phone={phoneNumber}
+                  onCountryChange={setSelectedCountry}
+                  onPhoneChange={setPhoneNumber}
+                  label="Phone Number"
+                />
+              </>
             )}
 
             <AuthInput
@@ -645,8 +697,32 @@ export default function Login() {
         <div className="space-y-3">
           {message && <AuthMessage tone="success">{message}</AuthMessage>}
           {error && <AuthMessage tone="danger">{error}</AuthMessage>}
+          {phoneConflict ? (
+            <button
+              type="button"
+              onClick={() => setRecoveryOpen(true)}
+              className="w-full rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+            >
+              Find my account
+            </button>
+          ) : null}
         </div>
       </div>
+
+      {recoveryOpen ? (
+        <FindAccountModal
+          country={selectedCountry}
+          phone={recoveryPhone}
+          redirectTo={redirectTo}
+          onClose={() => setRecoveryOpen(false)}
+          onTryAnotherNumber={() => {
+            setRecoveryOpen(false);
+            setPhoneNumber("");
+            setRecoveryPhone("");
+            resetMessages();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

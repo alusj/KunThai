@@ -1,4 +1,5 @@
 import { useSellerPromotions } from "../../../../../Backend/hooks/useSellerPromotions";
+import { showToast } from "../../../../../Backend/services/toastService";
 import ActivePromotions from "./ActivePromotions";
 import CampaignOpportunities from "./CampaignOpportunities";
 import PromotionPerformance from "./PromotionPerformance";
@@ -27,6 +28,14 @@ export default function BusinessPromotions() {
     );
   }
 
+  function handleCreatePromotion() {
+    showToast(
+      "Choose Promote from a product row to create a promotion draft for that item.",
+      "info",
+      { title: "Promotion setup" },
+    );
+  }
+
   return (
     <section className="space-y-4">
       <div>
@@ -40,8 +49,8 @@ export default function BusinessPromotions() {
       </div>
 
       <PromotionPerformance performance={performance} />
-      <ActivePromotions promotions={activePromotions} />
-      <SuggestedProducts products={suggestedProducts} />
+      <ActivePromotions onCreate={handleCreatePromotion} promotions={activePromotions} />
+      <SuggestedProducts onPromote={handleCreatePromotion} products={suggestedProducts} />
       <CampaignOpportunities opportunities={opportunities} />
     </section>
   );

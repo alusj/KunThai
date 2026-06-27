@@ -1,54 +1,54 @@
-// src/components/Marketplace/MarketplaceHeader/Business/BusinessActions/SmartActions.jsx
+import { Megaphone, MessageCircle, Package, Plus, Settings } from "lucide-react";
 
-import ActionButton from "./ActionButton";
 import ActionBadge from "./ActionBadge";
+import ActionButton from "./ActionButton";
 
-/**
- * SmartActions
- * - High-priority actions for the business owner
- * - Supports badges (orders, messages, alerts)
- */
-
-export default function SmartActions() {
+export default function SmartActions({
+  messageCount = 0,
+  onAddProduct,
+  onManageStore,
+  onMessages,
+  onPromote,
+  onViewOrders,
+  orderCount = 0,
+}) {
   return (
     <div className="grid grid-cols-2 gap-4">
-      
       <ActionButton
-        icon="➕"
+        icon={<Plus size={20} strokeWidth={2.4} />}
         label="Add New Product"
-        onClick={() => console.log("Add product")}
+        onClick={onAddProduct}
       />
 
       <div className="relative">
         <ActionButton
-          icon="📦"
+          icon={<Package size={20} strokeWidth={2.4} />}
           label="View Orders"
-          onClick={() => console.log("View orders")}
+          onClick={onViewOrders}
         />
-        <ActionBadge value={5} />
+        {orderCount > 0 ? <ActionBadge value={orderCount} /> : null}
       </div>
 
       <ActionButton
-        icon="📣"
+        icon={<Megaphone size={20} strokeWidth={2.4} />}
         label="Promote Business"
-        onClick={() => console.log("Promote")}
+        onClick={onPromote}
       />
 
       <ActionButton
-        icon="⚙️"
+        icon={<Settings size={20} strokeWidth={2.4} />}
         label="Manage Store"
-        onClick={() => console.log("Manage store")}
+        onClick={onManageStore}
       />
 
       <div className="relative">
         <ActionButton
-          icon="💬"
+          icon={<MessageCircle size={20} strokeWidth={2.4} />}
           label="Messages"
-          onClick={() => console.log("Messages")}
+          onClick={onMessages}
         />
-        <ActionBadge value={2} />
+        {messageCount > 0 ? <ActionBadge value={messageCount} /> : null}
       </div>
-
     </div>
   );
 }

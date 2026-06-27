@@ -1,4 +1,4 @@
-export default function SupportThreadItem({ thread }) {
+export default function SupportThreadItem({ onRespond, thread }) {
   return (
     <article className="rounded-lg border border-red-100 bg-red-50 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -18,7 +18,7 @@ export default function SupportThreadItem({ thread }) {
         <button
           type="button"
           className="rounded-lg bg-red-700 px-3 py-2 text-xs font-black text-white transition hover:bg-red-800"
-          onClick={() => console.log("Open support thread", thread.id)}
+          onClick={() => onRespond?.(thread)}
         >
           Respond
         </button>

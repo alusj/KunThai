@@ -52,10 +52,12 @@ export default function OnboardingFlow({ profile, onComplete }) {
   const [direction, setDirection] = useState("forward");
   const [finishing, setFinishing] = useState(false);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
+  const [error, setError] = useState("");
 
   const safeValues = useMemo(() => normalizeProfile(values), [values]);
 
   const updateField = (field, value) => {
+    setError("");
     setValues((current) =>
       typeof field === "object"
         ? {
@@ -92,15 +94,27 @@ export default function OnboardingFlow({ profile, onComplete }) {
   const handleNext = async () => {
     const nextStep = Math.min(step + 1, 4);
     setDirection("forward");
-    await persistStep(nextStep);
-    setStep(nextStep);
+
+    try {
+      setError("");
+      await persistStep(nextStep);
+      setStep(nextStep);
+    } catch (nextError) {
+      setError(nextError.message || "We could not securely save these details.");
+    }
   };
 
   const handleBack = async () => {
     const nextStep = Math.max(step - 1, 1);
     setDirection("backward");
-    await persistStep(nextStep);
-    setStep(nextStep);
+
+    try {
+      setError("");
+      await persistStep(nextStep);
+      setStep(nextStep);
+    } catch (backError) {
+      setError(backError.message || "We could not securely save these details.");
+    }
   };
 
   const handleFinish = async (event) => {
@@ -119,7 +133,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
       onComplete?.(origin);
     } catch (error) {
       setSaving(false);
-      throw error;
+      setError(error.message || "We could not complete onboarding.");
     }
   };
 
@@ -128,7 +142,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
   if (step === 1) {
     content = <WelcomeStep profile={safeValues} onNext={handleNext} />;
   } else if (step === 2) {
-    content = <ProfileStep values={safeValues} onChange={updateField} onBack={handleBack} onNext={handleNext} />;
+    content = <ProfileStep values={safeValues} error={error} onChange={updateField} onBack={handleBack} onNext={handleNext} />;
   } else if (step === 3) {
     content = (
       <InterestsStep
@@ -140,12 +154,12 @@ export default function OnboardingFlow({ profile, onComplete }) {
       />
     );
   } else {
-    content = <ReadyStep values={safeValues} saving={saving} onBack={handleBack} onFinish={handleFinish} />;
+    content = <ReadyStep values={safeValues} saving={saving} error={error} onBack={handleBack} onFinish={handleFinish} />;
   }
 
   return (
     <div
-      className={finishing ? "kt-onboarding-collapse-out" : ""}
+      className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-screen w-full overflow-x-hidden`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
       <StepSlideTransition direction={direction} stepKey={step}>

@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const apiKey = process.env.OPENROUTESERVICE_KEY || process.env.VITE_OPENROUTESERVICE_KEY;
+  const apiKey = process.env.OPENROUTESERVICE_KEY;
 
   if (!apiKey) {
     return json(res, 500, {

@@ -12,6 +12,7 @@ const SOCIAL_CACHE_KEYS = [
 const EXPLORE_NAVIGATION_KEY = "exploreNavigation";
 const ACCOUNT_HISTORY_KEY = "kuntai.auth.accountHistory";
 const SWITCH_ACCOUNT_PREFILL_KEY = "kuntai.auth.switchAccountPrefill";
+const OAUTH_FLOW_KEY = "kuntai.auth.oauthFlow";
 const DEFAULT_EXPLORE_NAVIGATION = {
   activeTab: "UrFeed",
   menuStack: [],
@@ -80,6 +81,27 @@ export function consumeSwitchAccountPrefill() {
   const value = safeParse(sessionStorage.getItem(SWITCH_ACCOUNT_PREFILL_KEY), null);
   sessionStorage.removeItem(SWITCH_ACCOUNT_PREFILL_KEY);
   return value;
+}
+
+export function rememberOAuthFlow(provider, intent = "signin") {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.setItem(OAUTH_FLOW_KEY, JSON.stringify({
+    provider,
+    intent,
+    startedAt: Date.now(),
+  }));
+}
+
+export function consumeOAuthFlow() {
+  if (typeof sessionStorage === "undefined") return null;
+  const value = safeParse(sessionStorage.getItem(OAUTH_FLOW_KEY), null);
+  sessionStorage.removeItem(OAUTH_FLOW_KEY);
+  if (!value?.provider || Date.now() - Number(value.startedAt || 0) > 30 * 60 * 1000) return null;
+  return value;
+}
+
+export function clearOAuthFlow() {
+  if (typeof sessionStorage !== "undefined") sessionStorage.removeItem(OAUTH_FLOW_KEY);
 }
 
 function clearSocialSessionCache() {

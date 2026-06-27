@@ -254,8 +254,10 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
           setSavedSellerIds(savedStores);
         }
       } catch {
-        if (alive && !options.categories.length && !options.locations.length) {
-          setOptions(DEFAULT_OPTIONS);
+        if (alive) {
+          setOptions((current) =>
+            current.categories.length || current.locations.length ? current : DEFAULT_OPTIONS,
+          );
         }
       }
     }

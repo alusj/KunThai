@@ -1,19 +1,13 @@
-// src/components/Marketplace/MarketplaceHeader/Business/BusinessActions/AddProductAction.jsx
+import { Plus } from "lucide-react";
 
 import ActionButton from "./ActionButton";
 
-/**
- * Add new product action
- */
-
-export default function AddProductAction() {
+export default function AddProductAction({ onClick }) {
   return (
     <ActionButton
-      icon="➕"
+      icon={<Plus size={20} strokeWidth={2.4} />}
       label="Add New Product"
-      onClick={() => {
-        console.log("Add product clicked");
-      }}
+      onClick={onClick}
     />
   );
 }

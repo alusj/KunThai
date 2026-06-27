@@ -95,7 +95,7 @@ function SocialLinkInput({ index, onChange, value }) {
   );
 }
 
-export default function ProfileStep({ values, onChange, onBack, onNext }) {
+export default function ProfileStep({ values, error, onChange, onBack, onNext }) {
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || "Your name";
   const countryProfile = getActiveCountryProfile(values.country);
@@ -360,6 +360,12 @@ export default function ProfileStep({ values, onChange, onBack, onNext }) {
           </div>
         </div>
       </div>
+
+      {error ? (
+        <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div className="mt-6 flex flex-wrap gap-3">
         <button

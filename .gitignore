@@ -19,19 +19,12 @@ supabase/.branches
 supabase/explore_foundation_hardening.sql
 supabase/marketplace_seller_schema.sql
 supabase/marketplace_buyer_schema.sql
-# Keep linked-project state and legacy SQL snapshots local. New reviewed
-# migrations are opted into source control explicitly below.
+# Keep linked-project state and legacy SQL snapshots local. Version every
+# migration so a fresh clone can recreate the backend schema.
 supabase/*
 !supabase/migrations/
 supabase/migrations/*
-!supabase/migrations/20260619220000_explore_messages_auth_realtime_hardening.sql
-!supabase/migrations/20260619223000_explore_direct_conversation_rpc.sql
-!supabase/migrations/20260619224500_explore_mentions_notification_delivery.sql
-!supabase/migrations/20260620124500_public_transport_company_affiliations.sql
-!supabase/migrations/20260620150000_transport_company_fleet_runtime.sql
-!supabase/migrations/20260620223000_restore_sole_operator_discovery.sql
-!supabase/migrations/20260621090000_transport_company_trip_experience.sql
-!supabase/migrations/20260622143000_public_transport_fleet_profile_stats.sql
+!supabase/migrations/*.sql
 
 
 # Editor directories and files

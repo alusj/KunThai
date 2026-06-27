@@ -3,6 +3,12 @@ import { isMissingColumn, isMissingTable } from "./explore/errors";
 import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage";
 import { normalizeSocialLinks } from "./explore/socialLinks";
 import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
+import { consumeOAuthFlow } from "./sessionService";
+import {
+  checkKunThaiIdentityAvailability,
+  normalizeEmailForIdentity,
+  normalizePhoneForIdentity,
+} from "./accountIdentityService";
 
 const DEFAULT_NAV = "explore";
 
@@ -49,6 +55,39 @@ function buildProfileFromUser(user) {
   };
   if (profile.country) storeCountryContext(profile.country);
   return profile;
+}
+
+async function finalizeOAuthRegistration(user) {
+  const flow = consumeOAuthFlow();
+  if (!flow || flow.intent !== "signup") return user;
+
+  const provider = user?.app_metadata?.provider || "";
+  const createdAt = Date.parse(user?.created_at || "");
+  const firstGoogleRegistration = flow.provider === "google"
+    && provider === "google"
+    && Number.isFinite(createdAt)
+    && Date.now() - createdAt < 10 * 60 * 1000;
+
+  if (!firstGoogleRegistration) return user;
+
+  const metadata = user.user_metadata || {};
+  const { data, error } = await supabase.auth.updateUser({
+    data: {
+      account_type: metadata.account_type || "personal",
+      primary_surface: metadata.primary_surface || DEFAULT_NAV,
+      onboarding_complete: false,
+      onboarding_step: 1,
+      registration_method: "google",
+      email_verified_by_provider: Boolean(user.email_confirmed_at),
+    },
+  });
+
+  if (error) {
+    console.warn("[KunThai onboarding] Unable to finalize Google registration metadata.", error);
+    return user;
+  }
+
+  return data?.user || user;
 }
 
 function hasExplicitOnboardingState(user) {
@@ -249,6 +288,8 @@ export async function getOnboardingProfile(sessionUser = null) {
     return null;
   }
 
+  user = await finalizeOAuthRegistration(user);
+
   const authProfile = buildProfileFromUser(user);
   if (authProfile.onboardingComplete) {
     return authProfile;
@@ -310,6 +351,16 @@ export async function updateOnboardingProfile(patch) {
   }
 
   const current = buildProfileFromUser(user);
+  const requestedEmail = normalizeEmailForIdentity(patch.email ?? current.email);
+  const requestedCountry = patch.country ?? current.country;
+  const requestedPhone = normalizePhoneForIdentity(patch.phone ?? current.phone, requestedCountry);
+
+  await checkKunThaiIdentityAvailability({
+    email: requestedEmail,
+    phone: requestedPhone,
+    country: requestedCountry,
+  });
+
   const nextData = {
     first_name: patch.firstName ?? current.firstName,
     middle_name: patch.middleName ?? current.middleName,
@@ -321,8 +372,8 @@ export async function updateOnboardingProfile(patch) {
     city: patch.city ?? current.city,
     country: patch.country ?? current.country,
     address: patch.address ?? current.address,
-    contact_email: patch.email ?? current.email,
-    phone_number: patch.phone ?? current.phone,
+    contact_email: requestedEmail,
+    phone_number: requestedPhone,
     avatar_url: patch.avatarUrl ?? current.avatarUrl,
     bio: patch.bio ?? current.bio,
     social_links: normalizeSocialLinks(patch.socialLinks ?? current.socialLinks),
@@ -333,9 +384,14 @@ export async function updateOnboardingProfile(patch) {
     onboarding_step: patch.onboardingStep ?? current.onboardingStep,
   };
 
-  const { data, error } = await supabase.auth.updateUser({
-    data: nextData,
-  });
+  const currentAuthEmail = normalizeEmailForIdentity(user.email);
+  const authUpdate = { data: nextData };
+
+  if (requestedEmail && requestedEmail !== currentAuthEmail) {
+    authUpdate.email = requestedEmail;
+  }
+
+  const { data, error } = await supabase.auth.updateUser(authUpdate);
 
   if (error) {
     throw error;

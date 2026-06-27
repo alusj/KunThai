@@ -143,6 +143,8 @@ export default function MyBizMenu({
     }
 
     return undefined;
+  // The closing animation intentionally reads the currently rendered panel once.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialScreenKey, isOpen]);
 
   useBodyScrollLock(rendered);
@@ -164,6 +166,8 @@ export default function MyBizMenu({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
+  // Drawer escape handling should bind only to the visible screen state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeScreenKey, rendered]);
 
   useEffect(() => {

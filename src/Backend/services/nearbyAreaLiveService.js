@@ -101,7 +101,7 @@ async function executeBoundedQuery(createQuery, options = {}) {
       /lat|lng|latitude|longitude/i.test(bounded.error.message || "");
 
     if (!missingCoordinateColumn || !bounds) throw bounded.error;
-  } catch (error) {
+  } catch {
     if (!bounds) return [];
   }
 

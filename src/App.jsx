@@ -1,21 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "./Backend/hooks/useAuth";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
 import BottomTabs from "./components/BottomTabs";
-import Explore from "./components/Explore/Explore";
-import Marketplace from "./components/Marketplace/Marketplace";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
-import Transport from "./components/transport/Transport";
 import Login from "./Login";
 import { PageTransition } from "./components/shared/motion";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 import { clearExploreScreenStack } from "./Backend/services/explore/navigationService";
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
+import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
+import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
+import supabase from "./Backend/lib/supabaseClient";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
 const PAGE_VISITS_KEY = "kuntai-main-page-visits";
+const Explore = lazy(() => import("./components/Explore/Explore"));
+const Marketplace = lazy(() => import("./components/Marketplace/Marketplace"));
+const Transport = lazy(() => import("./components/transport/Transport"));
 
 function normalizeMainPage(value) {
   const page = String(value || "").toLowerCase();
@@ -193,6 +196,8 @@ export default function App() {
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
   const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
   const [onboardingReveal, setOnboardingReveal] = useState(null);
+  const [accountControl, setAccountControl] = useState(null);
+  const [accountControlLoading, setAccountControlLoading] = useState(false);
   const appGestureRef = useRef(null);
   const userId = user?.id || "";
   setNotificationSeenUser(userId);
@@ -230,6 +235,24 @@ export default function App() {
     setPage(preferredPage);
     if (!hashPage) clearBrowserHash();
   }, [onboardingComplete, onboardingProfile?.primarySurface, userId]);
+
+  useEffect(() => {
+    let active = true;
+    if (!userId) {
+      setAccountControl(null);
+      setAccountControlLoading(false);
+      return undefined;
+    }
+    setAccountControlLoading(true);
+    const unsubscribe = subscribeToAccountControl(userId, (control) => {
+      if (active) setAccountControl(control);
+    });
+    getCurrentAccountControl(userId)
+      .then((control) => { if (active) setAccountControl(control); })
+      .catch(() => { if (active) setAccountControl(null); })
+      .finally(() => { if (active) setAccountControlLoading(false); });
+    return () => { active = false; unsubscribe(); };
+  }, [userId]);
 
   useEffect(() => {
     if (!onboardingReveal || !onboardingComplete) return undefined;
@@ -284,7 +307,7 @@ export default function App() {
     };
   }, [page]);
 
-  if (loading || (user && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
+  if (loading || accountControlLoading || (user && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
   return <AppLoading page={page} />;
 }
   if (!user) {
@@ -299,6 +322,22 @@ export default function App() {
           setOnboardingReveal(origin);
           refreshOnboarding();
         }}
+      />
+    );
+  }
+
+  const restrictedSectors = accountControl?.restricted_sectors || ["all"];
+  const blocksEverything = ["suspended", "banned"].includes(accountControl?.status);
+  const blocksCurrentPage = accountControl?.status === "restricted"
+    && (restrictedSectors.includes("all") || restrictedSectors.includes(page));
+  if (blocksEverything || blocksCurrentPage) {
+    const availablePage = blocksEverything ? "" : PAGE_ORDER.find((item) => !restrictedSectors.includes(item));
+    return (
+      <AccountRestrictionNotice
+        control={accountControl}
+        availablePage={availablePage}
+        onOpenAvailablePage={() => availablePage && setPage(availablePage)}
+        onSignOut={() => supabase.auth.signOut()}
       />
     );
   }
@@ -405,34 +444,42 @@ export default function App() {
       }}
     >
       <PageTransition active className="min-h-screen">
-        <section className={pagePanelClass("explore")} aria-hidden={page !== "explore"}>
-          <Explore
-  active={page === "explore"}
-  onNavigateMain={changePage}
-  onScreenModeChange={setExploreFullScreen}
-  user={user}
-  authLoading={loading}
-/>
-        </section>
+        <Suspense fallback={<AppLoading page={page} />}>
+          {page === "explore" ? (
+            <section className={pagePanelClass("explore")} aria-hidden={false}>
+              <Explore
+                active
+                onNavigateMain={changePage}
+                onScreenModeChange={setExploreFullScreen}
+                user={user}
+                authLoading={loading}
+              />
+            </section>
+          ) : null}
 
-        <section className={pagePanelClass("marketplace")} aria-hidden={page !== "marketplace"}>
-          <Marketplace
-            nav={marketplaceNav}
-            setNav={setMarketplaceNav}
-            onActivityChange={setMarketplaceActivityOpen}
-            active={page === "marketplace"}
-            onNotificationCountChange={updateMarketplaceBadge}
-          />
-        </section>
+          {page === "marketplace" ? (
+            <section className={pagePanelClass("marketplace")} aria-hidden={false}>
+              <Marketplace
+                nav={marketplaceNav}
+                setNav={setMarketplaceNav}
+                onActivityChange={setMarketplaceActivityOpen}
+                active
+                onNotificationCountChange={updateMarketplaceBadge}
+              />
+            </section>
+          ) : null}
 
-        <section className={pagePanelClass("transport")} aria-hidden={page !== "transport"}>
-          <Transport
-            onActivityChange={setTransportActivityOpen}
-            areaViewRequest={transportAreaRequest}
-            active={page === "transport"}
-            onNotificationCountChange={updateTransportBadge}
-          />
-        </section>
+          {page === "transport" ? (
+            <section className={pagePanelClass("transport")} aria-hidden={false}>
+              <Transport
+                onActivityChange={setTransportActivityOpen}
+                areaViewRequest={transportAreaRequest}
+                active
+                onNotificationCountChange={updateTransportBadge}
+              />
+            </section>
+          ) : null}
+        </Suspense>
       </PageTransition>
 
       {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}

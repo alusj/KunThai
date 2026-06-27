@@ -11,14 +11,19 @@ import ViewOrdersAction from "./ViewOrdersAction";
 import PromoteBusinessAction from "./PromoteBusinessAction";
 import ManageStoreAction from "./ManageStoreAction";
 
-export default function BusinessActions() {
+export default function BusinessActions({
+  onAddProduct,
+  onManageStore,
+  onPromoteBusiness,
+  onViewOrders,
+}) {
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 
-      <AddProductAction />
-      <ViewOrdersAction />
-      <PromoteBusinessAction />
-      <ManageStoreAction />
+      <AddProductAction onClick={onAddProduct} />
+      <ViewOrdersAction onClick={onViewOrders} />
+      <PromoteBusinessAction onClick={onPromoteBusiness} />
+      <ManageStoreAction onClick={onManageStore} />
 
     </div>
   );

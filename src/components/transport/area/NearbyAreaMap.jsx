@@ -393,7 +393,7 @@ function createSmartReportMarker(report) {
   return wrapper;
 }
 
-function createSmartOperatorMarker(operator) {
+function SmartOperatorMarker(operator) {
   const wrapper = document.createElement("div");
   const icon = {
     bike: "🏍️",

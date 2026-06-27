@@ -54,11 +54,9 @@ export function useAddressAreaValidation(address, options = {}) {
   const [state, setState] = useState({ status: "idle", result: null, message: "" });
 
   const centerKey = useMemo(() => pointKey(center), [center]);
-  const selectedPointKey = useMemo(() => pointKey(selectedPoint), [selectedPoint]);
-
   const selectedLocation = useMemo(
     () => normalizeAreaLocation(selectedPoint, address),
-    [selectedPointKey, address],
+    [selectedPoint, address],
   );
 
   useEffect(() => {

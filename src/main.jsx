@@ -1,9 +1,26 @@
-import { Component } from 'react'
+/* eslint-disable react-refresh/only-export-components -- application entry point owns the root boundary and route split. */
+import { Component, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import "./styles/bankTheme.css";
 import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
+
+const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
+
+function RootApplication() {
+  const isAdminPath = window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/");
+
+  if (isAdminPath) {
+    return (
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-100 text-sm font-bold text-zinc-600">Opening KunThai Admin…</div>}>
+        <AdminApp />
+      </Suspense>
+    );
+  }
+
+  return <App />;
+}
 
 class AppErrorBoundary extends Component {
   constructor(props) {
@@ -40,7 +57,7 @@ class AppErrorBoundary extends Component {
 createRoot(document.getElementById('root')).render(
   <AppErrorBoundary>
     <ToastProvider>
-      <App />
+      <RootApplication />
     </ToastProvider>
   </AppErrorBoundary>
 

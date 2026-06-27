@@ -1,4 +1,6 @@
-export default function SuggestedProductCard({ product }) {
+export default function SuggestedProductCard({ onPromote, product }) {
+  const promotable = typeof onPromote === "function";
+
   return (
     <article className="rounded-lg border border-gray-200 bg-white p-4">
       <p className="font-black text-gray-950">{product.name}</p>
@@ -9,8 +11,9 @@ export default function SuggestedProductCard({ product }) {
         </span>
         <button
           type="button"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-black text-gray-800 hover:bg-gray-50"
-          onClick={() => console.log("Promote suggested product", product.id)}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-black text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!promotable}
+          onClick={() => onPromote?.(product)}
         >
           Promote
         </button>

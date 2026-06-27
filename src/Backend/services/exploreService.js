@@ -44,6 +44,26 @@ function writeStoredNotifications(items) {
 }
 
 function normalizeNotification(item) {
+  const platformNotification = item?._notification_source === "platform" || Object.prototype.hasOwnProperty.call(item || {}, "notification_type");
+
+  if (platformNotification) {
+    return {
+      ...item,
+      _notification_source: "platform",
+      actor_name: "KunThai",
+      actor_avatar_url: null,
+      type: item.notification_type || "admin_message",
+      media_type: item.sector || "platform",
+      message: item.body || item.title || "KunThai update",
+      post_preview: item.body || "",
+      read: item.status === "read" || item.status === "archived",
+      priority: item.priority || "normal",
+      category: "system",
+      group_key: `platform:${item.campaign_id || item.id}`,
+      time_label: item.time_label || formatRelativeTime(item.created_at),
+    };
+  }
+
   return {
     ...item,
     actor_name: item.actor_name || item.user || "KunThai",
@@ -359,16 +379,15 @@ export async function markExploreNotificationRead(notificationId, read = true) {
   }
 
   const stored = readStoredNotifications();
+  const storedItem = stored.find((item) => item.id === notificationId);
   if (stored.length) {
     writeStoredNotifications(stored.map((item) => (item.id === notificationId ? { ...item, read } : item)));
   }
 
-  const { data, error } = await supabase
-    .from("explore_notifications")
-    .update({ read })
-    .eq("id", notificationId)
-    .select()
-    .maybeSingle();
+  const platformNotification = storedItem?._notification_source === "platform";
+  const { data, error } = platformNotification
+    ? await supabase.from("platform_notifications").update({ status: read ? "read" : "unread", read_at: read ? new Date().toISOString() : null }).eq("id", notificationId).select().maybeSingle()
+    : await supabase.from("explore_notifications").update({ read }).eq("id", notificationId).select().maybeSingle();
 
   if (error) {
     if (isMissingTable(error)) {
@@ -392,12 +411,12 @@ export async function markAllExploreNotificationsRead() {
     writeStoredNotifications(stored.map((item) => (item.user_id === currentUserId ? { ...item, read: true } : item)));
   }
 
-  const { data, error } = await supabase
-    .from("explore_notifications")
-    .update({ read: true })
-    .eq("user_id", currentUserId)
-    .eq("read", false)
-    .select();
+  const [exploreResult, platformResult] = await Promise.all([
+    supabase.from("explore_notifications").update({ read: true }).eq("user_id", currentUserId).eq("read", false).select(),
+    supabase.from("platform_notifications").update({ status: "read", read_at: new Date().toISOString() }).eq("user_id", currentUserId).eq("status", "unread").select(),
+  ]);
+
+  const { data, error } = exploreResult;
 
   if (error) {
     if (isMissingTable(error)) {
@@ -406,7 +425,8 @@ export async function markAllExploreNotificationsRead() {
     throw error;
   }
 
-  return (data || []).map(normalizeNotification);
+  const platformData = platformResult.error && !isMissingTable(platformResult.error) ? [] : (platformResult.data || []).map((item) => normalizeNotification({ ...item, _notification_source: "platform" }));
+  return [...(data || []).map(normalizeNotification), ...platformData];
 }
 
 export async function syncExploreReaction(postId, reactionType, active) {
@@ -466,7 +486,11 @@ export async function fetchExploreNotifications(options = {}) {
     query = query.lt("created_at", before);
   }
 
-  const { data, error } = await query;
+  const [exploreResult, platformResult] = await Promise.all([
+    query,
+    supabase.from("platform_notifications").select("*").eq("user_id", currentUserId).order("created_at", { ascending: false }).limit(limit),
+  ]);
+  const { data, error } = exploreResult;
 
   if (error) {
     if (isMissingTable(error)) {
@@ -475,7 +499,12 @@ export async function fetchExploreNotifications(options = {}) {
     throw error;
   }
 
-  const merged = currentUserId ? (data || []).map(normalizeNotification) : mergeNotifications(data || [], storedNotifications);
+  const platformItems = platformResult.error && isMissingTable(platformResult.error)
+    ? []
+    : (platformResult.data || []).map((item) => normalizeNotification({ ...item, _notification_source: "platform" }));
+  const merged = mergeNotifications([...(data || []).map(normalizeNotification), ...platformItems], storedNotifications)
+    .sort((first, second) => new Date(second.created_at || 0) - new Date(first.created_at || 0))
+    .slice(0, limit);
   writeStoredNotifications(merged);
   return merged;
 }

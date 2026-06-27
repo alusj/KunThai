@@ -1,19 +1,13 @@
-// src/components/Marketplace/MarketplaceHeader/Business/BusinessActions/ManageStoreAction.jsx
+import { Settings } from "lucide-react";
 
 import ActionButton from "./ActionButton";
 
-/**
- * Manage store settings action
- */
-
-export default function ManageStoreAction() {
+export default function ManageStoreAction({ onClick }) {
   return (
     <ActionButton
-      icon="⚙️"
+      icon={<Settings size={20} strokeWidth={2.4} />}
       label="Manage Store"
-      onClick={() => {
-        console.log("Manage store clicked");
-      }}
+      onClick={onClick}
     />
   );
 }

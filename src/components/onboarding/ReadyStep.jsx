@@ -8,7 +8,7 @@ const surfaceMap = {
   transport: { label: "Transport", icon: CarFront },
 };
 
-export default function ReadyStep({ values, saving, onBack, onFinish }) {
+export default function ReadyStep({ values, saving, error, onBack, onFinish }) {
   const SurfaceIcon = surfaceMap[values.primarySurface]?.icon ?? Compass;
   const profileName =
     values.displayName || [values.firstName, values.middleName, values.lastName].filter(Boolean).join(" ");
@@ -71,6 +71,12 @@ export default function ReadyStep({ values, saving, onBack, onFinish }) {
           </div>
         </div>
       </div>
+
+      {error ? (
+        <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div className="mt-6 flex flex-wrap gap-3">
         <button

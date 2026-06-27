@@ -1,19 +1,13 @@
-// src/components/Marketplace/MarketplaceHeader/Business/BusinessActions/PromoteBusinessAction.jsx
+import { Megaphone } from "lucide-react";
 
 import ActionButton from "./ActionButton";
 
-/**
- * Promote business action
- */
-
-export default function PromoteBusinessAction() {
+export default function PromoteBusinessAction({ onClick }) {
   return (
     <ActionButton
-      icon="📢"
+      icon={<Megaphone size={20} strokeWidth={2.4} />}
       label="Promote Business"
-      onClick={() => {
-        console.log("Promote business clicked");
-      }}
+      onClick={onClick}
     />
   );
 }

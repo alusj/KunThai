@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Trash2, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
@@ -98,6 +98,56 @@ export default function VideoCard({
   useBrowserBack(actionMenuOpen, closeActionMenu, `swip-actions-${post.id}`);
   useBrowserBack(quickDeckOpen, closeQuickDeck, `swip-quick-tools-${post.id}`);
 
+  const pauseInactiveVideo = useCallback((video) => {
+    video.pause();
+    video.muted = false;
+    video.volume = 1;
+    video.currentTime = clip.start;
+    setProgress((current) => ({
+      ...current,
+      currentTime: 0,
+      duration: MAX_SWIP_SECONDS,
+    }));
+  }, [clip.start]);
+
+  const requestActivePlayback = useCallback(async ({ sound = true } = {}) => {
+    if (!activeRef.current) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.currentTime < clip.start || video.currentTime >= clip.end) {
+      video.currentTime = clip.start;
+    }
+
+    // First choice: autoplay with sound. Some iOS/Safari builds block this
+    // until a user gesture, so the fallback keeps the video moving silently
+    // without showing a large "Tap for sound" overlay.
+    video.muted = false;
+    video.volume = sound ? 1 : 0;
+    video.autoplay = true;
+
+    try {
+      await playExploreMedia(video, { muteVideos: false });
+      video.muted = false;
+      video.volume = sound ? 1 : 0;
+      setNeedsSoundUnlock(false);
+      logSwipPlayback("active video playing with sound", { post_id: post.id });
+    } catch (error) {
+      logSwipPlayback("unmuted autoplay deferred by browser", { post_id: post.id, error });
+
+      try {
+        video.muted = true;
+        video.volume = 0;
+        await video.play();
+        setNeedsSoundUnlock(true);
+      } catch (fallbackError) {
+        setNeedsSoundUnlock(true);
+        logSwipPlayback("muted autoplay deferred by browser", { post_id: post.id, error: fallbackError });
+      }
+    }
+  }, [clip.end, clip.start, post.id]);
+
   useEffect(() => {
     function handleOpenPostComments(event) {
       if (String(event.detail?.postId || "") !== String(post.id)) return;
@@ -146,7 +196,7 @@ export default function VideoCard({
     }
 
     pauseInactiveVideo(video);
-  }, [active, post.video_url, clip.start]);
+  }, [active, post.video_url, clip.start, pauseInactiveVideo, requestActivePlayback]);
 
   useEffect(() => {
   if (!active) return undefined;
@@ -157,7 +207,7 @@ export default function VideoCard({
 
   window.addEventListener("swip-active-play", handleSwipActivePlay);
   return () => window.removeEventListener("swip-active-play", handleSwipActivePlay);
-}, [active, post.video_url, clip.start]);
+}, [active, post.video_url, clip.start, requestActivePlayback]);
 
   async function handleShare() {
     const nextMessage = await sharePost(post);
@@ -288,18 +338,6 @@ export default function VideoCard({
     }
   }
 
-  function pauseInactiveVideo(video) {
-    video.pause();
-    video.muted = false;
-    video.volume = 1;
-    video.currentTime = clip.start;
-    setProgress((current) => ({
-      ...current,
-      currentTime: 0,
-      duration: MAX_SWIP_SECONDS,
-    }));
-  }
-
   function updateVideoProgress(video) {
     if (!video) return;
 
@@ -357,44 +395,6 @@ export default function VideoCard({
       duration: nextClip.duration,
       realDuration,
     });
-  }
-
-  async function requestActivePlayback({ sound = true } = {}) {
-    if (!activeRef.current) return;
-
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (video.currentTime < clip.start || video.currentTime >= clip.end) {
-      video.currentTime = clip.start;
-    }
-
-    // First choice: autoplay with sound. Some iOS/Safari builds block this
-    // until a user gesture, so the fallback keeps the video moving silently
-    // without showing a large "Tap for sound" overlay.
-    video.muted = false;
-    video.volume = sound ? 1 : 0;
-    video.autoplay = true;
-
-    try {
-      await playExploreMedia(video, { muteVideos: false });
-      video.muted = false;
-      video.volume = sound ? 1 : 0;
-      setNeedsSoundUnlock(false);
-      logSwipPlayback("active video playing with sound", { post_id: post.id });
-    } catch (error) {
-      logSwipPlayback("unmuted autoplay deferred by browser", { post_id: post.id, error });
-
-      try {
-        video.muted = true;
-        video.volume = 0;
-        await video.play();
-        setNeedsSoundUnlock(true);
-      } catch (fallbackError) {
-        setNeedsSoundUnlock(true);
-        logSwipPlayback("muted autoplay deferred by browser", { post_id: post.id, error: fallbackError });
-      }
-    }
   }
 
   function shouldIgnoreVideoGesture(event) {
@@ -513,7 +513,7 @@ export default function VideoCard({
       observer.disconnect();
       pauseInactiveVideo(video);
     };
-  }, [active, post.video_url, clip.start]);
+  }, [active, post.video_url, clip.start, pauseInactiveVideo, requestActivePlayback]);
 
 
 

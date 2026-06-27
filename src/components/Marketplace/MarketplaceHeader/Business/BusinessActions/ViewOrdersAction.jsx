@@ -1,19 +1,13 @@
-// src/components/Marketplace/MarketplaceHeader/Business/BusinessActions/ViewOrdersAction.jsx
+import { Package } from "lucide-react";
 
 import ActionButton from "./ActionButton";
 
-/**
- * View orders action
- */
-
-export default function ViewOrdersAction() {
+export default function ViewOrdersAction({ onClick }) {
   return (
     <ActionButton
-      icon="📦"
+      icon={<Package size={20} strokeWidth={2.4} />}
       label="View Orders"
-      onClick={() => {
-        console.log("View orders clicked");
-      }}
+      onClick={onClick}
     />
   );
 }
