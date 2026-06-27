@@ -85,6 +85,7 @@ export default function Business({ onBack }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [visibleScreen, setVisibleScreen] = useState("dashboard");
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
+  const [dashboardReveal, setDashboardReveal] = useState(null);
   const sellerScreenTimerRef = useRef(null);
 
   useEffect(() => {
@@ -114,6 +115,13 @@ export default function Business({ onBack }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!dashboardReveal) return undefined;
+
+    const timer = window.setTimeout(() => setDashboardReveal(null), 620);
+    return () => window.clearTimeout(timer);
+  }, [dashboardReveal]);
 
   function openProfileEditor() {
     setMenuOpen(false);
@@ -172,6 +180,9 @@ export default function Business({ onBack }) {
             onCancel={goBackSellerScreen}
             onComplete={() => {
               const wasEditing = Boolean(editingProduct);
+              setDashboardReveal({ type: "bottom", origin: { x: "50%", y: "100%" } });
+              setVisibleScreen("dashboard");
+              setScreenPanelOpen(false);
               replaceSellerScreen("dashboard");
               setActiveTab("store");
               setEditingProduct(null);
@@ -282,10 +293,28 @@ export default function Business({ onBack }) {
     sellerOverview.today;
   const sellerDashboardInitialLoading = hasBusiness && sellerOverview.isInitialLoading && !sellerDashboardHasData;
 
-  if (loading || sellerDashboardInitialLoading) return <BusinessSkeleton />;
+  const dashboardRevealClass = dashboardReveal?.type === "bottom"
+    ? "kt-dashboard-grow-from-bottom"
+    : dashboardReveal
+      ? "kt-main-grow-from-onboarding"
+      : "";
+  const dashboardRevealStyle = dashboardReveal?.origin
+    ? {
+        "--kt-transition-x": dashboardReveal.origin.x,
+        "--kt-transition-y": dashboardReveal.origin.y,
+      }
+    : undefined;
+
+  if (loading || sellerDashboardInitialLoading) {
+    return (
+      <div className={`${dashboardRevealClass} min-h-screen`} style={dashboardRevealStyle}>
+        <BusinessSkeleton />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`${dashboardRevealClass} min-h-screen bg-gray-50`} style={dashboardRevealStyle}>
       <ProductSuccessToast message={toastMessage} onClose={() => setToastMessage("")} />
 
       {/* =========================
@@ -321,7 +350,13 @@ export default function Business({ onBack }) {
       ) : null}
 
       {!hasBusiness ? (
-        <BusinessRegistration onComplete={() => setHasBusiness(true)} onExit={onBack} />
+        <BusinessRegistration
+          onComplete={(_business, origin) => {
+            setDashboardReveal({ type: "onboarding", origin: origin || { x: "50%", y: "70%" } });
+            setHasBusiness(true);
+          }}
+          onExit={onBack}
+        />
       ) : (
         <>
 

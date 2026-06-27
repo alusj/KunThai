@@ -65,6 +65,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   const [operatorInviteDocumentsInvite, setOperatorInviteDocumentsInvite] = useState(null);
   const [registrationInvite, setRegistrationInvite] = useState(null);
   const [routeDirection, setRouteDirection] = useState("forward");
+  const [registrationReveal, setRegistrationReveal] = useState(null);
   const operatorDashboardCloseTimer = useRef(null);
   const operatorCompanyInvitesRef = useRef([]);
   const activeRef = useRef(active);
@@ -78,6 +79,25 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
+
+  useEffect(() => {
+    if (!registrationReveal) return undefined;
+
+    const timer = window.setTimeout(() => setRegistrationReveal(null), 620);
+    return () => window.clearTimeout(timer);
+  }, [registrationReveal]);
+
+  function registrationRevealClass(target) {
+    return registrationReveal?.target === target ? "kt-main-grow-from-onboarding" : "";
+  }
+
+  function registrationRevealStyle(target) {
+    if (registrationReveal?.target !== target) return undefined;
+    return {
+      "--kt-transition-x": registrationReveal.origin?.x || "50%",
+      "--kt-transition-y": registrationReveal.origin?.y || "70%",
+    };
+  }
 
   function handleBookingCreated() {
     setBookingTarget(null);
@@ -485,7 +505,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     }
   }
 
-  async function finishOperatorRegistration(account) {
+  async function finishOperatorRegistration(account, origin) {
     setOperatorAccount(account);
     if (registrationInvite) {
       try {
@@ -513,6 +533,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setRegistrationType(null);
     setRegistrationSource(null);
     setRouteDirection("forward");
+    setRegistrationReveal({ target: "operator", origin: origin || { x: "50%", y: "70%" } });
     setOperatorDashboardOpen(true);
   }
 
@@ -800,13 +821,14 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             mode={companyRegistrationMode}
             onBack={closeRegistrationFlow}
             onSaveExit={exitRegistrationFlow}
-            onComplete={(account) => {
+            onComplete={(account, origin) => {
               setCompanyAccount(account);
               setRegistrationOpen(false);
               setRegistrationType(null);
               setCompanyRegistrationMode("full");
               setRegistrationSource(null);
               setRouteDirection("forward");
+              setRegistrationReveal({ target: "company", origin: origin || { x: "50%", y: "70%" } });
               setCompanyWorkspaceOpen(true);
             }}
           />
@@ -856,7 +878,10 @@ export default function Transport({ active = false, onActivityChange, onNotifica
 
   if (companyWorkspaceOpen) {
     return (
-      <div className={`${routePanelClass} min-h-screen`}>
+      <div
+        className={`${registrationReveal?.target === "company" ? "" : routePanelClass} ${registrationRevealClass("company")} min-h-screen`}
+        style={registrationRevealStyle("company")}
+      >
         <CompanyWorkspaceScreen
           company={companyAccount}
           operatorAccount={operatorAccount}
@@ -889,7 +914,10 @@ export default function Transport({ active = false, onActivityChange, onNotifica
 
   if (operatorDashboardOpen && operatorAccount) {
     return (
-      <div className={`${operatorDashboardClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} h-dvh overflow-hidden`}>
+      <div
+        className={`${registrationReveal?.target === "operator" ? "" : operatorDashboardClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} ${registrationRevealClass("operator")} h-dvh overflow-hidden`}
+        style={registrationRevealStyle("operator")}
+      >
         <OperatorDashboardScreen
           account={operatorAccount}
           companyAccount={companyAccount}

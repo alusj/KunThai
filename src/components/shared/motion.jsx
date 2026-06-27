@@ -28,11 +28,21 @@ export function StepSlideTransition({ children, className = "", direction = "for
   );
 }
 
-export function ScreenSlideTransition({ children, className = "", direction = "forward", screenKey }) {
+export function StepScrollTransition({ children, className = "", direction = "forward", stepKey }) {
+  const scrollClass = direction === "backward" ? "kt-form-step-scroll-backward" : "kt-form-step-scroll-forward";
+
+  return (
+    <div key={stepKey} className={`${scrollClass} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+export function ScreenSlideTransition({ children, className = "", direction = "forward", screenKey, style }) {
   const slideClass = direction === "backward" ? "kt-screen-slide-backward" : "kt-screen-slide-forward";
 
   return (
-    <div key={screenKey} className={`${slideClass} ${className}`}>
+    <div key={screenKey} className={`${slideClass} ${className}`} style={style}>
       {children}
     </div>
   );

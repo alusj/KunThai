@@ -368,13 +368,22 @@ export default function OperatorDashboardScreen({
     }
   }
 
+  function handleDashboardBack() {
+    if (activeView !== "dashboard") {
+      setActiveView("dashboard");
+      return;
+    }
+
+    onBack?.();
+  }
+
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-gray-50">
       <header className="shrink-0 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
           <AppBackTab
-            onBack={onBack}
-            label="Back to transport"
+            onBack={handleDashboardBack}
+            label={activeView === "dashboard" ? "Back to previous screen" : "Back to operator dashboard"}
             historyKey="transport-operator-dashboard"
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             useHistoryLayer={false}

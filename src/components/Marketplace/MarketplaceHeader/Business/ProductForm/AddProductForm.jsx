@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 import { useSellerProductForm } from "../../../../../Backend/hooks/useSellerProductForm";
 import ProductBasicsStep from "./ProductBasicsStep";
 import ProductDeliveryReviewStep from "./ProductDeliveryReviewStep";
@@ -7,7 +9,7 @@ import ProductMediaStep from "./ProductMediaStep";
 import ProductPreview from "./ProductPreview";
 import ProductPricingStep from "./ProductPricingStep";
 import AppBackTab from "../../../../shared/AppBackTab";
-import { StepSlideTransition } from "../../../../shared/motion";
+import { StepScrollTransition } from "../../../../shared/motion";
 import { useDirectionalStep } from "../../../../shared/motionHooks";
 
 const STEPS = [
@@ -19,18 +21,35 @@ const STEPS = [
 ];
 
 export default function AddProductForm({ mode = "create", product = null, onCancel, onComplete }) {
-  const productForm = useSellerProductForm({ mode, product, onComplete });
+  const [finishing, setFinishing] = useState(false);
+  const formTopRef = useRef(null);
+  const productForm = useSellerProductForm({
+    mode,
+    product,
+    onComplete(savedProduct) {
+      setFinishing(true);
+      window.setTimeout(() => onComplete?.(savedProduct), 360);
+    },
+  });
   const StepComponent = STEPS[productForm.step].component;
   const editing = mode === "edit";
   const stepSlideDirection = useDirectionalStep(productForm.step);
 
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [productForm.step]);
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div ref={formTopRef} className={`${finishing ? "kt-product-flow-collapse-to-bottom" : ""} min-h-screen bg-gray-50`}>
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
             <AppBackTab
-              onBack={onCancel}
-              label="Back to seller dashboard"
+              onBack={productForm.step > 0 ? productForm.back : onCancel}
+              label={productForm.step > 0 ? "Back to previous product step" : "Back to previous screen"}
               historyKey="marketplace-product-form"
               className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
               useHistoryLayer={false}
@@ -57,9 +76,9 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
             <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-xl font-black text-gray-950">{STEPS[productForm.step].title}</h2>
               <div className="mt-5">
-                <StepSlideTransition stepKey={productForm.step} direction={stepSlideDirection}>
+                <StepScrollTransition stepKey={productForm.step} direction={stepSlideDirection}>
                   <StepComponent productForm={productForm} />
-                </StepSlideTransition>
+                </StepScrollTransition>
               </div>
             </section>
 

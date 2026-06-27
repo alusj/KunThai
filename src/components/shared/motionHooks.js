@@ -33,13 +33,9 @@ export function useAutoCollapseCard({ delay = AUTO_COLLAPSE_DELAY_MS, enabled = 
 
 export function useDirectionalStep(step) {
   const previousStepRef = useRef(step);
-  const [direction, setDirection] = useState("forward");
+  const direction = step < previousStepRef.current ? "backward" : "forward";
 
   useEffect(() => {
-    const previousStep = previousStepRef.current;
-    if (step === previousStep) return;
-
-    setDirection(step > previousStep ? "forward" : "backward");
     previousStepRef.current = step;
   }, [step]);
 

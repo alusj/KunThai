@@ -164,6 +164,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const [locationPickerMode, setLocationPickerMode] = useState(null);
   const [locationCautionOpen, setLocationCautionOpen] = useState(false);
   const [saveCheckpointOpen, setSaveCheckpointOpen] = useState(false);
@@ -436,7 +438,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     onBack?.();
   }
 
-  async function submitCompany() {
+  async function submitCompany(event) {
+    const buttonRect = event?.currentTarget?.getBoundingClientRect?.();
+    const origin = buttonRect
+      ? { x: `${buttonRect.left + buttonRect.width / 2}px`, y: `${buttonRect.top + buttonRect.height / 2}px` }
+      : { x: "50%", y: "70%" };
     const firstError = (addOperatorMode ? [2] : [0, 1, 2]).map(validateStep).find(Boolean);
     if (firstError) {
       setStatus(firstError);
@@ -446,7 +452,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     try {
       setSubmitting(true);
       const account = await saveTransportCompanyAccount(buildPayload("submitted"));
-      onComplete?.(account);
+      setTransitionOrigin(origin);
+      setFinishing(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 480));
+      onComplete?.(account, origin);
     } catch (error) {
       setStatus(error.message || "Unable to submit company registration.");
     } finally {
@@ -468,6 +477,15 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     setLocationPickerMode(null);
     setLocationCautionOpen(false);
     setStatus(`Company base set to ${location.address || "selected map point"}.`);
+  }
+
+  function handleRegistrationBack() {
+    if (!addOperatorMode && step > 0) {
+      prevStep();
+      return;
+    }
+
+    onBack?.();
   }
 
   if (locationPickerMode) {
@@ -500,12 +518,16 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }
 
   return (
-    <ScreenSlideTransition screenKey="transport-company-registration-form" className="min-h-dvh bg-slate-50 [transform:translateZ(0)]">
+    <ScreenSlideTransition
+      screenKey="transport-company-registration-form"
+      className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-dvh bg-slate-50 [transform:translateZ(0)]`}
+      style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
+    >
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-8">
         <div className="flex w-full items-center gap-3">
           <AppBackTab
-            onBack={onBack}
-            label="Back to transport"
+            onBack={handleRegistrationBack}
+            label={!addOperatorMode && step > 0 ? "Back to previous registration step" : "Back to previous screen"}
             historyKey="transport-company-registration"
             className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
           />

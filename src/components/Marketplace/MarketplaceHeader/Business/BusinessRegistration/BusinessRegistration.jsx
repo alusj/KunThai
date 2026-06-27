@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import BusinessSellerEntryAnimation from "./BusinessSellerEntryAnimation";
 import NearbyAreaScreen from "../../../../transport/NearbyAreaScreen";
@@ -27,10 +27,49 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
   const [showIntro, setShowIntro] = useState(!editing);
   const [acceptedCaution, setAcceptedCaution] = useState(editing);
   const [leavingCaution, setLeavingCaution] = useState(false);
-  const registration = useSellerRegistration({ mode, onComplete });
+  const [finishing, setFinishing] = useState(false);
+  const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
+  const transitionOriginRef = useRef(transitionOrigin);
+  const registration = useSellerRegistration({ mode, onComplete: completeSellerRegistration });
   const [saveCheckpointOpen, setSaveCheckpointOpen] = useState(false);
   const [locationPickerMode, setLocationPickerMode] = useState(null);
   const stepSlideDirection = useDirectionalStep(registration.step);
+
+  function completeSellerRegistration(business) {
+    if (editing) {
+      onComplete?.(business);
+      return;
+    }
+
+    const origin = transitionOriginRef.current;
+    setFinishing(true);
+    window.setTimeout(() => onComplete?.(business, origin), 480);
+  }
+
+  function submitRegistration(event) {
+    const buttonRect = event?.currentTarget?.getBoundingClientRect?.();
+    const origin = buttonRect
+      ? { x: `${buttonRect.left + buttonRect.width / 2}px`, y: `${buttonRect.top + buttonRect.height / 2}px` }
+      : { x: "50%", y: "70%" };
+
+    transitionOriginRef.current = origin;
+    setTransitionOrigin(origin);
+    registration.submit();
+  }
+
+  function handleRegistrationBack() {
+    if (registration.step > 0) {
+      registration.back();
+      return;
+    }
+
+    if (!editing && acceptedCaution) {
+      setAcceptedCaution(false);
+      return;
+    }
+
+    onExit?.();
+  }
 
   const enhancedRegistration = {
     ...registration,
@@ -201,12 +240,16 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
   }
 
   return (
-    <ScreenSlideTransition screenKey={editing ? "seller-business-editor" : "seller-registration-form"} className="min-h-dvh bg-gray-50">
+    <ScreenSlideTransition
+      screenKey={editing ? "seller-business-editor" : "seller-registration-form"}
+      className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-dvh bg-gray-50`}
+      style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
+    >
       <div className="w-full px-4 py-6 sm:px-6 lg:px-10 xl:px-14">
         <div className="mb-6 flex items-start gap-3">
           <AppBackTab
-            onBack={onExit}
-            label={editing ? "Back to seller dashboard" : "Back to UrMall"}
+            onBack={handleRegistrationBack}
+            label={registration.step > 0 ? "Back to previous registration step" : editing ? "Back to previous screen" : "Back to seller guidance"}
             historyKey={editing ? "seller-business-editor" : "seller-registration-form"}
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           />
@@ -277,7 +320,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
                   ) : (
                     <button
                       type="button"
-                      onClick={registration.submit}
+                      onClick={submitRegistration}
                       disabled={registration.submitting}
                       className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
                     >

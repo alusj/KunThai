@@ -252,6 +252,16 @@
     animation: kt-form-step-slide-backward 260ms var(--kt-ease-standard) both;
   }
 
+  .kt-form-step-scroll-forward {
+    animation: kt-form-step-scroll-forward 320ms var(--kt-ease-emphasized) both;
+    will-change: opacity, transform;
+  }
+
+  .kt-form-step-scroll-backward {
+    animation: kt-form-step-scroll-backward 300ms var(--kt-ease-emphasized) both;
+    will-change: opacity, transform;
+  }
+
   .kt-onboarding-collapse-out {
     animation: kt-onboarding-collapse-out 480ms var(--kt-ease-emphasized) both;
     pointer-events: none;
@@ -265,12 +275,30 @@
     will-change: clip-path, filter, opacity, transform;
   }
 
+  .kt-product-flow-collapse-to-bottom {
+    animation: kt-product-flow-collapse-to-bottom 360ms var(--kt-ease-emphasized) both;
+    pointer-events: none;
+    transform-origin: center bottom;
+    will-change: clip-path, filter, opacity, transform;
+  }
+
+  .kt-dashboard-grow-from-bottom {
+    animation: kt-dashboard-grow-from-bottom 520ms var(--kt-ease-emphasized) both;
+    transform-origin: center bottom;
+    will-change: clip-path, filter, opacity, transform;
+  }
+
   .kt-screen-slide-forward {
     animation: kt-screen-slide-forward 300ms var(--kt-ease-emphasized) both;
   }
 
   .kt-screen-slide-backward {
     animation: kt-screen-slide-backward 300ms var(--kt-ease-emphasized) both;
+  }
+
+  .kt-screen-slide-forward.kt-onboarding-collapse-out,
+  .kt-screen-slide-backward.kt-onboarding-collapse-out {
+    animation: kt-onboarding-collapse-out 480ms var(--kt-ease-emphasized) both;
   }
 
   .kt-parent-tab-slide-forward {
@@ -894,6 +922,28 @@
   animation-name: kt-toast-collapse-notification;
 }
 
+@keyframes kt-form-step-scroll-forward {
+  from {
+    opacity: 0.9;
+    transform: translate3d(0, 42px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes kt-form-step-scroll-backward {
+  from {
+    opacity: 0.9;
+    transform: translate3d(0, -34px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .kt-repost-composer-enter {
   animation: kt-repost-composer-enter 340ms var(--kt-ease-emphasized) both;
   transform-origin: right center;
@@ -986,6 +1036,36 @@
     filter: blur(0);
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes kt-product-flow-collapse-to-bottom {
+  from {
+    clip-path: inset(0 0 0 0);
+    filter: blur(0);
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    clip-path: inset(100% 0 0 0);
+    filter: blur(3px);
+    opacity: 0;
+    transform: translate3d(0, 24px, 0) scale(0.98);
+  }
+}
+
+@keyframes kt-dashboard-grow-from-bottom {
+  from {
+    clip-path: inset(100% 0 0 0);
+    filter: blur(3px);
+    opacity: 0;
+    transform: translate3d(0, 24px, 0) scale(0.98);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    filter: blur(0);
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 

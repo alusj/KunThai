@@ -186,6 +186,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   const [submitError, setSubmitError] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const [form, setForm] = useState(defaultForm);
   const formTopRef = useRef(null);
 
@@ -407,14 +409,17 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (origin = { x: "50%", y: "70%" }) => {
     if (!requireCurrentStep()) return;
 
     try {
       setSubmitting(true);
       setSubmitError("");
       const account = await saveOperatorAccount(buildPayload("submitted"));
-      onComplete?.(account);
+      setTransitionOrigin(origin);
+      setFinishing(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 480));
+      onComplete?.(account, origin);
     } catch (error) {
       setSubmitError(error.message || "Unable to submit fleet registration.");
     } finally {
@@ -465,6 +470,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     }
   };
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
+  const handleRegistrationBack = () => {
+    if (step > 0) {
+      prevStep();
+      return;
+    }
+
+    onClose?.();
+  };
   const goToStep = (index) => {
     if (index <= maxStepReached) {
       setStep(index);
@@ -472,12 +485,16 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   };
 
   return (
-    <ScreenSlideTransition screenKey="transport-solo-registration-form" className="min-h-dvh bg-gray-50 [transform:translateZ(0)]">
+    <ScreenSlideTransition
+      screenKey="transport-solo-registration-form"
+      className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-dvh bg-gray-50 [transform:translateZ(0)]`}
+      style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
+    >
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 lg:px-8">
         <div className="flex w-full items-center gap-3 sm:gap-4">
           <AppBackTab
-            onBack={onClose}
-            label="Back to transport"
+            onBack={handleRegistrationBack}
+            label={step > 0 ? "Back to previous registration step" : "Back to previous screen"}
             historyKey="transport-registration"
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           />
@@ -973,11 +990,16 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               </button>
               <button
                 type="button"
-                onClick={async () => {
+                onClick={async (event) => {
+                  const buttonRect = event.currentTarget.getBoundingClientRect();
+                  const origin = {
+                    x: `${buttonRect.left + buttonRect.width / 2}px`,
+                    y: `${buttonRect.top + buttonRect.height / 2}px`,
+                  };
                   try {
                     setShowReviewSaveWarning(false);
                     await saveOperatorDraft(buildPayload("draft"));
-                    handleSubmit();
+                    await handleSubmit(origin);
                   } catch (error) {
                     setSubmitError(error.message || "Unable to save this fleet draft.");
                   }
