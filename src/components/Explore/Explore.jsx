@@ -668,7 +668,6 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           hideHeader
           initialRecipient={messageRecipientOwnerId === currentUserId ? messageRecipient : null}
           onConversationActiveChange={setMessageConversationActive}
-          onViewProfile={openViewedProfile}
         />
       );
     }
@@ -695,7 +694,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (screenKey === "Security") {
-      return <SecurityScreen hideHeader onOpenHelp={() => openMenuScreen("HelpCenter")} onSwitchAccount={() => openMenuScreen("SwitchAccount")} />;
+      return <SecurityScreen currentProfile={profile} hideHeader onOpenHelp={() => openMenuScreen("HelpCenter")} onSwitchAccount={() => openMenuScreen("SwitchAccount")} />;
     }
 
     if (screenKey === "Permissions") {

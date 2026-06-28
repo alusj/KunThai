@@ -8,6 +8,7 @@ import {
   fetchExploreMessages,
   EXPLORE_MESSAGE_EVENT,
   markExploreConversationRead,
+  respondToExploreMessageRequest,
   sendExploreMessage,
   setExploreMessageActivity,
   startExploreConversation,
@@ -158,6 +159,7 @@ function mergeConversationUpdate(existing = {}, row = {}) {
   return {
     ...existing,
     id: row.id || existing.id,
+    createdBy: row.created_by || row.createdBy || existing.createdBy || "",
     participantIds: row.participant_ids || row.participantIds || existing.participantIds || [],
     participants: { ...(existing.participants || {}), ...(row.participants || {}) },
     request: row.request ?? existing.request ?? false,
@@ -444,6 +446,32 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
   }
 
+  async function respondToRequest(conversation, accept) {
+    if (!conversation?.id) return { ok: false, error: "Unable to identify this request." };
+    try {
+      setError("");
+      const updated = await respondToExploreMessageRequest(conversation.id, accept);
+      if (accept && updated) {
+        setConversationList((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+        showToast("Message request accepted.", "success");
+      } else {
+        setConversationList((current) => current.filter((item) => item.id !== conversation.id));
+        if (activeConversationRef.current?.id === conversation.id) {
+          setActiveConversation(null);
+          setMessages([]);
+        }
+        showToast("Message request removed.", "info");
+      }
+      setConversationList(await fetchExploreConversations(currentUserId));
+      return { ok: true };
+    } catch (err) {
+      const message = friendlyMessageError(err);
+      setError(message);
+      showToast(message, "danger");
+      return { ok: false, error: message };
+    }
+  }
+
   function closeConversation() {
     setActivity("active");
     setActiveConversation(null);
@@ -669,8 +697,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   }
 
   const visibleConversations = useMemo(() => dedupeExploreConversations(conversations), [conversations]);
-  const requests = useMemo(() => visibleConversations.filter((conversation) => conversation.request === true), [visibleConversations]);
-  const inbox = useMemo(() => visibleConversations.filter((conversation) => conversation.request !== true), [visibleConversations]);
+  const requests = useMemo(
+    () => visibleConversations.filter((conversation) => conversation.request === true && conversation.createdBy !== currentUserId),
+    [currentUserId, visibleConversations],
+  );
+  const inbox = useMemo(
+    () => visibleConversations.filter((conversation) => conversation.request !== true || conversation.createdBy === currentUserId),
+    [currentUserId, visibleConversations],
+  );
 
   return {
     activeConversation,
@@ -682,6 +716,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     messages,
     openConversation,
     reload,
+    respondToRequest,
     requests,
     handleConversationAction,
     sendMessage,

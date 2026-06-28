@@ -14,46 +14,43 @@ function getConversationPreview(conversation, username) {
   return `@${username || "user"}`;
 }
 
-export default function ConversationRow({ conversation, currentUserId, onOpen, onViewProfile }) {
+export default function ConversationRow({ conversation, currentUserId, onOpen, onRespond, request = false }) {
   const user = getOtherParticipant(conversation, currentUserId);
 
-  function viewProfile(event) {
-    event.stopPropagation();
-    onViewProfile?.({
-      userId: user.userId || "",
-      displayName: user.displayName || "Profile",
-      username: user.username || "",
-      avatarUrl: user.avatarUrl || "",
-      accountType: "personal",
-    });
-  }
-
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(conversation)}
-      className={`flex w-full items-center gap-3 rounded-[24px] border p-4 text-left shadow-sm transition ${
+    <div className={`rounded-[24px] border shadow-sm transition ${
         conversation.unreadCount
           ? "border-sky-100 bg-sky-50/90 hover:bg-sky-100/80"
           : "border-slate-200 bg-white hover:bg-slate-50"
-      }`}
-    >
-      <span role="button" tabIndex={0} onClick={viewProfile} onKeyDown={(event) => event.key === "Enter" && viewProfile(event)} className="flex-none" aria-label={`View ${user.displayName || "Profile"} profile`}>
-        <Avatar name={user.displayName} src={user.avatarUrl} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span role="button" tabIndex={0} onClick={viewProfile} onKeyDown={(event) => event.key === "Enter" && viewProfile(event)} className="truncate text-sm font-black text-slate-950 hover:text-sky-700">
-            {user.displayName || "Profile"}
+      }`}>
+      <button type="button" onClick={() => onOpen(conversation)} className="flex w-full items-center gap-3 p-4 text-left" aria-label={`Open message with ${user.displayName || "Profile"}`}>
+        <span className="flex-none">
+          <Avatar name={user.displayName} src={user.avatarUrl} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-black text-slate-950">
+              {user.displayName || "Profile"}
+            </span>
+            {conversation.unreadCount ? (
+              <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-black text-white">{conversation.unreadCount}</span>
+            ) : null}
           </span>
-          {conversation.unreadCount ? (
-            <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-black text-white">{conversation.unreadCount}</span>
-          ) : null}
+          <span className="mt-1 block truncate text-sm font-semibold text-slate-500">
+            {getConversationPreview(conversation, user.username)}
+          </span>
         </span>
-        <span className="mt-1 block truncate text-sm font-semibold text-slate-500">
-          {getConversationPreview(conversation, user.username)}
-        </span>
-      </span>
-    </button>
+      </button>
+      {request ? (
+        <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
+          <button type="button" onClick={() => onRespond?.(conversation, true)} className="flex-1 rounded-2xl bg-sky-700 px-4 py-2.5 text-sm font-black text-white">
+            Accept
+          </button>
+          <button type="button" onClick={() => onRespond?.(conversation, false)} className="flex-1 rounded-2xl bg-slate-100 px-4 py-2.5 text-sm font-black text-slate-700">
+            Remove
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }

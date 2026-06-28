@@ -250,8 +250,11 @@ export function useExploreNotifications() {
 
     try {
       await markAllExploreNotificationsRead();
+      return { ok: true };
     } catch (err) {
-      setError(err.message || "Unable to update notifications.");
+      const message = err.message || "Unable to update notifications.";
+      setError(message);
+      return { ok: false, error: message };
     }
   }
 

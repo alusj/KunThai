@@ -8,7 +8,7 @@ import ConversationRow from "./ConversationRow";
 import ConversationScreen from "./ConversationScreen";
 import MessageTabs from "./MessageTabs";
 
-export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange, onViewProfile }) {
+export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange }) {
   const [tab, setTab] = useState("inbox");
   const messages = useExploreMessages(currentProfile, initialRecipient);
   const currentUserId = currentProfile?.userId || "";
@@ -35,7 +35,6 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
         onAction={messages.handleConversationAction}
         onSend={messages.sendMessage}
         onActivity={messages.setActivity}
-        onViewProfile={onViewProfile}
       />
     );
   }
@@ -47,7 +46,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
       <div className="w-full space-y-4 px-4 py-4 sm:px-5">
         <MessageTabs
           active={tab}
-          counts={{ inbox: messages.inbox.length, requests: messages.requests.length }}
+          requestCount={messages.requests.length}
           onChange={setTab}
         />
 
@@ -68,7 +67,8 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
                 conversation={conversation}
                 currentUserId={currentUserId}
                 onOpen={messages.openConversation}
-                onViewProfile={onViewProfile}
+                onRespond={messages.respondToRequest}
+                request={tab === "requests"}
               />
             ))}
           </div>

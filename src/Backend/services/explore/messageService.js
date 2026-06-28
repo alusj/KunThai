@@ -158,6 +158,14 @@ function isMissingConversationRpc(error) {
   );
 }
 
+function isMissingMessageRequestRpc(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "PGRST202" || (
+    message.includes("respond_to_explore_message_request")
+    && (message.includes("schema cache") || message.includes("could not find"))
+  );
+}
+
 function isMissingColumn(error, columnName) {
   const message = String(error?.message || "").toLowerCase();
   return message.includes(`'${columnName}' column`) || message.includes(`column "${columnName}"`) || message.includes(columnName) && message.includes("schema cache");
@@ -166,6 +174,7 @@ function isMissingColumn(error, columnName) {
 function normalizeConversation(row) {
   return {
     id: row.id,
+    createdBy: row.created_by || row.createdBy || "",
     participantIds: row.participant_ids || row.participantIds || [],
     participants: row.participants || {},
     request: Boolean(row.request),
@@ -591,6 +600,7 @@ export async function startExploreConversation(currentProfile, recipient) {
 
   const conversation = {
     id: localConversationId,
+    createdBy: currentUserId,
     participantIds: [currentUserId, recipientId],
     participants: {
       [currentUserId]: {
@@ -632,6 +642,28 @@ export async function startExploreConversation(currentProfile, recipient) {
 
   writeConversations(replaceConversationForParticipantPair(conversations, remoteConversation), currentUserId);
   return remoteConversation;
+}
+
+export async function respondToExploreMessageRequest(conversationId, accept = true) {
+  if (!isUuid(conversationId)) {
+    throw new Error("This message request is not available yet.");
+  }
+
+  const { data, error } = await supabase
+    .rpc("respond_to_explore_message_request", {
+      accept_request: Boolean(accept),
+      conversation_uuid: conversationId,
+    })
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingMessageRequestRpc(error)) {
+      throw new Error("Message requests need the latest KunThai database update.");
+    }
+    throw error;
+  }
+
+  return data ? normalizeConversation(data) : null;
 }
 
 async function insertExploreConversationDraft(draft) {

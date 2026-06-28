@@ -1,7 +1,7 @@
-export default function MessageTabs({ active, counts, onChange }) {
+export default function MessageTabs({ active, onChange, requestCount = 0 }) {
   const tabs = [
-    { id: "inbox", label: "Inbox", count: counts.inbox },
-    { id: "requests", label: "Requests", count: counts.requests },
+    { id: "inbox", label: "Inbox", count: 0 },
+    { id: "requests", label: "Requests", count: requestCount },
   ];
 
   return (

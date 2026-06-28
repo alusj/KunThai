@@ -1,12 +1,22 @@
+import { useEffect, useState } from "react";
 import {
   HiOutlineBellAlert,
   HiOutlineDevicePhoneMobile,
   HiOutlineExclamationTriangle,
+  HiOutlineFingerPrint,
   HiOutlineKey,
   HiOutlineLockClosed,
   HiOutlineShieldCheck,
 } from "react-icons/hi2";
 
+import {
+  disableBiometricUnlock,
+  enableBiometricUnlock,
+  getBiometricAvailability,
+  readBiometricPreference,
+  verifyBiometricUnlock,
+} from "../../../../Backend/services/biometricService";
+import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
 const securityItems = [
@@ -40,10 +50,62 @@ const securityItems = [
   },
 ];
 
-export default function SecurityScreen({ hideHeader = false, onOpenHelp, onSwitchAccount }) {
+export default function SecurityScreen({ currentProfile, hideHeader = false, onOpenHelp, onSwitchAccount }) {
+  const currentUserId = currentProfile?.userId || "";
+  const [biometricAvailability, setBiometricAvailability] = useState({ available: false, checking: true, reason: "" });
+  const [biometricPreference, setBiometricPreference] = useState(() => readBiometricPreference(currentUserId));
+  const [biometricBusy, setBiometricBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setBiometricPreference(readBiometricPreference(currentUserId));
+    getBiometricAvailability().then((result) => {
+      if (active) setBiometricAvailability({ ...result, checking: false });
+    });
+    return () => {
+      active = false;
+    };
+  }, [currentUserId]);
+
   function runAction(action) {
     if (action === "help") onOpenHelp?.();
     if (action === "switch") onSwitchAccount?.();
+  }
+
+  async function enableBiometrics() {
+    if (biometricBusy) return;
+    setBiometricBusy(true);
+    try {
+      const next = await enableBiometricUnlock({
+        displayName: currentProfile?.displayName || currentProfile?.name || "KunThai user",
+        userId: currentUserId,
+      });
+      setBiometricPreference(next);
+      showToast("Biometric unlock enabled on this device.", "success");
+    } catch (error) {
+      showToast(error.message || "Unable to enable biometric unlock.", "danger");
+    } finally {
+      setBiometricBusy(false);
+    }
+  }
+
+  function disableBiometrics() {
+    setBiometricPreference(disableBiometricUnlock(currentUserId));
+    showToast("Biometric unlock disabled on this device.", "info");
+  }
+
+  async function testBiometrics() {
+    if (biometricBusy) return;
+    setBiometricBusy(true);
+    try {
+      const next = await verifyBiometricUnlock(currentUserId);
+      setBiometricPreference(next);
+      showToast("Biometric confirmation successful.", "success");
+    } catch (error) {
+      showToast(error.message || "Biometric confirmation failed.", "danger");
+    } finally {
+      setBiometricBusy(false);
+    }
   }
 
   return (
@@ -89,6 +151,57 @@ export default function SecurityScreen({ hideHeader = false, onOpenHelp, onSwitc
           })}
         </section>
 
+        <section className="rounded-[24px] border border-sky-100 bg-white p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-sky-50 text-sky-700">
+              <HiOutlineFingerPrint className="text-2xl" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-black text-slate-950">Biometric unlock</h3>
+                  <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                    Optionally use this device's fingerprint, face check, or secure screen lock for protected KunThai confirmations, including UrMall and Transport.
+                  </p>
+                </div>
+                <span className={`rounded-full px-3 py-1.5 text-xs font-black ${
+                  biometricPreference.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+                }`}>
+                  {biometricPreference.enabled ? "Enabled" : biometricAvailability.checking ? "Checking device" : "Optional"}
+                </span>
+              </div>
+
+              {!biometricAvailability.checking && !biometricAvailability.available ? (
+                <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
+                  {biometricAvailability.reason}
+                </p>
+              ) : null}
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {biometricPreference.enabled ? (
+                  <>
+                    <button type="button" onClick={testBiometrics} disabled={biometricBusy} className="rounded-2xl bg-sky-700 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60">
+                      {biometricBusy ? "Confirming..." : "Test biometric"}
+                    </button>
+                    <button type="button" onClick={disableBiometrics} disabled={biometricBusy} className="rounded-2xl bg-slate-100 px-4 py-2.5 text-sm font-black text-slate-700 disabled:opacity-60">
+                      Turn off
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={enableBiometrics}
+                    disabled={biometricBusy || biometricAvailability.checking || !biometricAvailability.available || !currentUserId}
+                    className="rounded-2xl bg-sky-700 px-4 py-2.5 text-sm font-black text-white disabled:bg-slate-200 disabled:text-slate-500"
+                  >
+                    {biometricBusy ? "Preparing..." : "Enable on this device"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="rounded-[24px] border border-amber-100 bg-amber-50 p-5">
           <div className="flex items-start gap-3">
             <HiOutlineExclamationTriangle className="mt-0.5 flex-none text-2xl text-amber-700" />
@@ -102,6 +215,7 @@ export default function SecurityScreen({ hideHeader = false, onOpenHelp, onSwitc
           </div>
         </section>
 
+        {/* Future backend: register biometric public keys server-side before using them as a sign-in factor or payment authorization. */}
         {/* Future backend: list authenticated sessions, trusted devices, login alerts, and session revocation controls here. */}
       </div>
     </div>

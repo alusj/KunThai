@@ -4,7 +4,12 @@ import { HiOutlineCheckCircle, HiOutlineCog6Tooth } from "react-icons/hi2";
 import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
-import { EXPLORE_NOTIFICATION_SEEN_SCOPE, markNotificationScopeVisited } from "../../../../Backend/services/notificationSeenStore";
+import {
+  EXPLORE_NOTIFICATION_SEEN_SCOPE,
+  markNotificationScopeVisited,
+  markNotificationsSeen,
+} from "../../../../Backend/services/notificationSeenStore";
+import { showToast } from "../../../../Backend/services/toastService";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import NotificationSettings from "./components/NotificationSettings";
@@ -16,10 +21,17 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
   const preferences = useExplorePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   useEffect(() => {
     markNotificationScopeVisited(EXPLORE_NOTIFICATION_SEEN_SCOPE);
   }, []);
+
+  useEffect(() => {
+    if (!notifications.length) return;
+    markNotificationScopeVisited(EXPLORE_NOTIFICATION_SEEN_SCOPE);
+    markNotificationsSeen(EXPLORE_NOTIFICATION_SEEN_SCOPE, notifications);
+  }, [notifications]);
 
   const tabs = useMemo(
     () => [
@@ -56,6 +68,20 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
     await follows.toggleFollow(item.actor_user_id);
   }
 
+  async function handleMarkAllRead() {
+    if (markingAllRead) return;
+    setMarkingAllRead(true);
+    const result = await markAllRead();
+    setMarkingAllRead(false);
+
+    if (result?.ok === false) {
+      showToast(result.error || "Unable to mark notifications as read.", "danger");
+      return;
+    }
+
+    showToast("All Explore notifications marked as read.", "success");
+  }
+
   return (
     <div className="w-full space-y-4 px-4 pt-4 sm:px-5">
       <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
@@ -68,9 +94,11 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={markAllRead}
+              onClick={handleMarkAllRead}
+              disabled={markingAllRead || !notifications.length}
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-lg text-sky-700"
               aria-label="Mark all as read"
+              title="Mark all as read"
             >
               <HiOutlineCheckCircle />
             </button>
