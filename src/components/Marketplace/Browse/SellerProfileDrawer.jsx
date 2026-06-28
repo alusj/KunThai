@@ -33,6 +33,7 @@ import {
   sendBuyerMarketplaceMessage,
   submitMarketplaceReview,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { storeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
 import { MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
 
 function StarRatingInput({ value, onChange }) {
@@ -750,6 +751,7 @@ export default function SellerProfileDrawer({
 
     const routeDetail = {
       autoRoute: true,
+      returnTo: "marketplace-seller",
       destination: {
         type: "seller",
         id: safeSeller.id,
@@ -764,6 +766,7 @@ export default function SellerProfileDrawer({
       },
     };
 
+    storeSellerAreaViewReturn(safeSeller);
     window.dispatchEvent(new CustomEvent("marketplace-close-buyer-surfaces"));
     onClose?.();
     window.setTimeout(() => {

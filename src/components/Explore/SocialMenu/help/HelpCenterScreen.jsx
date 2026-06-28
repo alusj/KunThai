@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HiOutlineBolt,
+  HiOutlineBugAnt,
+  HiOutlineCamera,
   HiOutlineChatBubbleLeftRight,
   HiOutlineClipboardDocumentCheck,
   HiOutlineCreditCard,
@@ -96,7 +98,7 @@ function TopicCard({ topic }) {
   );
 }
 
-export default function HelpCenterScreen({ focusReport = false, hideHeader = false }) {
+export default function HelpCenterScreen({ focusReport = false, hideHeader = false, onOpenYourVoice }) {
   const support = useSupportCenter();
   const reportFormRef = useRef(null);
   const [query, setQuery] = useState("");
@@ -146,6 +148,27 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search accounts, Swip, safety, marketplace, transport, payments..." className="h-14 min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400 sm:text-base" />
           </label>
         </section>
+
+        {onOpenYourVoice ? (
+          <section className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onOpenYourVoice({ feedbackType: "bug", category: "explore", currentScreen: "Explore / Help Center", requestScreenshot: true })}
+              className="flex items-center gap-3 rounded-[22px] border border-sky-200 bg-white p-4 text-left shadow-sm transition hover:bg-sky-50"
+            >
+              <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineCamera className="text-xl" /></span>
+              <span><span className="block text-sm font-black text-slate-950">Attach screenshot</span><span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">Open Your Voice and choose an image from this device.</span></span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenYourVoice({ feedbackType: "bug", category: "explore", title: "Feedback about Help Center", currentScreen: "Explore / Help Center" })}
+              className="flex items-center gap-3 rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-200 hover:bg-sky-50"
+            >
+              <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-slate-100 text-slate-700"><HiOutlineBugAnt className="text-xl" /></span>
+              <span><span className="block text-sm font-black text-slate-950">Report this screen</span><span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">Send private feedback with this screen already identified.</span></span>
+            </button>
+          </section>
+        ) : null}
 
         {query.trim() ? (
           <section>

@@ -7,6 +7,23 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
+    <meta name="theme-color" content="#f1f5f9" />
+    <script>
+      (() => {
+        try {
+          const saved = localStorage.getItem("kuntai-appearance-mode");
+          const mode = saved === "on" || saved === "off" || saved === "system" ? saved : "system";
+          const dark = mode === "on" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", dark);
+          document.documentElement.dataset.appearanceMode = mode;
+          document.documentElement.dataset.appearance = dark ? "dark" : "light";
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+          document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#020617" : "#f1f5f9");
+        } catch {
+          // The React provider applies the default if browser storage is unavailable.
+        }
+      })();
+    </script>
     <title>KunThai</title>
     <style>
       body {
@@ -133,6 +150,26 @@
         height: 12px;
         border-radius: 999px;
         background: #f1f5f9;
+      }
+
+      html.dark body,
+      html.dark .kt-startup-shell {
+        background: #020617;
+      }
+
+      html.dark .kt-startup-header,
+      html.dark .kt-startup-tab,
+      html.dark .kt-startup-card {
+        border-color: #1e293b;
+        background: #0f172a;
+      }
+
+      html.dark .kt-startup-dot,
+      html.dark .kt-startup-line,
+      html.dark .kt-startup-avatar,
+      html.dark .kt-startup-card-media,
+      html.dark .kt-startup-copy .kt-startup-line:last-child {
+        background: #1e293b;
       }
 
       .kt-startup-card-media {

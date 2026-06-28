@@ -1,4 +1,5 @@
-import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlinePhoto, HiOutlineSparkles } from "react-icons/hi2";
+import { Megaphone } from "lucide-react";
+import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlinePhoto } from "react-icons/hi2";
 
 import Avatar from "../../../../shared/Avatar";
 
@@ -41,7 +42,7 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-lg text-amber-700 transition hover:border-amber-200 hover:bg-amber-100 sm:h-10 sm:w-10"
             aria-label="Advertisement"
           >
-            <HiOutlineSparkles />
+            <Megaphone size={18} strokeWidth={2.3} absoluteStrokeWidth />
           </button>
           <button
             type="button"

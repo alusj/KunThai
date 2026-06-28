@@ -14,6 +14,7 @@ import {
   toggleSavedBuyerSeller,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { showToast } from "../../../Backend/services/toastService";
+import { consumeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
 
 import BuyerDiscoveryBar from "./BuyerDiscoveryBar";
 import ProductDetailDrawer from "./ProductDetailDrawer";
@@ -117,6 +118,13 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
   const [sellerOpen, setSellerOpen] = useState(false);
   const noticeTimerRef = useRef(null);
   const catalogRef = useRef(catalog);
+
+  useEffect(() => {
+    const sellerReturn = consumeSellerAreaViewReturn();
+    if (!sellerReturn) return;
+    setSelectedSeller(sellerReturn);
+    setSellerOpen(true);
+  }, []);
 
   useEffect(() => {
     BROWSE_MEMORY.filters = cloneFilters(filters);

@@ -30,6 +30,7 @@ import {
   FiUsers,
   FiX,
 } from "react-icons/fi";
+import { HiOutlineCheckCircle } from "react-icons/hi2";
 import AppBackTab from "../shared/AppBackTab";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
@@ -677,6 +678,11 @@ export default function OperatorDashboardScreen({
         fleetName={fleetName}
         operatorName={operatorName}
         onClose={() => setOperatorAlertsOpen(false)}
+        onMarkAllRead={() => {
+          markNotificationsSeen(alertReadScope, alertNotificationItems);
+          setSeenVersion((version) => version + 1);
+          showToast("All operator notifications marked as read.", "success");
+        }}
         onRead={(alert) => {
           markNotificationsSeen(alertReadScope, [alert]);
           setSeenVersion((version) => version + 1);
@@ -1368,6 +1374,7 @@ function OperatorAlertsDrawer({
   fleetName,
   operatorName,
   onClose,
+  onMarkAllRead,
   onRead,
   onOpenWaiting,
   onOpenHistory,
@@ -1421,6 +1428,15 @@ function OperatorAlertsDrawer({
               {fleetName} - {operatorName}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={onMarkAllRead}
+            aria-label="Mark all operator notifications as read"
+            title="Mark all as read"
+            className="kt-touchable grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-green-50 text-xl text-green-700 transition hover:bg-green-100"
+          >
+            <HiOutlineCheckCircle />
+          </button>
         </header>
 
         <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-gray-50 px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-4 [-webkit-overflow-scrolling:touch]">

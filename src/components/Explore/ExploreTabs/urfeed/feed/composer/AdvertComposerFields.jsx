@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
+import { useAddressAreaValidation } from "../../../../../shared/AddressAreaValidation";
 
 const ADVERT_TYPES = [
   { value: "offer", label: "Offer" },
@@ -316,6 +317,23 @@ export default function AdvertComposerFields({
 
 function CreativeFields({ advert, hasImage, hasVideo, onChange, onEditCampaign, onPickLocation, onSelectMedia }) {
   const hasLocation = hasAdvertCoordinates(advert);
+  const enteredAddress = String(advert.address || "").trim();
+  const addressValidation = useAddressAreaValidation(enteredAddress, {
+    enabled: Boolean(enteredAddress),
+    selectedPoint: hasLocation ? advert : null,
+  });
+
+  useEffect(() => {
+    const result = addressValidation.result;
+    if (addressValidation.status !== "found" || hasLocation || !result) return;
+    if (!hasAdvertCoordinates(result)) return;
+
+    onChange("lat", Number(result.lat));
+    onChange("lng", Number(result.lng));
+    onChange("coordinatesLabel", `${Number(result.lat).toFixed(6)}, ${Number(result.lng).toFixed(6)}`);
+    onChange("source", "areaViewSearch");
+  }, [addressValidation.result, addressValidation.status, hasLocation, onChange]);
+
   return (
     <section className="space-y-4 rounded-[26px] border border-amber-200 bg-amber-50/45 p-4 shadow-sm shadow-amber-950/[0.03]">
       <div className="flex items-start gap-3">
@@ -364,11 +382,13 @@ function CreativeFields({ advert, hasImage, hasVideo, onChange, onEditCampaign, 
           </label>
           <button type="button" onClick={onPickLocation} className="kt-pressable flex h-11 flex-none items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"><MapPin size={16} /> Area View</button>
         </div>
-        {hasLocation ? (
+        {enteredAddress && (hasLocation || addressValidation.status === "found") ? (
           <p className="mt-2 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">Location findable in Area View.</p>
-        ) : (
+        ) : enteredAddress && addressValidation.status === "searching" ? (
+          <p className="mt-2 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-600">Checking whether this location is findable in Area View...</p>
+        ) : enteredAddress && addressValidation.status === "notFound" ? (
           <p className="mt-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">Location is not findable in Area View. Please allow us to locate you.</p>
-        )}
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

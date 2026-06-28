@@ -63,6 +63,10 @@ export const MENU_SCREENS = {
     title: "Help Center",
     subtitle: "Guides, reports, support requests, and safety help.",
   },
+  YourVoice: {
+    title: "Your Voice",
+    subtitle: "Share private ideas, problems, screenshots, and voice notes with KunThai.",
+  },
   ReportProblem: {
     title: "Report a Problem",
     subtitle: "Send a support request with the details KunThai needs to investigate.",

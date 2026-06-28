@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { FiActivity, FiMapPin } from "react-icons/fi";
+import { HiOutlineCheckCircle } from "react-icons/hi2";
 
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
@@ -694,6 +695,11 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             company={company}
             open={companyNotificationsOpen}
             onClose={() => setCompanyNotificationsOpen(false)}
+            onMarkAllRead={() => {
+              markNotificationsSeen(notificationReadScope, companyNotificationItems);
+              setSeenVersion((version) => version + 1);
+              showToast("All company notifications marked as read.", "success");
+            }}
             onRead={(activity) => {
               markNotificationsSeen(notificationReadScope, [activity]);
               setSeenVersion((version) => version + 1);
@@ -1857,7 +1863,7 @@ function FleetHqFullScreen({ children, label, onClose, open }) {
   );
 }
 
-function FleetHqFullScreenHeader({ eyebrow, icon, label, onBack, title }) {
+function FleetHqFullScreenHeader({ eyebrow, icon, label, onBack, rightAction = null, title }) {
   return (
     <header className="kt-header-glass flex flex-none items-start gap-3 border-b border-slate-100 px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] shadow-sm">
       <AppBackTab
@@ -1868,13 +1874,16 @@ function FleetHqFullScreenHeader({ eyebrow, icon, label, onBack, title }) {
         className="mt-0.5 shrink-0 rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
         useHistoryLayer={false}
       />
-      <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-blue-700">
-        {createElement(icon, { size: 20 })}
-      </span>
+      {icon ? (
+        <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-blue-700">
+          {createElement(icon, { size: 20 })}
+        </span>
+      ) : null}
       <div className="min-w-0 flex-1">
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">{eyebrow}</p>
         <h2 className="mt-1 truncate text-xl font-black text-slate-950">{title}</h2>
       </div>
+      {rightAction}
     </header>
   );
 }
@@ -1901,10 +1910,26 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
   );
 }
 
-function CompanyActivityDrawer({ activities, company, onClose, onRead, open }) {
+function CompanyActivityDrawer({ activities, company, onClose, onMarkAllRead, onRead, open }) {
   return (
     <FleetHqFullScreen label="Fleet HQ notifications" onClose={onClose} open={open}>
-      <FleetHqFullScreenHeader eyebrow="Company notifications" icon={Bell} label="Back to Fleet HQ" onBack={onClose} title={company?.companyName || "Fleet HQ"} />
+      <FleetHqFullScreenHeader
+        eyebrow="Company notifications"
+        label="Back to Fleet HQ"
+        onBack={onClose}
+        rightAction={(
+          <button
+            type="button"
+            onClick={onMarkAllRead}
+            aria-label="Mark all company notifications as read"
+            title="Mark all as read"
+            className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-xl text-blue-700 transition hover:bg-blue-100"
+          >
+            <HiOutlineCheckCircle />
+          </button>
+        )}
+        title={company?.companyName || "Fleet HQ"}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
         {activities.length ? (
           <div className="grid gap-3">

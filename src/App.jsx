@@ -474,6 +474,7 @@ export default function App() {
               <Transport
                 onActivityChange={setTransportActivityOpen}
                 areaViewRequest={transportAreaRequest}
+                onAreaViewRequestHandled={setTransportAreaRequest}
                 active
                 onNotificationCountChange={updateTransportBadge}
               />

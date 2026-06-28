@@ -13,6 +13,7 @@ import {
   HiOutlineExclamationTriangle,
   HiOutlineInformationCircle,
   HiOutlineKey,
+  HiOutlineLightBulb,
   HiOutlineQuestionMarkCircle,
   HiOutlineScale,
   HiOutlineShieldCheck,
@@ -53,6 +54,7 @@ const MENU_GROUPS = [
     description: "Guidance, safety, policies, and product information.",
     items: [
       ["help-center", "Help Center", "Search guidance across KunThai services.", HiOutlineQuestionMarkCircle],
+      ["your-voice", "Your Voice", "Share private ideas and product feedback with KunThai.", HiOutlineLightBulb],
       ["report-problem", "Report a Problem", "Tell support what went wrong.", HiOutlineExclamationTriangle],
       ["safety-center", "Safety Center", "Reporting, blocking, and safer service use.", HiOutlineShieldCheck],
       ["terms-policies", "Terms & Policies", "Rules and policies for every KunThai service.", HiOutlineScale],
@@ -78,6 +80,7 @@ export function SocialMenuContent({ compact = false, onClose, onNavigate }) {
       permissions: "Permissions",
       "data-mobile-use": "DataMobileUse",
       "help-center": "HelpCenter",
+      "your-voice": "YourVoice",
       "report-problem": "ReportProblem",
       "safety-center": "SafetyCenter",
       "terms-policies": "TermsPolicies",

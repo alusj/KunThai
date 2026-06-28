@@ -29,7 +29,7 @@ import {
 import { submitTransportSupportTicket } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
 
-export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null }) {
+export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
   const [companyRegistrationMode, setCompanyRegistrationMode] = useState("full");
@@ -720,7 +720,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setBookingTarget(null);
     setNearbyAreaRequest(areaViewRequest);
     setNearbyAreaOpen(true);
-  }, [areaViewRequest]);
+    onAreaViewRequestHandled?.(null);
+  }, [areaViewRequest, onAreaViewRequestHandled]);
 
   useEffect(() => {
     onActivityChange?.(
@@ -949,6 +950,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           onBack={() => {
             const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
             const returnToExplore = String(nearbyAreaRequest?.returnTo || "").startsWith("explore-");
+            const returnToMarketplace = String(nearbyAreaRequest?.returnTo || "").startsWith("marketplace-");
             setRouteDirection("backward");
             setNearbyAreaOpen(false);
             if (returnToBooking) {
@@ -957,6 +959,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             setNearbyAreaRequest(null);
             if (returnToExplore) {
               window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
+            } else if (returnToMarketplace) {
+              window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
             }
           }}
           initialDestination={nearbyAreaRequest?.destination}
@@ -967,6 +971,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           onLocationPicked={async (location) => {
             const request = nearbyAreaRequest;
             const returnToExplore = String(request?.returnTo || "").startsWith("explore-");
+            const returnToMarketplace = String(request?.returnTo || "").startsWith("marketplace-");
             try {
               if (typeof request?.onLocationPicked === "function") {
                 await request.onLocationPicked(location);
@@ -977,6 +982,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
               setNearbyAreaRequest(null);
               if (returnToExplore) {
                 window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
+              } else if (returnToMarketplace) {
+                window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
               }
             }
           }}
@@ -985,6 +992,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
               ? "Back to booking form"
               : nearbyAreaRequest?.returnTo === "explore-messages"
                 ? "Back to messages"
+                : nearbyAreaRequest?.returnTo === "marketplace-seller"
+                  ? "Back to seller profile"
                 : "Back to transport"
           }
         />

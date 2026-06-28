@@ -4,7 +4,9 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import "./styles/bankTheme.css";
+import "./styles/appearance.css";
 import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
+import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
 
 const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
 
@@ -56,9 +58,11 @@ class AppErrorBoundary extends Component {
 
 createRoot(document.getElementById('root')).render(
   <AppErrorBoundary>
-    <ToastProvider>
-      <RootApplication />
-    </ToastProvider>
+    <AppearanceProvider>
+      <ToastProvider>
+        <RootApplication />
+      </ToastProvider>
+    </AppearanceProvider>
   </AppErrorBoundary>
 
 )

@@ -37,6 +37,7 @@ import SafetyCenterScreen from "./SocialMenu/safety/SafetyCenterScreen";
 import SocialScreenHeader from "./SocialMenu/shared/SocialScreenHeader";
 import TermsPoliciesScreen from "./SocialMenu/terms/TermsPoliciesScreen";
 import SwitchAccountScreen from "./SocialMenu/account/SwitchAccountScreen";
+import YourVoiceScreen from "./SocialMenu/userCare/YourVoiceScreen";
 import { MENU_SCREENS } from "./config/menuScreens";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 
@@ -72,6 +73,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [messageRecipient, setMessageRecipient] = useState(null);
   const [messageRecipientOwnerId, setMessageRecipientOwnerId] = useState("");
   const [messageConversationActive, setMessageConversationActive] = useState(false);
+  const [yourVoiceDraft, setYourVoiceDraft] = useState(null);
   const [postingNotice, setPostingNotice] = useState(() => readPostingNotice());
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
@@ -477,6 +479,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       setMessageRecipient(null);
       setMessageRecipientOwnerId("");
     }
+    if (screen === "YourVoice") {
+      setYourVoiceDraft(options.prefill || null);
+    }
     exploreNav.openMenuScreen(screen, options);
   }
 
@@ -706,11 +711,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (screenKey === "HelpCenter") {
-      return <HelpCenterScreen hideHeader />;
+      return <HelpCenterScreen hideHeader onOpenYourVoice={(prefill) => openMenuScreen("YourVoice", { prefill })} />;
     }
 
     if (screenKey === "ReportProblem") {
-      return <HelpCenterScreen focusReport hideHeader />;
+      return <HelpCenterScreen focusReport hideHeader onOpenYourVoice={(prefill) => openMenuScreen("YourVoice", { prefill })} />;
+    }
+
+    if (screenKey === "YourVoice") {
+      return <YourVoiceScreen hideHeader initialDraft={yourVoiceDraft} />;
     }
 
     if (screenKey === "SafetyCenter") {

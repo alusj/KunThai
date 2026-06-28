@@ -45,6 +45,7 @@ const VIDEO_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
 const MAX_POST_TITLE_LENGTH = 30;
+const COMPOSER_AREA_RETURN_KEY = "kuntai.explore.composerAreaReturn";
 const DEFAULT_ADVERT = {
   setupComplete: false,
   placement: "urfeed",
@@ -83,6 +84,70 @@ function normalizeAdvertDraft(value = {}) {
     ...DEFAULT_ADVERT,
     ...(value && typeof value === "object" ? value : {}),
   };
+}
+
+function queueComposerAreaReturn(mode) {
+  try {
+    sessionStorage.setItem(COMPOSER_AREA_RETURN_KEY, mode === "advert" ? "advert" : "post");
+  } catch {
+    // The saved draft remains available if session storage is unavailable.
+  }
+}
+
+function consumeComposerAreaReturn() {
+  try {
+    const mode = sessionStorage.getItem(COMPOSER_AREA_RETURN_KEY);
+    sessionStorage.removeItem(COMPOSER_AREA_RETURN_KEY);
+    return mode === "advert" || mode === "post" ? mode : "";
+  } catch {
+    return "";
+  }
+}
+
+function persistComposerLocationReturn(mode, location) {
+  const draft = readDraft();
+  const lat = Number(location?.lat ?? location?.latitude);
+  const lng = Number(location?.lng ?? location?.longitude);
+  const address = location?.address || location?.label || location?.name || formatLocationLabel(lat, lng);
+  const coordinatesLabel = location?.coordinatesLabel || formatLocationLabel(lat, lng);
+
+  if (mode === "advert") {
+    const advert = normalizeAdvertDraft(draft.media_meta?.advert);
+    writeDraft({
+      ...draft,
+      post_type: "advert",
+      post_privacy: "public",
+      media_meta: {
+        ...(draft.media_meta || {}),
+        advert: {
+          ...advert,
+          address: address || advert.address,
+          lat: Number.isFinite(lat) ? lat : advert.lat,
+          lng: Number.isFinite(lng) ? lng : advert.lng,
+          coordinatesLabel,
+          source: location?.source || "areaView",
+        },
+      },
+    });
+  } else {
+    writeDraft({
+      ...draft,
+      post_type: "post",
+      media_meta: {
+        ...(draft.media_meta || {}),
+        location: {
+          label: address || "Tagged location",
+          address: address || "Tagged location",
+          lat: Number.isFinite(lat) ? lat : null,
+          lng: Number.isFinite(lng) ? lng : null,
+          coordinatesLabel,
+          source: location?.source || "areaView",
+        },
+      },
+    });
+  }
+
+  queueComposerAreaReturn(mode);
 }
 
 function cleanAdvertForSubmit(advert = {}) {
@@ -235,6 +300,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const canSubmit = isAdvertMode
     ? Boolean(advertForm.setupComplete && hasAdvertContent && advertPlacementReady)
     : hasContent;
+
+  useEffect(() => {
+    const returnMode = consumeComposerAreaReturn();
+    if (!returnMode) return;
+    setComposerMode(returnMode);
+    setOpen(true);
+  }, []);
 
   useBrowserBack(open, () => setOpen(false), "explore-composer");
 
@@ -761,6 +833,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function openAdvertLocationPicker() {
+    queueComposerAreaReturn("advert");
     setOpen(false);
     window.dispatchEvent(
       new CustomEvent("kuntai-open-area-view", {
@@ -781,6 +854,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             const lng = Number(location.lng ?? location.longitude);
             const address = location.address || location.label || location.name || formatLocationLabel(lat, lng);
 
+            persistComposerLocationReturn("advert", location);
             setComposerMode("advert");
             setAdvertForm((current) => ({
               ...current,
@@ -820,6 +894,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function openPostLocationPicker() {
+    queueComposerAreaReturn("post");
     setOpen(false);
     window.dispatchEvent(
       new CustomEvent("kuntai-open-area-view", {
@@ -840,6 +915,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             const lng = Number(location.lng ?? location.longitude);
             const label = location.address || location.label || location.name || formatLocationLabel(lat, lng);
 
+            persistComposerLocationReturn("post", location);
             setComposerMode("post");
             setMediaMeta((current) => ({
               ...current,
