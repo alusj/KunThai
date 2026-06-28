@@ -10,6 +10,11 @@ import {
   subscribeToExploreMessages,
 } from "../services/explore/messageService";
 import { readExploreSettings } from "../services/explore/preferencesService";
+import {
+  EXPLORE_MESSAGE_SEEN_SCOPE,
+  readNotificationScopeVisitedAt,
+  subscribeNotificationSeen,
+} from "../services/notificationSeenStore";
 
 function isFreshActivity(item) {
   return Date.now() - new Date(item.updatedAt || 0).getTime() < 15000;
@@ -23,6 +28,13 @@ function getCachedStatus(userId = "") {
 export function useExploreMessageStatus(currentUserId = "") {
   const [conversations, setConversations] = useState(() => getCachedStatus(currentUserId).conversations);
   const [activity, setActivity] = useState(() => fetchExploreMessageActivity());
+  const [messagesVisitedAt, setMessagesVisitedAt] = useState(() => readNotificationScopeVisitedAt(EXPLORE_MESSAGE_SEEN_SCOPE));
+
+  useEffect(() => subscribeNotificationSeen((event) => {
+    if (event.detail?.scope === EXPLORE_MESSAGE_SEEN_SCOPE || event.detail?.scope === "*") {
+      setMessagesVisitedAt(readNotificationScopeVisitedAt(EXPLORE_MESSAGE_SEEN_SCOPE));
+    }
+  }), []);
 
   useEffect(() => {
     function reloadMessages() {
@@ -73,7 +85,11 @@ export function useExploreMessageStatus(currentUserId = "") {
 
   return useMemo(() => {
     const settings = readExploreSettings().messages;
-    const unreadCount = conversations.reduce((total, conversation) => total + (conversation.unreadCount || 0), 0);
+    const unreadCount = conversations.reduce((total, conversation) => {
+      const updatedAt = new Date(conversation.updatedAt || 0).getTime();
+      if (messagesVisitedAt && Number.isFinite(updatedAt) && updatedAt > 0 && updatedAt <= messagesVisitedAt) return total;
+      return total + (conversation.unreadCount || 0);
+    }, 0);
     const liveActivity = activity.find((item) => item.userId !== currentUserId && isFreshActivity(item));
     const activeConversation = conversations.find((conversation) => Date.now() - new Date(conversation.updatedAt || 0).getTime() < 5 * 60 * 1000);
     const visibleActivity = liveActivity && (
@@ -87,5 +103,5 @@ export function useExploreMessageStatus(currentUserId = "") {
       activity: visibleActivity ? liveActivity.activity : "",
       active: Boolean(visibleActivity || (settings.showActiveStatus && activeConversation)),
     };
-  }, [activity, conversations, currentUserId]);
+  }, [activity, conversations, currentUserId, messagesVisitedAt]);
 }

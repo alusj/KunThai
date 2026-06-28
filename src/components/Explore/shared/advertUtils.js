@@ -18,6 +18,32 @@ export function normalizeAdvertUrl(value = "") {
   return /^https?:\/\//i.test(text) ? text : `https://${text}`;
 }
 
+export function normalizeAdvertPhone(value = "") {
+  return String(value || "").trim().slice(0, 32);
+}
+
+export function getAdvertPhoneHref(value = "") {
+  const phone = normalizeAdvertPhone(value);
+  if (!phone) return "";
+
+  const hasLeadingPlus = phone.startsWith("+");
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  return `tel:${hasLeadingPlus ? "+" : ""}${digits}`;
+}
+
+export function formatAdvertType(value = "") {
+  const labels = {
+    offer: "Offer",
+    service: "Service",
+    event: "Event",
+    "job-vacancy": "Job Vacancy",
+    announcement: "Announcement",
+  };
+  const key = String(value || "").trim().toLowerCase();
+  return labels[key] || "Advert";
+}
+
 export function formatAdvertSchedule(advert = {}) {
   if (!advert.date && !advert.time) return "";
   if (!advert.date) return advert.time;
@@ -35,7 +61,19 @@ export function formatAdvertSchedule(advert = {}) {
 }
 
 export function hasAdvertCoordinates(advert = {}) {
-  return Number.isFinite(Number(advert.lat)) && Number.isFinite(Number(advert.lng));
+  if (advert.lat === null || advert.lat === undefined || advert.lat === "" || advert.lng === null || advert.lng === undefined || advert.lng === "") {
+    return false;
+  }
+
+  const lat = Number(advert.lat);
+  const lng = Number(advert.lng);
+  return Number.isFinite(lat)
+    && Number.isFinite(lng)
+    && lat >= -90
+    && lat <= 90
+    && lng >= -180
+    && lng <= 180
+    && !(lat === 0 && lng === 0);
 }
 
 export function openAdvertAreaView(post, advert = {}) {

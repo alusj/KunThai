@@ -35,7 +35,7 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
 
         {advertPost ? (
           <div className="space-y-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">Advertisement</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">Sponsored</p>
             <h3 className="kuntai-break text-lg font-black leading-6 text-white">
               {advert.title || "Advertisement"}
             </h3>

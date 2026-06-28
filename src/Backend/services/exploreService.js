@@ -35,6 +35,21 @@ export {
   fetchRecommendedPeople,
   recordRecommendationSignal,
 } from "./explore/recommendationService";
+export {
+  createExploreAdvertCampaign,
+  fetchExploreAdvertAnalytics,
+  fetchRecommendedExploreAds,
+  getExploreAdvertCampaign,
+  getExploreAdvertCampaignId,
+  getExploreAdvertReason,
+  hydrateOwnedExploreAdverts,
+  paceExploreAdvertPosts,
+  readMutedExploreAdvertisers,
+  recordExploreSearchInterests,
+  recordExploreAdvertEvent,
+  setExploreAdvertUserControl,
+  storeMutedExploreAdvertiser,
+} from "./explore/advertService";
 
 function readStoredNotifications() {
   try {

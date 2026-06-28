@@ -302,8 +302,11 @@ export async function createExplorePost(input, scope = "feed") {
   const payload = typeof input === "string" ? { body: input } : input || {};
   const trimmedBody = String(payload.body || "").trim();
   const audioDuration = Number.isFinite(payload.audio_duration_seconds) ? payload.audio_duration_seconds : null;
+  const hasAdvert = isAdvertPayload(payload);
   const requestedPrivacy = String(payload.post_privacy || "public").toLowerCase();
-  const postPrivacy = requestedPrivacy === "followers"
+  const postPrivacy = hasAdvert
+    ? "public"
+    : requestedPrivacy === "followers"
     ? "circle"
     : ["public", "circle", "private"].includes(requestedPrivacy)
       ? requestedPrivacy
@@ -311,7 +314,6 @@ export async function createExplorePost(input, scope = "feed") {
   const hashtags = Array.isArray(payload.hashtags) ? payload.hashtags : [];
   const mentions = Array.isArray(payload.mentions) ? payload.mentions : [];
   const mediaMeta = getPayloadMediaMeta(payload);
-  const hasAdvert = isAdvertPayload(payload);
   const hasRepost = isRepostPayload(payload);
   const advertTitle = String(mediaMeta.advert?.title || payload.advert?.title || "").trim();
   const postTitle = String(mediaMeta.title || "").trim().slice(0, 30);

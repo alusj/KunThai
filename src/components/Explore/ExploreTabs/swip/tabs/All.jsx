@@ -239,6 +239,8 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
             onComment={(delta) => feed.bumpCommentCount(post.id, delta)}
             onDelete={() => feed.deletePost(post.id, { confirm: false })}
             onMediaUnavailable={() => feed.dismissPostLocally(post.id)}
+            onHide={() => feed.hidePost(post.id)}
+            onMuteAdvertiser={() => feed.muteAdvertiser(post.id)}
             onReport={(reason) => feed.reportPost(post.id, reason)}
             onFullscreenToggle={() => setFullscreen((current) => !current)}
             onViewProfile={() =>

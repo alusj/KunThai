@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { fetchRecommendedExploreAds, hydrateOwnedExploreAdverts } from "./advertService";
 import { fetchExplorePosts } from "./postService";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -29,6 +30,38 @@ function markRecommendedPost(post, surface) {
   };
 }
 
+function isAdvertPost(post = {}) {
+  return post.post_type === "advert" || post.category === "advert" || Boolean(post.media_meta?.advert);
+}
+
+function advertSupportsScope(post, scope) {
+  const placement = post.media_meta?.advert?.placement || "urfeed";
+  if (scope === "swip") return ["swip", "both"].includes(placement) && Boolean(post.video_url);
+  return ["urfeed", "both"].includes(placement) && (!post.video_url || Boolean(post.image_url));
+}
+
+async function attachDedicatedAdvertisements(posts, scope, userId) {
+  try {
+    const hydratedPosts = await hydrateOwnedExploreAdverts(posts, userId);
+    const adverts = await fetchRecommendedExploreAds(scope === "swip" ? "swip" : "urfeed", {
+      limit: scope === "swip" ? 5 : 6,
+    });
+    // A null result means the advertising migration is not installed yet.
+    // Keep legacy adverts visible rather than breaking an older deployment.
+    if (adverts === null) return hydratedPosts;
+
+    const organicAndOwned = hydratedPosts.filter((post) => !isAdvertPost(post) || (post.user_id === userId && advertSupportsScope(post, scope)));
+    const merged = new Map(organicAndOwned.map((post) => [post.id, post]));
+    adverts.forEach((advert) => merged.set(advert.id, advert));
+    return Array.from(merged.values());
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.info("[ExploreAds] dedicated delivery unavailable; preserving current feed", error?.code || error?.message);
+    }
+    return posts;
+  }
+}
+
 /**
  * Fetches a ranked page and always preserves the established chronological
  * query as a compatibility fallback. Callers therefore do not need to know
@@ -54,7 +87,8 @@ export async function fetchRecommendedExplorePosts(scope = "feed", options = {})
   });
 
   if (!error) {
-    return (data || []).map((post) => markRecommendedPost(post, scope));
+    const recommended = (data || []).map((post) => markRecommendedPost(post, scope));
+    return attachDedicatedAdvertisements(recommended, scope, userId);
   }
 
   if (import.meta.env.DEV) {
@@ -65,7 +99,8 @@ export async function fetchRecommendedExplorePosts(scope = "feed", options = {})
     });
   }
 
-  return fetchExplorePosts(scope, { limit, offset });
+  const recent = await fetchExplorePosts(scope, { limit, offset });
+  return attachDedicatedAdvertisements(recent, scope, userId);
 }
 
 export async function fetchRecommendedPeople(userId, limit = 20) {

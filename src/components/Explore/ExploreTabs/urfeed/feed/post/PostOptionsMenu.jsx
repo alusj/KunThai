@@ -4,9 +4,11 @@ import {
   HiOutlineChartBar,
   HiOutlineEyeSlash,
   HiOutlineFlag,
+  HiOutlineInformationCircle,
   HiOutlineLink,
   HiOutlinePencilSquare,
   HiOutlineShare,
+  HiOutlineSpeakerXMark,
   HiOutlineTrash,
   HiOutlineUserMinus,
 } from "react-icons/hi2";
@@ -15,6 +17,7 @@ import ExploreActionDrawer from "../../../../shared/ExploreActionDrawer";
 export default function PostOptionsMenu({
   closing,
   followed,
+  advertPost = false,
   isOwner,
   onClose,
   onCopy,
@@ -22,35 +25,44 @@ export default function PostOptionsMenu({
   onEdit,
   onFollow,
   onHide,
+  onMuteAdvertiser,
   onReport,
   onRepost,
   onSave,
   onShare,
   onViewActivity,
+  onWhyAdvert,
   saved,
 }) {
   const ownerActions = [
-    { label: "Edit post", icon: HiOutlinePencilSquare, action: onEdit },
-    { label: saved ? "Remove saved" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
-    { label: "Repost", icon: HiArrowPathRoundedSquare, action: onRepost },
+    { label: advertPost ? "Edit advert message" : "Edit post", icon: HiOutlinePencilSquare, action: onEdit },
+    { label: saved ? "Remove saved" : advertPost ? "Save advert" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
+    ...(!advertPost ? [{ label: "Repost", icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
     { label: "Share", icon: HiOutlineShare, action: onShare },
     { label: "Copy link", icon: HiOutlineLink, action: onCopy },
-    { label: "View activity", icon: HiOutlineChartBar, action: onViewActivity },
-    { label: "Delete post", icon: HiOutlineTrash, action: onDelete, danger: true },
+    { label: advertPost ? "View advert activity" : "View activity", icon: HiOutlineChartBar, action: onViewActivity },
+    { label: advertPost ? "Delete advertisement" : "Delete post", icon: HiOutlineTrash, action: onDelete, danger: true },
   ];
 
   const viewerActions = [
-    { label: saved ? "Remove saved" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
-    { label: "Repost", icon: HiArrowPathRoundedSquare, action: onRepost },
+    { label: saved ? "Remove saved" : advertPost ? "Save advert" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
+    ...(!advertPost ? [{ label: "Repost", icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
     { label: "Share", icon: HiOutlineShare, action: onShare },
     { label: "Copy link", icon: HiOutlineLink, action: onCopy },
     ...(followed ? [{ label: "Unfollow account", icon: HiOutlineUserMinus, action: onFollow }] : []),
-    { label: "Hide post", icon: HiOutlineEyeSlash, action: onHide },
-    { label: "Report post", icon: HiOutlineFlag, action: onReport, danger: true },
+    ...(advertPost ? [
+      { label: "Why am I seeing this?", icon: HiOutlineInformationCircle, action: onWhyAdvert },
+      { label: "Hide advertisement", icon: HiOutlineEyeSlash, action: onHide },
+      { label: "Mute this advertiser", icon: HiOutlineSpeakerXMark, action: onMuteAdvertiser },
+      { label: "Report advertisement", icon: HiOutlineFlag, action: onReport, danger: true },
+    ] : [
+      { label: "Hide post", icon: HiOutlineEyeSlash, action: onHide },
+      { label: "Report post", icon: HiOutlineFlag, action: onReport, danger: true },
+    ]),
   ];
 
   return (
-    <ExploreActionDrawer closing={closing} onClose={onClose} title="Post actions">
+    <ExploreActionDrawer closing={closing} onClose={onClose} title={advertPost ? "Advertisement actions" : "Post actions"}>
       <div className="inline-flex flex-col overflow-hidden rounded-[26px] border border-white/70 bg-white/90 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.28)] backdrop-blur-2xl">
         {(isOwner ? ownerActions : viewerActions).map((item) => {
           const Icon = item.icon;

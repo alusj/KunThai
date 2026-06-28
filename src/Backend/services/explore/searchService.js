@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { recordExploreSearchInterests } from "./advertService";
 import { isMissingTable } from "./errors";
 
 const RECENT_SEARCHES_KEY = "explore-recent-searches";
@@ -127,6 +128,9 @@ export async function searchExplore(query, filter = "all") {
   const value = String(query || "").trim().toLowerCase();
   if (!value) return [];
   const normalizedValue = value.replace(/^[@#]/, "");
+  // Only approved broad categories are stored as bounded interest aggregates;
+  // the raw search phrase is never sent to advertising analytics.
+  recordExploreSearchInterests(normalizedValue);
 
   const posts = readCachedPosts();
   const postResults = posts

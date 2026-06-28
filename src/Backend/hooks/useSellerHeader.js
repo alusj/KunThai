@@ -136,7 +136,7 @@ export function useSellerHeader() {
 
   return {
     ...headerState,
-    orderCount: headerState.orderCount,
+    orderCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.orders, headerState.orderItems, { unreadOnly: true }),
     messageCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.messages, headerState.messageItems, { unreadOnly: true }),
     notificationCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.notifications, headerState.notificationItems, { unreadOnly: true }),
     query,

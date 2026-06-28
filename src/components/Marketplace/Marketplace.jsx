@@ -69,6 +69,9 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
     }
 
     setBusinessClosing(false);
+    sellerHeader.markSellerSectionSeen("orders");
+    sellerHeader.markSellerSectionSeen("messages");
+    sellerHeader.markSellerSectionSeen("notifications");
     setNav({
       root: "marketplace",
       sub: "business",
@@ -103,6 +106,13 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
     onActivityChange?.(Boolean(activeUtility) || headerActivityOpen || productMode || Boolean(nav.sub));
     return () => onActivityChange?.(false);
   }, [activeUtility, headerActivityOpen, nav.sub, onActivityChange, productMode]);
+
+  useEffect(() => {
+    if (nav.sub !== "business" || !sellerNotificationCount) return;
+    sellerHeader.markSellerSectionSeen("orders");
+    sellerHeader.markSellerSectionSeen("messages");
+    sellerHeader.markSellerSectionSeen("notifications");
+  }, [nav.sub, sellerHeader, sellerNotificationCount]);
 
   if (nav.sub === "business") {
     return (

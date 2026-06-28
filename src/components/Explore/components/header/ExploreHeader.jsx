@@ -18,7 +18,9 @@ import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNot
 import { useExploreMessageStatus } from "../../../../Backend/hooks/useExploreMessageStatus";
 import {
   EXPLORE_NOTIFICATION_SEEN_SCOPE,
+  EXPLORE_MESSAGE_SEEN_SCOPE,
   getUnseenNotificationCount,
+  markNotificationScopeVisited,
   markNotificationsSeen,
   subscribeNotificationSeen,
 } from "../../../../Backend/services/notificationSeenStore";
@@ -122,9 +124,15 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   }
 
   function openAlerts() {
+    markNotificationScopeVisited(EXPLORE_NOTIFICATION_SEEN_SCOPE);
     markNotificationsSeen(EXPLORE_NOTIFICATION_SEEN_SCOPE, notifications);
     setBellBadgeCount(0);
     onAlertsClick?.();
+  }
+
+  function openMessages() {
+    markNotificationScopeVisited(EXPLORE_MESSAGE_SEEN_SCOPE);
+    onNavigate?.("Messages");
   }
 
   return (
@@ -151,7 +159,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                 badge={messageStatus.unreadCount}
                 icon={MessageCircle}
                 label={messageStatus.activity ? "Messages active now" : "Messages"}
-                onClick={() => onNavigate?.("Messages")}
+                onClick={openMessages}
               />
             </>
           )}
@@ -233,7 +241,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-base font-black text-slate-950">Advertisement</span>
-                    <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Promote an offer, event, service, or location.</span>
+                    <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Promote an offer, job vacancy, event, service, or location.</span>
                   </span>
                 </button>
               </div>

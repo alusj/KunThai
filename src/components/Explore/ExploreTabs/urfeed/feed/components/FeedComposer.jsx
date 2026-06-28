@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   HiOutlineAtSymbol,
   HiOutlineHashtag,
@@ -18,6 +18,7 @@ import { searchExplore } from "../../../../../../Backend/services/explore/search
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
 import { startPendingVideoReviewJob } from "../../../../../../Backend/services/explore/videoReviewService";
 import Avatar from "../../../../shared/Avatar";
+import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
@@ -45,10 +46,29 @@ const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
 const MAX_POST_TITLE_LENGTH = 30;
 const DEFAULT_ADVERT = {
+  setupComplete: false,
+  placement: "urfeed",
+  objective: "brand_awareness",
+  audienceType: "recommended",
+  ageRange: "everyone",
+  minimumAge: 13,
+  maximumAge: 65,
+  genderTarget: "all",
+  interests: [],
+  targetArea: "",
+  durationPreset: "14",
+  durationDays: 14,
+  customStart: "",
+  customEnd: "",
+  budgetType: "total",
+  budgetAmount: "50",
+  currency: "SLE",
   type: "offer",
   title: "",
   ctaLabel: "Learn more",
   link: "",
+  phone: "",
+  showPhonePublicly: false,
   address: "",
   date: "",
   time: "",
@@ -67,18 +87,47 @@ function normalizeAdvertDraft(value = {}) {
 
 function cleanAdvertForSubmit(advert = {}) {
   const normalized = normalizeAdvertDraft(advert);
+  const hasCoordinates = hasAdvertCoordinates(normalized);
   return {
+    // Placement remains with the creative as a routing hint for offline and
+    // pre-migration clients. Targeting, budget, duration, and delivery state
+    // live in the dedicated explore_ad_campaigns record.
+    placement: ["urfeed", "swip", "both"].includes(normalized.placement) ? normalized.placement : DEFAULT_ADVERT.placement,
     type: String(normalized.type || DEFAULT_ADVERT.type).trim() || DEFAULT_ADVERT.type,
     title: String(normalized.title || "").trim().slice(0, MAX_POST_TITLE_LENGTH),
     ctaLabel: String(normalized.ctaLabel || DEFAULT_ADVERT.ctaLabel).trim() || DEFAULT_ADVERT.ctaLabel,
     link: String(normalized.link || "").trim(),
+    phone: String(normalized.phone || "").trim().slice(0, 32),
+    showPhonePublicly: Boolean(String(normalized.phone || "").trim()),
     address: String(normalized.address || "").trim(),
     date: String(normalized.date || "").trim(),
     time: String(normalized.time || "").trim(),
-    lat: Number.isFinite(Number(normalized.lat)) ? Number(normalized.lat) : null,
-    lng: Number.isFinite(Number(normalized.lng)) ? Number(normalized.lng) : null,
+    lat: hasCoordinates ? Number(normalized.lat) : null,
+    lng: hasCoordinates ? Number(normalized.lng) : null,
     coordinatesLabel: String(normalized.coordinatesLabel || "").trim(),
     source: String(normalized.source || "").trim(),
+  };
+}
+
+function cleanAdvertCampaignForSubmit(advert = {}) {
+  const normalized = normalizeAdvertDraft(advert);
+  return {
+    placement: ["urfeed", "swip", "both"].includes(normalized.placement) ? normalized.placement : DEFAULT_ADVERT.placement,
+    objective: String(normalized.objective || DEFAULT_ADVERT.objective),
+    audienceType: String(normalized.audienceType || DEFAULT_ADVERT.audienceType),
+    ageRange: String(normalized.ageRange || DEFAULT_ADVERT.ageRange),
+    minimumAge: Math.max(13, Number(normalized.minimumAge) || 13),
+    maximumAge: Math.max(13, Number(normalized.maximumAge) || 65),
+    genderTarget: String(normalized.genderTarget || DEFAULT_ADVERT.genderTarget),
+    interests: Array.isArray(normalized.interests) ? normalized.interests.slice(0, 20) : [],
+    targetArea: String(normalized.targetArea || "").trim().slice(0, 80),
+    durationPreset: String(normalized.durationPreset || DEFAULT_ADVERT.durationPreset),
+    durationDays: Math.max(1, Math.min(Number(normalized.durationDays) || 14, 365)),
+    customStart: String(normalized.customStart || ""),
+    customEnd: String(normalized.customEnd || ""),
+    budgetType: normalized.budgetType === "daily" ? "daily" : "total",
+    budgetAmount: Math.max(0, Number(normalized.budgetAmount) || 0),
+    currency: String(normalized.currency || "SLE").toUpperCase().slice(0, 5),
   };
 }
 
@@ -162,7 +211,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
-  const composerRef = useRef(null);
+  const composerScrollRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const trimRequestRef = useRef(0);
@@ -175,12 +224,28 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const hasContent = Boolean(postTitle.trim() || value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
   const hasAdvertContent = Boolean(
     isAdvertMode &&
-      (advertForm.title.trim() || value.trim() || advertForm.link.trim() || advertForm.address.trim() || imagePreview || videoPreview || pendingVideoFile),
+      (advertForm.title.trim() || value.trim() || advertForm.link.trim() || advertForm.phone.trim() || advertForm.address.trim() || imagePreview || videoPreview || pendingVideoFile),
   );
-  const canSubmit = isAdvertMode ? hasAdvertContent : hasContent;
   const hasVideoAttachment = Boolean(videoPreview || pendingVideoFile || pendingVideoUrl);
+  const advertPlacementReady = advertForm.placement === "swip"
+    ? hasVideoAttachment
+    : advertForm.placement === "both"
+      ? hasVideoAttachment && Boolean(imagePreview)
+      : !hasVideoAttachment || Boolean(imagePreview);
+  const canSubmit = isAdvertMode
+    ? Boolean(advertForm.setupComplete && hasAdvertContent && advertPlacementReady)
+    : hasContent;
 
   useBrowserBack(open, () => setOpen(false), "explore-composer");
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+
+    const scrollToTop = () => composerScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    scrollToTop();
+    const frame = window.requestAnimationFrame(scrollToTop);
+    return () => window.cancelAnimationFrame(frame);
+  }, [composerMode, open]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("kuntai-explore-composer-visibility", {
@@ -225,10 +290,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       video_url: videoPreview,
       audio_url: audioPreview,
       audio_duration_seconds: audioDuration,
-      post_privacy: privacy,
+      post_privacy: isAdvertMode ? "public" : privacy,
       post_type: isAdvertMode ? "advert" : "post",
       media_meta: isAdvertMode
-        ? { ...mediaMeta, advert: cleanAdvertForSubmit(advertForm) }
+        ? { ...mediaMeta, advert: { ...advertForm } }
         : { ...mediaMeta, title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH) },
     });
   }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postTitle, privacy, value, videoPreview]);
@@ -334,7 +399,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   function openComposer(type = "text") {
     setComposerMode(type === "advert" ? "advert" : "post");
     setOpen(true);
-    setTimeout(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
 
     if (type === "advert") {
       setFeedback("");
@@ -682,7 +746,17 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   function updateAdvertForm(field, nextValue) {
     const value = field === "title" ? String(nextValue || "").slice(0, MAX_POST_TITLE_LENGTH) : nextValue;
-    setAdvertForm((current) => ({ ...current, [field]: value }));
+    setAdvertForm((current) => {
+      if (field !== "type") return { ...current, [field]: value };
+
+      const shouldSelectApply = value === "job-vacancy" && (!current.ctaLabel || current.ctaLabel === "Learn more");
+      const shouldRestoreDefault = current.type === "job-vacancy" && current.ctaLabel === "Apply" && value !== "job-vacancy";
+      return {
+        ...current,
+        type: value,
+        ctaLabel: shouldSelectApply ? "Apply" : shouldRestoreDefault ? "Learn more" : current.ctaLabel,
+      };
+    });
     setFeedback("");
   }
 
@@ -894,12 +968,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         audio_url: finalAudioPreview,
         video_url: finalVideoPreview,
         audio_duration_seconds: finalAudioDuration,
-        post_privacy: privacy,
+        post_privacy: isAdvertMode ? "public" : privacy,
         feed_scope: "feed",
         post_type: isAdvertMode ? "advert" : finalVideoPreview ? "video" : "post",
         category: isAdvertMode ? "advert" : finalVideoPreview ? "swip" : "urfeed",
         media_meta: finalMediaMeta,
         mediaMeta: finalMediaMeta,
+        advertCampaign: isAdvertMode ? cleanAdvertCampaignForSubmit(advertForm) : null,
       };
 
       setFeedback("");
@@ -1056,6 +1131,7 @@ if (!isMobileVideoDevice) {
             category: postDraft.category,
             media_meta: postDraft.mediaMeta,
             mediaMeta: postDraft.mediaMeta,
+            advert_campaign: postDraft.advertCampaign,
           });
 
           if (pendingResult?.ok && pendingResult.post?.id) {
@@ -1124,6 +1200,7 @@ if (!isMobileVideoDevice) {
         category: postDraft.category,
         media_meta: postDraft.mediaMeta,
         mediaMeta: postDraft.mediaMeta,
+        advert_campaign: postDraft.advertCampaign,
       });
 
       if (result?.ok) {
@@ -1139,7 +1216,7 @@ if (!isMobileVideoDevice) {
           status: "complete",
           stage: "complete",
           progress: 100,
-          message: result.warning || "Your post is now live on Explore.",
+          message: result.warning || (isAdvertMode ? "Your sponsored campaign is now live in Explore." : "Your post is now live on Explore."),
         });
 
         setOpen(false);
@@ -1147,7 +1224,7 @@ if (!isMobileVideoDevice) {
         return;
       }
 
-      const message = result?.error || "Unable to publish post.";
+      const message = result?.error || (isAdvertMode ? "Unable to publish this advertisement." : "Unable to publish post.");
       await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
       setPostingStage("");
       setPostingProgress(0);
@@ -1156,7 +1233,7 @@ if (!isMobileVideoDevice) {
       publishPostingUpdate({ status: "error", progress: 0, message });
     } catch (error) {
       await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
-      const message = error.message || "Unable to publish this post. Your draft is still here.";
+      const message = error.message || (isAdvertMode ? "Unable to publish this advertisement. Your draft is still here." : "Unable to publish this post. Your draft is still here.");
       setPostingStage("");
       setPostingProgress(0);
       setOpen(true);
@@ -1166,7 +1243,7 @@ if (!isMobileVideoDevice) {
   }
 
   return (
-    <div ref={composerRef} className="scroll-mt-20">
+    <div className="scroll-mt-20">
       <CompactComposer
         profile={profile}
         creating={creating}
@@ -1207,7 +1284,7 @@ if (!isMobileVideoDevice) {
               </button>
             </div>
 
-            <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-5">
+            <div ref={composerScrollRef} data-explore-composer-scroll className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-5">
               <div className="flex items-center gap-3">
                 <Avatar name={profile?.displayName || "KunThai"} src={profile?.avatarUrl} size="md" />
                 <div className="min-w-0">
@@ -1228,6 +1305,7 @@ if (!isMobileVideoDevice) {
                 />
               ) : null}
 
+              {!isAdvertMode || advertForm.setupComplete ? (
               <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
                 {!isAdvertMode ? (
                   <label className="mb-4 block border-b border-slate-200 pb-4">
@@ -1260,13 +1338,14 @@ if (!isMobileVideoDevice) {
                     setValue(event.target.value);
                     setFeedback("");
                   }}
-                  autoFocus
-                  placeholder={isAdvertMode ? "Describe the offer, benefit, schedule, or announcement..." : "Write a thought, tag someone with @name, or add #topics..."}
+                  autoFocus={!isAdvertMode}
+                  placeholder={isAdvertMode ? "Describe the offer, role, benefit, schedule, or announcement..." : "Write a thought, tag someone with @name, or add #topics..."}
                   className={`w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 ${
                     isAdvertMode ? "min-h-[120px] sm:min-h-[150px]" : "min-h-[180px] sm:min-h-[220px]"
                   }`}
                 />
               </div>
+              ) : null}
 
               {!isAdvertMode && tagPickerOpen ? (
                 <div className="rounded-[24px] border border-sky-100 bg-sky-50/70 p-4">
@@ -1375,6 +1454,7 @@ if (!isMobileVideoDevice) {
                 />
               ) : null}
 
+              {!isAdvertMode || advertForm.setupComplete ? (
               <MediaPreview
                 imagePreview={imagePreview}
                 videoPreview={videoPreview}
@@ -1433,6 +1513,7 @@ if (!isMobileVideoDevice) {
                   setFeedback("");
                 }}
               />
+              ) : null}
 
               {postingStage ? <PostingProgress progress={postingProgress} stage={postingStage} /> : null}
 
@@ -1450,6 +1531,9 @@ if (!isMobileVideoDevice) {
                 isRecording={isRecording}
                 hasVideoAttachment={hasVideoAttachment}
                 advertMode={isAdvertMode}
+                advertConfigured={Boolean(advertForm.setupComplete)}
+                advertPlacement={advertForm.placement}
+                advertAudience={advertForm.audienceType}
                 onTool={handleTool}
               />
             </div>

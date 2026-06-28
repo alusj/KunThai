@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollows";
-import { recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
+import { isAdvertPost } from "../../../shared/advertUtils";
+import { recordExploreAdvertEvent, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import FeedPost from "./components/FeedPost";
@@ -19,6 +20,7 @@ export default function FeedList({
   onEdit,
   onDelete,
   onHide,
+  onMuteAdvertiser,
   onReport,
   onViewActivity,
   onViewProfile,
@@ -127,6 +129,7 @@ export default function FeedList({
             onEdit={(body) => (actionsByScope?.[post.feed_scope || "feed"]?.onEdit || onEdit)?.(post.id, body)}
             onDelete={() => (actionsByScope?.[post.feed_scope || "feed"]?.onDelete || onDelete)?.(post.id, { confirm: false })}
             onHide={() => (actionsByScope?.[post.feed_scope || "feed"]?.onHide || onHide)?.(post.id)}
+            onMuteAdvertiser={() => (actionsByScope?.[post.feed_scope || "feed"]?.onMuteAdvertiser || onMuteAdvertiser)?.(post.id)}
             onReport={(reason) => (actionsByScope?.[post.feed_scope || "feed"]?.onReport || onReport)?.(post.id, reason)}
             onViewActivity={() => (actionsByScope?.[post.feed_scope || "feed"]?.onViewActivity || onViewActivity)?.(post.id)}
             onViewProfile={() =>
@@ -184,12 +187,14 @@ function ObservedFeedPost({ children, post }) {
         if (!IMPRESSION_SESSION.has(post.id)) {
           IMPRESSION_SESSION.add(post.id);
           recordRecommendationSignal(post, "impression", { surface: "urfeed" }).catch(() => false);
+          if (isAdvertPost(post)) recordExploreAdvertEvent(post, "impression", { surface: "urfeed" }).catch(() => false);
         }
 
         if (!VIEW_SESSION.has(post.id) && !viewTimer) {
           viewTimer = window.setTimeout(() => {
             VIEW_SESSION.add(post.id);
             recordRecommendationSignal(post, "view", { surface: "urfeed" }).catch(() => false);
+            if (isAdvertPost(post)) recordExploreAdvertEvent(post, "view", { surface: "urfeed" }).catch(() => false);
           }, 1200);
         }
       },

@@ -21,6 +21,7 @@ function mapHeaderItem(prefix, item) {
   return {
     id: `${prefix}:${baseId}${changeKey ? `:${changeKey}` : ""}`,
     unread: item.unread !== false,
+    created_at: item.updated_at || item.updatedAt || item.created_at || item.createdAt || null,
   };
 }
 
@@ -105,6 +106,11 @@ export default function MarketplaceHeader({
   useEffect(() => {
     return subscribeNotificationSeen(() => setSeenVersion((version) => version + 1));
   }, []);
+
+  useEffect(() => {
+    if (activeUtility === "orders" && orderItems.length) markNotificationsSeen(BUYER_ORDER_SCOPE, orderItems);
+    if (activeUtility === "messages" && messageItems.length) markNotificationsSeen(BUYER_MESSAGE_SCOPE, messageItems);
+  }, [activeUtility, messageItems, orderItems]);
 
   function openOrders() {
     markNotificationsSeen(BUYER_ORDER_SCOPE, orderItems);

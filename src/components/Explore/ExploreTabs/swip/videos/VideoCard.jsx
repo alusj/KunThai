@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Trash2, X } from "lucide-react";
+import { CircleHelp, Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Trash2, VolumeX, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
-import { createExploreNotification, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
+import {
+  createExploreNotification,
+  getExploreAdvertReason,
+  recordExploreAdvertEvent,
+  recordRecommendationSignal,
+} from "../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import ExploreActionDrawer from "../../../shared/ExploreActionDrawer";
 import RepostComposer from "../../../shared/RepostComposer";
+import { isAdvertPost } from "../../../shared/advertUtils";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 import VideoProgress from "./VideoProgress";
@@ -59,7 +65,9 @@ export default function VideoCard({
   onSave,
   onComment,
   onDelete,
+  onHide,
   onMediaUnavailable,
+  onMuteAdvertiser,
   onReport,
   onFullscreenToggle,
   onViewProfile,
@@ -80,6 +88,8 @@ export default function VideoCard({
   const [repostOpen, setRepostOpen] = useState(false);
   const [displayMinimal, setDisplayMinimal] = useState(false);
   const [likeBurst, setLikeBurst] = useState(false);
+  const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
+  const advertPost = isAdvertPost(post);
 
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
@@ -123,6 +133,7 @@ export default function VideoCard({
       lastMediaTime: null,
     };
     recordRecommendationSignal(trackingPostRef.current, "impression", { surface: "swip" }).catch(() => false);
+    if (isAdvertPost(trackingPostRef.current)) recordExploreAdvertEvent(trackingPostRef.current, "impression", { surface: "swip" }).catch(() => false);
   }, []);
 
   const markPlaybackViewed = useCallback(() => {
@@ -130,6 +141,7 @@ export default function VideoCard({
     if (!tracking.started || tracking.viewed) return;
     tracking.viewed = true;
     recordRecommendationSignal(trackingPostRef.current, "view", { surface: "swip" }).catch(() => false);
+    if (isAdvertPost(trackingPostRef.current)) recordExploreAdvertEvent(trackingPostRef.current, "video_view", { surface: "swip" }).catch(() => false);
   }, []);
 
   const trackPlaybackProgress = useCallback((video, nextClip) => {
@@ -161,6 +173,7 @@ export default function VideoCard({
         completionRate: 1,
         surface: "swip",
       }).catch(() => false);
+      if (isAdvertPost(trackingPostRef.current)) recordExploreAdvertEvent(trackingPostRef.current, "complete", { completionRate: 1, surface: "swip" }).catch(() => false);
       return;
     }
 
@@ -177,6 +190,11 @@ export default function VideoCard({
     tracking.started = false;
     if (tracking.watchedSeconds >= 0.2) {
       recordRecommendationSignal(trackingPostRef.current, "watch", {
+        value: Math.min(60, tracking.watchedSeconds),
+        completionRate: tracking.maxCompletionRate,
+        surface: "swip",
+      }).catch(() => false);
+      if (isAdvertPost(trackingPostRef.current)) recordExploreAdvertEvent(trackingPostRef.current, "watch", {
         value: Math.min(60, tracking.watchedSeconds),
         completionRate: tracking.maxCompletionRate,
         surface: "swip",
@@ -309,6 +327,7 @@ export default function VideoCard({
   async function handleShare() {
     const nextMessage = await sharePost(post);
     recordRecommendationSignal(post, "share", { surface: "swip" }).catch(() => false);
+    if (advertPost) recordExploreAdvertEvent(post, "share", { surface: "swip" }).catch(() => false);
     if (post.user_id && post.user_id !== currentUserId) {
       await createExploreNotification({
         user_id: post.user_id,
@@ -370,6 +389,20 @@ export default function VideoCard({
     closeActionMenu();
     closeQuickDeck();
     setRepostOpen(true);
+  }
+
+  function handleWhyAdvert() {
+    closeActionMenu(() => setWhyAdvertOpen(true));
+  }
+
+  function handleHideAdvert() {
+    closeActionMenu();
+    onHide?.();
+  }
+
+  function handleMuteAdvertiser() {
+    closeActionMenu();
+    onMuteAdvertiser?.();
   }
 
   async function handleReport() {
@@ -744,7 +777,10 @@ export default function VideoCard({
           post={post}
           categoryLabel={categoryLabel}
           contextLabel={contextLabel}
-          onViewProfile={onViewProfile}
+          onViewProfile={() => {
+            if (advertPost) recordExploreAdvertEvent(post, "profile_visit", { surface: "swip" }).catch(() => false);
+            onViewProfile?.();
+          }}
         />
       ) : null}
 
@@ -772,15 +808,19 @@ export default function VideoCard({
       <SwipActionItem icon={Link} title="Copy link" onClick={handleCopyLink} />
       <SwipActionItem icon={Download} title="Save video" onClick={handleDownload} />
       <SwipActionItem icon={Copy} title="Copy caption" onClick={handleCopyCaption} />
-      <SwipActionItem icon={Repeat2} title="Repost" onClick={handleRepost} />
+      {!advertPost ? <SwipActionItem icon={Repeat2} title="Repost" onClick={handleRepost} /> : null}
       <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? "Show display" : "Clear display"} onClick={toggleDisplayMinimal} />
+
+      {advertPost && !isOwner ? <SwipActionItem icon={CircleHelp} title="Why am I seeing this?" onClick={handleWhyAdvert} /> : null}
+      {advertPost && !isOwner ? <SwipActionItem icon={EyeOff} title="Hide advertisement" onClick={handleHideAdvert} /> : null}
+      {advertPost && !isOwner ? <SwipActionItem icon={VolumeX} title="Mute this advertiser" onClick={handleMuteAdvertiser} /> : null}
 
       {isOwner ? (
         <SwipActionItem danger icon={Trash2} title="Delete Swip" onClick={openDeleteFromActions} />
       ) : null}
 
       {!isOwner ? (
-        <SwipActionItem danger icon={Flag} title="Report Swip" onClick={handleReport} />
+        <SwipActionItem danger icon={Flag} title={advertPost ? "Report advertisement" : "Report Swip"} onClick={handleReport} />
       ) : null}
     </div>
   </ExploreActionDrawer>
@@ -812,7 +852,7 @@ export default function VideoCard({
             <div className="mt-4 grid grid-cols-3 gap-2">
               <SwipQuickAction icon={Download} label="Save" onClick={handleDownload} />
               <SwipQuickAction icon={displayMinimal ? Eye : EyeOff} label={displayMinimal ? "Show" : "Focus"} onClick={toggleDisplayMinimal} />
-              <SwipQuickAction icon={Repeat2} label="Repost" onClick={handleRepost} />
+              {!advertPost ? <SwipQuickAction icon={Repeat2} label="Repost" onClick={handleRepost} /> : null}
               <SwipQuickAction icon={Link} label="Copy link" onClick={handleCopyLink} />
               <SwipQuickAction icon={Send} label="Share" onClick={handleShare} />
               {!isOwner ? <SwipQuickAction danger icon={Flag} label="Report" onClick={handleReport} /> : <SwipQuickAction icon={Copy} label="Caption" onClick={handleCopyCaption} />}
@@ -838,6 +878,17 @@ export default function VideoCard({
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+      {whyAdvertOpen ? (
+        <div className="absolute inset-0 z-40 flex items-end bg-slate-950/45 px-4 pb-5 backdrop-blur-sm" onClick={() => setWhyAdvertOpen(false)}>
+          <section className="w-full rounded-[24px] bg-white p-4 text-slate-950 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Why this sponsored Swip?</p>
+            <h3 className="mt-1 text-lg font-black">Chosen for your Explore experience</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{getExploreAdvertReason(post)}</p>
+            <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">KunThai does not use your contacts or precise location for advertising.</p>
+            <button type="button" onClick={() => setWhyAdvertOpen(false)} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">Got it</button>
+          </section>
         </div>
       ) : null}
       {repostOpen ? (

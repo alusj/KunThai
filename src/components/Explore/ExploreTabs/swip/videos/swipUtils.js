@@ -23,7 +23,7 @@ export function getVideoCategoryLabel(post) {
 export function getSwipContext(post, currentUserId = "") {
   const mediaMeta = post?.media_meta || post?.mediaMeta || {};
   if (post?.post_type === "advert" || post?.category === "advert" || mediaMeta?.advert) {
-    return "Advertisement";
+    return "Sponsored";
   }
 
   if (currentUserId && post?.user_id === currentUserId) {

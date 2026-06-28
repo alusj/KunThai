@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { AtSign, Hash, MapPin, Megaphone } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
-import { createExploreNotification, recordRecommendationSignal } from "../../../../../../Backend/services/exploreService";
+import {
+  createExploreNotification,
+  getExploreAdvertReason,
+  recordExploreAdvertEvent,
+  recordRecommendationSignal,
+} from "../../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../comments/CommentsDrawer";
 import PostActions from "../post/PostActions";
 import PostHeader from "../post/PostHeader";
@@ -11,7 +16,14 @@ import PostOptionsMenu from "../post/PostOptionsMenu";
 import { copyPostLink, sharePost } from "../post/postUtils";
 import AdvertMetaActions from "../../../../shared/AdvertMetaActions";
 import ExpandablePostText from "../../../../shared/ExpandablePostText";
-import { getAdvertMeta, getPostTitle, isAdvertPost, normalizeAdvertUrl } from "../../../../shared/advertUtils";
+import {
+  formatAdvertType,
+  getAdvertMeta,
+  getAdvertPhoneHref,
+  getPostTitle,
+  isAdvertPost,
+  normalizeAdvertUrl,
+} from "../../../../shared/advertUtils";
 import RepostComposer from "../../../../shared/RepostComposer";
 import RepostPreview from "../../../../shared/RepostPreview";
 
@@ -27,6 +39,7 @@ export default function FeedPost({
   onEdit,
   onDelete,
   onHide,
+  onMuteAdvertiser,
   onReport,
   onViewActivity,
   onViewProfile,
@@ -44,6 +57,7 @@ export default function FeedPost({
   const [menuMessage, setMenuMessage] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
+  const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
   const optionsTimerRef = useRef(null);
   const advert = getAdvertMeta(post);
   const advertPost = isAdvertPost(post);
@@ -89,6 +103,7 @@ export default function FeedPost({
   async function shareAndNotify() {
     const message = await sharePost(post);
     recordRecommendationSignal(post, "share", { surface: "urfeed" }).catch(() => false);
+    if (advertPost) recordExploreAdvertEvent(post, "share", { surface: "urfeed" }).catch(() => false);
     if (post.user_id && post.user_id !== currentUserId) {
       await createExploreNotification({
         user_id: post.user_id,
@@ -117,6 +132,19 @@ export default function FeedPost({
   async function confirmDelete() {
     await runAction(onDelete);
     setDeleteOpen(false);
+  }
+
+  async function followAndTrack() {
+    const result = await onFollow?.();
+    if (advertPost && result === "Following") {
+      recordExploreAdvertEvent(post, "follow", { surface: "urfeed" }).catch(() => false);
+    }
+    return result;
+  }
+
+  function viewProfileAndTrack() {
+    if (advertPost) recordExploreAdvertEvent(post, "profile_visit", { surface: "urfeed" }).catch(() => false);
+    onViewProfile?.();
   }
 
   function closeOptions(afterClose) {
@@ -176,15 +204,16 @@ export default function FeedPost({
         post={post}
         isOwner={isOwner}
         followed={followed}
-        onFollow={() => runAction(onFollow)}
+        onFollow={() => runAction(followAndTrack)}
         onOptions={toggleOptions}
-        onViewProfile={onViewProfile}
+        onViewProfile={viewProfileAndTrack}
       />
 
       {optionsOpen ? (
         <div>
           <PostOptionsMenu
             closing={optionsClosing}
+            advertPost={advertPost}
             followed={followed}
             isOwner={isOwner}
             saved={saved}
@@ -195,19 +224,27 @@ export default function FeedPost({
               setEditValue(post.body || "");
               setEditOpen(true);
             })}
-            onFollow={() => runAction(onFollow)}
+            onFollow={() => runAction(followAndTrack)}
             onHide={() => runAction(onHide)}
+            onMuteAdvertiser={() => runAction(onMuteAdvertiser)}
             onReport={() => closeOptions(() => setReportOpen(true))}
             onRepost={() => closeOptions(() => setRepostOpen(true))}
             onSave={() => runAction(onSave)}
             onShare={() => runAction(shareAndNotify)}
             onViewActivity={() => runAction(onViewActivity)}
+            onWhyAdvert={() => closeOptions(() => setWhyAdvertOpen(true))}
           />
         </div>
       ) : null}
 
       {advertPost ? (
-        <AdvertPostCard post={post} advert={advert || {}} />
+        <AdvertPostCard
+          post={post}
+          advert={advert || {}}
+          followed={followed}
+          onFollow={() => runAction(followAndTrack)}
+          onViewProfile={viewProfileAndTrack}
+        />
       ) : postTitle || post.body ? (
         <div className="px-4 pb-4">
           {postTitle ? <h3 className="kuntai-break text-lg font-black leading-6 text-slate-950">{postTitle}</h3> : null}
@@ -305,7 +342,7 @@ export default function FeedPost({
       {reportOpen ? (
         <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setReportOpen(false)}>
           <form className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onSubmit={submitReport} onClick={(event) => event.stopPropagation()}>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">Report post</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">{advertPost ? "Report advertisement" : "Report post"}</p>
             <textarea
               value={reportReason}
               onChange={(event) => setReportReason(event.target.value)}
@@ -341,6 +378,17 @@ export default function FeedPost({
           </div>
         </div>
       ) : null}
+      {whyAdvertOpen ? (
+        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setWhyAdvertOpen(false)}>
+          <section className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Why this sponsored item?</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">Chosen for your Explore experience</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{getExploreAdvertReason(post)}</p>
+            <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">KunThai uses on-platform interests and activity. Contacts and precise location are not used. Nearby matching requires your permission.</p>
+            <button type="button" onClick={() => setWhyAdvertOpen(false)} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">Got it</button>
+          </section>
+        </div>
+      ) : null}
       {repostOpen ? (
         <RepostComposer
           profile={profile}
@@ -353,9 +401,14 @@ export default function FeedPost({
   );
 }
 
-function AdvertPostCard({ post, advert }) {
+function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfile }) {
   const url = normalizeAdvertUrl(advert.link);
+  const phoneHref = getAdvertPhoneHref(advert.phone);
+  const actionHref = advert.ctaLabel === "Call or message" && phoneHref ? phoneHref : url;
+  const opensWebsite = Boolean(url && actionHref === url);
   const title = advert.title || "Advertisement";
+  const profileAction = advert.ctaLabel === "View profile";
+  const followAction = advert.ctaLabel === "Follow";
 
   return (
     <section className="mx-4 mb-4 rounded-[24px] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white p-4 shadow-sm">
@@ -364,10 +417,10 @@ function AdvertPostCard({ post, advert }) {
           <span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-amber-700 shadow-sm ring-1 ring-amber-100">
             <Megaphone size={18} strokeWidth={2.4} absoluteStrokeWidth />
           </span>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-700">Advertisement</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-700">Sponsored</p>
         </div>
         <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 ring-1 ring-slate-100">
-          {advert.type || "offer"}
+          {formatAdvertType(advert.type)}
         </span>
       </div>
 
@@ -383,15 +436,26 @@ function AdvertPostCard({ post, advert }) {
 
       <AdvertMetaActions post={post} advert={advert} className="mt-3" />
 
-      {url ? (
+      {actionHref ? (
         <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
+          href={actionHref}
+          target={opensWebsite ? "_blank" : undefined}
+          rel={opensWebsite ? "noreferrer" : undefined}
+          onClick={() => recordExploreAdvertEvent(post, "click", { surface: "urfeed" }).catch(() => false)}
           className="kt-pressable mt-3 flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
         >
           {advert.ctaLabel || "Learn more"}
         </a>
+      ) : null}
+      {!actionHref && profileAction ? (
+        <button type="button" onClick={onViewProfile} className="kt-pressable mt-3 flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
+          View profile
+        </button>
+      ) : null}
+      {!actionHref && followAction ? (
+        <button type="button" onClick={onFollow} className="kt-pressable mt-3 flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
+          {followed ? "Following" : "Follow"}
+        </button>
       ) : null}
     </section>
   );

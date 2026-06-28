@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HiOutlineCheckCircle, HiOutlineCog6Tooth } from "react-icons/hi2";
 
 import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
+import { EXPLORE_NOTIFICATION_SEEN_SCOPE, markNotificationScopeVisited } from "../../../../Backend/services/notificationSeenStore";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import NotificationSettings from "./components/NotificationSettings";
@@ -15,6 +16,10 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
   const preferences = useExplorePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+
+  useEffect(() => {
+    markNotificationScopeVisited(EXPLORE_NOTIFICATION_SEEN_SCOPE);
+  }, []);
 
   const tabs = useMemo(
     () => [

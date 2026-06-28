@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
+import { paceExploreAdvertPosts } from "../../../../Backend/services/exploreService";
 import FeedComposer from "./feed/components/FeedComposer";
 import FeedList from "./feed/FeedList";
 
@@ -15,6 +16,7 @@ function feedActions(feed) {
     onEdit: feed.editPost,
     onDelete: feed.deletePost,
     onHide: feed.hidePost,
+    onMuteAdvertiser: feed.muteAdvertiser,
     onReport: feed.reportPost,
     onViewActivity: feed.viewActivity,
   };
@@ -31,7 +33,7 @@ export default function UrFeed({ profile, onViewProfile }) {
       ];
       const deduped = Array.from(new Map(combined.map((post) => [post.id, post])).values());
 
-      return deduped.sort((first, second) => {
+      const ranked = deduped.sort((first, second) => {
         const firstScore = Number(first.recommendation_score ?? first.score);
         const secondScore = Number(second.recommendation_score ?? second.score);
         if (Number.isFinite(firstScore) || Number.isFinite(secondScore)) {
@@ -40,8 +42,9 @@ export default function UrFeed({ profile, onViewProfile }) {
         }
         return new Date(second.created_at || 0) - new Date(first.created_at || 0);
       });
+      return paceExploreAdvertPosts(ranked, "feed", profile?.userId || "");
     },
-    [feed.posts, circleFeed.posts],
+    [feed.posts, circleFeed.posts, profile?.userId],
   );
 
   return (

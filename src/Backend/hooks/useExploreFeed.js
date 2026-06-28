@@ -19,8 +19,10 @@ import { showToast } from "../services/toastService";
 import {
   createExploreNotification,
   createExploreComment,
+  createExploreAdvertCampaign,
   createExplorePost,
   deleteExplorePost,
+  fetchExploreAdvertAnalytics,
   fetchExploreFollowers,
   fetchCurrentUserReactions,
   fetchExplorePostCounts,
@@ -28,8 +30,13 @@ import {
   fetchRecommendedExplorePosts,
   getCurrentUserProfile,
   isExplorePostVisibleInFeed,
+  paceExploreAdvertPosts,
+  readMutedExploreAdvertisers,
   reportExplorePost,
+  recordExploreAdvertEvent,
   recordRecommendationSignal,
+  setExploreAdvertUserControl,
+  storeMutedExploreAdvertiser,
   syncExploreReaction,
   updateExplorePost,
   updateExplorePostCounts,
@@ -107,6 +114,13 @@ function postBelongsInScope(post = {}, scope = "feed") {
   const isAdvert = isAdvertDraft(post);
   const feedScope = post.feed_scope || "feed";
 
+  if (isAdvert) {
+    const placement = getDraftMediaMeta(post).advert?.placement || "urfeed";
+    if (scope === "swip") return hasVideo && ["swip", "both"].includes(placement);
+    if (scope === "feed") return ["urfeed", "both"].includes(placement) && (!hasVideo || hasImage);
+    return false;
+  }
+
   if (scope === "swip") return hasVideo;
   if (scope === "feed" && post.recommendation_surface === "feed") {
     return !hasVideo || (isAdvert && hasImage);
@@ -118,7 +132,7 @@ function postBelongsInScope(post = {}, scope = "feed") {
 
 function getPostTargetScopes(post = {}, fallbackScope = "feed") {
   const feedScope = post.feed_scope || fallbackScope || "feed";
-  const candidates = Array.from(new Set([feedScope, "swip"]));
+  const candidates = Array.from(new Set([feedScope, "feed", "swip"]));
   return candidates.filter((scope) => postBelongsInScope(post, scope));
 }
 
@@ -223,6 +237,7 @@ export function useExploreFeed(scope = "feed") {
   const [likedPosts, setLikedPosts] = useState(() => memory?.likedPosts || readStoredSet(LIKE_STORAGE_KEY));
   const [savedPosts, setSavedPosts] = useState(() => memory?.savedPosts || readStoredSet(SAVE_STORAGE_KEY));
   const [hiddenPosts, setHiddenPosts] = useState(() => readStoredSet(HIDE_STORAGE_KEY));
+  const [mutedAdvertisers, setMutedAdvertisers] = useState(() => readMutedExploreAdvertisers());
   const [currentUserId, setCurrentUserId] = useState(() => memory?.currentUserId || "");
   const postsRef = useRef(posts);
   const likedPostsRef = useRef(likedPosts);
@@ -585,7 +600,42 @@ export function useExploreFeed(scope = "feed") {
         setPosts((current) => mergePosts([optimisticPost], current));
       }
 
-      const created = await createExplorePost(postInput, scope);
+      const createdPost = await createExplorePost(postInput, scope);
+      let created = createdPost;
+      if (isAdvertDraft(createdPost)) {
+        try {
+          const campaign = await createExploreAdvertCampaign(
+            createdPost,
+            postInput?.advert_campaign || getDraftMediaMeta(createdPost).advert,
+          );
+          if (campaign) {
+            created = {
+              ...createdPost,
+              ad_campaign_id: campaign.id,
+              media_meta: {
+                ...getDraftMediaMeta(createdPost),
+                advert: {
+                  ...(getDraftMediaMeta(createdPost).advert || {}),
+                  campaign: {
+                    id: campaign.id,
+                    placement: campaign.placement,
+                    objective: campaign.objective,
+                    audienceType: campaign.audience_type,
+                    startsAt: campaign.starts_at,
+                    endsAt: campaign.ends_at,
+                    reason: "Your Explore advertisement campaign",
+                  },
+                },
+              },
+            };
+          }
+        } catch (campaignError) {
+          logExploreFeed("advert campaign setup deferred", {
+            post_id: createdPost.id,
+            message: campaignError?.message || "Campaign setup unavailable",
+          });
+        }
+      }
       const createdScopes = getPostTargetScopes(created, scope);
       const createdVisible = isExplorePostVisibleInFeed(created);
 
@@ -610,7 +660,7 @@ export function useExploreFeed(scope = "feed") {
           writeFeedMemory(targetScope, { posts: targetPosts });
         });
 
-      if (createdVisible) {
+      if (createdVisible && !isAdvertDraft(created)) {
         const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
         await Promise.all(
           followers.map((followerId) =>
@@ -728,6 +778,9 @@ export function useExploreFeed(scope = "feed") {
       }
 
       updateExplorePostCounts(postId, { [countKey]: nextCount }).catch(() => null);
+      if (!currentlyActive && isAdvertDraft(targetPost)) {
+        recordExploreAdvertEvent(targetPost, type, { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
+      }
       refreshPostCounts([postId]);
       if (!currentlyActive && targetPost?.user_id && targetPost.user_id !== currentUserId) {
         await createExploreNotification({
@@ -784,6 +837,9 @@ export function useExploreFeed(scope = "feed") {
 
     try {
       await createExploreComment(typeof content === "string" ? { post_id: postId, body: content } : { post_id: postId, ...content });
+      if (isAdvertDraft(targetPost)) {
+        recordExploreAdvertEvent(targetPost, "comment", { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
+      }
       updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
       refreshPostCounts([postId]);
       showToast("Comment posted.", "success");
@@ -867,15 +923,30 @@ export function useExploreFeed(scope = "feed") {
     const targetPost = postsRef.current.find((post) => post.id === postId);
     if (targetPost) {
       recordRecommendationSignal(targetPost, "hide", { surface: scope }).catch(() => false);
+      if (isAdvertDraft(targetPost)) {
+        setExploreAdvertUserControl(targetPost, "hide").catch(() => false);
+        recordExploreAdvertEvent(targetPost, "hide", { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
+      }
     }
 
     setHiddenPosts((current) => {
       const next = new Set(current);
       next.add(postId);
       writeStoredSet(HIDE_STORAGE_KEY, next);
-      showToast("Post hidden.", "info");
+      showToast(isAdvertDraft(targetPost) ? "Advertisement hidden." : "Post hidden.", "info");
       return next;
     });
+  }
+
+  function muteAdvertiser(postId) {
+    const targetPost = postsRef.current.find((post) => post.id === postId);
+    if (!targetPost?.user_id || !isAdvertDraft(targetPost)) return;
+
+    setExploreAdvertUserControl(targetPost, "mute_advertiser").catch(() => false);
+    recordExploreAdvertEvent(targetPost, "mute", { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
+    const nextMuted = storeMutedExploreAdvertiser(targetPost.user_id);
+    setMutedAdvertisers(nextMuted);
+    showToast("Advertisements from this account are muted.", "info");
   }
 
   function dismissPostLocally(postId) {
@@ -905,31 +976,44 @@ export function useExploreFeed(scope = "feed") {
       const post = posts.find((item) => item.id === postId);
       const flags = contentHasModerationFlags(`${post?.body || ""} ${reason}`);
       await reportExplorePost(postId, flags.length ? `${reason} | flags: ${flags.join(", ")}` : reason);
+      if (isAdvertDraft(post)) {
+        await setExploreAdvertUserControl(post, "report", reason).catch(() => false);
+        recordExploreAdvertEvent(post, "report", { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
+      }
       hidePost(postId);
-      showToast("Report received. The post was hidden.", "success");
+      showToast(isAdvertDraft(post) ? "Report received. The advertisement was hidden." : "Report received. The post was hidden.", "success");
     } catch (err) {
       setError(err.message || "Unable to report post.");
     }
   }
 
-  function viewActivity(postId) {
+  async function viewActivity(postId) {
     const post = posts.find((item) => item.id === postId);
 
     if (!post) {
       return;
     }
 
-    showToast(
-      `Activity: ${post.likes_count ?? 0} likes, ${post.comments_count ?? 0} comments, ${post.saves_count ?? 0} saves.`,
-      "info",
-    );
+    if (isAdvertDraft(post)) {
+      const analytics = await fetchExploreAdvertAnalytics(post).catch(() => null);
+      if (analytics) {
+        showToast(
+          `Advert activity: ${analytics.impressions ?? 0} impressions, ${analytics.reach ?? 0} reach, ${analytics.clicks ?? 0} clicks, ${analytics.ctr ?? 0}% CTR.`,
+          "info",
+        );
+        return;
+      }
+    }
+
+    showToast(`Activity: ${post.likes_count ?? 0} likes, ${post.comments_count ?? 0} comments, ${post.saves_count ?? 0} saves.`, "info");
   }
 
   return {
-    posts: posts.filter((post) => {
+    posts: paceExploreAdvertPosts(posts.filter((post) => {
       const isOwnPost = Boolean(currentUserId && post.user_id === currentUserId);
-      return isOwnPost || (!hiddenPosts.has(post.id) && !readBlockedUsers().has(post.user_id));
-    }),
+      const isMutedAdvert = isAdvertDraft(post) && mutedAdvertisers.has(post.user_id);
+      return isOwnPost || (!isMutedAdvert && !hiddenPosts.has(post.id) && !readBlockedUsers().has(post.user_id));
+    }), scope, currentUserId),
     loading,
     isInitialLoading: loading && posts.length === 0,
     refreshing,
@@ -956,6 +1040,7 @@ export function useExploreFeed(scope = "feed") {
     editPost,
     deletePost,
     hidePost,
+    muteAdvertiser,
     dismissPostLocally,
     reportPost,
     viewActivity,

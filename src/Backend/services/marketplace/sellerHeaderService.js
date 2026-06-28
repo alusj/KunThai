@@ -45,6 +45,7 @@ export async function fetchSellerHeaderState() {
     const orderItems = (ordersResult.data || []).map((order) => ({
       id: `seller-order:${order.id}`,
       unread: true,
+      created_at: order.created_at || null,
     }));
     const latestMessageByConversation = new Map();
     (messagesResult.data || []).forEach((message) => {
@@ -54,10 +55,12 @@ export async function fetchSellerHeaderState() {
     const messageItems = Array.from(latestMessageByConversation.entries()).map(([conversationKey, message]) => ({
       id: `seller-message:${conversationKey}:${message.created_at || message.id}`,
       unread: true,
+      created_at: message.created_at || null,
     }));
     const notificationItems = (attentionItems || []).map((item) => ({
       id: `seller-alert:${item.id}`,
       unread: true,
+      created_at: item.updated_at || item.updatedAt || item.created_at || item.createdAt || null,
     }));
 
     return {
