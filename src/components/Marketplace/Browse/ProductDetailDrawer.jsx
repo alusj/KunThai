@@ -27,6 +27,7 @@ import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import useImageViewerGestures from "../../shared/useImageViewerGestures";
 import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
+import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
 
@@ -525,6 +526,26 @@ export default function ProductDetailDrawer({
   const [messageSending, setMessageSending] = useState(false);
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
+
+  useEffect(() => {
+    if (!orderOpen) return undefined;
+    let alive = true;
+    getOnboardingProfile()
+      .then((profile) => {
+        if (!alive || !profile) return;
+        const buyerName = String(profile.displayName || profile.fullName || profile.full_name || "").trim();
+        const phone = String(profile.phone || profile.phoneNumber || profile.phone_number || "").trim();
+        setOrderForm((current) => ({
+          ...current,
+          buyerName: current.buyerName || buyerName,
+          phone: current.phone || phone,
+        }));
+      })
+      .catch(() => null);
+    return () => {
+      alive = false;
+    };
+  }, [orderOpen]);
   const messageTextareaRef = useRef(null);
   const orderAddressPoint = orderForm.coordinates
     ? {

@@ -46,6 +46,7 @@ import {
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 import { getCountryCurrencyCode } from "../../../data/westAfricanCountryProfiles";
+import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { submitTransportSupportTicket } from "../../services/bookingService";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
@@ -126,14 +127,14 @@ function writeLocalText(key, value) {
   window.localStorage.setItem(key, value);
 }
 
-function createEmptyPlace() {
+function createEmptyPlace(profile = {}) {
   return {
     id: "",
     category: "Home",
     customCategory: "",
     placeName: "",
-    contactName: "",
-    phone: "",
+    contactName: String(profile.displayName || profile.fullName || profile.full_name || "").trim(),
+    phone: String(profile.phone || profile.phoneNumber || profile.phone_number || "").trim(),
     street: "",
     note: "",
     frontPictureUrl: "",
@@ -646,6 +647,7 @@ function SavedPlacesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [actionMenuId, setActionMenuId] = useState("");
   const [areaPicker, setAreaPicker] = useState(null);
+  const [accountContact, setAccountContact] = useState({});
   const placePoint = place.coordinates
     ? {
         lat: place.coordinates.latitude ?? place.coordinates.lat,
@@ -673,6 +675,24 @@ function SavedPlacesPage() {
     [],
   );
 
+  useEffect(() => {
+    let alive = true;
+    getOnboardingProfile()
+      .then((profile) => {
+        if (!alive || !profile) return;
+        setAccountContact(profile);
+        setPlace((current) => ({
+          ...current,
+          contactName: current.contactName || String(profile.displayName || profile.fullName || profile.full_name || "").trim(),
+          phone: current.phone || String(profile.phone || profile.phoneNumber || profile.phone_number || "").trim(),
+        }));
+      })
+      .catch(() => null);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   function updatePlace(patch) {
     setPlace((current) => ({ ...current, ...patch }));
   }
@@ -688,7 +708,7 @@ function SavedPlacesPage() {
 
   function openAddPlace() {
     setActionMenuId("");
-    setPlace(createEmptyPlace());
+    setPlace(createEmptyPlace(accountContact));
     setLocationCandidate(null);
     setLocationStatus("");
     setMessage("");
@@ -697,7 +717,7 @@ function SavedPlacesPage() {
 
   function closeForm() {
     setActionMenuId("");
-    setPlace(createEmptyPlace());
+    setPlace(createEmptyPlace(accountContact));
     setLocationCandidate(null);
     setLocationStatus("");
     setAreaPicker(null);
@@ -712,7 +732,7 @@ function SavedPlacesPage() {
 
     const savedPlace = saveTransportSavedPlace(place);
     setPlaces(getTransportSavedPlaces());
-    setPlace(createEmptyPlace());
+    setPlace(createEmptyPlace(accountContact));
     setLocationCandidate(null);
     setLocationStatus("");
     setFormOpen(false);

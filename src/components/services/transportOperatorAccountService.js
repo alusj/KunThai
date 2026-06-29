@@ -7,6 +7,13 @@ import {
   normalizeCountryIso,
   storeCountryContext,
 } from "../../data/westAfricanCountryProfiles";
+import {
+  getTransportUploadFile,
+  getTransportUploadName,
+  getTransportUploadUrl,
+  toStoredTransportUpload,
+  uploadTransportPublicImage,
+} from "./transportPublicMediaService";
 
 const DRAFT_KEY = "kuntai.transport.operatorDraft";
 const DRAFT_KEY_PREFIX = `${DRAFT_KEY}.`;
@@ -251,11 +258,12 @@ function normalizeUploadDocumentEntries(uploads = {}) {
   const now = new Date().toISOString();
   return Object.entries(uploads)
     .map(([key, fileName]) => {
-      const name = typeof fileName === "string" ? fileName : fileName?.name || "";
+      const name = getTransportUploadName(fileName);
       if (!name) return null;
       return {
         documentType: uploadKeyToDocumentType(key),
         fileName: name,
+        fileUrl: getTransportUploadUrl(fileName),
         uploadedAt: now,
         metadata: {
           source: key.startsWith("fleet-") ? "fleet_registration" : "operator_registration",
@@ -264,6 +272,36 @@ function normalizeUploadDocumentEntries(uploads = {}) {
       };
     })
     .filter(Boolean);
+}
+
+async function prepareOperatorPublicMedia(userId, uploads = {}) {
+  const nextUploads = {};
+  const fleetPhotos = [];
+  let operatorPhotoUrl = "";
+
+  for (const [key, value] of Object.entries(uploads)) {
+    const file = getTransportUploadFile(value);
+    const isFleetPhoto = key.startsWith("fleet-");
+    const isOperatorPhoto = key === "doc-Operator selfie/photo";
+    let publicUrl = getTransportUploadUrl(value);
+
+    if ((isFleetPhoto || isOperatorPhoto) && file) {
+      publicUrl = await uploadTransportPublicImage({
+        file,
+        ownerUserId: userId,
+        scope: isFleetPhoto ? "fleet" : "operator",
+        label: key.replace(/^fleet-|^doc-/, ""),
+      });
+    }
+
+    nextUploads[key] = toStoredTransportUpload(value, publicUrl);
+    if (isFleetPhoto && publicUrl) {
+      fleetPhotos.push({ label: key.replace(/^fleet-/, ""), url: publicUrl });
+    }
+    if (isOperatorPhoto && publicUrl) operatorPhotoUrl = publicUrl;
+  }
+
+  return { uploads: nextUploads, fleetPhotos, operatorPhotoUrl };
 }
 
 async function saveOperatorDocumentRows(operatorId, uploads = {}) {
@@ -286,8 +324,8 @@ async function saveOperatorDocumentRows(operatorId, uploads = {}) {
       operator_id: operatorId,
       document_type: entry.documentType,
       file_name: entry.fileName,
-      file_url: null,
-      document_url: null,
+      file_url: entry.fileUrl || null,
+      document_url: entry.fileUrl || null,
       status: "verification_pending",
       metadata: entry.metadata,
       uploaded_at: entry.uploadedAt,
@@ -623,6 +661,7 @@ export async function saveOperatorAccount(account) {
   if (!plateNumber) {
     throw new Error("Plate number is required so this fleet cannot be confused with another operator.");
   }
+  const publicMedia = await prepareOperatorPublicMedia(userId, account.uploads || {});
 
   const { data: existingOperator, error: existingOperatorError } = await supabase
     .from("transport_operators")
@@ -717,6 +756,15 @@ export async function saveOperatorAccount(account) {
     }
   }
 
+  if (publicMedia.operatorPhotoUrl) {
+    const { error: photoError } = await supabase
+      .from("transport_operators")
+      .update({ public_selfie_url: publicMedia.operatorPhotoUrl })
+      .eq("id", operator.id)
+      .eq("user_id", userId);
+    if (photoError && !isMissingColumn(photoError, "public_selfie_url")) throw new Error(photoError.message);
+  }
+
   const { data: plateConflict, error: plateConflictError } = await supabase
     .from("transport_fleets")
     .select("id, operator_id")
@@ -763,6 +811,8 @@ export async function saveOperatorAccount(account) {
     accepts_ride: ["Transport", "Both"].includes(form.category),
     accepts_delivery: ["Delivery", "Both"].includes(form.category),
     is_visible_to_passengers: true,
+    public_fleet_photos: publicMedia.fleetPhotos,
+    public_operator_photo_url: publicMedia.operatorPhotoUrl || existingOperator?.public_selfie_url || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -772,6 +822,16 @@ export async function saveOperatorAccount(account) {
     : supabase.from("transport_fleets").insert(fleetPayload);
 
   let { data: fleet, error: fleetError } = await fleetQuery.select().maybeSingle();
+
+  if (fleetError && (isMissingColumn(fleetError, "public_fleet_photos") || isMissingColumn(fleetError, "public_operator_photo_url"))) {
+    const { public_fleet_photos: _photos, public_operator_photo_url: _operatorPhoto, ...fallbackFleetPayload } = fleetPayload;
+    const fallbackFleetQuery = existingFleet?.id
+      ? supabase.from("transport_fleets").update(fallbackFleetPayload).eq("id", existingFleet.id)
+      : supabase.from("transport_fleets").insert(fallbackFleetPayload);
+    const fallback = await fallbackFleetQuery.select().maybeSingle();
+    fleet = fallback.data;
+    fleetError = fallback.error;
+  }
 
   if (fleetError && hasMissingCountryContextColumn(fleetError)) {
     const fallbackFleetPayload = withoutCountryContext(fleetPayload);
@@ -787,7 +847,7 @@ export async function saveOperatorAccount(account) {
 
   if (!documentsSkipped) {
     try {
-      await saveOperatorDocumentRows(operator.id, account.uploads || {});
+      await saveOperatorDocumentRows(operator.id, publicMedia.uploads);
     } catch (error) {
       if (!isMissingTable(error)) throw new Error(error.message || "Unable to save operator documents.");
     }

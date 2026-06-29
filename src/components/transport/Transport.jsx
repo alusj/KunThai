@@ -486,7 +486,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         userId: savedSubmission.operator?.user_id || refreshedAccount?.userId || operatorAccount?.userId || invite.userId,
         verificationStatus: refreshedAccount?.verificationStatus || savedSubmission.operator?.verification_status || operatorAccount?.verificationStatus || "pending",
         documents: {
-          operatorDocuments: documents,
+          operatorDocuments: savedSubmission.documents || documents,
           operatorDocumentsSubmitted: true,
           operatorDocumentsSubmittedAt: new Date().toISOString(),
           operatorDocumentsSaved: savedSubmission.documents?.length || Object.keys(documents || {}).length,
@@ -1252,6 +1252,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSubmit }) {
       [field.key]: {
         label: field.label,
         fileName: file?.name || "Selected",
+        file: file || null,
         uploadedAt: new Date().toISOString(),
       },
     }));

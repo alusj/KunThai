@@ -37,6 +37,7 @@ import {
 } from "../../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../../../transport/NearbyAreaScreen";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
+import { getOnboardingProfile } from "../../../../Backend/services/onboardingService";
 import {
   deleteBuyerDeliveryAddress,
   fetchBuyerDeliveryAddresses,
@@ -154,13 +155,13 @@ function writeBuyerAddresses(addresses) {
   localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(addresses));
 }
 
-function createEmptyAddress() {
+function createEmptyAddress(profile = {}) {
   return {
     id: "",
     category: "Resident",
     customCategory: "",
-    fullName: "",
-    phone: "",
+    fullName: String(profile.displayName || profile.fullName || profile.full_name || "").trim(),
+    phone: String(profile.phone || profile.phoneNumber || profile.phone_number || "").trim(),
     street: "",
     note: "",
     frontPictureUrl: "",
@@ -323,6 +324,7 @@ export default function MenuDrawer({ open, onClose }) {
   const [message, setMessage] = useState("");
   const [addressFormOpen, setAddressFormOpen] = useState(false);
   const [addressActionMenuId, setAddressActionMenuId] = useState("");
+  const [accountContact, setAccountContact] = useState({});
   const addressPoint = address.coordinates
     ? {
         lat: address.coordinates.latitude ?? address.coordinates.lat,
@@ -358,6 +360,17 @@ export default function MenuDrawer({ open, onClose }) {
     if (!open) return;
 
     setRecentProducts(readRecentProducts());
+    getOnboardingProfile()
+      .then((profile) => {
+        if (!profile) return;
+        setAccountContact(profile);
+        setAddress((current) => ({
+          ...current,
+          fullName: current.fullName || String(profile.displayName || profile.fullName || profile.full_name || "").trim(),
+          phone: current.phone || String(profile.phone || profile.phoneNumber || profile.phone_number || "").trim(),
+        }));
+      })
+      .catch(() => null);
     fetchBuyerDeliveryAddresses()
       .then((addresses) => {
         if (addresses.length) {
@@ -417,7 +430,7 @@ export default function MenuDrawer({ open, onClose }) {
     } catch {
       setMessage("Delivery address saved on this device. Apply the buyer address SQL table to sync it online.");
     }
-    setAddress(createEmptyAddress());
+    setAddress(createEmptyAddress(accountContact));
     setLocationCandidate(null);
     setLocationStatus("");
     setAddressFormOpen(false);
@@ -428,7 +441,7 @@ export default function MenuDrawer({ open, onClose }) {
   }
 
   function openAddAddress() {
-    setAddress(createEmptyAddress());
+    setAddress(createEmptyAddress(accountContact));
     setLocationCandidate(null);
     setLocationStatus("");
     setMessage("");
@@ -445,7 +458,7 @@ export default function MenuDrawer({ open, onClose }) {
   }
 
   function closeAddressForm() {
-    setAddress(createEmptyAddress());
+    setAddress(createEmptyAddress(accountContact));
     setLocationCandidate(null);
     setLocationStatus("");
     setAreaPicker(null);

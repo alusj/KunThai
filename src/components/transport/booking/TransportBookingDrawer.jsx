@@ -23,6 +23,7 @@ import {
 } from "../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../NearbyAreaScreen";
 import { searchLocations } from "../../../Backend/services/locationSearchService";
+import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { getCountryPhonePlaceholder } from "../../../data/westAfricanCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
@@ -202,6 +203,26 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       setShowPassengerCaution(true);
       setDontShowPassengerCaution(false);
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+    getOnboardingProfile()
+      .then((profile) => {
+        if (!alive || !profile) return;
+        const passengerName = String(profile.displayName || profile.fullName || profile.full_name || "").trim();
+        const phone = String(profile.phone || profile.phoneNumber || profile.phone_number || "").trim();
+        setForm((current) => ({
+          ...current,
+          passengerName: current.passengerName || passengerName,
+          phone: current.phone || phone,
+        }));
+      })
+      .catch(() => null);
+    return () => {
+      alive = false;
+    };
   }, [open]);
 
   useEffect(() => {

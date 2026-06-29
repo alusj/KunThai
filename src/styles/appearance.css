@@ -94,9 +94,13 @@ html.dark [class~="bg-slate-50/90"],
 html.dark [class~="bg-slate-50/80"],
 html.dark [class~="bg-slate-50/70"],
 html.dark [class~="bg-slate-50/60"],
+html.dark [class~="bg-slate-50/50"],
 html.dark .bg-gray-50,
 html.dark [class~="bg-gray-50/90"],
 html.dark [class~="bg-gray-50/80"],
+html.dark [class~="bg-gray-50/70"],
+html.dark [class~="bg-gray-50/60"],
+html.dark [class~="bg-gray-50/50"],
 html.dark .bg-zinc-50 {
   background-color: var(--kt-app-bg) !important;
 }
@@ -224,7 +228,9 @@ html.dark .ring-gray-200 {
 /* Soft semantic surfaces preserve meaning without creating bright panels. */
 html.dark .bg-sky-50,
 html.dark [class~="bg-sky-50/80"],
-html.dark [class~="bg-sky-50/70"] {
+html.dark [class~="bg-sky-50/70"],
+html.dark [class~="bg-sky-50/60"],
+html.dark [class~="bg-sky-50/40"] {
   background-color: rgb(14 165 233 / 0.14) !important;
 }
 
@@ -238,7 +244,9 @@ html.dark .text-sky-950 { color: #7dd3fc !important; }
 
 html.dark .bg-blue-50,
 html.dark [class~="bg-blue-50/90"],
-html.dark [class~="bg-blue-50/80"] { background-color: rgb(59 130 246 / 0.14) !important; }
+html.dark [class~="bg-blue-50/80"],
+html.dark [class~="bg-blue-50/70"],
+html.dark [class~="bg-blue-50/60"] { background-color: rgb(59 130 246 / 0.14) !important; }
 html.dark .bg-blue-100 { background-color: rgb(59 130 246 / 0.22) !important; }
 html.dark .border-blue-50,
 html.dark .border-blue-100,
@@ -251,7 +259,9 @@ html.dark .text-blue-950 { color: #93c5fd !important; }
 html.dark .bg-emerald-50,
 html.dark [class~="bg-emerald-50/90"],
 html.dark [class~="bg-emerald-50/80"],
-html.dark [class~="bg-emerald-50/60"] { background-color: rgb(16 185 129 / 0.14) !important; }
+html.dark [class~="bg-emerald-50/70"],
+html.dark [class~="bg-emerald-50/60"],
+html.dark [class~="bg-emerald-50/40"] { background-color: rgb(16 185 129 / 0.14) !important; }
 html.dark .bg-emerald-100 { background-color: rgb(16 185 129 / 0.22) !important; }
 html.dark .border-emerald-50,
 html.dark .border-emerald-100,
@@ -262,7 +272,11 @@ html.dark .text-emerald-900,
 html.dark .text-emerald-950 { color: #6ee7b7 !important; }
 
 html.dark .bg-green-50,
-html.dark [class~="bg-green-50/90"] { background-color: rgb(34 197 94 / 0.14) !important; }
+html.dark [class~="bg-green-50/90"],
+html.dark [class~="bg-green-50/80"],
+html.dark [class~="bg-green-50/70"],
+html.dark [class~="bg-green-50/60"],
+html.dark [class~="bg-green-50/40"] { background-color: rgb(34 197 94 / 0.14) !important; }
 html.dark .bg-green-100 { background-color: rgb(34 197 94 / 0.22) !important; }
 html.dark .border-green-50,
 html.dark .border-green-100,
@@ -275,6 +289,7 @@ html.dark .text-green-950 { color: #86efac !important; }
 html.dark .bg-amber-50,
 html.dark [class~="bg-amber-50/90"],
 html.dark [class~="bg-amber-50/80"],
+html.dark [class~="bg-amber-50/70"],
 html.dark [class~="bg-amber-50/60"] { background-color: rgb(245 158 11 / 0.14) !important; }
 html.dark .bg-amber-100 { background-color: rgb(245 158 11 / 0.22) !important; }
 html.dark .border-amber-50,
@@ -299,7 +314,10 @@ html.dark .text-red-900,
 html.dark .text-red-950 { color: #fca5a5 !important; }
 
 html.dark .bg-rose-50,
-html.dark [class~="bg-rose-50/90"] { background-color: rgb(244 63 94 / 0.14) !important; }
+html.dark [class~="bg-rose-50/90"],
+html.dark [class~="bg-rose-50/80"],
+html.dark [class~="bg-rose-50/70"],
+html.dark [class~="bg-rose-50/60"] { background-color: rgb(244 63 94 / 0.14) !important; }
 html.dark .bg-rose-100 { background-color: rgb(244 63 94 / 0.22) !important; }
 html.dark .border-rose-50,
 html.dark .border-rose-100,
@@ -311,8 +329,14 @@ html.dark .text-rose-900,
 html.dark .text-rose-950 { color: #fda4af !important; }
 
 html.dark .bg-violet-50,
+html.dark [class~="bg-violet-50/70"],
 html.dark .bg-purple-50,
-html.dark .bg-indigo-50 { background-color: rgb(139 92 246 / 0.14) !important; }
+html.dark [class~="bg-purple-50/70"],
+html.dark .bg-indigo-50,
+html.dark [class~="bg-indigo-50/90"],
+html.dark [class~="bg-indigo-50/80"],
+html.dark [class~="bg-indigo-50/70"],
+html.dark [class~="bg-indigo-50/60"] { background-color: rgb(139 92 246 / 0.14) !important; }
 html.dark .bg-violet-100,
 html.dark .bg-purple-100,
 html.dark .bg-indigo-100 { background-color: rgb(139 92 246 / 0.22) !important; }
@@ -418,6 +442,23 @@ html.dark .shadow-lg,
 html.dark .shadow-xl,
 html.dark .shadow-2xl {
   --tw-shadow-color: rgb(0 0 0 / 0.32) !important;
+}
+
+/* Area View keeps labels and route colors visible while reducing the glare of light map tiles. */
+html.dark .maplibregl-map .maplibregl-canvas {
+  filter: brightness(0.68) contrast(1.16) saturate(0.78);
+}
+
+html.dark .maplibregl-ctrl-group,
+html.dark .maplibregl-ctrl-scale,
+html.dark .maplibregl-popup-content {
+  border-color: #334155 !important;
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark .maplibregl-ctrl-group button span {
+  filter: invert(1) brightness(1.3);
 }
 
 html.dark .bg-bank-surface {

@@ -134,6 +134,23 @@ function buildSafety(row) {
   return items;
 }
 
+function normalizePublicFleetPhotos(value) {
+  let photos = value;
+  if (typeof photos === "string") {
+    try {
+      photos = JSON.parse(photos);
+    } catch {
+      photos = [];
+    }
+  }
+  if (!Array.isArray(photos)) return [];
+  return photos
+    .map((photo, index) => typeof photo === "string"
+      ? { label: `Fleet view ${index + 1}`, url: photo }
+      : { label: photo?.label || `Fleet view ${index + 1}`, url: photo?.url || photo?.fileUrl || photo?.publicUrl || "" })
+    .filter((photo) => photo.url);
+}
+
 async function getCurrentPassenger(message = "Sign in to review this operator.") {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user?.id) throw new Error(message);
@@ -207,7 +224,8 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null) {
     pricePerKm: Number(row.price_per_km || 0),
     pricePerHour: Number(row.price_per_hour || 0),
     safety: buildSafety(row),
-    photos: [],
+    photos: normalizePublicFleetPhotos(row.public_fleet_photos),
+    operatorPhotoUrl: row.public_operator_photo_url || "",
     make: row.make || "",
     model: row.model || "",
     year: row.manufacture_year || "",

@@ -50,6 +50,7 @@ export default function ProfileHeaderCard({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copiedPublicId, setCopiedPublicId] = useState(false);
+  const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
   const menuRef = useRef(null);
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
   const coverStyle = getCoverStyle(values.coverUrl);
@@ -67,6 +68,15 @@ export default function ProfileHeaderCard({
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!publicIdHelpOpen) return undefined;
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setPublicIdHelpOpen(false);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [publicIdHelpOpen]);
 
   function runMenuAction(action) {
     setMenuOpen(false);
@@ -272,6 +282,15 @@ export default function ProfileHeaderCard({
             >
               <HiOutlineClipboardDocument />
             </button>
+            <button
+              type="button"
+              onClick={() => setPublicIdHelpOpen(true)}
+              className="kt-pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-sm font-black text-slate-700 shadow-sm hover:border-sky-300 hover:text-sky-700"
+              aria-label="Why do I have a unique KunThai ID?"
+              title="About your KunThai ID"
+            >
+              !
+            </button>
             {copiedPublicId ? <span className="text-xs font-black text-sky-700">Copied</span> : null}
           </div>
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
@@ -286,6 +305,34 @@ export default function ProfileHeaderCard({
           {feedback ? <p className="mt-3 text-xs font-bold text-sky-700">{feedback}</p> : null}
         </div>
       </div>
+
+      {publicIdHelpOpen ? (
+        <div className="fixed inset-0 z-[1400] flex items-end justify-center bg-slate-950/50 p-4 sm:items-center" role="presentation" onMouseDown={() => setPublicIdHelpOpen(false)}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="kunthai-id-help-title"
+            className="w-full max-w-md rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-black text-sky-700">!</span>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Unique account code</p>
+                <h2 id="kunthai-id-help-title" className="mt-1 text-xl font-black text-slate-950">Why your KunThai ID matters</h2>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
+              <p>This code identifies your exact account even when other people have the same name or a similar username.</p>
+              <p>Use it when someone needs to find or invite you, or when KunThai support must confirm the correct account.</p>
+              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">It is safe to share as an account identifier. It is not a password, login code, or payment PIN.</p>
+            </div>
+            <button type="button" onClick={() => setPublicIdHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
+              Understood
+            </button>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

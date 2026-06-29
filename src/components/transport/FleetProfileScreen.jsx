@@ -253,6 +253,8 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
             </section>
           ) : null}
 
+          {fleet.photos?.length ? <FleetMediaGallery fleet={fleet} /> : null}
+
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <ProfileMetric
               icon={FiStar}
@@ -390,8 +392,8 @@ function OperatorHeroCard({
       <div className="bg-[linear-gradient(135deg,#064e3b,#047857_52%,#f59e0b)] p-4 text-white sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-white/15 text-2xl font-black ring-1 ring-white/25">
-              {initials}
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-white/15 text-2xl font-black ring-1 ring-white/25">
+              {fleet.operatorPhotoUrl ? <img src={fleet.operatorPhotoUrl} alt={`${fleet.operatorName || "Operator"} selfie`} className="h-full w-full object-cover" /> : initials}
             </span>
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-100">{fleet.isCompanyFleet ? "Company fleet operator" : "Transport operator"}</p>
@@ -437,6 +439,24 @@ function OperatorHeroCard({
             Reviews
           </button>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function FleetMediaGallery({ fleet }) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Passenger identity check</p>
+      <h2 className="mt-1 text-xl font-black text-slate-950">Confirm the operator and fleet</h2>
+      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Compare these registered views with the arriving person and vehicle before starting the trip.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        {fleet.photos.map((photo) => (
+          <figure key={`${photo.label}-${photo.url}`} className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+            <img src={photo.url} alt={`${fleet.fleetName} ${photo.label}`} className="aspect-[4/3] w-full object-cover" loading="lazy" />
+            <figcaption className="truncate px-3 py-2 text-xs font-black text-slate-600">{photo.label}</figcaption>
+          </figure>
+        ))}
       </div>
     </section>
   );

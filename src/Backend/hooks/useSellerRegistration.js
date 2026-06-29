@@ -113,6 +113,10 @@ function getAccountDisplayName(profile) {
   ).trim();
 }
 
+function getAccountPhone(profile) {
+  return String(profile?.phone || profile?.phoneNumber || profile?.phone_number || "").trim();
+}
+
 async function reverseGeocode(latitude, longitude) {
   const fallback = {
     address: formatCoordinates(latitude, longitude),
@@ -167,6 +171,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
       .then((profile) => {
         if (!alive) return;
         const accountName = getAccountDisplayName(profile);
+        const accountPhone = getAccountPhone(profile);
         const countryProfile = getActiveCountryProfile(profile?.country || profile?.countryCode);
 
         setForm((current) => {
@@ -180,6 +185,8 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
               ...current.location,
               country: current.location.country || profile?.country || countryProfile.name,
               city: current.location.city || profile?.city || "",
+              phone: current.location.phone || accountPhone,
+              email: current.location.email || profile?.email || "",
             },
           };
         });

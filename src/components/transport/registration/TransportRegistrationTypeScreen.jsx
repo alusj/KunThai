@@ -142,6 +142,26 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                   />
 
                   <PolicyItem
+                    title="How a company invites an operator"
+                    body="The company owner creates the company and fleet, then adds the operator using the operator's public KunThai ID. The invitation appears in the operator's Transport dashboard with Accept and Reject actions."
+                  />
+
+                  <PolicyItem
+                    title="How an operator joins"
+                    body="The operator checks the company and fleet details, accepts only if they recognize the company, and uploads their own national ID, driver or rider license, and a recent selfie. The company handles company records, vehicle details, fleet photos, and vehicle documents."
+                  />
+
+                  <PolicyItem
+                    title="Company prices and passenger information"
+                    body="The company owner or CEO sets the starting price, per-kilometre price, and hourly price for company fleets. Operators do not set company fleet prices. Passengers can see approved fleet photos and the operator selfie so they can confirm the correct person and vehicle before a trip."
+                  />
+
+                  <PolicyItem
+                    title="Invitation and account safety"
+                    body="An invitation does not give a company the operator's password or ownership of the operator's KunThai account. Operators can reject unknown requests, and leaving a company does not delete their personal account or identity."
+                  />
+
+                  <PolicyItem
                     title="Safety responsibility"
                     body="KunThai can provide tools, route guidance, booking records, contact details, reporting channels, and emergency information. However, KunThai cannot physically prevent danger, accidents, criminal activity, unsafe driving, or misconduct in the real world."
                   />

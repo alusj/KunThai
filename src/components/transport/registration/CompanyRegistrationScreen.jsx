@@ -136,6 +136,10 @@ function createFleetDraft(index = 0) {
     color: "",
     operatingArea: "",
     homeBase: "",
+    baseFare: "",
+    pricePerKm: "",
+    pricePerHour: "",
+    priceHint: "",
     documents: {},
     safetyAnswers: createSafetyAnswers(fleetTypes[index % fleetTypes.length]),
     operators: [],
@@ -263,7 +267,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
               ...fleet,
               documents: {
                 ...fleet.documents,
-                [document]: file?.name || "Selected",
+                [document]: document.startsWith("Fleet image -") && file
+                  ? { file, fileName: file.name }
+                  : file?.name || "Selected",
               },
             }
           : fleet,
@@ -335,8 +341,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         fleet.color,
         fleet.operatingArea,
         fleet.homeBase,
+        fleet.baseFare,
+        fleet.pricePerKm,
+        fleet.pricePerHour,
       ].some((value) => !String(value || "").trim()));
-      if (incompleteFleet) return "Each fleet needs its name, plate, make, model, year, color, operating area, and home base.";
+      if (incompleteFleet) return "Each fleet needs its name, plate, make, model, year, color, operating area, home base, starting price, per-kilometre price, and hourly price.";
       const missingImageFleet = fleets.find((fleet) => requiredFleetImages.some((image) => !fleet.documents?.[fleetImageDocumentKey(image)]));
       if (missingImageFleet) return "Upload the front, back, left-side, and right-side image for every fleet.";
       const missingDocumentFleet = fleets.find((fleet) => fleetDocuments.some((document) => !fleet.documents?.[document]));
@@ -963,6 +972,17 @@ function FleetCard({ acceptedPublicIds = [], fleet, index, onInvite, onRemove, o
         <FormInput label="Operating area" value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder="Main service area" />
         <FormInput label="Home base" value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder="Station, park, or yard" />
       </div>
+      <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Passenger pricing · company owner</p>
+        <h4 className="mt-1 text-lg font-black text-slate-950">Set the prices passengers will see</h4>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">The company owner or CEO controls these prices. The assigned operator can manage availability and trips, but cannot replace company pricing.</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <FormInput label="Starting price" type="number" value={fleet.baseFare} onChange={(value) => onUpdate(fleet.localId, { baseFare: value })} placeholder="0" />
+          <FormInput label="Price per 1 km" type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" />
+          <FormInput label="Price per 1 hour" type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" />
+          <FormInput label="Passenger price note optional" value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder="Example: final fare confirmed in booking" />
+        </div>
+      </section>
       <FleetImagesSection fleet={fleet} onUploadDocument={onUploadDocument} />
       <section className="mt-5">
         <h4 className="font-black text-slate-950">Required vehicle documents</h4>
@@ -1189,11 +1209,12 @@ function DocumentGrid({ compact = false, documents, onUpload, uploads = {} }) {
 
 function UploadField({ label, onChange, value }) {
   const displayLabel = String(label || "").replace(/^Fleet image - /, "");
+  const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
   return (
     <label className="block rounded-2xl border border-dashed border-slate-200 bg-white p-3">
       <span className="flex items-center gap-2 text-sm font-black text-slate-800"><FiFileText /> {displayLabel}</span>
       <input type="file" className="mt-3 block w-full text-xs font-semibold text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white" onChange={(event) => onChange(event.target.files?.[0])} />
-      {value ? <span className="mt-2 block truncate text-xs font-black text-emerald-700">{value}</span> : null}
+      {selectedName ? <span className="mt-2 block truncate text-xs font-black text-emerald-700">{selectedName}</span> : null}
     </label>
   );
 }

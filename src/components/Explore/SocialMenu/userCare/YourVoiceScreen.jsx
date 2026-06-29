@@ -118,7 +118,6 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
       const supportedType = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"]
         .find((type) => MediaRecorder.isTypeSupported?.(type));
       const recorder = new MediaRecorder(stream, supportedType ? { mimeType: supportedType } : undefined);
-      recorder.stream = stream;
       chunksRef.current = [];
       recorder.ondataavailable = (event) => {
         if (event.data?.size) chunksRef.current.push(event.data);
@@ -134,7 +133,7 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
         recorderRef.current = null;
       };
       recorderRef.current = recorder;
-      recorder.start(250);
+      recorder.start();
       setRecordingSeconds(0);
       setRecording(true);
       timerRef.current = window.setInterval(() => {
@@ -148,9 +147,13 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
       }, 1000);
     } catch (error) {
       stream?.getTracks?.().forEach((track) => track.stop());
-      setFeedback(error?.name === "NotAllowedError"
-        ? "Microphone permission was not granted. You can still send text or a screenshot."
-        : "KunThai could not start voice recording on this device.");
+      const permissionBlocked = ["NotAllowedError", "PermissionDeniedError", "SecurityError"].includes(error?.name);
+      const deviceMissing = ["NotFoundError", "DevicesNotFoundError"].includes(error?.name);
+      setFeedback(permissionBlocked
+        ? "Microphone access is blocked. Allow microphone access for KunThai in your browser settings, then tap Record again."
+        : deviceMissing
+          ? "No microphone was found on this device. You can still send text or a screenshot."
+          : "KunThai could not start voice recording. Close other apps using the microphone, then try again.");
     }
   }
 

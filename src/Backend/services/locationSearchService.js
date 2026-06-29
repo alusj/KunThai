@@ -58,16 +58,21 @@ function formatDistance(distanceMeters) {
 }
 
 function compactAddress(address = {}) {
-  const primary = address.road || address.pedestrian || address.footway || address.neighbourhood || address.suburb;
-  const city = address.city || address.town || address.village || address.municipality || address.county;
-  const region = address.state || address.region;
-  return [primary, city, region].filter(Boolean).join(", ");
+  const street = [address.house_number, address.road || address.pedestrian || address.footway].filter(Boolean).join(" ");
+  const community = address.neighbourhood || address.quarter || address.suburb || address.hamlet || address.locality;
+  const city = address.city || address.town || address.village || address.municipality || address.city_district || address.county;
+  const region = address.state_district || address.state || address.region;
+  return [street || community, street ? community : "", city, region].filter(Boolean).join(", ");
 }
 
 function getPlaceName(place) {
   const address = place.address || {};
+  const streetAddress = [address.house_number, address.road || address.pedestrian || address.footway].filter(Boolean).join(" ");
   return (
     place.namedetails?.name ||
+    place.namedetails?.["name:en"] ||
+    place.namedetails?.alt_name ||
+    streetAddress ||
     place.name ||
     address.amenity ||
     address.shop ||
@@ -75,7 +80,10 @@ function getPlaceName(place) {
     address.building ||
     address.road ||
     address.neighbourhood ||
+    address.quarter ||
     address.suburb ||
+    address.hamlet ||
+    address.locality ||
     address.city ||
     address.town ||
     place.display_name ||
@@ -123,15 +131,39 @@ function uniquePlaces(places = []) {
 }
 
 function sortPlaces(places = [], searchText = "") {
-  const query = searchText.toLowerCase();
+  const query = searchText.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const queryTokens = query.split(/\s+/).filter((token) => token.length > 1);
+  const relevance = (place) => {
+    const name = String(place.name || "").toLowerCase();
+    const searchable = [place.name, place.address, place.fullAddress].join(" ").toLowerCase().replace(/[^a-z0-9]+/g, " ");
+    const tokenMatches = queryTokens.filter((token) => searchable.includes(token)).length;
+    const coverage = queryTokens.length ? tokenMatches / queryTokens.length : 0;
+    return (name === query ? 4 : name.startsWith(query) ? 2 : searchable.includes(query) ? 1 : 0) + coverage;
+  };
   return [...places].sort((first, second) => {
-    const firstName = String(first.name || "").toLowerCase();
-    const secondName = String(second.name || "").toLowerCase();
-    const firstExact = firstName === query ? 1 : firstName.startsWith(query) ? 0.5 : 0;
-    const secondExact = secondName === query ? 1 : secondName.startsWith(query) ? 0.5 : 0;
-    if (firstExact !== secondExact) return secondExact - firstExact;
+    const firstRelevance = relevance(first);
+    const secondRelevance = relevance(second);
+    if (firstRelevance !== secondRelevance) return secondRelevance - firstRelevance;
     return Number(first.distanceMeters ?? Infinity) - Number(second.distanceMeters ?? Infinity);
   });
+}
+
+function buildSearchVariants(searchText = "") {
+  const normalized = String(searchText).replace(/\s+/g, " ").trim();
+  const segments = normalized.split(",").map((segment) => segment.trim()).filter((segment) => segment.length >= 2);
+  const variants = [normalized];
+
+  if (segments.length > 1) {
+    variants.push(segments.slice(0, -1).join(", "));
+    variants.push(segments.slice(0, 2).join(", "));
+    variants.push(segments[0]);
+    variants.push(segments.slice(1).join(", "));
+  }
+
+  const withoutPostcode = normalized.replace(/\b[A-Z]{0,2}\d{3,6}\b/gi, "").replace(/\s+,/g, ",").trim();
+  if (withoutPostcode && withoutPostcode !== normalized) variants.push(withoutPostcode);
+
+  return [...new Set(variants.filter(Boolean))].slice(0, 5);
 }
 
 async function fetchNominatim(url) {
@@ -161,31 +193,39 @@ export async function searchLocations(query, center = null, options = {}) {
     const limit = Math.max(3, Math.min(12, Number(options.limit || 8)));
     const maxDistanceMeters = Number(options.maxDistanceMeters || NEARBY_FALLBACK_RADIUS_METERS);
     const centerCountryCode = String(options.countryCode || normalizedCenter?.countryCode || "").toLowerCase();
-    const baseParams = `format=json&addressdetails=1&namedetails=1&limit=${limit}`;
+    const countryParam = centerCountryCode ? `&countrycodes=${encodeURIComponent(centerCountryCode)}` : "";
+    const baseParams = `format=json&addressdetails=1&namedetails=1&limit=${limit}${countryParam}`;
+    const variants = buildSearchVariants(searchText);
+    let collected = [];
 
-    const nearbyUrl = viewbox
-      ? `https://nominatim.openstreetmap.org/search?${baseParams}&bounded=1&viewbox=${encodeURIComponent(
-          viewbox
-        )}&q=${encodeURIComponent(searchText)}`
-      : null;
-
-    const globalUrl = `https://nominatim.openstreetmap.org/search?${baseParams}&q=${encodeURIComponent(searchText)}`;
-    const nearbyData = nearbyUrl ? await fetchNominatim(nearbyUrl) : [];
-    const needsFallback = !Array.isArray(nearbyData) || nearbyData.length < Math.min(4, limit);
-    const fallbackData = needsFallback ? await fetchNominatim(globalUrl).catch(() => []) : [];
-    const nearbyPlaces = (Array.isArray(nearbyData) ? nearbyData : [])
-      .map((place) => normalizePlace(place, normalizedCenter, "nearby"))
-      .filter(Boolean);
-    const fallbackPlaces = (Array.isArray(fallbackData) ? fallbackData : [])
-      .map((place) => normalizePlace(place, normalizedCenter, "global"))
+    const normalizeResults = (data, source) => (Array.isArray(data) ? data : [])
+      .map((place) => normalizePlace(place, normalizedCenter, source))
       .filter(Boolean)
       .filter((place) => {
-        if (!normalizedCenter) return true;
+        if (!normalizedCenter || source === "nearby") return true;
         if (centerCountryCode && place.countryCode && place.countryCode !== centerCountryCode) return false;
         return place.distanceMeters == null || place.distanceMeters <= maxDistanceMeters;
       });
 
-    return sortPlaces(uniquePlaces([...nearbyPlaces, ...fallbackPlaces]), searchText).slice(0, limit);
+    for (let index = 0; index < variants.length; index += 1) {
+      const variant = variants[index];
+      const nearbyUrl = viewbox
+        ? `https://nominatim.openstreetmap.org/search?${baseParams}&bounded=1&viewbox=${encodeURIComponent(viewbox)}&q=${encodeURIComponent(variant)}`
+        : null;
+      const nearbyData = nearbyUrl ? await fetchNominatim(nearbyUrl).catch(() => []) : [];
+      collected = uniquePlaces([...collected, ...normalizeResults(nearbyData, "nearby")]);
+
+      if (collected.length < Math.min(4, limit)) {
+        const globalUrl = `https://nominatim.openstreetmap.org/search?${baseParams}&q=${encodeURIComponent(variant)}`;
+        const globalData = await fetchNominatim(globalUrl).catch(() => []);
+        collected = uniquePlaces([...collected, ...normalizeResults(globalData, "global")]);
+      }
+
+      if (collected.length >= Math.min(4, limit)) break;
+      if (index > 0 && collected.length > 0) break;
+    }
+
+    return sortPlaces(collected, searchText).slice(0, limit);
   } catch {
     return [];
   }

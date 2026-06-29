@@ -1,6 +1,13 @@
 import supabase from "../../Backend/lib/supabaseClient";
 import { getKunThaiPublicUserId, normalizeKunThaiPublicId } from "../../Backend/services/identityCodeService";
 import { getOnboardingProfile } from "../../Backend/services/onboardingService";
+import {
+  getTransportUploadFile,
+  getTransportUploadName,
+  getTransportUploadUrl,
+  toStoredTransportUpload,
+  uploadTransportPublicImage,
+} from "./transportPublicMediaService";
 import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
 
 const COMPANY_DRAFT_PREFIX = "kuntai.transport.companyDraft.";
@@ -420,6 +427,11 @@ function normalizeFleet(fleet = {}, index = 0) {
     color: fleet.color || "",
     operatingArea: fleet.operatingArea || fleet.operating_area || "",
     homeBase: fleet.homeBase || fleet.home_base_location || "",
+    baseFare: fleet.baseFare ?? fleet.base_fare ?? "",
+    pricePerKm: fleet.pricePerKm ?? fleet.price_per_km ?? "",
+    pricePerHour: fleet.pricePerHour ?? fleet.price_per_hour ?? "",
+    priceHint: fleet.priceHint || fleet.price_hint || "",
+    publicFleetPhotos: fleet.publicFleetPhotos || fleet.public_fleet_photos || [],
     documents: fleet.documents || {},
     safetyAnswers: fleet.safetyAnswers || fleet.safety_answers || {},
     operators: rawOperators.map(normalizeInvite),
@@ -427,6 +439,44 @@ function normalizeFleet(fleet = {}, index = 0) {
     activeStatus: fleet.activeStatus || fleet.active_status || "offline",
     isVisibleToPassengers: Boolean(fleet.isVisibleToPassengers ?? fleet.is_visible_to_passengers ?? false),
   };
+}
+
+async function prepareCompanyFleetPublicMedia(fleets = [], ownerUserId) {
+  const prepared = [];
+
+  for (const fleet of fleets) {
+    const documents = {};
+    const publicFleetPhotos = [];
+    for (const [key, value] of Object.entries(fleet.documents || {})) {
+      const isFleetImage = key.startsWith("Fleet image -");
+      const file = getTransportUploadFile(value);
+      let publicUrl = getTransportUploadUrl(value);
+
+      if (isFleetImage && file) {
+        publicUrl = await uploadTransportPublicImage({
+          file,
+          ownerUserId,
+          scope: `company-${fleet.fleetCode || fleet.localId || "fleet"}`,
+          label: key.replace(/^Fleet image - /, ""),
+        });
+      }
+
+      documents[key] = isFleetImage
+        ? toStoredTransportUpload(value, publicUrl)
+        : getTransportUploadName(value);
+      if (isFleetImage && publicUrl) {
+        publicFleetPhotos.push({ label: key.replace(/^Fleet image - /, ""), url: publicUrl });
+      }
+    }
+
+    prepared.push({
+      ...fleet,
+      documents,
+      publicFleetPhotos: publicFleetPhotos.length ? publicFleetPhotos : fleet.publicFleetPhotos || [],
+    });
+  }
+
+  return prepared;
 }
 
 export function resolveTransportCompanyOperatorAssignment(company = {}, targetOperator = null) {
@@ -1205,7 +1255,33 @@ export async function submitOperatorCompanyInviteDocuments(invite, documents = {
 
   try {
     operator = await ensureInvitedOperatorRecord(user, profile || {}, invite || {});
-    const savedDocuments = await saveInvitedOperatorDocumentRows(operator?.id, documents, invite || {});
+    const preparedDocuments = { ...documents };
+    const operatorPhoto = documents.operatorPhoto;
+    const operatorPhotoFile = getTransportUploadFile(operatorPhoto);
+    let operatorPhotoUrl = getTransportUploadUrl(operatorPhoto);
+    if (operatorPhotoFile) {
+      operatorPhotoUrl = await uploadTransportPublicImage({
+        file: operatorPhotoFile,
+        ownerUserId: user.id,
+        scope: "operator",
+        label: "selfie",
+      });
+      preparedDocuments.operatorPhoto = {
+        ...operatorPhoto,
+        file: undefined,
+        fileUrl: operatorPhotoUrl,
+        visibility: "passenger",
+      };
+    }
+    if (operatorPhotoUrl) {
+      const { error: photoError } = await supabase
+        .from("transport_operators")
+        .update({ public_selfie_url: operatorPhotoUrl })
+        .eq("id", operator.id)
+        .eq("user_id", user.id);
+      if (photoError && !isMissingColumn(photoError, "public_selfie_url")) throw photoError;
+    }
+    const savedDocuments = await saveInvitedOperatorDocumentRows(operator?.id, preparedDocuments, invite || {});
     return { operator, documents: savedDocuments, storageMode: "cloud" };
   } catch (error) {
     if (isMissingTable(error)) {
@@ -1224,7 +1300,7 @@ export async function saveTransportCompanyAccount(account) {
   const user = await getCurrentUser("Sign in before submitting your company registration.");
   const addOperatorMode = account?.actionMode === "add_operator";
   const profile = await getOnboardingProfile(user).catch(() => null);
-  const normalized = normalizeCompanyAccount({
+  let normalized = normalizeCompanyAccount({
     ...account,
     userId: user.id,
     ownerPublicId: account.ownerPublicId || getKunThaiPublicUserId({ ...profile, userId: user.id }),
@@ -1232,6 +1308,10 @@ export async function saveTransportCompanyAccount(account) {
     verificationStatus: "pending",
     savedAt: new Date().toISOString(),
   }, user.id);
+  normalized = {
+    ...normalized,
+    fleets: await prepareCompanyFleetPublicMedia(normalized.fleets, user.id),
+  };
 
   try {
     const companyPayload = {
@@ -1348,6 +1428,11 @@ export async function saveTransportCompanyAccount(account) {
             color: fleet.color,
             operating_area: fleet.operatingArea,
             home_base_location: fleet.homeBase,
+            base_fare: fleet.baseFare ? Number(fleet.baseFare) : null,
+            price_per_km: fleet.pricePerKm ? Number(fleet.pricePerKm) : null,
+            price_per_hour: fleet.pricePerHour ? Number(fleet.pricePerHour) : null,
+            price_hint: fleet.priceHint || "",
+            public_fleet_photos: fleet.publicFleetPhotos || [],
             documents: fleet.documents,
             safety_answers: fleet.safetyAnswers,
             operators: fleet.operators || [],
@@ -1367,6 +1452,11 @@ export async function saveTransportCompanyAccount(account) {
             "color",
             "operating_area",
             "home_base_location",
+            "base_fare",
+            "price_per_km",
+            "price_per_hour",
+            "price_hint",
+            "public_fleet_photos",
             "documents",
             "safety_answers",
             "operators",

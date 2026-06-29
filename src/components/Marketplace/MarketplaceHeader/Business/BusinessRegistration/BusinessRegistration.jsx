@@ -168,6 +168,29 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
                     KunThai helps connect buyers and sellers, but cannot guarantee physical
                     safety, product quality, delivery success, or prevent fraud outside the platform.
                   </p>
+
+                  <div className="mt-5 grid gap-3">
+                    <SellerGuidanceItem
+                      title="How to open your UrMall business"
+                      body="Register the business identity, add an accurate address and contact number, describe how the business operates, then submit the trust and payout details for review."
+                    />
+                    <SellerGuidanceItem
+                      title="What buyers will see"
+                      body="Your approved store name, logo, business category, location, contact options, products, prices, delivery choices, and verification status may be shown to buyers. Keep them current."
+                    />
+                    <SellerGuidanceItem
+                      title="Products, prices, and delivery"
+                      body="The business owner controls product information and prices. Confirm stock, the final product price, delivery fee, receiver name, phone number, and delivery address before fulfilling an order."
+                    />
+                    <SellerGuidanceItem
+                      title="Working with staff"
+                      body="Only let trusted people manage business information or customer orders. Do not share your password, payment PIN, or one-time login codes. Each responsible person should use their own KunThai account when team access becomes available."
+                    />
+                    <SellerGuidanceItem
+                      title="Customer and seller safety"
+                      body="Keep order conversations and payment confirmation connected to the order. Report suspicious buyers, unsafe delivery requests, counterfeit products, harassment, and payment disputes with clear evidence."
+                    />
+                  </div>
                 </div>
 
                 <div className="mt-auto pt-8">
@@ -381,5 +404,14 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
         </div>
       ) : null}
     </ScreenSlideTransition>
+  );
+}
+
+function SellerGuidanceItem({ body, title }) {
+  return (
+    <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
+      <h3 className="text-sm font-black text-gray-950">{title}</h3>
+      <p className="mt-1 text-sm font-semibold leading-6 text-gray-600">{body}</p>
+    </div>
   );
 }

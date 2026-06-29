@@ -169,6 +169,10 @@ function getAccountDisplayName(profile) {
   ).trim();
 }
 
+function getAccountPhone(profile) {
+  return String(profile?.phone || profile?.phoneNumber || profile?.phone_number || "").trim();
+}
+
 export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExit, onViewOneKmPreview }) {
   const [step, setStep] = useState(0);
   const [maxStepReached, setMaxStepReached] = useState(0);
@@ -210,6 +214,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     async function loadRegistrationContext() {
       const profile = await getOnboardingProfile().catch(() => null);
       const accountName = getAccountDisplayName(profile);
+      const accountPhone = getAccountPhone(profile);
       const countryPatch = getProfileCountryPatch(profile || {});
 
       try {
@@ -229,6 +234,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
             ...countryPatch,
             ...draftForm,
             name: draftForm.name || accountName || "",
+            phone: draftForm.phone || accountPhone || "",
             countryCode: normalizeCountryIso(draftForm.countryCode || draftForm.country) || countryPatch.countryCode,
             currency: draftForm.currency || countryPatch.currency,
           });
@@ -240,6 +246,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
             ...current,
             ...countryPatch,
             name: current.name || accountName || "",
+            phone: current.phone || accountPhone || "",
           }));
         }
       } catch {
@@ -273,7 +280,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   };
 
   const markUpload = (field, file) => {
-    setUploads((current) => ({ ...current, [field]: file?.name || "Selected" }));
+    setUploads((current) => ({
+      ...current,
+      [field]: file ? { file, fileName: file.name } : "",
+    }));
     setDocumentsSkipped(false);
     setStepError("");
   };
@@ -1121,6 +1131,7 @@ function SelectField({ label, options, value, onChange, helper = "" }) {
 }
 
 function UploadField({ label, value, onChange }) {
+  const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
   return (
     <label className="block cursor-pointer rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 hover:border-green-300 hover:bg-green-50 transition">
       <input
@@ -1135,7 +1146,7 @@ function UploadField({ label, value, onChange }) {
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-gray-900">{label}</span>
-          <span className="block truncate text-xs text-gray-500">{value || "Upload or take photo"}</span>
+          <span className="block truncate text-xs text-gray-500">{selectedName || "Upload or take photo"}</span>
         </span>
       </span>
     </label>
