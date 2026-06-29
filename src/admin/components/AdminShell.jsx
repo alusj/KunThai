@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   BellRing,
   CarFront,
   ChartNoAxesCombined,
+  CheckCheck,
   ChevronDown,
   Compass,
   Inbox,
@@ -23,7 +24,12 @@ import {
   X,
 } from "lucide-react";
 import supabase from "../../Backend/lib/supabaseClient";
-import { ADMIN_NAV_GROUPS, canAccess } from "../adminConfig";
+import { ADMIN_NAV_GROUPS, canAccess, formatRelativeTime } from "../adminConfig";
+import {
+  getAdminActivityNotifications,
+  markAdminActivityNotificationsRead,
+  subscribeToAdminActivityNotifications,
+} from "../adminService";
 
 const ICONS = {
   BadgeCheck,
@@ -43,19 +49,61 @@ const ICONS = {
   Users,
 };
 
-export default function AdminShell({ access, user, page, setPage, children, caseCount = 0, onSearch }) {
+export default function AdminShell({ access, user, page, setPage, children, caseCount = 0, onActivity, onSearch }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [activity, setActivity] = useState([]);
+  const [activityError, setActivityError] = useState("");
   const [search, setSearch] = useState("");
   const role = access.roles?.[0];
   const visibleGroups = useMemo(() => ADMIN_NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => canAccess(access, item.permission, item.sector)),
   })).filter((group) => group.items.length), [access]);
+  const unreadActivity = activity.filter((item) => !item.read_at).length;
+
+  const loadActivity = useCallback(() => {
+    getAdminActivityNotifications(20)
+      .then(setActivity)
+      .catch((error) => setActivityError(error.message || "Unable to load activity."));
+  }, []);
+
+  useEffect(() => {
+    loadActivity();
+    return subscribeToAdminActivityNotifications(user?.id, (notification) => {
+      setActivity((current) => [notification, ...current.filter((item) => item.id !== notification.id)].slice(0, 20));
+      onActivity?.(notification);
+    });
+  }, [loadActivity, onActivity, user?.id]);
 
   function navigate(nextPage) {
     setPage(nextPage);
     setMenuOpen(false);
+    setActivityOpen(false);
+  }
+
+  async function openActivityItem(item) {
+    if (!item.read_at) {
+      try {
+        await markAdminActivityNotificationsRead([item.id]);
+        setActivity((current) => current.map((entry) => entry.id === item.id ? { ...entry, read_at: new Date().toISOString() } : entry));
+      } catch (error) {
+        setActivityError(error.message || "Unable to mark this notification as read.");
+      }
+    }
+    const queue = item.metadata?.queue;
+    navigate(item.notification_type === "admin_action" ? "audit" : ["reports", "support", "verification", "finance"].includes(queue) ? queue : "my-work");
+  }
+
+  async function markAllActivityRead() {
+    try {
+      await markAdminActivityNotificationsRead();
+      const readAt = new Date().toISOString();
+      setActivity((current) => current.map((item) => item.read_at ? item : { ...item, read_at: readAt }));
+    } catch (error) {
+      setActivityError(error.message || "Unable to mark notifications as read.");
+    }
   }
 
   function submitSearch(event) {
@@ -143,12 +191,36 @@ export default function AdminShell({ access, user, page, setPage, children, case
             />
           </form>
 
-          <button type="button" title="Notification campaigns" onClick={() => navigate("notifications")} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950">
-            <BellRing size={18} />
-          </button>
+          <div className="relative">
+            <button type="button" title="Admin activity" aria-expanded={activityOpen} onClick={() => { setActivityOpen((value) => !value); setProfileOpen(false); }} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950">
+              <BellRing size={18} />
+              {unreadActivity ? <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-red-600 px-1 py-0.5 text-center text-[9px] font-black leading-4 text-white">{unreadActivity > 99 ? "99+" : unreadActivity}</span> : null}
+            </button>
+            {activityOpen ? (
+              <section className="absolute right-0 top-12 w-[min(23rem,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
+                <header className="flex items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3">
+                  <div><p className="text-sm font-black text-zinc-950">Admin activity</p><p className="mt-0.5 text-[11px] font-semibold text-zinc-500">{unreadActivity ? `${unreadActivity} unread` : "You're up to date"}</p></div>
+                  {unreadActivity ? <button type="button" onClick={markAllActivityRead} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-black text-emerald-700 hover:bg-emerald-50"><CheckCheck size={15} /> Read all</button> : null}
+                </header>
+                <div className="max-h-[26rem] overflow-y-auto">
+                  {activity.map((item) => (
+                    <button type="button" key={item.id} onClick={() => openActivityItem(item)} className={`block w-full border-b border-zinc-100 px-4 py-3 text-left last:border-0 hover:bg-zinc-50 ${item.read_at ? "bg-white" : "bg-emerald-50/55"}`}>
+                      <span className="flex items-start gap-3"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${item.read_at ? "bg-zinc-200" : "bg-emerald-600"}`} /><span className="min-w-0 flex-1"><span className="block text-xs font-black text-zinc-900">{item.title}</span><span className="mt-1 line-clamp-2 block text-[11px] font-medium leading-4 text-zinc-600">{item.body}</span><span className="mt-1.5 block text-[10px] font-bold text-zinc-400">{formatRelativeTime(item.created_at)}</span></span></span>
+                    </button>
+                  ))}
+                  {!activity.length ? <div className="px-5 py-10 text-center text-xs font-semibold text-zinc-500">No admin activity notifications yet.</div> : null}
+                </div>
+                {activityError ? <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-[11px] font-bold text-red-700">{activityError}</p> : null}
+                <footer className="grid grid-cols-2 gap-2 border-t border-zinc-100 p-2">
+                  {canAccess(access, "audit.view") ? <button type="button" onClick={() => navigate("audit")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">Open audit log</button> : <span />}
+                  {canAccess(access, "notifications.view") ? <button type="button" onClick={() => navigate("notifications")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">Campaigns</button> : null}
+                </footer>
+              </section>
+            ) : null}
+          </div>
 
           <div className="relative">
-            <button type="button" onClick={() => setProfileOpen((value) => !value)} className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-white px-2 text-left hover:bg-zinc-50">
+            <button type="button" onClick={() => { setProfileOpen((value) => !value); setActivityOpen(false); }} className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-white px-2 text-left hover:bg-zinc-50">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-emerald-100 text-xs font-black text-emerald-800">
                 {(user?.email || "A").slice(0, 1).toUpperCase()}
               </span>
@@ -174,4 +246,3 @@ export default function AdminShell({ access, user, page, setPage, children, case
     </div>
   );
 }
-

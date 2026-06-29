@@ -4,7 +4,6 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
-  LockKeyhole,
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -21,7 +20,6 @@ import HelpSupport from "./MyBizPages/HelpSupport/HelpSupport";
 import Privacy from "./MyBizPages/HelpSupport/Legal/Privacy";
 import Payments from "./MyBizPages/PaymentsPayouts/Payments";
 import ProfileSettings from "./MyBizPages/ProfileSettings/ProfileSettings";
-import Security from "./MyBizPages/Security/Security";
 import SellerBoard from "./MyBizPages/SellerBoard/SellerBoard";
 
 const SELLER_MENU_ANIMATION_MS = 360;
@@ -36,9 +34,6 @@ function getDrawerScreen(key, props = {}) {
   },
   payments: {
     component: <Payments onBack={props.onBack} />,
-  },
-  security: {
-    component: <Security onBack={props.onBack} />,
   },
   support: {
     component: <HelpSupport onBack={props.onBack} />,
@@ -222,7 +217,7 @@ export default function MyBizMenu({
                   <SellerDrawerNavItem
                     icon={LayoutDashboard}
                     title="Seller Board"
-                    description="Orders, messages, products, delivery, verification, reports, security, and policies."
+                    description="Orders, messages, products, delivery, verification, reports, and policies."
                     onClick={() => openActiveScreen("board")}
                   />
                   <SellerDrawerNavItem
@@ -245,12 +240,6 @@ export default function MyBizMenu({
                     title="Payments & Payouts"
                     description="Bank details, payout history, transactions, and withdrawals."
                     onClick={() => openActiveScreen("payments")}
-                  />
-                  <SellerDrawerNavItem
-                    icon={LockKeyhole}
-                    title="Security"
-                    description="Password, login activity, and two-factor authentication."
-                    onClick={() => openActiveScreen("security")}
                   />
                 </SellerDrawerSection>
 

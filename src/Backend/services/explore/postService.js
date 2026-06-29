@@ -342,7 +342,11 @@ export async function createExplorePost(input, scope = "feed") {
     throw new Error("No active session.");
   }
 
-  const imageUrl = payload.image_url ? await uploadMediaDataUrl(payload.image_url, "image", user.id) : "";
+  const imageUrl = payload.image_file
+    ? await uploadMediaFile(payload.image_file, "image", user.id)
+    : payload.image_url
+      ? await uploadMediaDataUrl(payload.image_url, "image", user.id)
+      : "";
   const audioUrl = payload.audio_url ? await uploadMediaDataUrl(payload.audio_url, "audio", user.id) : "";
   const videoUrl = payload.video_file
     ? await uploadMediaFile(payload.video_file, "video", user.id)

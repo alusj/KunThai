@@ -6,7 +6,6 @@ import {
   Headphones,
   Megaphone,
   Scale,
-  ShieldCheck,
   ShoppingBag,
   Truck,
 } from "lucide-react";
@@ -75,12 +74,6 @@ const BOARD_ITEMS = [
     description: "Report order issues, suspicious buyers, fraud attempts, or support cases.",
   },
   {
-    key: "security",
-    icon: ShieldCheck,
-    title: "Account Recovery",
-    description: "Understand password recovery, sensitive actions, login safety, and 2FA.",
-  },
-  {
     key: "policy",
     icon: Scale,
     title: "Seller Policy Center",
@@ -94,38 +87,6 @@ function BoardShell({ title, eyebrow = "Seller Board", onBack, children }) {
       <SellerMenuPageHeader title={title} eyebrow={eyebrow} onBack={onBack} />
       <main className="w-full px-4 py-5 sm:px-6 lg:px-8">{children}</main>
     </>
-  );
-}
-
-function AccountRecovery({ onBack }) {
-  return (
-    <SellerArticlePage
-      title="Account Recovery"
-      eyebrow="Seller Board"
-      onBack={onBack}
-      summary="Seller account recovery must protect the business, the buyer, and the marketplace. UrMall should never reveal old passwords. It should help sellers reset access safely."
-      highlights={[
-        { title: "Reset, never reveal", text: "Forgotten passwords should be replaced through a secure reset link or OTP." },
-        { title: "Protect sensitive actions", text: "After recovery, payout changes and verification edits should require extra care." },
-        { title: "Watch activity", text: "Login activity and 2FA help sellers notice suspicious access early." },
-      ]}
-      sections={[
-        {
-          title: "Recommended recovery flow",
-          paragraphs: [
-            "A seller who forgets a password should tap Forgot Password, verify their registered email or phone, and create a new password. The old password should never be shown, sent, or recoverable because secure systems store password hashes, not readable passwords.",
-            "After a password reset, UrMall should close older sessions where possible and notify the seller that account access changed. If the seller did not request the reset, support should be available immediately.",
-          ],
-        },
-        {
-          title: "Why seller recovery needs extra protection",
-          paragraphs: [
-            "A seller account controls products, buyer messages, delivery details, and eventually money. If a bad actor recovers or enters a seller account, they can damage the seller's reputation and scam buyers using the store name.",
-            "For that reason, account recovery should be convenient but not careless. Sensitive actions such as payout changes, verification document updates, or major contact changes should receive additional confirmation.",
-          ],
-        },
-      ]}
-    />
   );
 }
 
@@ -231,7 +192,6 @@ export default function SellerBoard({ onBack }) {
             );
           }
           if (view === "reports") return <DisputesReports onBack={() => setCurrentView("menu")} />;
-          if (view === "security") return <AccountRecovery onBack={() => setCurrentView("menu")} />;
           if (view === "policy") return <SellerPolicyCenter onBack={() => setCurrentView("menu")} />;
           return null;
         }}

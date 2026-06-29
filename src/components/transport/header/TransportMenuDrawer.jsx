@@ -46,9 +46,9 @@ import {
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 import { getCountryCurrencyCode } from "../../../data/westAfricanCountryProfiles";
+import { submitTransportSupportTicket } from "../../services/bookingService";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
-const TRANSPORT_SUPPORT_DRAFTS_KEY = "kuntai.transport.supportDrafts";
 
 const placeTypes = ["Home", "Work", "School", "Market", "Bus stop", "Other"];
 
@@ -124,21 +124,6 @@ function readLocalText(key) {
 function writeLocalText(key, value) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(key, value);
-}
-
-function readLocalJson(key, fallback) {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const saved = window.localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeLocalJson(key, value) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
 function createEmptyPlace() {
@@ -1299,6 +1284,7 @@ function SupportPage({ seed }) {
     details: seed?.details || "",
   });
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!seed) return;
@@ -1313,18 +1299,30 @@ function SupportPage({ seed }) {
     setForm((current) => ({ ...current, ...patch }));
   }
 
-  function prepareSupportRequest() {
+  async function prepareSupportRequest() {
     if (form.details.trim().length < 12) {
       setMessage("Add a clear description so support can understand the transport issue.");
       return;
     }
 
-    const drafts = readLocalJson(TRANSPORT_SUPPORT_DRAFTS_KEY, []);
-    writeLocalJson(TRANSPORT_SUPPORT_DRAFTS_KEY, [
-      { ...form, id: `support-${Date.now()}`, createdAt: new Date().toISOString() },
-      ...(Array.isArray(drafts) ? drafts : []),
-    ]);
-    setMessage("Support request prepared on this device. When transport tickets are enabled, this information will be ready to send.");
+    setSending(true);
+    setMessage("");
+    try {
+      await submitTransportSupportTicket({
+        topic: form.topic,
+        priority: String(form.priority || "normal").toLowerCase(),
+        body: [
+          form.tripReference ? `Trip reference: ${form.tripReference}` : "",
+          form.contact ? `Preferred contact: ${form.contact}` : "",
+          form.details.trim(),
+        ].filter(Boolean).join("\n"),
+      });
+      setMessage("Support request sent to KunThai Transport.");
+    } catch (error) {
+      setMessage(error.message || "Unable to send this support request. Please try again.");
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -1427,9 +1425,10 @@ function SupportPage({ seed }) {
         <button
           type="button"
           onClick={prepareSupportRequest}
-          className="kt-touchable h-12 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
+          disabled={sending}
+          className="kt-touchable h-12 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Prepare Support Request
+          {sending ? "Sending…" : "Send Support Request"}
         </button>
       </section>
 

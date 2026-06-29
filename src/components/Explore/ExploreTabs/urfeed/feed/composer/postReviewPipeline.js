@@ -136,9 +136,11 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
 
     return {
       ok: false,
-      retryable: false,
+      retryable: Boolean(media?.videoReviewRequired && media?.videoUrl),
       reason:
-        "KunThai could not complete the safety scan. Please try again.",
+        media?.videoReviewRequired && media?.videoUrl
+          ? "Your video is uploaded. KunThai will retry the safety review in the background."
+          : "KunThai could not complete the safety scan. Check your connection and try again.",
     };
   }
 }

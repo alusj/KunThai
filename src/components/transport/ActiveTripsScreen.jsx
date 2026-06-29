@@ -132,10 +132,10 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
   }
 
   async function submitSupport(payload) {
-    const result = await submitTransportSupportTicket(payload);
-    const message = result.synced ? "Support ticket sent." : "Support request saved on this device and queued for sync.";
+    await submitTransportSupportTicket(payload);
+    const message = "Support ticket sent.";
     setActionMessage(message);
-    showToast(message, result.synced ? "success" : "info");
+    showToast(message, "success");
     setActionScreen(null);
   }
 

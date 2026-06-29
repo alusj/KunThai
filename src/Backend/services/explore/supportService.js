@@ -33,6 +33,7 @@ function normalizeTicket(ticket) {
     message: ticket.message || "",
     priority: ticket.priority || "normal",
     status: ticket.status || "open",
+    adminReply: ticket.admin_reply || ticket.adminReply || "",
     createdAt: ticket.created_at || ticket.createdAt || new Date().toISOString(),
   };
 }
@@ -47,7 +48,7 @@ export async function fetchSupportTickets() {
 
   const { data, error } = await supabase
     .from(SUPPORT_TICKETS_TABLE)
-    .select("id, category, subject, message, priority, status, created_at")
+    .select("id, category, subject, message, priority, status, admin_reply, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -71,12 +72,9 @@ export async function createSupportTicket(input) {
     createdAt: new Date().toISOString(),
     status: "open",
   });
-  const localTickets = [ticket, ...readLocalTickets()].slice(0, 20);
-  writeLocalTickets(localTickets);
-
   const userId = await getCurrentUserId();
   if (!userId) {
-    return ticket;
+    throw new Error("Sign in to send this request to KunThai support.");
   }
 
   const payload = {
@@ -92,12 +90,14 @@ export async function createSupportTicket(input) {
 
   if (error) {
     if (isMissingTable(error)) {
-      return ticket;
+      const unavailable = new Error("KunThai support is temporarily unavailable. Your request was not submitted; please try again shortly.");
+      unavailable.code = "SUPPORT_UNAVAILABLE";
+      throw unavailable;
     }
     throw error;
   }
 
   const syncedTicket = data ? normalizeTicket(data) : ticket;
-  writeLocalTickets([syncedTicket, ...localTickets.filter((item) => item.id !== ticket.id)].slice(0, 20));
+  writeLocalTickets([syncedTicket, ...readLocalTickets().filter((item) => item.id !== ticket.id)].slice(0, 20));
   return syncedTicket;
 }

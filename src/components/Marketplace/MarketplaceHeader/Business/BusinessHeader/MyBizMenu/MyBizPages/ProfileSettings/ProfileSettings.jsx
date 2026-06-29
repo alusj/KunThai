@@ -1,11 +1,10 @@
-import { Building2, KeyRound, UserRound } from "lucide-react";
+import { Building2, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
 import SellerSubPagePanel from "../SellerSubPagePanel";
 import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import BusinessInfo from "./BusinessInfo/BusinessInfo";
-import ChangePassword from "./ChangePassword/ChangePassword";
 import EditProfile from "./EditProfile/EditProfile";
 
 export default function ProfileSettings({ initialView = "menu", onBack }) {
@@ -31,19 +30,12 @@ export default function ProfileSettings({ initialView = "menu", onBack }) {
           description="Review the public business details buyers see."
           onClick={() => setCurrentView("business")}
         />
-        <SettingsSubMenuItem
-          icon={KeyRound}
-          title="Change Password"
-          description="Keep the seller account secure with a fresh password."
-          onClick={() => setCurrentView("password")}
-        />
       </div>
 
       <SellerSubPagePanel currentView={currentView}>
         {(view) => {
           if (view === "edit") return <EditProfile onBack={() => setCurrentView("menu")} />;
           if (view === "business") return <BusinessInfo onBack={() => setCurrentView("menu")} />;
-          if (view === "password") return <ChangePassword onBack={() => setCurrentView("menu")} />;
           return null;
         }}
       </SellerSubPagePanel>

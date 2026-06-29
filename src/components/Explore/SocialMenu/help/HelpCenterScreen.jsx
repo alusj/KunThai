@@ -212,13 +212,13 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
             <section className="h-fit rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2"><HiOutlineClipboardDocumentCheck className="text-2xl text-sky-700" /><h3 className="text-lg font-black text-slate-950">Recent requests</h3></div>
               {!support.tickets.length ? <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold leading-6 text-slate-500">No support requests yet.</p> : (
-                <div className="mt-4 space-y-2">{support.tickets.slice(0, 5).map((ticket) => <article key={ticket.id} className="rounded-2xl bg-slate-50 px-4 py-3"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-black text-slate-950">{ticket.subject}</p><span className="rounded-full bg-white px-2.5 py-1 text-xs font-black capitalize text-sky-700">{ticket.status}</span></div><p className="mt-1 text-xs font-bold text-slate-500">{ticket.category} • {ticket.priority}</p></article>)}</div>
+                <div className="mt-4 space-y-2">{support.tickets.slice(0, 5).map((ticket) => <article key={ticket.id} className="rounded-2xl bg-slate-50 px-4 py-3"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-black text-slate-950">{ticket.subject}</p><span className="rounded-full bg-white px-2.5 py-1 text-xs font-black capitalize text-sky-700">{ticket.status.replaceAll("_", " ")}</span></div><p className="mt-1 text-xs font-bold text-slate-500">{ticket.category} • {ticket.priority}</p>{ticket.adminReply ? <p className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-900"><span className="block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">KunThai reply</span>{ticket.adminReply}</p> : null}</article>)}</div>
               )}
             </section>
           </div>
         </section>
 
-        {/* Future backend: attach diagnostics with explicit consent, add secure file uploads, and surface staff replies in recent requests. */}
+        {/* Future backend: attach diagnostics and secure files only with explicit user consent. */}
       </div>
     </div>
   );

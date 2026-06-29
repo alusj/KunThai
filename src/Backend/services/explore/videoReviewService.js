@@ -248,6 +248,9 @@ export async function runPendingVideoReviewJob(jobId) {
           detail: { scope: "swip", postId: job.postId, type: "video-review-approved" },
         }),
       );
+      window.dispatchEvent(new CustomEvent("explore-open-tab", {
+        detail: { tab: "Swip", postId: job.postId },
+      }));
       return updatedPost;
     }
 

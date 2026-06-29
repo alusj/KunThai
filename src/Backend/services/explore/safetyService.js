@@ -104,6 +104,23 @@ export async function unblockExploreUser(targetUserId) {
   return next;
 }
 
+export async function reportExploreProfile(targetUserId, reason = "Profile reported from Explore") {
+  const reporterId = await getCurrentUserId();
+  if (!reporterId) throw new Error("Sign in to report this profile.");
+  if (!targetUserId || reporterId === targetUserId) throw new Error("This profile cannot be reported.");
+
+  const { error } = await supabase.from("explore_profile_reports").insert({
+    reported_user_id: targetUserId,
+    reporter_id: reporterId,
+    reason: String(reason || "Profile reported from Explore").trim().slice(0, 500),
+    status: "open",
+  });
+
+  if (error?.code === "23505") return { alreadyReported: true };
+  if (error) throw error;
+  return { alreadyReported: false };
+}
+
 export function readPrivacySettings() {
   try {
     const value = JSON.parse(localStorage.getItem(PRIVACY_SETTINGS_KEY) || "null");
@@ -210,25 +227,37 @@ export async function moderateExplorePost({ body = "", media = {}, signal = unde
     };
   }
 
-  const response = await fetch(`${window.location.origin}/api/moderate-post`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    signal,
-    body: JSON.stringify({
-      body,
-      media,
-    }),
-  });
+  const requestBody = JSON.stringify({ body, media });
+  let lastError = null;
 
-  const data = await response.json().catch(() => null);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(`${window.location.origin}/api/moderate-post`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal,
+        body: requestBody,
+      });
+      const data = await response.json().catch(() => null);
 
-  if (!response.ok) {
-    throw new Error(data?.reason || "Unable to complete safety review.");
+      if (response.ok) return data;
+      const error = new Error(data?.reason || (response.status === 413
+        ? "This media is too large for the safety review. Try a smaller file."
+        : "Unable to complete safety review."));
+      error.status = response.status;
+      lastError = error;
+      if (![408, 429].includes(response.status) && response.status < 500) break;
+    } catch (error) {
+      lastError = error;
+      if (signal?.aborted || error?.name === "AbortError") break;
+    }
+
+    if (attempt === 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+    }
   }
 
-  return data;
+  throw lastError || new Error("Unable to complete safety review.");
 }
 
 export function buildModerationMediaPayload(media = {}) {

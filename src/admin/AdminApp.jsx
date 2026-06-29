@@ -90,6 +90,10 @@ function AdminWorkspace({ access, user, preview }) {
     }
   }, []);
 
+  const handleAdminActivity = useCallback((notification) => {
+    if (notification?.notification_type === "case_intake") refresh(true);
+  }, [refresh]);
+
   useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
@@ -136,6 +140,7 @@ function AdminWorkspace({ access, user, preview }) {
       page={page}
       setPage={setPage}
       caseCount={cases.filter((item) => !["resolved", "closed"].includes(item.status)).length}
+      onActivity={handleAdminActivity}
       onSearch={(value) => { setGlobalSearch(value); setPage("my-work"); }}
     >
       {preview ? <div className="mb-4 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-800"><Wrench size={15} /> Development preview. Production access still requires a database assignment and MFA.</div> : null}

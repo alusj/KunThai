@@ -285,6 +285,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     function handleOpenTab(event) {
       const tab = event.detail?.tab;
       if (tab) {
+        if (tab === "Swip" && event.detail?.postId) {
+          setSwipPreviewTarget(String(event.detail.postId));
+        } else if (tab !== "Swip") {
+          setSwipPreviewTarget("");
+        }
         exploreNav.setActiveTab(tab);
       }
     }

@@ -5,6 +5,7 @@ import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
 import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
 import { useTrustSafety } from "../../../../Backend/hooks/useTrustSafety";
 import { updateExploreProfile } from "../../../../Backend/services/exploreService";
+import { reportExploreProfile } from "../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../Backend/services/toastService";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
@@ -170,9 +171,17 @@ export default function ProfileScreen({
     setFeedback("Profile blocked.");
   }
 
-  function reportProfile() {
-    setFeedback("Profile report received.");
-    showToast("Profile report received.", "success");
+  async function reportProfile() {
+    try {
+      const result = await reportExploreProfile(values.userId);
+      const message = result.alreadyReported ? "You already reported this profile." : "Profile report sent for review.";
+      setFeedback(message);
+      showToast(message, "success");
+    } catch (error) {
+      const message = error.message || "Unable to send this profile report.";
+      setFeedback(message);
+      showToast(message, "danger");
+    }
   }
 
   function renderFeedPosts() {

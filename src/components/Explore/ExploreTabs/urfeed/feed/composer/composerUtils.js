@@ -31,6 +31,44 @@ export function fileToDataUrl(file) {
   });
 }
 
+export function prepareImageReviewDataUrl(file, maxDimension = 1280) {
+  if (!file?.type?.startsWith?.("image/")) return fileToDataUrl(file);
+
+  return new Promise((resolve) => {
+    const sourceUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    function fallback() {
+      URL.revokeObjectURL(sourceUrl);
+      fileToDataUrl(file).then(resolve).catch(() => resolve(""));
+    }
+
+    image.onload = () => {
+      try {
+        const sourceWidth = Math.max(1, Number(image.naturalWidth || image.width || 1));
+        const sourceHeight = Math.max(1, Number(image.naturalHeight || image.height || 1));
+        const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+        canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) {
+          fallback();
+          return;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        URL.revokeObjectURL(sourceUrl);
+        resolve(dataUrl);
+      } catch {
+        fallback();
+      }
+    };
+    image.onerror = fallback;
+    image.src = sourceUrl;
+  });
+}
+
 export function getVideoDuration(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

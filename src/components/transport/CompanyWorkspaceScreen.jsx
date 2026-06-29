@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Pencil,
   PlayCircle,
+  Settings2,
   Shield,
   ShieldCheck,
   Star,
@@ -33,6 +34,13 @@ import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
+import {
+  companyActivityNotificationEnabled,
+  DEFAULT_COMPANY_NOTIFICATION_PREFERENCES,
+  fetchCompanyNotificationPreferences,
+  readCompanyNotificationPreferences,
+  updateCompanyNotificationPreferences,
+} from "../../Backend/services/transportCompanyNotificationPreferences";
 import {
   applySeenNotificationState,
   getUnseenNotificationCount,
@@ -70,6 +78,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const [responsibilityOperator, setResponsibilityOperator] = useState(null);
   const [removeOperator, setRemoveOperator] = useState(null);
   const [companyNotificationsOpen, setCompanyNotificationsOpen] = useState(false);
+  const [companyNotificationSettingsOpen, setCompanyNotificationSettingsOpen] = useState(false);
   const [bookingQueueOpen, setBookingQueueOpen] = useState(false);
   const [bookingQueue, setBookingQueue] = useState([]);
   const [bookingQueueLoading, setBookingQueueLoading] = useState(false);
@@ -115,16 +124,21 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       request.documents?.operatorDocumentsRequired
   );
   const access = company?.access || {};
+  const notificationPreferenceUserId = access.userId || company?.userId || "";
+  const [companyNotificationPreferences, setCompanyNotificationPreferences] = useState(() =>
+    readCompanyNotificationPreferences(company?.id, notificationPreferenceUserId),
+  );
   const canManageOperators = Boolean(access.canManageOperators);
   const canAddOperators = Boolean(access.isOwner);
   const canViewOperatorDashboard = Boolean(access.isOwner || access.canManageOperators);
   const canViewAllBookings = Boolean(access.canViewAllBookings);
   const canViewBookingQueue = Boolean(canViewAllBookings || access.operatorId);
   const canViewCompanyNotifications = Boolean(access.isOwner || access.canViewCompanyActivity);
-  const companyNotifications = (company?.activities || []).filter((activity) =>
-    String(activity.activity_type || activity.activityType || "").startsWith("operator_invite_") ||
-    String(activity.activity_type || activity.activityType || "") === "trip_status_updated"
-  );
+  const companyNotifications = (company?.activities || []).filter((activity) => {
+    const type = String(activity.activity_type || activity.activityType || "");
+    const supported = type.startsWith("operator_invite_") || type === "trip_status_updated";
+    return supported && companyActivityNotificationEnabled(activity, companyNotificationPreferences);
+  });
   const notificationSeenScope = `transport:${company?.id || "company"}`;
   const notificationReadScope = `${notificationSeenScope}:read`;
   const companyNotificationItems = companyNotifications.map((activity) => ({
@@ -215,6 +229,34 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   }, []);
 
   useEffect(() => subscribeNotificationSeen(() => setSeenVersion((version) => version + 1)), []);
+
+  useEffect(() => {
+    let active = true;
+    const local = readCompanyNotificationPreferences(company?.id, notificationPreferenceUserId);
+    setCompanyNotificationPreferences(local);
+    fetchCompanyNotificationPreferences(company?.id, notificationPreferenceUserId)
+      .then((settings) => {
+        if (active) setCompanyNotificationPreferences(settings);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [company?.id, notificationPreferenceUserId]);
+
+  async function toggleCompanyNotificationPreference(key) {
+    const next = {
+      ...companyNotificationPreferences,
+      [key]: companyNotificationPreferences[key] === false,
+    };
+    setCompanyNotificationPreferences(next);
+    try {
+      await updateCompanyNotificationPreferences(company?.id, notificationPreferenceUserId, next);
+      showToast("Company notification preferences updated.", "success");
+    } catch (error) {
+      showToast(error.message || "Unable to save company notification preferences.", "danger");
+    }
+  }
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
@@ -693,6 +735,10 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
           <CompanyActivityDrawer
             activities={companyNotificationRows}
             company={company}
+            notificationPreferences={companyNotificationPreferences}
+            onTogglePreference={toggleCompanyNotificationPreference}
+            settingsOpen={companyNotificationSettingsOpen}
+            onToggleSettings={() => setCompanyNotificationSettingsOpen((current) => !current)}
             open={companyNotificationsOpen}
             onClose={() => setCompanyNotificationsOpen(false)}
             onMarkAllRead={() => {
@@ -1910,7 +1956,7 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
   );
 }
 
-function CompanyActivityDrawer({ activities, company, onClose, onMarkAllRead, onRead, open }) {
+function CompanyActivityDrawer({ activities, company, notificationPreferences, onClose, onMarkAllRead, onRead, onTogglePreference, onToggleSettings, open, settingsOpen }) {
   return (
     <FleetHqFullScreen label="Fleet HQ notifications" onClose={onClose} open={open}>
       <FleetHqFullScreenHeader
@@ -1918,21 +1964,36 @@ function CompanyActivityDrawer({ activities, company, onClose, onMarkAllRead, on
         label="Back to Fleet HQ"
         onBack={onClose}
         rightAction={(
-          <button
-            type="button"
-            onClick={onMarkAllRead}
-            aria-label="Mark all company notifications as read"
-            title="Mark all as read"
-            className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-xl text-blue-700 transition hover:bg-blue-100"
-          >
-            <HiOutlineCheckCircle />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onMarkAllRead}
+              aria-label="Mark all company notifications as read"
+              title="Mark all as read"
+              className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-xl text-blue-700 transition hover:bg-blue-100"
+            >
+              <HiOutlineCheckCircle />
+            </button>
+            <button
+              type="button"
+              onClick={onToggleSettings}
+              aria-label="Company notification settings"
+              aria-expanded={settingsOpen}
+              title="Notification settings"
+              className={`kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl text-blue-700 transition ${settingsOpen ? "bg-blue-100" : "bg-blue-50 hover:bg-blue-100"}`}
+            >
+              <Settings2 size={19} />
+            </button>
+          </div>
         )}
         title={company?.companyName || "Fleet HQ"}
       />
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
+        {settingsOpen ? (
+          <CompanyNotificationSettings settings={notificationPreferences} onToggle={onTogglePreference} />
+        ) : null}
         {activities.length ? (
-          <div className="grid gap-3">
+          <div className={`grid gap-3 ${settingsOpen ? "mt-4" : ""}`}>
             {activities.map((activity) => (
               <article
                 key={activity.id}
@@ -1959,6 +2020,43 @@ function CompanyActivityDrawer({ activities, company, onClose, onMarkAllRead, on
         )}
       </div>
     </FleetHqFullScreen>
+  );
+}
+
+const COMPANY_NOTIFICATION_OPTIONS = [
+  ["operatorInvitations", "Operator invitations", "Invitation responses and operator document updates."],
+  ["bookingAccepted", "Booking accepted", "An operator accepts a passenger booking."],
+  ["operatorArrived", "Operator arrived", "An operator marks arrival at pickup."],
+  ["startApproval", "Start approval requested", "An operator asks the passenger to approve trip start."],
+  ["tripStarted", "Trip started", "An approved trip moves into progress."],
+  ["tripPaused", "Trip paused", "An operator pauses an active trip."],
+  ["tripCompleted", "Trip completed", "An operator completes a trip."],
+  ["tripCancelled", "Trip cancelled", "A booking is declined or cancelled."],
+  ["otherTripUpdates", "Other trip updates", "Statuses outside the standard trip flow."],
+];
+
+function CompanyNotificationSettings({ onToggle, settings = DEFAULT_COMPANY_NOTIFICATION_PREFERENCES }) {
+  return (
+    <section className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Notification settings</p>
+      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Choose the Fleet HQ updates this admin account receives.</p>
+      <div className="mt-4 divide-y divide-slate-100">
+        {COMPANY_NOTIFICATION_OPTIONS.map(([key, title, description]) => {
+          const enabled = settings[key] !== false;
+          return (
+            <button key={key} type="button" onClick={() => onToggle?.(key)} className="flex w-full items-center gap-3 py-3 text-left">
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-black text-slate-950">{title}</span>
+                <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{description}</span>
+              </span>
+              <span className={`relative h-7 w-12 flex-none rounded-full transition ${enabled ? "bg-blue-600" : "bg-slate-200"}`} aria-hidden="true">
+                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${enabled ? "left-6" : "left-1"}`} />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

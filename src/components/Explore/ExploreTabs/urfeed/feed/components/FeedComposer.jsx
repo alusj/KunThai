@@ -32,6 +32,7 @@ import {
   getVideoDuration,
   MAX_VIDEO_SECONDS,
   parseTags,
+  prepareImageReviewDataUrl,
   readDraft,
   writeDraft,
 } from "../composer/composerUtils";
@@ -284,6 +285,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const discardRecordingRef = useRef(false);
   const trimmedVideoMetaRef = useRef(null);
   const originalVideoFileRef = useRef(null);
+  const originalImageFileRef = useRef(null);
 
   const isAdvertMode = composerMode === "advert";
   const hasContent = Boolean(postTitle.trim() || value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
@@ -496,6 +498,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     try {
       if (file.type.startsWith("video/") || mediaMode === "video") {
         setAttachmentMode("video");
+        if (!isAdvertMode) originalImageFileRef.current = null;
         trimRequestRef.current += 1;
         trimmedVideoMetaRef.current = null;
         cancelVoiceRecording();
@@ -528,7 +531,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         return;
       } else {
         setAttachmentMode("image");
-        const nextPreview = await fileToDataUrl(file);
+        const nextPreview = await prepareImageReviewDataUrl(file);
+        if (!nextPreview) throw new Error("Unable to prepare this image. Please choose it again.");
+        originalImageFileRef.current = file;
         const imageMetaPatch = {
           imageName: file.name,
           imageType: file.type,
@@ -974,6 +979,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAdvertForm(normalizeAdvertDraft());
     setPendingVideoFile(null);
     originalVideoFileRef.current = null;
+    originalImageFileRef.current = null;
 
     if (pendingVideoUrl) {
       URL.revokeObjectURL(pendingVideoUrl);
@@ -1041,6 +1047,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         author_avatar_url: profile?.avatarUrl || "",
         user_id: profile?.userId || "",
         image_url: isAdvertMode ? imagePreview : finalVideoPreview ? "" : imagePreview,
+        image_file: isAdvertMode || !finalVideoPreview ? originalImageFileRef.current : null,
         audio_url: finalAudioPreview,
         video_url: finalVideoPreview,
         audio_duration_seconds: finalAudioDuration,
@@ -1155,7 +1162,7 @@ if (!isMobileVideoDevice) {
           videoUrl: uploadedReviewVideoUrl,
           videoFrameDataUrls,
           videoFrameExtractionFailed,
-          videoReviewRequired: Boolean(postDraft.video_url && videoFrameDataUrls.length),
+          videoReviewRequired: Boolean(postDraft.video_url),
           audioDataUrl: postDraft.audio_url || "",
         },
         onStage: (stage, progress) => {
@@ -1194,6 +1201,7 @@ if (!isMobileVideoDevice) {
             author_avatar_url: postDraft.author_avatar_url,
             user_id: postDraft.user_id,
             image_url: postDraft.image_url,
+            image_file: postDraft.image_file,
             audio_url: postDraft.audio_url,
             video_url: uploadedReviewVideoUrl,
             video_file: null,
@@ -1263,6 +1271,7 @@ if (!isMobileVideoDevice) {
         author_avatar_url: postDraft.author_avatar_url,
         user_id: postDraft.user_id,
         image_url: postDraft.image_url,
+        image_file: postDraft.image_file,
         audio_url: postDraft.audio_url,
         video_url: uploadedVideoUrl,
         video_file: uploadedReviewVideoUrl ? null : postDraft.video_url ? originalVideoFileRef.current : null,
@@ -1285,7 +1294,7 @@ if (!isMobileVideoDevice) {
         setPostingProgress(100);
 
         if (postDraft.video_url && (!isAdvertMode || !postDraft.image_url)) {
-          window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip" } }));
+          window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip", postId: result.post?.id || "" } }));
         }
 
         publishPostingUpdate({
@@ -1561,6 +1570,7 @@ if (!isMobileVideoDevice) {
                 onRetryTrim={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
                 onRemoveImage={() => {
                   setImagePreview("");
+                  originalImageFileRef.current = null;
                   setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
                 }}
                 onRemoveVideo={() => {

@@ -196,7 +196,55 @@ export async function publishNotificationCampaign(campaignId) {
 
 export async function getAuditLog() {
   if (isAdminPreview()) return previewDelay(previewAudit);
-  return unwrap(await supabase.from("admin_audit_logs").select("*").order("created_at", { ascending: false }).limit(250), "Unable to load audit history.") || [];
+  return unwrap(await supabase.rpc("admin_get_audit_log", { result_limit: 250 }), "Unable to load audit history.") || [];
+}
+
+export async function getAdminActivityNotifications(limit = 20) {
+  if (isAdminPreview()) {
+    return previewDelay(previewAudit.slice(0, limit).map((item) => ({
+      id: `preview-${item.id}`,
+      notification_type: "admin_action",
+      title: `Admin action: ${item.action_key}`,
+      body: item.reason || item.resource_type || "Preview activity",
+      priority: "normal",
+      action_key: item.action_key,
+      sector: item.sector,
+      read_at: null,
+      created_at: item.created_at,
+      metadata: {},
+    })));
+  }
+  return unwrap(
+    await supabase
+      .from("admin_activity_notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(Math.max(1, Math.min(limit, 100))),
+    "Unable to load admin activity notifications.",
+  ) || [];
+}
+
+export async function markAdminActivityNotificationsRead(ids = null) {
+  if (isAdminPreview()) return previewDelay(0);
+  return unwrap(
+    await supabase.rpc("admin_mark_activity_notifications_read", {
+      notification_ids: Array.isArray(ids) && ids.length ? ids : null,
+    }),
+    "Unable to mark admin notifications as read.",
+  );
+}
+
+export function subscribeToAdminActivityNotifications(userId, onChange) {
+  if (!userId || isAdminPreview()) return () => {};
+  const channel = supabase
+    .channel(`admin-activity-${userId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "admin_activity_notifications", filter: `recipient_user_id=eq.${userId}` },
+      (payload) => onChange?.(payload.new),
+    )
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
 }
 
 export async function getFeatureFlags() {

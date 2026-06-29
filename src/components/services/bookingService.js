@@ -2,8 +2,6 @@ import supabase from "../../Backend/lib/supabaseClient";
 import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/westAfricanCountryProfiles";
 import { calculateFleetFare } from "./transportPricingService";
 
-const SUPPORT_DRAFTS_KEY = "kuntai.transport.supportDrafts";
-
 async function getCurrentPassenger(message = "Sign in to book transport.") {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user?.id) throw new Error(message);
@@ -98,21 +96,6 @@ async function notifyOperatorsAboutTrips({ trips, fleets, booking, passengerName
 function shouldTryLegacyTripPayload(error) {
   const message = String(error?.message || "");
   return /column|schema cache|could not find/i.test(message);
-}
-
-function readLocalJson(key, fallback) {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const saved = window.localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeLocalJson(key, value) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
 export async function createTransportBooking(booking) {
@@ -379,30 +362,26 @@ export async function submitTransportSupportTicket(input) {
 
   if (!ticket.body) throw new Error("Add a clear support message first.");
 
-  try {
-    const { data, error } = await supabase
-      .from("transport_support_tickets")
-      .insert({
-        passenger_id: ticket.passengerId,
-        passenger_name: ticket.passengerName,
-        trip_id: ticket.tripId || null,
-        fleet_id: ticket.fleetId || null,
-        topic: ticket.topic,
-        priority: ticket.priority,
-        body: ticket.body,
-        status: "open",
-        created_at: ticket.createdAt,
-      })
-      .select()
-      .maybeSingle();
+  const { data, error } = await supabase
+    .from("transport_support_tickets")
+    .insert({
+      passenger_id: ticket.passengerId,
+      passenger_name: ticket.passengerName,
+      trip_id: ticket.tripId || null,
+      fleet_id: ticket.fleetId || null,
+      topic: ticket.topic,
+      priority: ticket.priority,
+      body: ticket.body,
+      status: "open",
+      created_at: ticket.createdAt,
+    })
+    .select()
+    .maybeSingle();
 
-    if (error) throw error;
-    return { synced: true, ticket: data };
-  } catch {
-    const drafts = readLocalJson(SUPPORT_DRAFTS_KEY, []);
-    writeLocalJson(SUPPORT_DRAFTS_KEY, [ticket, ...(Array.isArray(drafts) ? drafts : [])]);
-    return { synced: false, ticket };
+  if (error) {
+    throw new Error(error.message || "Unable to send this request to KunThai Transport support.");
   }
+  return { synced: true, ticket: data };
 }
 
 export async function submitTransportTripReview({ trip, rating, comment }) {
