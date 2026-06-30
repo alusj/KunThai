@@ -3,6 +3,7 @@ import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
 import { isMissingColumn, isMissingTable } from "./errors";
 import { removeUploadedMediaUrl, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
+import { recordHashtagUsage } from "./hashtagService";
 
 const MAX_SWIP_SECONDS = 15;
 
@@ -395,7 +396,9 @@ export async function createExplorePost(input, scope = "feed") {
 
   if (error) {
     if (isMissingColumn(error, "feed_scope")) {
-      return createPostWithoutFeedScope(draft, classification.feedScope);
+      const fallbackPost = await createPostWithoutFeedScope(draft, classification.feedScope);
+      await recordHashtagUsage(hashtags, user.id).catch(() => {});
+      return fallbackPost;
     }
 
     if (isMissingTable(error)) {
@@ -425,6 +428,8 @@ export async function createExplorePost(input, scope = "feed") {
   if (isExplorePostVisibleInFeed(created)) {
     await notifyMentionedUsers(created, draft);
   }
+
+  await recordHashtagUsage(hashtags, user.id).catch(() => {});
 
   return created;
 }

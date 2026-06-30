@@ -12,6 +12,7 @@ import { getOnboardingProfile } from "../services/onboardingService";
 import {
   getActiveCountryProfile,
   storeCountryContext,
+  validateCountryPhone,
 } from "../../data/westAfricanCountryProfiles";
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
@@ -20,7 +21,12 @@ function cloneInitialRegistration() {
   const countryProfile = getActiveCountryProfile();
   return {
     identity: { ...INITIAL_REGISTRATION.identity, categories: [...INITIAL_REGISTRATION.identity.categories] },
-    location: { ...INITIAL_REGISTRATION.location, country: countryProfile.name },
+    location: {
+      ...INITIAL_REGISTRATION.location,
+      country: countryProfile.name,
+      countryIso: countryProfile.iso2,
+      currency: countryProfile.currency.code,
+    },
     operations: { ...INITIAL_REGISTRATION.operations },
     trustPayout: { ...INITIAL_REGISTRATION.trustPayout },
   };
@@ -229,13 +235,23 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   }, [editing]);
 
   function updateSection(section, patch) {
-    if (section === "location" && patch?.country) storeCountryContext(patch.country);
+    let nextPatch = patch;
+    if (section === "location" && patch?.country) {
+      const countryProfile = getActiveCountryProfile(patch.country);
+      storeCountryContext(countryProfile.iso2);
+      nextPatch = {
+        ...patch,
+        country: countryProfile.name,
+        countryIso: countryProfile.iso2,
+        currency: countryProfile.currency.code,
+      };
+    }
     setDraftStatus("");
     setForm((current) => ({
       ...current,
       [section]: {
         ...current[section],
-        ...patch,
+        ...nextPatch,
       },
     }));
   }
@@ -310,7 +326,8 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     if (nextStep === 1) {
       if (!form.location.country.trim()) nextErrors.country = "Country is required.";
       if (!form.location.city.trim()) nextErrors.city = "City is required.";
-      if (!form.location.phone.trim()) nextErrors.phone = "Phone number is required.";
+      const phoneValidation = validateCountryPhone(form.location.phone, form.location.country);
+      if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
       if (!form.location.email.trim()) nextErrors.email = "Email is required.";
     }
 

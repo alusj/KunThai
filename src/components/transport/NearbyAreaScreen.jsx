@@ -36,7 +36,7 @@ import {
   subscribeToAreaViewLiveData,
 } from "../../Backend/services/nearbyAreaLiveService";
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
-import { getActiveCountryProfile, getCountryPhonePlaceholder } from "../../data/westAfricanCountryProfiles";
+import { constrainCountryPhoneInput, getActiveCountryProfile, getCountryPhoneHint } from "../../data/westAfricanCountryProfiles";
 import {
   emergencyContacts,
   locationCategories,
@@ -2474,8 +2474,8 @@ function AddLocationPanel({
           <FormInput
             label="Phone optional"
             value={draft.phone}
-            onChange={(value) => onChange("phone", value)}
-            placeholder={getCountryPhonePlaceholder()}
+            onChange={(value) => onChange("phone", constrainCountryPhoneInput(value))}
+            placeholder={getCountryPhoneHint()}
           />
           <FormInput
             label="Opening hours optional"

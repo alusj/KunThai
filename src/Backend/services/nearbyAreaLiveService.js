@@ -216,8 +216,19 @@ function normalizeNearbyLocation(row) {
 }
 
 function isMissingNearbyAreaColumn(error, columnName) {
+  const code = String(error?.code || "").toUpperCase();
   const message = String(error?.message || "").toLowerCase();
-  return message.includes(`'${columnName}' column`) || message.includes(`column "${columnName}"`) || (message.includes(columnName) && message.includes("schema cache"));
+  const normalizedColumn = String(columnName || "").toLowerCase();
+
+  // NOT NULL errors also name the affected column. They prove that the
+  // column exists, so only retry for genuine unknown-column/schema errors.
+  return code === "42703" ||
+    (code === "PGRST204" && message.includes(normalizedColumn)) ||
+    (message.includes(normalizedColumn) && (
+      message.includes("schema cache") ||
+      message.includes("does not exist") ||
+      message.includes("could not find")
+    ));
 }
 
 function isMissingNearbyAreaTable(error) {
@@ -409,7 +420,6 @@ export async function submitNearbyAreaLocation(input = {}) {
   const optionalColumns = [
     "user_id",
     "submitted_by",
-    "name",
     "place_name",
     "type",
     "address",

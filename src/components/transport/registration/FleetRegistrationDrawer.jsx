@@ -21,10 +21,13 @@ import {
 } from "../../services/transportOperatorAccountService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import {
+  constrainCountryPhoneInput,
   formatCountryMoney,
   getActiveCountryProfile,
   getCountryCurrencyCode,
+  getCountryPhoneHint,
   normalizeCountryIso,
+  validateCountryPhone,
 } from "../../../data/westAfricanCountryProfiles";
 
 const categories = ["Transport", "Delivery", "Both"];
@@ -292,9 +295,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     if (targetStep === 0) {
       const missing = [];
       if (!form.name.trim()) missing.push("operator name");
-      if (!form.phone.trim()) missing.push("phone number");
+      if (!validateCountryPhone(form.phone, form.countryCode || form.country).valid) missing.push("a valid phone number for the selected country");
       if (!form.city.trim()) missing.push("city or district");
-      if (!form.emergencyContact.trim()) missing.push("emergency contact");
+      if (!validateCountryPhone(form.emergencyContact, form.countryCode || form.country).valid) missing.push("a valid emergency contact for the selected country");
       return missing;
     }
 
@@ -581,8 +584,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 label="Phone number"
                 type="tel"
                 value={form.phone}
-                onChange={(value) => update("phone", value)}
-                placeholder="Phone number"
+                onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country))}
+                placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
                 helper="This number is used for operator contact and account review."
               />
@@ -597,8 +600,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 label="Emergency contact"
                 type="tel"
                 value={form.emergencyContact}
-                onChange={(value) => update("emergencyContact", value)}
-                placeholder="Emergency contact"
+                onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country))}
+                placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
                 helper="A trusted contact for urgent transport safety follow-up."
               />

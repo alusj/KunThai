@@ -203,6 +203,47 @@ function applyCurrentProfileToPost(post, profile) {
 const FEED_MEMORY = new Map();
 const FEED_MEMORY_TTL = 900_000;
 const FEED_PAGE_SIZE = 24;
+const FEED_BACKGROUND_REFRESH_MS = 90_000;
+const FEED_FOCUS_REFRESH_GAP_MS = 20_000;
+const NETWORK_TOAST_DEDUP_MS = 4_000;
+let lastFeedFailureToastAt = 0;
+
+function isNetworkUnavailable(error) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  const message = String(error?.message || error || "").toLowerCase();
+  return error?.name === "TypeError" || [
+    "failed to fetch",
+    "network request failed",
+    "networkerror",
+    "load failed",
+    "offline",
+  ].some((fragment) => message.includes(fragment));
+}
+
+function showFeedRefreshToast(error, showingSavedPosts) {
+  const now = Date.now();
+  if (now - lastFeedFailureToastAt < NETWORK_TOAST_DEDUP_MS) return;
+  lastFeedFailureToastAt = now;
+
+  if (isNetworkUnavailable(error)) {
+    showToast(
+      showingSavedPosts
+        ? "You’re offline. KunThai is showing your most recent saved posts and will update automatically when your connection returns."
+        : "KunThai can’t reach the network right now. Your feed will appear automatically when your connection returns.",
+      "warning",
+      { title: "Network unavailable", duration: 5200 },
+    );
+    return;
+  }
+
+  showToast(
+    showingSavedPosts
+      ? "Your saved feed is still available. KunThai will keep checking quietly for newer posts."
+      : "KunThai couldn’t refresh the latest posts. We’ll keep trying automatically in the background.",
+    "warning",
+    { title: "Feed update delayed", duration: 4800 },
+  );
+}
 
 function readFeedMemory(scope) {
   const cached = FEED_MEMORY.get(scope);
@@ -243,6 +284,7 @@ export function useExploreFeed(scope = "feed") {
   const likedPostsRef = useRef(likedPosts);
   const savedPostsRef = useRef(savedPosts);
   const loadIdRef = useRef(0);
+  const lastLoadAttemptRef = useRef(0);
   const pendingReactionRef = useRef(new Set());
   const nextOffsetRef = useRef(initialPosts.filter((post) => !isLocalPost(post)).length);
 
@@ -266,6 +308,7 @@ export function useExploreFeed(scope = "feed") {
   }, [currentUserId, scope]);
 
   async function load(options = {}) {
+    lastLoadAttemptRef.current = Date.now();
     const loadId = loadIdRef.current + 1;
     loadIdRef.current = loadId;
     const force = Boolean(options.force);
@@ -331,20 +374,23 @@ export function useExploreFeed(scope = "feed") {
         return mergedPosts;
       });
     } catch (err) {
-      const currentProfile = await getCurrentUserProfile().catch(() => null);
+      const currentProfile = isNetworkUnavailable(err)
+        ? null
+        : await getCurrentUserProfile().catch(() => null);
       if (loadId !== loadIdRef.current) {
         return;
       }
-      setCurrentUserId(currentProfile?.id || "");
+      if (currentProfile?.id) setCurrentUserId(currentProfile.id);
       const cachedPosts = readStoredPosts(scope).map((post) => applyCurrentProfileToPost(post, currentProfile));
       const visibleFallbackPosts = (cachedPosts.length ? cachedPosts : postsRef.current)
         .filter((post) => postBelongsInScope(post, scope))
         .filter(isExplorePostVisibleInFeed);
+      showFeedRefreshToast(err, visibleFallbackPosts.length > 0);
       if (visibleFallbackPosts.length) {
         setPosts(visibleFallbackPosts);
         setError("");
       } else {
-        setError(err.message || "Unable to load feed.");
+        setError(isNetworkUnavailable(err) ? "network-unavailable" : "feed-refresh-delayed");
       }
     } finally {
       setLoading(false);
@@ -426,6 +472,44 @@ export function useExploreFeed(scope = "feed") {
   useEffect(() => {
     load();
     // load captures feed scope/cache refs intentionally; scope is the reload trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope]);
+
+  useEffect(() => {
+    function refreshSilently() {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (Date.now() - lastLoadAttemptRef.current < FEED_FOCUS_REFRESH_GAP_MS) return;
+      load({ force: true, background: true });
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") refreshSilently();
+    }
+
+    function handleOnline() {
+      lastLoadAttemptRef.current = 0;
+      refreshSilently();
+    }
+
+    function handleOffline() {
+      showFeedRefreshToast(new TypeError("offline"), postsRef.current.length > 0);
+    }
+
+    const refreshTimer = window.setInterval(refreshSilently, FEED_BACKGROUND_REFRESH_MS);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("focus", refreshSilently);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(refreshTimer);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("focus", refreshSilently);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+    // The refresh worker intentionally tracks only this feed scope.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
 

@@ -32,6 +32,8 @@ function normalizeProfile(profile) {
     username: profile?.username ?? "",
     city: profile?.city ?? "",
     country: profile?.country || countryProfile.name,
+    countryCode: profile?.countryCode || countryProfile.iso2,
+    currency: profile?.currency || countryProfile.currency.code,
     address: profile?.address ?? "",
     email: profile?.email ?? "",
     phone: profile?.phone ?? "",

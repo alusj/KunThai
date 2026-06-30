@@ -17,6 +17,7 @@ import {
   WEST_AFRICAN_COUNTRY_CODES,
 } from "./data/westAfricanCountryCodes";
 import {
+  constrainCountryPhoneInput,
   getActiveCountryProfile,
   storeCountryContext,
 } from "./data/westAfricanCountryProfiles";
@@ -158,8 +159,8 @@ function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "P
           type="tel"
           inputMode="numeric"
           value={phone}
-          onChange={(event) => onPhoneChange(event.target.value)}
-          placeholder={country.placeholder}
+          onChange={(event) => onPhoneChange(constrainCountryPhoneInput(event.target.value, country))}
+          placeholder={`${country.placeholder} (${country.maxLength} digits)`}
           className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           required
         />
@@ -183,7 +184,7 @@ function PhoneOrEmailInput({ country, value, onCountryChange, onValueChange }) {
           inputMode="email"
           value={value}
           onChange={(event) => onValueChange(event.target.value)}
-          placeholder="Phone or email"
+          placeholder={`Phone (${country.maxLength} digits) or email`}
           autoComplete="username"
           className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           required
@@ -333,6 +334,9 @@ export default function Login() {
       setLoading(true);
 
       const account = signInAccount.trim();
+      if (!isEmailValue(account) && !validatePhoneDigits(normalizePhoneDigits(account, selectedCountry), selectedCountry)) {
+        return;
+      }
       const response = isEmailValue(account)
         ? await signInWithEmailAccount(account, password)
         : await signInWithPhone(buildPhoneForAuth(account, selectedCountry), password);

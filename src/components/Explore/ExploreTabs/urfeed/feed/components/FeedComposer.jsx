@@ -16,6 +16,7 @@ import {
 import { publishPostingNotice } from "../../../../../../Backend/services/explore/postingProgressService";
 import { searchExplore } from "../../../../../../Backend/services/explore/searchService";
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
+import { fetchHashtagSuggestions, normalizeHashtag } from "../../../../../../Backend/services/explore/hashtagService";
 import { startPendingVideoReviewJob } from "../../../../../../Backend/services/explore/videoReviewService";
 import Avatar from "../../../../shared/Avatar";
 import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
@@ -38,6 +39,7 @@ import {
 } from "../composer/composerUtils";
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentModeration";
+import { getCountryCurrencyCode } from "../../../../../../data/westAfricanCountryProfiles";
 
 const MAX_LOCAL_VIDEO_BYTES = 150 * 1024 * 1024;
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
@@ -64,7 +66,7 @@ const DEFAULT_ADVERT = {
   customEnd: "",
   budgetType: "total",
   budgetAmount: "50",
-  currency: "SLE",
+  currency: getCountryCurrencyCode(),
   type: "offer",
   title: "",
   ctaLabel: "Learn more",
@@ -270,6 +272,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [postingProgress, setPostingProgress] = useState(0);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
+  const [hashtagTrigger, setHashtagTrigger] = useState(null);
+  const [hashtagSuggestions, setHashtagSuggestions] = useState([]);
+  const [hashtagSuggestionsLoading, setHashtagSuggestionsLoading] = useState(false);
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionResults, setMentionResults] = useState([]);
@@ -286,6 +291,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const trimmedVideoMetaRef = useRef(null);
   const originalVideoFileRef = useRef(null);
   const originalImageFileRef = useRef(null);
+  const openComposerRef = useRef(null);
 
   const isAdvertMode = composerMode === "advert";
   const hasContent = Boolean(postTitle.trim() || value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
@@ -302,6 +308,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const canSubmit = isAdvertMode
     ? Boolean(advertForm.setupComplete && hasAdvertContent && advertPlacementReady)
     : hasContent;
+  const normalizedTagDraft = normalizeHashtag(tagDraft);
+  const visibleHashtagSuggestions = hashtagSuggestions
+    .filter((item) => !normalizedTagDraft || item.tag.includes(normalizedTagDraft))
+    .slice(0, 12);
+
+  openComposerRef.current = openComposer;
 
   useEffect(() => {
     const returnMode = consumeComposerAreaReturn();
@@ -375,12 +387,32 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   useEffect(() => {
     function handleCreatePost(event) {
       const type = event.detail?.type || "text";
-      openComposer(type);
+      openComposerRef.current?.(type);
     }
 
     window.addEventListener("explore-create-post", handleCreatePost);
     return () => window.removeEventListener("explore-create-post", handleCreatePost);
   }, []);
+
+  useEffect(() => {
+    if (!open || isAdvertMode) return undefined;
+    let active = true;
+    setHashtagSuggestionsLoading(true);
+    fetchHashtagSuggestions(profile?.userId || "")
+      .then((items) => {
+        if (active) setHashtagSuggestions(items);
+      })
+      .catch(() => {
+        if (active) setHashtagSuggestions([]);
+      })
+      .finally(() => {
+        if (active) setHashtagSuggestionsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isAdvertMode, open, profile?.userId]);
 
   useEffect(() => {
     let active = true;
@@ -475,6 +507,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setOpen(true);
 
     if (type === "advert") {
+      setAdvertForm((current) => ({
+        ...current,
+        currency: getCountryCurrencyCode(profile?.countryCode || profile?.country),
+      }));
       setFeedback("");
       return;
     }
@@ -771,10 +807,53 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     window.setTimeout(() => textareaRef.current?.focus(), 0);
   }
 
-  function addHashtag() {
-    appendComposerToken("#", tagDraft);
+  function handleComposerTextChange(event) {
+    const nextValue = event.target.value;
+    const cursor = event.target.selectionStart ?? nextValue.length;
+    const beforeCursor = nextValue.slice(0, cursor);
+    const activeHashtag = beforeCursor.match(/(?:^|\s)#([a-zA-Z0-9_]*)$/);
+
+    setValue(nextValue);
+    setFeedback("");
+
+    if (activeHashtag) {
+      const query = activeHashtag[1] || "";
+      setHashtagTrigger({ start: cursor - query.length - 1, end: cursor });
+      setTagDraft(query);
+      setTagPickerOpen(true);
+      setMentionPickerOpen(false);
+      return;
+    }
+
+    if (hashtagTrigger) {
+      setHashtagTrigger(null);
+      setTagPickerOpen(false);
+      setTagDraft("");
+    }
+  }
+
+  function selectHashtag(rawTag) {
+    const tag = normalizeHashtag(rawTag);
+    if (!tag) return;
+
+    if (hashtagTrigger) {
+      const nextCursor = hashtagTrigger.start + tag.length + 2;
+      setValue((current) => `${current.slice(0, hashtagTrigger.start)}#${tag} ${current.slice(hashtagTrigger.end)}`);
+      window.setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange?.(nextCursor, nextCursor);
+      }, 0);
+    } else {
+      appendComposerToken("#", tag);
+    }
+
+    setHashtagTrigger(null);
     setTagDraft("");
     setTagPickerOpen(false);
+  }
+
+  function addHashtag() {
+    selectHashtag(tagDraft);
   }
 
   function addMention(profileResult) {
@@ -1419,10 +1498,7 @@ if (!isMobileVideoDevice) {
                 <textarea
                   ref={textareaRef}
                   value={value}
-                  onChange={(event) => {
-                    setValue(event.target.value);
-                    setFeedback("");
-                  }}
+                  onChange={handleComposerTextChange}
                   autoFocus={!isAdvertMode}
                   placeholder={isAdvertMode ? "Describe the offer, role, benefit, schedule, or announcement..." : "Write a thought, tag someone with @name, or add #topics..."}
                   className={`w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 ${
@@ -1434,14 +1510,17 @@ if (!isMobileVideoDevice) {
 
               {!isAdvertMode && tagPickerOpen ? (
                 <div className="rounded-[24px] border border-sky-100 bg-sky-50/70 p-4">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-sky-700">
-                    <HiOutlineHashtag className="text-base" />
-                    Add a topic
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+                      <HiOutlineHashtag className="text-base" />
+                      Saved topics
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500">Choose one or create yours</span>
                   </div>
                   <div className="mt-3 flex gap-2">
                     <input
                       value={tagDraft}
-                      onChange={(event) => setTagDraft(event.target.value.replace(/^#/, ""))}
+                      onChange={(event) => setTagDraft(normalizeHashtag(event.target.value))}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
@@ -1449,7 +1528,7 @@ if (!isMobileVideoDevice) {
                         }
                       }}
                       autoFocus
-                      placeholder="education"
+                      placeholder="Type a hashtag"
                       className="h-11 min-w-0 flex-1 rounded-2xl border border-sky-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-sky-300"
                     />
                     <button
@@ -1458,10 +1537,33 @@ if (!isMobileVideoDevice) {
                       disabled={!tagDraft.trim()}
                       className="h-11 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Add
+                      {normalizedTagDraft && !visibleHashtagSuggestions.some((item) => item.tag === normalizedTagDraft) ? `Create #${normalizedTagDraft}` : "Add"}
                     </button>
                   </div>
-                  <p className="mt-2 text-xs font-semibold text-slate-500">Use letters, numbers, or underscores. The topic becomes searchable after publishing.</p>
+                  <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+                    {hashtagSuggestionsLoading ? (
+                      <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">Loading saved hashtags...</p>
+                    ) : null}
+                    {!hashtagSuggestionsLoading && visibleHashtagSuggestions.map((item) => (
+                      <button
+                        key={item.tag}
+                        type="button"
+                        onClick={() => selectHashtag(item.tag)}
+                        className="flex w-full items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-sm transition hover:bg-sky-50"
+                      >
+                        <span className="truncate text-sm font-black text-slate-900">#{item.tag}</span>
+                        <span className="flex-none rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">
+                          {item.saved && item.personalUsageCount ? `${item.personalUsageCount} your use${item.personalUsageCount === 1 ? "" : "s"}` : `${item.usageCount} use${item.usageCount === 1 ? "" : "s"}`}
+                        </span>
+                      </button>
+                    ))}
+                    {!hashtagSuggestionsLoading && !visibleHashtagSuggestions.length ? (
+                      <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">
+                        {normalizedTagDraft ? `No saved #${normalizedTagDraft} yet. Create it above.` : "Your published hashtags will be saved here with their use count."}
+                      </p>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-slate-500">Typing # in your post opens this list automatically.</p>
                 </div>
               ) : null}
 

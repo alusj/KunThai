@@ -3,9 +3,13 @@ import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } 
 
 import { detectSocialPlatform, normalizeSocialLinks } from "../../Backend/services/explore/socialLinks";
 import {
+  constrainCountryPhoneInput,
   getActiveCountryProfile,
-  getCountryPhonePlaceholder,
+  getCountryAddressPlaceholder,
+  getCountryPhoneHint,
   storeCountryContext,
+  validateCountryPhone,
+  WEST_AFRICAN_COUNTRY_PROFILES,
 } from "../../data/westAfricanCountryProfiles";
 import OnboardingFrame from "./OnboardingFrame";
 
@@ -99,12 +103,13 @@ export default function ProfileStep({ values, error, onChange, onBack, onNext })
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || "Your name";
   const countryProfile = getActiveCountryProfile(values.country);
+  const phoneValidation = validateCountryPhone(values.phone, countryProfile);
   const canContinue =
     values.firstName.trim().length >= 2 &&
     values.lastName.trim().length >= 2 &&
     values.username.trim().length >= 3 &&
     values.email.trim().length >= 5 &&
-    values.phone.trim().length >= 7 &&
+    phoneValidation.valid &&
     Boolean(values.dateOfBirth);
 
   const updateName = (field, value) => {
@@ -216,10 +221,15 @@ export default function ProfileStep({ values, error, onChange, onBack, onNext })
               <input
                 type="tel"
                 value={values.phone}
-                onChange={(event) => onChange("phone", event.target.value)}
-                placeholder={getCountryPhonePlaceholder(countryProfile)}
+                onChange={(event) => onChange("phone", constrainCountryPhoneInput(event.target.value, countryProfile))}
+                placeholder={getCountryPhoneHint(countryProfile)}
+                inputMode="tel"
+                aria-invalid={!phoneValidation.valid && Boolean(values.phone)}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
               />
+              <span className={`mt-2 block text-xs font-semibold ${phoneValidation.valid || !values.phone ? "text-slate-500" : "text-rose-600"}`}>
+                {phoneValidation.valid ? `${countryProfile.name}: ${phoneValidation.expected} national digits.` : phoneValidation.message}
+              </span>
             </label>
           </div>
 
@@ -228,7 +238,7 @@ export default function ProfileStep({ values, error, onChange, onBack, onNext })
             <input
               value={values.address || ""}
               onChange={(event) => onChange("address", event.target.value)}
-              placeholder="Street, area, or delivery address"
+              placeholder={getCountryAddressPlaceholder(countryProfile)}
               className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
             />
           </label>
@@ -256,15 +266,23 @@ export default function ProfileStep({ values, error, onChange, onBack, onNext })
 
             <label className="block">
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Country</span>
-              <input
-                value={values.country}
+              <select
+                value={countryProfile.name}
                 onChange={(event) => {
-                  storeCountryContext(event.target.value);
-                  onChange("country", event.target.value);
+                  const selectedCountry = getActiveCountryProfile(event.target.value);
+                  storeCountryContext(selectedCountry.iso2);
+                  onChange({
+                    country: selectedCountry.name,
+                    countryCode: selectedCountry.iso2,
+                    currency: selectedCountry.currency.code,
+                  });
                 }}
-                placeholder={countryProfile.name}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
-              />
+              >
+                {WEST_AFRICAN_COUNTRY_PROFILES.map((country) => (
+                  <option key={country.iso2} value={country.name}>{country.name}</option>
+                ))}
+              </select>
             </label>
           </div>
 

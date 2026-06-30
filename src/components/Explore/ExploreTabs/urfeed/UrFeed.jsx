@@ -59,7 +59,6 @@ export default function UrFeed({ profile, onViewProfile }) {
         posts={posts}
         loading={(feed.loading || circleFeed.loading) && posts.length === 0}
         error={feed.error || circleFeed.error}
-        onRetry={() => Promise.all([feed.reload(), circleFeed.reload()])}
         onLoadMore={() => Promise.all([feed.loadMore(), circleFeed.loadMore()])}
         hasMore={feed.hasMore || circleFeed.hasMore}
         loadingMore={feed.loadingMore || circleFeed.loadingMore}

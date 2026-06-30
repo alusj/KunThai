@@ -15,6 +15,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "SLE", name: "Sierra Leonean Leone", symbol: "Le" },
     locale: "en-SL",
     cityPlaceholder: "Freetown",
+    popularArea: "Lumley, Freetown",
     addressExample: "15 Siaka Stevens Street",
     mapCenter: { lat: 8.4657, lng: -13.2317, label: "Freetown, Sierra Leone" },
     nearbyCountries: ["LR", "GN"],
@@ -37,6 +38,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "NGN", name: "Nigerian Naira", symbol: "₦" },
     locale: "en-NG",
     cityPlaceholder: "Lagos",
+    popularArea: "Ikeja, Lagos",
     addressExample: "12 Allen Avenue",
     mapCenter: { lat: 6.5244, lng: 3.3792, label: "Lagos, Nigeria" },
     nearbyCountries: ["BJ", "NE"],
@@ -59,6 +61,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "GHS", name: "Ghanaian Cedi", symbol: "GH₵" },
     locale: "en-GH",
     cityPlaceholder: "Accra",
+    popularArea: "Osu, Accra",
     addressExample: "Oxford Street, Osu",
     mapCenter: { lat: 5.6037, lng: -0.187, label: "Accra, Ghana" },
     nearbyCountries: ["CI", "BF", "TG"],
@@ -76,11 +79,12 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     dialCode: "+231",
     flag: { direction: "horizontal", colors: ["#bf0a30", "#ffffff", "#bf0a30", "#ffffff", "#bf0a30"] },
     placeholder: "00 000 0000",
-    minLength: 8,
+    minLength: 9,
     maxLength: 9,
     currency: { code: "LRD", name: "Liberian Dollar", symbol: "L$" },
     locale: "en-LR",
     cityPlaceholder: "Monrovia",
+    popularArea: "Sinkor, Monrovia",
     addressExample: "Broad Street",
     mapCenter: { lat: 6.3156, lng: -10.8074, label: "Monrovia, Liberia" },
     nearbyCountries: ["SL", "GN", "CI"],
@@ -103,6 +107,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "GNF", name: "Guinean Franc", symbol: "FG" },
     locale: "fr-GN",
     cityPlaceholder: "Conakry",
+    popularArea: "Kaloum, Conakry",
     addressExample: "Kaloum, Conakry",
     mapCenter: { lat: 9.6412, lng: -13.5784, label: "Conakry, Guinea" },
     nearbyCountries: ["SL", "LR", "CI", "GW", "SN", "ML"],
@@ -125,6 +130,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
     locale: "fr-CI",
     cityPlaceholder: "Abidjan",
+    popularArea: "Plateau, Abidjan",
     addressExample: "Plateau, Abidjan",
     mapCenter: { lat: 5.3599, lng: -4.0083, label: "Abidjan, Ivory Coast" },
     nearbyCountries: ["LR", "GN", "BF", "ML", "GH"],
@@ -147,6 +153,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
     locale: "fr-SN",
     cityPlaceholder: "Dakar",
+    popularArea: "Plateau, Dakar",
     addressExample: "Avenue Cheikh Anta Diop",
     mapCenter: { lat: 14.7167, lng: -17.4677, label: "Dakar, Senegal" },
     nearbyCountries: ["GM", "GN", "GW", "ML", "MR"],
@@ -169,6 +176,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "GMD", name: "Gambian Dalasi", symbol: "D" },
     locale: "en-GM",
     cityPlaceholder: "Banjul",
+    popularArea: "Serrekunda",
     addressExample: "Kairaba Avenue",
     mapCenter: { lat: 13.4549, lng: -16.579, label: "Banjul, The Gambia" },
     nearbyCountries: ["SN"],
@@ -191,6 +199,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
     locale: "fr-ML",
     cityPlaceholder: "Bamako",
+    popularArea: "ACI 2000, Bamako",
     addressExample: "ACI 2000, Bamako",
     mapCenter: { lat: 12.6392, lng: -8.0029, label: "Bamako, Mali" },
     nearbyCountries: ["SN", "MR", "GN", "CI", "BF", "NE"],
@@ -213,6 +222,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
     locale: "fr-BF",
     cityPlaceholder: "Ouagadougou",
+    popularArea: "Zone du Bois, Ouagadougou",
     addressExample: "Avenue Kwame Nkrumah",
     mapCenter: { lat: 12.3714, lng: -1.5197, label: "Ouagadougou, Burkina Faso" },
     nearbyCountries: ["ML", "NE", "BJ", "TG", "GH", "CI"],
@@ -229,12 +239,13 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     aliases: [],
     dialCode: "+229",
     flag: { direction: "vertical", colors: ["#008751", "#fcd116", "#e8112d"] },
-    placeholder: "00 00 00 00",
-    minLength: 8,
+    placeholder: "01 00 00 00 00",
+    minLength: 10,
     maxLength: 10,
     currency: { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
     locale: "fr-BJ",
     cityPlaceholder: "Cotonou",
+    popularArea: "Cadjehoun, Cotonou",
     addressExample: "Avenue Steinmetz",
     mapCenter: { lat: 6.3703, lng: 2.3912, label: "Cotonou, Benin" },
     nearbyCountries: ["TG", "BF", "NE", "NG"],
@@ -257,6 +268,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
     locale: "fr-TG",
     cityPlaceholder: "Lome",
+    popularArea: "Tokoin, Lome",
     addressExample: "Boulevard du 13 Janvier",
     mapCenter: { lat: 6.1725, lng: 1.2314, label: "Lome, Togo" },
     nearbyCountries: ["GH", "BJ", "BF"],
@@ -279,6 +291,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
     locale: "fr-NE",
     cityPlaceholder: "Niamey",
+    popularArea: "Plateau, Niamey",
     addressExample: "Plateau, Niamey",
     mapCenter: { lat: 13.5116, lng: 2.1254, label: "Niamey, Niger" },
     nearbyCountries: ["NG", "BJ", "BF", "ML"],
@@ -301,6 +314,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "XOF", name: "West African CFA Franc", symbol: "CFA" },
     locale: "pt-GW",
     cityPlaceholder: "Bissau",
+    popularArea: "Bissau Velho, Bissau",
     addressExample: "Avenida Amilcar Cabral",
     mapCenter: { lat: 11.8636, lng: -15.5977, label: "Bissau, Guinea-Bissau" },
     nearbyCountries: ["SN", "GN"],
@@ -323,6 +337,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "CVE", name: "Cape Verdean Escudo", symbol: "$" },
     locale: "pt-CV",
     cityPlaceholder: "Praia",
+    popularArea: "Plateau, Praia",
     addressExample: "Achada Santo Antonio",
     mapCenter: { lat: 14.933, lng: -23.5133, label: "Praia, Cape Verde" },
     nearbyCountries: ["SN", "GM", "GW"],
@@ -345,6 +360,7 @@ export const WEST_AFRICAN_COUNTRY_PROFILES = [
     currency: { code: "MRU", name: "Mauritanian Ouguiya", symbol: "UM" },
     locale: "fr-MR",
     cityPlaceholder: "Nouakchott",
+    popularArea: "Tevragh Zeina, Nouakchott",
     addressExample: "Tevragh Zeina",
     mapCenter: { lat: 18.0735, lng: -15.9582, label: "Nouakchott, Mauritania" },
     nearbyCountries: ["SN", "ML"],
@@ -478,6 +494,80 @@ export function getCountryDialCode(value = "") {
 export function getCountryPhonePlaceholder(value = "", { includeDialCode = true } = {}) {
   const profile = getActiveCountryProfile(value);
   return `${includeDialCode ? `${profile.dialCode} ` : ""}${profile.placeholder}`;
+}
+
+export function getCountryPhoneDigitCount(value = "") {
+  const profile = getActiveCountryProfile(value);
+  return profile.maxLength;
+}
+
+export function getCountryPhoneHint(value = "") {
+  const profile = getActiveCountryProfile(value);
+  const digitLabel = profile.minLength === profile.maxLength
+    ? `${profile.maxLength} digits`
+    : `${profile.minLength}-${profile.maxLength} digits`;
+  return `${getCountryPhonePlaceholder(profile)} (${digitLabel})`;
+}
+
+export function getCountryAddressPlaceholder(value = "") {
+  const profile = getActiveCountryProfile(value);
+  return profile.popularArea || profile.addressExample || profile.cityPlaceholder;
+}
+
+export function normalizeCountryPhoneDigits(phone = "", country = "") {
+  const profile = getActiveCountryProfile(country);
+  const dialDigits = profile.dialCode.replace(/\D/g, "");
+  const raw = String(phone || "").trim();
+  let digits = raw.replace(/\D/g, "");
+
+  if ((raw.startsWith("+") || raw.startsWith("00")) && digits.startsWith(dialDigits)) {
+    digits = digits.slice(dialDigits.length);
+  } else if (digits.startsWith(dialDigits) && digits.length > profile.maxLength) {
+    digits = digits.slice(dialDigits.length);
+  }
+
+  // Countries with a domestic trunk zero commonly show one extra local digit.
+  // Benin's current ten-digit plan intentionally keeps its leading zero.
+  if (profile.iso2 !== "BJ" && digits.startsWith("0") && digits.length === profile.maxLength + 1) {
+    digits = digits.slice(1);
+  }
+
+  return digits;
+}
+
+export function validateCountryPhone(phone = "", country = "", { required = true } = {}) {
+  const profile = getActiveCountryProfile(country);
+  const digits = normalizeCountryPhoneDigits(phone, profile);
+  const empty = digits.length === 0;
+  const valid = empty ? !required : digits.length >= profile.minLength && digits.length <= profile.maxLength;
+  const expected = profile.minLength === profile.maxLength
+    ? `${profile.maxLength}`
+    : `${profile.minLength}-${profile.maxLength}`;
+
+  return {
+    valid,
+    digits: digits.length,
+    expected,
+    profile,
+    message: empty && required
+      ? `Enter a ${profile.name} phone number.`
+      : valid
+        ? ""
+        : `${profile.name} phone numbers must contain exactly ${expected} national digits.`,
+  };
+}
+
+export function constrainCountryPhoneInput(phone = "", country = "") {
+  const profile = getActiveCountryProfile(country);
+  let next = String(phone || "").replace(/[^+\d\s()-]/g, "");
+
+  while (normalizeCountryPhoneDigits(next, profile).length > profile.maxLength) {
+    const index = next.search(/\d(?=[^\d]*$)/);
+    if (index < 0) break;
+    next = `${next.slice(0, index)}${next.slice(index + 1)}`;
+  }
+
+  return next;
 }
 
 export function formatCountryMoney(amount, countryOrCurrency = "", options = {}) {

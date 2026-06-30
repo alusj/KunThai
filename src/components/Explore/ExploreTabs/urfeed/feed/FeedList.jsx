@@ -1,17 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollows";
 import { isAdvertPost } from "../../../shared/advertUtils";
 import { recordExploreAdvertEvent, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
 import EmptyState from "../../../shared/EmptyState";
-import ErrorState from "../../../shared/ErrorState";
 import FeedPost from "./components/FeedPost";
 
 export default function FeedList({
   posts,
   loading,
   error,
-  onRetry,
   likedPosts,
   savedPosts,
   onLike,
@@ -34,42 +32,7 @@ export default function FeedList({
   hasMore = false,
   loadingMore = false,
 }) {
-  const [refreshing, setRefreshing] = useState(false);
-  const touchStartRef = useRef(null);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
-
-  async function refresh() {
-    if (!onRetry || refreshing) {
-      return;
-    }
-
-    setRefreshing(true);
-    try {
-      await onRetry();
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
-  function handleTouchStart(event) {
-    if (window.scrollY <= 2) {
-      touchStartRef.current = event.touches[0]?.clientY || null;
-    }
-  }
-
-  function handleTouchEnd(event) {
-    const startY = touchStartRef.current;
-    touchStartRef.current = null;
-
-    if (startY === null) {
-      return;
-    }
-
-    const endY = event.changedTouches[0]?.clientY || startY;
-    if (endY - startY > 70) {
-      refresh();
-    }
-  }
 
   async function handleFollow(post) {
     const active = await toggleFollow(post.user_id);
@@ -81,15 +44,7 @@ export default function FeedList({
     return active === false ? "Unfollowed" : "";
   }
 
-  if (error) {
-    return (
-      <div className="mt-4 w-full overflow-x-clip px-4 sm:px-5 lg:px-8">
-        <ErrorState message={error} onRetry={onRetry} />
-      </div>
-    );
-  }
-
-  if (loading && !posts?.length) {
+  if ((loading || error) && !posts?.length) {
     return <FeedListSkeleton />;
   }
 
@@ -106,14 +61,7 @@ export default function FeedList({
   }
 
   return (
-    <div className="mt-4 w-full overflow-x-clip px-4 pb-8 sm:px-5 lg:px-8" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-        <span className="font-bold text-slate-800">{posts.length} posts</span>
-        <button type="button" onClick={refresh} className="font-bold text-sky-700">
-          Refresh
-        </button>
-      </div>
-
+    <div className="mt-4 w-full overflow-x-clip px-4 pb-8 sm:px-5 lg:px-8">
       <div className="w-full max-w-full space-y-4 overflow-x-clip">
         {(posts || []).map((post) => (
           <ObservedFeedPost key={post.id} post={post}>

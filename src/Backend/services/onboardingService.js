@@ -2,7 +2,7 @@ import supabase from "../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./explore/errors";
 import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage";
 import { normalizeSocialLinks } from "./explore/socialLinks";
-import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile, storeCountryContext } from "../../data/westAfricanCountryProfiles";
 import { consumeOAuthFlow } from "./sessionService";
 import {
   checkKunThaiIdentityAvailability,
@@ -30,6 +30,7 @@ function buildProfileFromUser(user) {
             ? "Phone"
             : provider;
 
+  const countryProfile = getActiveCountryProfile(metadata.country_code || metadata.country);
   const profile = {
     firstName: metadata.first_name ?? "",
     middleName: metadata.middle_name ?? "",
@@ -38,7 +39,9 @@ function buildProfileFromUser(user) {
     dateOfBirth: metadata.date_of_birth ?? "",
     username: metadata.username ?? "",
     city: metadata.city ?? "",
-    country: metadata.country ?? "",
+    country: metadata.country || countryProfile.name,
+    countryCode: metadata.country_code || countryProfile.iso2,
+    currency: metadata.currency || countryProfile.currency.code,
     address: metadata.address ?? "",
     email: metadata.contact_email ?? user?.email ?? "",
     phone: metadata.phone_number ?? user?.phone ?? "",
@@ -353,6 +356,7 @@ export async function updateOnboardingProfile(patch) {
   const current = buildProfileFromUser(user);
   const requestedEmail = normalizeEmailForIdentity(patch.email ?? current.email);
   const requestedCountry = patch.country ?? current.country;
+  const requestedCountryProfile = getActiveCountryProfile(patch.countryCode || requestedCountry);
   const requestedPhone = normalizePhoneForIdentity(patch.phone ?? current.phone, requestedCountry);
 
   await checkKunThaiIdentityAvailability({
@@ -371,6 +375,8 @@ export async function updateOnboardingProfile(patch) {
     username: patch.username ?? current.username,
     city: patch.city ?? current.city,
     country: patch.country ?? current.country,
+    country_code: requestedCountryProfile.iso2,
+    currency: requestedCountryProfile.currency.code,
     address: patch.address ?? current.address,
     contact_email: requestedEmail,
     phone_number: requestedPhone,

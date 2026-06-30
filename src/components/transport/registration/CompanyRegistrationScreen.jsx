@@ -31,9 +31,13 @@ import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion"
 import { useDirectionalStep } from "../../shared/motionHooks";
 import NearbyAreaScreen from "../NearbyAreaScreen";
 import {
+  constrainCountryPhoneInput,
   getActiveCountryProfile,
-  getCountryPhonePlaceholder,
+  getCountryAddressPlaceholder,
+  getCountryPhoneHint,
   storeCountryContext,
+  validateCountryPhone,
+  WEST_AFRICAN_COUNTRY_PROFILES,
 } from "../../../data/westAfricanCountryProfiles";
 
 const steps = [
@@ -113,6 +117,8 @@ function createCompanyForm(profile = {}) {
     phone: profile.phone || "",
     email: profile.email || "",
     country: profile.country || countryProfile.name,
+    countryCode: countryProfile.iso2,
+    currency: countryProfile.currency.code,
     city: profile.city || "",
     address: profile.address || "",
     coordinates: null,
@@ -239,8 +245,18 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }, [fleets, form, hasLocation]);
 
   function updateForm(field, value) {
-    if (field === "country") storeCountryContext(value);
-    setForm((current) => ({ ...current, [field]: value }));
+    if (field === "country") {
+      const selectedCountry = getActiveCountryProfile(value);
+      storeCountryContext(selectedCountry.iso2);
+      setForm((current) => ({
+        ...current,
+        country: selectedCountry.name,
+        countryCode: selectedCountry.iso2,
+        currency: selectedCountry.currency.code,
+      }));
+    } else {
+      setForm((current) => ({ ...current, [field]: value }));
+    }
     setStatus("");
   }
 
@@ -322,7 +338,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     if (targetStep === 0) {
       if (!form.companyName.trim()) return "Enter the company or organization name.";
       if (!form.ownerName.trim()) return "Enter the responsible owner or director name.";
-      if (!form.phone.trim()) return "Enter a support phone number.";
+      const phoneValidation = validateCountryPhone(form.phone, form.country);
+      if (!phoneValidation.valid) return phoneValidation.message;
     }
 
     if (targetStep === 1) {
@@ -473,11 +490,14 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }
 
   function acceptLocation(location) {
+    const selectedCountry = getActiveCountryProfile(location.country || form.country);
     setForm((current) => ({
       ...current,
       address: location.address || current.address,
       city: location.city || current.city,
-      country: location.country || current.country,
+      country: selectedCountry.name,
+      countryCode: selectedCountry.iso2,
+      currency: selectedCountry.currency.code,
       coordinates: {
         latitude: location.lat,
         longitude: location.lng,
@@ -752,6 +772,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
 function CompanyIdentityStep({ form, onChange, onDocument }) {
   const countryProfile = getActiveCountryProfile(form.country);
+  const phoneValidation = validateCountryPhone(form.phone, countryProfile);
   return (
     <div className="space-y-5">
       <div>
@@ -764,7 +785,14 @@ function CompanyIdentityStep({ form, onChange, onDocument }) {
         <FormInput label="Business registration number" value={form.registrationNumber} onChange={(value) => onChange("registrationNumber", value)} placeholder="Registration number" />
         <FormInput label="Tax or business ID optional" value={form.taxId} onChange={(value) => onChange("taxId", value)} placeholder="Tax ID" />
         <FormInput label="Owner / director name" value={form.ownerName} onChange={(value) => onChange("ownerName", value)} placeholder="Responsible person" />
-        <FormInput label="Support phone" type="tel" value={form.phone} onChange={(value) => onChange("phone", value)} placeholder={getCountryPhonePlaceholder(countryProfile)} />
+        <FormInput
+          label="Support phone"
+          type="tel"
+          value={form.phone}
+          onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile))}
+          placeholder={getCountryPhoneHint(countryProfile)}
+          helper={phoneValidation.valid ? `${countryProfile.name}: ${phoneValidation.expected} national digits.` : phoneValidation.message}
+        />
         <FormInput label="Business email optional" type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder="company@example.com" />
         <label className="block">
           <span className="mb-2 block text-sm font-bold text-slate-700">Owner KunThai ID</span>
@@ -786,10 +814,10 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
         <h2 className="mt-1 text-2xl font-black text-slate-950">Set the verified location passengers and operators can trust.</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <FormInput label="Country" value={form.country} onChange={(value) => onChange("country", value)} placeholder={countryProfile.name} />
+        <SelectField label="Country" value={countryProfile.name} options={WEST_AFRICAN_COUNTRY_PROFILES.map((country) => country.name)} onChange={(value) => onChange("country", value)} />
         <FormInput label="City / district" value={form.city} onChange={(value) => onChange("city", value)} placeholder={countryProfile.cityPlaceholder} />
         <div className="md:col-span-2">
-          <FormInput label="Office, station, or dispatch address" value={form.address} onChange={(value) => onChange("address", value)} placeholder="Street, junction, station, or yard" />
+          <FormInput label="Office, station, or dispatch address" value={form.address} onChange={(value) => onChange("address", value)} placeholder={getCountryAddressPlaceholder(countryProfile)} />
         </div>
       </div>
       <div className={`rounded-3xl border p-4 ${hasLocation ? "border-emerald-100 bg-emerald-50" : "border-amber-100 bg-amber-50"}`}>

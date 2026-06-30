@@ -24,7 +24,11 @@ import {
 import NearbyAreaScreen from "../NearbyAreaScreen";
 import { searchLocations } from "../../../Backend/services/locationSearchService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
-import { getCountryPhonePlaceholder } from "../../../data/westAfricanCountryProfiles";
+import {
+  constrainCountryPhoneInput,
+  getCountryPhoneHint,
+  validateCountryPhone,
+} from "../../../data/westAfricanCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
@@ -105,7 +109,8 @@ function getBookingRequirementMessage(form, mode) {
   if (!hasText(form.pickup)) return "Add a pickup point before sending this booking.";
   if (!hasText(form.dropoff)) return "Add a drop-off point before sending this booking.";
   if (!hasText(form.passengerName)) return "Add the passenger or sender name.";
-  if (!hasText(form.phone)) return "Add a phone number the operator can use.";
+  const phoneValidation = validateCountryPhone(form.phone);
+  if (!phoneValidation.valid) return phoneValidation.message;
   if (form.pickupTime === "schedule" && !form.scheduledAt) return "Choose the scheduled pickup time.";
   if (form.bookingMethod === "time" && Number(form.bookedHours || 0) <= 0) return "Add the number of hours for this time booking.";
   if (mode === "delivery" && !hasText(form.packageDescription)) return "Add a package description for this delivery.";
@@ -703,8 +708,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   icon={FiPhone}
                   label="Phone"
                   value={form.phone}
-                  onChange={(value) => updateForm({ phone: value })}
-                  placeholder={getCountryPhonePlaceholder()}
+                  onChange={(value) => updateForm({ phone: constrainCountryPhoneInput(value) })}
+                  placeholder={getCountryPhoneHint()}
                 />
               </div>
 

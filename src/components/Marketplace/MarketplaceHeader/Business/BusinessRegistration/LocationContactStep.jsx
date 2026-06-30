@@ -9,7 +9,14 @@ import {
   useAddressAreaValidation,
 } from "../../../../shared/AddressAreaValidation";
 import { useAutoCollapseCard } from "../../../../shared/motionHooks";
-import { getActiveCountryProfile, getCountryPhonePlaceholder } from "../../../../../data/westAfricanCountryProfiles";
+import {
+  constrainCountryPhoneInput,
+  getActiveCountryProfile,
+  getCountryAddressPlaceholder,
+  getCountryPhoneHint,
+  validateCountryPhone,
+  WEST_AFRICAN_COUNTRY_PROFILES,
+} from "../../../../../data/westAfricanCountryProfiles";
 
 export default function LocationContactStep({ registration }) {
   const {
@@ -38,17 +45,22 @@ export default function LocationContactStep({ registration }) {
     resetKey: [locationPromptOpen ? "open" : "closed", locationStatus, locating ? "locating" : "ready"].join("|"),
   });
   const countryProfile = getActiveCountryProfile(form.location.country);
+  const phoneValidation = validateCountryPhone(form.location.phone, countryProfile);
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <RegistrationField label="Country" error={errors.country}>
-          <RegistrationInput
+          <select
             value={form.location.country}
             onChange={(event) => updateSection("location", { country: event.target.value })}
-            placeholder={countryProfile.name}
             autoComplete="country-name"
-          />
+            className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            {WEST_AFRICAN_COUNTRY_PROFILES.map((country) => (
+              <option key={country.iso2} value={country.name}>{country.name}</option>
+            ))}
+          </select>
         </RegistrationField>
         <RegistrationField label="City" error={errors.city}>
           <RegistrationInput
@@ -71,7 +83,7 @@ export default function LocationContactStep({ registration }) {
         <RegistrationInput
             value={form.location.address}
             onChange={(event) => updateSection("location", { address: event.target.value })}
-          placeholder={countryProfile.addressExample}
+          placeholder={getCountryAddressPlaceholder(countryProfile)}
           autoComplete="street-address"
         />
       </RegistrationField>
@@ -105,10 +117,13 @@ export default function LocationContactStep({ registration }) {
         <RegistrationField label="Phone number" error={errors.phone}>
           <RegistrationInput
             value={form.location.phone}
-            onChange={(event) => updateSection("location", { phone: event.target.value })}
-            placeholder={getCountryPhonePlaceholder(countryProfile)}
+            onChange={(event) => updateSection("location", { phone: constrainCountryPhoneInput(event.target.value, countryProfile) })}
+            placeholder={getCountryPhoneHint(countryProfile)}
             autoComplete="tel"
           />
+          <span className={`mt-2 block text-xs font-bold ${phoneValidation.valid || !form.location.phone ? "text-gray-500" : "text-red-600"}`}>
+            {phoneValidation.valid ? `${countryProfile.name}: ${phoneValidation.expected} national digits.` : phoneValidation.message}
+          </span>
         </RegistrationField>
         <RegistrationField label="Business email" error={errors.email}>
           <RegistrationInput
@@ -141,8 +156,8 @@ export default function LocationContactStep({ registration }) {
         <RegistrationField label="WhatsApp number">
           <RegistrationInput
             value={form.location.whatsapp}
-            onChange={(event) => updateSection("location", { whatsapp: event.target.value })}
-            placeholder={getCountryPhonePlaceholder(countryProfile)}
+            onChange={(event) => updateSection("location", { whatsapp: constrainCountryPhoneInput(event.target.value, countryProfile) })}
+            placeholder={getCountryPhoneHint(countryProfile)}
           />
         </RegistrationField>
       ) : null}

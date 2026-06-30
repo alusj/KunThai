@@ -270,10 +270,7 @@ export default function AdvertComposerFields({
               <div className="grid grid-cols-[110px_1fr] gap-3">
                 <label className="block">
                   <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Currency</span>
-                  <select value={advert.currency} onChange={(event) => onChange("currency", event.target.value)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-900 outline-none">
-                    <option value="SLE">SLE</option>
-                    <option value="USD">USD</option>
-                  </select>
+                  <input value={advert.currency} readOnly className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-3 text-sm font-black text-slate-900 outline-none" />
                 </label>
                 <NumberField label={advert.budgetType === "daily" ? "Amount per day" : "Campaign total"} min="1" step="0.01" value={advert.budgetAmount} onChange={(value) => onChange("budgetAmount", value)} />
               </div>
