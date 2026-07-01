@@ -7,7 +7,6 @@ import {
   HiOutlineMicrophone,
   HiOutlineMegaphone,
   HiOutlinePhoto,
-  HiOutlinePlus,
   HiOutlineUserGroup,
   HiOutlineVideoCamera,
 } from "react-icons/hi2";
@@ -34,22 +33,21 @@ export default function ComposerActions({
   advertPlacement = "urfeed",
   advertAudience = "recommended",
   onTool,
+  privacyOnly = false,
+  toolsOnly = false,
 }) {
-  const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
   const controlsRef = useRef(null);
 
   useEffect(() => {
-    if (!toolMenuOpen && !privacyMenuOpen) return undefined;
+    if (!privacyMenuOpen) return undefined;
     function closeMenus(event) {
       if (!controlsRef.current?.contains(event.target)) {
-        setToolMenuOpen(false);
         setPrivacyMenuOpen(false);
       }
     }
     function closeOnEscape(event) {
       if (event.key === "Escape") {
-        setToolMenuOpen(false);
         setPrivacyMenuOpen(false);
       }
     }
@@ -59,7 +57,7 @@ export default function ComposerActions({
       document.removeEventListener("pointerdown", closeMenus);
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [privacyMenuOpen, toolMenuOpen]);
+  }, [privacyMenuOpen]);
 
   if (advertMode) {
     return (
@@ -82,51 +80,36 @@ export default function ComposerActions({
   const selectedPrivacy = privacyOptions.find((option) => option.value === privacy) || privacyOptions[0];
   const PrivacyIcon = selectedPrivacy.icon;
 
-  return (
-    <div ref={controlsRef} className="relative flex items-center justify-between gap-3">
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => {
-            setToolMenuOpen((current) => !current);
-            setPrivacyMenuOpen(false);
-          }}
-          aria-expanded={toolMenuOpen}
-          aria-haspopup="menu"
-          className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          <HiOutlinePlus className="text-lg" /> Add to post <HiOutlineChevronDown className={`transition ${toolMenuOpen ? "rotate-180" : ""}`} />
-        </button>
-        {toolMenuOpen ? (
-          <div role="menu" className="absolute bottom-[calc(100%+0.6rem)] left-0 z-30 grid w-64 grid-cols-2 gap-2 rounded-[22px] border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-950/15">
-            {visibleTools.map((tool) => {
-              const Icon = tool.icon;
-              const active = tool.type === "voice" && isRecording;
-              return (
-                <button
-                  key={tool.type}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setToolMenuOpen(false);
-                    onTool?.(tool.type);
-                  }}
-                  className={`flex items-center gap-2 rounded-2xl px-3 py-3 text-left text-sm font-bold ${active ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"}`}
-                >
-                  <Icon className="text-lg" /> {tool.label}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
+  if (toolsOnly) {
+    return (
+      <div className="kuntai-scrollbar-none flex items-center gap-2 overflow-x-auto pb-1">
+        {visibleTools.map((tool) => {
+          const Icon = tool.icon;
+          const active = tool.type === "voice" && isRecording;
+          return (
+            <button
+              key={tool.type}
+              type="button"
+              onClick={() => onTool?.(tool.type)}
+              className={`kt-pressable inline-flex h-11 flex-none items-center gap-2 rounded-2xl border px-3 text-sm font-black shadow-sm ${
+                active ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Icon className="text-lg" /> {tool.label}
+            </button>
+          );
+        })}
       </div>
+    );
+  }
 
+  return (
+    <div ref={controlsRef} className={`relative flex items-center ${privacyOnly ? "justify-end" : "justify-between"} gap-3`}>
       <div className="relative">
         <button
           type="button"
           onClick={() => {
             setPrivacyMenuOpen((current) => !current);
-            setToolMenuOpen(false);
           }}
           aria-expanded={privacyMenuOpen}
           aria-haspopup="menu"

@@ -50,6 +50,15 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   }, [open, rendered]);
 
   useEffect(() => {
+    if (!rendered) return undefined;
+
+    const appSurface = document.getElementById("root")?.firstElementChild;
+    appSurface?.classList.add("kt-comments-page-blur");
+
+    return () => appSurface?.classList.remove("kt-comments-page-blur");
+  }, [rendered]);
+
+  useEffect(() => {
     if (!rendered || closing) return;
     const node = listRef.current;
     if (!node) return;
@@ -98,14 +107,14 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     : closing ? "kt-comments-feed-exit" : "kt-comments-feed-enter";
   const panelSizeClass = isSwip
     ? "h-[84dvh] max-h-[760px] min-h-[420px] w-full rounded-t-[28px] sm:h-full sm:max-h-none sm:max-w-md sm:rounded-l-[28px] sm:rounded-r-none sm:rounded-t-none"
-    : "h-[56dvh] max-h-[640px] min-h-[340px] w-full rounded-t-[28px] sm:h-[68dvh] sm:max-w-2xl";
+    : "h-[84dvh] max-h-[760px] min-h-[420px] w-full rounded-t-[28px] sm:h-[78dvh] sm:max-w-2xl";
   const backdropClass = closing ? "kt-comments-backdrop-exit" : "kt-comments-backdrop-enter";
 
   return createPortal(
     <div className={shellClass}>
       <button
         type="button"
-        className={`absolute inset-0 cursor-default bg-slate-950/35 ${backdropClass}`}
+        className={`absolute inset-0 cursor-default bg-slate-950/20 ${backdropClass}`}
         onClick={requestClose}
         aria-label="Close comments"
       />

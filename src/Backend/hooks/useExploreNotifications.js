@@ -19,13 +19,24 @@ const NOTIFICATIONS_MEMORY = {
 const PAGE_SIZE = 30;
 const HIGH_PRIORITY_TYPES = new Set(["comment", "reply", "mention", "follow", "message", "creator_reply", "thread_reply"]);
 const MEDIUM_PRIORITY_TYPES = new Set(["like", "share", "save", "reaction", "repost"]);
+const NOTIFICATION_RETENTION_MS = 10 * 24 * 60 * 60 * 1000;
 
 function normalizeNotification(item) {
+  const platformNotification = item?._notification_source === "platform" || Object.prototype.hasOwnProperty.call(item || {}, "notification_type");
   return {
     ...item,
+    ...(platformNotification ? {
+      _notification_source: "platform",
+      actor_name: "KunThai",
+      actor_avatar_url: null,
+      type: item.notification_type || "admin_message",
+      media_type: item.sector || "platform",
+      message: item.body || item.title || "KunThai update",
+      read: item.status === "read" || item.status === "archived",
+    } : {}),
     priority: item.priority || (HIGH_PRIORITY_TYPES.has(item.type) ? "high" : MEDIUM_PRIORITY_TYPES.has(item.type) ? "medium" : "normal"),
-    category: item.category || getCategory(item.type),
-    group_key: item.group_key || `${item.type || "system"}:${item.post_id || item.comment_id || item.target_id || item.media_type || "account"}`,
+    category: item.category || getCategory(item.notification_type || item.type),
+    group_key: item.group_key || `${item.notification_type || item.type || "system"}:${item.post_id || item.comment_id || item.target_id || item.media_type || "account"}`,
     time_label: item.time_label || formatRelativeTime(item.created_at),
   };
 }
@@ -51,10 +62,13 @@ function notificationEnabled(item) {
 
 function mergeNotificationList(items) {
   const merged = new Map();
+  const cutoff = Date.now() - NOTIFICATION_RETENTION_MS;
 
   items.forEach((item) => {
     if (!item?.id) return;
     const normalized = normalizeNotification(item);
+    const createdAt = new Date(normalized.created_at || 0).getTime();
+    if (!Number.isFinite(createdAt) || createdAt < cutoff) return;
     const existing = merged.get(normalized.id);
     merged.set(normalized.id, existing ? { ...existing, ...normalized } : normalized);
   });
@@ -159,6 +173,39 @@ export function useExploreNotifications() {
             }
 
             const nextItem = normalizeNotification(payload.new);
+            const storedItems = storeNotificationMemory(
+              NOTIFICATIONS_MEMORY.items.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item)),
+              currentUserId,
+            );
+            setNotifications(visibleNotifications(storedItems));
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "platform_notifications",
+            filter: `user_id=eq.${currentUserId}`,
+          },
+          (payload) => {
+            if (!active || !payload.new) return;
+            const nextItem = normalizeNotification({ ...payload.new, _notification_source: "platform" });
+            const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items], currentUserId);
+            setNotifications(visibleNotifications(storedItems));
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "platform_notifications",
+            filter: `user_id=eq.${currentUserId}`,
+          },
+          (payload) => {
+            if (!active || !payload.new) return;
+            const nextItem = normalizeNotification({ ...payload.new, _notification_source: "platform" });
             const storedItems = storeNotificationMemory(
               NOTIFICATIONS_MEMORY.items.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item)),
               currentUserId,

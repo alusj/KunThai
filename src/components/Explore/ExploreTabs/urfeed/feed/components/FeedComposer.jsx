@@ -133,11 +133,12 @@ function persistComposerLocationReturn(mode, location) {
       },
     });
   } else {
+    const { advert: _staleAdvert, ...postMediaMeta } = draft.media_meta || {};
     writeDraft({
       ...draft,
       post_type: "post",
       media_meta: {
-        ...(draft.media_meta || {}),
+        ...postMediaMeta,
         location: {
           label: address || "Tagged location",
           address: address || "Tagged location",
@@ -248,7 +249,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const privacySettings = readPrivacySettings();
 
   const [open, setOpen] = useState(false);
-  const [composerMode, setComposerMode] = useState(draft.post_type === "advert" || draft.media_meta?.advert ? "advert" : "post");
+  const [composerMode, setComposerMode] = useState(draft.post_type === "advert" ? "advert" : "post");
   const [postTitle, setPostTitle] = useState(String(draft.media_meta?.title || "").slice(0, MAX_POST_TITLE_LENGTH));
   const [value, setValue] = useState(draft.body || "");
   const [feedback, setFeedback] = useState("");
@@ -264,7 +265,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [attachmentMode, setAttachmentMode] = useState(() => (
     draft.video_url ? "video" : draft.image_url ? "image" : "voice"
   ));
-  const [mediaMeta, setMediaMeta] = useState(draft.media_meta || {});
+  const [mediaMeta, setMediaMeta] = useState(() => {
+    if (draft.post_type === "advert") return draft.media_meta || {};
+    const { advert: _staleAdvert, ...postMediaMeta } = draft.media_meta || {};
+    return postMediaMeta;
+  });
   const [advertForm, setAdvertForm] = useState(() => normalizeAdvertDraft(draft.media_meta?.advert));
   const [pendingVideoFile, setPendingVideoFile] = useState(null);
   const [pendingVideoUrl, setPendingVideoUrl] = useState("");
@@ -375,6 +380,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }, [videoPreview]);
 
   useEffect(() => {
+    const { advert: _staleAdvert, ...postMediaMeta } = mediaMeta || {};
     writeDraft({
       body: value,
       image_url: imagePreview,
@@ -385,7 +391,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       post_type: isAdvertMode ? "advert" : "post",
       media_meta: isAdvertMode
         ? { ...mediaMeta, advert: { ...advertForm } }
-        : { ...mediaMeta, title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH) },
+        : { ...postMediaMeta, title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH) },
     });
   }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postTitle, privacy, value, videoPreview]);
 
@@ -831,6 +837,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       return;
     }
 
+    setMediaMeta((current) => {
+      const { advert: _staleAdvert, ...postMediaMeta } = current || {};
+      return postMediaMeta;
+    });
+    if (trimmedVideoMetaRef.current) {
+      const { advert: _staleAdvert, ...postVideoMeta } = trimmedVideoMetaRef.current;
+      trimmedVideoMetaRef.current = postVideoMeta;
+    }
+
     if (hashtagTrigger) {
       setHashtagTrigger(null);
       setTagPickerOpen(false);
@@ -1117,8 +1132,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       }
 
       const advertMeta = isAdvertMode ? cleanAdvertForSubmit(advertForm) : null;
+      const baseMediaMeta = trimmedVideoMetaRef.current || mediaMeta;
+      const { advert: _staleAdvert, ...postMediaMeta } = baseMediaMeta || {};
       const finalMediaMeta = {
-        ...(trimmedVideoMetaRef.current || mediaMeta),
+        ...(isAdvertMode ? baseMediaMeta : postMediaMeta),
         ...(advertMeta ? { advert: advertMeta } : {}),
         ...(!advertMeta ? { title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH) } : {}),
       };
@@ -1536,6 +1553,17 @@ if (!isMobileVideoDevice) {
               </div>
               ) : null}
 
+              {!isAdvertMode ? (
+                <ComposerActions
+                  toolsOnly
+                  privacy={privacy}
+                  setPrivacy={setPrivacy}
+                  isRecording={isRecording}
+                  hasVideoAttachment={hasVideoAttachment}
+                  onTool={handleTool}
+                />
+              ) : null}
+
               {!isAdvertMode && tagPickerOpen ? (
                 <div className="rounded-[24px] border border-sky-100 bg-sky-50/70 p-4">
                   <div className="flex items-center justify-between gap-3">
@@ -1742,6 +1770,7 @@ if (!isMobileVideoDevice) {
 
             <div className="flex-none space-y-3 border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
               <ComposerActions
+                privacyOnly={!isAdvertMode}
                 privacy={privacy}
                 setPrivacy={setPrivacy}
                 isRecording={isRecording}

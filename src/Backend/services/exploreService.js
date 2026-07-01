@@ -490,9 +490,10 @@ export async function fetchExploreNotifications(options = {}) {
   const currentUserId = await getCurrentUserId();
   const limit = Number.isFinite(options.limit) ? options.limit : 100;
   const before = options.before || "";
+  const retentionCutoff = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
   const storedNotifications = readStoredNotifications()
     .map(normalizeNotification)
-    .filter((item) => !currentUserId || item.user_id === currentUserId);
+    .filter((item) => (!currentUserId || item.user_id === currentUserId) && String(item.created_at || "") >= retentionCutoff);
 
   if (!currentUserId) {
     return storedNotifications;
@@ -502,6 +503,7 @@ export async function fetchExploreNotifications(options = {}) {
     .from("explore_notifications")
     .select("*")
     .eq("user_id", currentUserId)
+    .gte("created_at", retentionCutoff)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -511,7 +513,7 @@ export async function fetchExploreNotifications(options = {}) {
 
   const [exploreResult, platformResult] = await Promise.all([
     query,
-    supabase.from("platform_notifications").select("*").eq("user_id", currentUserId).order("created_at", { ascending: false }).limit(limit),
+    supabase.from("platform_notifications").select("*").eq("user_id", currentUserId).gte("created_at", retentionCutoff).order("created_at", { ascending: false }).limit(limit),
   ]);
   const { data, error } = exploreResult;
 

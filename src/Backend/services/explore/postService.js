@@ -24,8 +24,12 @@ function getPayloadMediaMeta(payload = {}) {
 
 function isAdvertPayload(payload = {}) {
   const mediaMeta = getPayloadMediaMeta(payload);
+  const explicitPostType = String(payload.post_type || "").toLowerCase();
+  if (["post", "video", "repost"].includes(explicitPostType)) {
+    return false;
+  }
   return (
-    payload.post_type === "advert" ||
+    explicitPostType === "advert" ||
     payload.category === "advert" ||
     Boolean(payload.advert) ||
     Boolean(mediaMeta.advert)
