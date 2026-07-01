@@ -24,6 +24,7 @@ import {
   deleteExplorePost,
   fetchExploreAdvertAnalytics,
   fetchExploreFollowers,
+  fetchCurrentUserRecentExplorePosts,
   fetchCurrentUserReactions,
   fetchExplorePostCounts,
   fetchExplorePosts,
@@ -46,6 +47,22 @@ function isLocalPost(post) {
   return String(post?.id || "").startsWith("local-");
 }
 
+const CLIENT_POST_PIN_MS = 24 * 60 * 60 * 1000;
+
+function isPendingReviewPost(post) {
+  return String(post?.moderation_status || "").toLowerCase() === "pending";
+}
+
+function isLocallyVisiblePost(post) {
+  return isExplorePostVisibleInFeed(post) || isPendingReviewPost(post);
+}
+
+function isClientPinnedPost(post) {
+  if (isLocalPost(post)) return true;
+  const pinnedAt = Date.parse(post?.client_pinned_at || "");
+  return Number.isFinite(pinnedAt) && Date.now() - pinnedAt < CLIENT_POST_PIN_MS;
+}
+
 function logExploreFeed(event, detail = {}) {
   if (import.meta.env.DEV) {
     console.info(`[ExploreFeed] ${event}`, detail);
@@ -65,6 +82,13 @@ function mergePosts(remotePosts, localPosts) {
   });
 
   return Array.from(merged.values()).sort((a, b) => {
+    const pinnedDifference = Number(isClientPinnedPost(b)) - Number(isClientPinnedPost(a));
+    if (pinnedDifference !== 0) return pinnedDifference;
+    if (isClientPinnedPost(a) && isClientPinnedPost(b)) {
+      const pinTimeDifference = Date.parse(b.client_pinned_at || b.created_at || "") - Date.parse(a.client_pinned_at || a.created_at || "");
+      if (Number.isFinite(pinTimeDifference) && pinTimeDifference !== 0) return pinTimeDifference;
+    }
+
     const aScore = Number(a.recommendation_score ?? a.score);
     const bScore = Number(b.recommendation_score ?? b.score);
     const hasRankedPost = Number.isFinite(aScore) || Number.isFinite(bScore);
@@ -180,6 +204,7 @@ function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
     hashtags: Array.isArray(draft.hashtags) ? draft.hashtags : [],
     mentions: Array.isArray(draft.mentions) ? draft.mentions : [],
     media_meta: mediaMeta,
+    client_pinned_at: new Date().toISOString(),
     likes_count: 0,
     comments_count: 0,
     saves_count: 0,
@@ -267,7 +292,7 @@ export function useExploreFeed(scope = "feed") {
   const memory = readFeedMemory(scope);
   const initialPosts = (memory?.posts || readStoredPosts(scope))
     .filter((post) => postBelongsInScope(post, scope))
-    .filter(isExplorePostVisibleInFeed);
+    .filter(isLocallyVisiblePost);
   const [posts, setPosts] = useState(() => initialPosts);
   const [loading, setLoading] = useState(() => initialPosts.length === 0);
   const [refreshing, setRefreshing] = useState(false);
@@ -336,12 +361,13 @@ export function useExploreFeed(scope = "feed") {
 
     try {
       setError("");
-      const [rawPosts, reactions, currentProfile] = await Promise.all([
+      const [rawPosts, reactions, currentProfile, ownRecentPosts] = await Promise.all([
         ["feed", "swip"].includes(scope)
           ? fetchRecommendedExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset: 0 })
           : fetchExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset: 0 }),
         fetchCurrentUserReactions(),
         getCurrentUserProfile(),
+        fetchCurrentUserRecentExplorePosts(scope, { limit: 12 }).catch(() => []),
       ]);
       if (loadId !== loadIdRef.current) {
         return;
@@ -351,7 +377,12 @@ export function useExploreFeed(scope = "feed") {
         user_id: currentProfile?.id || "",
         feed_query_result_count: rawPosts.length,
       });
-      const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
+      const pinnedOwnPosts = ownRecentPosts.map((post) => ({
+        ...post,
+        client_pinned_at: post.client_pinned_at || post.created_at,
+      }));
+      const nextPosts = mergePosts(rawPosts, pinnedOwnPosts)
+        .map((post) => applyCurrentProfileToPost(post, currentProfile));
       nextOffsetRef.current = rawPosts.length;
       setHasMore(rawPosts.length === FEED_PAGE_SIZE);
       setCurrentUserId(currentProfile?.id || "");
@@ -366,7 +397,11 @@ export function useExploreFeed(scope = "feed") {
 
       setPosts((current) => {
         const localPosts = (current.length ? current : readStoredPosts(scope))
-          .filter(isLocalPost)
+          .filter((post) => (
+            isLocalPost(post) ||
+            isClientPinnedPost(post) ||
+            (isPendingReviewPost(post) && post.user_id === currentProfile?.id)
+          ))
           .filter((post) => postBelongsInScope(post, scope))
           .map((post) => applyCurrentProfileToPost(post, currentProfile));
         const mergedPosts = mergePosts(nextPosts, localPosts);
@@ -645,7 +680,7 @@ export function useExploreFeed(scope = "feed") {
   useEffect(() => {
     function handleStorage(event) {
       if (event.key === getPostsStorageKey(scope)) {
-        setPosts(readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope)).filter(isExplorePostVisibleInFeed));
+        setPosts(readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope)).filter(isLocallyVisiblePost));
       }
       if (event.key === HIDE_STORAGE_KEY) setHiddenPosts(readStoredSet(HIDE_STORAGE_KEY));
     }
@@ -653,7 +688,7 @@ export function useExploreFeed(scope = "feed") {
     function handleCacheEvent(event) {
       const detail = event.detail || {};
       if (detail.key === getPostsStorageKey(scope) || detail.scope === scope) {
-        setPosts(readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope)).filter(isExplorePostVisibleInFeed));
+        setPosts(readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope)).filter(isLocallyVisiblePost));
       }
     }
 
@@ -669,7 +704,7 @@ export function useExploreFeed(scope = "feed") {
     const localId = `local-${scope}-${Date.now()}`;
     const optimisticPost = buildLocalPost(postInput, scope, localId);
     const optimisticScopes = getPostTargetScopes(optimisticPost, scope);
-    const optimisticVisible = isExplorePostVisibleInFeed(optimisticPost);
+    const optimisticVisible = isLocallyVisiblePost(optimisticPost);
 
     try {
       setCreating(true);
@@ -721,7 +756,11 @@ export function useExploreFeed(scope = "feed") {
         }
       }
       const createdScopes = getPostTargetScopes(created, scope);
-      const createdVisible = isExplorePostVisibleInFeed(created);
+      created = {
+        ...created,
+        client_pinned_at: new Date().toISOString(),
+      };
+      const createdVisible = isLocallyVisiblePost(created);
 
       setPosts((current) => {
         const withoutOptimisticPost = current.filter((post) => post.id !== localId);
@@ -737,14 +776,14 @@ export function useExploreFeed(scope = "feed") {
         .forEach((targetScope) => {
           const currentTargetPosts = (readFeedMemory(targetScope)?.posts || readStoredPosts(targetScope))
           .filter((post) => post.id !== localId)
-          .filter(isExplorePostVisibleInFeed);
+          .filter(isLocallyVisiblePost);
           const targetPosts = createdVisible ? mergePosts([created], currentTargetPosts) : currentTargetPosts;
 
           writeStoredPosts(targetScope, targetPosts);
           writeFeedMemory(targetScope, { posts: targetPosts });
         });
 
-      if (createdVisible && !isAdvertDraft(created)) {
+      if (isExplorePostVisibleInFeed(created) && !isAdvertDraft(created)) {
         const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
         await Promise.all(
           followers.map((followerId) =>

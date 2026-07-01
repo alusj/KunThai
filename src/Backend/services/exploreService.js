@@ -8,9 +8,11 @@ import { fetchRecommendedPeople } from "./explore/recommendationService";
 export {
   createExplorePost,
   deleteExplorePost,
+  fetchCurrentUserRecentExplorePosts,
   fetchExplorePostCounts,
   fetchExplorePosts,
   isExplorePostVisibleInFeed,
+  MAX_EXPLORE_VIDEO_BYTES,
   removeExploreVideoUpload,
   reportExplorePost,
   uploadExploreVideoForReview,

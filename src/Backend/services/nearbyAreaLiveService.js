@@ -408,7 +408,7 @@ export async function submitNearbyAreaLocation(input = {}) {
     description: String(input.description || "").trim(),
     lat,
     lng,
-    status: "submitted",
+    status: "pending",
     visibility: "public",
     source: "area_view",
     metadata: {
@@ -441,7 +441,7 @@ export async function submitNearbyAreaLocation(input = {}) {
         name: placeName,
         category: normalizeLocationCategory(category),
         type: category,
-        status: "submitted",
+        status: "pending",
         visibility: "public",
         description: payload.description || payload.landmark || payload.address || "Submitted KunThai Area View location.",
         distance: payload.address || payload.landmark || "Submitted for review",

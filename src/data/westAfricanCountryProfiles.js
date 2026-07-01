@@ -2,6 +2,8 @@ const COUNTRY_STORAGE_KEY = "kunthai.activeCountryIso";
 
 export const DEFAULT_COUNTRY_ISO = "SL";
 
+import { getEmergencyContacts } from "./emergencyContacts";
+
 export const WEST_AFRICAN_COUNTRY_PROFILES = [
   {
     name: "Sierra Leone",
@@ -635,11 +637,7 @@ export function filterCountryScopedItems(items, getter, country = "") {
 
 export function getEmergencyContactsForCountry(value = "") {
   const profile = getActiveCountryProfile(value);
-  return {
-    country: profile.name,
-    countryCode: profile.iso2,
-    ...profile.emergency,
-  };
+  return getEmergencyContacts(profile.iso2);
 }
 
 export const WEST_AFRICAN_COUNTRY_SELECT_OPTIONS = WEST_AFRICAN_COUNTRY_PROFILES.map((profile) => ({

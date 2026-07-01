@@ -1,6 +1,7 @@
 import supabase from "../../Backend/lib/supabaseClient";
 
 export const TRANSPORT_PUBLIC_MEDIA_BUCKET = "transport-public-media";
+export const TRANSPORT_VERIFICATION_DOCUMENTS_BUCKET = "transport-verification-documents";
 
 function safePathPart(value = "file") {
   return String(value)
@@ -47,6 +48,30 @@ export async function uploadTransportPublicImage({ file, ownerUserId, scope = "f
 
   const { data } = supabase.storage.from(TRANSPORT_PUBLIC_MEDIA_BUCKET).getPublicUrl(path);
   return data?.publicUrl || "";
+}
+
+export async function uploadTransportVerificationDocument({ file, ownerUserId, scope = "registration", label = "document" }) {
+  if (!file || !ownerUserId) return null;
+
+  const path = [
+    safePathPart(ownerUserId),
+    safePathPart(scope),
+    `${Date.now()}-${safePathPart(label)}-${safePathPart(file.name)}`,
+  ].join("/");
+  const { error } = await supabase.storage.from(TRANSPORT_VERIFICATION_DOCUMENTS_BUCKET).upload(path, file, {
+    cacheControl: "3600",
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
+  if (error) throw new Error(error.message || `Unable to upload ${label}.`);
+
+  return {
+    fileName: file.name || label,
+    bucket: TRANSPORT_VERIFICATION_DOCUMENTS_BUCKET,
+    path,
+    contentType: file.type || "application/octet-stream",
+    visibility: "admin",
+  };
 }
 
 export function toStoredTransportUpload(value, publicUrl = "") {

@@ -1,11 +1,3 @@
-import {
-  getCountryPhonePlaceholder,
-  getEmergencyContactsForCountry,
-} from "../../data/westAfricanCountryProfiles";
-
-const activeEmergencyContacts = getEmergencyContactsForCountry();
-const fallbackPhone = getCountryPhonePlaceholder();
-
 export const locationCategories = [
   "All",
   "Fleets",
@@ -18,12 +10,6 @@ export const locationCategories = [
 ];
 
 export const nearbyLocations = [];
-
-export const emergencyContacts = [
-  { id: "trusted", label: "Trusted Contact", value: fallbackPhone },
-  { id: "police", label: "Police Help", value: activeEmergencyContacts.police?.[0] || fallbackPhone },
-  { id: "clinic", label: "Nearest Clinic", value: activeEmergencyContacts.ambulance?.[0] || fallbackPhone },
-];
 
 export const locationStatusStyles = {
   community: {

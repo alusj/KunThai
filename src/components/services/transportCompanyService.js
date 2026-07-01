@@ -7,6 +7,7 @@ import {
   getTransportUploadUrl,
   toStoredTransportUpload,
   uploadTransportPublicImage,
+  uploadTransportVerificationDocument,
 } from "./transportPublicMediaService";
 import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
 
@@ -463,7 +464,16 @@ async function prepareCompanyFleetPublicMedia(fleets = [], ownerUserId) {
 
       documents[key] = isFleetImage
         ? toStoredTransportUpload(value, publicUrl)
-        : getTransportUploadName(value);
+        : file
+          ? await uploadTransportVerificationDocument({
+              file,
+              ownerUserId,
+              scope: `company-${fleet.fleetCode || fleet.localId || "fleet"}`,
+              label: key,
+            })
+          : value?.bucket && value?.path
+            ? value
+            : getTransportUploadName(value);
       if (isFleetImage && publicUrl) {
         publicFleetPhotos.push({ label: key.replace(/^Fleet image - /, ""), url: publicUrl });
       }
@@ -476,6 +486,22 @@ async function prepareCompanyFleetPublicMedia(fleets = [], ownerUserId) {
     });
   }
 
+  return prepared;
+}
+
+async function prepareCompanyDocuments(documents = {}, ownerUserId) {
+  const prepared = {};
+  for (const [key, value] of Object.entries(documents || {})) {
+    const file = getTransportUploadFile(value);
+    prepared[key] = file
+      ? await uploadTransportVerificationDocument({
+          file,
+          ownerUserId,
+          scope: "company-registration",
+          label: key,
+        })
+      : value;
+  }
   return prepared;
 }
 
@@ -1122,6 +1148,9 @@ function normalizeInviteDocumentEntries(documents = {}, invite = {}) {
         documentType: value.documentType || value.label || key,
         fileName,
         fileUrl: value.fileUrl || value.url || "",
+        storageBucket: value.bucket || "",
+        storagePath: value.path || "",
+        contentType: value.contentType || "",
         uploadedAt: value.uploadedAt || now,
         metadata: {
           source: "company_invite",
@@ -1234,7 +1263,12 @@ async function saveInvitedOperatorDocumentRows(operatorId, documents = {}, invit
       file_url: entry.fileUrl || null,
       document_url: entry.fileUrl || null,
       status: "verification_pending",
-      metadata: entry.metadata,
+      metadata: {
+        ...entry.metadata,
+        storageBucket: entry.storageBucket || "",
+        storagePath: entry.storagePath || "",
+        contentType: entry.contentType || "",
+      },
       uploaded_at: entry.uploadedAt,
       updated_at: new Date().toISOString(),
     };
@@ -1281,6 +1315,17 @@ export async function submitOperatorCompanyInviteDocuments(invite, documents = {
         .eq("user_id", user.id);
       if (photoError && !isMissingColumn(photoError, "public_selfie_url")) throw photoError;
     }
+    for (const [key, value] of Object.entries(preparedDocuments)) {
+      if (key === "operatorPhoto") continue;
+      const file = getTransportUploadFile(value);
+      if (!file) continue;
+      preparedDocuments[key] = await uploadTransportVerificationDocument({
+        file,
+        ownerUserId: user.id,
+        scope: "invited-operator",
+        label: key,
+      });
+    }
     const savedDocuments = await saveInvitedOperatorDocumentRows(operator?.id, preparedDocuments, invite || {});
     return { operator, documents: savedDocuments, storageMode: "cloud" };
   } catch (error) {
@@ -1310,6 +1355,7 @@ export async function saveTransportCompanyAccount(account) {
   }, user.id);
   normalized = {
     ...normalized,
+    documents: await prepareCompanyDocuments(normalized.documents, user.id),
     fleets: await prepareCompanyFleetPublicMedia(normalized.fleets, user.id),
   };
 

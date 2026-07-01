@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { HiOutlineChatBubbleLeftRight, HiOutlineXMark } from "react-icons/hi2";
 
 import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
@@ -97,10 +98,10 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     : closing ? "kt-comments-feed-exit" : "kt-comments-feed-enter";
   const panelSizeClass = isSwip
     ? "h-[84dvh] max-h-[760px] min-h-[420px] w-full rounded-t-[28px] sm:h-full sm:max-h-none sm:max-w-md sm:rounded-l-[28px] sm:rounded-r-none sm:rounded-t-none"
-    : "h-[86dvh] max-h-[760px] min-h-[420px] w-full rounded-t-[28px] sm:h-[78dvh] sm:max-w-2xl";
+    : "h-[56dvh] max-h-[640px] min-h-[340px] w-full rounded-t-[28px] sm:h-[68dvh] sm:max-w-2xl";
   const backdropClass = closing ? "kt-comments-backdrop-exit" : "kt-comments-backdrop-enter";
 
-  return (
+  return createPortal(
     <div className={shellClass}>
       <button
         type="button"
@@ -170,7 +171,8 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           onSubmit={addComment}
         />
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

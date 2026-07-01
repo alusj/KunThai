@@ -100,6 +100,56 @@ export async function getCaseActivity(caseId) {
   };
 }
 
+function collectCaseEvidence(value, path = [], collected = []) {
+  if (!value) return collected;
+
+  if (typeof value === "string") {
+    if (/^(https?:|data:image\/)/i.test(value)) {
+      collected.push({ label: path.join(" / ") || "Attachment", url: value });
+    }
+    return collected;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => collectCaseEvidence(item, [...path, String(index + 1)], collected));
+    return collected;
+  }
+
+  if (typeof value !== "object") return collected;
+
+  const bucket = value.bucket || value.storageBucket || "";
+  const storagePath = value.path || value.storagePath || "";
+  if (bucket && storagePath) {
+    collected.push({
+      label: value.fileName || value.name || path.join(" / ") || "Verification document",
+      bucket,
+      path: storagePath,
+      contentType: value.contentType || "",
+    });
+  }
+
+  Object.entries(value).forEach(([key, child]) => {
+    if (["bucket", "storageBucket", "path", "storagePath"].includes(key)) return;
+    collectCaseEvidence(child, [...path, key], collected);
+  });
+  return collected;
+}
+
+export async function getAdminCaseEvidence(item) {
+  const references = collectCaseEvidence(item?.metadata?.source || {});
+  const deduped = Array.from(new Map(references.map((entry) => [entry.url || `${entry.bucket}:${entry.path}`, entry])).values());
+
+  return Promise.all(deduped.map(async (entry) => {
+    if (entry.url) return entry;
+    const { data, error } = await supabase.storage.from(entry.bucket).createSignedUrl(entry.path, 60 * 60);
+    return {
+      ...entry,
+      url: error ? "" : data?.signedUrl || "",
+      unavailable: error?.message || "",
+    };
+  }));
+}
+
 export async function claimCase(caseId) {
   if (isAdminPreview()) return previewDelay(updatePreviewCase(caseId, { assignee_user_id: "preview-user", status: "assigned" }));
   return unwrap(await supabase.rpc("admin_claim_case", { case_uuid: caseId }), "Unable to claim this case.");

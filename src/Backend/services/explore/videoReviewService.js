@@ -230,8 +230,14 @@ export async function runPendingVideoReviewJob(jobId) {
     if (isApprovedReview(review)) {
       const updatedPost = await updateExploreVideoModerationStatus(job.postId, "approved");
       if (updatedPost?.id) {
+        const existingPost = readStoredPosts("swip").find((post) => post.id === updatedPost.id);
+        const visiblePost = {
+          ...existingPost,
+          ...updatedPost,
+          client_pinned_at: existingPost?.client_pinned_at || new Date().toISOString(),
+        };
         const cachedSwips = readStoredPosts("swip").filter((post) => post.id !== updatedPost.id);
-        writeStoredPosts("swip", [updatedPost, ...cachedSwips]);
+        writeStoredPosts("swip", [visiblePost, ...cachedSwips]);
       }
       removeVideoReviewJob(job.id);
       publishPostingNotice({

@@ -34,6 +34,13 @@ export default function UrFeed({ profile, onViewProfile }) {
       const deduped = Array.from(new Map(combined.map((post) => [post.id, post])).values());
 
       const ranked = deduped.sort((first, second) => {
+        const firstPinnedAt = Date.parse(first.client_pinned_at || "");
+        const secondPinnedAt = Date.parse(second.client_pinned_at || "");
+        const firstPinned = Number.isFinite(firstPinnedAt) && Date.now() - firstPinnedAt < 24 * 60 * 60 * 1000;
+        const secondPinned = Number.isFinite(secondPinnedAt) && Date.now() - secondPinnedAt < 24 * 60 * 60 * 1000;
+        if (firstPinned !== secondPinned) return secondPinned ? 1 : -1;
+        if (firstPinned && secondPinned && secondPinnedAt !== firstPinnedAt) return secondPinnedAt - firstPinnedAt;
+
         const firstScore = Number(first.recommendation_score ?? first.score);
         const secondScore = Number(second.recommendation_score ?? second.score);
         if (Number.isFinite(firstScore) || Number.isFinite(secondScore)) {

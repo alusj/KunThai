@@ -22,7 +22,6 @@ import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
 import { searchLocations } from "../../Backend/services/locationSearchService";
 import { getRouteBetweenPoints } from "../../Backend/services/routeService";
-import { showToast } from "../../Backend/services/toastService";
 import {
   getActiveAreaReports,
   getActiveTrafficSnapshots,
@@ -37,8 +36,8 @@ import {
 } from "../../Backend/services/nearbyAreaLiveService";
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
 import { constrainCountryPhoneInput, getActiveCountryProfile, getCountryPhoneHint } from "../../data/westAfricanCountryProfiles";
+import { getEmergencyContacts } from "../../data/emergencyContacts";
 import {
-  emergencyContacts,
   locationCategories,
   locationStatusStyles,
   nearbyLocations,
@@ -73,9 +72,6 @@ const WEATHER_REFRESH_DEBOUNCE_MS = 900;
 const LIVE_AREA_REFRESH_METERS = 1600;
 const LIVE_AREA_REFRESH_MS = 1000 * 60 * 2;
 const LIVE_AREA_RADIUS_KM = 25;
-const ACTIVE_OPERATOR_EMPTY_TOAST_MESSAGE =
-  "No registered fleets are currently active nearby. Try expanding the area or check again shortly.";
-const ACTIVE_OPERATOR_EMPTY_TOAST_COOLDOWN_MS = 45000;
 const ONE_KM_PREVIEW_METERS = 1000;
 const ONE_KM_ROUTE_SEARCH_METERS = 1350;
 const ONE_KM_ROUTE_START_SNAP_LIMIT_METERS = 160;
@@ -681,7 +677,6 @@ export default function NearbyAreaScreen({
   const searchRequestRef = useRef(0);
   const sosDetectionRequestRef = useRef(0);
   const initialDestinationHandledRef = useRef("");
-  const activeOperatorToastAtRef = useRef(0);
   const oneKmPreviewRequestRef = useRef(0);
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
@@ -786,16 +781,6 @@ export default function NearbyAreaScreen({
     setMoreCategoriesOpen(false);
   }
 
-  const showNoActiveOperatorToast = useCallback(() => {
-    if (isSpecialMode) return;
-
-    const now = Date.now();
-    if (now - activeOperatorToastAtRef.current < ACTIVE_OPERATOR_EMPTY_TOAST_COOLDOWN_MS) return;
-
-    activeOperatorToastAtRef.current = now;
-    showToast(ACTIVE_OPERATOR_EMPTY_TOAST_MESSAGE, "info");
-  }, [isSpecialMode]);
-
   const publishLiveOperators = useCallback(
     (operators = []) => {
       const nextOperators = Array.isArray(operators)
@@ -803,19 +788,9 @@ export default function NearbyAreaScreen({
         : [];
 
       setLiveOperators(nextOperators);
-
-      if (!nextOperators.length) {
-        showNoActiveOperatorToast();
-      }
     },
-    [showNoActiveOperatorToast],
+    [],
   );
-
-  useEffect(() => {
-    if (activeCategory === "Fleets" && liveOperators.length === 0) {
-      showNoActiveOperatorToast();
-    }
-  }, [activeCategory, liveOperators.length, showNoActiveOperatorToast]);
 
   useEffect(() => {
     if (!isOneKmPreview || !userLocation?.lat || !userLocation?.lng) {
@@ -1454,13 +1429,11 @@ export default function NearbyAreaScreen({
     const cachedCountryCode = readCachedSosCountryCode();
     if (cachedCountryCode) {
       setDetectedCountryCode(cachedCountryCode);
-      setDetectingSosCountry(false);
-      return;
     }
 
     const position = userLocationRef.current || mapCenterRef.current || userLocation || mapCenter;
     if (position?.lat == null || position?.lng == null) {
-      setDetectedCountryCode(SOS_FALLBACK_COUNTRY);
+      setDetectedCountryCode(cachedCountryCode || SOS_FALLBACK_COUNTRY);
       setDetectingSosCountry(false);
       return;
     }
@@ -1481,13 +1454,13 @@ export default function NearbyAreaScreen({
 
   const handleEmergencyNearbySearch = useCallback((type) => {
     const searchMap = {
-      hospital: "hospital near me",
-      police: "police station near me",
-      pharmacy: "pharmacy near me",
-      fire: "fire station near me",
+      hospital: "hospital",
+      police: "police station",
+      pharmacy: "pharmacy",
+      fire: "fire station",
     };
 
-    const query = searchMap[type] || `${type} near me`;
+    const query = searchMap[type] || String(type || "").trim();
 
     setSosOpen(false);
     setOperatorRoutePlan(null);
@@ -1821,6 +1794,7 @@ export default function NearbyAreaScreen({
         {!isSpecialMode && !focusMode && (
           <LocationPanel
             activeLocation={activeLocation}
+            countryCode={detectedCountryCode}
             open={locationPanelOpen}
             onClose={() => setLocationPanelOpen(false)}
             onAddLocation={openAddLocation}
@@ -2267,8 +2241,15 @@ const MapPinButton = memo(function MapPinButton({ location, active, onSelect }) 
     </button>
   );
 });
-function LocationPanel({ activeLocation, open, onClose, onAddLocation }) {
+function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocation }) {
   const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
+  const emergency = getEmergencyContacts(countryCode);
+  const emergencyContacts = [
+    emergency.national?.[0] ? { id: "national", label: "National Emergency", value: emergency.national[0] } : null,
+    { id: "police", label: "Police", value: emergency.police?.[0] },
+    { id: "ambulance", label: "Ambulance", value: emergency.ambulance?.[0] },
+    { id: "fire", label: "Fire Service", value: emergency.fire?.[0] },
+  ].filter((contact) => contact?.value);
 
   if (!open) return null;
 

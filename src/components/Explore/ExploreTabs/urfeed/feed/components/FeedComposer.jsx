@@ -10,6 +10,7 @@ import {
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import {
+  MAX_EXPLORE_VIDEO_BYTES,
   removeExploreVideoUpload,
   uploadExploreVideoForReview,
 } from "../../../../../../Backend/services/exploreService";
@@ -41,7 +42,6 @@ import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentModeration";
 import { getCountryCurrencyCode } from "../../../../../../data/westAfricanCountryProfiles";
 
-const MAX_LOCAL_VIDEO_BYTES = 150 * 1024 * 1024;
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
 const VIDEO_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
@@ -211,7 +211,12 @@ async function uploadVideoWithProgress(file, onProgress) {
   let timedOut = false;
   let timeoutId = null;
 
-  const uploadPromise = uploadExploreVideoForReview(file);
+  const uploadPromise = uploadExploreVideoForReview(file, (bytesUploaded, bytesTotal) => {
+    if (!bytesTotal) return;
+    const measuredProgress = 24 + Math.round((Math.min(bytesUploaded, bytesTotal) / bytesTotal) * 32);
+    progress = Math.max(progress, Math.min(56, measuredProgress));
+    onProgress?.(progress);
+  });
   uploadPromise
     .then((videoUrl) => {
       if (timedOut && videoUrl) removeExploreVideoUpload(videoUrl).catch(() => {});
@@ -544,8 +549,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           throw new Error("This video format is not supported. Please use MP4, MOV, or WebM.");
         }
 
-        if (file.size > MAX_LOCAL_VIDEO_BYTES) {
-          throw new Error("This video is too large for mobile posting. Please compress it below 150MB and try again.");
+        if (file.size > MAX_EXPLORE_VIDEO_BYTES) {
+          const sizeMb = Math.max(1, Math.ceil(file.size / (1024 * 1024)));
+          throw new Error(`This video is ${sizeMb}MB. KunThai currently accepts videos up to 50MB; compress it and try again.`);
         }
 
         const duration = await getVideoDuration(file);
@@ -1184,7 +1190,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   window.innerWidth <= 768;
 
 if (!isMobileVideoDevice) {
-  videoFrameDataUrls = await extractVideoFramesFromDataUrl(sourceUrl, 6, {
+  videoFrameDataUrls = await extractVideoFramesFromDataUrl(sourceUrl, 3, {
     start: postDraft.mediaMeta?.videoTrimStart || 0,
     end: postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS,
   });
@@ -1505,6 +1511,28 @@ if (!isMobileVideoDevice) {
                     isAdvertMode ? "min-h-[120px] sm:min-h-[150px]" : "min-h-[180px] sm:min-h-[220px]"
                   }`}
                 />
+                {!isAdvertMode ? (
+                  <div className="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => handleTool("mention")}
+                      className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
+                        mentionPickerOpen ? "bg-violet-600 text-white" : "bg-white text-violet-700 shadow-sm ring-1 ring-violet-100 hover:bg-violet-50"
+                      }`}
+                    >
+                      <HiOutlineAtSymbol className="text-base" /> Mention
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTool("tag")}
+                      className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
+                        tagPickerOpen ? "bg-sky-700 text-white" : "bg-white text-sky-700 shadow-sm ring-1 ring-sky-100 hover:bg-sky-50"
+                      }`}
+                    >
+                      <HiOutlineHashtag className="text-base" /> Hashtag
+                    </button>
+                  </div>
+                ) : null}
               </div>
               ) : null}
 

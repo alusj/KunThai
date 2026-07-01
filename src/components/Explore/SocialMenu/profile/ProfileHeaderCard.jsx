@@ -12,6 +12,7 @@ import {
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
@@ -306,13 +307,13 @@ export default function ProfileHeaderCard({
         </div>
       </div>
 
-      {publicIdHelpOpen ? (
-        <div className="fixed inset-0 z-[1400] flex items-end justify-center bg-slate-950/50 p-4 sm:items-center" role="presentation" onMouseDown={() => setPublicIdHelpOpen(false)}>
+      {publicIdHelpOpen && typeof document !== "undefined" ? createPortal(
+        <div className="fixed inset-0 z-[2147483000] flex items-end justify-center overflow-y-auto bg-slate-950/55 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-[2px] sm:items-center" role="presentation" onMouseDown={() => setPublicIdHelpOpen(false)}>
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="kunthai-id-help-title"
-            className="w-full max-w-md rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-start gap-3">
@@ -331,7 +332,8 @@ export default function ProfileHeaderCard({
               Understood
             </button>
           </section>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </section>
   );

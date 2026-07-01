@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  HiOutlineAtSymbol,
   HiOutlineChevronDown,
   HiOutlineGlobeAlt,
-  HiOutlineHashtag,
   HiOutlineLockClosed,
   HiOutlineMapPin,
   HiOutlineMicrophone,
@@ -18,8 +16,6 @@ const tools = [
   { type: "image", label: "Image", icon: HiOutlinePhoto },
   { type: "video", label: "Video", icon: HiOutlineVideoCamera },
   { type: "voice", label: "Voice", icon: HiOutlineMicrophone },
-  { type: "mention", label: "Mention", icon: HiOutlineAtSymbol },
-  { type: "tag", label: "Tags", icon: HiOutlineHashtag },
   { type: "location", label: "Location", icon: HiOutlineMapPin },
 ];
 

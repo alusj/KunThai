@@ -36,7 +36,7 @@ function logSafetyReview(event, detail = {}) {
   }
 }
 
-export async function runPostReviewPipeline({ body, media, onStage }) {
+export async function runPostReviewPipeline({ body, media, onStage, reviewTimeoutMs = 0 }) {
   if (!CONTENT_MODERATION_ENABLED) {
     onStage?.("publishing", 84);
     return {
@@ -63,12 +63,21 @@ export async function runPostReviewPipeline({ body, media, onStage }) {
   await wait(media?.hasMedia ? 260 : 160);
 
   try {
+    const controller = reviewTimeoutMs > 0 && typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timeoutId = controller
+      ? window.setTimeout(() => controller.abort(), reviewTimeoutMs)
+      : null;
     const moderationPayload = buildModerationMediaPayload(media);
-
-    const review = await moderateExplorePost({
-      body,
-      media: moderationPayload,
-    });
+    let review;
+    try {
+      review = await moderateExplorePost({
+        body,
+        media: moderationPayload,
+        signal: controller?.signal,
+      });
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    }
 
     if (!review?.ok) {
       const decision = review?.decision || "failed";

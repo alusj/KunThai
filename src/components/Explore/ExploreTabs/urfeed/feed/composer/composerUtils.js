@@ -98,7 +98,7 @@ export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3, opt
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const frames = [];
-    const frameCount = Math.max(1, Math.min(4, Math.round(Number(count || 3))));
+    const frameCount = Math.max(1, Math.min(3, Math.round(Number(count || 3))));
     let settled = false;
     let timeoutId = null;
 
@@ -130,7 +130,7 @@ export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3, opt
         return;
       }
 
-      canvas.width = Math.min(video.videoWidth || 720, 720);
+      canvas.width = Math.min(video.videoWidth || 480, 480);
       canvas.height = Math.round(canvas.width * ((video.videoHeight || 720) / (video.videoWidth || 720)));
 
       const requestedStart = Math.max(0, Number(options.start || 0));
@@ -162,7 +162,7 @@ export async function extractVideoFramesFromDataUrl(videoDataUrl, count = 3, opt
         window.requestAnimationFrame(() => {
           try {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            frames.push(canvas.toDataURL("image/jpeg", 0.82));
+            frames.push(canvas.toDataURL("image/jpeg", 0.68));
           } catch {
             // Skip unreadable frames and let the caller require a usable review sample.
           }

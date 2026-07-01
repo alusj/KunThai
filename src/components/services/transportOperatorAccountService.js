@@ -13,6 +13,7 @@ import {
   getTransportUploadUrl,
   toStoredTransportUpload,
   uploadTransportPublicImage,
+  uploadTransportVerificationDocument,
 } from "./transportPublicMediaService";
 
 const DRAFT_KEY = "kuntai.transport.operatorDraft";
@@ -264,6 +265,9 @@ function normalizeUploadDocumentEntries(uploads = {}) {
         documentType: uploadKeyToDocumentType(key),
         fileName: name,
         fileUrl: getTransportUploadUrl(fileName),
+        storageBucket: fileName?.bucket || "",
+        storagePath: fileName?.path || "",
+        contentType: fileName?.contentType || "",
         uploadedAt: now,
         metadata: {
           source: key.startsWith("fleet-") ? "fleet_registration" : "operator_registration",
@@ -294,7 +298,16 @@ async function prepareOperatorPublicMedia(userId, uploads = {}) {
       });
     }
 
-    nextUploads[key] = toStoredTransportUpload(value, publicUrl);
+    nextUploads[key] = publicUrl
+      ? toStoredTransportUpload(value, publicUrl)
+      : file
+        ? await uploadTransportVerificationDocument({
+            file,
+            ownerUserId: userId,
+            scope: "operator-registration",
+            label: key.replace(/^doc-|^fleet-/, ""),
+          })
+        : toStoredTransportUpload(value, "");
     if (isFleetPhoto && publicUrl) {
       fleetPhotos.push({ label: key.replace(/^fleet-/, ""), url: publicUrl });
     }
@@ -327,7 +340,12 @@ async function saveOperatorDocumentRows(operatorId, uploads = {}) {
       file_url: entry.fileUrl || null,
       document_url: entry.fileUrl || null,
       status: "verification_pending",
-      metadata: entry.metadata,
+      metadata: {
+        ...entry.metadata,
+        storageBucket: entry.storageBucket || "",
+        storagePath: entry.storagePath || "",
+        contentType: entry.contentType || "",
+      },
       uploaded_at: entry.uploadedAt,
       updated_at: new Date().toISOString(),
     };

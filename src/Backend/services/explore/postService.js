@@ -1,7 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
 import { isMissingColumn, isMissingTable } from "./errors";
-import { removeUploadedMediaUrl, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
+import { MAX_EXPLORE_VIDEO_BYTES, removeUploadedMediaUrl, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 import { recordHashtagUsage } from "./hashtagService";
 
@@ -120,14 +120,16 @@ async function getCurrentUserId() {
   return user?.id ?? null;
 }
 
-export async function uploadExploreVideoForReview(file) {
+export { MAX_EXPLORE_VIDEO_BYTES };
+
+export async function uploadExploreVideoForReview(file, onProgress) {
   const userId = await getCurrentUserId();
 
   if (!userId) {
     throw new Error("No active session.");
   }
 
-  return uploadMediaFile(file, "video", userId);
+  return uploadMediaFile(file, "video", userId, { onProgress });
 }
 
 export async function removeExploreVideoUpload(videoUrl) {
@@ -242,6 +244,42 @@ export async function fetchExplorePosts(scope = "feed", options = {}) {
   });
 
   return hydratePostActionCounts(visiblePosts);
+}
+
+export async function fetchCurrentUserRecentExplorePosts(scope = "feed", options = {}) {
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+
+  const limit = Math.max(1, Math.min(Number(options.limit) || 12, 24));
+  const { data, error } = await supabase
+    .from("explore_posts")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+
+  const ownVisiblePosts = (data || []).filter((post) => {
+    const moderationStatus = String(post?.moderation_status || "").toLowerCase();
+    const visibleToOwner = isExplorePostVisibleInFeed(post) || moderationStatus === "pending";
+    if (!visibleToOwner) return false;
+
+    const isAdvert = post.post_type === "advert" || post.category === "advert" || Boolean(post.media_meta?.advert);
+    if (scope === "swip") {
+      return (post.feed_scope ?? "") === "swip" || Boolean(post.video_url);
+    }
+
+    return (
+      (post.feed_scope ?? "feed") === scope &&
+      (!post.video_url || (isAdvert && Boolean(post.image_url)))
+    );
+  });
+
+  return hydratePostActionCounts(ownVisiblePosts);
 }
 
 export async function fetchExplorePostCounts(postIds = []) {

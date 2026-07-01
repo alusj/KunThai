@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, ClipboardCheck, LoaderCircle, MessageSquareText, UserRoundCheck, X } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ExternalLink, FileText, Image as ImageIcon, LoaderCircle, MessageSquareText, UserRoundCheck, X } from "lucide-react";
 import { CASE_DECISIONS, CASE_STATUSES, formatCaseNumber, formatDateTime, titleCase } from "../adminConfig";
-import { addCaseNote, applyCaseDecision, claimCase, getCaseActivity, reviewCaseApproval, transitionCase } from "../adminService";
+import { addCaseNote, applyCaseDecision, claimCase, getAdminCaseEvidence, getCaseActivity, reviewCaseApproval, transitionCase } from "../adminService";
 
 export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const [activity, setActivity] = useState({ events: [], notes: [], approvals: [] });
@@ -11,6 +11,7 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [evidence, setEvidence] = useState([]);
 
   useEffect(() => {
     if (!item?.id) return;
@@ -18,6 +19,14 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
     getCaseActivity(item.id).then((value) => { if (active) setActivity(value); }).catch(() => null);
     return () => { active = false; };
   }, [item?.id]);
+
+  useEffect(() => {
+    if (!item?.id) return;
+    let active = true;
+    setEvidence([]);
+    getAdminCaseEvidence(item).then((value) => { if (active) setEvidence(value); }).catch(() => { if (active) setEvidence([]); });
+    return () => { active = false; };
+  }, [item]);
 
   if (!item) return null;
 
@@ -94,6 +103,27 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
                   <div key={key}><dt className="text-[11px] font-black uppercase text-zinc-400">{titleCase(key)}</dt><dd className="mt-1 break-words text-sm font-semibold text-zinc-800">{String(value)}</dd></div>
                 ))}
               </dl>
+            </section>
+          ) : null}
+
+          {evidence.length ? (
+            <section className="border-b border-zinc-200 p-4 sm:p-6">
+              <h3 className="text-sm font-black text-zinc-950">Documents and images</h3>
+              <p className="mt-1 text-xs font-medium text-zinc-500">Submitted registration evidence available before verification begins.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {evidence.map((entry, index) => {
+                  const image = /^data:image\//i.test(entry.url || "") || String(entry.contentType || "").startsWith("image/") || /\.(png|jpe?g|webp|gif|heic|heif)(\?|$)/i.test(entry.url || "");
+                  return (
+                    <article key={`${entry.url || entry.path}-${index}`} className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+                      {image && entry.url ? <img src={entry.url} alt={entry.label} className="h-40 w-full bg-zinc-100 object-cover" /> : <div className="grid h-24 place-items-center bg-zinc-100 text-zinc-500">{image ? <ImageIcon size={28} /> : <FileText size={28} />}</div>}
+                      <div className="p-3">
+                        <p className="break-words text-xs font-black text-zinc-800">{titleCase(entry.label)}</p>
+                        {entry.url ? <a href={entry.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-black text-emerald-700 hover:text-emerald-800"><ExternalLink size={13} /> Open evidence</a> : <p className="mt-2 text-xs font-semibold text-red-600">Evidence could not be opened.</p>}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </section>
           ) : null}
 

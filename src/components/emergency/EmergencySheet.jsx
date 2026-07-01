@@ -14,25 +14,25 @@ import { DEFAULT_EMERGENCY, EMERGENCY_CONTACTS } from "../../data/emergencyConta
 const nearbyActions = [
   {
     id: "hospital",
-    label: "Nearby Hospital",
+    label: "Hospital",
     description: "Find urgent medical help",
     icon: HeartPulse,
   },
   {
     id: "police",
-    label: "Nearby Police",
+    label: "Police Station",
     description: "Find the closest police station",
     icon: ShieldAlert,
   },
   {
     id: "pharmacy",
-    label: "Nearby Pharmacy",
+    label: "Pharmacy",
     description: "Search for medicine nearby",
     icon: Pill,
   },
   {
     id: "fire",
-    label: "Nearby Fire Station",
+    label: "Fire Station",
     description: "Locate fire service support",
     icon: Flame,
   },
@@ -155,6 +155,7 @@ export default function EmergencySheet({
           </div>
 
           <div className="mt-4 grid gap-3">
+            {emergency.national?.length ? <CallButton icon={<Siren size={22} />} label="National Emergency" numbers={emergency.national} /> : null}
             <CallButton icon={<ShieldAlert size={22} />} label="Police" numbers={emergency.police} />
             <CallButton icon={<HeartPulse size={22} />} label="Ambulance" numbers={emergency.ambulance} />
             <CallButton icon={<Flame size={22} />} label="Fire Service" numbers={emergency.fire} />
