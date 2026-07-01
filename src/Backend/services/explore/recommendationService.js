@@ -79,12 +79,22 @@ export async function fetchRecommendedExplorePosts(scope = "feed", options = {})
     return fetchExplorePosts(scope, { limit, offset });
   }
 
-  const functionName = scope === "swip" ? "get_recommended_swip" : "get_recommended_feed";
-  const { data, error } = await supabase.rpc(functionName, {
-    p_user_id: userId,
-    p_limit: limit,
-    p_offset: offset,
-  });
+  const functionNames = scope === "swip"
+    ? ["get_recommended_swip_v2", "get_recommended_swip"]
+    : ["get_recommended_feed_v2", "get_recommended_feed"];
+  let data = null;
+  let error = null;
+
+  for (const functionName of functionNames) {
+    const result = await supabase.rpc(functionName, {
+      p_user_id: userId,
+      p_limit: limit,
+      p_offset: offset,
+    });
+    data = result.data;
+    error = result.error;
+    if (!error) break;
+  }
 
   if (!error) {
     const recommended = (data || []).map((post) => markRecommendedPost(post, scope));
@@ -108,10 +118,19 @@ export async function fetchRecommendedPeople(userId, limit = 20) {
     return null;
   }
 
-  const { data, error } = await supabase.rpc("get_people_you_may_know", {
-    p_user_id: userId,
-    p_limit: Math.max(1, Math.min(Number(limit) || 20, 50)),
-  });
+  let data = null;
+  let error = null;
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 50));
+
+  for (const functionName of ["get_people_you_may_know_v2", "get_people_you_may_know"]) {
+    const result = await supabase.rpc(functionName, {
+      p_user_id: userId,
+      p_limit: safeLimit,
+    });
+    data = result.data;
+    error = result.error;
+    if (!error) break;
+  }
 
   if (error) {
     if (import.meta.env.DEV) {

@@ -375,8 +375,11 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
       </div>
 
       {saveCheckpointOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
-          <section className="kt-modal-enter w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
+        <div
+          className="fixed inset-0 z-[1100] flex items-end justify-center bg-slate-950/25 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md sm:items-center"
+          onClick={() => setSaveCheckpointOpen(false)}
+        >
+          <section className="kt-modal-enter max-h-[78dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <p className="text-lg font-black text-gray-950">
               Your information has been saved
             </p>

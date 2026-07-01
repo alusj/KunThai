@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { markOnboardingComplete, updateOnboardingProfile } from "../../Backend/services/onboardingService";
+import { fetchUserTopicFollows, saveUserTopicFollows } from "../../Backend/services/explore/topicService";
 import { getActiveCountryProfile } from "../../data/westAfricanCountryProfiles";
 import WelcomeStep from "./WelcomeStep";
 import ProfileStep from "./ProfileStep";
@@ -43,6 +44,7 @@ function normalizeProfile(profile) {
     providerName: profile?.providerName ?? "Email",
     accountType: profile?.accountType ?? "personal",
     interests: profile?.interests ?? [],
+    contentTopics: profile?.contentTopics ?? [],
     primarySurface: profile?.primarySurface ?? "explore",
   };
 }
@@ -57,6 +59,18 @@ export default function OnboardingFlow({ profile, onComplete }) {
   const [error, setError] = useState("");
 
   const safeValues = useMemo(() => normalizeProfile(values), [values]);
+
+  useEffect(() => {
+    let active = true;
+    fetchUserTopicFollows()
+      .then((contentTopics) => {
+        if (active) setValues((current) => ({ ...current, contentTopics }));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const updateField = (field, value) => {
     setError("");
@@ -85,12 +99,27 @@ export default function OnboardingFlow({ profile, onComplete }) {
     });
   };
 
+  const toggleContentTopic = (topic) => {
+    setValues((current) => {
+      const exists = current.contentTopics.includes(topic);
+      return {
+        ...current,
+        contentTopics: exists
+          ? current.contentTopics.filter((item) => item !== topic)
+          : [...current.contentTopics, topic],
+      };
+    });
+  };
+
   const persistStep = async (nextStep) => {
     await updateOnboardingProfile({
       ...safeValues,
       onboardingStep: nextStep,
       onboardingComplete: false,
     });
+    if (step === 3) {
+      await saveUserTopicFollows(safeValues.contentTopics, { source: "onboarding" });
+    }
   };
 
   const handleNext = async () => {
@@ -128,6 +157,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
     setSaving(true);
 
     try {
+      await saveUserTopicFollows(safeValues.contentTopics, { source: "onboarding" });
       await markOnboardingComplete(safeValues);
       setTransitionOrigin(origin);
       setFinishing(true);
@@ -150,6 +180,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
       <InterestsStep
         values={safeValues}
         onToggleInterest={toggleInterest}
+        onToggleContentTopic={toggleContentTopic}
         onChange={updateField}
         onBack={handleBack}
         onNext={handleNext}

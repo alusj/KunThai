@@ -31,6 +31,7 @@ import ProfileEditScreen from "./SocialMenu/profile/ProfileEditScreen";
 import ProfileScreen from "./SocialMenu/profile/ProfileScreen";
 import SavedPostsScreen from "./SocialMenu/savedPosts/SavedPostsScreen";
 import SettingsScreen from "./SocialMenu/settings/SettingsScreen";
+import InterestsScreen from "./SocialMenu/settings/InterestsScreen";
 import DataMobileUseScreen from "./SocialMenu/settings/DataMobileUseScreen";
 import SecurityScreen from "./SocialMenu/security/SecurityScreen";
 import SafetyCenterScreen from "./SocialMenu/safety/SafetyCenterScreen";
@@ -291,6 +292,21 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           setSwipPreviewTarget("");
         }
         exploreNav.setActiveTab(tab);
+
+        if (event.detail?.postId && tab === "UrFeed") {
+          const postId = String(event.detail.postId);
+          const focusPublishedPost = (attempt = 0) => {
+            window.setTimeout(() => {
+              const node = document.getElementById(`post-${postId}`);
+              if (node) {
+                node.scrollIntoView({ behavior: "smooth", block: "center" });
+              } else if (attempt < 12) {
+                focusPublishedPost(attempt + 1);
+              }
+            }, attempt ? 220 : 260);
+          };
+          focusPublishedPost();
+        }
       }
     }
 
@@ -690,12 +706,17 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         <SettingsScreen
           hideHeader
           onOpenDataMobile={() => openMenuScreen("DataMobileUse")}
+          onOpenInterests={() => openMenuScreen("Interests")}
           onOpenPermissions={() => openMenuScreen("Permissions")}
           onOpenPrivacy={() => openMenuScreen("Privacy")}
           onOpenSecurity={() => openMenuScreen("Security")}
           onSwitchAccount={() => openMenuScreen("SwitchAccount")}
         />
       );
+    }
+
+    if (screenKey === "Interests") {
+      return <InterestsScreen hideHeader />;
     }
 
     if (screenKey === "Security") {

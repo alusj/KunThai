@@ -1,5 +1,7 @@
-import { Compass, Store, CarFront, BellRing, MessageSquare, MapPinned } from "lucide-react";
+import { useState } from "react";
+import { Compass, Store, CarFront, BellRing, MessageSquare, MapPinned, Sparkles } from "lucide-react";
 
+import { EXPLORE_TOPIC_CATALOG, STARTER_EXPLORE_TOPICS } from "../../data/exploreTopics";
 import OnboardingFrame from "./OnboardingFrame";
 
 const options = [
@@ -17,7 +19,10 @@ const surfaceOptions = [
   { id: "transport", label: "Open in Transport", body: "Best for rides and delivery access." },
 ];
 
-export default function InterestsStep({ values, onToggleInterest, onChange, onBack, onNext }) {
+export default function InterestsStep({ values, onToggleInterest, onToggleContentTopic, onChange, onBack, onNext }) {
+  const [showAllTopics, setShowAllTopics] = useState(false);
+  const visibleTopics = showAllTopics ? EXPLORE_TOPIC_CATALOG : STARTER_EXPLORE_TOPICS;
+
   return (
     <OnboardingFrame
       step={3}
@@ -72,6 +77,54 @@ export default function InterestsStep({ values, onToggleInterest, onChange, onBa
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-[28px] border border-sky-100 bg-sky-50/60 p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-sky-700 text-white">
+              <Sparkles size={18} />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-slate-950">What would you enjoy seeing?</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Pick a few topics or skip for now. KunThai will still show fresh, nearby, and diverse content.
+              </p>
+            </div>
+          </div>
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-800 shadow-sm">
+            {values.contentTopics.length} selected
+          </span>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {visibleTopics.map((topic) => {
+            const active = values.contentTopics.includes(topic.slug);
+            return (
+              <button
+                key={topic.slug}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onToggleContentTopic(topic.slug)}
+                className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                  active
+                    ? "border-sky-700 bg-sky-700 text-white"
+                    : "border-sky-100 bg-white text-slate-700 hover:border-sky-300"
+                }`}
+              >
+                {topic.name}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAllTopics((current) => !current)}
+          className="mt-4 text-sm font-semibold text-sky-800"
+        >
+          {showAllTopics ? "Show fewer topics" : "More topics"}
+        </button>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">

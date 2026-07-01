@@ -736,8 +736,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       ) : null}
 
       {saveCheckpointOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
-          <section className="kt-modal-enter w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl">
+        <div
+          className="fixed inset-0 z-[1100] flex items-end justify-center bg-slate-950/25 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md sm:items-center"
+          onClick={() => setSaveCheckpointOpen(false)}
+        >
+          <section className="kt-modal-enter max-h-[78dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-start gap-3">
               <FiCheckCircle className="mt-1 shrink-0 text-blue-700" size={23} />
               <div>

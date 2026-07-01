@@ -943,8 +943,11 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       )}
 
       {showSaveCheckpoint && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/45 px-3 py-3 backdrop-blur-sm sm:items-center sm:justify-center">
-          <section className="kt-modal-enter w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg">
+        <div
+          className="fixed inset-0 z-[1100] flex items-end justify-center bg-slate-950/25 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md sm:items-center"
+          onClick={() => setShowSaveCheckpoint(false)}
+        >
+          <section className="kt-modal-enter max-h-[78dvh] w-full overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-start gap-3">
               <FiCheckCircle className="mt-1 shrink-0 text-green-700" size={23} />
               <div>

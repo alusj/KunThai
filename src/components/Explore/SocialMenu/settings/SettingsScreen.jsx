@@ -13,6 +13,7 @@ import {
   HiOutlineRectangleStack,
   HiOutlineSignal,
   HiOutlineShieldCheck,
+  HiOutlineSparkles,
   HiOutlineSun,
 } from "react-icons/hi2";
 
@@ -80,7 +81,7 @@ function SettingsSection({ children, subtitle, title }) {
   );
 }
 
-export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, onOpenPermissions, onOpenPrivacy, onOpenSecurity, onSwitchAccount }) {
+export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, onOpenInterests, onOpenPermissions, onOpenPrivacy, onOpenSecurity, onSwitchAccount }) {
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { mode: appearanceMode, resolvedMode, setMode: setAppearanceMode } = useAppearanceMode();
   const { notifications, video, feed, messages, account } = settings;
@@ -121,6 +122,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
 
         <SettingsSection title="Control center" subtitle="Open focused account and device controls without losing your place in Settings.">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SettingsShortcut icon={HiOutlineSparkles} title="Interests" description="Choose private topics that lightly guide Explore discovery." onClick={onOpenInterests} />
             <SettingsShortcut icon={HiOutlineShieldCheck} title="Privacy Center" description="Visibility, messages, blocks, and data choices." onClick={onOpenPrivacy} />
             <SettingsShortcut icon={HiOutlineKey} title="Security" description="Sign-in protection and account sessions." onClick={onOpenSecurity} />
             <SettingsShortcut icon={HiOutlineDevicePhoneMobile} title="Permissions" description="Optional camera, microphone, location, and alerts." onClick={onOpenPermissions} />

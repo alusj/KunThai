@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AtSign, Hash, MapPin, Megaphone } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
+import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import {
   createExploreNotification,
   getExploreAdvertReason,
@@ -318,9 +320,8 @@ export default function FeedPost({
       />
 
       {menuMessage ? <p className="px-4 pb-3 text-xs font-bold text-sky-700">{menuMessage}</p> : null}
-      {editOpen ? (
-        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setEditOpen(false)}>
-          <form className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onSubmit={submitEdit} onClick={(event) => event.stopPropagation()}>
+      <PostActionOverlay open={editOpen} onClose={() => setEditOpen(false)} label="Edit post">
+          <form className="w-full" onSubmit={submitEdit}>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Edit post</p>
             <textarea
               value={editValue}
@@ -337,11 +338,9 @@ export default function FeedPost({
               </button>
             </div>
           </form>
-        </div>
-      ) : null}
-      {reportOpen ? (
-        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setReportOpen(false)}>
-          <form className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onSubmit={submitReport} onClick={(event) => event.stopPropagation()}>
+      </PostActionOverlay>
+      <PostActionOverlay open={reportOpen} onClose={() => setReportOpen(false)} label={advertPost ? "Report advertisement" : "Report post"}>
+          <form className="w-full" onSubmit={submitReport}>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">{advertPost ? "Report advertisement" : "Report post"}</p>
             <textarea
               value={reportReason}
@@ -359,11 +358,9 @@ export default function FeedPost({
               </button>
             </div>
           </form>
-        </div>
-      ) : null}
-      {deleteOpen ? (
-        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setDeleteOpen(false)}>
-          <div className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+      </PostActionOverlay>
+      <PostActionOverlay open={deleteOpen} onClose={() => setDeleteOpen(false)} label="Delete post">
+          <div className="w-full">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">Delete post</p>
             <h3 className="mt-1 text-lg font-black text-slate-950">Remove this post?</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">This removes it from Explore and your profile.</p>
@@ -376,19 +373,16 @@ export default function FeedPost({
               </button>
             </div>
           </div>
-        </div>
-      ) : null}
-      {whyAdvertOpen ? (
-        <div className="absolute inset-0 z-30 flex items-end bg-slate-950/30 px-3 pb-3 backdrop-blur-sm" onClick={() => setWhyAdvertOpen(false)}>
-          <section className="w-full rounded-[24px] bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+      </PostActionOverlay>
+      <PostActionOverlay open={whyAdvertOpen} onClose={() => setWhyAdvertOpen(false)} label="Why this sponsored item">
+          <section className="w-full">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Why this sponsored item?</p>
             <h3 className="mt-1 text-lg font-black text-slate-950">Chosen for your Explore experience</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{getExploreAdvertReason(post)}</p>
             <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">KunThai uses on-platform interests and activity. Contacts and precise location are not used. Nearby matching requires your permission.</p>
             <button type="button" onClick={() => setWhyAdvertOpen(false)} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">Got it</button>
           </section>
-        </div>
-      ) : null}
+      </PostActionOverlay>
       {repostOpen ? (
         <RepostComposer
           profile={profile}
@@ -458,5 +452,30 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
         </button>
       ) : null}
     </section>
+  );
+}
+
+function PostActionOverlay({ children, label, onClose, open }) {
+  useBodyScrollLock(open);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1100] flex items-end justify-center bg-slate-950/20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md sm:items-center"
+      onClick={onClose}
+      role="presentation"
+    >
+      <section
+        aria-label={label}
+        aria-modal="true"
+        role="dialog"
+        className="kt-modal-enter max-h-[min(78dvh,680px)] w-full max-w-lg overflow-y-auto rounded-[26px] bg-white p-4 shadow-2xl ring-1 ring-slate-200/70"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {children}
+      </section>
+    </div>,
+    document.body,
   );
 }

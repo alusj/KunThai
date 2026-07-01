@@ -114,7 +114,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     <div className={shellClass}>
       <button
         type="button"
-        className={`absolute inset-0 cursor-default bg-slate-950/20 ${backdropClass}`}
+        className={`absolute inset-0 cursor-default bg-transparent ${backdropClass}`}
         onClick={requestClose}
         aria-label="Close comments"
       />

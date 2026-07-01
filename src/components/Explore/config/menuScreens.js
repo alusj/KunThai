@@ -43,6 +43,10 @@ export const MENU_SCREENS = {
     title: "Settings",
     subtitle: "Tune notifications, media, feed behavior, messages, and device preferences.",
   },
+  Interests: {
+    title: "Interests",
+    subtitle: "Choose private topics that lightly guide Explore while keeping discovery open.",
+  },
   Security: {
     title: "Security",
     subtitle: "Review sign-in protection, sessions, alerts, and account recovery readiness.",

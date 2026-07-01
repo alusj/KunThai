@@ -4,6 +4,7 @@ import { isMissingColumn, isMissingTable } from "./errors";
 import { MAX_EXPLORE_VIDEO_BYTES, removeUploadedMediaUrl, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 import { recordHashtagUsage } from "./hashtagService";
+import { normalizeExploreTopicSlug } from "../../../data/exploreTopics";
 
 const MAX_SWIP_SECONDS = 15;
 
@@ -356,6 +357,9 @@ export async function createExplorePost(input, scope = "feed") {
       : "public";
   const hashtags = Array.isArray(payload.hashtags) ? payload.hashtags : [];
   const mentions = Array.isArray(payload.mentions) ? payload.mentions : [];
+  const primaryTopicSlug = normalizeExploreTopicSlug(
+    payload.primary_topic_slug || getPayloadMediaMeta(payload).primaryTopic?.slug || "",
+  );
   const mediaMeta = getPayloadMediaMeta(payload);
   const hasRepost = isRepostPayload(payload);
   const advertTitle = String(mediaMeta.advert?.title || payload.advert?.title || "").trim();
@@ -417,6 +421,7 @@ export async function createExplorePost(input, scope = "feed") {
     post_privacy: postPrivacy,
     hashtags,
     mentions,
+    primary_topic_slug: primaryTopicSlug || null,
     media_meta: hasAdvert ? mediaMeta : { ...mediaMeta, title: postTitle },
     likes_count: 0,
     comments_count: 0,
@@ -536,6 +541,7 @@ async function insertExplorePostDraft(draft) {
     "video_trim_end",
     "moderation_status",
     "media_meta",
+    "primary_topic_slug",
   ];
 
   for (let attempt = 0; attempt <= optionalColumns.length; attempt += 1) {
@@ -587,6 +593,7 @@ async function createPostWithoutFeedScope(draft, feedScope) {
     feed_scope: feedScope,
     post_type: draft.post_type,
     category: draft.category,
+    primary_topic_slug: draft.primary_topic_slug || null,
     video_trim_start: draft.video_trim_start,
     video_trim_end: draft.video_trim_end,
     moderation_status: draft.moderation_status,

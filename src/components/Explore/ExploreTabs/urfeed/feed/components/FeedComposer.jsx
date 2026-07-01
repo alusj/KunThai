@@ -5,6 +5,7 @@ import {
   HiOutlineMapPin,
   HiOutlinePaperAirplane,
   HiOutlineSparkles,
+  HiOutlineTag,
   HiOutlineXMark,
 } from "react-icons/hi2";
 
@@ -17,8 +18,10 @@ import {
 import { publishPostingNotice } from "../../../../../../Backend/services/explore/postingProgressService";
 import { searchExplore } from "../../../../../../Backend/services/explore/searchService";
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
+import { showToast } from "../../../../../../Backend/services/toastService";
 import { fetchHashtagSuggestions, normalizeHashtag } from "../../../../../../Backend/services/explore/hashtagService";
 import { startPendingVideoReviewJob } from "../../../../../../Backend/services/explore/videoReviewService";
+import { fetchExploreTopics } from "../../../../../../Backend/services/explore/topicService";
 import Avatar from "../../../../shared/Avatar";
 import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
@@ -41,6 +44,7 @@ import {
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentModeration";
 import { getCountryCurrencyCode } from "../../../../../../data/westAfricanCountryProfiles";
+import { findExploreTopic } from "../../../../../../data/exploreTopics";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
@@ -289,6 +293,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionResults, setMentionResults] = useState([]);
   const [mentionLoading, setMentionLoading] = useState(false);
+  const [topicPickerOpen, setTopicPickerOpen] = useState(false);
+  const [topics, setTopics] = useState([]);
+  const [topicsLoading, setTopicsLoading] = useState(false);
+  const [primaryTopicSlug, setPrimaryTopicSlug] = useState(
+    draft.primary_topic_slug || draft.media_meta?.primaryTopic?.slug || "",
+  );
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -322,6 +332,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const visibleHashtagSuggestions = hashtagSuggestions
     .filter((item) => !normalizedTagDraft || item.tag.includes(normalizedTagDraft))
     .slice(0, 12);
+  const selectedPrimaryTopic = topics.find((topic) => topic.slug === primaryTopicSlug) || findExploreTopic(primaryTopicSlug);
 
   openComposerRef.current = openComposer;
 
@@ -358,6 +369,22 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }, [open]);
 
   useEffect(() => {
+    if (!open || isAdvertMode || topics.length) return;
+    let active = true;
+    setTopicsLoading(true);
+    fetchExploreTopics()
+      .then((items) => {
+        if (active) setTopics(items);
+      })
+      .finally(() => {
+        if (active) setTopicsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdvertMode, open, topics.length]);
+
+  useEffect(() => {
     return () => {
       if (recorderRef.current?.stream) {
         recorderRef.current.stream.getTracks().forEach((track) => track.stop());
@@ -380,7 +407,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }, [videoPreview]);
 
   useEffect(() => {
-    const { advert: _staleAdvert, ...postMediaMeta } = mediaMeta || {};
+    const { advert: _staleAdvert, primaryTopic: _stalePrimaryTopic, ...postMediaMeta } = mediaMeta || {};
+    const primaryTopic = topics.find((topic) => topic.slug === primaryTopicSlug) || findExploreTopic(primaryTopicSlug);
     writeDraft({
       body: value,
       image_url: imagePreview,
@@ -391,9 +419,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       post_type: isAdvertMode ? "advert" : "post",
       media_meta: isAdvertMode
         ? { ...mediaMeta, advert: { ...advertForm } }
-        : { ...postMediaMeta, title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH) },
+        : {
+            ...postMediaMeta,
+            title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH),
+            ...(primaryTopic ? { primaryTopic: { slug: primaryTopic.slug, name: primaryTopic.name } } : {}),
+          },
     });
-  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postTitle, privacy, value, videoPreview]);
+  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postTitle, primaryTopicSlug, privacy, topics, value, videoPreview]);
 
   useEffect(() => {
     function handleCreatePost(event) {
@@ -557,7 +589,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
         if (file.size > MAX_EXPLORE_VIDEO_BYTES) {
           const sizeMb = Math.max(1, Math.ceil(file.size / (1024 * 1024)));
-          throw new Error(`This video is ${sizeMb}MB. KunThai currently accepts videos up to 50MB; compress it and try again.`);
+          const maxSizeMb = Math.round(MAX_EXPLORE_VIDEO_BYTES / (1024 * 1024));
+          throw new Error(`This video is ${sizeMb}MB. KunThai accepts videos up to ${maxSizeMb}MB; compress it and try again.`);
         }
 
         const duration = await getVideoDuration(file);
@@ -614,7 +647,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setOpen(true);
       setFeedback("");
     } catch (error) {
-      setFeedback(error.message || "Unable to attach media.");
+      const message = error.message || "Unable to attach media.";
+      setFeedback("");
+      showToast(message, "danger", { title: "Media not added", duration: 6200 });
     } finally {
       event.target.value = "";
     }
@@ -905,6 +940,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (type === "tag") {
       setTagPickerOpen((current) => !current);
       setMentionPickerOpen(false);
+      setTopicPickerOpen(false);
       setFeedback("");
       return;
     }
@@ -912,6 +948,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (type === "mention") {
       setMentionPickerOpen((current) => !current);
       setTagPickerOpen(false);
+      setTopicPickerOpen(false);
+      setFeedback("");
+      return;
+    }
+
+    if (type === "topic") {
+      setTopicPickerOpen((current) => !current);
+      setTagPickerOpen(false);
+      setMentionPickerOpen(false);
       setFeedback("");
       return;
     }
@@ -1097,6 +1142,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setMentionPickerOpen(false);
     setMentionQuery("");
     setMentionResults([]);
+    setTopicPickerOpen(false);
+    setPrimaryTopicSlug("");
     setRecordingPaused(false);
     setRecordingSeconds(0);
     stopRecordingTimer();
@@ -1133,11 +1180,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
       const advertMeta = isAdvertMode ? cleanAdvertForSubmit(advertForm) : null;
       const baseMediaMeta = trimmedVideoMetaRef.current || mediaMeta;
-      const { advert: _staleAdvert, ...postMediaMeta } = baseMediaMeta || {};
+      const { advert: _staleAdvert, primaryTopic: _stalePrimaryTopic, ...postMediaMeta } = baseMediaMeta || {};
+      const primaryTopic = topics.find((topic) => topic.slug === primaryTopicSlug) || findExploreTopic(primaryTopicSlug);
       const finalMediaMeta = {
         ...(isAdvertMode ? baseMediaMeta : postMediaMeta),
         ...(advertMeta ? { advert: advertMeta } : {}),
-        ...(!advertMeta ? { title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH) } : {}),
+        ...(!advertMeta ? {
+          title: postTitle.trim().slice(0, MAX_POST_TITLE_LENGTH),
+          ...(primaryTopic ? { primaryTopic: { slug: primaryTopic.slug, name: primaryTopic.name } } : {}),
+        } : {}),
       };
       const finalAudioPreview = finalVideoPreview ? "" : audioPreview;
       const finalAudioDuration = finalVideoPreview ? null : audioDuration;
@@ -1157,6 +1208,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         feed_scope: "feed",
         post_type: isAdvertMode ? "advert" : finalVideoPreview ? "video" : "post",
         category: isAdvertMode ? "advert" : finalVideoPreview ? "swip" : "urfeed",
+        primary_topic_slug: isAdvertMode ? null : primaryTopic?.slug || null,
         media_meta: finalMediaMeta,
         mediaMeta: finalMediaMeta,
         advertCampaign: isAdvertMode ? cleanAdvertCampaignForSubmit(advertForm) : null,
@@ -1315,6 +1367,7 @@ if (!isMobileVideoDevice) {
             feed_scope: postDraft.feed_scope,
             post_type: postDraft.post_type,
             category: postDraft.category,
+            primary_topic_slug: postDraft.primary_topic_slug,
             media_meta: postDraft.mediaMeta,
             mediaMeta: postDraft.mediaMeta,
             advert_campaign: postDraft.advertCampaign,
@@ -1385,6 +1438,7 @@ if (!isMobileVideoDevice) {
         feed_scope: postDraft.feed_scope,
         post_type: postDraft.post_type,
         category: postDraft.category,
+        primary_topic_slug: postDraft.primary_topic_slug,
         media_meta: postDraft.mediaMeta,
         mediaMeta: postDraft.mediaMeta,
         advert_campaign: postDraft.advertCampaign,
@@ -1395,14 +1449,18 @@ if (!isMobileVideoDevice) {
         setPostingStage("complete");
         setPostingProgress(100);
 
-        if (postDraft.video_url && (!isAdvertMode || !postDraft.image_url)) {
-          window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "Swip", postId: result.post?.id || "" } }));
-        }
+        const publishedPostId = result.post?.id || "";
+        const publishedTab = postDraft.video_url && (!isAdvertMode || !postDraft.image_url) ? "Swip" : "UrFeed";
+        window.dispatchEvent(new CustomEvent("explore-open-tab", {
+          detail: { tab: publishedTab, postId: publishedPostId, source: "post-published" },
+        }));
 
         publishPostingUpdate({
           status: "complete",
           stage: "complete",
           progress: 100,
+          postId: publishedPostId,
+          tab: publishedTab,
           message: result.warning || (isAdvertMode ? "Your sponsored campaign is now live in Explore." : "Your post is now live on Explore."),
         });
 
@@ -1548,9 +1606,60 @@ if (!isMobileVideoDevice) {
                     >
                       <HiOutlineHashtag className="text-base" /> Hashtag
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTool("topic")}
+                      className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
+                        topicPickerOpen ? "bg-emerald-700 text-white" : "bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 hover:bg-emerald-50"
+                      }`}
+                    >
+                      <HiOutlineTag className="text-base" /> {selectedPrimaryTopic?.name || "Topic"}
+                    </button>
                   </div>
                 ) : null}
               </div>
+              ) : null}
+
+              {!isAdvertMode && topicPickerOpen ? (
+                <div className="rounded-[24px] border border-emerald-100 bg-emerald-50/70 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+                      <HiOutlineTag className="text-base" /> Primary topic
+                    </div>
+                    {primaryTopicSlug ? (
+                      <button type="button" onClick={() => setPrimaryTopicSlug("")} className="text-xs font-black text-slate-500">Clear</button>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-slate-500">Choose one topic that best describes this post. Hashtags stay separate.</p>
+                  {topicsLoading ? <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">Loading topics...</p> : null}
+                  <div className="mt-3 max-h-56 overflow-y-auto">
+                    {Array.from(new Set(topics.map((topic) => topic.category))).map((topicCategory) => (
+                      <div key={topicCategory} className="mb-4 last:mb-0">
+                        <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{topicCategory}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {topics.filter((topic) => topic.category === topicCategory).map((topic) => (
+                            <button
+                              key={topic.slug}
+                              type="button"
+                              aria-pressed={primaryTopicSlug === topic.slug}
+                              onClick={() => {
+                                setPrimaryTopicSlug(topic.slug);
+                                setTopicPickerOpen(false);
+                              }}
+                              className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                                primaryTopicSlug === topic.slug
+                                  ? "border-emerald-700 bg-emerald-700 text-white"
+                                  : "border-emerald-100 bg-white text-slate-700 hover:border-emerald-300"
+                              }`}
+                            >
+                              {topic.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : null}
 
               {!isAdvertMode ? (

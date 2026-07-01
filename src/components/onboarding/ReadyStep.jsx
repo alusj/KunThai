@@ -1,6 +1,7 @@
 import { Compass, ShoppingBag, CarFront } from "lucide-react";
 
 import OnboardingFrame from "./OnboardingFrame";
+import { findExploreTopic } from "../../data/exploreTopics";
 
 const surfaceMap = {
   explore: { label: "Explore", icon: Compass },
@@ -69,6 +70,22 @@ export default function ReadyStep({ values, saving, error, onBack, onFinish }) {
               ))}
             </div>
           </div>
+
+          {values.contentTopics?.length ? (
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-sky-200">Explore topics</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {values.contentTopics.slice(0, 8).map((slug) => (
+                  <span key={slug} className="rounded-full bg-sky-400/15 px-3 py-1 text-xs font-semibold text-sky-100">
+                    {findExploreTopic(slug)?.name || slug.replaceAll("-", " ")}
+                  </span>
+                ))}
+                {values.contentTopics.length > 8 ? (
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-sky-100">+{values.contentTopics.length - 8} more</span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

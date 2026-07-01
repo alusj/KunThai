@@ -406,8 +406,8 @@
   }
 
   .kt-comments-page-blur {
-    filter: blur(7px) brightness(0.82);
-    transition: filter 180ms var(--kt-ease-standard);
+    filter: blur(5px) brightness(0.94);
+    transition: filter 260ms var(--kt-ease-standard);
     will-change: filter;
   }
 
@@ -830,8 +830,8 @@
 
 @keyframes kt-comments-feed-up {
   from {
-    opacity: 0.98;
-    transform: translate3d(0, 34px, 0) scale(0.985);
+    opacity: 0.72;
+    transform: translate3d(0, 100%, 0) scale(0.992);
   }
   to {
     opacity: 1;
@@ -845,8 +845,8 @@
     transform: none;
   }
   to {
-    opacity: 0.98;
-    transform: translate3d(0, 38px, 0) scale(0.99);
+    opacity: 0.72;
+    transform: translate3d(0, 100%, 0) scale(0.992);
   }
 }
 

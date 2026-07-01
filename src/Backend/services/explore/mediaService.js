@@ -2,7 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import * as tus from "tus-js-client";
 import { EXPLORE_MEDIA_BUCKET } from "./constants";
 
-export const MAX_EXPLORE_VIDEO_BYTES = 50 * 1024 * 1024;
+export const MAX_EXPLORE_VIDEO_BYTES = 100 * 1024 * 1024;
 const RESUMABLE_UPLOAD_THRESHOLD_BYTES = 6 * 1024 * 1024;
 const RESUMABLE_CHUNK_BYTES = 6 * 1024 * 1024;
 
@@ -56,7 +56,7 @@ function normalizeUploadError(error, file) {
   const normalized = message.toLowerCase();
   if (normalized.includes("exceeded the maximum allowed size") || normalized.includes("maximum allowed size") || normalized.includes("entity too large")) {
     const sizeMb = Math.max(1, Math.ceil(Number(file?.size || 0) / (1024 * 1024)));
-    return new Error(`This video is ${sizeMb}MB. KunThai currently accepts videos up to 50MB; compress the file and try again.`);
+    return new Error(`This video is ${sizeMb}MB. KunThai accepts videos up to 100MB; compress the file and try again.`);
   }
   return error instanceof Error ? error : new Error(message || "Unable to upload media.");
 }
