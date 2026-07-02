@@ -13,6 +13,7 @@ export default function TopRated({
   onProductSelect,
   onAddToCart,
   onToggleSaved,
+  supplementalContent,
 }) {
   return (
     <BuyerProductGrid
@@ -23,6 +24,7 @@ export default function TopRated({
       onProductSelect={onProductSelect}
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
+      supplementalContent={supplementalContent}
       emptyTitle="No top-rated products yet"
       emptyBody="Active products will appear here while rating data is being built."
     />

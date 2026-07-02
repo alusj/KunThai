@@ -28,7 +28,7 @@ import useImageViewerGestures from "../../shared/useImageViewerGestures";
 import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
-import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitMarketplaceReview, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
 
 const BUYER_ADDRESS_KEY = "marketplace-buyer-address";
@@ -359,6 +359,8 @@ function ProductReviewDrawer({
   reviewStatus,
   reviewSubmitting,
   reviewSummary,
+  reviewHeading = "Product reviews",
+  reviewLabel = "Product review",
 }) {
   return (
     <div
@@ -368,7 +370,7 @@ function ProductReviewDrawer({
     >
       <button
         type="button"
-        aria-label="Close product reviews"
+        aria-label={`Close ${reviewLabel.toLowerCase()}`}
         onClick={onClose}
         tabIndex={open ? 0 : -1}
         className={`absolute inset-0 border-0 bg-slate-950/35 p-0 backdrop-blur-sm transition-opacity duration-300 ${
@@ -382,7 +384,7 @@ function ProductReviewDrawer({
       >
         <header className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Product reviews</p>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">{reviewHeading}</p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
               {reviewSummary.reviewCount || 0} response{reviewSummary.reviewCount === 1 ? "" : "s"}
             </h2>
@@ -392,7 +394,7 @@ function ProductReviewDrawer({
             type="button"
             onClick={onClose}
             className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
-            aria-label="Close product reviews"
+              aria-label={`Close ${reviewLabel.toLowerCase()}`}
           >
             <X size={22} />
           </button>
@@ -422,9 +424,9 @@ function ProductReviewDrawer({
           ) : (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
               <MessageCircle className="mx-auto text-slate-400" size={34} />
-              <p className="mt-4 text-lg font-black text-slate-950">No product reviews yet</p>
+              <p className="mt-4 text-lg font-black text-slate-950">No reviews yet</p>
               <p className="mx-auto mt-1 max-w-sm text-sm font-semibold leading-6 text-slate-500">
-                Reviews from buyers will appear here so people can understand quality, delivery, and product condition.
+                Reviews from buyers will appear here so people can understand the experience, quality, and service.
               </p>
             </div>
           )}
@@ -455,7 +457,7 @@ function ProductReviewDrawer({
               className={`kt-touchable flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
                 reviewSubmitting || rating < 1 ? "bg-slate-100 text-slate-400" : "bg-emerald-600 text-white hover:bg-emerald-700"
               }`}
-              aria-label="Submit product review"
+              aria-label={`Submit ${reviewLabel.toLowerCase()}`}
             >
               <Send size={18} />
             </button>
@@ -508,6 +510,18 @@ export default function ProductDetailDrawer({
   onOpenSeller,
   onNotice,
   saved,
+  detailsHeading = "Product Details",
+  historyKey = "marketplace-product-detail",
+  messageContextLabel = "Product inquiry",
+  reviewHeading = "Product Reviews",
+  reviewLabel = "Product Review",
+  reviewType = "product",
+  serviceLabel = "Delivery",
+  serviceValue,
+  showAddToCart = true,
+  showInventory = true,
+  showOrder = true,
+  showSave = true,
 }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [rating, setRating] = useState(5);
@@ -566,7 +580,9 @@ export default function ProductDetailDrawer({
       if (!open || !product?.id) return;
 
       try {
-        const reviews = await fetchBuyerReviews({ productId: product.id, reviewType: "product" });
+        const reviews = reviewType === "product"
+          ? await fetchBuyerReviews({ productId: product.id, reviewType: "product" })
+          : await fetchBuyerReviews({ businessId: product.businessId || product.seller?.id, reviewType: "marketplace" });
         if (alive) setReviewSummary(reviews);
       } catch {
         if (alive) setReviewSummary({ rating: 0, reviewCount: 0, reviews: [] });
@@ -578,7 +594,7 @@ export default function ProductDetailDrawer({
     return () => {
       alive = false;
     };
-  }, [open, product?.id]);
+  }, [open, product?.businessId, product?.id, product?.seller?.id, reviewType]);
 
   useBodyScrollLock(open);
 
@@ -621,6 +637,14 @@ export default function ProductDetailDrawer({
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
   const orderTotal = displayPrice * Math.max(1, Number(orderForm.quantity || 1));
   const specs = getProductSpecs(product);
+  const footerActionCount = Number(showSave) + 1 + Number(showAddToCart) + Number(showOrder) + 1;
+  const footerGridClass = footerActionCount >= 5
+    ? "grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] sm:grid-cols-[3rem_repeat(4,minmax(0,1fr))]"
+    : footerActionCount === 4
+      ? "grid-cols-2 sm:grid-cols-4"
+      : footerActionCount === 3
+        ? "grid-cols-3"
+        : "grid-cols-2";
 
   function updateOrderForm(patch) {
     setOrderForm((current) => ({ ...current, ...patch }));
@@ -666,16 +690,22 @@ export default function ProductDetailDrawer({
 
     try {
       setReviewSubmitting(true);
-      await submitProductReview(product, rating, comment);
+      if (reviewType === "product") {
+        await submitProductReview(product, rating, comment);
+      } else {
+        await submitMarketplaceReview(product.seller, rating, comment);
+      }
       setComment("");
       setRating(5);
-      setReviewStatus("Your product review has been added.");
-      onNotice?.("Product review submitted.");
-      const reviews = await fetchBuyerReviews({ productId: product.id, reviewType: "product" });
+      setReviewStatus("Your review has been added.");
+      onNotice?.("Review submitted.");
+      const reviews = reviewType === "product"
+        ? await fetchBuyerReviews({ productId: product.id, reviewType: "product" })
+        : await fetchBuyerReviews({ businessId: product.businessId || product.seller?.id, reviewType: "marketplace" });
       setReviewSummary(reviews);
     } catch (err) {
-      setReviewStatus(err.message || "Unable to submit product review.");
-      onNotice?.(err.message || "Unable to submit product review.", "danger");
+      setReviewStatus(err.message || "Unable to submit review.");
+      onNotice?.(err.message || "Unable to submit review.", "danger");
     } finally {
       setReviewSubmitting(false);
     }
@@ -753,7 +783,7 @@ export default function ProductDetailDrawer({
           <AppBackTab
             onBack={onClose}
             label="Back to UrMall listings"
-            historyKey="marketplace-product-detail"
+            historyKey={historyKey}
           />
           <div className="min-w-0">
             <p className="truncate text-sm font-black uppercase text-emerald-700">{product.category}</p>
@@ -780,14 +810,14 @@ export default function ProductDetailDrawer({
                     <p className="pb-1 text-sm font-bold text-gray-400 line-through">{formatCurrency(product.price, productMoneyScope)}</p>
                   )}
                 </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs font-black">
+                {showInventory ? <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs font-black">
                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-amber-700">
                     <Star size={13} fill="currentColor" />
                     {product.sales > 0 ? `${product.sales} sold` : "New arrival"}
                   </span>
                   <span className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700">{product.stock} in stock</span>
                   <span className="rounded-md bg-gray-100 px-2.5 py-1 capitalize text-gray-700">{product.condition}</span>
-                </div>
+                </div> : null}
               </div>
 
               <article className="w-full rounded-lg border border-gray-200 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40">
@@ -838,10 +868,10 @@ export default function ProductDetailDrawer({
                 <div className="rounded-lg bg-gray-100 p-2.5">
                   <p className="flex items-center gap-2 text-xs font-black uppercase text-gray-500">
                     <Truck size={14} />
-                    Delivery
+                    {serviceLabel}
                   </p>
                   <p className="mt-0.5 text-sm font-black text-gray-950">
-                    {product.deliveryAvailable ? product.deliveryTime || "Available" : "Pickup only"}
+                    {serviceValue || (product.deliveryAvailable ? product.deliveryTime || "Available" : "Pickup only")}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-100 p-2.5">
@@ -859,7 +889,7 @@ export default function ProductDetailDrawer({
 
               {specs.length ? (
                 <div className="rounded-lg border border-gray-200 p-3">
-                  <h3 className="font-black text-gray-950">Product Details</h3>
+                  <h3 className="font-black text-gray-950">{detailsHeading}</h3>
                   <dl className="mt-2 grid gap-1.5 sm:grid-cols-2">
                     {specs.map(([label, value]) => (
                       <div key={label} className="rounded-lg bg-gray-50 p-2.5">
@@ -874,11 +904,11 @@ export default function ProductDetailDrawer({
               <div className="rounded-lg border border-gray-200 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-black text-gray-950">Product Reviews</h3>
+                    <h3 className="font-black text-gray-950">{reviewHeading}</h3>
                     <p className="mt-0.5 text-sm font-bold text-gray-500">
                       {reviewSummary.reviewCount
                         ? `${reviewSummary.rating.toFixed(1)} from ${reviewSummary.reviewCount} review${reviewSummary.reviewCount === 1 ? "" : "s"}`
-                        : "No product reviews yet"}
+                        : "No reviews yet"}
                     </p>
                   </div>
                   <button
@@ -909,33 +939,33 @@ export default function ProductDetailDrawer({
         </div>
 
         <footer className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white/95 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-12px_28px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="grid grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 sm:grid-cols-[3rem_repeat(4,minmax(0,1fr))]">
-          <button
+          <div className={`grid gap-2 ${footerGridClass}`}>
+          {showSave ? <button
             type="button"
             onClick={() => onToggleSaved?.(product)}
-            className={`kt-pressable row-span-2 inline-flex h-full min-h-[6.5rem] w-12 shrink-0 items-center justify-center rounded-2xl border sm:row-span-1 sm:min-h-12 ${
+            className={`kt-pressable inline-flex w-12 shrink-0 items-center justify-center rounded-2xl border ${showAddToCart || showOrder ? "row-span-2 h-full min-h-[6.5rem] sm:row-span-1 sm:min-h-12" : "h-12"} ${
               saved ? "border-red-600 bg-red-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             }`}
             aria-label={saved ? `Unsave ${product.name}` : `Save ${product.name}`}
           >
             <Heart size={18} fill={saved ? "currentColor" : "none"} />
-          </button>
-          <button
+          </button> : null}
+          {showAddToCart ? <button
             type="button"
             onClick={() => setMessageOpen(true)}
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-black text-gray-900 hover:bg-gray-50 sm:text-sm"
           >
             <MessageCircle size={17} />
             <span className="truncate">Message Seller</span>
-          </button>
-          <button
+          </button> : null}
+          {showOrder ? <button
             type="button"
             onClick={() => onAddToCart?.(product)}
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 sm:text-sm"
           >
             <ShoppingCart size={17} />
             <span className="truncate">Add to Cart</span>
-          </button>
+          </button> : null}
           <button
             type="button"
             onClick={openOrderForm}
@@ -950,7 +980,7 @@ export default function ProductDetailDrawer({
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl bg-gray-950 px-3 text-xs font-black text-white hover:bg-gray-800 sm:text-sm"
           >
             <Star size={17} />
-            <span className="truncate">Product Review</span>
+            <span className="truncate">{reviewLabel}</span>
           </button>
           </div>
         </footer>
@@ -1165,7 +1195,7 @@ export default function ProductDetailDrawer({
                 <div>
                   <p className="text-xs font-black uppercase text-emerald-700">Message seller</p>
                   <h3 id="product-message-title" className="mt-1 text-lg font-black text-gray-950">{product.seller?.name || "UrMall seller"}</h3>
-                  <p className="mt-1 text-sm font-bold text-gray-500">Product inquiry: {product.name}</p>
+                  <p className="mt-1 text-sm font-bold text-gray-500">{messageContextLabel}: {product.name}</p>
                 </div>
                 <button
                   type="button"
@@ -1180,7 +1210,7 @@ export default function ProductDetailDrawer({
                 ref={messageTextareaRef}
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
-                placeholder="Ask about availability, delivery, pickup, negotiation, or product details"
+                placeholder="Ask about availability, location, service details, or anything you need to confirm"
                 className="mt-4 min-h-32 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
               />
               <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -1220,6 +1250,8 @@ export default function ProductDetailDrawer({
         reviewStatus={reviewStatus}
         reviewSubmitting={reviewSubmitting}
         reviewSummary={reviewSummary}
+        reviewHeading={reviewHeading}
+        reviewLabel={reviewLabel}
       />
       {orderAreaPicker ? (
         <div className="fixed inset-0 z-[1300] bg-slate-950">

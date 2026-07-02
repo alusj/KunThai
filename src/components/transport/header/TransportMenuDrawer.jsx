@@ -18,6 +18,7 @@ import {
   Settings,
   Share2,
   ShieldAlert,
+  BookOpenCheck,
   Trash2,
   UserRound,
   X,
@@ -48,6 +49,7 @@ import {
 import { getCountryCurrencyCode } from "../../../data/westAfricanCountryProfiles";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { submitTransportSupportTicket } from "../../services/bookingService";
+import TransportCautionCard from "../shared/TransportCautionCard";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
 
@@ -57,6 +59,12 @@ const menuSections = [
   {
     title: "Travel",
     items: [
+      {
+        id: "caution",
+        icon: BookOpenCheck,
+        title: "Caution Card",
+        description: "Passenger seats, operator accounts, fleets, and safer booking guidance.",
+      },
       {
         id: "trips",
         icon: History,
@@ -220,6 +228,9 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
   }
 
   function renderActiveScreen(screenId = visibleScreen) {
+    if (screenId === "caution") {
+      return <TransportCautionCard showMenuNote={false} />;
+    }
     if (screenId === "trips") {
       return <MyTripsPage onViewFleet={openFleet} onOpenSupport={openSupportFromTrip} />;
     }

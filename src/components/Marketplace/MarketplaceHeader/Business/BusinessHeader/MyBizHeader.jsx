@@ -4,7 +4,7 @@ import SellerHeaderTitle from "./SellerHeaderTitle";
 import SellerSearch from "./SellerSearch";
 import BusinessSwitcher from "./BusinessSwitcher";
 
-export default function MyBizHeader({ activeBusinessId, businesses, onAddBusiness, onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu, onSwitchBusiness, primaryActionLabel = "Add Product" }) {
+export default function MyBizHeader({ activeBusinessId, businesses, onAddBusiness, onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu, onSwitchBusiness, primaryActionLabel = "Add Product", showOrders = true }) {
   const sellerHeader = useSellerHeader();
 
   return (
@@ -40,6 +40,7 @@ export default function MyBizHeader({ activeBusinessId, businesses, onAddBusines
             }}
             onMenu={onMenu}
             primaryActionLabel={primaryActionLabel}
+            showOrders={showOrders}
           />
         </div>
       </header>

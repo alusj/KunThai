@@ -1,14 +1,7 @@
 import CategorySelector from "./CategorySelector";
 import RegistrationField from "./RegistrationField";
 import RegistrationInput from "./RegistrationInput";
-import { Building2, Hotel, House, Store, UtensilsCrossed } from "lucide-react";
-
-const KIND_ICONS = {
-  retail: Store,
-  restaurant: UtensilsCrossed,
-  hotel: Hotel,
-  property_agent: House,
-};
+import { Building2 } from "lucide-react";
 
 export default function BusinessIdentityStep({ registration }) {
   const {
@@ -25,24 +18,28 @@ export default function BusinessIdentityStep({ registration }) {
   return (
     <div className="space-y-5">
       <RegistrationField label="Primary business type" error={errors.businessKind}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {businessKinds.map((kind) => {
-            const Icon = KIND_ICONS[kind.id] || Building2;
-            const active = form.identity.businessKind === kind.id;
-            return (
-              <button
-                key={kind.id}
-                type="button"
-                aria-pressed={active}
-                onClick={() => updateSection("identity", { businessKind: kind.id })}
-                className={`rounded-2xl border p-4 text-left transition ${active ? "border-blue-600 bg-blue-50 ring-2 ring-blue-100" : "border-gray-200 bg-white hover:border-blue-200"}`}
-              >
-                <span className={`grid h-10 w-10 place-items-center rounded-xl ${active ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}><Icon size={19} /></span>
-                <p className="mt-3 text-sm font-black text-gray-950">{kind.label}</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">{kind.description}</p>
-              </button>
-            );
-          })}
+        <div className="relative">
+          <Building2 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={19} />
+          <select
+            value={form.identity.businessKind}
+            onChange={(event) => {
+              const businessKind = event.target.value;
+              updateSection("identity", {
+                businessKind,
+                categories: businessKind === "retail" ? form.identity.categories : [],
+                otherCategory: "",
+              });
+              if (!["retail", "restaurant"].includes(businessKind)) {
+                updateSection("operations", { deliveryEnabled: false, pickupEnabled: false });
+              }
+            }}
+            className="h-14 w-full appearance-none rounded-2xl border border-gray-300 bg-white pl-12 pr-4 text-sm font-black text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+          >
+            {businessKinds.map((kind) => <option key={kind.id} value={kind.id}>{kind.label}</option>)}
+          </select>
+          <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
+            {businessKinds.find((kind) => kind.id === form.identity.businessKind)?.description}
+          </p>
         </div>
       </RegistrationField>
 
@@ -55,16 +52,18 @@ export default function BusinessIdentityStep({ registration }) {
         />
       </RegistrationField>
 
-      <CategorySelector
-        categories={categories}
-        selected={form.identity.categories}
-        otherValue={form.identity.otherCategory}
-        error={errors.categories}
-        otherError={errors.otherCategory}
-        onToggle={toggleCategory}
-        onOtherChange={updateOtherCategory}
-        onOtherAdd={addOtherCategory}
-      />
+      {form.identity.businessKind === "retail" ? (
+        <CategorySelector
+          categories={categories}
+          selected={form.identity.categories}
+          otherValue={form.identity.otherCategory}
+          error={errors.categories}
+          otherError={errors.otherCategory}
+          onToggle={toggleCategory}
+          onOtherChange={updateOtherCategory}
+          onOtherAdd={addOtherCategory}
+        />
+      ) : null}
 
       <RegistrationField label="Short description" error={errors.description}>
         <textarea

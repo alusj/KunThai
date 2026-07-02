@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { BadgeCheck, Heart, MapPin, PackageSearch, ShoppingCart, Star, Truck } from "lucide-react";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 
@@ -44,11 +45,10 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
     >
       <div className="relative aspect-square overflow-hidden bg-gray-100">
         <ProductImage product={product} />
-        {hasDiscount && (
-          <span className="absolute left-2 top-2 rounded-md bg-red-600 px-2 py-1 text-[11px] font-black uppercase text-white">
-            -{discountPercent}%
-          </span>
-        )}
+        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
+          <span className="rounded-md bg-slate-950/95 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">Retail</span>
+          {hasDiscount ? <span className="rounded-md bg-red-600 px-2 py-1 text-[11px] font-black uppercase text-white">-{discountPercent}%</span> : null}
+        </div>
         {verifiedSeller ? (
           <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md bg-emerald-600/95 px-2 py-1 text-[11px] font-black text-white">
             <BadgeCheck size={13} />
@@ -76,7 +76,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
             {product.name}
           </h3>
           <p className="mt-0.5 truncate text-[11px] font-semibold text-gray-500">
-            {product.category} | {product.seller?.name || "UrMall seller"}
+            Retail · {product.category} | {product.seller?.name || "UrMall seller"}
           </p>
         </div>
 
@@ -149,6 +149,7 @@ export default function BuyerProductGrid({
   onAddToCart,
   onToggleSaved,
   savedIds = new Set(),
+  supplementalContent = null,
 }) {
   if (loading && !products.length) {
     return (
@@ -169,7 +170,7 @@ export default function BuyerProductGrid({
     );
   }
 
-  if (!products.length) {
+  if (!products.length && !supplementalContent) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-5 text-center shadow-sm">
         <p className="font-black text-gray-950">{emptyTitle}</p>
@@ -186,16 +187,13 @@ export default function BuyerProductGrid({
         </div>
       ) : null}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {products.map((product) => (
-          <BuyerProductCard
-            key={product.id}
-            product={product}
-            onProductSelect={onProductSelect}
-            onAddToCart={onAddToCart}
-            onToggleSaved={onToggleSaved}
-            saved={savedIds.has(product.id)}
-          />
+        {products.map((product, index) => (
+          <Fragment key={product.id}>
+            {index === Math.min(3, products.length) ? supplementalContent : null}
+            <BuyerProductCard product={product} onProductSelect={onProductSelect} onAddToCart={onAddToCart} onToggleSaved={onToggleSaved} saved={savedIds.has(product.id)} />
+          </Fragment>
         ))}
+        {products.length <= 3 ? supplementalContent : null}
       </div>
     </div>
   );

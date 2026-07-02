@@ -168,14 +168,11 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
         }`}
       >
         {activeParent === "all" ? (
-          <div className="space-y-10">
-            <VerticalMarketplace mode="all" onDetailChange={setVerticalDetailOpen} />
-            <section>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Shop</p>
-              <h2 className="mt-1 text-2xl font-black text-gray-950">Products across UrMall</h2>
-              <div className="mt-4"><Browse activeTab={activeTab} onProductModeChange={setMarketplaceScreenMode} /></div>
-            </section>
-          </div>
+          <Browse
+            activeTab={activeTab}
+            onProductModeChange={setMarketplaceScreenMode}
+            supplementalContent={<VerticalMarketplace mode="mixed" onDetailChange={setVerticalDetailOpen} />}
+          />
         ) : null}
         {activeParent === "shop" ? <Browse activeTab={activeTab} onProductModeChange={setMarketplaceScreenMode} /> : null}
         {activeParent === "food" ? <VerticalMarketplace mode="food" onDetailChange={setVerticalDetailOpen} /> : null}

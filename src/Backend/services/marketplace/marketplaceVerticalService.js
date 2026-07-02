@@ -1,7 +1,8 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingTable } from "../explore/errors";
+import { validateVerticalMediaPackage } from "./verticalMediaValidation";
 
-const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,logo_url,banner_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
+const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,logo_url,banner_url,vertical_video_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
 const COUNTRY_TIMEZONES = {
   BJ: "Africa/Porto-Novo", BF: "Africa/Ouagadougou", CV: "Atlantic/Cape_Verde", CI: "Africa/Abidjan",
   GM: "Africa/Banjul", GH: "Africa/Accra", GN: "Africa/Conakry", GW: "Africa/Bissau",
@@ -37,8 +38,12 @@ function normalizeBusinessRow(row = {}) {
     currency: business.currency || "",
     address: row.address || business.address || "",
     phone: business.phone || "",
+    description: business.description || "",
     logoUrl: business.logo_url || "",
     bannerUrl: business.banner_url || "",
+    latitude: business.latitude ?? null,
+    longitude: business.longitude ?? null,
+    videoUrl: row.video_url || business.vertical_video_url || "",
     verificationStatus: business.verification_status || "pending",
     deliveryEnabled: Boolean(business.delivery_enabled),
     pickupEnabled: Boolean(business.pickup_enabled),
@@ -62,6 +67,17 @@ export async function uploadMarketplaceVerticalImage(file, businessId, folder = 
   return supabase.storage.from("marketplace-business-media").getPublicUrl(path).data.publicUrl;
 }
 
+export async function uploadMarketplaceVerticalVideo(file, businessId, folder = "vertical-videos") {
+  if (!file) return "";
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user?.id) throw new Error("Sign in before uploading a business video.");
+  const extension = file.name?.split(".").pop() || "mp4";
+  const path = `${userData.user.id}/${folder}/${businessId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage.from("marketplace-business-media").upload(path, file, { cacheControl: "3600", contentType: file.type || "video/mp4", upsert: false });
+  if (error) throw new Error(error.message || "Unable to upload this video.");
+  return supabase.storage.from("marketplace-business-media").getPublicUrl(path).data.publicUrl;
+}
+
 export async function fetchRestaurantMenu(businessId, dayOfWeek = new Date().getDay()) {
   let query = supabase.from("marketplace_restaurant_menu_items").select("*").eq("business_id", businessId).order("sort_order").order("created_at");
   if (Number.isInteger(dayOfWeek)) query = query.eq("day_of_week", dayOfWeek);
@@ -71,7 +87,12 @@ export async function fetchRestaurantMenu(businessId, dayOfWeek = new Date().get
 }
 
 export async function saveRestaurantMenuItem(businessId, input = {}) {
-  const imageUrl = input.imageFile ? await uploadMarketplaceVerticalImage(input.imageFile, businessId, "restaurant-menu") : input.image_url || "";
+  await validateVerticalMediaPackage(input);
+  const [imageUrl, imageUrls, videoUrl] = await Promise.all([
+    uploadMarketplaceVerticalImage(input.coverImageFile, businessId, "restaurant-menu/covers"),
+    Promise.all(Array.from(input.extraImageFiles || []).map((file) => uploadMarketplaceVerticalImage(file, businessId, "restaurant-menu/gallery"))),
+    uploadMarketplaceVerticalVideo(input.videoFile, businessId, "restaurant-menu/videos"),
+  ]);
   const payload = {
     business_id: businessId,
     day_of_week: Number(input.day_of_week),
@@ -80,6 +101,8 @@ export async function saveRestaurantMenuItem(businessId, input = {}) {
     description: String(input.description || "").trim(),
     price: Number(input.price || 0),
     image_url: imageUrl || null,
+    image_urls: imageUrls,
+    video_url: videoUrl,
     preparation_minutes: Number(input.preparation_minutes || 20),
     available: input.available !== false,
     updated_at: new Date().toISOString(),
@@ -98,14 +121,54 @@ export async function toggleRestaurantMenuItem(item, available) {
   if (error) throw new Error(error.message || "Unable to update menu availability.");
 }
 
+function getMarketplaceMediaPath(url = "") {
+  const marker = "/object/public/marketplace-business-media/";
+  const index = String(url).indexOf(marker);
+  return index >= 0 ? decodeURIComponent(String(url).slice(index + marker.length)) : "";
+}
+
+async function removeMarketplaceMedia(urls = []) {
+  const paths = Array.from(new Set(urls.map(getMarketplaceMediaPath).filter(Boolean)));
+  if (!paths.length) return;
+  await supabase.storage.from("marketplace-business-media").remove(paths);
+}
+
+export async function deleteRestaurantMenuItem(item) {
+  const { error } = await supabase.from("marketplace_restaurant_menu_items").delete().eq("id", item.id).eq("business_id", item.business_id);
+  if (error) throw new Error(error.message || "Unable to delete this meal.");
+  await removeMarketplaceMedia([item.image_url, ...(item.image_urls || []), item.video_url]);
+}
+
 export async function fetchHotelWorkspace(businessId) {
-  const [imagesResult, roomsResult] = await Promise.all([
+  const [imagesResult, roomsResult, businessResult] = await Promise.all([
     supabase.from("marketplace_hotel_images").select("*").eq("business_id", businessId).order("is_cover", { ascending: false }).order("sort_order"),
     supabase.from("marketplace_hotel_rooms").select("*").eq("business_id", businessId).order("nightly_rate"),
+    supabase.from("marketplace_businesses").select("vertical_video_url").eq("id", businessId).maybeSingle(),
   ]);
   const imagesFallback = throwOrEmpty(imagesResult.error, "Unable to load hotel images.");
   const roomsFallback = throwOrEmpty(roomsResult.error, "Unable to load hotel rooms.");
-  return { images: imagesFallback || imagesResult.data || [], rooms: roomsFallback || roomsResult.data || [] };
+  return { images: imagesFallback || imagesResult.data || [], rooms: roomsFallback || roomsResult.data || [], videoUrl: businessResult.data?.vertical_video_url || "" };
+}
+
+export async function saveHotelMediaPackage(businessId, input = {}) {
+  await validateVerticalMediaPackage(input);
+  const [coverUrl, extraUrls, videoUrl] = await Promise.all([
+    uploadMarketplaceVerticalImage(input.coverImageFile, businessId, "hotel-gallery/covers"),
+    Promise.all(Array.from(input.extraImageFiles || []).map((file) => uploadMarketplaceVerticalImage(file, businessId, "hotel-gallery/images"))),
+    uploadMarketplaceVerticalVideo(input.videoFile, businessId, "hotel-gallery/videos"),
+  ]);
+  const rows = [coverUrl, ...extraUrls].map((imageUrl, index) => ({
+    business_id: businessId,
+    image_url: imageUrl,
+    caption: index === 0 ? "Hotel cover" : `Hotel image ${index}`,
+    is_cover: index === 0,
+    sort_order: index * 10,
+  }));
+  const { error: imageError } = await supabase.from("marketplace_hotel_images").insert(rows);
+  if (imageError) throw new Error(imageError.message || "Unable to save hotel images.");
+  const { error: videoError } = await supabase.from("marketplace_businesses").update({ vertical_video_url: videoUrl, updated_at: new Date().toISOString() }).eq("id", businessId);
+  if (videoError) throw new Error(videoError.message || "Unable to save the hotel video.");
+  return { coverUrl, extraUrls, videoUrl };
 }
 
 export async function addHotelImage(businessId, file, caption = "") {
@@ -120,6 +183,18 @@ export async function addHotelImage(businessId, file, caption = "") {
   }).select().single();
   if (error) throw new Error(error.message || "Unable to add this hotel image.");
   return data;
+}
+
+export async function deleteHotelImage(image) {
+  const { error } = await supabase.from("marketplace_hotel_images").delete().eq("id", image.id).eq("business_id", image.business_id);
+  if (error) throw new Error(error.message || "Unable to delete this hotel image.");
+  await removeMarketplaceMedia([image.image_url]);
+}
+
+export async function deleteHotelVideo(businessId, videoUrl) {
+  const { error } = await supabase.from("marketplace_businesses").update({ vertical_video_url: null, updated_at: new Date().toISOString() }).eq("id", businessId);
+  if (error) throw new Error(error.message || "Unable to delete this hotel video.");
+  await removeMarketplaceMedia([videoUrl]);
 }
 
 export async function saveHotelRoom(businessId, input = {}) {
@@ -153,8 +228,13 @@ export async function fetchPropertyListings(businessId) {
 }
 
 export async function savePropertyListing(businessId, input = {}) {
-  const imageUrls = [...(input.image_urls || [])];
-  if (input.imageFile) imageUrls.push(await uploadMarketplaceVerticalImage(input.imageFile, businessId, "properties"));
+  await validateVerticalMediaPackage(input);
+  const [coverUrl, extraUrls, videoUrl] = await Promise.all([
+    uploadMarketplaceVerticalImage(input.coverImageFile, businessId, "properties/covers"),
+    Promise.all(Array.from(input.extraImageFiles || []).map((file) => uploadMarketplaceVerticalImage(file, businessId, "properties/gallery"))),
+    uploadMarketplaceVerticalVideo(input.videoFile, businessId, "properties/videos"),
+  ]);
+  const imageUrls = [coverUrl, ...extraUrls];
   const payload = {
     business_id: businessId,
     title: String(input.title || "").trim(),
@@ -169,6 +249,7 @@ export async function savePropertyListing(businessId, input = {}) {
     address: String(input.address || "").trim(),
     city: String(input.city || "").trim(),
     image_urls: imageUrls,
+    video_url: videoUrl,
     amenities: String(input.amenitiesText || "").split(",").map((item) => item.trim()).filter(Boolean),
     availability_status: input.availability_status || "available",
     published: Boolean(input.published),
@@ -181,6 +262,12 @@ export async function savePropertyListing(businessId, input = {}) {
   const { data, error } = await query.select().single();
   if (error) throw new Error(error.message || "Unable to save this property.");
   return data;
+}
+
+export async function deletePropertyListing(item) {
+  const { error } = await supabase.from("marketplace_property_listings").delete().eq("id", item.id).eq("business_id", item.business_id);
+  if (error) throw new Error(error.message || "Unable to delete this property.");
+  await removeMarketplaceMedia([...(item.image_urls || []), item.video_url]);
 }
 
 export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {

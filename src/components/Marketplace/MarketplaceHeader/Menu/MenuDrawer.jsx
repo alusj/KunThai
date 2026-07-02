@@ -21,6 +21,7 @@ import {
   RotateCcw,
   Settings,
   ShieldAlert,
+  ShoppingBag,
   Share2,
   Trash2,
   X,
@@ -45,6 +46,7 @@ import {
   saveBuyerDeliveryAddress,
 } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
 import Orders from "../../Orders";
+import UrMallCautionCard from "../../shared/UrMallCautionCard";
 
 const BUYER_ADDRESS_KEY = "marketplace-buyer-address";
 const BUYER_ADDRESSES_KEY = "marketplace-buyer-addresses";
@@ -53,6 +55,7 @@ const RECENT_PRODUCTS_KEY = "marketplace-recent-products";
 const addressTypes = ["Resident", "Office", "Market", "School", "Other"];
 
 const menuItems = [
+  { id: "caution", label: "Caution Card", icon: ShoppingBag },
   { id: "orders", label: "Ordered items", icon: PackageCheck },
   { id: "saved", label: "Saved products", icon: Heart },
   { id: "recent", label: "Recently viewed", icon: History },
@@ -607,6 +610,8 @@ export default function MenuDrawer({ open, onClose }) {
     return (
       <>
         {message && <p className="mb-3 rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p>}
+
+        {screenKey === "caution" && <UrMallCautionCard showMenuNote={false} />}
 
         {screenKey === "orders" && <Orders compact onProductOpen={openProduct} />}
 

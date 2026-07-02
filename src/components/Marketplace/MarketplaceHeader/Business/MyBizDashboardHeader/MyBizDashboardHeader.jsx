@@ -31,8 +31,8 @@ export default function MyBizDashboardHeader({ onEditProfile, overview }) {
         <HealthScoreCard health={health} />
       </div>
 
-      <TodaySummaryCard today={today} />
-      <SellerIntelligence />
+      {["retail", "restaurant"].includes(business.kind || "retail") ? <TodaySummaryCard today={today} /> : null}
+      {business.kind !== "property_agent" ? <SellerIntelligence /> : null}
     </div>
   );
 }

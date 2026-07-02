@@ -13,6 +13,7 @@ export default function New({
   onProductSelect,
   onAddToCart,
   onToggleSaved,
+  supplementalContent,
 }) {
   return (
     <BuyerProductGrid
@@ -23,6 +24,7 @@ export default function New({
       onProductSelect={onProductSelect}
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
+      supplementalContent={supplementalContent}
       emptyTitle="No products yet"
       emptyBody="Active seller products with stock will appear here for buyers."
     />

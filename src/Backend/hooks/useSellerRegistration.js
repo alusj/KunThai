@@ -321,7 +321,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     if (nextStep === 0) {
       if (!form.identity.businessKind) nextErrors.businessKind = "Choose the primary business type.";
       if (!form.identity.businessName.trim()) nextErrors.businessName = "Business name is required.";
-      if (form.identity.categories.length === 0) nextErrors.categories = "Choose at least one category.";
+      if (form.identity.businessKind === "retail" && form.identity.categories.length === 0) nextErrors.categories = "Choose at least one category.";
       if (!form.identity.description.trim()) nextErrors.description = "Short description is required.";
     }
 

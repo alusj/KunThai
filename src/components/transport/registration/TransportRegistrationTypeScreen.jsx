@@ -10,6 +10,7 @@ import {
 import AppBackTab from "../../shared/AppBackTab";
 import { ScreenSlideTransition } from "../../shared/motion";
 import TransportEntryAnimation from "./TransportEntryAnimation";
+import TransportCautionCard from "../shared/TransportCautionCard";
 
 const OPTIONS = [
   {
@@ -113,6 +114,8 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                 <h2 className="mt-5 text-3xl font-black text-slate-950">
                   Before you register with KunThai Transport
                 </h2>
+
+                <div className="mt-5"><TransportCautionCard /></div>
 
                 <p className="mt-8 text-lg font-black text-slate-800">
                   Learn about transport registration

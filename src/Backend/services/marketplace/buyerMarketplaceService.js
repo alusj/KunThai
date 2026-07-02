@@ -676,7 +676,7 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
       buyer_id: buyer.id,
       buyer_name: buyerName.trim() || buyer.name,
       business_id: product.businessId,
-      product_id: product.id,
+      product_id: product.isVertical ? null : product.id,
       status: "pending",
       total_amount: total,
       item_count: quantity,
@@ -879,12 +879,14 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
   const businessId = seller?.id || product?.businessId;
   if (!businessId) throw new Error("Choose a seller to message.");
   const conversationTopic = topic?.trim() || product?.name || "UrMall message";
-  const conversationKey = buildConversationKey(businessId, product?.id, conversationTopic);
+  const productId = product?.isVertical ? null : product?.id || null;
+  const conversationContext = product?.isVertical ? `${product.verticalType || "listing"}:${product.id}` : productId;
+  const conversationKey = buildConversationKey(businessId, conversationContext, conversationTopic);
 
   const { error } = await supabase.from("marketplace_customer_messages").insert({
     buyer_id: buyer.id,
     business_id: businessId,
-    product_id: product?.id || null,
+    product_id: productId,
     product_name: product?.name || "",
     buyer_name: buyer.name,
     topic: conversationTopic,

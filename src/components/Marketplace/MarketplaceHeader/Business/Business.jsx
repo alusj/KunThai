@@ -362,7 +362,7 @@ export default function Business({ onBack }) {
     countryIso: sellerOverview.business?.countryIso || activeRegisteredBusiness?.location?.countryIso || "",
     location: sellerOverview.business?.location || activeRegisteredBusiness?.location?.city || "",
   };
-  const primaryActionLabel = businessKind === "restaurant" ? "Add Meal" : businessKind === "hotel" ? "Add Room" : businessKind === "property_agent" ? "Add Property" : "Add Product";
+  const primaryActionLabel = businessKind === "restaurant" ? "Add Meal" : businessKind === "hotel" ? "Add Hotel" : businessKind === "property_agent" ? "Add Property" : "Add Product";
 
   return (
     <div className={`${dashboardRevealClass} min-h-screen bg-gray-50`} style={dashboardRevealStyle}>
@@ -402,6 +402,7 @@ export default function Business({ onBack }) {
             window.setTimeout(() => setToastMessage(""), 2500);
           }}
           primaryActionLabel={primaryActionLabel}
+          showOrders={["retail", "restaurant"].includes(businessKind)}
         />
       ) : null}
 

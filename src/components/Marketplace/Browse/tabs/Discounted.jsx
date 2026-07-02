@@ -13,6 +13,7 @@ export default function Discounted({
   onProductSelect,
   onAddToCart,
   onToggleSaved,
+  supplementalContent,
 }) {
   return (
     <BuyerProductGrid
@@ -23,6 +24,7 @@ export default function Discounted({
       onProductSelect={onProductSelect}
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
+      supplementalContent={supplementalContent}
       emptyTitle="No discounted products"
       emptyBody="Products with a seller discount price will show up in this section."
     />

@@ -259,8 +259,8 @@ export async function submitSellerRegistration(registration) {
     latitude: registration.location.coordinates?.latitude ?? null,
     longitude: registration.location.coordinates?.longitude ?? null,
     business_type: registration.operations.businessType,
-    delivery_enabled: registration.operations.deliveryEnabled,
-    pickup_enabled: registration.operations.pickupEnabled,
+    delivery_enabled: ["retail", "restaurant"].includes(registration.identity.businessKind) && registration.operations.deliveryEnabled,
+    pickup_enabled: ["retail", "restaurant"].includes(registration.identity.businessKind) && registration.operations.pickupEnabled,
     operating_days: registration.operations.operatingDays || [],
     open_time: registration.operations.openTime || null,
     close_time: registration.operations.closeTime || null,
@@ -417,8 +417,8 @@ export async function updateRegisteredBusinessProfile(updates) {
     latitude: registration.location.coordinates?.latitude ?? null,
     longitude: registration.location.coordinates?.longitude ?? null,
     business_type: registration.operations.businessType || "both",
-    delivery_enabled: Boolean(registration.operations.deliveryEnabled),
-    pickup_enabled: Boolean(registration.operations.pickupEnabled),
+    delivery_enabled: ["retail", "restaurant"].includes(registration.identity.businessKind) && Boolean(registration.operations.deliveryEnabled),
+    pickup_enabled: ["retail", "restaurant"].includes(registration.identity.businessKind) && Boolean(registration.operations.pickupEnabled),
     operating_days: registration.operations.operatingDays || [],
     open_time: registration.operations.openTime || null,
     close_time: registration.operations.closeTime || null,
@@ -510,9 +510,11 @@ export async function updateRegisteredBusinessProfile(updates) {
 }
 
 export function calculateReadinessScore(registration) {
+  const usesCategories = registration.identity.businessKind === "retail";
+  const usesFulfillment = ["retail", "restaurant"].includes(registration.identity.businessKind);
   const checks = [
     registration.identity.businessName,
-    registration.identity.categories.length > 0,
+    !usesCategories || registration.identity.categories.length > 0,
     registration.identity.description,
     registration.identity.logoFile || registration.identity.logoUrl || registration.identity.logoName,
     registration.location.country,
@@ -523,7 +525,7 @@ export function calculateReadinessScore(registration) {
     registration.location.website,
     registration.location.coordinates,
     registration.operations.businessType,
-    registration.operations.deliveryEnabled || registration.operations.pickupEnabled,
+    !usesFulfillment || registration.operations.deliveryEnabled || registration.operations.pickupEnabled,
     registration.operations.openTime,
     registration.operations.closeTime,
     registration.trustPayout.idDocumentFile || registration.trustPayout.idDocumentName,

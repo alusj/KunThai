@@ -97,7 +97,7 @@ function rememberRecentProduct(product) {
   }
 }
 
-export default function Browse({ activeTab = "new", onProductModeChange }) {
+export default function Browse({ activeTab = "new", onProductModeChange, supplementalContent = null }) {
   const initialQueryFilters = cloneFilters(BROWSE_MEMORY.queryFilters);
   const initialCatalog = normalizeCatalog(
     BROWSE_CATALOG_MEMORY.get(buildCatalogKey(initialQueryFilters))?.catalog || BROWSE_MEMORY.catalog,
@@ -408,6 +408,7 @@ export default function Browse({ activeTab = "new", onProductModeChange }) {
     onProductSelect: openProduct,
     onAddToCart: addToCart,
     onToggleSaved: toggleSaved,
+    supplementalContent,
   };
   const initialProductLoading = loading && !catalogHasProducts(catalog);
 

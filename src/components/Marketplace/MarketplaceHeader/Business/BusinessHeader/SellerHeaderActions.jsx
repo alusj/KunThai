@@ -12,9 +12,10 @@ export default function SellerHeaderActions({
   onAlerts,
   onMenu,
   primaryActionLabel = "Add Product",
+  showOrders = true,
 }) {
   const hasNotifications = Number(notificationCount || 0) > 0;
-  const activeHint = orderCount ? "orders" : messageCount ? "messages" : hasNotifications ? "alerts" : "";
+  const activeHint = showOrders && orderCount ? "orders" : messageCount ? "messages" : hasNotifications ? "alerts" : "";
 
   return (
     <div className="flex items-center gap-2">
@@ -24,14 +25,14 @@ export default function SellerHeaderActions({
         primary
         onClick={onAddProduct}
       />
-      <ActionWithHint hint="New order waiting" visible={activeHint === "orders"}>
+      {showOrders ? <ActionWithHint hint="New order waiting" visible={activeHint === "orders"}>
         <HeaderActionButton
           icon={PackageCheck}
           label="Orders"
           badge={orderCount}
           onClick={onOrders}
         />
-      </ActionWithHint>
+      </ActionWithHint> : null}
       <ActionWithHint hint="New buyer message" visible={activeHint === "messages"}>
         <HeaderActionButton
           icon={MessageSquare}

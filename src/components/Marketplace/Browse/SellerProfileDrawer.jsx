@@ -500,6 +500,7 @@ export default function SellerProfileDrawer({
   onToggleSavedSeller,
   savedIds = new Set(),
   sellerSaved = false,
+  showSaveStore = true,
 }) {
   const [activeView, setActiveView] = useState("catalog");
   const [catalog, setCatalog] = useState([]);
@@ -824,7 +825,7 @@ export default function SellerProfileDrawer({
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                 <div className="absolute bottom-3 right-3 flex max-w-[calc(100%-1.5rem)] items-center justify-end gap-2">
                   <SellerActionIcon icon={MessageCircle} label="Message seller" onClick={openMessagePanel} />
-                  <SellerActionIcon icon={Heart} label={sellerSaved ? "Saved store" : "Save store"} active={sellerSaved} onClick={handleSaveStore} />
+                  {showSaveStore ? <SellerActionIcon icon={Heart} label={sellerSaved ? "Saved store" : "Save store"} active={sellerSaved} onClick={handleSaveStore} /> : null}
                   <SellerActionIcon icon={Share2} label="Share store" onClick={shareSeller} />
                   <SellerActionIcon icon={Phone} label="Call seller" href={safeSeller.phone ? `tel:${safeSeller.phone}` : ""} disabled={!safeSeller.phone} />
                 </div>
@@ -843,7 +844,7 @@ export default function SellerProfileDrawer({
                       className="mb-1 inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
                     >
                       <Navigation size={18} />
-                      <span className="truncate">Locate Store</span>
+                      <span className="truncate">Locate</span>
                     </button>
                   </div>
 

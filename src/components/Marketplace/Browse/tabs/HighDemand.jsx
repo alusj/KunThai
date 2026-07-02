@@ -13,6 +13,7 @@ export default function HighDemand({
   onProductSelect,
   onAddToCart,
   onToggleSaved,
+  supplementalContent,
 }) {
   return (
     <BuyerProductGrid
@@ -23,6 +24,7 @@ export default function HighDemand({
       onProductSelect={onProductSelect}
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
+      supplementalContent={supplementalContent}
       emptyTitle="No high-demand products yet"
       emptyBody="Products with buyer views or sales will be ranked here."
     />
