@@ -10,6 +10,8 @@ const BUSINESS_TYPES = [
 
 export default function OperationsStep({ registration }) {
   const { form, errors, updateSection } = registration;
+  const kind = form.identity.businessKind || "retail";
+  const usesFulfillment = kind === "retail" || kind === "restaurant";
 
   return (
     <div className="space-y-5">
@@ -27,18 +29,24 @@ export default function OperationsStep({ registration }) {
         </select>
       </RegistrationField>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      {usesFulfillment ? <div className="grid gap-3 sm:grid-cols-2">
         <ToggleRow
-          label="Delivery option"
+          label={kind === "restaurant" ? "Meal delivery" : "Delivery option"}
           checked={form.operations.deliveryEnabled}
           onChange={(checked) => updateSection("operations", { deliveryEnabled: checked })}
         />
         <ToggleRow
-          label="Pickup option"
+          label={kind === "restaurant" ? "Meal pickup" : "Pickup option"}
           checked={form.operations.pickupEnabled}
           onChange={(checked) => updateSection("operations", { pickupEnabled: checked })}
         />
-      </div>
+      </div> : (
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold leading-6 text-blue-900">
+          {kind === "hotel"
+            ? "Room types, nightly rates, photographs, and availability are managed from the dedicated hotel dashboard after approval."
+            : "Property listings, viewing information, photographs, and availability are managed from the dedicated Property Agent dashboard after approval."}
+        </div>
+      )}
       {errors.fulfillment ? <p className="text-xs font-bold text-red-600">{errors.fulfillment}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">

@@ -13,6 +13,7 @@ import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
 
 const COMPANY_DRAFT_PREFIX = "kuntai.transport.companyDraft.";
 const COMPANY_ACCOUNT_PREFIX = "kuntai.transport.companyAccount.";
+const ACTIVE_COMPANY_PREFIX = "kuntai.transport.activeCompany.";
 const COMPANY_INVITES_KEY = "kuntai.transport.companyInvites";
 const COMPANY_EVENT = "kunthai-transport-company-updated";
 
@@ -838,76 +839,76 @@ export async function saveTransportCompanyDraft(draft) {
   return payload;
 }
 
-export async function getTransportCompanyAccount() {
+export async function setActiveTransportCompanyId(companyId) {
+  const user = await getCurrentUser();
+  if (companyId) localStorage.setItem(scopedKey(ACTIVE_COMPANY_PREFIX, user.id), companyId);
+  else localStorage.removeItem(scopedKey(ACTIVE_COMPANY_PREFIX, user.id));
+  window.dispatchEvent(new CustomEvent(COMPANY_EVENT, { detail: { activeCompanyId: companyId } }));
+  return companyId;
+}
+
+export async function getTransportCompanyAccounts() {
   const user = await getCurrentUser();
 
   try {
-    const { data: ownedCompany, error: ownerError } = await supabase
+    const { data: ownedCompanies, error: ownerError } = await supabase
       .from("transport_companies")
       .select("*")
       .eq("owner_user_id", user.id)
-      .maybeSingle();
+      .order("updated_at", { ascending: false });
 
     if (ownerError) throw ownerError;
-    let company = ownedCompany || null;
-    let currentMember = null;
+    const { data: memberships, error: membershipError } = await supabase
+      .from("transport_company_members")
+      .select("*")
+      .eq("user_id", user.id)
+      .in("status", ["active", "suspended"])
+      .order("updated_at", { ascending: false });
+    if (membershipError) throw membershipError;
 
-    if (!company) {
-      const { data: memberships, error: membershipError } = await supabase
-        .from("transport_company_members")
-        .select("*")
-        .eq("user_id", user.id)
-        .in("status", ["active", "suspended"])
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      if (membershipError) throw membershipError;
-      currentMember = memberships?.[0] || null;
+    const ownedIds = new Set((ownedCompanies || []).map((company) => company.id));
+    const memberCompanyIds = (memberships || []).map((member) => member.company_id).filter((id) => id && !ownedIds.has(id));
+    const memberCompanies = memberCompanyIds.length
+      ? await safeSelectRows(supabase.from("transport_companies").select("*").in("id", memberCompanyIds))
+      : [];
+    const companies = [...(ownedCompanies || []), ...(memberCompanies || [])];
 
-      if (currentMember?.company_id) {
-        const { data: memberCompany, error: companyError } = await supabase
-          .from("transport_companies")
-          .select("*")
-          .eq("id", currentMember.company_id)
-          .maybeSingle();
-        if (companyError) throw companyError;
-        company = memberCompany || null;
-      }
-    }
-
-    if (!company) {
+    if (!companies.length) {
       localStorage.removeItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id));
-      return null;
+      return [];
     }
+    const accounts = await Promise.all(companies.map(async (company) => {
+      const currentMember = (memberships || []).find((member) => member.company_id === company.id) || null;
+      const access = buildCompanyAccess(company, currentMember, user.id);
+      const [fleets, invites, activities, members] = await Promise.all([
+        safeSelectRows(supabase.from("transport_company_fleets").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
+        safeSelectRows(supabase.from("transport_company_operator_invites").select("*").eq("company_id", company.id).order("created_at", { ascending: false })),
+        safeSelectRows(supabase.from("transport_company_activities").select("*").eq("company_id", company.id).order("created_at", { ascending: false }).limit(30)),
+        safeSelectRows(supabase.from("transport_company_members").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
+      ]);
+      return normalizeCompanyAccount({
+        company,
+        fleets: attachMembersToFleets(attachInvitesToFleets(fleets || [], invites || []), members || []),
+        invites: invites || [], activities: activities || [], members: members || [], currentMember, access, storageMode: "cloud",
+      }, user.id);
+    }));
 
-    const access = buildCompanyAccess(company, currentMember, user.id);
-    const [fleets, invites, activities, members] = await Promise.all([
-      safeSelectRows(supabase.from("transport_company_fleets").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
-      safeSelectRows(supabase.from("transport_company_operator_invites").select("*").eq("company_id", company.id).order("created_at", { ascending: false })),
-      safeSelectRows(supabase.from("transport_company_activities").select("*").eq("company_id", company.id).order("created_at", { ascending: false }).limit(30)),
-      safeSelectRows(supabase.from("transport_company_members").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
-    ]);
-    const companyFleets = attachMembersToFleets(
-      attachInvitesToFleets(fleets || [], invites || []),
-      members || [],
-    );
-
-    const account = normalizeCompanyAccount({
-      company,
-      fleets: companyFleets,
-      invites: invites || [],
-      activities: activities || [],
-      members: members || [],
-      currentMember,
-      access,
-      storageMode: "cloud",
-    }, user.id);
-
-    writeLocalCompanyAccount(user.id, account);
-    return account;
+    return accounts;
   } catch (error) {
-    if (isMissingTable(error)) return null;
+    if (isMissingTable(error)) return [];
     throw new Error(error.message || "Unable to load company workspace.");
   }
+}
+
+export async function getTransportCompanyAccount() {
+  const user = await getCurrentUser();
+  const accounts = await getTransportCompanyAccounts();
+  if (!accounts.length) return null;
+  const activeId = localStorage.getItem(scopedKey(ACTIVE_COMPANY_PREFIX, user.id));
+  const account = accounts.find((company) => company.id === activeId) || accounts[0];
+  if (account.id !== activeId) localStorage.setItem(scopedKey(ACTIVE_COMPANY_PREFIX, user.id), account.id);
+  writeLocalCompanyAccount(user.id, account);
+  return account;
 }
 
 async function getOperatorInviteCandidates(operatorAccount = null) {

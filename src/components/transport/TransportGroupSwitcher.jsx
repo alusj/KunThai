@@ -1,0 +1,15 @@
+import { Building2, Check, ChevronDown, X } from "lucide-react";
+import { FiBriefcase } from "react-icons/fi";
+import { useState } from "react";
+
+import AppPortal from "../shared/AppPortal";
+import useBodyScrollLock from "../shared/useBodyScrollLock";
+
+export default function TransportGroupSwitcher({ accounts = [], activeAccount, badge = 0, canOpen, onOpen, onSwitch }) {
+  const [open, setOpen] = useState(false);
+  useBodyScrollLock(open);
+  if (!activeAccount) return null;
+  const multiple = accounts.length > 1;
+
+  return <><button type="button" aria-label={multiple ? "Choose transport group" : `Open ${activeAccount.companyName || "Fleet HQ"}`} title={multiple ? "Choose transport group" : `Open ${activeAccount.companyName || "Fleet HQ"}`} onClick={() => multiple ? setOpen(true) : canOpen ? onOpen?.() : undefined} className="kt-touchable relative flex h-10 min-w-10 items-center justify-center gap-0.5 rounded-full border border-blue-200 bg-blue-50 px-2 text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"><FiBriefcase size={18} />{multiple ? <ChevronDown size={13} /> : null}{badge ? <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-green-600 px-1 text-center text-[10px] font-black leading-5 text-white ring-2 ring-white">{badge > 9 ? "9+" : badge}</span> : null}</button>{open ? <AppPortal><div className="fixed inset-0 z-[1500] flex items-end bg-slate-950/35 p-3 backdrop-blur-sm sm:items-center sm:justify-center" onClick={() => setOpen(false)}><section className="w-full max-w-lg rounded-[28px] bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-blue-700">Transport groups</p><h2 className="mt-1 text-2xl font-black text-slate-950">Choose your company</h2><p className="mt-1 text-sm font-semibold text-slate-500">Your personal fleet remains separate from every company assignment.</p></div><button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 flex-none place-items-center rounded-full bg-slate-100"><X size={18} /></button></div><div className="mt-5 max-h-[55dvh] space-y-2 overflow-y-auto">{accounts.map((company) => { const active = company.id === activeAccount.id; return <button key={company.id} type="button" onClick={async () => { await onSwitch?.(company); setOpen(false); }} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${active ? "border-blue-500 bg-blue-50" : "border-slate-200"}`}><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-700"><Building2 size={20} /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-slate-950">{company.companyName}</span><span className="mt-0.5 block truncate text-xs font-bold text-slate-500">{company.access?.role || "operator"} · {company.access?.serviceStatus || company.verificationStatus || "active"}</span></span>{active ? <Check size={20} className="text-blue-700" /> : null}</button>; })}</div></section></div></AppPortal> : null}</>;
+}

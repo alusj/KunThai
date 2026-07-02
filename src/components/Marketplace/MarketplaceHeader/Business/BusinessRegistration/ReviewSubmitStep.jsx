@@ -14,6 +14,7 @@ export default function ReviewSubmitStep({ registration }) {
       </section>
 
       <SummaryCard title="Business Identity" onEdit={() => goToStep(0)}>
+        <p className="font-black capitalize">{String(form.identity.businessKind || "retail").replaceAll("_", " ")}</p>
         <p>{form.identity.businessName}</p>
         <p>{form.identity.categories.join(", ")}</p>
         <p>{form.identity.description}</p>
@@ -34,9 +35,7 @@ export default function ReviewSubmitStep({ registration }) {
 
       <SummaryCard title="Trust & Payout" onEdit={() => goToStep(3)}>
         <p>
-          {form.trustPayout.skipped
-            ? "Skipped for now"
-            : form.trustPayout.connectKunThaiMoney
+          {form.trustPayout.connectKunThaiMoney
               ? "KunThai Money connected"
               : "Bank fallback selected"}
         </p>

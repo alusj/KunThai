@@ -30,6 +30,12 @@ import { useEffect, useRef, useState } from "react";
 import AppBackTab from "../../../shared/AppBackTab";
 import AppPortal from "../../../shared/AppPortal";
 import BusinessSkeleton from "./BusinessSkeleton";
+import VerticalSellerDashboard from "./VerticalSellerDashboard";
+import {
+  MARKETPLACE_BUSINESS_CHANGED_EVENT,
+  readRegisteredBusinesses,
+  setActiveRegisteredBusiness,
+} from "../../../../Backend/services/marketplace/sellerRegistrationService";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
@@ -86,7 +92,20 @@ export default function Business({ onBack }) {
   const [visibleScreen, setVisibleScreen] = useState("dashboard");
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
   const [dashboardReveal, setDashboardReveal] = useState(null);
+  const [businesses, setBusinesses] = useState([]);
   const sellerScreenTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!hasBusiness) return undefined;
+    let active = true;
+    const loadBusinesses = () => readRegisteredBusinesses().then((items) => { if (active) setBusinesses(items); }).catch(() => {});
+    loadBusinesses();
+    window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, loadBusinesses);
+    return () => {
+      active = false;
+      window.removeEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, loadBusinesses);
+    };
+  }, [hasBusiness]);
 
   useEffect(() => {
     if (sellerScreenTimerRef.current) {
@@ -171,6 +190,25 @@ export default function Business({ onBack }) {
   }
 
   function renderSellerScreen() {
+    if (visibleScreen === "addBusiness") {
+      return (
+        <SellerFullScreen key="addBusiness" hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
+          <BusinessRegistration
+            mode="create"
+            onExit={goBackSellerScreen}
+            onComplete={() => {
+              setDashboardReveal({ type: "onboarding", origin: { x: "50%", y: "70%" } });
+              setVisibleScreen("dashboard");
+              setScreenPanelOpen(false);
+              replaceSellerScreen("dashboard");
+              setToastMessage("New business workspace created successfully");
+              window.setTimeout(() => setToastMessage(""), 4500);
+            }}
+          />
+        </SellerFullScreen>
+      );
+    }
+
     if (visibleScreen === "addProduct") {
       return (
         <SellerFullScreen key="addProduct" hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
@@ -313,6 +351,19 @@ export default function Business({ onBack }) {
     );
   }
 
+  const activeBusinessId = sellerOverview.business?.id || businesses[0]?.id || "";
+  const activeRegisteredBusiness = businesses.find((business) => business.id === activeBusinessId) || businesses[0];
+  const businessKind = sellerOverview.business?.kind || activeRegisteredBusiness?.businessKind || "retail";
+  const verticalBusiness = {
+    id: activeBusinessId,
+    kind: businessKind,
+    name: sellerOverview.business?.name || activeRegisteredBusiness?.identity?.businessName || "UrMall business",
+    currency: sellerOverview.business?.currency || activeRegisteredBusiness?.location?.currency || "",
+    countryIso: sellerOverview.business?.countryIso || activeRegisteredBusiness?.location?.countryIso || "",
+    location: sellerOverview.business?.location || activeRegisteredBusiness?.location?.city || "",
+  };
+  const primaryActionLabel = businessKind === "restaurant" ? "Add Meal" : businessKind === "hotel" ? "Add Room" : businessKind === "property_agent" ? "Add Property" : "Add Product";
+
   return (
     <div className={`${dashboardRevealClass} min-h-screen bg-gray-50`} style={dashboardRevealStyle}>
       <ProductSuccessToast message={toastMessage} onClose={() => setToastMessage("")} />
@@ -322,8 +373,15 @@ export default function Business({ onBack }) {
       ========================= */}
       {hasBusiness ? (
         <MyBizHeader
+          activeBusinessId={activeBusinessId}
+          businesses={businesses}
+          onAddBusiness={() => openSellerScreen("addBusiness")}
           onBack={onBack}
           onAddProduct={() => {
+            if (businessKind !== "retail") {
+              window.dispatchEvent(new CustomEvent("marketplace-open-vertical-editor"));
+              return;
+            }
             setEditingProduct(null);
             openSellerScreen("addProduct");
           }}
@@ -337,6 +395,13 @@ export default function Business({ onBack }) {
             openSellerScreen("notifications");
           }}
           onMenu={openSellerMenu}
+          onSwitchBusiness={async (businessId) => {
+            await setActiveRegisteredBusiness(businessId);
+            setActiveTab("overview");
+            setToastMessage("Business workspace switched");
+            window.setTimeout(() => setToastMessage(""), 2500);
+          }}
+          primaryActionLabel={primaryActionLabel}
         />
       ) : null}
 
@@ -346,6 +411,7 @@ export default function Business({ onBack }) {
           onClose={() => setMenuOpen(false)}
           initialScreenKey={menuInitialScreen}
           profileInitialView={profileInitialView}
+          onAddBusiness={() => openSellerScreen("addBusiness")}
         />
       ) : null}
 
@@ -367,8 +433,9 @@ export default function Business({ onBack }) {
         <div>
           <main className="space-y-6">
             <MyBizDashboardHeader onEditProfile={openProfileEditor} overview={sellerOverview} />
-            <SellerWorkspaceTabs activeTab={activeTab} onTabChange={setActiveTab} />
-            {activeTab === "overview" ? (
+            {businessKind === "retail" ? <SellerWorkspaceTabs activeTab={activeTab} onTabChange={setActiveTab} /> : null}
+            {businessKind !== "retail" ? <VerticalSellerDashboard business={verticalBusiness} /> : null}
+            {businessKind === "retail" && activeTab === "overview" ? (
               <>
                 <BusinessAttention
                   onAction={(item) => {
@@ -380,8 +447,8 @@ export default function Business({ onBack }) {
                 <BusinessPromotions />
               </>
             ) : null}
-            {activeTab === "sales" ? <BusinessStats /> : null}
-            {activeTab === "store" ? (
+            {businessKind === "retail" && activeTab === "sales" ? <BusinessStats /> : null}
+            {businessKind === "retail" && activeTab === "store" ? (
                 <BusinessCatalog
                   mode="store"
                   onViewProduct={openSellerProductDetail}
@@ -391,7 +458,7 @@ export default function Business({ onBack }) {
                 }}
               />
             ) : null}
-            {activeTab === "catalog" ? (
+            {businessKind === "retail" && activeTab === "catalog" ? (
                 <BusinessCatalog
                   mode="catalog"
                   onViewProduct={openSellerProductDetail}
@@ -401,7 +468,7 @@ export default function Business({ onBack }) {
                 }}
               />
             ) : null}
-            {activeTab === "drafts" ? (
+            {businessKind === "retail" && activeTab === "drafts" ? (
                 <BusinessCatalog
                   mode="drafts"
                   onViewProduct={openSellerProductDetail}

@@ -11,6 +11,7 @@ export default function SellerHeaderActions({
   onMessages,
   onAlerts,
   onMenu,
+  primaryActionLabel = "Add Product",
 }) {
   const hasNotifications = Number(notificationCount || 0) > 0;
   const activeHint = orderCount ? "orders" : messageCount ? "messages" : hasNotifications ? "alerts" : "";
@@ -19,7 +20,7 @@ export default function SellerHeaderActions({
     <div className="flex items-center gap-2">
       <HeaderActionButton
         icon={Plus}
-        label="Add Product"
+        label={primaryActionLabel}
         primary
         onClick={onAddProduct}
       />

@@ -9,6 +9,7 @@ import {
   fetchSellerHeaderState,
   searchSellerWorkspace,
 } from "../services/marketplace/sellerHeaderService";
+import { MARKETPLACE_BUSINESS_CHANGED_EVENT } from "../services/marketplace/sellerRegistrationService";
 
 const SELLER_SEEN_SCOPES = {
   orders: "urmall:seller:orders",
@@ -91,13 +92,22 @@ export function useSellerHeader() {
       loadHeaderState(() => true).catch(() => {});
     }
 
+    function handleBusinessChanged() {
+      SELLER_HEADER_MEMORY.loaded = false;
+      SELLER_HEADER_MEMORY.headerState = DEFAULT_HEADER_STATE;
+      setHeaderState(DEFAULT_HEADER_STATE);
+      loadHeaderState(() => true).catch(() => {});
+    }
+
     window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
     window.addEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
     window.addEventListener("marketplace-orders-updated", handleMessagesUpdated);
+    window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     return () => {
       window.removeEventListener("marketplace-message-sent", handleMessagesUpdated);
       window.removeEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
       window.removeEventListener("marketplace-orders-updated", handleMessagesUpdated);
+      window.removeEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     };
   }, []);
 

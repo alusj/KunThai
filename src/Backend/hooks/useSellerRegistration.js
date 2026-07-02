@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BUSINESS_CATEGORIES,
   INITIAL_REGISTRATION,
+  URMALL_BUSINESS_KINDS,
   calculateReadinessScore,
   readRegisteredBusiness,
   submitSellerRegistration,
@@ -318,6 +319,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     const nextErrors = {};
 
     if (nextStep === 0) {
+      if (!form.identity.businessKind) nextErrors.businessKind = "Choose the primary business type.";
       if (!form.identity.businessName.trim()) nextErrors.businessName = "Business name is required.";
       if (form.identity.categories.length === 0) nextErrors.categories = "Choose at least one category.";
       if (!form.identity.description.trim()) nextErrors.description = "Short description is required.";
@@ -331,8 +333,17 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
       if (!form.location.email.trim()) nextErrors.email = "Email is required.";
     }
 
-    if (nextStep === 2 && !form.operations.deliveryEnabled && !form.operations.pickupEnabled) {
+    if (nextStep === 2 && ["retail", "restaurant"].includes(form.identity.businessKind) && !form.operations.deliveryEnabled && !form.operations.pickupEnabled) {
       nextErrors.fulfillment = "Enable delivery, pickup, or both.";
+    }
+
+    if (nextStep === 3) {
+      if (!form.trustPayout.idDocumentFile && !form.trustPayout.idDocumentName) {
+        nextErrors.idDocument = "Upload the owner or representative identity document.";
+      }
+      if (!form.trustPayout.businessDocumentFile && !form.trustPayout.businessDocumentName) {
+        nextErrors.businessDocument = "Upload the business registration or operating document.";
+      }
     }
 
     setErrors(nextErrors);
@@ -472,7 +483,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   }
 
   async function submit() {
-    if (!validateStep(0) || !validateStep(1) || !validateStep(2)) {
+    if (!validateStep(0) || !validateStep(1) || !validateStep(2) || !validateStep(3)) {
       return;
     }
 
@@ -496,6 +507,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
 
   return {
     categories: BUSINESS_CATEGORIES,
+    businessKinds: URMALL_BUSINESS_KINDS,
     step,
     form,
     errors,

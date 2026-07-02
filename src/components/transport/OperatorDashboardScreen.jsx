@@ -31,6 +31,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
+import TransportGroupSwitcher from "./TransportGroupSwitcher";
 import AppBackTab from "../shared/AppBackTab";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
@@ -124,6 +125,7 @@ function isUsableAreaText(value) {
 export default function OperatorDashboardScreen({
   account,
   companyAccount,
+  companyAccounts = [],
   companyOperationBadgeCount = 0,
   companyLoading = false,
   initialView = "dashboard",
@@ -131,6 +133,7 @@ export default function OperatorDashboardScreen({
   onAccountUpdate,
   onLocateArea,
   onOpenCompany,
+  onSwitchCompany,
   onRegisterCompany,
   onEditRegistration,
   readOnly = false,
@@ -438,37 +441,7 @@ export default function OperatorDashboardScreen({
             </button>
           )}
 
-          {hasCompanyAccount ? (
-            canOpenCompanyHq ? (
-              <button
-                type="button"
-                aria-label={`Open ${companyAccount.companyName || "Fleet HQ"}`}
-                title={`Open ${companyAccount.companyName || "Fleet HQ"}`}
-                onClick={onOpenCompany}
-                className="kt-touchable relative flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
-              >
-                <FiBriefcase size={18} />
-                {companyBadgeCount ? (
-                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-green-600 px-1 text-center text-[10px] font-black leading-5 text-white ring-2 ring-white">
-                    {companyBadgeCount > 9 ? "9+" : companyBadgeCount}
-                  </span>
-                ) : null}
-              </button>
-            ) : (
-              <span
-                aria-label={`Member of ${companyAccount.companyName || "company"}`}
-                title={`Member of ${companyAccount.companyName || "company"}`}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 shadow-sm"
-              >
-                <FiBriefcase size={18} />
-                {companyBadgeCount ? (
-                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-green-600 px-1 text-center text-[10px] font-black leading-5 text-white ring-2 ring-white">
-                    {companyBadgeCount > 9 ? "9+" : companyBadgeCount}
-                  </span>
-                ) : null}
-              </span>
-            )
-          ) : null}
+          {hasCompanyAccount ? <TransportGroupSwitcher accounts={companyAccounts} activeAccount={companyAccount} badge={companyBadgeCount} canOpen={canOpenCompanyHq} onOpen={onOpenCompany} onSwitch={onSwitchCompany} /> : null}
 
           <button
             type="button"

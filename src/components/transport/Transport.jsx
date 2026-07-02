@@ -22,6 +22,8 @@ import {
   getOperatorCompanyInvites,
   getTransportCompanyBookingQueue,
   getTransportCompanyAccount,
+  getTransportCompanyAccounts,
+  setActiveTransportCompanyId,
   subscribeTransportCompanyUpdates,
   submitOperatorCompanyInviteDocuments,
   updateOperatorCompanyInvite,
@@ -39,6 +41,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   const [operatorLoading, setOperatorLoading] = useState(true);
   const [operatorError, setOperatorError] = useState("");
   const [companyAccount, setCompanyAccount] = useState(null);
+  const [companyAccounts, setCompanyAccounts] = useState([]);
   const [companyOperationBadgeCount, setCompanyOperationBadgeCount] = useState(0);
   const [companyLoading, setCompanyLoading] = useState(true);
   const [companyWorkspaceOpen, setCompanyWorkspaceOpen] = useState(false);
@@ -603,8 +606,14 @@ export default function Transport({ active = false, onActivityChange, onNotifica
 
     async function loadCompanyAccount() {
       try {
-        const account = await getTransportCompanyAccount();
-        if (alive) setCompanyAccount(account);
+        const [account, accounts] = await Promise.all([
+          getTransportCompanyAccount(),
+          getTransportCompanyAccounts(),
+        ]);
+        if (alive) {
+          setCompanyAccount(account);
+          setCompanyAccounts(accounts);
+        }
       } catch {
         if (alive) setCompanyAccount(null);
       } finally {
@@ -617,12 +626,17 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       if (!alive) return;
       if (account?.companyName || account?.company_name || account?.companyCode || account?.company_code) {
         setCompanyAccount(account || null);
+        setCompanyAccounts((current) => current.some((company) => company.id === account.id)
+          ? current.map((company) => company.id === account.id ? account : company)
+          : [...current, account]);
         return;
       }
 
       const nextAccount = await getTransportCompanyAccount().catch(() => null);
+      const nextAccounts = await getTransportCompanyAccounts().catch(() => []);
       if (!alive) return;
       setCompanyAccount(nextAccount);
+      setCompanyAccounts(nextAccounts);
 
       const inviteUpdate = account?.table === "transport_company_operator_invites" ? account.new : null;
       if (nextAccount?.id && inviteUpdate?.company_id === nextAccount.id) {
@@ -855,6 +869,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         <OperatorDashboardScreen
           account={companyOperatorAccount}
           companyAccount={companyAccount}
+          companyAccounts={companyAccounts}
           companyOperationBadgeCount={companyOperationBadgeCount}
           companyLoading={companyLoading}
           initialView="dashboard"
@@ -871,6 +886,11 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             setRouteDirection("backward");
             setCompanyOperatorDashboardOpen(false);
             setCompanyWorkspaceOpen(true);
+          }}
+          onSwitchCompany={async (company) => {
+            await setActiveTransportCompanyId(company.id);
+            setCompanyAccount(company);
+            setCompanyWorkspaceStatus(`Switched to ${company.companyName}.`);
           }}
         />
       </div>
@@ -890,9 +910,16 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           onCompanyUpdate={setCompanyAccount}
           onLocateArea={openNearbyAreaRoute}
           onOperatorAccountUpdate={setOperatorAccount}
-          onCompanyLeft={() => {
+          onCompanyLeft={async () => {
             setRouteDirection("backward");
-            setCompanyAccount(null);
+            const remaining = await getTransportCompanyAccounts().catch(() => []);
+            setCompanyAccounts(remaining);
+            if (remaining.length) {
+              await setActiveTransportCompanyId(remaining[0].id);
+              setCompanyAccount(remaining[0]);
+            } else {
+              setCompanyAccount(null);
+            }
             setCompanyWorkspaceOpen(false);
           }}
           onBack={() => {
@@ -922,6 +949,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         <OperatorDashboardScreen
           account={operatorAccount}
           companyAccount={companyAccount}
+          companyAccounts={companyAccounts}
           companyOperationBadgeCount={companyOperationBadgeCount}
           companyLoading={companyLoading}
           initialView={operatorDashboardView}
@@ -932,6 +960,12 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             setRouteDirection("forward");
             setCompanyWorkspaceOpen(true);
           } : undefined}
+          onSwitchCompany={async (company) => {
+            await setActiveTransportCompanyId(company.id);
+            setCompanyAccount(company);
+            setCompanyOperationBadgeCount(0);
+            showToast(`Transport group switched to ${company.companyName}.`, "success");
+          }}
           onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}
           onEditRegistration={() => {
             setRouteDirection("forward");

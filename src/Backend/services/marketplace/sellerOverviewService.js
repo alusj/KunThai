@@ -73,12 +73,16 @@ export async function fetchSellerOverview() {
 
   return {
     business: {
+      id: registeredBusiness.id,
+      kind: registeredBusiness.businessKind || "retail",
       name: registeredBusiness.identity.businessName,
       category: registeredBusiness.identity.categories.join(", "),
       location: [registeredBusiness.location.city, registeredBusiness.location.country].filter(Boolean).join(", "),
       logoInitials: getInitials(registeredBusiness.identity.businessName),
       logoUrl: registeredBusiness.identity.logoUrl,
       bannerUrl: registeredBusiness.identity.bannerUrl,
+      currency: registeredBusiness.location.currency || "",
+      countryIso: registeredBusiness.location.countryIso || "",
       verified,
       verificationStatus: registeredBusiness.verificationStatus,
       verificationLabel: verified ? "Verified Seller" : "Verification Pending",

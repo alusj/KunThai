@@ -36,8 +36,19 @@ export const BUSINESS_CATEGORIES = [
   "Other",
 ];
 
+export const URMALL_BUSINESS_KINDS = [
+  { id: "retail", label: "Retail Store", description: "Products, stock, discounts, delivery, and pickup." },
+  { id: "restaurant", label: "Restaurant", description: "Daily menus, meal availability, food orders, and preparation times." },
+  { id: "hotel", label: "Hotel", description: "Property galleries, rooms, nightly rates, and availability." },
+  { id: "property_agent", label: "Property Agent", description: "Verified houses, apartments, land, and commercial property for rent or sale." },
+];
+
+const ACTIVE_BUSINESS_PREFIX = "kunthai.marketplace.active-business.v1";
+export const MARKETPLACE_BUSINESS_CHANGED_EVENT = "kunthai-marketplace-business-changed";
+
 export const INITIAL_REGISTRATION = {
   identity: {
+    businessKind: "retail",
     businessName: "",
     categories: [],
     otherCategory: "",
@@ -113,7 +124,9 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
     id: row.id,
     userId: row.user_id,
     createdAt: row.created_at,
+    businessKind: row.business_kind || "retail",
     identity: {
+      businessKind: row.business_kind || "retail",
       businessName: row.business_name,
       categories: categories.map((item) => item.category),
       otherCategory: "",
@@ -125,6 +138,8 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
     },
     location: {
       country: row.country,
+      countryIso: row.country_iso || "",
+      currency: row.currency || "",
       city: row.city,
       address: row.address,
       phone: row.phone,
@@ -160,25 +175,48 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
   };
 }
 
-export async function readRegisteredBusiness() {
+function activeBusinessStorageKey(userId) {
+  return `${ACTIVE_BUSINESS_PREFIX}.${userId}`;
+}
+
+export async function setActiveRegisteredBusiness(businessId) {
   const userId = await getCurrentUserId();
-  const { data: business, error } = await supabase
+  if (businessId) localStorage.setItem(activeBusinessStorageKey(userId), businessId);
+  else localStorage.removeItem(activeBusinessStorageKey(userId));
+  window.dispatchEvent(new CustomEvent(MARKETPLACE_BUSINESS_CHANGED_EVENT, { detail: { businessId } }));
+  return businessId;
+}
+
+export async function readRegisteredBusinesses() {
+  const userId = await getCurrentUserId();
+  const { data: rows, error } = await supabase
     .from("marketplace_businesses")
     .select("*")
     .eq("user_id", userId)
-    .maybeSingle();
+    .order("updated_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  if (!business) return null;
-  storeCountryContext(business.country);
+  const businesses = await Promise.all((rows || []).map(async (business) => {
+    const [{ data: categories }, { data: payoutMethod }, { data: documents }] = await Promise.all([
+      supabase.from("marketplace_business_categories").select("category").eq("business_id", business.id),
+      supabase.from("marketplace_payout_methods").select("*").eq("business_id", business.id).maybeSingle(),
+      supabase.from("marketplace_business_documents").select("*").eq("business_id", business.id),
+    ]);
+    return normalizeBusiness(business, categories || [], payoutMethod || null, documents || []);
+  }));
 
-  const [{ data: categories }, { data: payoutMethod }, { data: documents }] = await Promise.all([
-    supabase.from("marketplace_business_categories").select("category").eq("business_id", business.id),
-    supabase.from("marketplace_payout_methods").select("*").eq("business_id", business.id).maybeSingle(),
-    supabase.from("marketplace_business_documents").select("*").eq("business_id", business.id),
-  ]);
+  return businesses;
+}
 
-  return normalizeBusiness(business, categories || [], payoutMethod || null, documents || []);
+export async function readRegisteredBusiness() {
+  const userId = await getCurrentUserId();
+  const businesses = await readRegisteredBusinesses();
+  if (!businesses.length) return null;
+  const activeId = localStorage.getItem(activeBusinessStorageKey(userId));
+  const business = businesses.find((item) => item.id === activeId) || businesses[0];
+  if (business.id !== activeId) localStorage.setItem(activeBusinessStorageKey(userId), business.id);
+  storeCountryContext(business.location.country);
+  return business;
 }
 
 export async function hasRegisteredBusiness() {
@@ -190,6 +228,9 @@ export async function submitSellerRegistration(registration) {
   const userId = await getCurrentUserId();
   storeCountryContext(registration.location.country);
   const countryProfile = getActiveCountryProfile(registration.location.country);
+  if (!registration.trustPayout.idDocumentFile || !registration.trustPayout.businessDocumentFile) {
+    throw new Error("Upload both your identity document and business registration document before submitting.");
+  }
   const readinessScore = calculateReadinessScore(registration);
   const [logoUrl, bannerUrl, idDocumentUrl, businessDocumentUrl] = await Promise.all([
     uploadBusinessFile(userId, registration.identity.logoFile, "logos"),
@@ -201,6 +242,7 @@ export async function submitSellerRegistration(registration) {
   const verified = Boolean(idDocumentUrl || businessDocumentUrl);
   const businessPayload = {
     user_id: userId,
+    business_kind: registration.identity.businessKind || "retail",
     business_name: registration.identity.businessName.trim(),
     description: registration.identity.description.trim(),
     country: registration.location.country.trim(),
@@ -229,20 +271,21 @@ export async function submitSellerRegistration(registration) {
     updated_at: new Date().toISOString(),
   };
 
-  let { data: business, error } = await supabase.from("marketplace_businesses").upsert(businessPayload, { onConflict: "user_id" }).select().maybeSingle();
+  let { data: business, error } = await supabase.from("marketplace_businesses").insert(businessPayload).select().maybeSingle();
 
   if (
     error &&
-    ["website_url", "operating_days", "country_iso", "currency"].some((column) => isMissingColumn(error, column))
+    ["website_url", "operating_days", "country_iso", "currency", "business_kind"].some((column) => isMissingColumn(error, column))
   ) {
     const {
       website_url: _websiteUrl,
       operating_days: _operatingDays,
       country_iso: _countryIso,
       currency: _currency,
+      business_kind: _businessKind,
       ...fallbackPayload
     } = businessPayload;
-    const fallback = await supabase.from("marketplace_businesses").upsert(fallbackPayload, { onConflict: "user_id" }).select().maybeSingle();
+    const fallback = await supabase.from("marketplace_businesses").insert(fallbackPayload).select().maybeSingle();
     business = fallback.data;
     error = fallback.error;
   }
@@ -317,6 +360,7 @@ export async function submitSellerRegistration(registration) {
     meta: "Registration",
   });
 
+  await setActiveRegisteredBusiness(business.id);
   return readRegisteredBusiness();
 }
 
@@ -333,6 +377,7 @@ export async function updateRegisteredBusinessProfile(updates) {
       ...(updates.identity || {}),
       logoFile: updates.identity?.logoFile || null,
       bannerFile: updates.identity?.bannerFile || null,
+      businessKind: updates.identity?.businessKind || currentBusiness.businessKind || "retail",
     },
     location: {
       ...currentBusiness.location,
@@ -357,6 +402,7 @@ export async function updateRegisteredBusinessProfile(updates) {
   ]);
 
   const businessPayload = {
+    business_kind: registration.identity.businessKind || currentBusiness.businessKind || "retail",
     business_name: registration.identity.businessName.trim(),
     description: registration.identity.description.trim(),
     country: registration.location.country.trim(),
@@ -387,8 +433,8 @@ export async function updateRegisteredBusinessProfile(updates) {
     .update(businessPayload)
     .eq("id", currentBusiness.id);
 
-  if (error && (isMissingColumn(error, "website_url") || isMissingColumn(error, "operating_days"))) {
-    const { website_url: _websiteUrl, operating_days: _operatingDays, ...fallbackPayload } = businessPayload;
+  if (error && (isMissingColumn(error, "website_url") || isMissingColumn(error, "operating_days") || isMissingColumn(error, "business_kind"))) {
+    const { website_url: _websiteUrl, operating_days: _operatingDays, business_kind: _businessKind, ...fallbackPayload } = businessPayload;
     const fallback = await supabase
       .from("marketplace_businesses")
       .update(fallbackPayload)
@@ -480,9 +526,9 @@ export function calculateReadinessScore(registration) {
     registration.operations.deliveryEnabled || registration.operations.pickupEnabled,
     registration.operations.openTime,
     registration.operations.closeTime,
-    registration.trustPayout.skipped ||
-      registration.trustPayout.connectKunThaiMoney ||
-      registration.trustPayout.bankName,
+    registration.trustPayout.idDocumentFile || registration.trustPayout.idDocumentName,
+    registration.trustPayout.businessDocumentFile || registration.trustPayout.businessDocumentName,
+    registration.trustPayout.connectKunThaiMoney || registration.trustPayout.bankName,
   ];
 
   const complete = checks.filter(Boolean).length;

@@ -5,6 +5,8 @@ import Business from "./MarketplaceHeader/Business/Business";
 import Messages from "./Messages";
 import Orders from "./Orders";
 import ParentTabs from "./ParentTabs";
+import MarketplaceParentNav from "./MarketplaceParentNav";
+import VerticalMarketplace from "./VerticalMarketplace";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
@@ -15,6 +17,8 @@ const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 
 export default function Marketplace({ active = false, nav, setNav, onActivityChange, onNotificationCountChange }) {
   const [activeTab, setActiveTab] = useState("new");
+  const [activeParent, setActiveParent] = useState("all");
+  const [verticalDetailOpen, setVerticalDetailOpen] = useState(false);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [activeUtility, setActiveUtility] = useState(null);
   const [productMode, setProductMode] = useState(false);
@@ -103,9 +107,9 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
   }, []);
 
   useEffect(() => {
-    onActivityChange?.(Boolean(activeUtility) || headerActivityOpen || productMode || Boolean(nav.sub));
+    onActivityChange?.(Boolean(activeUtility) || headerActivityOpen || productMode || verticalDetailOpen || Boolean(nav.sub));
     return () => onActivityChange?.(false);
-  }, [activeUtility, headerActivityOpen, nav.sub, onActivityChange, productMode]);
+  }, [activeUtility, headerActivityOpen, nav.sub, onActivityChange, productMode, verticalDetailOpen]);
 
   useEffect(() => {
     if (nav.sub !== "business" || !sellerNotificationCount) return;
@@ -137,24 +141,46 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
             onNotificationCountChange={setBuyerNotificationCount}
             sellerNotificationCount={sellerNotificationCount}
           />
-
-          <ParentTabs
-            activeTab={activeTab}
-            setActiveTab={(tab) => {
-              switchMarketplaceTab(tab);
+          <MarketplaceParentNav
+            active={activeParent}
+            onChange={(parent) => {
+              setActiveParent(parent);
               setActiveUtility(null);
+              setVerticalDetailOpen(false);
             }}
           />
+          {activeParent === "all" || activeParent === "shop" ? (
+            <ParentTabs
+              activeTab={activeTab}
+              setActiveTab={(tab) => {
+                switchMarketplaceTab(tab);
+                setActiveUtility(null);
+              }}
+            />
+          ) : null}
         </>
       )}
 
       <div
-        key={activeTab}
+        key={`${activeParent}-${activeTab}`}
         className={`${productMode ? "" : "px-4 pb-28 pt-4 sm:px-6 lg:px-8"} ${
           tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"
         }`}
       >
-        <Browse activeTab={activeTab} onProductModeChange={setMarketplaceScreenMode} />
+        {activeParent === "all" ? (
+          <div className="space-y-10">
+            <VerticalMarketplace mode="all" onDetailChange={setVerticalDetailOpen} />
+            <section>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Shop</p>
+              <h2 className="mt-1 text-2xl font-black text-gray-950">Products across UrMall</h2>
+              <div className="mt-4"><Browse activeTab={activeTab} onProductModeChange={setMarketplaceScreenMode} /></div>
+            </section>
+          </div>
+        ) : null}
+        {activeParent === "shop" ? <Browse activeTab={activeTab} onProductModeChange={setMarketplaceScreenMode} /> : null}
+        {activeParent === "food" ? <VerticalMarketplace mode="food" onDetailChange={setVerticalDetailOpen} /> : null}
+        {activeParent === "hotels" ? <VerticalMarketplace mode="hotels" onDetailChange={setVerticalDetailOpen} /> : null}
+        {activeParent === "property" ? <VerticalMarketplace mode="property" onDetailChange={setVerticalDetailOpen} /> : null}
       </div>
 
       <UtilityScreen

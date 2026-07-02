@@ -4,6 +4,7 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  Plus,
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -54,6 +55,7 @@ export default function MyBizMenu({
   onClose,
   initialScreenKey = null,
   profileInitialView = "menu",
+  onAddBusiness,
 }) {
   const [activeScreenKey, setActiveScreenKey] = useState(initialScreenKey);
   const [visibleScreenKey, setVisibleScreenKey] = useState(initialScreenKey);
@@ -214,6 +216,15 @@ export default function MyBizMenu({
 
               <div className="space-y-5 px-4 pt-5">
                 <SellerDrawerSection title="Manage Store">
+                  <SellerDrawerNavItem
+                    icon={Plus}
+                    title="Add another business"
+                    description="Create a separate retail, restaurant, hotel, or property workspace."
+                    onClick={() => {
+                      closeDrawer();
+                      onAddBusiness?.();
+                    }}
+                  />
                   <SellerDrawerNavItem
                     icon={LayoutDashboard}
                     title="Seller Board"

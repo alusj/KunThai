@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchSellerOverview } from "../services/marketplace/sellerOverviewService";
+import { MARKETPLACE_BUSINESS_CHANGED_EVENT } from "../services/marketplace/sellerRegistrationService";
 
 const DEFAULT_OVERVIEW = {
   business: null,
@@ -103,11 +104,20 @@ export function useSellerOverview({ enabled = true } = {}) {
       loadOverview(() => true);
     }
 
+    function handleBusinessChanged() {
+      SELLER_OVERVIEW_MEMORY.overview = null;
+      SELLER_OVERVIEW_MEMORY.savedAt = 0;
+      setOverview(DEFAULT_OVERVIEW);
+      loadOverview(() => true);
+    }
+
     window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
     window.addEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
+    window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     return () => {
       window.removeEventListener("marketplace-message-sent", handleMessagesUpdated);
       window.removeEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
+      window.removeEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     };
   }, [enabled, loadOverview]);
 

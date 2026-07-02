@@ -2,8 +2,9 @@ import { useSellerHeader } from "../../../../../Backend/hooks/useSellerHeader";
 import SellerHeaderActions from "./SellerHeaderActions";
 import SellerHeaderTitle from "./SellerHeaderTitle";
 import SellerSearch from "./SellerSearch";
+import BusinessSwitcher from "./BusinessSwitcher";
 
-export default function MyBizHeader({ onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu }) {
+export default function MyBizHeader({ activeBusinessId, businesses, onAddBusiness, onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu, onSwitchBusiness, primaryActionLabel = "Add Product" }) {
   const sellerHeader = useSellerHeader();
 
   return (
@@ -17,6 +18,8 @@ export default function MyBizHeader({ onBack, onAddProduct, onOrders, onMessages
             onQueryChange={sellerHeader.setQuery}
             results={sellerHeader.searchResults}
           />
+
+          <BusinessSwitcher activeBusinessId={activeBusinessId} businesses={businesses} onAddBusiness={onAddBusiness} onSwitch={onSwitchBusiness} />
 
           <SellerHeaderActions
             orderCount={sellerHeader.orderCount}
@@ -36,6 +39,7 @@ export default function MyBizHeader({ onBack, onAddProduct, onOrders, onMessages
               onAlerts?.();
             }}
             onMenu={onMenu}
+            primaryActionLabel={primaryActionLabel}
           />
         </div>
       </header>

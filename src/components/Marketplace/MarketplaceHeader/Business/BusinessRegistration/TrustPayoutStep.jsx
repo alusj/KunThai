@@ -3,7 +3,7 @@ import RegistrationInput from "./RegistrationInput";
 import ToggleRow from "./ToggleRow";
 
 export default function TrustPayoutStep({ registration }) {
-  const { form, updateSection, skipTrustPayout } = registration;
+  const { form, errors, updateSection } = registration;
 
   return (
     <div className="space-y-5">
@@ -12,21 +12,14 @@ export default function TrustPayoutStep({ registration }) {
           <div>
             <p className="font-black text-emerald-900">Verified Seller Badge Preview</p>
             <p className="mt-1 text-sm font-medium text-emerald-700">
-              Uploading trust documents can help buyers feel safer, but these are optional for now.
+              Every new UrMall business must submit both documents. KunThai sends them privately to the admin verification queue.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={skipTrustPayout}
-            className="rounded-lg border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-800 hover:bg-emerald-50"
-          >
-            Skip for now
-          </button>
         </div>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <RegistrationField label="Upload ID optional">
+        <RegistrationField label="Owner/representative ID required" error={errors.idDocument}>
           <RegistrationInput
             type="file"
             onChange={(event) => {
@@ -35,7 +28,7 @@ export default function TrustPayoutStep({ registration }) {
             }}
           />
         </RegistrationField>
-        <RegistrationField label="Business document optional">
+        <RegistrationField label="Business registration document required" error={errors.businessDocument}>
           <RegistrationInput
             type="file"
             onChange={(event) => {
