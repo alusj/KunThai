@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bath, BedDouble, Clock3, MapPin } from "lucide-react";
 
-import { fetchMarketplaceVerticalDiscovery } from "../../Backend/services/marketplace/marketplaceVerticalService";
+import {
+  createVerticalBooking,
+  fetchMarketplaceVerticalDiscovery,
+  subscribeMarketplaceVerticalDiscovery,
+} from "../../Backend/services/marketplace/marketplaceVerticalService";
 import { createBuyerProductOrder, sendBuyerMarketplaceMessage } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { showToast } from "../../Backend/services/toastService";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
@@ -139,20 +143,48 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
     }
   }
 
+  async function bookVertical(product, bookingInput) {
+    try {
+      await createVerticalBooking(product, bookingInput);
+      showToast("Booking request sent to the business.", "success");
+    } catch (error) {
+      showToast(error.message || "Unable to send this booking request.", "danger");
+      throw error;
+    }
+  }
+
+  const loadCatalog = useCallback(async ({ initial = false } = {}) => {
+    if (initial) setLoading(true);
+    try {
+      const data = await fetchMarketplaceVerticalDiscovery();
+      setCatalog(data);
+      setError("");
+    } catch (nextError) {
+      setError(nextError.message || "Unable to load these UrMall businesses.");
+    } finally {
+      if (initial) setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
-    fetchMarketplaceVerticalDiscovery()
-      .then((data) => {
-        if (active) setCatalog(data);
-      })
-      .catch((nextError) => {
-        if (active) setError(nextError.message || "Unable to load these UrMall businesses.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
-  }, []);
+    let refreshTimer;
+    const refresh = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => { if (active) loadCatalog(); }, 120);
+    };
+    loadCatalog({ initial: true });
+    const unsubscribe = subscribeMarketplaceVerticalDiscovery(refresh);
+    window.addEventListener("marketplace-vertical-listing-updated", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      window.clearTimeout(refreshTimer);
+      unsubscribe?.();
+      window.removeEventListener("marketplace-vertical-listing-updated", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [loadCatalog]);
 
   useEffect(() => {
     if (loading || typeof window === "undefined") return;
@@ -192,7 +224,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
           : type === "hotel"
             ? <HotelCard key={`hotel-${item.id}`} item={item} onClick={() => setSelected({ type, item })} onVerification={() => setVerification(item)} />
             : <PropertyCard key={`property-${item.id}`} item={item} onClick={() => setSelected({ type, item })} onVerification={() => setVerification(item)} />)}
-        {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageSeller} onOpenSeller={setProfileSeller} onOrder={orderRestaurant} /> : null}
+        {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageSeller} onOpenSeller={setProfileSeller} onOrder={selected.type === "restaurant" ? orderRestaurant : bookVertical} /> : null}
         <VerticalSellerProfile seller={profileSeller} onClose={() => setProfileSeller(null)} />
         {verification ? <MarketplaceVerificationModal status={verification.verificationStatus} audience="buyer" onClose={() => setVerification(null)} /> : null}
       </>
@@ -224,7 +256,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
         </VerticalSection>
       ) : null}
 
-      {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageSeller} onOpenSeller={setProfileSeller} onOrder={orderRestaurant} /> : null}
+      {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageSeller} onOpenSeller={setProfileSeller} onOrder={selected.type === "restaurant" ? orderRestaurant : bookVertical} /> : null}
       <VerticalSellerProfile seller={profileSeller} onClose={() => setProfileSeller(null)} />
       {verification ? <MarketplaceVerificationModal status={verification.verificationStatus} audience="buyer" onClose={() => setVerification(null)} /> : null}
     </div>
@@ -263,7 +295,7 @@ function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, onOrder, produc
   const isRestaurant = type === "restaurant";
   const serviceValue = isRestaurant
     ? product.deliveryAvailable && product.pickupAvailable ? "Delivery and pickup" : product.deliveryAvailable ? "Delivery available" : "Pickup available"
-    : type === "hotel" ? "Message hotel to confirm dates" : "Message agent to arrange a viewing";
+    : type === "hotel" ? "Request dates directly from the hotel" : "Book a property viewing";
   return (
     <ProductDetailDrawer
       product={product}
@@ -271,9 +303,16 @@ function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, onOrder, produc
       onClose={onClose}
       onMessageSeller={onMessage}
       onOpenSeller={(seller) => onOpenSeller?.({ ...seller, verticalType: type })}
-      onOrderProduct={isRestaurant ? onOrder : undefined}
+      onOrderProduct={onOrder}
+      onNotice={(message, tone = "success") => showToast(message, tone)}
+      actionLabel={isRestaurant ? "Order" : "Book"}
+      actionMode={isRestaurant ? "order" : "booking"}
+      bookingStartLabel={type === "hotel" ? "Check-in" : "Viewing date"}
+      bookingEndLabel="Check-out"
+      bookingUsesEndDate={type === "hotel"}
       showAddToCart={false}
-      showOrder={isRestaurant}
+      showMessage={isRestaurant}
+      showOrder
       showInventory={false}
       showSave={false}
       reviewLabel="Review"
@@ -282,6 +321,7 @@ function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, onOrder, produc
       detailsHeading={type === "restaurant" ? "Meal Details" : type === "hotel" ? "Hotel Details" : "Property Details"}
       historyKey={`marketplace-${type}-detail`}
       messageContextLabel={type === "restaurant" ? "Meal inquiry" : type === "hotel" ? "Hotel inquiry" : "Property inquiry"}
+      messageLabel="Message"
       serviceLabel={type === "restaurant" ? "Fulfilment" : type === "hotel" ? "Stay" : "Viewing"}
       serviceValue={serviceValue}
     />

@@ -270,6 +270,67 @@ export async function deletePropertyListing(item) {
   await removeMarketplaceMedia([...(item.image_urls || []), item.video_url]);
 }
 
+export async function createVerticalBooking(product, input = {}) {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const buyerId = authData?.user?.id;
+  if (authError || !buyerId) throw new Error("Sign in before requesting a booking.");
+
+  const payload = {
+    business_id: product.businessId || product.seller?.id,
+    buyer_id: buyerId,
+    listing_id: product.id || null,
+    listing_type: product.verticalType,
+    listing_name: String(product.name || "").trim(),
+    buyer_name: String(input.buyerName || "").trim(),
+    phone: String(input.phone || "").trim(),
+    start_date: input.startDate,
+    end_date: input.endDate || null,
+    note: String(input.note || "").trim(),
+  };
+  if (!payload.business_id || !["hotel", "property"].includes(payload.listing_type)) throw new Error("This listing cannot accept bookings yet.");
+  if (!payload.buyer_name || !payload.phone || !payload.start_date) throw new Error("Add your name, phone number, and booking date.");
+
+  const { data, error } = await supabase.from("marketplace_vertical_bookings").insert(payload).select().single();
+  if (error) throw new Error(error.message || "Unable to send this booking request.");
+  window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId: payload.business_id } }));
+  return data;
+}
+
+export async function fetchVerticalBusinessActivity(businessId) {
+  const [reviews, messages, orders, bookings] = await Promise.all([
+    supabase.from("marketplace_reviews").select("id", { count: "exact", head: true }).eq("business_id", businessId),
+    supabase.from("marketplace_customer_messages").select("id", { count: "exact", head: true }).eq("business_id", businessId),
+    supabase.from("marketplace_orders").select("id", { count: "exact", head: true }).eq("business_id", businessId),
+    supabase.from("marketplace_vertical_bookings").select("id,listing_name,listing_type,buyer_name,phone,start_date,end_date,note,status,created_at", { count: "exact" }).eq("business_id", businessId).order("created_at", { ascending: false }).limit(8),
+  ]);
+  const bookingRows = isMissingTable(bookings.error) ? [] : bookings.data || [];
+  return {
+    reviews: Number(reviews.count || 0),
+    messages: Number(messages.count || 0),
+    orders: Number(orders.count || 0),
+    bookings: Number(bookings.count || bookingRows.length),
+    recentBookings: bookingRows,
+  };
+}
+
+export function subscribeMarketplaceVerticalDiscovery(onChange) {
+  const channel = supabase.channel(`marketplace-vertical-discovery-${crypto.randomUUID()}`);
+  ["marketplace_restaurant_menu_items", "marketplace_hotel_images", "marketplace_hotel_rooms", "marketplace_property_listings"].forEach((table) => {
+    channel.on("postgres_changes", { event: "*", schema: "public", table }, onChange);
+  });
+  channel.subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
+export function subscribeVerticalBusinessActivity(businessId, onChange) {
+  const channel = supabase.channel(`marketplace-vertical-activity-${businessId}-${crypto.randomUUID()}`);
+  ["marketplace_vertical_bookings", "marketplace_customer_messages", "marketplace_reviews", "marketplace_orders"].forEach((table) => {
+    channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `business_id=eq.${businessId}` }, onChange);
+  });
+  channel.subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
 export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {
   const [menusResult, hotelImagesResult, roomsResult, propertiesResult] = await Promise.all([
     supabase.from("marketplace_restaurant_menu_items").select(`*, marketplace_businesses (${BUSINESS_SELECT})`).eq("available", true).order("updated_at", { ascending: false }).limit(limit * 7),
@@ -290,6 +351,16 @@ export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {
     imagesByBusiness.get(image.business_id).push(image.image_url);
   });
   const hotelsByBusiness = new Map();
+  hotelImages.forEach((image) => {
+    if (hotelsByBusiness.has(image.business_id)) return;
+    hotelsByBusiness.set(image.business_id, {
+      ...normalizeBusinessRow(image),
+      id: image.business_id,
+      images: imagesByBusiness.get(image.business_id) || [],
+      rooms: [],
+      fromPrice: 0,
+    });
+  });
   rooms.forEach((room) => {
     const business = nestedBusiness(room);
     const current = hotelsByBusiness.get(room.business_id) || {
@@ -300,7 +371,9 @@ export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {
       fromPrice: Number(room.nightly_rate || 0),
     };
     current.rooms.push(room);
-    current.fromPrice = Math.min(current.fromPrice, Number(room.nightly_rate || 0));
+    current.fromPrice = current.rooms.length === 1
+      ? Number(room.nightly_rate || 0)
+      : Math.min(current.fromPrice, Number(room.nightly_rate || 0));
     current.businessName = business.business_name || current.businessName;
     hotelsByBusiness.set(room.business_id, current);
   });

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Heart,
@@ -513,16 +514,25 @@ export default function ProductDetailDrawer({
   detailsHeading = "Product Details",
   historyKey = "marketplace-product-detail",
   messageContextLabel = "Product inquiry",
+  messageLabel = "Message Seller",
   reviewHeading = "Product Reviews",
   reviewLabel = "Product Review",
   reviewType = "product",
+  actionLabel = "Order",
+  actionMode = "order",
+  bookingStartLabel = "Start date",
+  bookingEndLabel = "End date",
+  bookingUsesEndDate = true,
   serviceLabel = "Delivery",
   serviceValue,
   showAddToCart = true,
   showInventory = true,
+  showMessage = true,
   showOrder = true,
+  showReview = true,
   showSave = true,
 }) {
+  const isBooking = actionMode === "booking";
   const [reviewOpen, setReviewOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -570,7 +580,7 @@ export default function ProductDetailDrawer({
     : null;
   const orderAddressValidation = useAddressAreaValidation(orderForm.address, {
     selectedPoint: orderAddressPoint,
-    enabled: orderOpen && orderForm.fulfillment !== "pickup",
+    enabled: orderOpen && !isBooking && orderForm.fulfillment !== "pickup",
   });
 
   useEffect(() => {
@@ -637,7 +647,7 @@ export default function ProductDetailDrawer({
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
   const orderTotal = displayPrice * Math.max(1, Number(orderForm.quantity || 1));
   const specs = getProductSpecs(product);
-  const footerActionCount = Number(showSave) + 1 + Number(showAddToCart) + Number(showOrder) + 1;
+  const footerActionCount = Number(showSave) + Number(showMessage) + Number(showAddToCart) + Number(showOrder) + Number(showReview);
   const footerGridClass = footerActionCount >= 5
     ? "grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)] sm:grid-cols-[3rem_repeat(4,minmax(0,1fr))]"
     : footerActionCount === 4
@@ -669,9 +679,17 @@ export default function ProductDetailDrawer({
   async function openOrderForm() {
     const localAddresses = readSavedAddresses();
     setSavedAddresses(localAddresses);
-    setOrderForm({ ...readDefaultAddress(), quantity: 1, fulfillment: product.deliveryAvailable ? "delivery" : "pickup" });
+    setOrderForm({
+      ...readDefaultAddress(),
+      quantity: 1,
+      fulfillment: product.deliveryAvailable ? "delivery" : "pickup",
+      startDate: "",
+      endDate: "",
+    });
     setOrderAreaPicker(null);
     setOrderOpen(true);
+
+    if (isBooking) return;
 
     try {
       const remoteAddresses = await fetchBuyerDeliveryAddresses();
@@ -732,18 +750,30 @@ export default function ProductDetailDrawer({
     event.preventDefault();
     const quantity = Math.max(1, Number(orderForm.quantity || 1));
     if (!String(orderForm.buyerName || "").trim()) {
-      onNotice?.("Add the receiver name before ordering.", "danger");
+      onNotice?.(`Add your name before ${isBooking ? "booking" : "ordering"}.`, "danger");
       return;
     }
     if (!String(orderForm.phone || "").trim()) {
-      onNotice?.("Add a phone number before ordering.", "danger");
+      onNotice?.(`Add a phone number before ${isBooking ? "booking" : "ordering"}.`, "danger");
       return;
     }
-    if (quantity > Number(product.stock || 0)) {
+    if (isBooking && !orderForm.startDate) {
+      onNotice?.(`Add the ${bookingStartLabel.toLowerCase()} before booking.`, "danger");
+      return;
+    }
+    if (isBooking && bookingUsesEndDate && !orderForm.endDate) {
+      onNotice?.(`Add the ${bookingEndLabel.toLowerCase()} before booking.`, "danger");
+      return;
+    }
+    if (isBooking && bookingUsesEndDate && orderForm.endDate < orderForm.startDate) {
+      onNotice?.(`${bookingEndLabel} cannot be before ${bookingStartLabel.toLowerCase()}.`, "danger");
+      return;
+    }
+    if (!isBooking && quantity > Number(product.stock || 0)) {
       onNotice?.(`Only ${product.stock} item${product.stock === 1 ? "" : "s"} available.`, "danger");
       return;
     }
-    if (orderForm.fulfillment !== "pickup" && !orderForm.address.trim()) {
+    if (!isBooking && orderForm.fulfillment !== "pickup" && !orderForm.address.trim()) {
       onNotice?.("Add a delivery address before ordering.", "danger");
       return;
     }
@@ -950,15 +980,15 @@ export default function ProductDetailDrawer({
           >
             <Heart size={18} fill={saved ? "currentColor" : "none"} />
           </button> : null}
-          {showAddToCart ? <button
+          {showMessage ? <button
             type="button"
             onClick={() => setMessageOpen(true)}
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 text-xs font-black text-gray-900 hover:bg-gray-50 sm:text-sm"
           >
             <MessageCircle size={17} />
-            <span className="truncate">Message Seller</span>
+            <span className="truncate">{messageLabel}</span>
           </button> : null}
-          {showOrder ? <button
+          {showAddToCart ? <button
             type="button"
             onClick={() => onAddToCart?.(product)}
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 sm:text-sm"
@@ -966,22 +996,22 @@ export default function ProductDetailDrawer({
             <ShoppingCart size={17} />
             <span className="truncate">Add to Cart</span>
           </button> : null}
-          <button
+          {showOrder ? <button
             type="button"
             onClick={openOrderForm}
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700 sm:text-sm"
           >
-            <PackageCheck size={17} />
-            <span className="truncate">Order</span>
-          </button>
-          <button
+            {isBooking ? <CalendarDays size={17} /> : <PackageCheck size={17} />}
+            <span className="truncate">{actionLabel}</span>
+          </button> : null}
+          {showReview ? <button
             type="button"
             onClick={() => setReviewOpen(true)}
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl bg-gray-950 px-3 text-xs font-black text-white hover:bg-gray-800 sm:text-sm"
           >
             <Star size={17} />
             <span className="truncate">{reviewLabel}</span>
-          </button>
+          </button> : null}
           </div>
         </footer>
       </aside>
@@ -998,7 +1028,7 @@ export default function ProductDetailDrawer({
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black uppercase text-emerald-700">Create order</p>
+                  <p className="text-xs font-black uppercase text-emerald-700">{isBooking ? "Request booking" : "Create order"}</p>
                   <h3 id="product-order-title" className="mt-1 text-lg font-black text-gray-950">{product.name}</h3>
                   <p className="mt-1 text-sm font-bold text-gray-500">{product.seller?.name || "UrMall seller"}</p>
                 </div>
@@ -1013,7 +1043,7 @@ export default function ProductDetailDrawer({
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <div className="col-span-2 grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-1">
+                {!isBooking ? <div className="col-span-2 grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-1">
                   <button
                     type="button"
                     disabled={!product.deliveryAvailable}
@@ -1034,8 +1064,8 @@ export default function ProductDetailDrawer({
                   >
                     Pickup
                   </button>
-                </div>
-                {savedAddresses.length ? (
+                </div> : null}
+                {!isBooking && savedAddresses.length ? (
                   <div className="col-span-2 space-y-2">
                     <p className="text-xs font-black uppercase text-gray-500">Saved addresses</p>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -1065,9 +1095,33 @@ export default function ProductDetailDrawer({
                   placeholder="Phone number"
                   className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
+                {isBooking ? (
+                  <>
+                    <label className={bookingUsesEndDate ? "space-y-1" : "col-span-2 space-y-1"}>
+                      <span className="text-xs font-black uppercase text-gray-500">{bookingStartLabel}</span>
+                      <input
+                        type="date"
+                        min={new Date().toISOString().slice(0, 10)}
+                        value={orderForm.startDate || ""}
+                        onChange={(event) => updateOrderForm({ startDate: event.target.value })}
+                        className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                      />
+                    </label>
+                    {bookingUsesEndDate ? <label className="space-y-1">
+                      <span className="text-xs font-black uppercase text-gray-500">{bookingEndLabel}</span>
+                      <input
+                        type="date"
+                        min={orderForm.startDate || new Date().toISOString().slice(0, 10)}
+                        value={orderForm.endDate || ""}
+                        onChange={(event) => updateOrderForm({ endDate: event.target.value })}
+                        className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                      />
+                    </label> : null}
+                  </>
+                ) : null}
               </div>
 
-              <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_120px]">
+              {!isBooking ? <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_120px]">
                 <label className="min-w-0 space-y-1">
                   <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
                     {orderForm.fulfillment === "pickup" ? "Pickup note" : "Delivery address"}
@@ -1119,9 +1173,9 @@ export default function ProductDetailDrawer({
                     className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                   />
                 </label>
-              </div>
+              </div> : null}
 
-              {orderForm.fulfillment !== "pickup" ? (
+              {!isBooking && orderForm.fulfillment !== "pickup" ? (
                 <div className="mt-2">
                   <AddressAreaResolutionCard
                     validation={orderAddressValidation}
@@ -1134,11 +1188,11 @@ export default function ProductDetailDrawer({
               <input
                 value={orderForm.note}
                 onChange={(event) => updateOrderForm({ note: event.target.value })}
-                placeholder="Delivery note or pickup instruction"
+                placeholder={isBooking ? "Booking note, preferred time, or special request" : "Delivery note or pickup instruction"}
                 className="mt-2 h-11 w-full rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
               />
 
-              <div className="mt-4 rounded-lg bg-gray-50 p-3">
+              {!isBooking ? <div className="mt-4 rounded-lg bg-gray-50 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-bold text-gray-500">Order total</p>
                   <p className="text-xl font-black text-gray-950">{formatCurrency(orderTotal, productMoneyScope)}</p>
@@ -1146,7 +1200,7 @@ export default function ProductDetailDrawer({
                 <p className="mt-1 text-xs font-bold text-gray-500">
                   {Math.max(1, Number(orderForm.quantity || 1))} item{Number(orderForm.quantity || 1) === 1 ? "" : "s"} at {formatCurrency(displayPrice, productMoneyScope)}
                 </p>
-              </div>
+              </div> : null}
 
               <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
@@ -1158,10 +1212,10 @@ export default function ProductDetailDrawer({
                 </button>
                 <button
                   type="submit"
-                  disabled={orderSubmitting || !orderForm.address.trim()}
+                  disabled={orderSubmitting || (isBooking ? !orderForm.startDate || (bookingUsesEndDate && !orderForm.endDate) : !orderForm.address.trim())}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {orderSubmitting ? "Sending order..." : "Complete Order"}
+                  {orderSubmitting ? (isBooking ? "Sending request..." : "Sending order...") : (isBooking ? "Send booking request" : "Complete Order")}
                 </button>
               </div>
             </form>

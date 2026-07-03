@@ -688,6 +688,7 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
   if (error) throw new Error(error.message);
 
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
+  window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId: product.businessId } }));
   return data;
 }
 
@@ -899,6 +900,8 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
 
   if (error) throw new Error(error.message);
   window.dispatchEvent(new CustomEvent("marketplace-message-sent"));
+  window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
+  window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId } }));
 }
 
 export async function fetchSellerCatalog(businessId) {
@@ -956,6 +959,7 @@ export async function submitProductReview(product, rating, comment) {
   });
 
   if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId: product.businessId } }));
 }
 
 export async function submitMarketplaceReview(seller, rating, comment) {
@@ -972,4 +976,5 @@ export async function submitMarketplaceReview(seller, rating, comment) {
   });
 
   if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId: seller.id } }));
 }

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bath, BedDouble, CalendarDays, Clock3, Copy, Film, Hotel, House, MapPin, MoreVertical, Plus, Share2, ToggleLeft, ToggleRight, Trash2, UtensilsCrossed } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Bath, BedDouble, CalendarDays, Clock3, Copy, Film, Hotel, House, LoaderCircle, MapPin, MessageCircle, MoreVertical, PackageCheck, Plus, Share2, Star, ToggleLeft, ToggleRight, Trash2, UtensilsCrossed, X } from "lucide-react";
 
 import {
   fetchHotelWorkspace,
   fetchPropertyListings,
   fetchRestaurantMenu,
+  fetchVerticalBusinessActivity,
   deleteHotelImage,
   deleteHotelVideo,
   deletePropertyListing,
@@ -13,13 +15,41 @@ import {
   saveHotelMediaPackage,
   savePropertyListing,
   saveRestaurantMenuItem,
+  subscribeVerticalBusinessActivity,
   toggleRestaurantMenuItem,
 } from "../../../../Backend/services/marketplace/marketplaceVerticalService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { createEmptyVerticalMedia } from "../../../../Backend/services/marketplace/verticalMediaValidation";
 import VerticalMediaFields from "./VerticalMediaFields";
+import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function notifyVerticalListingUpdated(businessId) {
+  window.dispatchEvent(new CustomEvent("marketplace-vertical-listing-updated", { detail: { businessId } }));
+}
+
+function useVerticalActivity(businessId) {
+  const [activity, setActivity] = useState({ reviews: 0, messages: 0, orders: 0, bookings: 0, recentBookings: [] });
+  const load = useCallback(() => fetchVerticalBusinessActivity(businessId).then(setActivity).catch(() => null), [businessId]);
+  useEffect(() => {
+    let timer;
+    const refresh = (event) => {
+      if (event?.detail?.businessId && event.detail.businessId !== businessId) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(load, 100);
+    };
+    load();
+    const unsubscribe = subscribeVerticalBusinessActivity(businessId, refresh);
+    window.addEventListener("marketplace-vertical-activity-updated", refresh);
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe?.();
+      window.removeEventListener("marketplace-vertical-activity-updated", refresh);
+    };
+  }, [businessId, load]);
+  return activity;
+}
 
 export default function VerticalSellerDashboard({ business }) {
   if (!business?.id) return null;
@@ -47,7 +77,10 @@ function RestaurantDashboard({ business }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionLock = useRef(false);
   const [form, setForm] = useState({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, ...createEmptyVerticalMedia() });
+  const activity = useVerticalActivity(business.id);
   const load = useCallback(async () => {
     setLoading(true);
     try { setItems(await fetchRestaurantMenu(business.id, day)); } catch (error) { showToast(error.message, "danger"); } finally { setLoading(false); }
@@ -57,36 +90,42 @@ function RestaurantDashboard({ business }) {
 
   async function save(event) {
     event.preventDefault();
+    if (submissionLock.current) return;
+    submissionLock.current = true;
+    setSubmitting(true);
     try {
       await saveRestaurantMenuItem(business.id, { ...form, day_of_week: day });
       setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, ...createEmptyVerticalMedia() });
       setFormOpen(false);
       await load();
+      notifyVerticalListingUpdated(business.id);
       showToast(`${DAYS[day]} menu updated.`, "success");
-    } catch (error) { showToast(error.message, "danger"); }
+    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); }
   }
 
   return (
     <WorkspaceShell icon={UtensilsCrossed} eyebrow="Restaurant workspace" title={business.name} subtitle="Plan each day once; buyers only see the menu scheduled for their current day." stats={[{ label: "Today", value: DAYS[today].slice(0, 3) }, { label: "Items today", value: day === today ? items.length : "—" }, { label: "Selected day", value: DAYS[day].slice(0, 3) }, { label: "Available", value: items.filter((item) => item.available).length }]}>
       <DaySelector day={day} setDay={setDay} />
+      <VerticalActivityStrip activity={activity} commerceLabel="Orders" commerceValue={activity.orders} />
       <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm">
-        <SectionHeading eyebrow={`${DAYS[day]} menu`} title="Meals buyers will see"><PrimaryButton onClick={() => setFormOpen((value) => !value)} label="Add meal" className="bg-orange-600" /></SectionHeading>
-        {formOpen ? <RestaurantForm form={form} setForm={setForm} onSubmit={save} /> : null}
-        <div className="mt-5 grid gap-3 md:grid-cols-2">{loading ? <p className="text-sm font-bold text-gray-500">Loading menu...</p> : items.map((item) => <MealCard key={item.id} item={item} business={business} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); showToast("Meal deleted.", "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); }} />)}</div>
+        <SectionHeading eyebrow={`${DAYS[day]} menu`} title="Meals buyers will see"><PrimaryButton onClick={() => setFormOpen(true)} label="Add meal" className="bg-orange-600" /></SectionHeading>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">{loading ? <p className="text-sm font-bold text-gray-500">Loading menu...</p> : items.map((item) => <MealCard key={item.id} item={item} business={business} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); notifyVerticalListingUpdated(business.id); showToast("Meal deleted.", "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
         {!loading && !items.length ? <EmptyState text={`No meals have been added for ${DAYS[day]}.`} /> : null}
       </section>
+      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title="Add meal" subtitle={`${DAYS[day]} menu`} formId="restaurant-meal-form" actionLabel="Add meal" processingLabel="Adding..." processing={submitting} accentClass="bg-orange-600">
+        <RestaurantForm formId="restaurant-meal-form" form={form} setForm={setForm} onSubmit={save} />
+      </VerticalEditorSheet>
     </WorkspaceShell>
   );
 }
 
-function RestaurantForm({ form, setForm, onSubmit }) {
+function RestaurantForm({ formId, form, setForm, onSubmit }) {
   return (
-    <form onSubmit={onSubmit} className="mt-5 grid gap-3 rounded-2xl bg-orange-50 p-4 sm:grid-cols-2">
+    <form id={formId} onSubmit={onSubmit} className="grid gap-3 rounded-2xl bg-orange-50 p-4 sm:grid-cols-2">
       <Input label="Meal name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} /><Input label="Price" type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} />
       <Select label="Meal period" value={form.meal_period} onChange={(value) => setForm({ ...form, meal_period: value })} options={["all_day", "breakfast", "lunch", "dinner", "drinks"]} /><Input label="Preparation minutes" type="number" value={form.preparation_minutes} onChange={(value) => setForm({ ...form, preparation_minutes: value })} />
       <TextArea label="Description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
       <VerticalMediaFields media={form} setMedia={setForm} accent="orange" noun="meal" />
-      <button className="h-12 rounded-xl bg-orange-600 text-sm font-black text-white sm:col-span-2">Save meal</button>
     </form>
   );
 }
@@ -94,30 +133,41 @@ function RestaurantForm({ form, setForm, onSubmit }) {
 function HotelDashboard({ business }) {
   const [workspace, setWorkspace] = useState({ images: [], rooms: [], videoUrl: "" });
   const [formOpen, setFormOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionLock = useRef(false);
   const [media, setMedia] = useState(createEmptyVerticalMedia);
+  const activity = useVerticalActivity(business.id);
   const load = useCallback(async () => setWorkspace(await fetchHotelWorkspace(business.id)), [business.id]);
   useEffect(() => { load().catch((error) => showToast(error.message, "danger")); }, [load]);
   useOpenVerticalEditor(() => setFormOpen(true));
 
   async function save(event) {
     event.preventDefault();
+    if (submissionLock.current) return;
+    submissionLock.current = true;
+    setSubmitting(true);
     try {
       await saveHotelMediaPackage(business.id, media);
       setMedia(createEmptyVerticalMedia());
       setFormOpen(false);
       await load();
+      notifyVerticalListingUpdated(business.id);
       showToast("Hotel media published.", "success");
-    } catch (error) { showToast(error.message, "danger"); }
+    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); }
   }
 
   return (
     <WorkspaceShell icon={Hotel} eyebrow="Hotel workspace" title={business.name} subtitle="Publish a complete hotel gallery and short video for guests." stats={[{ label: "Photos", value: workspace.images.length }, { label: "Video", value: workspace.videoUrl ? "Ready" : "Missing" }, { label: "Room types", value: workspace.rooms.length }, { label: "Available rooms", value: workspace.rooms.reduce((sum, item) => sum + Number(item.rooms_available || 0), 0) }]}>
+      <VerticalActivityStrip activity={activity} commerceLabel="Bookings" commerceValue={activity.bookings} />
       <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm">
-        <SectionHeading eyebrow="Hotel profile" title="Hotel images and video"><PrimaryButton onClick={() => setFormOpen((value) => !value)} label="Add hotel" className="bg-blue-600" /></SectionHeading>
-        {formOpen ? <form onSubmit={save} className="mt-5 grid gap-3 rounded-2xl bg-blue-50 p-4"><p className="text-sm font-semibold leading-6 text-blue-950">Add one cover image, at least five extra images, and one video up to 30 seconds and less than 50 MB.</p><VerticalMediaFields media={media} setMedia={setMedia} accent="blue" noun="hotel" /><button className="h-12 rounded-xl bg-blue-600 text-sm font-black text-white">Publish hotel</button></form> : null}
-        <div className="mt-4 flex gap-3 overflow-x-auto pb-24">{workspace.images.map((image) => <div key={image.id} className="relative min-w-[240px]"><img src={image.image_url} alt={image.caption || "Hotel"} className="h-40 w-full rounded-2xl object-cover" /><div className="absolute right-2 top-2"><SellerItemActions label={image.caption || "Hotel image"} shareUrl={image.image_url} onDelete={async () => { await deleteHotelImage(image); await load(); showToast("Hotel image deleted.", "success"); }} /></div></div>)}{!workspace.images.length ? <EmptyState text="Add the hotel cover and five gallery images." /> : null}</div>
-        {workspace.videoUrl ? <div className="relative mt-4"><video src={workspace.videoUrl} controls preload="metadata" className="max-h-72 w-full rounded-2xl bg-black" /><div className="absolute right-3 top-3"><SellerItemActions label={`${business.name} hotel video`} shareUrl={workspace.videoUrl} onDelete={async () => { await deleteHotelVideo(business.id, workspace.videoUrl); await load(); showToast("Hotel video deleted.", "success"); }} /></div></div> : null}
+        <SectionHeading eyebrow="Hotel profile" title="Hotel images and video"><PrimaryButton onClick={() => setFormOpen(true)} label="Add hotel" className="bg-blue-600" /></SectionHeading>
+        <div className="mt-4 flex gap-3 overflow-x-auto pb-24">{workspace.images.map((image) => <div key={image.id} className="relative min-w-[240px]"><img src={image.image_url} alt={image.caption || "Hotel"} className="h-40 w-full rounded-2xl object-cover" /><div className="absolute right-2 top-2"><SellerItemActions label={image.caption || "Hotel image"} shareUrl={image.image_url} onDelete={async () => { await deleteHotelImage(image); await load(); notifyVerticalListingUpdated(business.id); showToast("Hotel image deleted.", "success"); }} /></div></div>)}{!workspace.images.length ? <EmptyState text="Add the hotel cover and five gallery images." /> : null}</div>
+        {workspace.videoUrl ? <div className="relative mt-4"><video src={workspace.videoUrl} controls preload="metadata" className="max-h-72 w-full rounded-2xl bg-black" /><div className="absolute right-3 top-3"><SellerItemActions label={`${business.name} hotel video`} shareUrl={workspace.videoUrl} onDelete={async () => { await deleteHotelVideo(business.id, workspace.videoUrl); await load(); notifyVerticalListingUpdated(business.id); showToast("Hotel video deleted.", "success"); }} /></div></div> : null}
       </section>
+      <BookingRequests bookings={activity.recentBookings} />
+      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title="Add hotel" subtitle="Hotel gallery and video" formId="hotel-media-form" actionLabel="Add hotel" processingLabel="Adding..." processing={submitting} accentClass="bg-blue-600">
+        <form id="hotel-media-form" onSubmit={save} className="grid gap-3 rounded-2xl bg-blue-50 p-4"><p className="text-sm font-semibold leading-6 text-blue-950">Add one cover image, at least five extra images, and one video up to 30 seconds and less than 50 MB.</p><VerticalMediaFields media={media} setMedia={setMedia} accent="blue" noun="hotel" /></form>
+      </VerticalEditorSheet>
     </WorkspaceShell>
   );
 }
@@ -125,7 +175,10 @@ function HotelDashboard({ business }) {
 function PropertyDashboard({ business }) {
   const [listings, setListings] = useState([]);
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, address: "", city: business.location || "", amenitiesText: "", published: false, ...createEmptyVerticalMedia() });
+  const [submitting, setSubmitting] = useState(false);
+  const submissionLock = useRef(false);
+  const [form, setForm] = useState({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, address: "", city: business.location || "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
+  const activity = useVerticalActivity(business.id);
   const load = useCallback(async () => setListings(await fetchPropertyListings(business.id)), [business.id]);
   useEffect(() => { load().catch((error) => showToast(error.message, "danger")); }, [load]);
   useOpenVerticalEditor(() => setFormOpen(true));
@@ -133,40 +186,83 @@ function PropertyDashboard({ business }) {
 
   async function save(event) {
     event.preventDefault();
+    if (submissionLock.current) return;
+    submissionLock.current = true;
+    setSubmitting(true);
     try {
       await savePropertyListing(business.id, form);
-      setForm((current) => ({ ...current, title: "", description: "", price: "", address: "", published: false, ...createEmptyVerticalMedia() }));
+      setForm((current) => ({ ...current, title: "", description: "", price: "", address: "", published: true, ...createEmptyVerticalMedia() }));
       setFormOpen(false);
       await load();
-      showToast("Property saved for verification.", "success");
-    } catch (error) { showToast(error.message, "danger"); }
+      notifyVerticalListingUpdated(business.id);
+      showToast("Property published for buyers.", "success");
+    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); }
   }
 
   return (
     <WorkspaceShell icon={House} eyebrow="Property Agent workspace" title={business.name} subtitle="Publish authorised property for rent or sale." stats={[{ label: "Listings", value: listings.length }, { label: "Available", value: counts.available }, { label: "Published", value: counts.published }, { label: "Awaiting proof", value: listings.filter((item) => item.authorization_status === "pending").length }]}>
+      <VerticalActivityStrip activity={activity} commerceLabel="Bookings" commerceValue={activity.bookings} />
       <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm">
-        <SectionHeading eyebrow="Property desk" title="Properties and enquiries"><PrimaryButton onClick={() => setFormOpen((value) => !value)} label="Add property" className="bg-violet-700" /></SectionHeading>
-        {formOpen ? <PropertyForm form={form} setForm={setForm} onSubmit={save} /> : null}
-        <div className="mt-5 grid gap-4 md:grid-cols-2">{listings.map((item) => <PropertyListingCard key={item.id} item={item} business={business} onDelete={async () => { await deletePropertyListing(item); await load(); showToast("Property deleted.", "success"); }} />)}</div>
+        <SectionHeading eyebrow="Property desk" title="Properties and enquiries"><PrimaryButton onClick={() => setFormOpen(true)} label="Add property" className="bg-violet-700" /></SectionHeading>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">{listings.map((item) => <PropertyListingCard key={item.id} item={item} business={business} onDelete={async () => { await deletePropertyListing(item); await load(); notifyVerticalListingUpdated(business.id); showToast("Property deleted.", "success"); }} />)}</div>
         {!listings.length ? <EmptyState text="Add the first authorised property listing." /> : null}
       </section>
+      <BookingRequests bookings={activity.recentBookings} />
+      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title="Add property" subtitle="Property listing" formId="property-listing-form" actionLabel="Add property" processingLabel="Adding..." processing={submitting} accentClass="bg-violet-700">
+        <PropertyForm formId="property-listing-form" form={form} setForm={setForm} onSubmit={save} />
+      </VerticalEditorSheet>
     </WorkspaceShell>
   );
 }
 
-function PropertyForm({ form, setForm, onSubmit }) {
+function PropertyForm({ formId, form, setForm, onSubmit }) {
   return (
-    <form onSubmit={onSubmit} className="mt-5 grid gap-3 rounded-2xl bg-violet-50 p-4 sm:grid-cols-2">
+    <form id={formId} onSubmit={onSubmit} className="grid gap-3 rounded-2xl bg-violet-50 p-4 sm:grid-cols-2">
       <Input label="Property title" value={form.title} onChange={(value) => setForm({ ...form, title: value })} /><Input label="Price" type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} />
       <Select label="Purpose" value={form.purpose} onChange={(value) => setForm({ ...form, purpose: value })} options={["rent", "sale"]} /><Select label="Property type" value={form.property_type} onChange={(value) => setForm({ ...form, property_type: value })} options={["house", "apartment", "land", "commercial"]} />
       <Input label="Bedrooms" type="number" value={form.bedrooms} onChange={(value) => setForm({ ...form, bedrooms: value })} /><Input label="Bathrooms" type="number" value={form.bathrooms} onChange={(value) => setForm({ ...form, bathrooms: value })} />
       <Input label="Address" value={form.address} onChange={(value) => setForm({ ...form, address: value })} /><Input label="City/area" value={form.city} onChange={(value) => setForm({ ...form, city: value })} />
       <TextArea label="Description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
       <VerticalMediaFields media={form} setMedia={setForm} accent="violet" noun="property" />
-      <label className="flex items-center gap-2 rounded-xl border border-violet-100 bg-white p-3 text-sm font-black sm:col-span-2"><input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} /> Submit for publication</label>
-      <button className="h-12 rounded-xl bg-violet-700 text-sm font-black text-white sm:col-span-2">Save property</button>
+      <label className="flex items-center gap-2 rounded-xl border border-violet-100 bg-white p-3 text-sm font-black sm:col-span-2"><input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} /> Publish to the buyer marketplace</label>
     </form>
   );
+}
+
+function VerticalEditorSheet({ accentClass, actionLabel, children, formId, onClose, open, processing, processingLabel, subtitle, title }) {
+  useBodyScrollLock(open);
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[1200] flex items-end" role="presentation">
+      <button type="button" aria-label={`Close ${title}`} disabled={processing} onClick={onClose} className="absolute inset-0 bg-slate-950/55 backdrop-blur-[2px] disabled:cursor-wait" />
+      <section role="dialog" aria-modal="true" aria-labelledby={`${formId}-title`} className="relative z-10 flex h-[68dvh] min-h-[420px] w-full flex-col overflow-hidden rounded-t-[30px] bg-white shadow-2xl">
+        <header className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+          <button type="button" onClick={onClose} disabled={processing} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gray-100 text-gray-700 disabled:opacity-40" aria-label={`Close ${title}`}><X size={19} /></button>
+          <div className="min-w-0 flex-1"><p className="truncate text-xs font-black uppercase tracking-wide text-emerald-700">{subtitle}</p><h2 id={`${formId}-title`} className="truncate text-lg font-black text-gray-950">{title}</h2></div>
+          <button type="submit" form={formId} disabled={processing} className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-black text-white shadow-sm disabled:cursor-wait disabled:opacity-70 ${accentClass}`}>
+            {processing ? <LoaderCircle size={16} className="animate-spin" /> : <Plus size={16} />}
+            {processing ? processingLabel : actionLabel}
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:p-6">{children}</div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+function VerticalActivityStrip({ activity, commerceLabel, commerceValue }) {
+  const items = [
+    { label: "Reviews", value: activity.reviews, icon: Star, tone: "bg-amber-50 text-amber-700" },
+    { label: "Messages", value: activity.messages, icon: MessageCircle, tone: "bg-sky-50 text-sky-700" },
+    { label: commerceLabel, value: commerceValue, icon: PackageCheck, tone: "bg-emerald-50 text-emerald-700" },
+  ];
+  return <section className="grid grid-cols-3 gap-2 rounded-[24px] border border-gray-200 bg-white p-3 shadow-sm">{items.map(({ icon: Icon, label, tone, value }) => <div key={label} className="flex min-w-0 items-center gap-2 rounded-2xl bg-gray-50 p-3"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${tone}`}><Icon size={17} /></span><div className="min-w-0"><p className="text-lg font-black text-gray-950">{value}</p><p className="truncate text-[10px] font-black uppercase tracking-wide text-gray-500">{label}</p></div></div>)}</section>;
+}
+
+function BookingRequests({ bookings = [] }) {
+  if (!bookings.length) return null;
+  return <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm"><SectionHeading eyebrow="Buyer activity" title="Recent booking requests" /><div className="mt-4 grid gap-3 md:grid-cols-2">{bookings.map((booking) => <article key={booking.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-black text-gray-950">{booking.listing_name || "Booking request"}</h3><p className="mt-1 text-sm font-bold text-gray-600">{booking.buyer_name} · {booking.phone}</p></div><span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase text-amber-800">{booking.status}</span></div><p className="mt-3 flex items-center gap-2 text-xs font-black text-gray-600"><CalendarDays size={15} /> {booking.start_date}{booking.end_date ? ` to ${booking.end_date}` : ""}</p>{booking.note ? <p className="mt-2 text-sm font-semibold leading-5 text-gray-500">{booking.note}</p> : null}</article>)}</div></section>;
 }
 
 function useOpenVerticalEditor(open) {
