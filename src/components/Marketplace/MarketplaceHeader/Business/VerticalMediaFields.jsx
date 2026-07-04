@@ -32,13 +32,13 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
   return (
     <>
       <div className={`grid gap-3 rounded-2xl border p-4 sm:col-span-2 sm:grid-cols-3 ${accentClass}`}>
-        <MediaInput label="1 cover image" detail={media.coverImageFile?.name || "Required"} icon={ImagePlus} accept="image/*" onFiles={(files) => setMedia((current) => ({ ...current, coverImageFile: files[0] || null }))} />
-        <MediaInput label={`At least ${REQUIRED_EXTRA_IMAGE_COUNT} extra images`} detail={media.extraImageFiles.length ? `${media.extraImageFiles.length} selected` : "Five or more are required"} icon={ImagePlus} accept="image/*" multiple onFiles={(files) => {
+        <MediaInput label="1 cover image" detail={media.coverImageFile?.name || (media.image_url || media.image_urls?.length ? "Current cover kept" : "Required")} icon={ImagePlus} accept="image/*" onFiles={(files) => setMedia((current) => ({ ...current, coverImageFile: files[0] || null }))} />
+        <MediaInput label={`At least ${REQUIRED_EXTRA_IMAGE_COUNT} extra images`} detail={media.extraImageFiles.length ? `${media.extraImageFiles.length} selected` : media.image_urls?.length ? "Current gallery kept" : "Five or more are required"} icon={ImagePlus} accept="image/*" multiple onFiles={(files) => {
           const selected = Array.from(files);
           setMedia((current) => ({ ...current, extraImageFiles: selected }));
           setCaution(files.length && files.length < REQUIRED_EXTRA_IMAGE_COUNT ? `Choose at least ${REQUIRED_EXTRA_IMAGE_COUNT} extra images for this ${noun}.` : "");
         }} />
-        <MediaInput label="1 video" detail={media.videoFile ? `${formatFileSize(media.videoFile.size)} · ${Math.ceil(media.videoDuration)} sec` : "30 sec maximum · less than 50 MB"} icon={Film} accept="video/*" onFiles={(files) => chooseVideo(files[0])} />
+        <MediaInput label="1 video" detail={media.videoFile ? `${formatFileSize(media.videoFile.size)} · ${Math.ceil(media.videoDuration)} sec` : media.video_url ? "Current video kept" : "30 sec maximum · less than 50 MB"} icon={Film} accept="video/*" onFiles={(files) => chooseVideo(files[0])} />
       </div>
 
       {caution ? (

@@ -46,8 +46,9 @@ export const marketplaceVerificationStatuses = {
 export function normalizeMarketplaceVerificationStatus(status, verified) {
   const value = String(status || "").toLowerCase();
   if (["recommended", "verified_recommended", "verify-recommended", "verified recommended"].includes(value)) return "recommended";
-  if (["verified", "verify", "approved"].includes(value) || verified === true) return "verified";
+  if (["verified", "approved"].includes(value)) return "verified";
   if (["submitted", "pending", "verification_pending", "under_review"].includes(value)) return "pending";
+  if (!value && verified === true) return "verified";
   return "notVerified";
 }
 

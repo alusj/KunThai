@@ -226,6 +226,33 @@
     animation: kt-fade-slide 260ms var(--kt-ease-standard) backwards;
   }
 
+  .kt-detail-zoom-enter {
+    animation: kt-detail-zoom-enter 260ms var(--kt-ease-emphasized) both;
+    transform-origin: center center;
+  }
+
+  .kt-detail-zoom-exit {
+    animation: kt-detail-zoom-exit 230ms var(--kt-ease-emphasized) both;
+    pointer-events: none;
+    transform-origin: center center;
+  }
+
+  .kt-media-zoom-enter {
+    animation: kt-media-zoom-enter 240ms var(--kt-ease-emphasized) both;
+    transform-origin: center center;
+  }
+
+  .kt-media-zoom-exit {
+    animation: kt-media-zoom-exit 210ms var(--kt-ease-emphasized) both;
+    pointer-events: none;
+    transform-origin: center center;
+  }
+
+  .kt-detail-backdrop-exit {
+    animation: kt-detail-backdrop-exit 230ms var(--kt-ease-standard) both;
+    pointer-events: none;
+  }
+
   .kt-route-zoom-open {
     animation: kt-route-zoom-out 260ms var(--kt-ease-emphasized) backwards;
     transform-origin: center top;
@@ -926,6 +953,55 @@
 
 .kt-toast-collapse-notification {
   animation-name: kt-toast-collapse-notification;
+}
+
+@keyframes kt-detail-zoom-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes kt-detail-zoom-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes kt-media-zoom-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes kt-media-zoom-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
+
+@keyframes kt-detail-backdrop-exit {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes kt-form-step-scroll-forward {

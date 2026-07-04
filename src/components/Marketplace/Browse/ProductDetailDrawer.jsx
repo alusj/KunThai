@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -99,22 +99,38 @@ function getProductSpecs(product = {}) {
 function ImageViewer({ images, activeIndex, onChange, onClose }) {
   const hasMultiple = images.length > 1;
   const open = activeIndex >= 0 && images.length > 0;
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => {
+      onClose?.();
+      setClosing(false);
+    }, 220);
+  }, [closing, onClose]);
 
   const viewerGestures = useImageViewerGestures({
     enabled: open,
-    onClose,
+    onClose: requestClose,
     onSwipe: hasMultiple ? move : undefined,
     resetKey: activeIndex,
   });
-  useBrowserBack(open, onClose, "urmall-product-image-viewer");
+  useBrowserBack(open, requestClose, "urmall-product-image-viewer");
   useBodyScrollLock(open);
+
+  useEffect(() => {
+    if (open) setClosing(false);
+    return () => window.clearTimeout(closeTimerRef.current);
+  }, [activeIndex, open]);
 
   useEffect(() => {
     if (activeIndex < 0) return undefined;
 
     function handleKeyDown(event) {
       if (event.key === "Escape") {
-        onClose?.();
+        requestClose();
         return;
       }
       if (!hasMultiple) return;
@@ -125,7 +141,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyboard movement reads the current active image index.
-  }, [activeIndex, hasMultiple, onClose]);
+  }, [activeIndex, hasMultiple, requestClose]);
 
   if (activeIndex < 0 || !images.length) return null;
 
@@ -143,7 +159,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[1500] flex h-dvh flex-col overflow-hidden bg-slate-950 text-white"
+      className={`${closing ? "kt-media-zoom-exit" : "kt-media-zoom-enter"} fixed inset-0 z-[1500] flex h-dvh flex-col overflow-hidden bg-slate-950 text-white`}
       role="dialog"
       aria-modal="true"
       aria-label="Full-screen product image viewer"
@@ -151,7 +167,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
       <header className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           type="button"
-          onClick={onClose}
+          onClick={requestClose}
           className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
           aria-label="Back to product"
         >
@@ -533,6 +549,8 @@ export default function ProductDetailDrawer({
   showSave = true,
 }) {
   const isBooking = actionMode === "booking";
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -550,6 +568,21 @@ export default function ProductDetailDrawer({
   const [messageSending, setMessageSending] = useState(false);
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => {
+      onClose?.();
+      setClosing(false);
+    }, 230);
+  }, [closing, onClose]);
+
+  useEffect(() => {
+    if (open) setClosing(false);
+    return () => window.clearTimeout(closeTimerRef.current);
+  }, [open, product?.id]);
 
   useEffect(() => {
     if (!orderOpen) return undefined;
@@ -611,7 +644,7 @@ export default function ProductDetailDrawer({
   useEffect(() => {
     if (!open) return undefined;
     function handleKeyDown(event) {
-      if (event.key === "Escape") onClose?.();
+      if (event.key === "Escape") requestClose();
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -619,7 +652,7 @@ export default function ProductDetailDrawer({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
+  }, [open, requestClose]);
 
   useEffect(() => {
     if (!open) setOrderAreaPicker(null);
@@ -807,11 +840,11 @@ export default function ProductDetailDrawer({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
-      <aside className="kt-page-fade-slide fixed inset-0 z-[999] flex h-dvh w-screen flex-col bg-white">
+      <div className={`fixed inset-0 z-[55] bg-black/40 ${closing ? "kt-detail-backdrop-exit" : ""}`} onClick={requestClose} />
+      <aside className={`${closing ? "kt-detail-zoom-exit" : "kt-detail-zoom-enter"} fixed inset-0 z-[999] flex h-dvh w-screen flex-col bg-white`}>
         <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
           <AppBackTab
-            onBack={onClose}
+            onBack={requestClose}
             label="Back to UrMall listings"
             historyKey={historyKey}
           />

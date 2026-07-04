@@ -77,6 +77,17 @@ export async function fetchSellerHeaderState() {
   }
 }
 
+export async function subscribeSellerHeaderChanges(onChange) {
+  const business = await readRegisteredBusiness();
+  if (!business?.id) return () => {};
+  const channel = supabase.channel(`marketplace-seller-header-${business.id}-${crypto.randomUUID()}`);
+  ["marketplace_orders", "marketplace_customer_messages"].forEach((table) => {
+    channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `business_id=eq.${business.id}` }, onChange);
+  });
+  channel.subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
 export async function searchSellerWorkspace(query) {
   const trimmedQuery = query.trim().toLowerCase();
 

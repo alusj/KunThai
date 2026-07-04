@@ -8,6 +8,7 @@ import {
 import {
   fetchSellerHeaderState,
   searchSellerWorkspace,
+  subscribeSellerHeaderChanges,
 } from "../services/marketplace/sellerHeaderService";
 import { MARKETPLACE_BUSINESS_CHANGED_EVENT } from "../services/marketplace/sellerRegistrationService";
 
@@ -70,6 +71,7 @@ export function useSellerHeader() {
 
   useEffect(() => {
     let active = true;
+    let unsubscribeRealtime = () => {};
 
     loadHeaderState(() => active).catch(() => {
       if (active) {
@@ -80,10 +82,14 @@ export function useSellerHeader() {
     const interval = window.setInterval(() => {
       loadHeaderState(() => active).catch(() => {});
     }, 20000);
+    subscribeSellerHeaderChanges(() => loadHeaderState(() => active).catch(() => {}))
+      .then((unsubscribe) => { if (active) unsubscribeRealtime = unsubscribe; else unsubscribe(); })
+      .catch(() => {});
 
     return () => {
       active = false;
       window.clearInterval(interval);
+      unsubscribeRealtime();
     };
   }, []);
 
@@ -146,8 +152,8 @@ export function useSellerHeader() {
 
   return {
     ...headerState,
-    orderCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.orders, headerState.orderItems, { unreadOnly: true }),
-    messageCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.messages, headerState.messageItems, { unreadOnly: true }),
+    orderCount: Number(headerState.orderCount || 0),
+    messageCount: Number(headerState.messageCount || 0),
     notificationCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.notifications, headerState.notificationItems, { unreadOnly: true }),
     query,
     setQuery,

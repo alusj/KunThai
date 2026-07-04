@@ -10,6 +10,7 @@ import {
   fetchSavedBuyerProductIds,
   fetchSavedBuyerSellerIds,
   sendBuyerMarketplaceMessage,
+  subscribeBuyerMarketplaceProducts,
   toggleSavedBuyerProduct,
   toggleSavedBuyerSeller,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
@@ -107,7 +108,6 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
   const [options, setOptions] = useState(() => ({ ...DEFAULT_OPTIONS, ...BROWSE_MEMORY.options }));
   const [catalog, setCatalog] = useState(() => initialCatalog);
   const [loading, setLoading] = useState(() => !catalogHasProducts(initialCatalog));
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [savedIds, setSavedIds] = useState(() => cloneSet(BROWSE_MEMORY.savedIds));
@@ -209,10 +209,8 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
 
       if (hasExistingCatalog) {
         setLoading(false);
-        setRefreshing(true);
       } else {
         setLoading(true);
-        setRefreshing(false);
       }
 
       setError("");
@@ -226,15 +224,26 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
       } finally {
         if (alive) {
           setLoading(false);
-          setRefreshing(false);
         }
       }
     }
 
     loadProducts();
+    let refreshTimer;
+    const refreshSilently = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(loadProducts, 120);
+    };
+    const unsubscribe = subscribeBuyerMarketplaceProducts(refreshSilently);
+    window.addEventListener("marketplace-products-updated", refreshSilently);
+    window.addEventListener("focus", refreshSilently);
 
     return () => {
       alive = false;
+      window.clearTimeout(refreshTimer);
+      unsubscribe?.();
+      window.removeEventListener("marketplace-products-updated", refreshSilently);
+      window.removeEventListener("focus", refreshSilently);
     };
   }, [queryFilters]);
 
@@ -429,12 +438,6 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
           {notice}
         </div>
       )}
-
-      {refreshing && catalogHasProducts(catalog) ? (
-        <div className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-2 text-xs font-black text-sky-700">
-          Refreshing products...
-        </div>
-      ) : null}
 
       {/* =========================
           Browse content

@@ -399,6 +399,15 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
   };
 }
 
+export function subscribeBuyerMarketplaceProducts(onChange) {
+  const channel = supabase.channel(`marketplace-buyer-products-${crypto.randomUUID()}`);
+  ["marketplace_products", "marketplace_businesses"].forEach((table) => {
+    channel.on("postgres_changes", { event: "*", schema: "public", table }, onChange);
+  });
+  channel.subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
 export async function fetchBuyerProductDetail(productId) {
   if (!productId) throw new Error("Choose a product to view.");
 

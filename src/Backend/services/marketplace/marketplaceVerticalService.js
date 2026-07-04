@@ -87,12 +87,13 @@ export async function fetchRestaurantMenu(businessId, dayOfWeek = new Date().get
 }
 
 export async function saveRestaurantMenuItem(businessId, input = {}) {
-  await validateVerticalMediaPackage(input);
-  const [imageUrl, imageUrls, videoUrl] = await Promise.all([
+  const hasNewMedia = Boolean(input.coverImageFile || input.videoFile || Array.from(input.extraImageFiles || []).length);
+  if (!input.id || hasNewMedia) await validateVerticalMediaPackage(input);
+  const [imageUrl, imageUrls, videoUrl] = hasNewMedia || !input.id ? await Promise.all([
     uploadMarketplaceVerticalImage(input.coverImageFile, businessId, "restaurant-menu/covers"),
     Promise.all(Array.from(input.extraImageFiles || []).map((file) => uploadMarketplaceVerticalImage(file, businessId, "restaurant-menu/gallery"))),
     uploadMarketplaceVerticalVideo(input.videoFile, businessId, "restaurant-menu/videos"),
-  ]);
+  ]) : [input.image_url || "", input.image_urls || [], input.video_url || ""];
   const payload = {
     business_id: businessId,
     day_of_week: Number(input.day_of_week),
@@ -228,12 +229,13 @@ export async function fetchPropertyListings(businessId) {
 }
 
 export async function savePropertyListing(businessId, input = {}) {
-  await validateVerticalMediaPackage(input);
-  const [coverUrl, extraUrls, videoUrl] = await Promise.all([
+  const hasNewMedia = Boolean(input.coverImageFile || input.videoFile || Array.from(input.extraImageFiles || []).length);
+  if (!input.id || hasNewMedia) await validateVerticalMediaPackage(input);
+  const [coverUrl, extraUrls, videoUrl] = hasNewMedia || !input.id ? await Promise.all([
     uploadMarketplaceVerticalImage(input.coverImageFile, businessId, "properties/covers"),
     Promise.all(Array.from(input.extraImageFiles || []).map((file) => uploadMarketplaceVerticalImage(file, businessId, "properties/gallery"))),
     uploadMarketplaceVerticalVideo(input.videoFile, businessId, "properties/videos"),
-  ]);
+  ]) : [input.image_urls?.[0] || "", input.image_urls?.slice(1) || [], input.video_url || ""];
   const imageUrls = [coverUrl, ...extraUrls];
   const payload = {
     business_id: businessId,
