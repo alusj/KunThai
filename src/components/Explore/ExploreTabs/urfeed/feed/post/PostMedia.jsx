@@ -175,7 +175,7 @@ export default function PostMedia({ post, imageOnly = false }) {
                 ref={thumbnailImageRef}
                 key={`${post.image_url}-${imageRetryKey}`}
                 loading={advertPost ? "eager" : "lazy"}
-                fetchPriority={advertPost ? "high" : "auto"}
+                fetchpriority={advertPost ? "high" : "auto"}
                 src={post.image_url}
                 alt=""
                 onLoad={() => setImageStatus("loaded")}

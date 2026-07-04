@@ -2,7 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import * as tus from "tus-js-client";
 import { EXPLORE_MEDIA_BUCKET } from "./constants";
 
-export const MAX_EXPLORE_VIDEO_BYTES = 100 * 1024 * 1024;
+export const MAX_EXPLORE_VIDEO_BYTES = 50 * 1024 * 1024;
 const RESUMABLE_UPLOAD_THRESHOLD_BYTES = 6 * 1024 * 1024;
 const RESUMABLE_CHUNK_BYTES = 6 * 1024 * 1024;
 

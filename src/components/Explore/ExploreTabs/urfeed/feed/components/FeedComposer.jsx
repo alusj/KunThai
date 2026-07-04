@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   HiOutlineAtSymbol,
+  HiOutlineExclamationTriangle,
   HiOutlineHashtag,
   HiOutlineMapPin,
   HiOutlinePaperAirplane,
@@ -51,6 +52,7 @@ const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
 const VIDEO_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
+const MAX_EXPLORE_VIDEO_MB = Math.round(MAX_EXPLORE_VIDEO_BYTES / (1024 * 1024));
 const MAX_POST_TITLE_LENGTH = 30;
 const COMPOSER_AREA_RETURN_KEY = "kuntai.explore.composerAreaReturn";
 const DEFAULT_ADVERT = {
@@ -211,6 +213,26 @@ function formatLocationLabel(lat, lng) {
   return `${safeLat.toFixed(6)}, ${safeLng.toFixed(6)}`;
 }
 
+function formatVideoFileSize(bytes = 0) {
+  const megabytes = Number(bytes || 0) / (1024 * 1024);
+  if (!Number.isFinite(megabytes) || megabytes <= 0) return "0 MB";
+  if (megabytes < 10) return `${megabytes.toFixed(1)} MB`;
+  return `${Math.ceil(megabytes)} MB`;
+}
+
+function formatVideoSeconds(seconds = 0) {
+  const safeSeconds = Math.max(0, Number(seconds || 0));
+  if (!Number.isFinite(safeSeconds)) return "0 seconds";
+  const rounded = safeSeconds < 10 ? safeSeconds.toFixed(1) : Math.ceil(safeSeconds);
+  return `${rounded} second${Number(rounded) === 1 ? "" : "s"}`;
+}
+
+function createVideoSpecError(message) {
+  const error = new Error(message);
+  error.name = "VideoSpecError";
+  return error;
+}
+
 async function uploadVideoWithProgress(file, onProgress) {
   let progress = 24;
   let timedOut = false;
@@ -246,6 +268,22 @@ async function uploadVideoWithProgress(file, onProgress) {
     window.clearInterval(progressId);
     window.clearTimeout(timeoutId);
   }
+}
+
+function VideoLimitNotice() {
+  return (
+    <div className="flex items-start gap-3 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm">
+      <span className="mt-0.5 grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-amber-700 shadow-sm">
+        <HiOutlineExclamationTriangle className="text-xl" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-black">Video requirements</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">
+          Explore accepts videos up to {MAX_VIDEO_SECONDS} seconds and under {MAX_EXPLORE_VIDEO_MB}MB. Use MP4, MOV, or WebM for the most reliable upload.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function FeedComposer({ profile, creating, onSubmit }) {
@@ -588,12 +626,18 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         }
 
         if (file.size > MAX_EXPLORE_VIDEO_BYTES) {
-          const sizeMb = Math.max(1, Math.ceil(file.size / (1024 * 1024)));
-          const maxSizeMb = Math.round(MAX_EXPLORE_VIDEO_BYTES / (1024 * 1024));
-          throw new Error(`This video is ${sizeMb}MB. KunThai accepts videos up to ${maxSizeMb}MB; compress it and try again.`);
+          throw createVideoSpecError(
+            `Your video is ${formatVideoFileSize(file.size)}. KunThai accepts Explore videos under ${MAX_EXPLORE_VIDEO_MB}MB. Please compress it to at most ${MAX_EXPLORE_VIDEO_MB}MB and try again.`,
+          );
         }
 
         const duration = await getVideoDuration(file);
+
+        if (duration > MAX_VIDEO_SECONDS) {
+          throw createVideoSpecError(
+            `Your video is ${formatVideoSeconds(duration)} long. KunThai accepts Explore videos up to ${MAX_VIDEO_SECONDS} seconds. Please trim it to ${MAX_VIDEO_SECONDS} seconds or less and try again.`,
+          );
+        }
 
         if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
         if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
@@ -648,8 +692,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setFeedback("");
     } catch (error) {
       const message = error.message || "Unable to attach media.";
+      const videoSpecError = error.name === "VideoSpecError";
       setFeedback("");
-      showToast(message, "danger", { title: "Media not added", duration: 6200 });
+      showToast(message, videoSpecError ? "warning" : "danger", {
+        title: videoSpecError ? "Video needs adjustment" : "Media not added",
+        duration: videoSpecError ? 8200 : 6200,
+      });
     } finally {
       event.target.value = "";
     }
@@ -1537,6 +1585,8 @@ if (!isMobileVideoDevice) {
                   <p className="truncate text-sm font-semibold text-slate-500">@{profile?.username || "user"}</p>
                 </div>
               </div>
+
+              {!isAdvertMode && attachmentMode === "video" ? <VideoLimitNotice /> : null}
 
               {isAdvertMode ? (
                 <AdvertComposerFields
