@@ -570,6 +570,12 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               type="button"
               onClick={() => {
                 markNotificationsSeen(notificationSeenScope, bookingNotificationItems);
+                if (access.operatorId && operatorTripRequests.length) {
+                  markNotificationsSeen(
+                    `transport:${access.operatorId}`,
+                    operatorTripRequests.map((passenger) => ({ id: `operator-waiting-${passenger.id}` })),
+                  );
+                }
                 setSeenVersion((version) => version + 1);
                 setBookingQueueOpen(true);
               }}

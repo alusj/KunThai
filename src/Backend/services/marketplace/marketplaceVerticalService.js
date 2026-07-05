@@ -386,3 +386,48 @@ export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {
     properties: properties.map(normalizeBusinessRow),
   };
 }
+
+// A buyer vertical earns its own tab once it carries this many live items;
+// below that, its inventory stays mixed into the "All" feed.
+export const MARKETPLACE_PARENT_TAB_MIN_ITEMS = 150;
+
+async function countRows(query) {
+  const { count, error } = await query;
+  if (error) return 0;
+  return Number(count || 0);
+}
+
+export async function fetchMarketplaceParentAvailability() {
+  const [shop, food, hotels, property] = await Promise.all([
+    countRows(
+      supabase
+        .from("marketplace_products")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active")
+        .gt("stock", 0),
+    ),
+    countRows(
+      supabase
+        .from("marketplace_restaurant_menu_items")
+        .select("id", { count: "exact", head: true })
+        .eq("available", true),
+    ),
+    countRows(
+      supabase
+        .from("marketplace_hotel_rooms")
+        .select("id", { count: "exact", head: true })
+        .eq("active", true)
+        .gt("rooms_available", 0),
+    ),
+    countRows(
+      supabase
+        .from("marketplace_property_listings")
+        .select("id", { count: "exact", head: true })
+        .eq("published", true)
+        .eq("availability_status", "available")
+        .gt("expires_at", new Date().toISOString()),
+    ),
+  ]);
+
+  return { shop, food, hotels, property };
+}

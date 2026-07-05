@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { getUnseenNotificationCount } from "../../Backend/services/notificationSeenStore";
 import { fetchActiveTrips } from "./passengerTransportService";
 import { getTransportCompanyBookingQueue } from "./transportCompanyService";
 import { fetchOperatorDashboard } from "./transportOperatorAccountService";
@@ -115,15 +116,28 @@ export async function fetchTransportNotifications(operatorAccount, companyAccoun
 }
 
 export async function fetchTransportOperationBadgeCount(operatorAccount, companyAccount) {
+  // Badge counts only items the user has not yet viewed. Scopes and item ids
+  // mirror the ones marked seen by OperatorDashboardScreen (operator-waiting-*)
+  // and CompanyWorkspaceScreen (company-booking-*) so viewing those panels
+  // clears the header and bottom-tab badges.
   const counts = await Promise.all([
     operatorAccount?.id
       ? fetchOperatorDashboard(operatorAccount.id, operatorAccount.fleetId || null)
-        .then((dashboard) => dashboard?.waitingPassengers?.length || 0)
-        .catch(() => operatorAccount?.dashboard?.waitingPassengers?.length || 0)
+        .then((dashboard) => dashboard?.waitingPassengers || [])
+        .catch(() => operatorAccount?.dashboard?.waitingPassengers || [])
+        .then((passengers) => getUnseenNotificationCount(
+          `transport:${operatorAccount.id}`,
+          passengers.map((passenger) => ({ ...passenger, id: `operator-waiting-${passenger.id}`, unread: true })),
+          { unreadOnly: true },
+        ))
       : Promise.resolve(0),
     companyAccount?.id
       ? getTransportCompanyBookingQueue(companyAccount)
-        .then((bookings) => bookings.length)
+        .then((bookings) => getUnseenNotificationCount(
+          `transport:${companyAccount.id}`,
+          bookings.map((booking) => ({ ...booking, id: `company-booking-${booking.id}`, unread: true })),
+          { unreadOnly: true },
+        ))
         .catch(() => 0)
       : Promise.resolve(0),
   ]);

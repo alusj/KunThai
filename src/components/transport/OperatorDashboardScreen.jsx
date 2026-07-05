@@ -191,6 +191,14 @@ export default function OperatorDashboardScreen({
 
   useEffect(() => subscribeNotificationSeen(() => setSeenVersion((version) => version + 1)), []);
 
+  useEffect(() => {
+    if (activeView !== "waiting" || !waitingPassengers.length) return;
+    markNotificationsSeen(
+      alertSeenScope,
+      waitingPassengers.map((passenger) => ({ id: `operator-waiting-${passenger.id}` })),
+    );
+  }, [activeView, alertSeenScope, waitingPassengers]);
+
   function openOperatorArea(areaText, kind = "operating-area") {
     const cleanText = String(areaText || "").trim();
     if (!isUsableAreaText(cleanText)) return;

@@ -432,12 +432,6 @@
     animation: kt-backdrop-out 220ms var(--kt-ease-standard) forwards;
   }
 
-  .kt-comments-page-blur {
-    filter: blur(5px) brightness(0.94);
-    transition: filter 260ms var(--kt-ease-standard);
-    will-change: filter;
-  }
-
   .kt-comments-feed-enter {
     transform-origin: center bottom;
     animation: kt-comments-feed-up 280ms var(--kt-ease-emphasized) backwards;

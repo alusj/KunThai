@@ -50,15 +50,6 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   }, [open, rendered]);
 
   useEffect(() => {
-    if (!rendered) return undefined;
-
-    const appSurface = document.getElementById("root")?.firstElementChild;
-    appSurface?.classList.add("kt-comments-page-blur");
-
-    return () => appSurface?.classList.remove("kt-comments-page-blur");
-  }, [rendered]);
-
-  useEffect(() => {
     if (!rendered || closing) return;
     const node = listRef.current;
     if (!node) return;
@@ -114,7 +105,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     <div className={shellClass}>
       <button
         type="button"
-        className={`absolute inset-0 cursor-default bg-transparent ${backdropClass}`}
+        className={`absolute inset-0 cursor-default bg-slate-950/45 backdrop-blur-sm ${backdropClass}`}
         onClick={requestClose}
         aria-label="Close comments"
       />

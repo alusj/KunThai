@@ -8,11 +8,13 @@ const parents = [
   { id: "property", label: "Property", icon: House },
 ];
 
-export default function MarketplaceParentNav({ active, onChange }) {
+export default function MarketplaceParentNav({ active, onChange, enabledParents = ["shop", "food", "hotels", "property"] }) {
+  const visibleParents = parents.filter((parent) => parent.id === "all" || enabledParents.includes(parent.id));
+
   return (
     <nav aria-label="UrMall business types" className="border-b border-gray-200 bg-white px-3 py-3 sm:px-6">
       <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {parents.map((parent) => {
+        {visibleParents.map((parent) => {
           const Icon = parent.icon;
           const selected = active === parent.id;
           return (

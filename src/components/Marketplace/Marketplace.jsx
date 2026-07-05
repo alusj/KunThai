@@ -11,6 +11,10 @@ import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { useSellerHeader } from "../../Backend/hooks/useSellerHeader";
+import {
+  fetchMarketplaceParentAvailability,
+  MARKETPLACE_PARENT_TAB_MIN_ITEMS,
+} from "../../Backend/services/marketplace/marketplaceVerticalService";
 import { showToast } from "../../Backend/services/toastService";
 
 const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
@@ -25,12 +29,41 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
   const [businessClosing, setBusinessClosing] = useState(false);
   const [buyerNotificationCount, setBuyerNotificationCount] = useState(0);
+  const [parentAvailability, setParentAvailability] = useState(null);
   const sellerHeader = useSellerHeader();
   const sellerNotificationCount = sellerHeader.orderCount + sellerHeader.messageCount + sellerHeader.notificationCount;
   const totalNotificationCount = buyerNotificationCount + sellerNotificationCount;
   const businessCloseTimer = useRef(null);
   const previousActiveRef = useRef(false);
   const previousBuyerUnreadRef = useRef(0);
+  // A vertical earns its own tab at MARKETPLACE_PARENT_TAB_MIN_ITEMS live items;
+  // the whole row stays hidden (everything mixed under "All") until at least
+  // two verticals qualify.
+  const qualifiedParents = Object.entries(parentAvailability || {})
+    .filter(([, count]) => Number(count || 0) >= MARKETPLACE_PARENT_TAB_MIN_ITEMS)
+    .map(([id]) => id);
+  const parentNavVisible = qualifiedParents.length >= 2;
+
+  useEffect(() => {
+    let alive = true;
+    fetchMarketplaceParentAvailability()
+      .then((counts) => {
+        if (alive) setParentAvailability(counts);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeParent === "all") return;
+    if (!parentNavVisible || !qualifiedParents.includes(activeParent)) {
+      setActiveParent("all");
+    }
+    // qualifiedParents is derived from parentAvailability; activeParent guard keeps this stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeParent, parentNavVisible, parentAvailability]);
 
   useEffect(() => {
     onNotificationCountChange?.(totalNotificationCount);
@@ -141,14 +174,17 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
             onNotificationCountChange={setBuyerNotificationCount}
             sellerNotificationCount={sellerNotificationCount}
           />
-          <MarketplaceParentNav
-            active={activeParent}
-            onChange={(parent) => {
-              setActiveParent(parent);
-              setActiveUtility(null);
-              setVerticalDetailOpen(false);
-            }}
-          />
+          {parentNavVisible ? (
+            <MarketplaceParentNav
+              active={activeParent}
+              enabledParents={qualifiedParents}
+              onChange={(parent) => {
+                setActiveParent(parent);
+                setActiveUtility(null);
+                setVerticalDetailOpen(false);
+              }}
+            />
+          ) : null}
           {activeParent === "all" || activeParent === "shop" ? (
             <ParentTabs
               activeTab={activeTab}
