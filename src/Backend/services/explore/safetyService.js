@@ -44,6 +44,25 @@ export function writeBlockedUsers(value) {
   writeArray(BLOCKED_USERS_KEY, Array.from(value));
 }
 
+export async function fetchBlockedUsers() {
+  const userId = await getCurrentUserId();
+  if (!userId) return readBlockedUsers();
+
+  const { data, error } = await supabase
+    .from("explore_user_blocks")
+    .select("blocked_id")
+    .eq("blocker_id", userId);
+
+  if (error) {
+    if (isMissingTable(error)) return readBlockedUsers();
+    throw error;
+  }
+
+  const next = new Set((data || []).map((row) => row.blocked_id).filter(Boolean));
+  writeBlockedUsers(next);
+  return next;
+}
+
 export function blockUserLocally(userId) {
   if (!userId) return readBlockedUsers();
   const next = readBlockedUsers();

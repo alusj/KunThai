@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "../services/explore/messageService";
-import { clearTransientSessionNavigation, rememberSocialAccount } from "../services/sessionService";
+import { clearTransientSessionNavigation, readSessionContinuity, rememberSocialAccount } from "../services/sessionService";
 
 const AUTH_BOOT_TIMEOUT_MS = 1500;
 
@@ -45,28 +45,49 @@ export const useAuth = () => {
     async function loadAuth() {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
+        const sessionUser = sessionData?.session?.user || null;
 
-        if (!sessionData?.session?.user) {
+        if (!sessionUser) {
           setUser(null);
           return;
         }
 
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-
-        if (userError || !userData?.user) {
-          if (isBrokenJwtUser(userError)) {
-            await clearBrokenSession();
-          }
-
-          activeUserIdRef.current = "";
-          setUser(null);
-          return;
+        // Trust the locally stored session immediately so boot is instant;
+        // the server-side validation below runs in the background and only
+        // signs out when the stored session turns out to be broken.
+        rememberSocialAccount(sessionUser);
+        if (readSessionContinuity() !== (sessionUser.id || "")) {
+          clearTransientSessionNavigation();
         }
+        activeUserIdRef.current = sessionUser.id || "";
+        setUser(sessionUser);
 
-        rememberSocialAccount(userData.user);
-        clearTransientSessionNavigation();
-        activeUserIdRef.current = userData.user.id || "";
-        setUser(userData.user);
+        supabase.auth
+          .getUser()
+          .then(async ({ data: userData, error: userError }) => {
+            if (!active) return;
+
+            if (userError || !userData?.user) {
+              if (isBrokenJwtUser(userError)) {
+                await clearBrokenSession();
+              }
+
+              activeUserIdRef.current = "";
+              setUser(null);
+              return;
+            }
+
+            const nextUser = userData.user;
+            activeUserIdRef.current = nextUser.id || "";
+            // Keep the same object when nothing changed so downstream hooks
+            // (onboarding check) do not re-run and re-show loading states.
+            setUser((current) =>
+              current && current.id === nextUser.id && current.updated_at === nextUser.updated_at
+                ? current
+                : nextUser,
+            );
+          })
+          .catch(() => {});
       } catch {
         activeUserIdRef.current = "";
         setUser(null);
@@ -98,9 +119,15 @@ export const useAuth = () => {
       }
 
       rememberSocialAccount(session.user);
-      clearTransientSessionNavigation();
+      if (event === "SIGNED_IN" && readSessionContinuity() !== nextUserId) {
+        clearTransientSessionNavigation();
+      }
       activeUserIdRef.current = session.user.id || "";
-      setUser(session.user);
+      setUser((current) =>
+        current && current.id === session.user.id && current.updated_at === session.user.updated_at
+          ? current
+          : session.user,
+      );
       setLoading(false);
     });
 

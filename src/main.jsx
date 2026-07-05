@@ -9,14 +9,25 @@ import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
 import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
 
 const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
+const PublicPolicyPage = lazy(() => import("./components/public/PublicPolicyPage.jsx"));
 
 function RootApplication() {
-  const isAdminPath = window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/");
+  const pathname = window.location.pathname;
+  const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
+  const publicPolicyId = pathname === "/privacy" ? "privacy" : pathname === "/terms" ? "terms" : "";
 
   if (isAdminPath) {
     return (
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-100 text-sm font-bold text-zinc-600">Opening KunThai Admin…</div>}>
         <AdminApp />
+      </Suspense>
+    );
+  }
+
+  if (publicPolicyId) {
+    return (
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm font-bold text-slate-600">Opening KunThai policies…</div>}>
+        <PublicPolicyPage initialPolicyId={publicPolicyId} />
       </Suspense>
     );
   }

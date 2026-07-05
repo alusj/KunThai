@@ -1,6 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { recordExploreSearchInterests } from "./advertService";
-import { isMissingTable } from "./errors";
+import { isMissingColumn, isMissingTable } from "./errors";
 
 const RECENT_SEARCHES_KEY = "explore-recent-searches";
 const POST_KEYS = ["explore-posts-feed", "explore-posts-connections", "explore-posts-swip"];
@@ -68,11 +68,21 @@ function getHashtagResults(posts, query) {
 
 async function searchPeople(query) {
   const safeQuery = escapeSearchValue(query.replace(/^@/, ""));
-  const { data, error } = await supabase
+  const matchFilter = `display_name.ilike.%${safeQuery}%,username.ilike.%${safeQuery}%,bio.ilike.%${safeQuery}%`;
+  let { data, error } = await supabase
     .from("explore_profiles")
     .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
-    .or(`display_name.ilike.%${safeQuery}%,username.ilike.%${safeQuery}%,bio.ilike.%${safeQuery}%`)
+    .is("deactivated_at", null)
+    .or(matchFilter)
     .limit(12);
+
+  if (error && isMissingColumn(error, "deactivated_at")) {
+    ({ data, error } = await supabase
+      .from("explore_profiles")
+      .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
+      .or(matchFilter)
+      .limit(12));
+  }
 
   if (error) {
     if (isMissingTable(error)) return [];

@@ -1,16 +1,23 @@
-import { createElement } from "react";
+import { createElement, useEffect, useState } from "react";
 import {
   HiOutlineArrowDownTray,
   HiOutlineBolt,
   HiOutlineChatBubbleLeftRight,
   HiOutlineCircleStack,
   HiOutlineEye,
+  HiOutlinePauseCircle,
   HiOutlineShieldCheck,
   HiOutlineTrash,
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 
 import { useTrustSafety } from "../../../../Backend/hooks/useTrustSafety";
+import {
+  deleteKunThaiAccount,
+  fetchAccountDeactivation,
+  setAccountDeactivated,
+} from "../../../../Backend/services/accountLifecycleService";
+import { showToast } from "../../../../Backend/services/toastService";
 import EmptyState from "../../shared/EmptyState";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
@@ -47,6 +54,56 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
   const safety = useTrustSafety();
   const settings = safety.privacySettings;
   const blockedUsers = Array.from(safety.blockedUsers);
+  const [deactivatedAt, setDeactivatedAt] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [accountActionBusy, setAccountActionBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    fetchAccountDeactivation()
+      .then((value) => {
+        if (active) setDeactivatedAt(value);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleDeactivateConfirm() {
+    setAccountActionBusy(true);
+
+    try {
+      if (deactivatedAt) {
+        await setAccountDeactivated(false);
+        setDeactivatedAt(null);
+        showToast("Your account is active and visible again.", "success");
+      } else {
+        await setAccountDeactivated(true);
+        setDeactivatedAt(new Date().toISOString());
+        showToast("Your account is deactivated. Other users now see it as unavailable.", "success");
+      }
+      setConfirmAction(null);
+    } catch (error) {
+      showToast(error.message || "Unable to update your account status.", "danger");
+    } finally {
+      setAccountActionBusy(false);
+    }
+  }
+
+  async function handleDeleteConfirm() {
+    setAccountActionBusy(true);
+
+    try {
+      await deleteKunThaiAccount();
+      window.location.replace("/");
+    } catch (error) {
+      showToast(error.message || "Unable to delete your account.", "danger");
+      setAccountActionBusy(false);
+    }
+  }
 
   return (
     <div>
@@ -148,19 +205,95 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
           </button>
         </PrivacySection>
 
-        <PrivacySection title="Your data and account" description="Data export and deletion need verified backend workflows before they can be enabled safely.">
+        <PrivacySection title="Your data and account" description="Pause your account temporarily, or delete it and its data permanently.">
           <button type="button" disabled className="flex items-start gap-3 rounded-[24px] border border-slate-200 bg-white p-4 text-left opacity-75 shadow-sm">
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineArrowDownTray className="text-2xl" /></span>
             <span><span className="block text-base font-black text-slate-950">Download my data</span><span className="mt-1 block text-sm font-semibold leading-6 text-slate-500">A verified export request flow is being prepared.</span><span className="mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">Placeholder</span></span>
           </button>
-          <button type="button" disabled className="flex items-start gap-3 rounded-[24px] border border-rose-100 bg-rose-50 p-4 text-left opacity-75">
+          <button
+            type="button"
+            onClick={() => setConfirmAction("deactivate")}
+            className="flex items-start gap-3 rounded-[24px] border border-amber-200 bg-amber-50 p-4 text-left shadow-sm transition hover:border-amber-300"
+          >
+            <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-white text-amber-700"><HiOutlinePauseCircle className="text-2xl" /></span>
+            <span>
+              <span className="block text-base font-black text-amber-950">{deactivatedAt ? "Reactivate account" : "Deactivate account"}</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-amber-700">
+                {deactivatedAt
+                  ? "Your account is currently hidden. Reactivate it to become visible to other users again."
+                  : "Hide your account from search and other users. Others will see it as unavailable until you reactivate it."}
+              </span>
+              {deactivatedAt ? (
+                <span className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-amber-700">Deactivated</span>
+              ) : null}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmAction("delete")}
+            className="flex items-start gap-3 rounded-[24px] border border-rose-200 bg-rose-50 p-4 text-left shadow-sm transition hover:border-rose-300"
+          >
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-white text-rose-700"><HiOutlineTrash className="text-2xl" /></span>
-            <span><span className="block text-base font-black text-rose-950">Delete account</span><span className="mt-1 block text-sm font-semibold leading-6 text-rose-700">Account verification, retention notices, and a recovery window must be completed first.</span><span className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-rose-700">Placeholder</span></span>
+            <span>
+              <span className="block text-base font-black text-rose-950">Delete account</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-rose-700">Permanently remove your account, profile, and content. This cannot be undone.</span>
+            </span>
           </button>
         </PrivacySection>
-
-        {/* Future backend: connect verified data-export jobs and multi-step account deletion with retention and recovery notices. */}
       </div>
+
+      {confirmAction ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6" role="presentation">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-action-title"
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+          >
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${confirmAction === "delete" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
+              {confirmAction === "delete" ? <HiOutlineTrash className="text-2xl" /> : <HiOutlinePauseCircle className="text-2xl" />}
+            </div>
+            <h2 id="account-action-title" className="mt-4 text-2xl font-black text-slate-950">
+              {confirmAction === "delete"
+                ? "Delete your account?"
+                : deactivatedAt
+                  ? "Reactivate your account?"
+                  : "Deactivate your account?"}
+            </h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+              {confirmAction === "delete"
+                ? "This permanently deletes your login, profile, posts, messages, and activity across Explore, UrMall, and Transport. There is no recovery once it completes."
+                : deactivatedAt
+                  ? "Your profile becomes visible in search and to other users again immediately."
+                  : "Your profile is hidden from search and other users see “Account unavailable” instead. Nothing is deleted, and you can reactivate here at any time."}
+            </p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                disabled={accountActionBusy}
+                className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmAction === "delete" ? handleDeleteConfirm : handleDeactivateConfirm}
+                disabled={accountActionBusy}
+                className={`rounded-xl px-4 py-3 text-sm font-black text-white transition disabled:opacity-60 ${confirmAction === "delete" ? "bg-rose-600 hover:bg-rose-700" : "bg-amber-600 hover:bg-amber-700"}`}
+              >
+                {accountActionBusy
+                  ? "Working..."
+                  : confirmAction === "delete"
+                    ? "Delete my account permanently"
+                    : deactivatedAt
+                      ? "Reactivate account"
+                      : "Deactivate account"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

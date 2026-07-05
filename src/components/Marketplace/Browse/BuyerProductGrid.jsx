@@ -125,16 +125,14 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
   );
 }
 
+// Mirrors the app-level UrMall loading cards so the transition from the app
+// skeleton into the product grid reads as one continuous loader.
 function ProductSkeleton() {
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      <div className="aspect-square animate-pulse bg-gray-100" />
-      <div className="space-y-2 p-2.5">
-        <div className="h-4 w-5/6 animate-pulse rounded bg-gray-100" />
-        <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
-        <div className="h-4 w-2/3 animate-pulse rounded bg-gray-100" />
-        <div className="h-3 w-3/4 animate-pulse rounded bg-gray-100" />
-      </div>
+    <div className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="aspect-square animate-pulse rounded-[18px] bg-slate-100" />
+      <div className="mt-3 h-4 w-4/5 animate-pulse rounded-full bg-slate-200" />
+      <div className="mt-2 h-3 w-1/2 animate-pulse rounded-full bg-emerald-100" />
     </div>
   );
 }

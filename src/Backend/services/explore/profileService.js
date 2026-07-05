@@ -19,6 +19,7 @@ function toAppProfile(row, fallback = {}) {
     bio: row?.bio || fallback.bio || "",
     socialLinks: normalizeSocialLinks(row?.social_links || fallback.socialLinks),
     verified: Boolean(row?.verified || fallback.verified),
+    deactivatedAt: row?.deactivated_at || fallback.deactivatedAt || "",
   };
 }
 

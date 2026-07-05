@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
   "functions": {
     "api/moderate-post.js": {
       "maxDuration": 60

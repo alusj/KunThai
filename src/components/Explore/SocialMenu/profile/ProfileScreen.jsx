@@ -79,6 +79,7 @@ export default function ProfileScreen({
     swip: profileSwipPosts.length,
   };
   const followed = Boolean(values?.userId && followedUsers.has(values.userId));
+  const accountUnavailable = Boolean(values?.deactivatedAt) && !editable;
 
   useEffect(() => {
     setValues(profile || {});
@@ -252,6 +253,11 @@ export default function ProfileScreen({
           <ProfileSkeleton />
         ) : loadError ? (
           <EmptyState title="Profile could not load" message={loadError} />
+        ) : accountUnavailable ? (
+          <EmptyState
+            title="Account unavailable"
+            message="This account is currently unavailable. It will appear again if the owner reactivates it."
+          />
         ) : profileFetched && !profile ? (
           <CreateProfileState
             onCreate={() => {
@@ -261,7 +267,7 @@ export default function ProfileScreen({
           />
         ) : null}
 
-        {!loading && !loadError && (profile || editing) ? (
+        {!loading && !loadError && !accountUnavailable && (profile || editing) ? (
           <>
         <ProfileHeaderCard
           editable={editable}

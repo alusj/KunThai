@@ -110,6 +110,27 @@ function clearSocialSessionCache() {
   });
 }
 
+const SESSION_CONTINUITY_KEY = "kuntai-session-continuity";
+
+// Tracks which user this browser tab already booted for. A hard refresh keeps
+// the marker, so boot code can restore navigation instead of resetting it;
+// a fresh sign-in (or account switch) sees a mismatch and resets normally.
+export function readSessionContinuity() {
+  try {
+    return sessionStorage.getItem(SESSION_CONTINUITY_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function markSessionContinuity(userId) {
+  try {
+    sessionStorage.setItem(SESSION_CONTINUITY_KEY, String(userId || ""));
+  } catch {
+    // Storage can be blocked in private browsers; continuity is best-effort.
+  }
+}
+
 export function clearTransientSessionNavigation() {
   try {
     localStorage.setItem(EXPLORE_NAVIGATION_KEY, JSON.stringify(DEFAULT_EXPLORE_NAVIGATION));

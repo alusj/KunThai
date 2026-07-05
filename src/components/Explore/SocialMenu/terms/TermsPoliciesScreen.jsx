@@ -345,8 +345,8 @@ function PolicyDetail({ policy, onBack }) {
   );
 }
 
-export default function TermsPoliciesScreen({ hideHeader = false }) {
-  const [activeId, setActiveId] = useState("");
+export default function TermsPoliciesScreen({ hideHeader = false, initialPolicyId = "" }) {
+  const [activeId, setActiveId] = useState(initialPolicyId);
   const activePolicy = policies.find((policy) => policy.id === activeId) || null;
 
   useBrowserBack(Boolean(activePolicy), () => setActiveId(""), `terms-policy-${activeId || "list"}`);

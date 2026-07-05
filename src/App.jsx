@@ -10,12 +10,14 @@ import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlay
 import { clearExploreScreenStack } from "./Backend/services/explore/navigationService";
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
+import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import supabase from "./Backend/lib/supabaseClient";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
 const PAGE_VISITS_KEY = "kuntai-main-page-visits";
+const MARKETPLACE_NAV_KEY = "kuntai-marketplace-nav";
 const loadExplore = () => import("./components/Explore/Explore");
 const loadMarketplace = () => import("./components/Marketplace/Marketplace");
 const loadTransport = () => import("./components/transport/Transport");
@@ -102,6 +104,18 @@ function readPreferredMainPage(fallback = "", userId = "") {
 function clearBrowserHash() {
   if (!window.location.hash) return;
   window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+}
+
+function readStoredMarketplaceNav() {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(MARKETPLACE_NAV_KEY) || "null");
+    if (value && typeof value === "object" && value.root) {
+      return { root: value.root, sub: value.sub || null };
+    }
+  } catch {
+    // Fall through to the default landing surface.
+  }
+  return { root: "marketplace", sub: null };
 }
 
 function AppLoading({ page = "explore" }) {
@@ -194,11 +208,13 @@ export default function App() {
     isComplete: onboardingComplete,
   } = useOnboarding(user);
   const [page, setPage] = useState(() => {
-    return getMainPageFromHash(window.location.hash) || readPreferredMainPage();
+    // A hard refresh must land on the page the user was on, so the last
+    // visited page wins over the visit-frequency preference here.
+    return getMainPageFromHash(window.location.hash) || readLastMainPage();
   });
   const [mainPageDirection, setMainPageDirection] = useState("forward");
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
-  const [marketplaceNav, setMarketplaceNav] = useState({ root: "marketplace", sub: null });
+  const [marketplaceNav, setMarketplaceNav] = useState(readStoredMarketplaceNav);
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
@@ -222,6 +238,14 @@ export default function App() {
   }, [page]);
 
   useEffect(() => {
+    try {
+      sessionStorage.setItem(MARKETPLACE_NAV_KEY, JSON.stringify(marketplaceNav));
+    } catch {
+      // Navigation should never depend on storage availability.
+    }
+  }, [marketplaceNav]);
+
+  useEffect(() => {
     stopAllExploreMedia();
     setMarketplaceActivityOpen(false);
     setTransportActivityOpen(false);
@@ -234,6 +258,13 @@ export default function App() {
   useEffect(() => {
     if (!userId || !onboardingComplete) return;
 
+    // A hard refresh in the same tab keeps the continuity marker, so the
+    // user stays exactly where they were. Only a fresh sign-in (or account
+    // switch) resets navigation and picks a landing page.
+    const sameBrowserSession = readSessionContinuity() === userId;
+    markSessionContinuity(userId);
+    if (sameBrowserSession) return;
+
     stopAllExploreMedia();
     clearExploreScreenStack();
     setExploreFullScreen(false);
@@ -242,10 +273,11 @@ export default function App() {
     setTransportActivityOpen(false);
     setTransportAreaRequest(null);
     const hashPage = getMainPageFromHash(window.location.hash);
-    const preferredPage = hashPage || readPreferredMainPage(onboardingProfile?.primarySurface, userId);
+    const revealSurface = onboardingReveal ? normalizeMainPage(onboardingProfile?.primarySurface) : "";
+    const preferredPage = revealSurface || hashPage || readPreferredMainPage(onboardingProfile?.primarySurface, userId);
     setPage(preferredPage);
     if (!hashPage) clearBrowserHash();
-  }, [onboardingComplete, onboardingProfile?.primarySurface, userId]);
+  }, [onboardingComplete, onboardingProfile?.primarySurface, onboardingReveal, userId]);
 
   useEffect(() => {
     let active = true;
@@ -319,8 +351,18 @@ export default function App() {
   }, [page]);
 
   if (loading || (user && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
-  return <AppLoading page={page} />;
-}
+    // Users heading into onboarding get the onboarding backdrop instead of an
+    // app skeleton that never matches the screen that follows.
+    if (user && !user.user_metadata?.onboarding_complete) {
+      return (
+        <div
+          className="min-h-screen bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)]"
+          aria-label="Loading KunThai onboarding"
+        />
+      );
+    }
+    return <AppLoading page={page} />;
+  }
   if (!user) {
     return <Login />;
   }
@@ -329,8 +371,13 @@ export default function App() {
     return (
       <OnboardingFlow
         profile={onboardingProfile}
-        onComplete={(origin) => {
+        onComplete={(origin, finishedProfile) => {
           setOnboardingReveal(origin);
+          const chosenSurface = normalizeMainPage(finishedProfile?.primarySurface);
+          if (chosenSurface) {
+            setPage(chosenSurface);
+            recordMainPageVisit(chosenSurface, userId);
+          }
           refreshOnboarding();
         }}
       />

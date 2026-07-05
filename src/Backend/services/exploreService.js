@@ -573,11 +573,20 @@ async function fetchAllExploreProfiles() {
   for (let page = 0; page < 10; page += 1) {
     const from = page * pageSize;
     const to = from + pageSize - 1;
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("explore_profiles")
       .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
+      .is("deactivated_at", null)
       .order("display_name", { ascending: true, nullsFirst: false })
       .range(from, to);
+
+    if (error && isMissingColumn(error, "deactivated_at")) {
+      ({ data, error } = await supabase
+        .from("explore_profiles")
+        .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
+        .order("display_name", { ascending: true, nullsFirst: false })
+        .range(from, to));
+    }
 
     if (error) {
       if (isMissingTable(error)) {

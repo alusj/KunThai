@@ -343,17 +343,17 @@ export default function Business({ onBack }) {
       }
     : undefined;
 
-  if (loading || sellerDashboardInitialLoading) {
-    return (
-      <div className={`${dashboardRevealClass} min-h-screen`} style={dashboardRevealStyle}>
-        <BusinessSkeleton />
-      </div>
-    );
-  }
-
   const activeBusinessId = sellerOverview.business?.id || businesses[0]?.id || "";
   const activeRegisteredBusiness = businesses.find((business) => business.id === activeBusinessId) || businesses[0];
   const businessKind = sellerOverview.business?.kind || activeRegisteredBusiness?.businessKind || "retail";
+
+  if (loading || sellerDashboardInitialLoading) {
+    return (
+      <div className={`${dashboardRevealClass} min-h-screen`} style={dashboardRevealStyle}>
+        <BusinessSkeleton kind={businessKind} />
+      </div>
+    );
+  }
   const verticalBusiness = {
     id: activeBusinessId,
     kind: businessKind,

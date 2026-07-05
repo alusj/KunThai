@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   blockExploreUser,
+  fetchBlockedUsers,
   readBlockedUsers,
   fetchPrivacySettings,
   readPrivacySettings,
@@ -21,6 +22,12 @@ export function useTrustSafety() {
     fetchPrivacySettings()
       .then((settings) => {
         if (active) setPrivacySettings(settings);
+      })
+      .catch(() => {});
+
+    fetchBlockedUsers()
+      .then((blocked) => {
+        if (active) setBlockedUsers(new Set(blocked));
       })
       .catch(() => {});
 

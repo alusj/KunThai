@@ -168,11 +168,11 @@ export default function OnboardingFlow({ profile, onComplete }) {
 
     try {
       await saveUserTopicFollows(safeValues.contentTopics, { source: "onboarding" });
-      await markOnboardingComplete(safeValues);
+      const finishedProfile = await markOnboardingComplete(safeValues);
       setTransitionOrigin(origin);
       setFinishing(true);
       await new Promise((resolve) => window.setTimeout(resolve, 480));
-      onComplete?.(origin);
+      onComplete?.(origin, finishedProfile || safeValues);
     } catch (error) {
       setSaving(false);
       setError(error.message || "We could not complete onboarding.");
