@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { getOnboardingProfile } from "../services/onboardingService";
+import { buildProfileFromUser, getOnboardingProfile } from "../services/onboardingService";
+
+const ONBOARDING_BOOT_TIMEOUT_MS = 2200;
 
 export function useOnboarding(session) {
   const sessionId = session?.id || "";
@@ -12,6 +14,7 @@ export function useOnboarding(session) {
 
   useEffect(() => {
     let active = true;
+    let timeoutId = null;
 
     async function load() {
       setChecked(false);
@@ -25,6 +28,14 @@ export function useOnboarding(session) {
       }
 
       setLoading(true);
+      const fallbackProfile = buildProfileFromUser(session);
+      timeoutId = window.setTimeout(() => {
+        if (!active) return;
+        setProfile(fallbackProfile);
+        setCheckedSessionId(session.id || "");
+        setLoading(false);
+        setChecked(true);
+      }, ONBOARDING_BOOT_TIMEOUT_MS);
 
       try {
         const nextProfile = await getOnboardingProfile(session);
@@ -32,7 +43,13 @@ export function useOnboarding(session) {
           setProfile(nextProfile);
           setCheckedSessionId(session.id || "");
         }
+      } catch {
+        if (active) {
+          setProfile(fallbackProfile);
+          setCheckedSessionId(session.id || "");
+        }
       } finally {
+        window.clearTimeout(timeoutId);
         if (active) {
           setLoading(false);
           setChecked(true);
@@ -44,6 +61,7 @@ export function useOnboarding(session) {
 
     return () => {
       active = false;
+      if (timeoutId) window.clearTimeout(timeoutId);
     };
   }, [session, refreshKey]);
 

@@ -19,7 +19,7 @@ const surfaceOptions = [
   { id: "transport", label: "Open in Transport", body: "Best for rides and delivery access." },
 ];
 
-export default function InterestsStep({ values, onToggleInterest, onToggleContentTopic, onChange, onBack, onNext }) {
+export default function InterestsStep({ values, saving = false, onToggleInterest, onToggleContentTopic, onChange, onBack, onNext }) {
   const [showAllTopics, setShowAllTopics] = useState(false);
   const visibleTopics = showAllTopics ? EXPLORE_TOPIC_CATALOG : STARTER_EXPLORE_TOPICS;
 
@@ -138,9 +138,10 @@ export default function InterestsStep({ values, onToggleInterest, onToggleConten
         <button
           type="button"
           onClick={onNext}
+          disabled={saving}
           className="rounded-[20px] bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
-          Review setup
+          {saving ? "Saving..." : "Review setup"}
         </button>
       </div>
     </OnboardingFrame>

@@ -16,9 +16,17 @@ import supabase from "./Backend/lib/supabaseClient";
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
 const PAGE_VISITS_KEY = "kuntai-main-page-visits";
-const Explore = lazy(() => import("./components/Explore/Explore"));
-const Marketplace = lazy(() => import("./components/Marketplace/Marketplace"));
-const Transport = lazy(() => import("./components/transport/Transport"));
+const loadExplore = () => import("./components/Explore/Explore");
+const loadMarketplace = () => import("./components/Marketplace/Marketplace");
+const loadTransport = () => import("./components/transport/Transport");
+const PAGE_LOADERS = {
+  explore: loadExplore,
+  marketplace: loadMarketplace,
+  transport: loadTransport,
+};
+const Explore = lazy(loadExplore);
+const Marketplace = lazy(loadMarketplace);
+const Transport = lazy(loadTransport);
 
 function normalizeMainPage(value) {
   const page = String(value || "").toLowerCase();
@@ -197,7 +205,6 @@ export default function App() {
   const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
   const [onboardingReveal, setOnboardingReveal] = useState(null);
   const [accountControl, setAccountControl] = useState(null);
-  const [accountControlLoading, setAccountControlLoading] = useState(false);
   const appGestureRef = useRef(null);
   const userId = user?.id || "";
   setNotificationSeenUser(userId);
@@ -209,6 +216,10 @@ export default function App() {
   const updateTransportBadge = useCallback((count) => {
     setMainPageBadges((current) => current.transport === count ? current : { ...current, transport: count });
   }, []);
+
+  useEffect(() => {
+    PAGE_LOADERS[page]?.();
+  }, [page]);
 
   useEffect(() => {
     stopAllExploreMedia();
@@ -240,18 +251,18 @@ export default function App() {
     let active = true;
     if (!userId) {
       setAccountControl(null);
-      setAccountControlLoading(false);
       return undefined;
     }
-    setAccountControlLoading(true);
     const unsubscribe = subscribeToAccountControl(userId, (control) => {
       if (active) setAccountControl(control);
     });
     getCurrentAccountControl(userId)
       .then((control) => { if (active) setAccountControl(control); })
-      .catch(() => { if (active) setAccountControl(null); })
-      .finally(() => { if (active) setAccountControlLoading(false); });
-    return () => { active = false; unsubscribe(); };
+      .catch(() => { if (active) setAccountControl(null); });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [userId]);
 
   useEffect(() => {
@@ -307,7 +318,7 @@ export default function App() {
     };
   }, [page]);
 
-  if (loading || accountControlLoading || (user && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
+  if (loading || (user && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
   return <AppLoading page={page} />;
 }
   if (!user) {

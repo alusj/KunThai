@@ -1,7 +1,10 @@
-import { Camera, CheckCircle2, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { Camera, CheckCircle2, Mail, MapPin, Phone, Search, ShieldCheck } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
+import { PHONE_ALREADY_LINKED_CODE } from "../../Backend/services/accountIdentityService";
 import { detectSocialPlatform, normalizeSocialLinks } from "../../Backend/services/explore/socialLinks";
+import FindAccountModal from "../auth/FindAccountModal";
 import {
   constrainCountryPhoneInput,
   getActiveCountryProfile,
@@ -99,16 +102,20 @@ function SocialLinkInput({ index, onChange, value }) {
   );
 }
 
-export default function ProfileStep({ values, error, onChange, onBack, onNext }) {
+export default function ProfileStep({ values, saving = false, error, errorCode = "", onChange, onBack, onNext }) {
+  const [findAccountOpen, setFindAccountOpen] = useState(false);
+  const phoneConflict = errorCode === PHONE_ALREADY_LINKED_CODE;
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || "Your name";
   const countryProfile = getActiveCountryProfile(values.country);
   const phoneValidation = validateCountryPhone(values.phone, countryProfile);
+  const emailValue = values.email.trim();
+  const emailValid = !emailValue || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
   const canContinue =
     values.firstName.trim().length >= 2 &&
     values.lastName.trim().length >= 2 &&
     values.username.trim().length >= 3 &&
-    values.email.trim().length >= 5 &&
+    emailValid &&
     phoneValidation.valid &&
     Boolean(values.dateOfBirth);
 
@@ -212,8 +219,14 @@ export default function ProfileStep({ values, error, onChange, onBack, onNext })
                 value={values.email}
                 onChange={(event) => onChange("email", event.target.value)}
                 placeholder="name@example.com"
+                aria-invalid={!emailValid}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
               />
+              {!emailValid ? (
+                <span className="mt-2 block text-xs font-semibold text-rose-600">
+                  Enter a valid email address or leave this blank.
+                </span>
+              ) : null}
             </label>
 
             <label className="block">
@@ -224,12 +237,33 @@ export default function ProfileStep({ values, error, onChange, onBack, onNext })
                 onChange={(event) => onChange("phone", constrainCountryPhoneInput(event.target.value, countryProfile))}
                 placeholder={getCountryPhoneHint(countryProfile)}
                 inputMode="tel"
-                aria-invalid={!phoneValidation.valid && Boolean(values.phone)}
-                className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
+                aria-invalid={phoneConflict || (!phoneValidation.valid && Boolean(values.phone))}
+                className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${
+                  phoneConflict ? "border-rose-300" : "border-slate-200"
+                }`}
               />
-              <span className={`mt-2 block text-xs font-semibold ${phoneValidation.valid || !values.phone ? "text-slate-500" : "text-rose-600"}`}>
-                {phoneValidation.valid ? `${countryProfile.name}: ${phoneValidation.expected} national digits.` : phoneValidation.message}
-              </span>
+              {phoneConflict ? (
+                <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">
+                  This number is already associated with another account.
+                </span>
+              ) : (
+                <span className={`mt-2 block text-xs font-semibold ${phoneValidation.valid || !values.phone ? "text-slate-500" : "text-rose-600"}`}>
+                  {phoneValidation.valid ? `${countryProfile.name}: ${phoneValidation.expected} national digits.` : phoneValidation.message}
+                </span>
+              )}
+              {phoneConflict ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setFindAccountOpen(true);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
+                >
+                  <Search size={13} aria-hidden="true" />
+                  Find my account
+                </button>
+              ) : null}
             </label>
           </div>
 
@@ -379,10 +413,23 @@ export default function ProfileStep({ values, error, onChange, onBack, onNext })
         </div>
       </div>
 
-      {error ? (
+      {error && !phoneConflict ? (
         <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
           {error}
         </p>
+      ) : null}
+
+      {findAccountOpen ? (
+        <FindAccountModal
+          country={values.country}
+          phone={values.phone}
+          redirectTo={typeof window !== "undefined" ? window.location.origin : undefined}
+          onClose={() => setFindAccountOpen(false)}
+          onTryAnotherNumber={() => {
+            setFindAccountOpen(false);
+            onChange("phone", "");
+          }}
+        />
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -395,11 +442,11 @@ export default function ProfileStep({ values, error, onChange, onBack, onNext })
         </button>
         <button
           type="button"
-          disabled={!canContinue}
+          disabled={!canContinue || saving}
           onClick={onNext}
           className="rounded-[20px] bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Continue
+          {saving ? "Saving..." : "Continue"}
         </button>
       </div>
     </OnboardingFrame>

@@ -21,10 +21,11 @@ const cards = [
 ];
 
 export default function WelcomeStep({ profile, onNext }) {
-  const isSocialProvider = profile?.provider === "google" || profile?.provider === "facebook";
+  const isConnectedProvider = ["google", "apple", "facebook", "phone"].includes(profile?.provider);
   const grantedItems = [
     profile?.displayName ? "name" : null,
     profile?.email ? "email" : null,
+    profile?.phone ? "phone" : null,
     profile?.avatarUrl ? "profile photo" : null,
   ].filter(Boolean);
 
@@ -32,14 +33,14 @@ export default function WelcomeStep({ profile, onNext }) {
     <OnboardingFrame
       step={1}
       total={4}
-      title={isSocialProvider ? `${profile.providerName} connected` : "Welcome to KunThai"}
+      title={isConnectedProvider ? `${profile.providerName} connected` : "Welcome to KunThai"}
       subtitle={
-        isSocialProvider
-          ? `Your ${profile.providerName} sign-in was successful. We’ll use the granted information to speed up setup.`
-          : "Let’s set up your account before you enter KunThai."
+        isConnectedProvider
+          ? `Your ${profile.providerName} sign-in was successful. We'll use the granted information to speed up setup.`
+          : "Let's set up your account before you enter KunThai."
       }
     >
-      {isSocialProvider ? (
+      {isConnectedProvider ? (
         <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-4">
             {profile?.avatarUrl ? (

@@ -57,6 +57,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
   const [finishing, setFinishing] = useState(false);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
 
   const safeValues = useMemo(() => normalizeProfile(values), [values]);
 
@@ -74,6 +75,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
 
   const updateField = (field, value) => {
     setError("");
+    setErrorCode("");
     setValues((current) =>
       typeof field === "object"
         ? {
@@ -126,26 +128,34 @@ export default function OnboardingFlow({ profile, onComplete }) {
     const nextStep = Math.min(step + 1, 4);
     setDirection("forward");
 
+    if (step === 1) {
+      setError("");
+      setErrorCode("");
+      setStep(nextStep);
+      return;
+    }
+
+    if (saving) return;
+    setSaving(true);
+
     try {
       setError("");
+      setErrorCode("");
       await persistStep(nextStep);
       setStep(nextStep);
     } catch (nextError) {
       setError(nextError.message || "We could not securely save these details.");
+      setErrorCode(nextError.code || "");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleBack = async () => {
     const nextStep = Math.max(step - 1, 1);
     setDirection("backward");
-
-    try {
-      setError("");
-      await persistStep(nextStep);
-      setStep(nextStep);
-    } catch (backError) {
-      setError(backError.message || "We could not securely save these details.");
-    }
+    setError("");
+    setStep(nextStep);
   };
 
   const handleFinish = async (event) => {
@@ -166,6 +176,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
     } catch (error) {
       setSaving(false);
       setError(error.message || "We could not complete onboarding.");
+      setErrorCode(error.code || "");
     }
   };
 
@@ -174,11 +185,12 @@ export default function OnboardingFlow({ profile, onComplete }) {
   if (step === 1) {
     content = <WelcomeStep profile={safeValues} onNext={handleNext} />;
   } else if (step === 2) {
-    content = <ProfileStep values={safeValues} error={error} onChange={updateField} onBack={handleBack} onNext={handleNext} />;
+    content = <ProfileStep values={safeValues} saving={saving} error={error} errorCode={errorCode} onChange={updateField} onBack={handleBack} onNext={handleNext} />;
   } else if (step === 3) {
     content = (
       <InterestsStep
         values={safeValues}
+        saving={saving}
         onToggleInterest={toggleInterest}
         onToggleContentTopic={toggleContentTopic}
         onChange={updateField}

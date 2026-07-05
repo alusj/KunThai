@@ -8,20 +8,31 @@ import {
   checkKunThaiIdentityAvailability,
   normalizeEmailForIdentity,
   normalizePhoneForIdentity,
+  PHONE_ALREADY_LINKED_CODE,
+  PHONE_ALREADY_LINKED_MESSAGE,
 } from "./accountIdentityService";
 
 const DEFAULT_NAV = "explore";
-
+function withTimeout(promise, message = "Request timed out. Please try again.", ms = 12000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
+}
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
-function buildProfileFromUser(user) {
+export function buildProfileFromUser(user) {
   const metadata = user?.user_metadata ?? {};
   const provider = user?.app_metadata?.provider ?? "email";
   const providerName =
     provider === "google"
       ? "Google"
+      : provider === "apple"
+        ? "Apple"
       : provider === "facebook"
         ? "Facebook"
         : provider === "email"
@@ -66,12 +77,12 @@ async function finalizeOAuthRegistration(user) {
 
   const provider = user?.app_metadata?.provider || "";
   const createdAt = Date.parse(user?.created_at || "");
-  const firstGoogleRegistration = flow.provider === "google"
-    && provider === "google"
+  const firstProviderRegistration = ["google", "apple"].includes(flow.provider)
+    && provider === flow.provider
     && Number.isFinite(createdAt)
     && Date.now() - createdAt < 10 * 60 * 1000;
 
-  if (!firstGoogleRegistration) return user;
+  if (!firstProviderRegistration) return user;
 
   const metadata = user.user_metadata || {};
   const { data, error } = await supabase.auth.updateUser({
@@ -80,13 +91,13 @@ async function finalizeOAuthRegistration(user) {
       primary_surface: metadata.primary_surface || DEFAULT_NAV,
       onboarding_complete: false,
       onboarding_step: 1,
-      registration_method: "google",
+      registration_method: flow.provider,
       email_verified_by_provider: Boolean(user.email_confirmed_at),
     },
   });
 
   if (error) {
-    console.warn("[KunThai onboarding] Unable to finalize Google registration metadata.", error);
+    console.warn("[KunThai onboarding] Unable to finalize OAuth registration metadata.", error);
     return user;
   }
 
@@ -342,10 +353,14 @@ export async function getOnboardingProfile(sessionUser = null) {
 }
 
 export async function updateOnboardingProfile(patch) {
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+ const {
+  data: { user },
+  error: userError,
+} = await withTimeout(
+  supabase.auth.getUser(),
+  "KunThai could not read your active login session. Please refresh and sign in again.",
+  12000
+);
 
   if (userError) {
     throw userError;
@@ -361,11 +376,13 @@ export async function updateOnboardingProfile(patch) {
   const requestedCountryProfile = getActiveCountryProfile(patch.countryCode || requestedCountry);
   const requestedPhone = normalizePhoneForIdentity(patch.phone ?? current.phone, requestedCountry);
 
-  await checkKunThaiIdentityAvailability({
-    email: requestedEmail,
-    phone: requestedPhone,
-    country: requestedCountry,
-  });
+  if (requestedEmail || requestedPhone) {
+    await checkKunThaiIdentityAvailability({
+      email: requestedEmail,
+      phone: requestedPhone,
+      country: requestedCountry,
+    });
+  }
 
   const nextData = {
     first_name: patch.firstName ?? current.firstName,
@@ -399,9 +416,20 @@ export async function updateOnboardingProfile(patch) {
     authUpdate.email = requestedEmail;
   }
 
-  const { data, error } = await supabase.auth.updateUser(authUpdate);
+  const { data, error } = await withTimeout(
+  supabase.auth.updateUser(authUpdate),
+  "KunThai could not save your auth profile. Please refresh and try again.",
+  12000
+);
 
   if (error) {
+    // The kunthai_account_identities trigger rejects duplicate phone/email with a
+    // unique_violation, which GoTrue surfaces as a generic 500 "Error updating user".
+    if (requestedPhone && /error updating user/i.test(error.message || "")) {
+      const conflictError = new Error(PHONE_ALREADY_LINKED_MESSAGE);
+      conflictError.code = PHONE_ALREADY_LINKED_CODE;
+      throw conflictError;
+    }
     throw error;
   }
 
@@ -433,7 +461,11 @@ export async function updateOnboardingProfile(patch) {
     updated_at: new Date().toISOString(),
   };
 
-  let { error: profileError } = await supabase.from("explore_profiles").upsert(exploreProfilePayload, { onConflict: "user_id" });
+  let { error: profileError } = await withTimeout(
+  supabase.from("explore_profiles").upsert(exploreProfilePayload, { onConflict: "user_id" }),
+  "KunThai could not save your Explore profile. Please check Supabase RLS/table policy.",
+  12000
+);
 
   let nextExploreProfilePayload = exploreProfilePayload;
 

@@ -7,6 +7,12 @@ import {
   normalizeEmailForIdentity,
 } from "./accountIdentityService";
 
+const DEFAULT_ONBOARDING_METADATA = {
+  primary_surface: "explore",
+  onboarding_complete: false,
+  onboarding_step: 1,
+};
+
 const getEmailAccountMessage = (error) => {
   const message = error?.message?.toLowerCase() || "";
 
@@ -30,10 +36,12 @@ export const signUpWithPhone = async (phone, password, country = "") => {
       password,
       options: {
         data: {
+          ...DEFAULT_ONBOARDING_METADATA,
           phone_number: identity.normalizedPhone,
           country: typeof country === "object" ? country.name : country,
           country_code: typeof country === "object" ? country.iso2 : "",
           account_type: "personal",
+          registration_method: "phone",
         },
       },
     });
@@ -59,6 +67,24 @@ export const verifyPhoneOtp = async (phone, token) => {
     type: "sms",
   });
 
+  if (!error && data?.user) {
+    const metadata = data.user.user_metadata || {};
+    supabase.auth.updateUser({
+      data: {
+        ...DEFAULT_ONBOARDING_METADATA,
+        account_type: metadata.account_type || "personal",
+        country: metadata.country || "",
+        country_code: metadata.country_code || "",
+        phone_number: metadata.phone_number || phone,
+        registration_method: metadata.registration_method || "phone",
+        phone_verified_by_provider: true,
+        primary_surface: metadata.primary_surface || DEFAULT_ONBOARDING_METADATA.primary_surface,
+        onboarding_complete: Boolean(metadata.onboarding_complete),
+        onboarding_step: Number(metadata.onboarding_step || DEFAULT_ONBOARDING_METADATA.onboarding_step),
+      },
+    }).catch(() => {});
+  }
+
   return { data, error };
 };
 
@@ -80,11 +106,13 @@ export const signUpWithEmailAccount = async (email, phone, password, redirectTo,
       options: {
         emailRedirectTo: redirectTo,
         data: {
+          ...DEFAULT_ONBOARDING_METADATA,
           contact_email: identity.normalizedEmail,
           phone_number: identity.normalizedPhone,
           country: typeof country === "object" ? country.name : country,
           country_code: typeof country === "object" ? country.iso2 : "",
           account_type: "email",
+          registration_method: "email",
         },
       },
     });
