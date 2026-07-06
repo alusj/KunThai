@@ -8,7 +8,7 @@ import ConversationRow from "./ConversationRow";
 import ConversationScreen from "./ConversationScreen";
 import MessageTabs from "./MessageTabs";
 
-export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange }) {
+export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange, onViewProfile }) {
   const [tab, setTab] = useState("inbox");
   const messages = useExploreMessages(currentProfile, initialRecipient);
   const currentUserId = currentProfile?.userId || "";
@@ -35,6 +35,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
         onAction={messages.handleConversationAction}
         onSend={messages.sendMessage}
         onActivity={messages.setActivity}
+        onViewProfile={onViewProfile}
       />
     );
   }

@@ -54,6 +54,7 @@ export default function FeedPost({
   const [repostOpen, setRepostOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editValue, setEditValue] = useState(post.body || "");
   const [menuMessage, setMenuMessage] = useState("");
@@ -132,8 +133,12 @@ export default function FeedPost({
   }
 
   async function confirmDelete() {
-    await runAction(onDelete);
     setDeleteOpen(false);
+    // Let the wipe animation play before the post leaves the list.
+    setDeleting(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 380));
+    await runAction(onDelete);
+    setDeleting(false);
   }
 
   async function followAndTrack() {
@@ -200,7 +205,7 @@ export default function FeedPost({
       id={`post-${post.id}`}
       className={`kt-toast-expand-in relative w-full max-w-full min-w-0 rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${
         optionsOpen ? "z-40 overflow-visible" : "overflow-hidden"
-      }`}
+      } ${deleting ? "kt-post-wipe-out" : ""}`}
     >
       <PostHeader
         post={post}

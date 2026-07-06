@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   HiOutlineChatBubbleLeftRight,
   HiOutlineFlag,
@@ -44,6 +45,14 @@ export default function CommentItem({
 }) {
   const authorName = getAuthorName(comment);
   const authorUsername = getAuthorUsername(comment);
+  const [deleting, setDeleting] = useState(false);
+
+  function deleteWithWipe() {
+    if (deleting) return;
+    // Let the wipe animation play before the comment leaves the thread.
+    setDeleting(true);
+    window.setTimeout(() => onDelete(comment.id), 360);
+  }
 
   function viewCommentProfile(event) {
     event?.preventDefault?.();
@@ -59,7 +68,7 @@ export default function CommentItem({
   }
 
   return (
-    <div className={`space-y-2 ${comment.pending ? "kt-comment-item-pending" : ""}`}>
+    <div className={`space-y-2 ${comment.pending ? "kt-comment-item-pending" : ""} ${deleting ? "kt-post-wipe-out" : ""}`}>
       <div className="flex min-w-0 gap-3">
         <button type="button" onClick={viewCommentProfile} className="kt-pressable flex-none self-start rounded-full" aria-label={`View ${authorName} profile`}>
           <Avatar name={authorName} src={comment.author_avatar_url} size="sm" />
@@ -98,7 +107,7 @@ export default function CommentItem({
             {comment.pending ? (
               <span className="inline-flex items-center gap-1 text-sky-700">Posting</span>
             ) : isOwner ? (
-              <button type="button" onClick={() => onDelete(comment.id)} className="kt-pressable inline-flex items-center gap-1 rounded-lg text-rose-600">
+              <button type="button" onClick={deleteWithWipe} className="kt-pressable inline-flex items-center gap-1 rounded-lg text-rose-600">
                 <HiOutlineTrash />
                 Delete
               </button>

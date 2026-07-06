@@ -2,8 +2,13 @@ import { useEffect } from "react";
 
 let lockCount = 0;
 let savedStyles = null;
-let savedScrollY = 0;
 
+// Lock scrolling without repositioning the body. The legacy
+// `position: fixed; top: -scrollY` technique shifted the page out of view
+// whenever the saved offset was stale (common on iOS during momentum
+// scrolling), leaving overlays over an empty background and jumping the
+// feed on release. Plain overflow locking keeps the page exactly where it
+// is, so backdrop blur always has real content to sample.
 function acquireBodyScrollLock() {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return () => {};
@@ -13,16 +18,9 @@ function acquireBodyScrollLock() {
   if (lockCount === 1) {
     const body = document.body;
     const html = document.documentElement;
-    savedScrollY = window.scrollY || window.pageYOffset || 0;
     savedStyles = {
       bodyOverflow: body.style.overflow,
       bodyOverscrollBehavior: body.style.overscrollBehavior,
-      bodyPosition: body.style.position,
-      bodyTop: body.style.top,
-      bodyLeft: body.style.left,
-      bodyRight: body.style.right,
-      bodyWidth: body.style.width,
-      bodyTouchAction: body.style.touchAction,
       htmlOverflow: html.style.overflow,
       htmlOverscrollBehavior: html.style.overscrollBehavior,
     };
@@ -31,12 +29,6 @@ function acquireBodyScrollLock() {
     html.style.overscrollBehavior = "none";
     body.style.overflow = "hidden";
     body.style.overscrollBehavior = "none";
-    body.style.position = "fixed";
-    body.style.top = `-${savedScrollY}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
-    body.style.touchAction = "none";
   }
 
   return () => {
@@ -47,17 +39,9 @@ function acquireBodyScrollLock() {
     const html = document.documentElement;
     body.style.overflow = savedStyles.bodyOverflow;
     body.style.overscrollBehavior = savedStyles.bodyOverscrollBehavior;
-    body.style.position = savedStyles.bodyPosition;
-    body.style.top = savedStyles.bodyTop;
-    body.style.left = savedStyles.bodyLeft;
-    body.style.right = savedStyles.bodyRight;
-    body.style.width = savedStyles.bodyWidth;
-    body.style.touchAction = savedStyles.bodyTouchAction;
     html.style.overflow = savedStyles.htmlOverflow;
     html.style.overscrollBehavior = savedStyles.htmlOverscrollBehavior;
-    window.scrollTo(0, savedScrollY);
     savedStyles = null;
-    savedScrollY = 0;
   };
 }
 

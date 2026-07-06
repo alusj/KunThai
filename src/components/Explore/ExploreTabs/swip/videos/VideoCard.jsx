@@ -10,6 +10,7 @@ import {
 } from "../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
+import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import ExploreActionDrawer from "../../../shared/ExploreActionDrawer";
 import RepostComposer from "../../../shared/RepostComposer";
@@ -222,7 +223,7 @@ export default function VideoCard({
     }));
   }, [clip.start]);
 
-  const requestActivePlayback = useCallback(async ({ sound = true } = {}) => {
+  const requestActivePlayback = useCallback(async ({ sound } = {}) => {
     if (!activeRef.current) return;
 
     const video = videoRef.current;
@@ -232,17 +233,30 @@ export default function VideoCard({
       video.currentTime = clip.start;
     }
 
+    const videoSettings = readExploreSettings().video;
+
+    // Explicit sound (a user gesture) always wins; the automatic activation
+    // path honors the "default sound" preference from Settings.
+    const wantSound = sound ?? !videoSettings.defaultMuted;
+
+    if (!videoSettings.autoplay && sound === undefined) {
+      // Autoplay is off in Settings: position the clip and wait for a tap.
+      video.muted = Boolean(videoSettings.defaultMuted);
+      setNeedsSoundUnlock(true);
+      return;
+    }
+
     // First choice: autoplay with sound. Some iOS/Safari builds block this
     // until a user gesture, so the fallback keeps the video moving silently
     // without showing a large "Tap for sound" overlay.
     video.muted = false;
-    video.volume = sound ? 1 : 0;
+    video.volume = wantSound ? 1 : 0;
     video.autoplay = true;
 
     try {
       await playExploreMedia(video, { muteVideos: false });
       video.muted = false;
-      video.volume = sound ? 1 : 0;
+      video.volume = wantSound ? 1 : 0;
       setNeedsSoundUnlock(false);
       logSwipPlayback("active video playing with sound", { post_id: post.id });
     } catch (error) {

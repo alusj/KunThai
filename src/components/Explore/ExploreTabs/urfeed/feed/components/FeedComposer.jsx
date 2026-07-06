@@ -320,6 +320,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [videoTrimEnd, setVideoTrimEnd] = useState(MAX_VIDEO_SECONDS);
   const [trimmingVideo, setTrimmingVideo] = useState(false);
   const [trimError, setTrimError] = useState("");
+  const [videoNotice, setVideoNotice] = useState(null);
   const [postingStage, setPostingStage] = useState("");
   const [postingProgress, setPostingProgress] = useState(0);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
@@ -694,10 +695,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       const message = error.message || "Unable to attach media.";
       const videoSpecError = error.name === "VideoSpecError";
       setFeedback("");
-      showToast(message, videoSpecError ? "warning" : "danger", {
-        title: videoSpecError ? "Video needs adjustment" : "Media not added",
-        duration: videoSpecError ? 8200 : 6200,
-      });
+      if (videoSpecError) {
+        setVideoNotice({ title: "Video needs adjustment", message });
+      } else {
+        showToast(message, "danger", {
+          title: "Media not added",
+          duration: 6200,
+        });
+      }
     } finally {
       event.target.value = "";
     }
@@ -1545,6 +1550,35 @@ if (!isMobileVideoDevice) {
         onQuickVoice={handleAudioClick}
         onSubmit={handleSubmit}
       />
+
+      {videoNotice ? (
+        <div className="fixed inset-x-0 bottom-0 z-[90] flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:justify-end sm:pb-0">
+          <section
+            role="alertdialog"
+            aria-label="Video caution"
+            className="kt-route-transition w-full max-w-md rounded-[24px] border border-amber-200 bg-white p-4 shadow-2xl shadow-slate-950/20"
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-amber-50 text-amber-600">
+                <HiOutlineExclamationTriangle className="text-2xl" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-slate-950">{videoNotice.title}</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{videoNotice.message}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setVideoNotice(null)}
+                className="h-10 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800"
+              >
+                Got it
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {open ? (
         <div className="fixed inset-0 z-50 flex bg-slate-950/30 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">

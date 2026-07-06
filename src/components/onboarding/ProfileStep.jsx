@@ -174,7 +174,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 <input
                   value={values.firstName}
                   onChange={(event) => updateName("firstName", event.target.value)}
-                  placeholder="Alusine"
+                  placeholder="First name"
                   className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                 />
               </label>
@@ -184,7 +184,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 <input
                   value={values.middleName}
                   onChange={(event) => updateName("middleName", event.target.value)}
-                  placeholder="Optional"
+                  placeholder="Middle name (optional)"
                   className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                 />
               </label>
@@ -194,7 +194,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 <input
                   value={values.lastName}
                   onChange={(event) => updateName("lastName", event.target.value)}
-                  placeholder="Kamara"
+                  placeholder="Last name"
                   className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                 />
               </label>

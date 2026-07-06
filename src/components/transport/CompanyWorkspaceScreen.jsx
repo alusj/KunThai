@@ -44,7 +44,9 @@ import {
 import {
   applySeenNotificationState,
   getUnseenNotificationCount,
+  markNotificationScopeVisited,
   markNotificationsSeen,
+  readSeenNotificationIds,
   subscribeNotificationSeen,
 } from "../../Backend/services/notificationSeenStore";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
@@ -141,11 +143,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   });
   const notificationSeenScope = `transport:${company?.id || "company"}`;
   const notificationReadScope = `${notificationSeenScope}:read`;
-  const companyNotificationItems = companyNotifications.map((activity) => ({
-    ...activity,
-    id: `company-activity-${activity.id}`,
-    unread: true,
-  }));
+  const notificationDismissedScope = `${notificationSeenScope}:dismissed`;
+  const dismissedNotificationIds = readSeenNotificationIds(notificationDismissedScope);
+  const companyNotificationItems = companyNotifications
+    .map((activity) => ({
+      ...activity,
+      id: `company-activity-${activity.id}`,
+      unread: true,
+    }))
+    .filter((item) => !dismissedNotificationIds.has(item.id));
   const companyNotificationRows = applySeenNotificationState(notificationReadScope, companyNotificationItems).map((activity) => ({
     ...activity,
     read: activity.unread === false,
@@ -154,6 +160,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const visibleBookingQueue = basicOperator && operatorTripRequests.length ? operatorTripRequests : bookingQueue;
   const bookingNotificationItems = visibleBookingQueue.map((booking) => ({
     id: `company-booking-${booking.id}`,
+    createdAt: booking.createdAt || booking.time || "",
     unread: true,
   }));
   const bookingReadScope = `${notificationSeenScope}:booking-read`;
@@ -550,6 +557,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               type="button"
               onClick={() => {
                 markNotificationsSeen(notificationSeenScope, companyNotificationItems);
+                markNotificationScopeVisited(notificationSeenScope);
                 setSeenVersion((version) => version + 1);
                 setCompanyNotificationsOpen(true);
               }}
@@ -755,6 +763,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             onRead={(activity) => {
               markNotificationsSeen(notificationReadScope, [activity]);
               setSeenVersion((version) => version + 1);
+            }}
+            onDelete={(activity) => {
+              markNotificationsSeen(notificationDismissedScope, [activity]);
+              setSeenVersion((version) => version + 1);
+            }}
+            onDeleteAll={() => {
+              markNotificationsSeen(notificationDismissedScope, companyNotificationItems);
+              setSeenVersion((version) => version + 1);
+              showToast("All company notifications deleted.", "success");
             }}
           />
           <CompanyBookingQueueDrawer
@@ -1962,7 +1979,7 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
   );
 }
 
-function CompanyActivityDrawer({ activities, company, notificationPreferences, onClose, onMarkAllRead, onRead, onTogglePreference, onToggleSettings, open, settingsOpen }) {
+function CompanyActivityDrawer({ activities, company, notificationPreferences, onClose, onDelete, onDeleteAll, onMarkAllRead, onRead, onTogglePreference, onToggleSettings, open, settingsOpen }) {
   return (
     <FleetHqFullScreen label="Fleet HQ notifications" onClose={onClose} open={open}>
       <FleetHqFullScreenHeader
@@ -1979,6 +1996,16 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
               className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-xl text-blue-700 transition hover:bg-blue-100"
             >
               <HiOutlineCheckCircle />
+            </button>
+            <button
+              type="button"
+              onClick={activities.length ? onDeleteAll : undefined}
+              disabled={!activities.length}
+              aria-label="Delete all company notifications"
+              title="Delete all notifications"
+              className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+            >
+              <Trash2 size={19} />
             </button>
             <button
               type="button"
@@ -2010,13 +2037,25 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
                   <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
                     <Bell size={17} />
                   </span>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-black text-slate-950">{activity.title}</h3>
                     <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{activity.body}</p>
                     {activity.created_at ? (
                       <p className="mt-2 text-[11px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</p>
                     ) : null}
                   </div>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDelete?.(activity);
+                    }}
+                    aria-label="Delete this notification"
+                    title="Delete notification"
+                    className="kt-touchable mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-rose-500 shadow-sm transition hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </article>
             ))}

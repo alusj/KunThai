@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
 import {
   getUnseenNotificationCount,
+  markNotificationScopeVisited,
   markNotificationsSeen,
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
@@ -114,12 +115,14 @@ export default function MarketplaceHeader({
 
   function openOrders() {
     markNotificationsSeen(BUYER_ORDER_SCOPE, orderItems);
+    markNotificationScopeVisited(BUYER_ORDER_SCOPE);
     setSeenVersion((version) => version + 1);
     onOrdersClick?.();
   }
 
   function openMessages() {
     markNotificationsSeen(BUYER_MESSAGE_SCOPE, messageItems);
+    markNotificationScopeVisited(BUYER_MESSAGE_SCOPE);
     setSeenVersion((version) => version + 1);
     onMessagesClick?.();
   }
@@ -137,7 +140,7 @@ export default function MarketplaceHeader({
           badge={sellerNotificationCount}
           icon={Store}
           label={businessLabel}
-          onClick={loading ? undefined : onMyBizClick}
+          onClick={onMyBizClick}
           wide
         >
           {businessLabel}

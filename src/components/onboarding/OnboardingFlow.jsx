@@ -9,26 +9,18 @@ import InterestsStep from "./InterestsStep";
 import ReadyStep from "./ReadyStep";
 import { StepSlideTransition } from "../shared/motion";
 
-function splitDisplayName(displayName = "") {
-  const parts = displayName.trim().split(/\s+/).filter(Boolean);
-
-  return {
-    firstName: parts[0] ?? "",
-    middleName: parts.length > 2 ? parts.slice(1, -1).join(" ") : "",
-    lastName: parts.length > 1 ? parts[parts.length - 1] : "",
-  };
-}
-
 function normalizeProfile(profile) {
-  const displayName = profile?.displayName ?? "";
-  const nameParts = splitDisplayName(displayName);
   const countryProfile = getActiveCountryProfile(profile?.country || profile?.countryCode);
+  // Name fields start empty with placeholders only. Provider-supplied names
+  // (Google full name, phone signup display name) never pre-fill the form;
+  // once the user saves their own names they are restored on return.
+  const hasUserEnteredName = Boolean(profile?.firstName || profile?.middleName || profile?.lastName);
 
   return {
-    firstName: profile?.firstName || nameParts.firstName,
-    middleName: profile?.middleName || nameParts.middleName,
-    lastName: profile?.lastName || nameParts.lastName,
-    displayName,
+    firstName: profile?.firstName || "",
+    middleName: profile?.middleName || "",
+    lastName: profile?.lastName || "",
+    displayName: hasUserEnteredName ? profile?.displayName ?? "" : "",
     dateOfBirth: profile?.dateOfBirth ?? "",
     username: profile?.username ?? "",
     city: profile?.city ?? "",
@@ -171,7 +163,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
       const finishedProfile = await markOnboardingComplete(safeValues);
       setTransitionOrigin(origin);
       setFinishing(true);
-      await new Promise((resolve) => window.setTimeout(resolve, 480));
+      await new Promise((resolve) => window.setTimeout(resolve, 600));
       onComplete?.(origin, finishedProfile || safeValues);
     } catch (error) {
       setSaving(false);

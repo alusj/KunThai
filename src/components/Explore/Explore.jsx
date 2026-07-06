@@ -689,6 +689,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           hideHeader
           initialRecipient={messageRecipientOwnerId === currentUserId ? messageRecipient : null}
           onConversationActiveChange={setMessageConversationActive}
+          onViewProfile={openViewedProfile}
         />
       );
     }

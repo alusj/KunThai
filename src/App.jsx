@@ -120,6 +120,12 @@ function readStoredMarketplaceNav() {
 
 function AppLoading({ page = "explore" }) {
   const pageTitle = page === "marketplace" ? "UrMall" : page === "transport" ? "Transport" : "Explore";
+  const [showPatienceNotice, setShowPatienceNotice] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowPatienceNotice(true), 6000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -143,6 +149,15 @@ function AppLoading({ page = "explore" }) {
       </div>
 
       <div className="space-y-4 px-4 py-4">
+        {showPatienceNotice ? (
+          <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
+            <p className="text-sm font-black text-slate-950">This is taking a little longer than usual</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+              We may be upgrading our services, or your network connection is unstable at the moment.
+              Please hold on — KunThai will continue automatically as soon as everything is ready.
+            </p>
+          </div>
+        ) : null}
         {page === "marketplace" ? (
           <div className="grid grid-cols-2 gap-3">
             {[1, 2, 3, 4].map((item) => (
@@ -299,7 +314,7 @@ export default function App() {
 
   useEffect(() => {
     if (!onboardingReveal || !onboardingComplete) return undefined;
-    const timeout = window.setTimeout(() => setOnboardingReveal(null), 620);
+    const timeout = window.setTimeout(() => setOnboardingReveal(null), 900);
     return () => window.clearTimeout(timeout);
   }, [onboardingComplete, onboardingReveal]);
 

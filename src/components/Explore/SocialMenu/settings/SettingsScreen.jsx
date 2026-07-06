@@ -8,13 +8,11 @@ import {
   HiOutlineFilm,
   HiOutlineKey,
   HiOutlineLanguage,
-  HiOutlineMoon,
   HiOutlineDevicePhoneMobile,
   HiOutlineRectangleStack,
   HiOutlineSignal,
   HiOutlineShieldCheck,
   HiOutlineSparkles,
-  HiOutlineSun,
 } from "react-icons/hi2";
 
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
@@ -112,10 +110,16 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-sky-700">Currently {resolvedMode}</p>
               </div>
             </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
-              <AppearanceOption active={appearanceMode === "system"} description="Match my device" icon={HiOutlineComputerDesktop} label="System" onClick={() => setAppearanceMode("system")} />
-              <AppearanceOption active={appearanceMode === "on"} description="Dark mode" icon={HiOutlineMoon} label="On" onClick={() => setAppearanceMode("on")} />
-              <AppearanceOption active={appearanceMode === "off"} description="Light mode" icon={HiOutlineSun} label="Off" onClick={() => setAppearanceMode("off")} />
+            <div className="mt-4">
+              <SelectControl
+                value={appearanceMode}
+                onChange={setAppearanceMode}
+                options={[
+                  { value: "system", label: "System — match my device" },
+                  { value: "on", label: "Dark mode" },
+                  { value: "off", label: "Light mode" },
+                ]}
+              />
             </div>
           </div>
         </SettingsSection>
@@ -228,24 +232,6 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
         </SettingsSection>
       </div>
     </div>
-  );
-}
-
-function AppearanceOption({ active, description, icon: Icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`flex min-h-20 items-center gap-3 rounded-2xl border p-3 text-left transition ${
-        active
-          ? "border-sky-500 bg-sky-50 text-sky-800 ring-2 ring-sky-100"
-          : "border-slate-200 bg-slate-50 text-slate-700 hover:border-sky-200 hover:bg-sky-50"
-      }`}
-    >
-      <span className={`grid h-10 w-10 flex-none place-items-center rounded-xl ${active ? "bg-sky-700 text-white" : "bg-white text-slate-600"}`}><Icon className="text-xl" /></span>
-      <span className="min-w-0"><span className="block text-sm font-black">{label}</span><span className="mt-0.5 block text-xs font-semibold opacity-75">{description}</span></span>
-    </button>
   );
 }
 

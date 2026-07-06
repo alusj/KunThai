@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   getUnseenNotificationCount,
+  markNotificationScopeVisited,
   markNotificationsSeen,
   subscribeNotificationSeen,
 } from "../services/notificationSeenStore";
@@ -147,13 +148,16 @@ export function useSellerHeader() {
           : headerState.notificationItems;
 
     markNotificationsSeen(scope, items);
+    markNotificationScopeVisited(scope);
     setSeenVersion((version) => version + 1);
   }
 
   return {
     ...headerState,
-    orderCount: Number(headerState.orderCount || 0),
-    messageCount: Number(headerState.messageCount || 0),
+    // Badge counts must reflect what the seller has not viewed yet, not the
+    // raw server totals, or the MyBiz badge can never clear.
+    orderCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.orders, headerState.orderItems, { unreadOnly: true }),
+    messageCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.messages, headerState.messageItems, { unreadOnly: true }),
     notificationCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.notifications, headerState.notificationItems, { unreadOnly: true }),
     query,
     setQuery,

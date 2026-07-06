@@ -821,20 +821,66 @@ export async function deleteExploreMessage(message, currentUserId, options = {})
   }
 }
 
+const activityChannels = new Map();
+
+function recordExploreMessageActivity(nextActivity) {
+  const activityMap = readObject(MESSAGE_ACTIVITY_KEY);
+  activityMap[`${nextActivity.conversationId}:${nextActivity.userId}`] = nextActivity;
+  writeObject(MESSAGE_ACTIVITY_KEY, activityMap);
+  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_ACTIVITY_EVENT, { detail: nextActivity }));
+}
+
 export function setExploreMessageActivity(conversationId, userId, activity = "active") {
   if (!conversationId || !userId) return;
 
-  const activityMap = readObject(MESSAGE_ACTIVITY_KEY);
   const nextActivity = {
-    conversationId,
+    conversationId: String(conversationId),
     userId,
     activity,
     updatedAt: new Date().toISOString(),
   };
 
-  activityMap[`${conversationId}:${userId}`] = nextActivity;
-  writeObject(MESSAGE_ACTIVITY_KEY, activityMap);
-  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_ACTIVITY_EVENT, { detail: nextActivity }));
+  recordExploreMessageActivity(nextActivity);
+
+  // Presence only reaches the other participant while the shared broadcast
+  // channel is joined, which subscribeToExploreMessageActivity guarantees
+  // whenever a conversation thread is open.
+  const entry = activityChannels.get(String(conversationId));
+  if (entry?.joined) {
+    Promise.resolve(
+      entry.channel.send({ type: "broadcast", event: "activity", payload: nextActivity }),
+    ).catch(() => {});
+  }
+}
+
+export function subscribeToExploreMessageActivity(conversationId) {
+  const key = String(conversationId || "");
+  if (!key) return () => {};
+
+  let entry = activityChannels.get(key);
+  if (!entry) {
+    const channel = supabase.channel(`explore-message-activity-${key}`, {
+      config: { broadcast: { self: false } },
+    });
+    entry = { channel, refCount: 0, joined: false };
+    channel.on("broadcast", { event: "activity" }, ({ payload }) => {
+      if (!payload?.conversationId || !payload?.userId || !payload?.activity) return;
+      recordExploreMessageActivity(payload);
+    });
+    channel.subscribe((status) => {
+      entry.joined = status === "SUBSCRIBED";
+    });
+    activityChannels.set(key, entry);
+  }
+
+  entry.refCount += 1;
+  return () => {
+    entry.refCount -= 1;
+    if (entry.refCount <= 0) {
+      activityChannels.delete(key);
+      supabase.removeChannel(entry.channel);
+    }
+  };
 }
 
 export function fetchExploreMessageActivity() {
