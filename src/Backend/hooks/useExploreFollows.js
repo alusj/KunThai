@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { createExploreNotification, fetchExploreFollowing, syncExploreFollow } from "../services/exploreService";
+import { guardGuestAction } from "../services/guestModeService";
 import { showToast } from "../services/toastService";
 
 const FOLLOW_STORAGE_KEY = "explore-followed-users";
@@ -44,6 +45,9 @@ export function useExploreFollows(currentUserId) {
 
   async function toggleFollow(userId) {
     if (!userId || userId === currentUserId) {
+      return false;
+    }
+    if (guardGuestAction("follow", "profile")) {
       return false;
     }
 

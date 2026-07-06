@@ -6,6 +6,7 @@ import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
 import { useScrollHidden } from "../../Backend/hooks/useScrollHidden";
 import { buildExploreProfileFromUser, ensureExploreProfile, fetchExploreProfile } from "../../Backend/services/exploreService";
+import { guardGuestAction } from "../../Backend/services/guestModeService";
 import {
   clearPostingNotice,
   getPostingNoticeClearDelay,
@@ -476,6 +477,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }
 
   function startChat(recipient) {
+    if (guardGuestAction("message", "user")) return;
     stopAllExploreMedia();
     exploreNav.rememberScrollPosition();
     setMessageRecipient(recipient);

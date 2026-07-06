@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FaApple } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
+import { Eye, ShieldAlert } from "lucide-react";
 
 import supabase from "./Backend/lib/supabaseClient";
+import { consumeAuthIntent, enterGuestMode } from "./Backend/services/guestModeService";
 import FlagIcon from "./components/FlagIcon";
 import {
   signInWithEmailAccount,
@@ -216,9 +218,11 @@ const buildPhoneForAuth = (value, country) => {
   return `${country.dialCode}${normalizePhoneDigits(trimmed, country)}`;
 };
 export default function Login() {
-  const [mode, setMode] = useState("signin");
+  const [mode, setMode] = useState(() => (consumeAuthIntent() === "signup" ? "signup" : "signin"));
   const [signupStep, setSignupStep] = useState("options");
   const [signupMethod, setSignupMethod] = useState("");
+  const [guestPromptOpen, setGuestPromptOpen] = useState(false);
+  const [guestEntering, setGuestEntering] = useState(false);
 
   const [email, setEmail] = useState("");
   const [signInAccount, setSignInAccount] = useState("");
@@ -512,6 +516,16 @@ export default function Login() {
                     : "Continue with Apple"}
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setGuestPromptOpen(true)}
+                disabled={isLoading}
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-60"
+              >
+                <Eye className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span>Visit as guest</span>
+              </button>
             </div>
           </form>
         )}
@@ -726,6 +740,55 @@ export default function Login() {
             resetMessages();
           }}
         />
+      ) : null}
+
+      {guestPromptOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm" role="presentation">
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Guest visit notice"
+            className="kt-toast-expand-in w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+          >
+            <span className="grid h-12 w-12 place-items-center rounded-xl bg-amber-50 text-amber-600">
+              <ShieldAlert size={24} aria-hidden="true" />
+            </span>
+            <h2 className="mt-4 text-2xl font-bold text-slate-950">Entering KunThai as a guest</h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+              You can explore posts, UrMall, and Transport freely, but as a guest you cannot react,
+              post, comment, message, shop, or book. No personal data is collected or saved during
+              your visit, and your guest session ends automatically when you leave.
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setGuestPromptOpen(false)}
+                disabled={guestEntering}
+                className="rounded-xl border border-slate-300 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                Go back
+              </button>
+              <button
+                type="button"
+                disabled={guestEntering}
+                onClick={async () => {
+                  setGuestEntering(true);
+                  try {
+                    await enterGuestMode();
+                  } catch (guestError) {
+                    setError(guestError.message || "Unable to start a guest visit.");
+                    setGuestPromptOpen(false);
+                  } finally {
+                    setGuestEntering(false);
+                  }
+                }}
+                className="rounded-xl bg-slate-950 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+              >
+                {guestEntering ? "Entering…" : "Enter as guest"}
+              </button>
+            </div>
+          </section>
+        </div>
       ) : null}
     </div>
   );

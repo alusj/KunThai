@@ -1,46 +1,65 @@
-import { useEffect, useMemo, useState } from "react";
-
-const DEFAULT_LIMIT = 50;
+import { useEffect, useRef, useState } from "react";
 
 export default function ExpandablePostText({
   text = "",
-  limit = DEFAULT_LIMIT,
   className = "",
   textClassName = "",
   controlClassName = "text-sky-700",
 }) {
   const [expanded, setExpanded] = useState(false);
-  const characters = useMemo(() => Array.from(String(text || "")), [text]);
-  const expandable = characters.length > limit;
-  const visibleText = expandable && !expanded
-    ? `${characters.slice(0, limit).join("").trimEnd()}...`
-    : characters.join("");
+  const [expandable, setExpandable] = useState(false);
+  const textRef = useRef(null);
+  const value = String(text || "");
 
-  useEffect(() => setExpanded(false), [text]);
+  useEffect(() => {
+    setExpanded(false);
+    setExpandable(false);
+  }, [text]);
 
-  if (!characters.length) return null;
+  // The text is clamped to one line; "Read more" only appears when the clamp
+  // actually hides content. While expanded we keep the last measurement so
+  // "Show less" stays available.
+  useEffect(() => {
+    if (expanded) return undefined;
 
-  if (!expandable) {
-    return <p className={`kuntai-break whitespace-pre-wrap ${className} ${textClassName}`}>{visibleText}</p>;
-  }
+    const node = textRef.current;
+    if (!node) return undefined;
+
+    function measure() {
+      setExpandable(node.scrollHeight > node.clientHeight + 1);
+    }
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [text, expanded]);
+
+  if (!value.trim()) return null;
 
   return (
-    <button
-      type="button"
-      aria-expanded={expanded}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        setExpanded((current) => !current);
-      }}
-      onPointerDown={(event) => event.stopPropagation()}
-      className={`block w-full cursor-pointer text-left ${className}`}
-    >
-      <span className={`kuntai-break whitespace-pre-wrap ${textClassName}`}>{visibleText}</span>
-      <span className={`ml-1 inline font-black ${controlClassName}`}>
-        {expanded ? "Show less" : "Read More"}
-      </span>
-    </button>
+    <div className={className}>
+      <p
+        ref={textRef}
+        className={`kuntai-break ${expanded ? "whitespace-pre-wrap" : "line-clamp-1"} ${textClassName}`}
+      >
+        {value}
+      </p>
+      {expandable ? (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setExpanded((current) => !current);
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          className={`kt-pressable mt-0.5 font-black ${controlClassName}`}
+        >
+          {expanded ? "Show less" : "Read more"}
+        </button>
+      ) : null}
+    </div>
   );
 }
-

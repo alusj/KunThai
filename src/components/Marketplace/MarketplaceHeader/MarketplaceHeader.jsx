@@ -7,6 +7,7 @@ import {
   markNotificationsSeen,
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
+import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { fetchBuyerMessages, fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import Cart from "./Cart/Cart";
@@ -140,7 +141,10 @@ export default function MarketplaceHeader({
           badge={sellerNotificationCount}
           icon={Store}
           label={businessLabel}
-          onClick={onMyBizClick}
+          onClick={() => {
+            if (guardGuestAction("open", "seller workspace")) return;
+            onMyBizClick?.();
+          }}
           wide
         >
           {businessLabel}

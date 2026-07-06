@@ -6,6 +6,7 @@ import {
   URMALL_BUSINESS_KINDS,
   calculateReadinessScore,
   readRegisteredBusiness,
+  readUsedBusinessKinds,
   submitSellerRegistration,
   updateRegisteredBusinessProfile,
 } from "../services/marketplace/sellerRegistrationService";
@@ -166,8 +167,55 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   const [submitting, setSubmitting] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(editing);
   const [draftStatus, setDraftStatus] = useState(draft?.savedAt ? `Draft saved ${new Date(draft.savedAt).toLocaleString()}` : "");
+  const [usedBusinessKinds, setUsedBusinessKinds] = useState([]);
 
   const readinessScore = useMemo(() => calculateReadinessScore(form), [form]);
+
+  // Each business type can be registered only once per account. When creating
+  // a new business, kinds the seller already runs are removed from the list;
+  // while editing, the business keeps its own kind available.
+  const businessKinds = useMemo(() => {
+    const usedKindNames = new Set(usedBusinessKinds.map((row) => row.kind));
+    return URMALL_BUSINESS_KINDS.filter(
+      (kind) => kind.id === form.identity.businessKind || !usedKindNames.has(kind.id),
+    );
+  }, [form.identity.businessKind, usedBusinessKinds]);
+
+  useEffect(() => {
+    let alive = true;
+
+    readUsedBusinessKinds()
+      .then((rows) => {
+        if (alive) setUsedBusinessKinds(rows);
+      })
+      .catch(() => {});
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (editing || !usedBusinessKinds.length) return;
+
+    const usedKindNames = new Set(usedBusinessKinds.map((row) => row.kind));
+    if (!usedKindNames.has(form.identity.businessKind)) return;
+
+    const nextKind = URMALL_BUSINESS_KINDS.find((kind) => !usedKindNames.has(kind.id));
+    if (!nextKind) return;
+
+    setForm((current) => ({
+      ...current,
+      identity: {
+        ...current.identity,
+        businessKind: nextKind.id,
+        categories: [],
+        otherCategory: "",
+      },
+    }));
+  // Only the loaded set of used kinds should drive the default correction.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, usedBusinessKinds]);
 
   useEffect(() => {
     if (editing) return undefined;
@@ -507,7 +555,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
 
   return {
     categories: BUSINESS_CATEGORIES,
-    businessKinds: URMALL_BUSINESS_KINDS,
+    businessKinds,
     step,
     form,
     errors,

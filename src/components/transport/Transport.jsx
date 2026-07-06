@@ -29,6 +29,7 @@ import {
   updateOperatorCompanyInvite,
 } from "../services/transportCompanyService";
 import { submitTransportSupportTicket } from "../services/bookingService";
+import { guardGuestAction } from "../../Backend/services/guestModeService";
 import { showToast } from "../../Backend/services/toastService";
 
 export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled }) {
@@ -308,9 +309,18 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setVerificationFleet(null);
   }
 
+  function openBookingTarget(target) {
+    if (!target) {
+      setBookingTarget(null);
+      return;
+    }
+    if (guardGuestAction("book", "trip")) return;
+    setBookingTarget(target);
+  }
+
   function handleBookVerificationFleet() {
     if (!verificationFleet) return;
-    setBookingTarget({ fleet: verificationFleet });
+    openBookingTarget({ fleet: verificationFleet });
   }
 
   async function handleReportVerificationConcern(fleetOrPayload, maybePayload) {
@@ -1045,7 +1055,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             setActiveFleetId(null);
           }}
           onShowVerification={setVerificationFleet}
-          onOpenBooking={(target) => setBookingTarget(target)}
+          onOpenBooking={openBookingTarget}
           onLocateArea={openNearbyAreaRoute}
         />
         <VerificationDetailsModal
@@ -1107,7 +1117,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             setActiveFleetId(fleetId);
           }}
           onShowVerification={setVerificationFleet}
-          onOpenBooking={(target) => setBookingTarget(target)}
+          onOpenBooking={openBookingTarget}
         />
         <VerificationDetailsModal
           status={verificationFleet?.verificationStatus}
@@ -1138,7 +1148,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             setActiveFleetId(fleetId);
           }}
           onShowVerification={setVerificationFleet}
-          onOpenBooking={(target) => setBookingTarget(target)}
+          onOpenBooking={openBookingTarget}
         />
         <VerificationDetailsModal
           status={verificationFleet?.verificationStatus}
@@ -1167,6 +1177,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         onActivityChange={setHeaderActivityOpen}
         onViewFleet={setActiveFleetId}
         onRegisterFleet={() => {
+          if (guardGuestAction("register", "transport account")) return;
           if (operatorAccount) {
             openOperatorDashboard("dashboard");
             return;
@@ -1227,7 +1238,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           setRouteDirection("forward");
           setActiveFleetId(fleetId);
         }}
-        onOpenBooking={(target) => setBookingTarget(target)}
+        onOpenBooking={openBookingTarget}
         onLocateArea={openNearbyAreaRoute}
         onReportConcern={handleReportVerificationConcern}
       />

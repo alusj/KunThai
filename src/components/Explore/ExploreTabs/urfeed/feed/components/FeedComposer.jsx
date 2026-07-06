@@ -16,6 +16,7 @@ import {
   removeExploreVideoUpload,
   uploadExploreVideoForReview,
 } from "../../../../../../Backend/services/exploreService";
+import { guardGuestAction } from "../../../../../../Backend/services/guestModeService";
 import { publishPostingNotice } from "../../../../../../Backend/services/explore/postingProgressService";
 import { searchExplore } from "../../../../../../Backend/services/explore/searchService";
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
@@ -585,6 +586,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function openComposer(type = "text") {
+    if (guardGuestAction("create", "post")) return;
     setComposerMode(type === "advert" ? "advert" : "post");
     setOpen(true);
 

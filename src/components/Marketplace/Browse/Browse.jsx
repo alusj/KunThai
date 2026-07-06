@@ -14,6 +14,7 @@ import {
   toggleSavedBuyerProduct,
   toggleSavedBuyerSeller,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { showToast } from "../../../Backend/services/toastService";
 import { consumeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
 
@@ -326,6 +327,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
   }, [showNotice]);
 
   async function addToCart(product) {
+    if (guardGuestAction("add", "product to the cart")) return;
     try {
       const result = await addBuyerCartItem(product);
       showNotice(result?.status === "alreadyInCart" ? "This product is already in your cart." : "Product added to cart.");
@@ -335,6 +337,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
   }
 
   async function orderProduct(product, orderInput) {
+    if (guardGuestAction("order", "product")) return;
     try {
       await createBuyerProductOrder(product, orderInput);
       showNotice("Order sent. You can view it in Ordered items.");
@@ -345,6 +348,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
   }
 
   async function toggleSaved(product) {
+    if (guardGuestAction("save", "product")) return;
     const currentlySaved = savedIds.has(product.id);
     setSavedIds((current) => {
       const next = new Set(current);
@@ -368,6 +372,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
   }
 
   async function toggleSavedSeller(seller) {
+    if (guardGuestAction("save", "store")) return;
     if (!seller?.id) {
       showNotice("This store cannot be saved yet.", "danger");
       return;
@@ -395,6 +400,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
   }
 
   async function messageSeller(product, options = {}) {
+    if (guardGuestAction("message", "seller")) return;
     try {
       await sendBuyerMarketplaceMessage({
         seller: product.seller,

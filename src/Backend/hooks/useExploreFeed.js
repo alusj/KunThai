@@ -14,6 +14,7 @@ import {
   writeStoredSet,
 } from "../services/explore/cacheService";
 import { subscribeToCurrentUserReactions, subscribeToExplorePosts } from "../services/explore/realtimeService";
+import { guardGuestAction } from "../services/guestModeService";
 import { canRunSafetyAction, contentHasModerationFlags, readBlockedUsers } from "../services/explore/safetyService";
 import { showToast } from "../services/toastService";
 import {
@@ -289,6 +290,7 @@ function buildRemoteReactionSet(remoteIds = []) {
 }
 
 export function useExploreFeed(scope = "feed") {
+  const guestGateTarget = scope === "swip" ? "video" : "post";
   const memory = readFeedMemory(scope);
   const initialPosts = (memory?.posts || readStoredPosts(scope))
     .filter((post) => postBelongsInScope(post, scope))
@@ -1151,21 +1153,32 @@ export function useExploreFeed(scope = "feed") {
       return load({ force: true });
     },
     loadMore,
-    submitPost,
+    submitPost(...args) {
+      if (guardGuestAction("publish", guestGateTarget)) return Promise.resolve(false);
+      return submitPost(...args);
+    },
     toggleLike(postId) {
+      if (guardGuestAction("like", guestGateTarget)) return false;
       return toggleReaction(postId, "like");
     },
     toggleSave(postId) {
+      if (guardGuestAction("save", guestGateTarget)) return false;
       return toggleReaction(postId, "save");
     },
-    addComment,
+    addComment(...args) {
+      if (guardGuestAction("comment on", guestGateTarget)) return Promise.resolve(false);
+      return addComment(...args);
+    },
     bumpCommentCount,
     editPost,
     deletePost,
     hidePost,
     muteAdvertiser,
     dismissPostLocally,
-    reportPost,
+    reportPost(...args) {
+      if (guardGuestAction("report", guestGateTarget)) return Promise.resolve(false);
+      return reportPost(...args);
+    },
     viewActivity,
   };
 }

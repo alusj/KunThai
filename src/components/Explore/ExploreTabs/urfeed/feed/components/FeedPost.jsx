@@ -29,6 +29,18 @@ import {
 import RepostComposer from "../../../../shared/RepostComposer";
 import RepostPreview from "../../../../shared/RepostPreview";
 
+const REPORT_CATEGORIES = [
+  "Content violation",
+  "Spam or scam",
+  "Harassment or bullying",
+  "Hate speech",
+  "Violence or dangerous acts",
+  "Nudity or sexual content",
+  "False information",
+  "Intellectual property",
+  "Something else",
+];
+
 export default function FeedPost({
   post,
   currentUserId = "",
@@ -59,6 +71,7 @@ export default function FeedPost({
   const [editValue, setEditValue] = useState(post.body || "");
   const [menuMessage, setMenuMessage] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
+  const [reportCategory, setReportCategory] = useState(REPORT_CATEGORIES[0]);
   const [reportReason, setReportReason] = useState("");
   const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
   const optionsTimerRef = useRef(null);
@@ -127,8 +140,11 @@ export default function FeedPost({
 
   async function submitReport(event) {
     event.preventDefault();
-    await runAction(() => onReport?.(reportReason));
+    const details = reportReason.trim();
+    const composedReason = details ? `${reportCategory} — ${details}` : reportCategory;
+    await runAction(() => onReport?.(composedReason));
     setReportReason("");
+    setReportCategory(REPORT_CATEGORIES[0]);
     setReportOpen(false);
   }
 
@@ -347,19 +363,35 @@ export default function FeedPost({
       <PostActionOverlay open={reportOpen} onClose={() => setReportOpen(false)} label={advertPost ? "Report advertisement" : "Report post"}>
           <form className="w-full" onSubmit={submitReport}>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">{advertPost ? "Report advertisement" : "Report post"}</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">Why are you reporting this?</h3>
+            <label className="mt-3 block">
+              <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">Reason</span>
+              <select
+                value={reportCategory}
+                onChange={(event) => setReportCategory(event.target.value)}
+                className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-800 outline-none"
+              >
+                {REPORT_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </label>
             <textarea
               value={reportReason}
               onChange={(event) => setReportReason(event.target.value)}
-              placeholder="Tell us what is wrong."
-              rows={4}
+              placeholder="Add details that help our safety team review this faster (optional)."
+              rows={3}
               className="mt-3 w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold leading-6 text-slate-800 outline-none"
             />
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+              Your report is confidential and goes straight to the KunThai safety team for review.
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setReportOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">
                 Cancel
               </button>
-              <button type="submit" disabled={!reportReason.trim()} className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-50">
-                Report
+              <button type="submit" className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-50">
+                Submit report
               </button>
             </div>
           </form>

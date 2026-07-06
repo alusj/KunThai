@@ -208,6 +208,36 @@ export async function readRegisteredBusinesses() {
   return businesses;
 }
 
+export async function readUsedBusinessKinds() {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("marketplace_businesses")
+    .select("id, business_kind")
+    .eq("user_id", userId);
+
+  if (error) return [];
+  return (data || []).map((row) => ({ id: row.id, kind: row.business_kind || "retail" }));
+}
+
+export async function deleteRegisteredBusiness(businessId) {
+  const userId = await getCurrentUserId();
+  if (!businessId) throw new Error("Choose a business to delete.");
+
+  const { error } = await supabase.rpc("delete_my_marketplace_business", {
+    target_business_id: businessId,
+  });
+
+  if (error) {
+    throw new Error("KunThai could not delete this business right now. Please try again.");
+  }
+
+  const activeKey = activeBusinessStorageKey(userId);
+  if (localStorage.getItem(activeKey) === businessId) {
+    localStorage.removeItem(activeKey);
+  }
+  window.dispatchEvent(new CustomEvent(MARKETPLACE_BUSINESS_CHANGED_EVENT, { detail: { businessId: null } }));
+}
+
 export async function readRegisteredBusiness() {
   const userId = await getCurrentUserId();
   const businesses = await readRegisteredBusinesses();

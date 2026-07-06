@@ -12,6 +12,8 @@ import { setNotificationSeenUser } from "./Backend/services/notificationSeenStor
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
+import GuestGateCard from "./components/shared/GuestGateCard";
+import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import supabase from "./Backend/lib/supabaseClient";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
@@ -240,6 +242,15 @@ export default function App() {
   const userId = user?.id || "";
   setNotificationSeenUser(userId);
 
+  // A guest visit lives for one tab session only. When the tab was closed and
+  // the visitor returns with a leftover anonymous session, the visit ends
+  // automatically: the anonymous account is deleted and Login is shown.
+  useEffect(() => {
+    if (user?.is_anonymous && !isGuestMode()) {
+      endGuestVisit();
+    }
+  }, [user]);
+
   const updateMarketplaceBadge = useCallback((count) => {
     setMainPageBadges((current) => current.marketplace === count ? current : { ...current, marketplace: count });
   }, []);
@@ -365,10 +376,12 @@ export default function App() {
     };
   }, [page]);
 
-  if (loading || (user && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
+  const guestSession = Boolean(user?.is_anonymous);
+
+  if (loading || (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
     // Users heading into onboarding get the onboarding backdrop instead of an
     // app skeleton that never matches the screen that follows.
-    if (user && !user.user_metadata?.onboarding_complete) {
+    if (user && !guestSession && !user.user_metadata?.onboarding_complete) {
       return (
         <div
           className="min-h-screen bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)]"
@@ -382,7 +395,7 @@ export default function App() {
     return <Login />;
   }
 
-  if (!onboardingComplete && !onboardingReveal) {
+  if (!guestSession && !onboardingComplete && !onboardingReveal) {
     return (
       <OnboardingFlow
         profile={onboardingProfile}
@@ -557,6 +570,7 @@ export default function App() {
       </PageTransition>
 
       {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
+      {guestSession ? <GuestGateCard /> : null}
     </div>
   );
 }
