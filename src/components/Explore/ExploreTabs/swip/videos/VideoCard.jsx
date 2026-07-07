@@ -708,7 +708,7 @@ export default function VideoCard({
         controls={false}
         muted={false}
         playsInline
-        preload="metadata"
+        preload={readExploreSettings().video.reduceData ? "none" : "metadata"}
         loop={false}
         onError={() => {
           setVideoLoading(false);

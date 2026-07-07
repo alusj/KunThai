@@ -71,7 +71,8 @@ export default function GuestGateCard() {
               type="button"
               onClick={async () => {
                 setLeaving(true);
-                await endGuestVisit({ intent: "signup" });
+                // Ends the guest visit and lands on the sign-in screen.
+                await endGuestVisit();
               }}
               disabled={leaving}
               className="h-11 rounded-2xl bg-sky-700 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-60"

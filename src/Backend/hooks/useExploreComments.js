@@ -14,6 +14,7 @@ import {
   updateExploreCommentCounts,
   updateExplorePostCounts,
 } from "../services/exploreService";
+import { guardGuestAction } from "../services/guestModeService";
 import { showToast } from "../services/toastService";
 
 function getMentions(value) {
@@ -237,6 +238,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
   }, [comments]);
 
   async function addComment(input) {
+    if (guardGuestAction("comment on", "post")) return false;
     const payload = typeof input === "string" ? { body: input } : input || {};
     const body = String(payload.body || "").trim();
     const signature = [postId, payload.parent_comment_id || "", body, payload.audio_url || ""].join("|");
@@ -347,6 +349,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
   }
 
   async function toggleCommentLike(commentId) {
+    if (guardGuestAction("like", "comment")) return;
     if (pendingLikeRef.current.has(commentId)) {
       return;
     }
@@ -386,6 +389,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
   }
 
   async function reportComment(commentId, reason = "Inappropriate comment") {
+    if (guardGuestAction("report", "comment")) return;
     try {
       await reportExploreComment(commentId, reason);
     } catch (err) {

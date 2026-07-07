@@ -28,6 +28,8 @@ import {
 } from "../../../../shared/advertUtils";
 import RepostComposer from "../../../../shared/RepostComposer";
 import RepostPreview from "../../../../shared/RepostPreview";
+import { contentHasModerationFlags } from "../../../../../../Backend/services/explore/safetyService";
+import { readExploreSettings } from "../../../../../../Backend/services/explore/preferencesService";
 
 const REPORT_CATEGORIES = [
   "Content violation",
@@ -74,7 +76,15 @@ export default function FeedPost({
   const [reportCategory, setReportCategory] = useState(REPORT_CATEGORIES[0]);
   const [reportReason, setReportReason] = useState("");
   const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
+  const [sensitiveRevealed, setSensitiveRevealed] = useState(false);
   const optionsTimerRef = useRef(null);
+  // "Warnings" in Settings → Feed: flagged wording hides the post content
+  // behind a warning until the reader chooses to view it.
+  const sensitiveGateActive =
+    !isOwner &&
+    !sensitiveRevealed &&
+    readExploreSettings().feed.showSensitiveWarnings !== false &&
+    contentHasModerationFlags(post.body || "").length > 0;
   const advert = getAdvertMeta(post);
   const advertPost = isAdvertPost(post);
   const postTitle = getPostTitle(post);
@@ -260,7 +270,24 @@ export default function FeedPost({
         </div>
       ) : null}
 
-      {advertPost ? (
+      {sensitiveGateActive ? (
+        <div className="px-4 pb-4">
+          <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-black text-amber-900">This post may contain sensitive content</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+              KunThai flagged wording in this post. You can view it anyway or keep scrolling.
+              Warnings can be turned off in Settings.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSensitiveRevealed(true)}
+              className="kt-pressable mt-3 h-10 rounded-2xl bg-amber-600 px-4 text-xs font-black text-white transition hover:bg-amber-700"
+            >
+              View post
+            </button>
+          </div>
+        </div>
+      ) : advertPost ? (
         <AdvertPostCard
           post={post}
           advert={advert || {}}
@@ -282,7 +309,7 @@ export default function FeedPost({
         </div>
       ) : null}
 
-      {!advertPost && (hashtags.length || mentions.length || postLocation) ? (
+      {!sensitiveGateActive && !advertPost && (hashtags.length || mentions.length || postLocation) ? (
         <div className="flex flex-wrap gap-2 px-4 pb-4">
           {hashtags.map((tag) => (
             <button
@@ -319,9 +346,9 @@ export default function FeedPost({
         </div>
       ) : null}
 
-      <RepostPreview post={post} />
+      {!sensitiveGateActive ? <RepostPreview post={post} /> : null}
 
-      <PostMedia post={post} imageOnly={advertPost} />
+      {!sensitiveGateActive ? <PostMedia post={post} imageOnly={advertPost} /> : null}
 
       <PostActions
         post={post}

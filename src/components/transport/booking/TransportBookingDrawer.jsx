@@ -546,23 +546,22 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             ) : null}
 
             <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Choose booking method</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <BookingMethodButton
-                  active={form.bookingMethod === "distance"}
-                  icon={FiNavigation}
-                  title="Book by distance"
-                  detail="Route price is calculated from pickup to drop-off using the operator's price per kilometer."
-                  onClick={() => updateForm({ bookingMethod: "distance" })}
-                />
-                <BookingMethodButton
-                  active={form.bookingMethod === "time"}
-                  icon={FiClock}
-                  title="Book by time"
-                  detail="Reserve the operator by the hour and see the total from the operator's hourly price."
-                  onClick={() => updateForm({ bookingMethod: "time" })}
-                />
-              </div>
+              <label className="block space-y-1">
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Choose booking method</span>
+                <select
+                  value={form.bookingMethod}
+                  onChange={(event) => updateForm({ bookingMethod: event.target.value })}
+                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
+                >
+                  <option value="distance">Book by distance</option>
+                  <option value="time">Book by time</option>
+                </select>
+              </label>
+              <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
+                {form.bookingMethod === "time"
+                  ? "Reserve the operator by the hour and see the total from the operator's hourly price."
+                  : "Route price is calculated from pickup to drop-off using the operator's price per kilometer."}
+              </p>
             </section>
 
             <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -960,26 +959,6 @@ function LocateAreaButton({ icon, label, detail, disabled, onClick, primary = fa
           {detail}
         </span>
       </span>
-    </button>
-  );
-}
-
-function BookingMethodButton({ active, icon, title, detail, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`kt-touchable rounded-2xl border p-3 text-left ${
-        active
-          ? "border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm"
-          : "border-slate-200 bg-slate-50 text-slate-700 hover:border-emerald-200 hover:bg-white"
-      }`}
-    >
-      <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${active ? "bg-emerald-600 text-white" : "bg-white text-emerald-700"}`}>
-        {createElement(icon, { size: 18 })}
-      </span>
-      <span className="mt-3 block text-sm font-black">{title}</span>
-      <span className="mt-1 block text-xs font-semibold leading-5 opacity-75">{detail}</span>
     </button>
   );
 }

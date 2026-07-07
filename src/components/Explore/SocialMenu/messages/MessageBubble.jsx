@@ -15,6 +15,7 @@ export default function MessageBubble({
   onDeleteMessage,
   onOpenSharedLocation,
   otherUserName = "This user",
+  seen = false,
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const mediaUrl = message.mediaUrl || message.media_url || "";
@@ -28,7 +29,8 @@ export default function MessageBubble({
   const bubbleClass = `kuntai-break max-w-[82%] rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 sm:max-w-[78%] ${
     mine ? "rounded-br-md bg-slate-950 text-white" : "rounded-bl-md bg-slate-100 text-slate-800"
   }`;
-  const timeLabel = message.pending ? "Sending..." : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const timeOnly = message.pending ? "Sending..." : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const timeLabel = seen && !message.pending ? `${timeOnly} · Seen` : timeOnly;
 
   function stop(event) {
     event.stopPropagation();

@@ -86,6 +86,12 @@ function usePeerPresence(conversationId, peerUserId, onActivity) {
 export default function ConversationScreen({ conversation, currentUserId, messages, onAction, onActivity, onBack, onSend, onViewProfile }) {
   const user = getOtherParticipant(conversation, currentUserId);
   const messagesRef = useRef(null);
+  // Read receipts: mark the newest of my messages the other side has read.
+  // Honors the "Receipts" preference in Settings on this account.
+  const receiptsEnabled = readExploreSettings().messages.readReceipts !== false;
+  const lastSeenOwnMessageId = receiptsEnabled
+    ? [...messages].reverse().find((message) => message.senderId === currentUserId && message.read && !message.pending)?.id || ""
+    : "";
   const presenceLabel = usePeerPresence(conversation?.id, user.userId, onActivity);
   const typingIndicator = presenceLabel === "typing…" || presenceLabel === "recording voice…";
 
@@ -152,6 +158,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
             key={message.id}
             message={message}
             mine={message.senderId === currentUserId}
+            seen={message.id === lastSeenOwnMessageId}
             otherUserName={user.displayName || user.username || "This user"}
             onApproveLocationRequest={() => onAction?.("approveLocationRequest", { message, userId: user.userId })}
             onBlockUser={() => onAction?.("blockUser", { message, userId: user.userId })}

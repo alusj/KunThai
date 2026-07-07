@@ -227,6 +227,7 @@ html.dark .ring-gray-200 {
 
 /* Soft semantic surfaces preserve meaning without creating bright panels. */
 html.dark .bg-sky-50,
+html.dark [class~="bg-sky-50/90"],
 html.dark [class~="bg-sky-50/80"],
 html.dark [class~="bg-sky-50/70"],
 html.dark [class~="bg-sky-50/60"],

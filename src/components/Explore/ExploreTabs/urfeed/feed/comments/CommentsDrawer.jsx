@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { HiOutlineChatBubbleLeftRight, HiOutlineXMark } from "react-icons/hi2";
 
 import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
+import { endGuestVisit, isGuestMode } from "../../../../../../Backend/services/guestModeService";
 import ErrorState from "../../../../shared/ErrorState";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import CommentDrawerComposer from "./CommentDrawerComposer";
@@ -164,12 +165,30 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           ))}
         </div>
 
-        <CommentDrawerComposer
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-          onSendPreview={previewSend}
-          onSubmit={addComment}
-        />
+        {isGuestMode() ? (
+          <div className="border-t border-slate-100 px-4 py-4">
+            <div className="rounded-[22px] border border-sky-200 bg-sky-50 p-4 text-center">
+              <p className="text-sm font-black text-slate-950">You cannot add a comment as a guest</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                Create a real KunThai account to join the conversation.
+              </p>
+              <button
+                type="button"
+                onClick={() => endGuestVisit()}
+                className="mt-3 h-11 w-full rounded-2xl bg-sky-700 text-sm font-black text-white transition hover:bg-sky-800"
+              >
+                Create an account
+              </button>
+            </div>
+          </div>
+        ) : (
+          <CommentDrawerComposer
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+            onSendPreview={previewSend}
+            onSubmit={addComment}
+          />
+        )}
       </section>
     </div>,
     document.body,

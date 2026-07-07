@@ -14,6 +14,7 @@ import {
   writeStoredSet,
 } from "../services/explore/cacheService";
 import { subscribeToCurrentUserReactions, subscribeToExplorePosts } from "../services/explore/realtimeService";
+import { readExploreSettings } from "../services/explore/preferencesService";
 import { guardGuestAction } from "../services/guestModeService";
 import { canRunSafetyAction, contentHasModerationFlags, readBlockedUsers } from "../services/explore/safetyService";
 import { showToast } from "../services/toastService";
@@ -287,6 +288,46 @@ function writeFeedMemory(scope, patch) {
 
 function buildRemoteReactionSet(remoteIds = []) {
   return new Set(Array.isArray(remoteIds) ? remoteIds.filter(Boolean) : []);
+}
+
+const LANGUAGE_HINTS = {
+  english: /\b(the|and|you|are|this|that|have|will|from|what|with|good|thanks)\b/i,
+  krio: /\b(dem|una|wetin|kushe|tenki|sabi|abeg|dey|don|mek|nor|pikin|waka)\b/i,
+  french: /\b(les|est|vous|nous|avec|pour|bonjour|merci|bien|je|suis|dans)\b/i,
+};
+
+function detectPostLanguage(text) {
+  const value = String(text || "");
+  if (!value.trim()) return "";
+
+  // Krio shares much of its vocabulary with English, so its distinctive
+  // words must be checked first.
+  if (LANGUAGE_HINTS.krio.test(value)) return "krio";
+  if (LANGUAGE_HINTS.french.test(value)) return "french";
+  if (LANGUAGE_HINTS.english.test(value)) return "english";
+  return "";
+}
+
+// "Content language" in Settings → Feed: posts written in the preferred
+// language keep their position while posts detected as a different language
+// move to the end. Posts without enough text to classify are left in place,
+// so media-only posts are never pushed down.
+function applyLanguagePreference(items) {
+  const language = readExploreSettings().feed.language;
+  if (!language || language === "auto") return items;
+
+  const preferredOrNeutral = [];
+  const otherLanguages = [];
+  items.forEach((post) => {
+    const detected = detectPostLanguage(post.body);
+    if (detected && detected !== language) {
+      otherLanguages.push(post);
+    } else {
+      preferredOrNeutral.push(post);
+    }
+  });
+
+  return otherLanguages.length ? [...preferredOrNeutral, ...otherLanguages] : items;
 }
 
 export function useExploreFeed(scope = "feed") {
@@ -1134,11 +1175,11 @@ export function useExploreFeed(scope = "feed") {
   }
 
   return {
-    posts: paceExploreAdvertPosts(posts.filter((post) => {
+    posts: applyLanguagePreference(paceExploreAdvertPosts(posts.filter((post) => {
       const isOwnPost = Boolean(currentUserId && post.user_id === currentUserId);
       const isMutedAdvert = isAdvertDraft(post) && mutedAdvertisers.has(post.user_id);
       return isOwnPost || (!isMutedAdvert && !hiddenPosts.has(post.id) && !readBlockedUsers().has(post.user_id));
-    }), scope, currentUserId),
+    }), scope, currentUserId)),
     loading,
     isInitialLoading: loading && posts.length === 0,
     refreshing,

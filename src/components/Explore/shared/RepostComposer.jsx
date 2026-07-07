@@ -4,6 +4,7 @@ import { Repeat2, Send, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { createExploreRepost } from "../../../Backend/services/explore/repostService";
+import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { showToast } from "../../../Backend/services/toastService";
 import Avatar from "../shared/Avatar";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
@@ -34,6 +35,10 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
   async function submit(event) {
     event.preventDefault();
     if (submitting) return;
+    if (guardGuestAction("repost", "post")) {
+      close();
+      return;
+    }
     setSubmitting(true);
     setError("");
 

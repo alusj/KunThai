@@ -1,5 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
+import { guardGuestAction } from "../guestModeService";
 import { isMissingTable } from "./errors";
 
 const BLOCKED_USERS_KEY = "explore-blocked-users";
@@ -79,6 +80,7 @@ export function unblockUserLocally(userId) {
 }
 
 export async function blockExploreUser(targetUserId, reason = "blocked from Explore") {
+  if (guardGuestAction("block", "user")) return readBlockedUsers();
   const userId = await getCurrentUserId();
   const next = blockUserLocally(targetUserId);
 
@@ -124,6 +126,7 @@ export async function unblockExploreUser(targetUserId) {
 }
 
 export async function reportExploreProfile(targetUserId, reason = "Profile reported from Explore") {
+  if (guardGuestAction("report", "profile")) return { alreadyReported: false };
   const reporterId = await getCurrentUserId();
   if (!reporterId) throw new Error("Sign in to report this profile.");
   if (!targetUserId || reporterId === targetUserId) throw new Error("This profile cannot be reported.");
