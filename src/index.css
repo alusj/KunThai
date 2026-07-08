@@ -437,6 +437,10 @@
     pointer-events: none;
   }
 
+  .kt-fade-up {
+    animation: kt-fade-up 480ms var(--kt-ease-standard) backwards;
+  }
+
   .kt-comments-feed-enter {
     transform-origin: center bottom;
     animation: kt-comments-feed-up 280ms var(--kt-ease-emphasized) backwards;

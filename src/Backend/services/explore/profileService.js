@@ -133,6 +133,12 @@ export async function ensureExploreProfile(user) {
     return null;
   }
 
+  // Guests browse anonymously and must never appear in profile directories
+  // or suggestions, so no explore profile row is created for them.
+  if (user.is_anonymous) {
+    return null;
+  }
+
   const existing = await fetchExploreProfile(user.id).catch(() => null);
   if (existing) {
     return existing;

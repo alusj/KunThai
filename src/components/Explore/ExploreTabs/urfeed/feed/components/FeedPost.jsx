@@ -27,6 +27,7 @@ import {
   normalizeAdvertUrl,
 } from "../../../../shared/advertUtils";
 import RepostComposer from "../../../../shared/RepostComposer";
+import PostAnalyticsPanel from "../../../../shared/PostAnalyticsPanel";
 import RepostPreview from "../../../../shared/RepostPreview";
 import { contentHasModerationFlags } from "../../../../../../Backend/services/explore/safetyService";
 import { readExploreSettings } from "../../../../../../Backend/services/explore/preferencesService";
@@ -57,7 +58,6 @@ export default function FeedPost({
   onHide,
   onMuteAdvertiser,
   onReport,
-  onViewActivity,
   onViewProfile,
   followed = false,
   onFollow,
@@ -77,6 +77,7 @@ export default function FeedPost({
   const [reportReason, setReportReason] = useState("");
   const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
   const [sensitiveRevealed, setSensitiveRevealed] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const optionsTimerRef = useRef(null);
   // "Warnings" in Settings → Feed: flagged wording hides the post content
   // behind a warning until the reader chooses to view it.
@@ -264,7 +265,7 @@ export default function FeedPost({
             onRepost={() => closeOptions(() => setRepostOpen(true))}
             onSave={() => runAction(onSave)}
             onShare={() => runAction(shareAndNotify)}
-            onViewActivity={() => runAction(onViewActivity)}
+            onViewActivity={() => closeOptions(() => setAnalyticsOpen(true))}
             onWhyAdvert={() => closeOptions(() => setWhyAdvertOpen(true))}
           />
         </div>
@@ -455,6 +456,7 @@ export default function FeedPost({
           onSuccess={() => setMenuMessage("Repost published to UrFeed.")}
         />
       ) : null}
+      {analyticsOpen ? <PostAnalyticsPanel post={post} onClose={() => setAnalyticsOpen(false)} /> : null}
     </article>
   );
 }

@@ -129,9 +129,29 @@ export default function FeedList({
   );
 }
 
+const SUGGESTIONS_PER_PAGE = 5;
+const SUGGESTIONS_AUTO_SLIDE_MS = 6000;
+
+function isRealSuggestionProfile(profile) {
+  const username = String(profile.username || "").trim().toLowerCase();
+  const displayName = String(profile.display_name || "").trim().toLowerCase();
+  // Guest visitors and half-created accounts have placeholder identities and
+  // must never be suggested.
+  return Boolean(
+    username &&
+      username !== "user" &&
+      displayName &&
+      !["profile", "user", "kunthai account", "guest"].includes(displayName),
+  );
+}
+
 function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, onViewProfile }) {
   const [profiles, setProfiles] = useState([]);
   const [pendingIds, setPendingIds] = useState(() => new Set());
+  const [pageIndex, setPageIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState("forward");
+  const touchRef = useRef(null);
+  const pausedRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -141,10 +161,14 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
       .select("user_id, display_name, username, avatar_url, account_type")
       .is("deactivated_at", null)
       .order("updated_at", { ascending: false })
-      .limit(12)
+      .limit(30)
       .then(({ data, error }) => {
         if (!alive || error) return;
-        setProfiles((data || []).filter((profile) => profile.user_id && profile.user_id !== currentUserId));
+        setProfiles(
+          (data || []).filter(
+            (profile) => profile.user_id && profile.user_id !== currentUserId && isRealSuggestionProfile(profile),
+          ),
+        );
       });
 
     return () => {
@@ -152,8 +176,61 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
     };
   }, [currentUserId]);
 
-  const visible = profiles.filter((profile) => !followedUsers.has(profile.user_id)).slice(0, 3);
-  if (!visible.length) return null;
+  const candidates = profiles.filter((profile) => !followedUsers.has(profile.user_id));
+  const pages = [];
+  for (let index = 0; index < candidates.length; index += SUGGESTIONS_PER_PAGE) {
+    pages.push(candidates.slice(index, index + SUGGESTIONS_PER_PAGE));
+  }
+  const safePageIndex = Math.min(pageIndex, Math.max(0, pages.length - 1));
+  const currentPage = pages[safePageIndex] || [];
+
+  // Suggestion pages rotate on their own; swiping inside the card browses
+  // them manually without triggering the app-level page swipe.
+  useEffect(() => {
+    if (pages.length < 2) return undefined;
+
+    const interval = window.setInterval(() => {
+      if (pausedRef.current) return;
+      setSlideDirection("forward");
+      setPageIndex((current) => (current + 1) % pages.length);
+    }, SUGGESTIONS_AUTO_SLIDE_MS);
+
+    return () => window.clearInterval(interval);
+  }, [pages.length]);
+
+  if (!currentPage.length) return null;
+
+  function goToPage(nextIndex, direction) {
+    setSlideDirection(direction);
+    setPageIndex(((nextIndex % pages.length) + pages.length) % pages.length);
+  }
+
+  function handleTouchStart(event) {
+    event.stopPropagation();
+    pausedRef.current = true;
+    const touch = event.touches[0];
+    touchRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleTouchMove(event) {
+    event.stopPropagation();
+  }
+
+  function handleTouchEnd(event) {
+    event.stopPropagation();
+    pausedRef.current = false;
+    const start = touchRef.current;
+    touchRef.current = null;
+    if (!start || pages.length < 2) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
+
+    if (deltaX < 0) goToPage(safePageIndex + 1, "forward");
+    else goToPage(safePageIndex - 1, "backward");
+  }
 
   async function followSuggestion(userId) {
     setPendingIds((current) => new Set(current).add(userId));
@@ -169,15 +246,24 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
   }
 
   return (
-    <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+    <section
+      className="overflow-hidden rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
       <div className="flex items-center gap-2">
         <span className="grid h-9 w-9 place-items-center rounded-2xl bg-sky-50 text-sky-700">
           <UserRoundPlus size={17} />
         </span>
         <h3 className="text-sm font-black text-slate-950">Suggested accounts</h3>
       </div>
-      <div className="mt-3 space-y-2">
-        {visible.map((profile) => (
+      <div
+        key={safePageIndex}
+        className={`mt-3 space-y-2 ${slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`}
+      >
+        {currentPage.map((profile) => (
           <div key={profile.user_id} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5">
             <button
               type="button"
@@ -209,6 +295,21 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
           </div>
         ))}
       </div>
+      {pages.length > 1 ? (
+        <div className="mt-3 flex items-center justify-center gap-1.5" aria-label="Suggested account pages">
+          {pages.map((_, index) => (
+            <button
+              key={index}
+              type="button"
+              aria-label={`Show suggestions page ${index + 1}`}
+              onClick={() => goToPage(index, index > safePageIndex ? "forward" : "backward")}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                index === safePageIndex ? "w-5 bg-sky-600" : "w-2 bg-slate-300 hover:bg-slate-400"
+              }`}
+            />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

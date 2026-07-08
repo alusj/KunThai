@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CircleHelp, Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Trash2, VolumeX, X } from "lucide-react";
+import { BarChart3, CircleHelp, Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Trash2, VolumeX, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import {
@@ -13,6 +13,7 @@ import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import ExploreActionDrawer from "../../../shared/ExploreActionDrawer";
+import PostAnalyticsPanel from "../../../shared/PostAnalyticsPanel";
 import RepostComposer from "../../../shared/RepostComposer";
 import { isAdvertPost } from "../../../shared/advertUtils";
 import SwipActionRail from "./SwipActionRail";
@@ -84,6 +85,7 @@ export default function VideoCard({
   const [videoLoading, setVideoLoading] = useState(true);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [actionMenuClosing, setActionMenuClosing] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [quickDeckOpen, setQuickDeckOpen] = useState(false);
   const [quickDeckClosing, setQuickDeckClosing] = useState(false);
   const [repostOpen, setRepostOpen] = useState(false);
@@ -822,6 +824,13 @@ export default function VideoCard({
       <SwipActionItem icon={Link} title="Copy link" onClick={handleCopyLink} />
       <SwipActionItem icon={Download} title="Save video" onClick={handleDownload} />
       <SwipActionItem icon={Copy} title="Copy caption" onClick={handleCopyCaption} />
+      {isOwner ? (
+        <SwipActionItem
+          icon={BarChart3}
+          title="View insights"
+          onClick={() => closeActionMenu(() => setAnalyticsOpen(true))}
+        />
+      ) : null}
       {!advertPost ? <SwipActionItem icon={Repeat2} title="Repost" onClick={handleRepost} /> : null}
       <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? "Show display" : "Clear display"} onClick={toggleDisplayMinimal} />
 
@@ -913,6 +922,7 @@ export default function VideoCard({
           onSuccess={() => setMessage("Repost published to UrFeed.")}
         />
       ) : null}
+      {analyticsOpen ? <PostAnalyticsPanel post={post} onClose={() => setAnalyticsOpen(false)} /> : null}
     </article>
   );
 }
