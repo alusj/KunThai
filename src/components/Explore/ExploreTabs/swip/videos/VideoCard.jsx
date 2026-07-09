@@ -10,6 +10,7 @@ import {
 } from "../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
+import { haptics } from "../../../../../Backend/services/feedbackService";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import ExploreActionDrawer from "../../../shared/ExploreActionDrawer";
@@ -620,7 +621,7 @@ export default function VideoCard({
       setActionMenuClosing(false);
       setQuickDeckClosing(false);
       setQuickDeckOpen(true);
-      navigator.vibrate?.(12);
+      haptics.medium("explore");
     }, 520);
   }
 

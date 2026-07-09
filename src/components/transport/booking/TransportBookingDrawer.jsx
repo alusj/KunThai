@@ -30,6 +30,7 @@ import {
   validateCountryPhone,
 } from "../../../data/westAfricanCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
+import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
   calculateBookingRoute,
@@ -471,6 +472,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       }
 
       const nextBookingMode = modeForFleet(bookingFleet || null, selection.mode);
+      haptics.medium("transport");
       const booking = await createTransportBooking({
         ...form,
         fleet: bookingFleet || null,
@@ -486,6 +488,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         destinationPoint: resolvedRoute?.destinationPoint || form.dropoffPoint || null,
       });
 
+      sounds.success("transport");
       setStatus(
         isDirectedBooking
           ? `Booking sent directly to ${selectedFleet?.operatorName || selectedFleet?.fleetName || "the selected operator"}.`

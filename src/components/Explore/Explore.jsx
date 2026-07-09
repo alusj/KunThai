@@ -7,6 +7,7 @@ import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
 import { useScrollHidden } from "../../Backend/hooks/useScrollHidden";
 import { buildExploreProfileFromUser, ensureExploreProfile, fetchExploreProfile } from "../../Backend/services/exploreService";
 import { guardGuestAction } from "../../Backend/services/guestModeService";
+import { consumePendingExploreScreen, OPEN_EXPLORE_SCREEN_EVENT } from "../../Backend/services/notificationBannerService";
 import {
   clearPostingNotice,
   getPostingNoticeClearDelay,
@@ -358,6 +359,24 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     resumePendingVideoReviewJobs(currentUserId);
   }, [currentUserId]);
+
+  // Notification banners can request a specific Explore screen (Messages,
+  // Notifications) even while another main page is showing. The ref keeps the
+  // listener stable while openMenuScreen closes over fresh state.
+  const openMenuScreenRef = useRef(null);
+  openMenuScreenRef.current = openMenuScreen;
+  useEffect(() => {
+    function handleOpenScreenRequest(event) {
+      const screen = event?.detail?.screen || consumePendingExploreScreen();
+      if (screen) openMenuScreenRef.current?.(screen);
+    }
+
+    const pendingScreen = consumePendingExploreScreen();
+    if (pendingScreen) openMenuScreenRef.current?.(pendingScreen);
+
+    window.addEventListener(OPEN_EXPLORE_SCREEN_EVENT, handleOpenScreenRequest);
+    return () => window.removeEventListener(OPEN_EXPLORE_SCREEN_EVENT, handleOpenScreenRequest);
+  }, []);
 
   function dismissPostingNotice() {
     const noticeId = postingNotice?.id;

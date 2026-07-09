@@ -6,6 +6,7 @@ import {
   submitSellerProduct,
   updateSellerProductListing,
 } from "../services/marketplace/sellerProductService";
+import { haptics, sounds } from "../services/feedbackService";
 
 function buildProductForm(product, options) {
   if (!product) {
@@ -152,7 +153,7 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
     if (!validateStep(0) || !validateStep(2) || !validateStep(3) || !validateStep(4)) return;
     setErrors((current) => ({ ...current, submit: "" }));
     setWarnings({});
-    setSaveStatus("Starting save...");
+    setSaveStatus("prepare");
     setSubmitting(true);
     try {
       const savedProduct =
@@ -162,7 +163,9 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
       if (savedProduct.videoWarning) {
         setWarnings({ video: savedProduct.videoWarning });
       }
-      setSaveStatus(mode === "edit" ? "Product listing updated." : "Product saved.");
+      setSaveStatus("");
+      haptics.medium("marketplace");
+      sounds.success("marketplace");
       onComplete?.(savedProduct);
     } catch (error) {
       setErrors((current) => ({

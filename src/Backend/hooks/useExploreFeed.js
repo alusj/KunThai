@@ -14,6 +14,7 @@ import {
   writeStoredSet,
 } from "../services/explore/cacheService";
 import { subscribeToCurrentUserReactions, subscribeToExplorePosts } from "../services/explore/realtimeService";
+import { haptics } from "../services/feedbackService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 import { guardGuestAction } from "../services/guestModeService";
 import { canRunSafetyAction, contentHasModerationFlags, readBlockedUsers } from "../services/explore/safetyService";
@@ -744,6 +745,7 @@ export function useExploreFeed(scope = "feed") {
   }, [scope]);
 
   async function submitPost(postInput) {
+    haptics.medium("explore");
     const localId = `local-${scope}-${Date.now()}`;
     const optimisticPost = buildLocalPost(postInput, scope, localId);
     const optimisticScopes = getPostTargetScopes(optimisticPost, scope);
@@ -882,6 +884,7 @@ export function useExploreFeed(scope = "feed") {
     }
 
     pendingReactionRef.current.add(pendingKey);
+    haptics.light("explore");
 
     const stateSetter = type === "like" ? setLikedPosts : setSavedPosts;
     const stateRef = type === "like" ? likedPostsRef : savedPostsRef;
@@ -982,6 +985,7 @@ export function useExploreFeed(scope = "feed") {
       return;
     }
 
+    haptics.light("explore");
     const targetPost = posts.find((post) => post.id === postId);
     const nextCount = (targetPost?.comments_count ?? 0) + 1;
 

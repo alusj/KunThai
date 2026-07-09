@@ -13,6 +13,7 @@ import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/s
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import GuestGateCard from "./components/shared/GuestGateCard";
+import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import supabase from "./Backend/lib/supabaseClient";
 
@@ -571,6 +572,7 @@ export default function App() {
 
       {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
       {guestSession ? <GuestGateCard /> : null}
+      <NotificationBannerHost userId={userId} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   getCountryCurrencyCode,
   normalizeCountryIso,
 } from "../../../data/westAfricanCountryProfiles";
+import { getTierUnitPrice, normalizeTierPricing } from "./tierPricingUtils";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -38,6 +39,7 @@ function mapBuyerProduct(product = {}) {
     brand: product.brand || "",
     model: product.model || "",
     details: product.product_attributes || {},
+    tierPricing: normalizeTierPricing(product.tier_pricing || product.product_attributes?.tierPricing),
     imageUrl: product.main_image_url,
     imageUrls: [product.main_image_url, ...imageUrls].filter(Boolean),
     videoUrl: product.video_url || "",
@@ -88,6 +90,7 @@ function mapBuyerProduct(product = {}) {
 
 const PRODUCT_SELECT = `
   id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
+  tier_pricing,
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
   delivery_time,allow_negotiation,country,country_iso,currency,
   marketplace_businesses (
@@ -99,7 +102,7 @@ const PRODUCT_SELECT = `
 
 const PRODUCT_DETAIL_SELECT = `
   id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
-  product_attributes,
+  product_attributes,tier_pricing,
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
   delivery_time,allow_negotiation,country,country_iso,currency,
   marketplace_businesses (
@@ -439,16 +442,19 @@ export async function fetchBuyerDiscoveryOptions() {
 
 function mapCartItem(item) {
   const product = mapBuyerProduct(item.marketplace_products || {});
-  const unitPrice = product.discountPrice && product.discountPrice < product.price ? product.discountPrice : product.price;
+  const qty = Number(item.quantity || 1);
+  const basePrice = product.discountPrice && product.discountPrice < product.price ? product.discountPrice : product.price;
+  const unitPrice = getTierUnitPrice(product.tierPricing, qty, basePrice);
 
   return {
     id: item.id,
     productId: item.product_id,
     businessId: item.business_id,
-    qty: Number(item.quantity || 1),
+    qty,
     product,
     name: product.name,
     price: unitPrice,
+    basePrice,
     imageUrl: product.imageUrl,
     location: product.location,
   };
@@ -664,7 +670,8 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
   if (!product?.id || !product?.businessId) throw new Error("Choose a valid product.");
 
   const quantity = Math.max(1, Number(orderInput.quantity || 1));
-  const unitPrice = product.discountPrice && product.discountPrice < product.price ? product.discountPrice : product.price;
+  const basePrice = product.discountPrice && product.discountPrice < product.price ? product.discountPrice : product.price;
+  const unitPrice = getTierUnitPrice(product.tierPricing, quantity, basePrice);
   const total = Number(unitPrice || 0) * quantity;
   const buyerName = orderInput.buyerName || orderInput.fullName || "";
   const deliveryAddress = orderInput.address || orderInput.street || "";

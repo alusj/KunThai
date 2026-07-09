@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, useEffect, useState } from "react";
 import {
   HiOutlineBellAlert,
   HiOutlineChatBubbleLeftRight,
@@ -16,6 +16,9 @@ import {
 } from "react-icons/hi2";
 
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
+import { haptics, sounds } from "../../../../Backend/services/feedbackService";
+import { disablePushNotifications, enablePushNotifications, getPushStatus } from "../../../../Backend/services/pushService";
+import { showToast } from "../../../../Backend/services/toastService";
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 import { useAppearanceMode } from "../../../../contexts/appearanceContext";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
@@ -82,7 +85,39 @@ function SettingsSection({ children, subtitle, title }) {
 export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, onOpenInterests, onOpenPermissions, onOpenPrivacy, onOpenSecurity, onSwitchAccount }) {
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { mode: appearanceMode, resolvedMode, setMode: setAppearanceMode } = useAppearanceMode();
-  const { notifications, video, feed, messages, account } = settings;
+  const { notifications, video, feed, messages, account, feedbackFx } = settings;
+  const [pushStatus, setPushStatus] = useState("loading");
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getPushStatus().then((status) => {
+      if (active) setPushStatus(status);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function togglePushNotifications() {
+    if (pushBusy || pushStatus === "unsupported" || pushStatus === "loading") return;
+    setPushBusy(true);
+    try {
+      const next = pushStatus === "enabled" ? await disablePushNotifications() : await enablePushNotifications();
+      setPushStatus(next);
+      showToast(next === "enabled" ? "Push notifications are on for this device." : "Push notifications are off for this device.", "success");
+    } catch (error) {
+      showToast(error.message || "Unable to update push notifications.", "danger");
+      setPushStatus(await getPushStatus());
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  function testFeedback() {
+    haptics.medium();
+    sounds.success();
+  }
 
   return (
     <div>
@@ -136,6 +171,23 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
 
         <div className="grid gap-6 xl:grid-cols-2">
           <SettingsSection title="Notifications" subtitle="Choose which actions should light up your bell and alert surfaces.">
+            <SettingRow
+              icon={HiOutlineDevicePhoneMobile}
+              title="Push notifications on this device"
+              description={
+                pushStatus === "unsupported"
+                  ? "This browser cannot receive push notifications. On iPhone, add KunThai to your home screen first, then enable it there."
+                  : pushStatus === "denied"
+                    ? "Notifications are blocked in your browser settings. Allow notifications for this site to turn them on."
+                    : "Get message, activity, and order alerts even when KunThai is closed."
+              }
+            >
+              <Toggle
+                active={pushStatus === "enabled"}
+                label={pushBusy || pushStatus === "loading" ? "..." : pushStatus === "enabled" ? "On" : "Off"}
+                onChange={togglePushNotifications}
+              />
+            </SettingRow>
             <SettingRow icon={HiOutlineBellAlert} title="Reactions and comments" description="Get updates when people like, save, or comment on your posts.">
               <Toggle active={notifications.reactions} label="Likes" onChange={(value) => updateSection("notifications", { reactions: value })} />
               <Toggle active={notifications.comments} label="Comments" onChange={(value) => updateSection("notifications", { comments: value })} />
@@ -147,6 +199,29 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
             <SettingRow icon={HiOutlineChatBubbleLeftRight} title="Messages and safety alerts" description="Message badges, safety notices, reports, and account alerts.">
               <Toggle active={notifications.messages} label="Messages" onChange={(value) => updateSection("notifications", { messages: value })} />
               <Toggle active={notifications.safetyAlerts} label="Safety" onChange={(value) => updateSection("notifications", { safetyAlerts: value })} />
+            </SettingRow>
+          </SettingsSection>
+
+          <SettingsSection title="Sounds & Vibration" subtitle="Feedback for actions like sending, ordering, publishing, and booking.">
+            <SettingRow icon={HiOutlineBellAlert} title="All feedback" description="Master switches for interaction sounds and vibration across KunThai. Vibration works on supported phones only.">
+              <Toggle active={feedbackFx.sounds} label={feedbackFx.sounds ? "Sounds on" : "Sounds off"} onChange={(value) => updateSection("feedbackFx", { sounds: value })} />
+              <Toggle active={feedbackFx.vibration} label={feedbackFx.vibration ? "Vibration on" : "Vibration off"} onChange={(value) => updateSection("feedbackFx", { vibration: value })} />
+              <button
+                type="button"
+                onClick={testFeedback}
+                className="flex h-11 min-w-24 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+              >
+                Try it
+              </button>
+            </SettingRow>
+            <SettingRow icon={HiOutlineBellAlert} title="In-app banners" description="Show a small tappable banner at the top when a message or activity arrives while you are elsewhere in the app.">
+              <Toggle active={feedbackFx.banners} label={feedbackFx.banners ? "Banners on" : "Banners off"} onChange={(value) => updateSection("feedbackFx", { banners: value })} />
+            </SettingRow>
+            <SettingRow icon={HiOutlineSparkles} title="Per-service feedback" description="Choose which parts of KunThai can play feedback sounds and vibration.">
+              <Toggle active={feedbackFx.explore} label="Explore" onChange={(value) => updateSection("feedbackFx", { explore: value })} />
+              <Toggle active={feedbackFx.messages} label="Messages" onChange={(value) => updateSection("feedbackFx", { messages: value })} />
+              <Toggle active={feedbackFx.marketplace} label="UrMall" onChange={(value) => updateSection("feedbackFx", { marketplace: value })} />
+              <Toggle active={feedbackFx.transport} label="Transport" onChange={(value) => updateSection("feedbackFx", { transport: value })} />
             </SettingRow>
           </SettingsSection>
 

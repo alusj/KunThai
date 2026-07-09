@@ -37,6 +37,7 @@ import {
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
 import { constrainCountryPhoneInput, getActiveCountryProfile, getCountryPhoneHint } from "../../data/westAfricanCountryProfiles";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
+import { haptics } from "../../Backend/services/feedbackService";
 import {
   locationCategories,
   locationStatusStyles,
@@ -1422,6 +1423,7 @@ export default function NearbyAreaScreen({
   }, []);
 
   async function openEmergencyMode() {
+    haptics.heavy("transport");
     const requestId = sosDetectionRequestRef.current + 1;
     sosDetectionRequestRef.current = requestId;
     setSosOpen(true);
@@ -2247,8 +2249,8 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
   const emergencyContacts = [
     emergency.national?.[0] ? { id: "national", label: "National Emergency", value: emergency.national[0] } : null,
     { id: "police", label: "Police", value: emergency.police?.[0] },
-    { id: "ambulance", label: "Ambulance", value: emergency.ambulance?.[0] },
-    { id: "fire", label: "Fire Service", value: emergency.fire?.[0] },
+    { id: "ambulance", label: "Ambulance / Medical", value: emergency.ambulance?.[0] },
+    { id: "fire", label: "Fire Force", value: emergency.fire?.[0] },
   ].filter((contact) => contact?.value);
 
   if (!open) return null;

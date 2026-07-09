@@ -15,6 +15,7 @@ import {
   updateExplorePostCounts,
 } from "../services/exploreService";
 import { guardGuestAction } from "../services/guestModeService";
+import { haptics } from "../services/feedbackService";
 import { showToast } from "../services/toastService";
 
 function getMentions(value) {
@@ -247,6 +248,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       return { ok: false, duplicate: true };
     }
 
+    haptics.light("explore");
     const tempId = `pending-comment-${Date.now()}`;
     const now = new Date().toISOString();
     const userId = currentUserId || currentProfile?.id || "";

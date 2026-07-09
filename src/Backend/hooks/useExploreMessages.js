@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  clearPendingConversationOpen,
   deleteExploreMessage,
   dedupeExploreConversations,
   EXPLORE_MESSAGE_CACHE_CLEARED_EVENT,
+  EXPLORE_OPEN_CONVERSATION_EVENT,
   fetchExploreConversations,
   fetchExploreMessages,
   EXPLORE_MESSAGE_EVENT,
   markExploreConversationRead,
+  peekPendingConversationOpen,
   respondToExploreMessageRequest,
   sendExploreMessage,
   setExploreMessageActivity,
   startExploreConversation,
   subscribeToExploreMessages,
 } from "../services/explore/messageService";
+import { setBannerContext } from "../services/notificationBannerService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 import { blockExploreUser } from "../services/explore/safetyService";
+import { haptics, sounds } from "../services/feedbackService";
 import { showToast } from "../services/toastService";
 
 const MESSAGES_MEMORY = new Map();
@@ -191,6 +196,34 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   useEffect(() => {
     activeConversationRef.current = activeConversation;
   }, [activeConversation]);
+
+  // The banner system suppresses "new message" banners for the conversation
+  // currently on screen.
+  useEffect(() => {
+    const conversationId = activeConversation?.id;
+    if (!conversationId) return undefined;
+    setBannerContext(`conversation:${conversationId}`, true);
+    return () => setBannerContext(`conversation:${conversationId}`, false);
+  }, [activeConversation?.id]);
+
+  // Banner taps request a conversation by id; open it as soon as it appears
+  // in the loaded conversation list.
+  useEffect(() => {
+    function tryOpenPendingConversation() {
+      const pendingId = peekPendingConversationOpen();
+      if (!pendingId) return;
+      const found = conversationsRef.current.find((conversation) => conversation.id === pendingId);
+      if (!found) return;
+      clearPendingConversationOpen();
+      openConversation(found);
+    }
+
+    tryOpenPendingConversation();
+    window.addEventListener(EXPLORE_OPEN_CONVERSATION_EVENT, tryOpenPendingConversation);
+    return () => window.removeEventListener(EXPLORE_OPEN_CONVERSATION_EVENT, tryOpenPendingConversation);
+    // openConversation reads only refs and setters; conversations retriggers the pending check as the list loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations]);
 
   useEffect(() => {
     const cached = MESSAGES_MEMORY.get(currentUserId) || {};
@@ -486,6 +519,13 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
     if (!conversationId || (!draft.body && !draft.mediaUrl) || pendingMessageKeys.has(signature)) {
       return { ok: false, duplicate: pendingMessageKeys.has(signature) };
+    }
+
+    if (draft.type === "audio") {
+      haptics.medium("messages");
+      sounds.send("messages");
+    } else {
+      haptics.light("messages");
     }
 
     const tempMessage = {

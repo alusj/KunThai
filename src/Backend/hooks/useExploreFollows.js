@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { createExploreNotification, fetchExploreFollowing, syncExploreFollow } from "../services/exploreService";
 import { guardGuestAction } from "../services/guestModeService";
+import { haptics } from "../services/feedbackService";
 import { showToast } from "../services/toastService";
 
 const FOLLOW_STORAGE_KEY = "explore-followed-users";
@@ -51,6 +52,7 @@ export function useExploreFollows(currentUserId) {
       return false;
     }
 
+    haptics.medium("explore");
     let nextActive = false;
     const previous = new Set(followedUsers);
 

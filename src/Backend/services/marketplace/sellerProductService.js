@@ -2,6 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { getActiveCountryProfile } from "../../../data/westAfricanCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
+import { normalizeTierPricing } from "./tierPricingUtils";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
   return Promise.race([
@@ -117,23 +118,6 @@ export const INITIAL_PRODUCT_FORM = {
 
 function countByStatus(products, status) {
   return products.filter((product) => product.status === status).length;
-}
-
-function normalizeTierPricing(tiers = []) {
-  if (!Array.isArray(tiers)) return [];
-
-  return tiers
-    .map((tier) => {
-      const minQty = Number(tier.minQty ?? tier.min_qty ?? 0);
-      const maxQty = Number(tier.maxQty ?? tier.max_qty ?? 0);
-      const price = Number(tier.price ?? 0);
-      return {
-        minQty: Number.isFinite(minQty) ? minQty : 0,
-        maxQty: Number.isFinite(maxQty) ? maxQty : 0,
-        price: Number.isFinite(price) ? price : 0,
-      };
-    })
-    .filter((tier) => tier.price > 0 && (tier.minQty > 0 || tier.maxQty > 0));
 }
 
 function normalizeSellerProduct(product) {
@@ -375,19 +359,19 @@ export async function fetchProductFormOptions() {
 }
 
 export async function submitSellerProduct(form, onProgress) {
-  onProgress?.("Checking your seller business...");
+  onProgress?.("prepare");
   const [business, userId] = await Promise.all([readRegisteredBusiness(), getCurrentUserId()]);
   if (!business) throw new Error("Register a business before adding products.");
 
-  onProgress?.("Uploading cover image...");
+  onProgress?.("cover");
   const coverUrl = await uploadProductFile(userId, form.media.coverImageFile, "covers");
 
-  onProgress?.("Uploading extra images...");
+  onProgress?.("gallery");
   const extraImageUrls = await Promise.all(
     form.media.extraImageFiles.map((file) => uploadProductFile(userId, file, "gallery")),
   );
 
-  onProgress?.("Uploading product video...");
+  onProgress?.("video");
   let videoUrl = "";
   let videoWarning = "";
 
@@ -401,7 +385,7 @@ export async function submitSellerProduct(form, onProgress) {
 
   const status = form.pricing.publishStatus;
   const countryProfile = getActiveCountryProfile(business.location.country);
-  onProgress?.("Saving product details...");
+  onProgress?.("save");
   const payload = {
     business_id: business.id,
     user_id: userId,
@@ -439,7 +423,6 @@ export async function submitSellerProduct(form, onProgress) {
 
   if (error) throw new Error(error.message);
 
-  onProgress?.("Updating activity timeline...");
   withTimeout(
     insertMarketplaceActivity({
       business_id: business.id,
@@ -460,7 +443,7 @@ export async function submitSellerProduct(form, onProgress) {
 }
 
 export async function updateSellerProductListing(product, form, onProgress) {
-  onProgress?.("Checking your seller business...");
+  onProgress?.("prepare");
   const [business, userId] = await Promise.all([readRegisteredBusiness(), getCurrentUserId()]);
   if (!business) throw new Error("Register a business before editing products.");
   if (!product?.id) throw new Error("Choose a product listing to edit.");
@@ -471,19 +454,19 @@ export async function updateSellerProductListing(product, form, onProgress) {
   let videoWarning = "";
 
   if (form.media.coverImageFile) {
-    onProgress?.("Uploading replacement cover image...");
+    onProgress?.("cover");
     coverUrl = await uploadProductFile(userId, form.media.coverImageFile, "covers");
   }
 
   if (form.media.extraImageFiles.length > 0) {
-    onProgress?.("Uploading replacement gallery images...");
+    onProgress?.("gallery");
     extraImageUrls = await Promise.all(
       form.media.extraImageFiles.map((file) => uploadProductFile(userId, file, "gallery")),
     );
   }
 
   if (form.media.videoFile) {
-    onProgress?.("Uploading replacement product video...");
+    onProgress?.("video");
     try {
       videoUrl = await uploadProductFile(userId, form.media.videoFile, "videos");
     } catch (error) {
@@ -493,7 +476,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
 
   const status = form.pricing.publishStatus;
   const countryProfile = getActiveCountryProfile(business.location.country);
-  onProgress?.("Updating product listing...");
+  onProgress?.("save");
   const payload = {
     user_id: userId,
     name: form.basics.name.trim(),
@@ -531,7 +514,6 @@ export async function updateSellerProductListing(product, form, onProgress) {
 
   if (error) throw new Error(error.message);
 
-  onProgress?.("Updating activity timeline...");
   withTimeout(
     insertMarketplaceActivity({
       business_id: business.id,

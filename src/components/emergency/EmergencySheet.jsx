@@ -127,17 +127,14 @@ export default function EmergencySheet({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
           <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300 sm:hidden" />
 
-          <div className="rounded-[26px] bg-gradient-to-br from-red-600 via-red-600 to-slate-950 p-4 text-white shadow-xl shadow-red-950/20">
+          <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em]">
-                  <Siren size={14} />
-                  KunThai SOS
-                </div>
-                <h2 id="kuntai-sos-title" className="mt-3 text-2xl font-black leading-tight">
-                  Emergency Assistance
+                <p className="text-xs font-black uppercase tracking-wide text-red-600">Emergency numbers</p>
+                <h2 id="kuntai-sos-title" className="mt-1 text-xl font-black leading-tight text-slate-950">
+                  Call for help
                 </h2>
-                <p className="mt-1 text-sm font-semibold text-white/80">
+                <p className="mt-1 text-sm font-semibold text-slate-500">
                   {countryLabel}
                   {!detectingCountry && normalizedCountryCode ? ` (${normalizedCountryCode})` : ""}
                 </p>
@@ -146,8 +143,8 @@ export default function EmergencySheet({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-950 shadow-lg transition active:scale-95"
-                aria-label="Close KunThai SOS"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 active:scale-95"
+                aria-label="Close emergency numbers"
               >
                 <X size={21} />
               </button>
@@ -157,8 +154,8 @@ export default function EmergencySheet({
           <div className="mt-4 grid gap-3">
             {emergency.national?.length ? <CallButton icon={<Siren size={22} />} label="National Emergency" numbers={emergency.national} /> : null}
             <CallButton icon={<ShieldAlert size={22} />} label="Police" numbers={emergency.police} />
-            <CallButton icon={<HeartPulse size={22} />} label="Ambulance" numbers={emergency.ambulance} />
-            <CallButton icon={<Flame size={22} />} label="Fire Service" numbers={emergency.fire} />
+            <CallButton icon={<HeartPulse size={22} />} label="Ambulance / Medical" numbers={emergency.ambulance} />
+            <CallButton icon={<Flame size={22} />} label="Fire Force" numbers={emergency.fire} />
           </div>
 
           <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">

@@ -9,6 +9,7 @@ import {
   updateBuyerCartItem,
 } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import CartButton from "./CartButton";
 import CartDrawer from "./CartDrawer";
 
@@ -72,6 +73,8 @@ export default function Cart({ onOpenChange }) {
   async function checkout(deliveryLocation) {
     const orders = await checkoutBuyerCart(deliveryLocation);
     await loadCart();
+    haptics.medium("marketplace");
+    sounds.success("marketplace");
     showToast("Checkout created successfully", "success");
     return orders;
   }

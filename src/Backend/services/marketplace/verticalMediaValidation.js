@@ -1,6 +1,7 @@
 export const MAX_VERTICAL_VIDEO_BYTES = 50 * 1024 * 1024;
 export const MAX_VERTICAL_VIDEO_SECONDS = 30;
 export const REQUIRED_EXTRA_IMAGE_COUNT = 5;
+export const MAX_EXTRA_IMAGE_COUNT = 6;
 
 export function createEmptyVerticalMedia() {
   return { coverImageFile: null, extraImageFiles: [], videoFile: null, videoDuration: 0 };
@@ -54,6 +55,9 @@ export async function validateVerticalMediaPackage(input = {}) {
   if (!input.coverImageFile && !input.coverImageUrl) throw new Error("Add one cover image.");
   if (extras.length < REQUIRED_EXTRA_IMAGE_COUNT && !((input.extraImageUrls?.length || 0) >= REQUIRED_EXTRA_IMAGE_COUNT && extras.length === 0)) {
     throw new Error(`Add at least ${REQUIRED_EXTRA_IMAGE_COUNT} extra images.`);
+  }
+  if (extras.length > MAX_EXTRA_IMAGE_COUNT) {
+    throw new Error(`You can add up to ${MAX_EXTRA_IMAGE_COUNT} extra images.`);
   }
   await validateVerticalVideo(input.videoFile);
 }

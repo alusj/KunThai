@@ -78,6 +78,19 @@ export async function uploadMarketplaceVerticalVideo(file, businessId, folder = 
   return supabase.storage.from("marketplace-business-media").getPublicUrl(path).data.publicUrl;
 }
 
+async function uploadVerticalMediaPackage(businessId, input, folders, onProgress) {
+  onProgress?.("cover");
+  const coverUrl = await uploadMarketplaceVerticalImage(input.coverImageFile, businessId, folders.cover);
+  onProgress?.("gallery");
+  const extraUrls = [];
+  for (const file of Array.from(input.extraImageFiles || [])) {
+    extraUrls.push(await uploadMarketplaceVerticalImage(file, businessId, folders.gallery));
+  }
+  onProgress?.("video");
+  const videoUrl = await uploadMarketplaceVerticalVideo(input.videoFile, businessId, folders.video);
+  return [coverUrl, extraUrls, videoUrl];
+}
+
 export async function fetchRestaurantMenu(businessId, dayOfWeek = new Date().getDay()) {
   let query = supabase.from("marketplace_restaurant_menu_items").select("*").eq("business_id", businessId).order("sort_order").order("created_at");
   if (Number.isInteger(dayOfWeek)) query = query.eq("day_of_week", dayOfWeek);
@@ -86,14 +99,14 @@ export async function fetchRestaurantMenu(businessId, dayOfWeek = new Date().get
   return fallback || data || [];
 }
 
-export async function saveRestaurantMenuItem(businessId, input = {}) {
+export async function saveRestaurantMenuItem(businessId, input = {}, onProgress) {
+  onProgress?.("prepare");
   const hasNewMedia = Boolean(input.coverImageFile || input.videoFile || Array.from(input.extraImageFiles || []).length);
   if (!input.id || hasNewMedia) await validateVerticalMediaPackage(input);
-  const [imageUrl, imageUrls, videoUrl] = hasNewMedia || !input.id ? await Promise.all([
-    uploadMarketplaceVerticalImage(input.coverImageFile, businessId, "restaurant-menu/covers"),
-    Promise.all(Array.from(input.extraImageFiles || []).map((file) => uploadMarketplaceVerticalImage(file, businessId, "restaurant-menu/gallery"))),
-    uploadMarketplaceVerticalVideo(input.videoFile, businessId, "restaurant-menu/videos"),
-  ]) : [input.image_url || "", input.image_urls || [], input.video_url || ""];
+  const [imageUrl, imageUrls, videoUrl] = hasNewMedia || !input.id
+    ? await uploadVerticalMediaPackage(businessId, input, { cover: "restaurant-menu/covers", gallery: "restaurant-menu/gallery", video: "restaurant-menu/videos" }, onProgress)
+    : [input.image_url || "", input.image_urls || [], input.video_url || ""];
+  onProgress?.("save");
   const payload = {
     business_id: businessId,
     day_of_week: Number(input.day_of_week),
@@ -151,13 +164,11 @@ export async function fetchHotelWorkspace(businessId) {
   return { images: imagesFallback || imagesResult.data || [], rooms: roomsFallback || roomsResult.data || [], videoUrl: businessResult.data?.vertical_video_url || "" };
 }
 
-export async function saveHotelMediaPackage(businessId, input = {}) {
+export async function saveHotelMediaPackage(businessId, input = {}, onProgress) {
+  onProgress?.("prepare");
   await validateVerticalMediaPackage(input);
-  const [coverUrl, extraUrls, videoUrl] = await Promise.all([
-    uploadMarketplaceVerticalImage(input.coverImageFile, businessId, "hotel-gallery/covers"),
-    Promise.all(Array.from(input.extraImageFiles || []).map((file) => uploadMarketplaceVerticalImage(file, businessId, "hotel-gallery/images"))),
-    uploadMarketplaceVerticalVideo(input.videoFile, businessId, "hotel-gallery/videos"),
-  ]);
+  const [coverUrl, extraUrls, videoUrl] = await uploadVerticalMediaPackage(businessId, input, { cover: "hotel-gallery/covers", gallery: "hotel-gallery/images", video: "hotel-gallery/videos" }, onProgress);
+  onProgress?.("save");
   const rows = [coverUrl, ...extraUrls].map((imageUrl, index) => ({
     business_id: businessId,
     image_url: imageUrl,
@@ -228,14 +239,14 @@ export async function fetchPropertyListings(businessId) {
   return fallback || data || [];
 }
 
-export async function savePropertyListing(businessId, input = {}) {
+export async function savePropertyListing(businessId, input = {}, onProgress) {
+  onProgress?.("prepare");
   const hasNewMedia = Boolean(input.coverImageFile || input.videoFile || Array.from(input.extraImageFiles || []).length);
   if (!input.id || hasNewMedia) await validateVerticalMediaPackage(input);
-  const [coverUrl, extraUrls, videoUrl] = hasNewMedia || !input.id ? await Promise.all([
-    uploadMarketplaceVerticalImage(input.coverImageFile, businessId, "properties/covers"),
-    Promise.all(Array.from(input.extraImageFiles || []).map((file) => uploadMarketplaceVerticalImage(file, businessId, "properties/gallery"))),
-    uploadMarketplaceVerticalVideo(input.videoFile, businessId, "properties/videos"),
-  ]) : [input.image_urls?.[0] || "", input.image_urls?.slice(1) || [], input.video_url || ""];
+  const [coverUrl, extraUrls, videoUrl] = hasNewMedia || !input.id
+    ? await uploadVerticalMediaPackage(businessId, input, { cover: "properties/covers", gallery: "properties/gallery", video: "properties/videos" }, onProgress)
+    : [input.image_urls?.[0] || "", input.image_urls?.slice(1) || [], input.video_url || ""];
+  onProgress?.("save");
   const imageUrls = [coverUrl, ...extraUrls];
   const payload = {
     business_id: businessId,

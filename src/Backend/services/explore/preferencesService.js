@@ -36,6 +36,15 @@ export const DEFAULT_EXPLORE_SETTINGS = {
   account: {
     compactMenu: false,
   },
+  feedbackFx: {
+    sounds: true,
+    vibration: true,
+    banners: true,
+    explore: true,
+    messages: true,
+    marketplace: true,
+    transport: true,
+  },
 };
 
 function mergeSettings(settings = {}) {
@@ -45,6 +54,7 @@ function mergeSettings(settings = {}) {
     feed: { ...DEFAULT_EXPLORE_SETTINGS.feed, ...(settings.feed || {}) },
     messages: { ...DEFAULT_EXPLORE_SETTINGS.messages, ...(settings.messages || {}) },
     account: { ...DEFAULT_EXPLORE_SETTINGS.account, ...(settings.account || {}) },
+    feedbackFx: { ...DEFAULT_EXPLORE_SETTINGS.feedbackFx, ...(settings.feedbackFx || {}) },
   };
 }
 

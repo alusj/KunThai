@@ -21,11 +21,16 @@ function readVideoDuration(file) {
   });
 }
 
+const MAX_EXTRA_IMAGES = 6;
+
 export default function ProductMediaStep({ productForm }) {
   const { form, errors, updateSection } = productForm;
   const [coverGuideOpen, setCoverGuideOpen] = useState(false);
   const [videoGuideOpen, setVideoGuideOpen] = useState(false);
   const [videoError, setVideoError] = useState("");
+  const [extraImagesNote, setExtraImagesNote] = useState("");
+  const extraImages = form.media.extraImageFiles || [];
+  const extraImagesFull = extraImages.length >= MAX_EXTRA_IMAGES;
 
   return (
     <div className="space-y-5">
@@ -57,16 +62,52 @@ export default function ProductMediaStep({ productForm }) {
         ) : null}
       </ProductFormField>
 
-      <ProductFormField label="Extra images up to 6">
+      <ProductFormField label="Extra images up to 6" error={extraImagesNote}>
         <ProductFormInput
           type="file"
           accept="image/*"
           multiple
+          disabled={extraImagesFull}
           onChange={(event) => {
-            const files = Array.from(event.target.files || []).slice(0, 6);
-            updateSection("media", { extraImageFiles: files });
+            const incoming = Array.from(event.target.files || []);
+            event.target.value = "";
+            if (!incoming.length) return;
+            const room = MAX_EXTRA_IMAGES - extraImages.length;
+            const accepted = incoming.slice(0, Math.max(room, 0));
+            setExtraImagesNote(incoming.length > room ? `Only ${MAX_EXTRA_IMAGES} extra images are allowed. The first ${MAX_EXTRA_IMAGES} were kept.` : "");
+            updateSection("media", { extraImageFiles: [...extraImages, ...accepted] });
           }}
         />
+        {extraImagesFull ? (
+          <p className="mt-2 text-xs font-bold text-emerald-700">
+            All {MAX_EXTRA_IMAGES} extra images are added. Remove one below to choose a different image.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs font-bold text-gray-500">
+            {extraImages.length} of {MAX_EXTRA_IMAGES} selected
+          </p>
+        )}
+        {extraImages.length ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {extraImages.map((file, index) => (
+              <span key={`${file.name}-${index}`} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-gray-700">
+                <span className="max-w-32 truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setExtraImagesNote("");
+                    updateSection("media", { extraImageFiles: extraImages.filter((_, itemIndex) => itemIndex !== index) });
+                  }}
+                  className="grid h-4 w-4 place-items-center rounded-full bg-gray-100 text-gray-600"
+                  aria-label={`Remove ${file.name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
       </ProductFormField>
 
       <ProductFormField label="Short product video">

@@ -28,6 +28,8 @@ import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import useImageViewerGestures from "../../shared/useImageViewerGestures";
 import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
+import { getProductTierPricing, getTierUnitPrice } from "../../../Backend/services/marketplace/tierPricingUtils";
+import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitMarketplaceReview, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
@@ -678,7 +680,11 @@ export default function ProductDetailDrawer({
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
   const productMoneyScope = product.currency || product.countryCode || product.country || product.seller?.currency || product.seller?.countryCode || product.seller?.country;
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
-  const orderTotal = displayPrice * Math.max(1, Number(orderForm.quantity || 1));
+  const tierPricing = getProductTierPricing(product);
+  const orderQuantity = Math.max(1, Number(orderForm.quantity || 1));
+  const orderUnitPrice = getTierUnitPrice(tierPricing, orderQuantity, displayPrice);
+  const tierPriceApplied = tierPricing.length > 0 && orderUnitPrice !== displayPrice;
+  const orderTotal = orderUnitPrice * orderQuantity;
   const specs = getProductSpecs(product);
   const footerActionCount = Number(showSave) + Number(showMessage) + Number(showAddToCart) + Number(showOrder) + Number(showReview);
   const footerGridClass = footerActionCount >= 5
@@ -814,6 +820,8 @@ export default function ProductDetailDrawer({
     setOrderSubmitting(true);
     try {
       await onOrderProduct?.(product, orderForm);
+      haptics.medium("marketplace");
+      sounds.success("marketplace");
       setOrderOpen(false);
     } finally {
       setOrderSubmitting(false);
@@ -881,6 +889,21 @@ export default function ProductDetailDrawer({
                   <span className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700">{product.stock} in stock</span>
                   <span className="rounded-md bg-gray-100 px-2.5 py-1 capitalize text-gray-700">{product.condition}</span>
                 </div> : null}
+                {tierPricing.length ? (
+                  <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-800">Quantity pricing</p>
+                    <div className="mt-2 grid gap-1.5">
+                      {tierPricing.map((tier, index) => (
+                        <div key={`tier-${index}`} className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-1.5">
+                          <p className="text-sm font-black text-gray-950">
+                            {tier.minQty || 1}{tier.maxQty > 0 ? ` - ${tier.maxQty}` : "+"} items
+                          </p>
+                          <p className="text-sm font-black text-emerald-700">{formatCurrency(tier.price, productMoneyScope)} each</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <article className="w-full rounded-lg border border-gray-200 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40">
@@ -1231,8 +1254,13 @@ export default function ProductDetailDrawer({
                   <p className="text-xl font-black text-gray-950">{formatCurrency(orderTotal, productMoneyScope)}</p>
                 </div>
                 <p className="mt-1 text-xs font-bold text-gray-500">
-                  {Math.max(1, Number(orderForm.quantity || 1))} item{Number(orderForm.quantity || 1) === 1 ? "" : "s"} at {formatCurrency(displayPrice, productMoneyScope)}
+                  {orderQuantity} item{orderQuantity === 1 ? "" : "s"} at {formatCurrency(orderUnitPrice, productMoneyScope)}
                 </p>
+                {tierPriceApplied ? (
+                  <p className="mt-1 text-xs font-black text-emerald-700">
+                    Quantity price applied - single item price is {formatCurrency(displayPrice, productMoneyScope)}.
+                  </p>
+                ) : null}
               </div> : null}
 
               <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

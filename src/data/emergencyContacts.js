@@ -13,7 +13,7 @@ const emergencyRecords = [
   { country: "Niger", countryCode: "NE", police: "17", ambulance: "15", fire: "18", national: "112" },
   { country: "Nigeria", countryCode: "NG", police: "112", ambulance: "112", fire: "112", national: "" },
   { country: "Senegal", countryCode: "SN", police: "17", ambulance: "15", fire: "18", national: "" },
-  { country: "Sierra Leone", countryCode: "SL", police: "117", ambulance: "117", fire: "117", national: "117" },
+  { country: "Sierra Leone", countryCode: "SL", police: "900", ambulance: "117", fire: "999", national: "" },
   { country: "Togo", countryCode: "TG", police: "117", ambulance: "8200", fire: "118", national: "" },
 ];
 

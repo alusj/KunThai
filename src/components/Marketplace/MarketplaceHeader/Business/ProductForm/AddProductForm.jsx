@@ -8,6 +8,7 @@ import ProductFormProgress from "./ProductFormProgress";
 import ProductMediaStep from "./ProductMediaStep";
 import ProductPreview from "./ProductPreview";
 import ProductPricingStep from "./ProductPricingStep";
+import ListingUploadProgressCard from "../../../shared/ListingUploadProgressCard";
 import AppBackTab from "../../../../shared/AppBackTab";
 import { StepScrollTransition } from "../../../../shared/motion";
 import { useDirectionalStep } from "../../../../shared/motionHooks";
@@ -127,9 +128,10 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
               </div>
             ) : null}
             {productForm.submitting && productForm.saveStatus ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
-                {productForm.saveStatus}
-              </div>
+              <ListingUploadProgressCard
+                stage={productForm.saveStatus}
+                title={editing ? "Updating your product" : "Adding your product"}
+              />
             ) : null}
           </main>
 

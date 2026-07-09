@@ -64,6 +64,36 @@ export function subscribeToExploreComments(postId, handlers) {
   return () => supabase.removeChannel(channel);
 }
 
+export function subscribeToIncomingExploreMessages(userId, onInsert) {
+  if (!userId) {
+    return () => {};
+  }
+
+  const channel = supabase
+    .channel(`explore-incoming-messages-${userId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "explore_messages" }, onInsert)
+    .subscribe();
+
+  return () => supabase.removeChannel(channel);
+}
+
+export function subscribeToExploreNotifications(userId, onInsert) {
+  if (!userId) {
+    return () => {};
+  }
+
+  const channel = supabase
+    .channel(`explore-notification-inserts-${userId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "explore_notifications", filter: `user_id=eq.${userId}` },
+      onInsert,
+    )
+    .subscribe();
+
+  return () => supabase.removeChannel(channel);
+}
+
 export function subscribeToCurrentUserCommentLikes(userId, handlers) {
   if (!userId) {
     return () => {};

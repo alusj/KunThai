@@ -19,8 +19,10 @@ import {
   toggleRestaurantMenuItem,
 } from "../../../../Backend/services/marketplace/marketplaceVerticalService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import { createEmptyVerticalMedia } from "../../../../Backend/services/marketplace/verticalMediaValidation";
 import VerticalMediaFields from "./VerticalMediaFields";
+import ListingUploadProgressCard from "../../shared/ListingUploadProgressCard";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -78,6 +80,7 @@ function RestaurantDashboard({ business }) {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadStage, setUploadStage] = useState("");
   const submissionLock = useRef(false);
   const [form, setForm] = useState({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, ...createEmptyVerticalMedia() });
   const editingMeal = Boolean(form.id);
@@ -116,13 +119,15 @@ function RestaurantDashboard({ business }) {
     submissionLock.current = true;
     setSubmitting(true);
     try {
-      await saveRestaurantMenuItem(business.id, { ...form, day_of_week: day });
+      await saveRestaurantMenuItem(business.id, { ...form, day_of_week: day }, setUploadStage);
       setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, ...createEmptyVerticalMedia() });
       setFormOpen(false);
       await load();
       notifyVerticalListingUpdated(business.id);
+      haptics.medium("marketplace");
+      sounds.success("marketplace");
       showToast(`${DAYS[day]} menu updated.`, "success");
-    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); }
+    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
   return (
@@ -134,7 +139,7 @@ function RestaurantDashboard({ business }) {
         <div className="mt-5 grid gap-3 md:grid-cols-2">{loading ? <p className="text-sm font-bold text-gray-500">Loading menu...</p> : items.map((item) => <MealCard key={item.id} item={item} business={business} onEdit={() => editMeal(item)} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); notifyVerticalListingUpdated(business.id); showToast("Meal deleted.", "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
         {!loading && !items.length ? <EmptyState text={`No meals have been added for ${DAYS[day]}.`} /> : null}
       </section>
-      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingMeal ? "Edit meal" : "Add meal"} subtitle={`${DAYS[day]} menu`} formId="restaurant-meal-form" actionLabel={editingMeal ? "Save changes" : "Add meal"} processingLabel={editingMeal ? "Saving..." : "Adding..."} processing={submitting} accentClass="bg-orange-600">
+      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingMeal ? "Edit meal" : "Add meal"} subtitle={`${DAYS[day]} menu`} formId="restaurant-meal-form" actionLabel={editingMeal ? "Save changes" : "Add meal"} processingLabel={editingMeal ? "Saving..." : "Adding..."} processing={submitting} accentClass="bg-orange-600" uploadStage={uploadStage} uploadTitle="Adding your meal">
         <RestaurantForm formId="restaurant-meal-form" form={form} setForm={setForm} onSubmit={save} />
       </VerticalEditorSheet>
     </WorkspaceShell>
@@ -156,6 +161,7 @@ function HotelDashboard({ business }) {
   const [workspace, setWorkspace] = useState({ images: [], rooms: [], videoUrl: "" });
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadStage, setUploadStage] = useState("");
   const submissionLock = useRef(false);
   const [media, setMedia] = useState(createEmptyVerticalMedia);
   const activity = useVerticalActivity(business.id);
@@ -169,13 +175,15 @@ function HotelDashboard({ business }) {
     submissionLock.current = true;
     setSubmitting(true);
     try {
-      await saveHotelMediaPackage(business.id, media);
+      await saveHotelMediaPackage(business.id, media, setUploadStage);
       setMedia(createEmptyVerticalMedia());
       setFormOpen(false);
       await load();
       notifyVerticalListingUpdated(business.id);
+      haptics.medium("marketplace");
+      sounds.success("marketplace");
       showToast("Hotel media published.", "success");
-    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); }
+    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
   return (
@@ -187,8 +195,8 @@ function HotelDashboard({ business }) {
         {workspace.videoUrl ? <div className="relative mt-4"><video src={workspace.videoUrl} controls preload="metadata" className="max-h-72 w-full rounded-2xl bg-black" /><div className="absolute right-3 top-3"><SellerItemActions label={`${business.name} hotel video`} shareUrl={workspace.videoUrl} onDelete={async () => { await deleteHotelVideo(business.id, workspace.videoUrl); await load(); notifyVerticalListingUpdated(business.id); showToast("Hotel video deleted.", "success"); }} /></div></div> : null}
       </section>
       <BookingRequests bookings={activity.recentBookings} />
-      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title="Add hotel" subtitle="Hotel gallery and video" formId="hotel-media-form" actionLabel="Add hotel" processingLabel="Adding..." processing={submitting} accentClass="bg-blue-600">
-        <form id="hotel-media-form" onSubmit={save} className="grid gap-3 rounded-2xl bg-blue-50 p-4"><p className="text-sm font-semibold leading-6 text-blue-950">Add one cover image, at least five extra images, and one video up to 30 seconds and less than 50 MB.</p><VerticalMediaFields media={media} setMedia={setMedia} accent="blue" noun="hotel" /></form>
+      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title="Add hotel" subtitle="Hotel gallery and video" formId="hotel-media-form" actionLabel="Add hotel" processingLabel="Adding..." processing={submitting} accentClass="bg-blue-600" uploadStage={uploadStage} uploadTitle="Adding your hotel media">
+        <form id="hotel-media-form" onSubmit={save} className="grid gap-3 rounded-2xl bg-blue-50 p-4"><p className="text-sm font-semibold leading-6 text-blue-950">Add one cover image, five to six extra images, and one video up to 30 seconds and less than 50 MB.</p><VerticalMediaFields media={media} setMedia={setMedia} accent="blue" noun="hotel" /></form>
       </VerticalEditorSheet>
     </WorkspaceShell>
   );
@@ -198,6 +206,7 @@ function PropertyDashboard({ business }) {
   const [listings, setListings] = useState([]);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadStage, setUploadStage] = useState("");
   const submissionLock = useRef(false);
   const [form, setForm] = useState({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, address: "", city: business.location || "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
   const editingProperty = Boolean(form.id);
@@ -228,13 +237,15 @@ function PropertyDashboard({ business }) {
     submissionLock.current = true;
     setSubmitting(true);
     try {
-      await savePropertyListing(business.id, form);
+      await savePropertyListing(business.id, form, setUploadStage);
       setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, address: "", city: business.location || "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
       setFormOpen(false);
       await load();
       notifyVerticalListingUpdated(business.id);
+      haptics.medium("marketplace");
+      sounds.success("marketplace");
       showToast("Property published for buyers.", "success");
-    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); }
+    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
   return (
@@ -246,7 +257,7 @@ function PropertyDashboard({ business }) {
         {!listings.length ? <EmptyState text="Add the first authorised property listing." /> : null}
       </section>
       <BookingRequests bookings={activity.recentBookings} />
-      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingProperty ? "Edit property" : "Add property"} subtitle="Property listing" formId="property-listing-form" actionLabel={editingProperty ? "Save changes" : "Add property"} processingLabel={editingProperty ? "Saving..." : "Adding..."} processing={submitting} accentClass="bg-violet-700">
+      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingProperty ? "Edit property" : "Add property"} subtitle="Property listing" formId="property-listing-form" actionLabel={editingProperty ? "Save changes" : "Add property"} processingLabel={editingProperty ? "Saving..." : "Adding..."} processing={submitting} accentClass="bg-violet-700" uploadStage={uploadStage} uploadTitle="Adding your property">
         <PropertyForm formId="property-listing-form" form={form} setForm={setForm} onSubmit={save} />
       </VerticalEditorSheet>
     </WorkspaceShell>
@@ -267,7 +278,7 @@ function PropertyForm({ formId, form, setForm, onSubmit }) {
   );
 }
 
-function VerticalEditorSheet({ accentClass, actionLabel, children, formId, onClose, open, processing, processingLabel, subtitle, title }) {
+function VerticalEditorSheet({ accentClass, actionLabel, children, formId, onClose, open, processing, processingLabel, subtitle, title, uploadStage = "", uploadTitle = "Adding your listing" }) {
   useBodyScrollLock(open);
   if (!open) return null;
   return createPortal(
@@ -283,6 +294,11 @@ function VerticalEditorSheet({ accentClass, actionLabel, children, formId, onClo
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:p-6">{children}</div>
+        {processing && uploadStage ? (
+          <div className="absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 mx-auto max-w-md">
+            <ListingUploadProgressCard stage={uploadStage} title={uploadTitle} />
+          </div>
+        ) : null}
       </section>
     </div>,
     document.body,

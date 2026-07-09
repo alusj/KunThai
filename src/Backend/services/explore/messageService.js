@@ -8,7 +8,26 @@ const MESSAGE_TYPES = ["text", "image", "audio", "video", "location_request", "l
 export const EXPLORE_MESSAGE_EVENT = "explore-message-event";
 export const EXPLORE_MESSAGE_ACTIVITY_EVENT = "explore-message-activity";
 export const EXPLORE_MESSAGE_CACHE_CLEARED_EVENT = "explore-message-cache-cleared";
+export const EXPLORE_OPEN_CONVERSATION_EVENT = "kuntai-open-conversation";
 let realtimeSubscriptionSequence = 0;
+
+// A banner tap can request a conversation before the Messages screen (or even
+// Explore) is mounted; the id waits here until useExploreMessages consumes it.
+let pendingOpenConversationId = "";
+
+export function requestConversationOpen(conversationId) {
+  pendingOpenConversationId = String(conversationId || "");
+  if (!pendingOpenConversationId) return;
+  window.dispatchEvent(new CustomEvent(EXPLORE_OPEN_CONVERSATION_EVENT, { detail: { conversationId: pendingOpenConversationId } }));
+}
+
+export function peekPendingConversationOpen() {
+  return pendingOpenConversationId;
+}
+
+export function clearPendingConversationOpen() {
+  pendingOpenConversationId = "";
+}
 
 function safeParse(value, fallback = null) {
   try {

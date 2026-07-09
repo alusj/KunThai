@@ -1,3 +1,5 @@
+import { haptics, sounds } from "../../../../../../Backend/services/feedbackService";
+
 export function getPostUrl(postId) {
   const url = new URL(window.location.href);
   url.hash = `post-${postId}`;
@@ -25,8 +27,13 @@ export async function sharePost(post) {
 
   if (navigator.share) {
     await navigator.share(shareData);
+    haptics.medium("explore");
+    sounds.share("explore");
     return "Shared";
   }
 
-  return copyPostLink(post.id);
+  const result = await copyPostLink(post.id);
+  haptics.medium("explore");
+  sounds.share("explore");
+  return result;
 }
