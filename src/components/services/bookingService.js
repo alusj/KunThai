@@ -379,7 +379,7 @@ export async function submitTransportSupportTicket(input) {
     .maybeSingle();
 
   if (error) {
-    throw new Error(error.message || "Unable to send this request to KunThai Transport support.");
+    throw new Error(error.message || "Unable to send this request to KunThai UrRide support.");
   }
   return { synced: true, ticket: data };
 }

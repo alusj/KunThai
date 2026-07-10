@@ -92,7 +92,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                   Before you continue
                 </p>
                 <h1 className="truncate text-xl font-black text-slate-950">
-                  KunThai Transport Registration
+                  KunThai UrRide Registration
                 </h1>
               </div>
             </div>
@@ -112,7 +112,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                 </div>
 
                 <h2 className="mt-5 text-3xl font-black text-slate-950">
-                  Before you register with KunThai Transport
+                  Before you register with KunThai UrRide
                 </h2>
 
                 <div className="mt-5"><TransportCautionCard /></div>
@@ -123,7 +123,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
 
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
                   Understand how registration works, what information is required,
-                  what KunThai Transport can provide, and the responsibilities of
+                  what KunThai UrRide can provide, and the responsibilities of
                   operators, companies, and fleet owners.
                 </p>
 
@@ -242,7 +242,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
             </div>
 
             <p className="mt-4 text-xs font-black uppercase tracking-wide text-emerald-700">
-              KunThai Transport
+              KunThai UrRide
             </p>
 
             <h2 className="mt-2 text-2xl font-black text-slate-950">

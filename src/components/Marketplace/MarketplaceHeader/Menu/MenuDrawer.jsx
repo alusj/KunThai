@@ -21,6 +21,7 @@ import {
   RotateCcw,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   ShoppingBag,
   Share2,
   Trash2,
@@ -46,6 +47,7 @@ import {
   saveBuyerDeliveryAddress,
 } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
 import Orders from "../../Orders";
+import AdminRolesPanel from "../../shared/AdminRolesPanel";
 import UrMallCautionCard from "../../shared/UrMallCautionCard";
 
 const BUYER_ADDRESS_KEY = "marketplace-buyer-address";
@@ -62,6 +64,7 @@ const menuItems = [
   { id: "address", label: "Delivery address", icon: MapPin },
   { id: "payments", label: "Payment methods", icon: CreditCard },
   { id: "returns", label: "Returns & disputes", icon: RotateCcw },
+  { id: "adminRoles", label: "Admin roles", icon: ShieldCheck },
   { id: "support", label: "Help & support", icon: LifeBuoy },
   { id: "settings", label: "Buyer settings", icon: Settings },
 ];
@@ -948,6 +951,8 @@ export default function MenuDrawer({ open, onClose }) {
             </div>
           </div>
         )}
+
+        {screenKey === "adminRoles" && <AdminRolesPanel />}
 
         {screenKey === "returns" && (
           <BuyerArticlePanel

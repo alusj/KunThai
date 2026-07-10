@@ -3,12 +3,16 @@ import { createPortal } from "react-dom";
 import { Search, X } from "lucide-react";
 
 import { useExploreSearch } from "../../../../../Backend/hooks/useExploreSearch";
+import { openPublicCodeResult } from "../../../../../Backend/services/publicCodeService";
+import PublicCodeResultCard from "../../../../shared/PublicCodeResultCard";
+import { usePublicCodeLookup } from "../../../../../Backend/hooks/usePublicCodeLookup";
 import SearchFilters from "./SearchFilters";
 import SearchResultItem from "./SearchResultItem";
 
 export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult, open }) {
   const inputRef = useRef(null);
   const search = useExploreSearch();
+  const codeLookup = usePublicCodeLookup(open ? search.query : "");
 
   useEffect(() => {
     if (open) {
@@ -134,6 +138,22 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
               </div>
             ) : (
               <div className="space-y-2">
+                {codeLookup.kind ? (
+                  <PublicCodeResultCard
+                    lookup={codeLookup}
+                    surface="explore"
+                    onOpen={(result) => {
+                      close();
+                      if (result.kind === "kunthai") {
+                        window.dispatchEvent(new CustomEvent("kuntai-open-profile", {
+                          detail: { userId: result.userId, displayName: result.title, avatarUrl: result.avatarUrl },
+                        }));
+                        return;
+                      }
+                      openPublicCodeResult(result);
+                    }}
+                  />
+                ) : null}
                 {search.loading ? <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">Searching...</p> : null}
                 {search.error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">{search.error}</p> : null}
                 {!search.loading && !search.results.length ? (

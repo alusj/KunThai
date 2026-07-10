@@ -6,7 +6,7 @@ import { findExploreTopic } from "../../data/exploreTopics";
 const surfaceMap = {
   explore: { label: "Explore", icon: Compass },
   marketplace: { label: "Marketplace", icon: ShoppingBag },
-  transport: { label: "Transport", icon: CarFront },
+  transport: { label: "UrRide", icon: CarFront },
 };
 
 export default function ReadyStep({ values, saving, error, onBack, onFinish }) {

@@ -1483,7 +1483,31 @@ export default function NearbyAreaMap({
   const weatherInsight = getSmartWeatherMessage(weather);
   const showWeatherBadge = Boolean(weatherError || weatherInsight.relevant);
 
+  // Picking a search result should not cover the map: the direction card
+  // opens collapsed to its summary pill, and the user expands it when needed.
+  // The ref keeps that intent alive while the route loads and resolves, since
+  // those steps normally snap the card to half-open. Operator route previews
+  // (routePlan) keep the regular half-open behavior.
+  const collapseForSearchSelectionRef = useRef(false);
+  useEffect(() => {
+    if (selectedLocation && !routePlan) {
+      collapseForSearchSelectionRef.current = true;
+      setNavigationSnap("collapsed");
+    } else {
+      collapseForSearchSelectionRef.current = false;
+    }
+    // routePlan presence only decides whether the collapse intent applies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLocation]);
+
+  function snapForRouteUpdate() {
+    return collapseForSearchSelectionRef.current ? "collapsed" : "half";
+  }
+
   function setNextNavigationSnap(direction) {
+    // A manual snap change means the user chose a size; stop forcing the
+    // search-selection collapse on later route updates.
+    collapseForSearchSelectionRef.current = false;
     const snaps = ["collapsed", "half", "expanded"];
     setNavigationSnap((current) => {
       const index = Math.max(0, snaps.indexOf(current));
@@ -1784,7 +1808,7 @@ export default function NearbyAreaMap({
       duration: formatDuration(route.durationSeconds),
       raw: route,
     });
-    setNavigationSnap("half");
+    setNavigationSnap(snapForRouteUpdate());
     setTrafficInsight(getLiveTrafficInsight(trafficSnapshotsRef.current, route, "correct"));
     evaluateTrafficAhead({ force: true });
   }
@@ -2149,7 +2173,7 @@ export default function NearbyAreaMap({
       });
       setRouteStatusKey("correct");
       routeStatusRef.current = "correct";
-      setNavigationSnap("half");
+      setNavigationSnap(snapForRouteUpdate());
       setAlternativeRoute(null);
       setAlternativeError("");
       alternativeRouteRef.current = null;

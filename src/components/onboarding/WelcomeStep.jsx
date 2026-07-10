@@ -15,7 +15,7 @@ const cards = [
   },
   {
     icon: CarFront,
-    title: "Transport",
+    title: "UrRide",
     body: "Book rides and delivery from the same account.",
   },
 ];

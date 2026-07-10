@@ -84,7 +84,7 @@ export default function Header({
       <PremiumHeader
         accent="emerald"
         centerIcon={Truck}
-        title="Transport"
+        title="UrRide"
         left={(
           <>
             {accountLoading ? (

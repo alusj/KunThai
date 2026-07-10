@@ -221,7 +221,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
               <Toggle active={feedbackFx.explore} label="Explore" onChange={(value) => updateSection("feedbackFx", { explore: value })} />
               <Toggle active={feedbackFx.messages} label="Messages" onChange={(value) => updateSection("feedbackFx", { messages: value })} />
               <Toggle active={feedbackFx.marketplace} label="UrMall" onChange={(value) => updateSection("feedbackFx", { marketplace: value })} />
-              <Toggle active={feedbackFx.transport} label="Transport" onChange={(value) => updateSection("feedbackFx", { transport: value })} />
+              <Toggle active={feedbackFx.transport} label="UrRide" onChange={(value) => updateSection("feedbackFx", { transport: value })} />
             </SettingRow>
           </SettingsSection>
 

@@ -867,7 +867,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                     Passenger safety notice
                   </p>
                   <h2 className="mt-1 text-xl font-black text-slate-950">
-                    Before you book with KunThai Transport
+                    Before you book with KunThai UrRide
                   </h2>
                 </div>
               </div>

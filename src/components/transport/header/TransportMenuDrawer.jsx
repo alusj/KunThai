@@ -114,7 +114,7 @@ const menuSections = [
       {
         id: "settings",
         icon: Settings,
-        title: "Transport settings",
+        title: "UrRide settings",
         description: "Trip alerts, privacy, language, and travel preferences.",
       },
     ],
@@ -222,7 +222,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
   function openSupportFromTrip(trip) {
     setSupportSeed({
       topic: "Trip issue",
-      details: `${trip.title || "Transport trip"} - ${trip.pickup || "Pickup pending"} to ${trip.destination || "Destination pending"}`,
+      details: `${trip.title || "UrRide trip"} - ${trip.pickup || "Pickup pending"} to ${trip.destination || "Destination pending"}`,
     });
     setActiveScreen("support");
   }
@@ -320,7 +320,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
         >
           <PassengerMenuPageHeader
             title={activeTitle}
-            eyebrow="Transport"
+            eyebrow="UrRide"
             onBack={() => {
               setActiveScreen(null);
               setSupportSeed(null);
@@ -363,7 +363,7 @@ function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
   );
 }
 
-function PassengerMenuPageHeader({ title, eyebrow = "Transport", onBack }) {
+function PassengerMenuPageHeader({ title, eyebrow = "UrRide", onBack }) {
   return (
     <header className="kt-header-glass sticky top-0 z-30 px-4 py-3 sm:px-6">
       <div className="flex min-w-0 items-start gap-3">
@@ -1348,7 +1348,7 @@ function SupportPage({ seed }) {
           form.details.trim(),
         ].filter(Boolean).join("\n"),
       });
-      setMessage("Support request sent to KunThai Transport.");
+      setMessage("Support request sent to KunThai UrRide.");
     } catch (error) {
       setMessage(error.message || "Unable to send this support request. Please try again.");
     } finally {

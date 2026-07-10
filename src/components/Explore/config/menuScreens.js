@@ -80,12 +80,12 @@ export const MENU_SCREENS = {
     subtitle: "Practical guidance for reports, blocks, trusted transactions, and urgent concerns.",
   },
   TermsPolicies: {
-    title: "Terms & Policies",
-    subtitle: "Understand your rights, responsibilities, and safety rules.",
+    title: "Policy Center",
+    subtitle: "Rules, privacy, safety, marketplace, transport, and transparency.",
   },
   AboutKunThai: {
     title: "About KunThai",
-    subtitle: "Learn how KunThai brings social, marketplace, transport, and money tools together.",
+    subtitle: "Learn how KunThai brings social, marketplace, transport, and trusted service tools together.",
   },
   ViewedProfile: {
     title: "Profile",

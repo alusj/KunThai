@@ -245,15 +245,17 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setVerificationFleet(null);
     const returnToBooking = options.returnTo === "booking";
     const returnToExploreMessages = options.returnTo === "explore-messages";
+    const returnToActiveTrips = options.returnTo === "active-trips";
     const bookingSnapshot = returnToBooking ? options.bookingTarget || bookingTarget : null;
     setBookingTarget(null);
     setNearbyAreaRequest(
       destination || Object.keys(options).length
         ? {
             destination,
-            autoRoute: options.autoRoute ?? true,
-            returnTo: returnToBooking ? "booking" : returnToExploreMessages ? "explore-messages" : "",
+            autoRoute: options.autoRoute ?? Boolean(destination),
+            returnTo: returnToBooking ? "booking" : returnToExploreMessages ? "explore-messages" : returnToActiveTrips ? "active-trips" : "",
             bookingTarget: bookingSnapshot,
+            emergency: options.emergency || null,
           }
         : null,
     );
@@ -995,10 +997,15 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
             const returnToExplore = String(nearbyAreaRequest?.returnTo || "").startsWith("explore-");
             const returnToMarketplace = String(nearbyAreaRequest?.returnTo || "").startsWith("marketplace-");
+            const returnToActiveTrips = nearbyAreaRequest?.returnTo === "active-trips";
             setRouteDirection("backward");
             setNearbyAreaOpen(false);
             if (returnToBooking) {
               setBookingTarget(nearbyAreaRequest.bookingTarget);
+            }
+            if (returnToActiveTrips) {
+              setActiveTripsActionRequest(null);
+              setActiveTripsOpen(true);
             }
             setNearbyAreaRequest(null);
             if (returnToExplore) {
@@ -1012,6 +1019,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           mode={nearbyAreaRequest?.mode || "standard"}
           pickerStart={nearbyAreaRequest?.pickerStart || "current"}
           pickerLabels={nearbyAreaRequest?.pickerLabels || null}
+          initialEmergencyRequest={nearbyAreaRequest?.emergency || null}
           onLocationPicked={async (location) => {
             const request = nearbyAreaRequest;
             const returnToExplore = String(request?.returnTo || "").startsWith("explore-");
@@ -1034,6 +1042,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           backLabel={
             nearbyAreaRequest?.returnTo === "booking"
               ? "Back to booking form"
+              : nearbyAreaRequest?.returnTo === "active-trips"
+                ? "Back to active trips"
               : nearbyAreaRequest?.returnTo === "explore-messages"
                 ? "Back to messages"
                 : nearbyAreaRequest?.returnTo === "marketplace-seller"
@@ -1078,6 +1088,17 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       <div className={`${routePanelClass} min-h-screen`}>
         <ActiveTripsScreen
           initialActionRequest={activeTripsActionRequest}
+          onOpenEmergencyArea={(trip) => {
+            openNearbyAreaRoute(null, {
+              returnTo: "active-trips",
+              emergency: {
+                open: true,
+                source: "active-trip-actions",
+                tripId: trip.id,
+                tripTitle: trip.title,
+              },
+            });
+          }}
           onBack={() => {
             setRouteDirection("backward");
             setActiveTripsOpen(false);

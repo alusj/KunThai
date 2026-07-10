@@ -365,17 +365,35 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   // listener stable while openMenuScreen closes over fresh state.
   const openMenuScreenRef = useRef(null);
   openMenuScreenRef.current = openMenuScreen;
+  const openViewedProfileRef = useRef(null);
+  openViewedProfileRef.current = openViewedProfile;
   useEffect(() => {
     function handleOpenScreenRequest(event) {
       const screen = event?.detail?.screen || consumePendingExploreScreen();
       if (screen) openMenuScreenRef.current?.(screen);
     }
 
+    function handleOpenProfileRequest(event) {
+      const detail = event?.detail || {};
+      if (!detail.userId) return;
+      openViewedProfileRef.current?.({
+        userId: detail.userId,
+        displayName: detail.displayName || "",
+        username: detail.username || "",
+        avatarUrl: detail.avatarUrl || "",
+        accountType: "personal",
+      });
+    }
+
     const pendingScreen = consumePendingExploreScreen();
     if (pendingScreen) openMenuScreenRef.current?.(pendingScreen);
 
     window.addEventListener(OPEN_EXPLORE_SCREEN_EVENT, handleOpenScreenRequest);
-    return () => window.removeEventListener(OPEN_EXPLORE_SCREEN_EVENT, handleOpenScreenRequest);
+    window.addEventListener("kuntai-open-profile", handleOpenProfileRequest);
+    return () => {
+      window.removeEventListener(OPEN_EXPLORE_SCREEN_EVENT, handleOpenScreenRequest);
+      window.removeEventListener("kuntai-open-profile", handleOpenProfileRequest);
+    };
   }, []);
 
   function dismissPostingNotice() {
@@ -781,7 +799,14 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (screenKey === "TermsPolicies") {
-      return <TermsPoliciesScreen hideHeader />;
+      return (
+        <TermsPoliciesScreen
+          hideHeader
+          onOpenHelp={() => openMenuScreen("HelpCenter")}
+          onOpenPrivacy={() => openMenuScreen("Privacy")}
+          onOpenReport={() => openMenuScreen("ReportProblem")}
+        />
+      );
     }
 
     if (screenKey === "AboutKunThai") {

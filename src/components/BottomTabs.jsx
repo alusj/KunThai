@@ -6,7 +6,7 @@ import { Compass, ShoppingBag, Truck } from "lucide-react";
 const tabs = [
   { id: "explore", label: "Explore", icon: Compass },
   { id: "marketplace", label: "UrMall", icon: ShoppingBag },
-  { id: "transport", label: "Transport", icon: Truck },
+  { id: "transport", label: "UrRide", icon: Truck },
 ];
 
 export default function BottomTabs({ badges = {}, page, setPage }) {

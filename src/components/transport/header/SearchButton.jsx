@@ -6,6 +6,9 @@ import { MapPin, Search, X } from "lucide-react";
 import AppPortal from "../../shared/AppPortal";
 import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import { fetchTransportFleets } from "../../services/transportFleetService";
+import { openPublicCodeResult } from "../../../Backend/services/publicCodeService";
+import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
+import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
 import VerificationBadge from "../verification/VerificationBadge";
 
 function matchesSearch(fleet, query) {
@@ -70,6 +73,12 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
     () => fleets.filter((fleet) => matchesSearch(fleet, query)).slice(0, 20),
     [fleets, query],
   );
+  const codeLookup = usePublicCodeLookup(query);
+
+  function openCodeResult(result) {
+    setOpen(false);
+    openPublicCodeResult(result);
+  }
 
   return (
     <>
@@ -121,6 +130,9 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                 </label>
 
                 <div className="mt-4 max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+                  {codeLookup.kind && codeLookup.kind !== "urride" ? (
+                    <PublicCodeResultCard lookup={codeLookup} surface="urride" onOpen={openCodeResult} />
+                  ) : null}
                   {error ? (
                     <SearchState title="Unable to search" body={error} />
                   ) : loading ? (

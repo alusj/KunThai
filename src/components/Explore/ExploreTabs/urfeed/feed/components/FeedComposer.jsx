@@ -31,6 +31,7 @@ import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
 import MediaPreview from "../composer/MediaPreview";
 import PostingProgress from "../composer/PostingProgress";
+import PostCautionDialog from "../../../../shared/PostCautionDialog";
 import VoiceCapsuleRecorder from "../composer/VoiceCapsuleRecorder";
 import {
   clearDraft,
@@ -324,6 +325,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [videoNotice, setVideoNotice] = useState(null);
   const [postingStage, setPostingStage] = useState("");
   const [postingProgress, setPostingProgress] = useState(0);
+  const [cautionOpen, setCautionOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [hashtagTrigger, setHashtagTrigger] = useState(null);
@@ -1210,7 +1212,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     publishPostingNotice(detail);
   }
 
-  async function handleSubmit(event) {
+  function handleSubmit(event) {
     event?.preventDefault?.();
 
     if (!canSubmit) {
@@ -1218,6 +1220,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setFeedback(isAdvertMode ? "Add an advert title, message, link, location, image, or video." : "Add text, an image, a video, or a voice note.");
       return;
     }
+
+    // Publishing is confirmed through the content-responsibility dialog first.
+    setCautionOpen(true);
+  }
+
+  async function performSubmit() {
+    setCautionOpen(false);
 
     let uploadedReviewVideoUrl = "";
 
@@ -1988,6 +1997,13 @@ if (!isMobileVideoDevice) {
           </form>
         </div>
       ) : null}
+
+      <PostCautionDialog
+        open={cautionOpen}
+        onCancel={() => setCautionOpen(false)}
+        onConfirm={performSubmit}
+        submitting={creating}
+      />
     </div>
   );
 }

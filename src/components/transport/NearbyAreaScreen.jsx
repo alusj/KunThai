@@ -78,6 +78,47 @@ const ONE_KM_ROUTE_SEARCH_METERS = 1350;
 const ONE_KM_ROUTE_START_SNAP_LIMIT_METERS = 160;
 const ONE_KM_ROUTE_TIMEOUT_MS = 7000;
 const ONE_KM_ROUTE_BEARINGS = [0, 45, 90, 135, 180, 225, 270, 315];
+const emergencySearchActions = {
+  hospital: {
+    query: "hospital",
+    label: "Hospital",
+    description: "Nearest hospital or clinic found from Area View search. Confirm details before travelling.",
+  },
+  police: {
+    query: "police station",
+    label: "Police station",
+    description: "Nearest police station found from Area View search. Confirm details before travelling.",
+  },
+  pharmacy: {
+    query: "pharmacy",
+    label: "Pharmacy",
+    description: "Nearest pharmacy found from Area View search. Confirm details before travelling.",
+  },
+  fire: {
+    query: "fire station",
+    label: "Fire station",
+    description: "Nearest fire service location found from Area View search. Confirm details before travelling.",
+  },
+};
+
+function readCachedSosCountryCode() {
+  try {
+    return String(localStorage.getItem(SOS_COUNTRY_CACHE_KEY) || "").toUpperCase();
+  } catch {
+    return "";
+  }
+}
+
+function cacheSosCountryCode(countryCode) {
+  const normalizedCode = String(countryCode || "").toUpperCase();
+  if (!normalizedCode) return;
+
+  try {
+    localStorage.setItem(SOS_COUNTRY_CACHE_KEY, normalizedCode);
+  } catch {
+    // Local storage may be blocked; SOS should still work.
+  }
+}
 
 function createAddLocationDraft() {
   return {
@@ -625,6 +666,7 @@ export default function NearbyAreaScreen({
   mode = "standard",
   pickerStart = "current",
   pickerLabels = null,
+  initialEmergencyRequest = null,
   backLabel = "Back to transport",
 }) {
   const [activeCategory, setActiveCategory] = useState("All");
@@ -678,6 +720,7 @@ export default function NearbyAreaScreen({
   const searchRequestRef = useRef(0);
   const sosDetectionRequestRef = useRef(0);
   const initialDestinationHandledRef = useRef("");
+  const initialEmergencyHandledRef = useRef("");
   const oneKmPreviewRequestRef = useRef(0);
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
@@ -769,14 +812,6 @@ export default function NearbyAreaScreen({
     ].join(":");
   }, [autoRoute, initialDestination]);
 
-  function readCachedSosCountryCode() {
-    try {
-      return String(localStorage.getItem(SOS_COUNTRY_CACHE_KEY) || "").toUpperCase();
-    } catch {
-      return "";
-    }
-  }
-
   function chooseLocationCategory(category) {
     setActiveCategory(category);
     setMoreCategoriesOpen(false);
@@ -831,17 +866,6 @@ export default function NearbyAreaScreen({
       cancelled = true;
     };
   }, [isOneKmPreview, userLocation]);
-
-  function cacheSosCountryCode(countryCode) {
-    const normalizedCode = String(countryCode || "").toUpperCase();
-    if (!normalizedCode) return;
-
-    try {
-      localStorage.setItem(SOS_COUNTRY_CACHE_KEY, normalizedCode);
-    } catch {
-      // Local storage may be blocked; SOS should still work.
-    }
-  }
 
   const handleMapLocationResolved = useCallback((position) => {
     const nextPosition = normalizePosition(position);
@@ -1422,7 +1446,7 @@ export default function NearbyAreaScreen({
     setRecenterSignal((value) => value + 1);
   }, []);
 
-  async function openEmergencyMode() {
+  const openEmergencyMode = useCallback(async () => {
     haptics.heavy("transport");
     const requestId = sosDetectionRequestRef.current + 1;
     sosDetectionRequestRef.current = requestId;
@@ -1452,26 +1476,96 @@ export default function NearbyAreaScreen({
     setDetectedCountryCode(nextCountryCode);
     cacheSosCountryCode(nextCountryCode);
     setDetectingSosCountry(false);
-  }
+  }, [mapCenter, userLocation]);
 
-  const handleEmergencyNearbySearch = useCallback((type) => {
-    const searchMap = {
-      hospital: "hospital",
-      police: "police station",
-      pharmacy: "pharmacy",
-      fire: "fire station",
+  const handleEmergencyNearbySearch = useCallback(async (type) => {
+    const action = emergencySearchActions[type] || {
+      query: String(type || "").trim(),
+      label: "Emergency location",
+      description: "Nearby emergency location found from Area View search. Confirm details before travelling.",
     };
-
-    const query = searchMap[type] || String(type || "").trim();
+    const query = action.query || String(type || "").trim();
+    const searchCenter = mapCenterRef.current || userLocationRef.current || userLocation || mapCenter;
 
     setSosOpen(false);
+    setActiveCategory("Emergency");
     setOperatorRoutePlan(null);
-    setSelectionLocked(false);
+    setLocationPanelOpen(false);
+    setSelectionLocked(true);
     setSearchResults([]);
-    setSearching(false);
     setSearchQuery(query);
     setSearchOverlayOpen(true);
-  }, []);
+    setSearching(true);
+
+    try {
+      const results = await searchLocations(query, searchCenter, { limit: 8 });
+      const nearest = (results || []).find((result) => result?.lat != null && result?.lng != null);
+
+      if (!nearest) {
+        setSelectionLocked(false);
+        setSearchResults(results || []);
+        return;
+      }
+
+      const emergencyLocation = {
+        ...nearest,
+        id: `emergency-${type || "place"}-${nearest.id}`,
+        name: nearest.name || action.label,
+        type: action.label,
+        category: "Emergency",
+        status: "verified",
+        description: action.description,
+        distance: nearest.distance || getShortAddress(nearest),
+      };
+
+      saveSearchHistory({ query, result: emergencyLocation, selected: true }).then(() => {
+        getRecentSearchHistory().then(setRecentSearches);
+      });
+
+      setActiveLocation(emergencyLocation);
+      setSelectedSearchLocation(emergencyLocation);
+      setLocationPanelOpen(true);
+      setSearchOverlayOpen(false);
+      setSearchResults(results || []);
+      mapInstance?.flyTo({
+        center: [emergencyLocation.lng, emergencyLocation.lat],
+        zoom: 15.5,
+        essential: true,
+      });
+    } catch {
+      setSelectionLocked(false);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [mapCenter, mapInstance, userLocation]);
+
+  useEffect(() => {
+    if (!initialEmergencyRequest) return;
+
+    const requestKey = [
+      initialEmergencyRequest.source || "external",
+      initialEmergencyRequest.tripId || "",
+      initialEmergencyRequest.searchType || "",
+      initialEmergencyRequest.open === false ? "closed" : "open",
+    ].join(":");
+
+    if (initialEmergencyHandledRef.current === requestKey) return;
+    initialEmergencyHandledRef.current = requestKey;
+
+    setFocusMode(false);
+    setMoreCategoriesOpen(false);
+    setActiveCategory("Emergency");
+
+    if (initialEmergencyRequest.searchType) {
+      handleEmergencyNearbySearch(initialEmergencyRequest.searchType);
+      return;
+    }
+
+    if (initialEmergencyRequest.open !== false) {
+      openEmergencyMode();
+    }
+  }, [handleEmergencyNearbySearch, initialEmergencyRequest, openEmergencyMode]);
 
   function handleEmergencySheetClose() {
     sosDetectionRequestRef.current += 1;

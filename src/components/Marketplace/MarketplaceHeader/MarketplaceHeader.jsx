@@ -1,4 +1,4 @@
-import { MessageCircle, PackageCheck, ShoppingBag, Store } from "lucide-react";
+import { MessageCircle, PackageCheck, Plus, ShoppingBag, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
 import {
@@ -42,7 +42,7 @@ export default function MarketplaceHeader({
   const [, setSeenVersion] = useState(0);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const businessLabel = loading || hasBusiness ? "MyBiz" : "REGISTER";
+  const businessLabel = loading || hasBusiness ? "Open your business workspace" : "Register your business";
   const orderCount = getUnseenNotificationCount(BUYER_ORDER_SCOPE, orderItems);
   const messageCount = getUnseenNotificationCount(BUYER_MESSAGE_SCOPE, messageItems, { unreadOnly: true });
   const activeHint = orderCount ? "orders" : messageCount ? "messages" : "";
@@ -136,19 +136,16 @@ export default function MarketplaceHeader({
       className="z-20"
       left={(
         <PremiumHeaderButton
-          active={!hasBusiness}
+          active={!loading && !hasBusiness}
           accent="emerald"
           badge={sellerNotificationCount}
-          icon={Store}
+          icon={loading || hasBusiness ? Store : Plus}
           label={businessLabel}
           onClick={() => {
             if (guardGuestAction("open", "seller workspace")) return;
             onMyBizClick?.();
           }}
-          wide
-        >
-          {businessLabel}
-        </PremiumHeaderButton>
+        />
       )}
       right={(
         <>

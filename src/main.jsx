@@ -17,7 +17,9 @@ const PublicPolicyPage = lazy(() => import("./components/public/PublicPolicyPage
 function RootApplication() {
   const pathname = window.location.pathname;
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
-  const publicPolicyId = pathname === "/privacy" ? "privacy" : pathname === "/terms" ? "terms" : "";
+  const isPolicyCenterPath = pathname === "/policy-center" || pathname.startsWith("/policy-center/");
+  const policyCenterSlug = isPolicyCenterPath ? decodeURIComponent(pathname.replace(/^\/policy-center\/?/, "")) : "";
+  const publicPolicyId = pathname === "/privacy" ? "privacy" : pathname === "/terms" ? "terms" : policyCenterSlug;
 
   if (isAdminPath) {
     return (
@@ -27,7 +29,7 @@ function RootApplication() {
     );
   }
 
-  if (publicPolicyId) {
+  if (publicPolicyId || isPolicyCenterPath) {
     return (
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm font-bold text-slate-600">Opening KunThai policies…</div>}>
         <PublicPolicyPage initialPolicyId={publicPolicyId} />

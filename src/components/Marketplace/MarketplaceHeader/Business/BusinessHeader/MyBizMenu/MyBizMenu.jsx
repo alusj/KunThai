@@ -5,6 +5,7 @@ import {
   FileText,
   LayoutDashboard,
   Plus,
+  ShieldCheck,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import SellerDrawerSection from "./SellerDrawerSection";
 import AppPortal from "../../../../../shared/AppPortal";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 
+import BusinessAdmins from "./MyBizPages/BusinessAdmins/BusinessAdmins";
 import BusinessSettings from "./MyBizPages/BusinessSettings/BusinessSettings";
 import HelpSupport from "./MyBizPages/HelpSupport/HelpSupport";
 import Privacy from "./MyBizPages/HelpSupport/Legal/Privacy";
@@ -47,6 +49,9 @@ function getDrawerScreen(key, props = {}) {
   },
   board: {
     component: <SellerBoard onBack={props.onBack} />,
+  },
+  admins: {
+    component: <BusinessAdmins onBack={props.onBack} />,
   },
   };
 
@@ -247,6 +252,12 @@ export default function MyBizMenu({
                     title="Store Settings"
                     description="Store details, categories, pickup, delivery, and operating hours."
                     onClick={() => openActiveScreen("business")}
+                  />
+                  <SellerDrawerNavItem
+                    icon={ShieldCheck}
+                    title="Business admins"
+                    description="Invite trusted people by KunThai ID and manage their responsibilities."
+                    onClick={() => openActiveScreen("admins")}
                   />
                 </SellerDrawerSection>
 

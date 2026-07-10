@@ -504,11 +504,7 @@ export function getCountryPhoneDigitCount(value = "") {
 }
 
 export function getCountryPhoneHint(value = "") {
-  const profile = getActiveCountryProfile(value);
-  const digitLabel = profile.minLength === profile.maxLength
-    ? `${profile.maxLength} digits`
-    : `${profile.minLength}-${profile.maxLength} digits`;
-  return `${getCountryPhonePlaceholder(profile)} (${digitLabel})`;
+  return getCountryPhonePlaceholder(value);
 }
 
 export function getCountryAddressPlaceholder(value = "") {
@@ -559,17 +555,30 @@ export function validateCountryPhone(phone = "", country = "", { required = true
   };
 }
 
+// Groups national digits the same way the country placeholder does, e.g.
+// Sierra Leone "99727209" -> "99 727 209" to mirror "00 000 000".
+export function formatCountryPhoneDigits(digits = "", country = "") {
+  const profile = getActiveCountryProfile(country);
+  const groups = String(profile.placeholder || "").split(" ").map((part) => part.length).filter(Boolean);
+  const capped = String(digits).replace(/\D/g, "").slice(0, profile.maxLength);
+  if (!groups.length) return capped;
+
+  const parts = [];
+  let index = 0;
+  for (const size of groups) {
+    if (index >= capped.length) break;
+    parts.push(capped.slice(index, index + size));
+    index += size;
+  }
+  if (index < capped.length) parts.push(capped.slice(index));
+  return parts.join(" ");
+}
+
+// Format-as-you-type: strips the dial code if pasted, caps the input at the
+// country's national digit count, and applies the country's digit grouping.
 export function constrainCountryPhoneInput(phone = "", country = "") {
   const profile = getActiveCountryProfile(country);
-  let next = String(phone || "").replace(/[^+\d\s()-]/g, "");
-
-  while (normalizeCountryPhoneDigits(next, profile).length > profile.maxLength) {
-    const index = next.search(/\d(?=[^\d]*$)/);
-    if (index < 0) break;
-    next = `${next.slice(0, index)}${next.slice(index + 1)}`;
-  }
-
-  return next;
+  return formatCountryPhoneDigits(normalizeCountryPhoneDigits(phone, profile), profile);
 }
 
 export function formatCountryMoney(amount, countryOrCurrency = "", options = {}) {

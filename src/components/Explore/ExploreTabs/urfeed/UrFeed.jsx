@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { paceExploreAdvertPosts } from "../../../../Backend/services/exploreService";
+import PullToRefresh from "../../../shared/PullToRefresh";
 import FeedComposer from "./feed/components/FeedComposer";
 import FeedList from "./feed/FeedList";
 
@@ -55,7 +56,7 @@ export default function UrFeed({ profile, onViewProfile }) {
   );
 
   return (
-    <div>
+    <PullToRefresh onRefresh={() => Promise.all([feed.reload(), circleFeed.reload()])}>
       <FeedComposer
         profile={profile}
         creating={feed.creating}
@@ -79,6 +80,6 @@ export default function UrFeed({ profile, onViewProfile }) {
         }}
         {...feedActions(feed)}
       />
-    </div>
+    </PullToRefresh>
   );
 }

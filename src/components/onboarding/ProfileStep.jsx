@@ -248,7 +248,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 </span>
               ) : (
                 <span className={`mt-2 block text-xs font-semibold ${phoneValidation.valid || !values.phone ? "text-slate-500" : "text-rose-600"}`}>
-                  {phoneValidation.valid ? `${countryProfile.name}: ${phoneValidation.expected} national digits.` : phoneValidation.message}
+                  {phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
                 </span>
               )}
               {phoneConflict ? (

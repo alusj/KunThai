@@ -122,7 +122,7 @@ function readStoredMarketplaceNav() {
 }
 
 function AppLoading({ page = "explore" }) {
-  const pageTitle = page === "marketplace" ? "UrMall" : page === "transport" ? "Transport" : "Explore";
+  const pageTitle = page === "marketplace" ? "UrMall" : page === "transport" ? "UrRide" : "Explore";
   const [showPatienceNotice, setShowPatienceNotice] = useState(false);
 
   useEffect(() => {

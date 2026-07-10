@@ -17,6 +17,11 @@ import {
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { showToast } from "../../../Backend/services/toastService";
 import { consumeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
+import { useSilentRefresh } from "../../../Backend/hooks/useSilentRefresh";
+import { openPublicCodeResult } from "../../../Backend/services/publicCodeService";
+import PullToRefresh from "../../shared/PullToRefresh";
+import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
+import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
 
 import BuyerDiscoveryBar from "./BuyerDiscoveryBar";
 import ProductDetailDrawer from "./ProductDetailDrawer";
@@ -119,6 +124,20 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
   const [sellerOpen, setSellerOpen] = useState(false);
   const noticeTimerRef = useRef(null);
   const catalogRef = useRef(catalog);
+  const loadProductsRef = useRef(null);
+  const codeLookup = usePublicCodeLookup(filters.search);
+
+  useSilentRefresh(() => loadProductsRef.current?.(), { intervalMs: 60000 });
+
+  function openCodeResult(result) {
+    if (result.kind === "urmall") {
+      setDetailOpen(false);
+      setSelectedSeller({ id: result.businessId, name: result.title, logoUrl: result.avatarUrl, city: result.subtitle });
+      setSellerOpen(true);
+      return;
+    }
+    openPublicCodeResult(result);
+  }
 
   useEffect(() => {
     const sellerReturn = consumeSellerAreaViewReturn();
@@ -229,6 +248,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
       }
     }
 
+    loadProductsRef.current = loadProducts;
     loadProducts();
     let refreshTimer;
     const refreshSilently = () => {
@@ -298,6 +318,19 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
     window.addEventListener("marketplace-open-product", handleExternalProductOpen);
     return () => window.removeEventListener("marketplace-open-product", handleExternalProductOpen);
   }, [openProduct]);
+
+  useEffect(() => {
+    function handleExternalSellerOpen(event) {
+      const seller = event.detail?.seller;
+      if (!seller?.id) return;
+      setDetailOpen(false);
+      setSelectedSeller(seller);
+      setSellerOpen(true);
+    }
+
+    window.addEventListener("marketplace-open-seller", handleExternalSellerOpen);
+    return () => window.removeEventListener("marketplace-open-seller", handleExternalSellerOpen);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -429,6 +462,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
 
   return (
     <div className="space-y-4">
+      <PullToRefresh className="space-y-4" onRefresh={() => loadProductsRef.current?.()} disabled={detailOpen || sellerOpen}>
       {!initialProductLoading ? (
         <BuyerDiscoveryBar
           filters={filters}
@@ -445,6 +479,10 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
         </div>
       )}
 
+      {codeLookup.kind ? (
+        <PublicCodeResultCard lookup={codeLookup} surface="urmall" onOpen={openCodeResult} />
+      ) : null}
+
       {/* =========================
           Browse content
       ========================= */}
@@ -456,6 +494,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
         <HighDemand products={catalog.highDemandProducts} {...tabProps} />
       )}
       {activeTab === "top-rated" && <TopRated products={catalog.topRatedProducts} {...tabProps} />}
+      </PullToRefresh>
 
       <ProductDetailDrawer
         product={selectedProduct}

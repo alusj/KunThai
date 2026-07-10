@@ -162,7 +162,7 @@ function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "P
           inputMode="numeric"
           value={phone}
           onChange={(event) => onPhoneChange(constrainCountryPhoneInput(event.target.value, country))}
-          placeholder={`${country.placeholder} (${country.maxLength} digits)`}
+          placeholder={country.placeholder}
           className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           required
         />
@@ -185,8 +185,15 @@ function PhoneOrEmailInput({ country, value, onCountryChange, onValueChange }) {
           type="text"
           inputMode="email"
           value={value}
-          onChange={(event) => onValueChange(event.target.value)}
-          placeholder={`Phone (${country.maxLength} digits) or email`}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            // Free typing for emails; phone-like input gets the country's
+            // digit grouping and stops at the national digit count.
+            onValueChange(/^[+\d\s()-]*$/.test(nextValue) && /\d/.test(nextValue)
+              ? constrainCountryPhoneInput(nextValue, country)
+              : nextValue);
+          }}
+          placeholder={`${country.placeholder} or email`}
           autoComplete="username"
           className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           required
@@ -755,7 +762,7 @@ export default function Login() {
             </span>
             <h2 className="mt-4 text-2xl font-bold text-slate-950">Entering KunThai as a guest</h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-              You can explore posts, UrMall, and Transport freely, but as a guest you cannot react,
+              You can explore posts, UrMall, and UrRide freely, but as a guest you cannot react,
               post, comment, message, shop, or book. No personal data is collected or saved during
               your visit, and your guest session ends automatically when you leave.
             </p>

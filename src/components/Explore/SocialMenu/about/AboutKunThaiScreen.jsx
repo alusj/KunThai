@@ -14,8 +14,8 @@ import SocialScreenHeader from "../shared/SocialScreenHeader";
 const services = [
   ["Explore", "Share, discover, message, and build trusted connections.", HiOutlineUserGroup],
   ["UrMall Marketplace", "Find products and support local commerce through clear seller and order records.", HiOutlineShoppingBag],
-  ["Transport", "Connect passengers, operators, fleets, bookings, and delivery activity.", HiOutlineTruck],
-  ["KunThai Money", "Bring practical payment and account tools into the wider KunThai experience.", HiOutlineBanknotes],
+  ["UrRide", "Connect passengers, operators, fleets, bookings, and delivery activity.", HiOutlineTruck],
+  ["Payments", "Support practical payment and account tools only where those services are enabled.", HiOutlineBanknotes],
 ];
 
 export default function AboutKunThaiScreen({ hideHeader = false, onOpenTerms }) {
@@ -27,7 +27,7 @@ export default function AboutKunThaiScreen({ hideHeader = false, onOpenTerms }) 
         <section className="overflow-hidden rounded-[30px] bg-gradient-to-br from-slate-950 via-slate-900 to-sky-900 p-6 text-white shadow-sm lg:p-8">
           <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-white/10"><HiOutlineGlobeAlt className="text-4xl" /></div>
           <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-sky-200">Built as one KunThai</p>
-          <h3 className="mt-2 max-w-3xl text-3xl font-black leading-tight">Social, commerce, movement, and money—designed to work together.</h3>
+          <h3 className="mt-2 max-w-3xl text-3xl font-black leading-tight">Social, commerce, movement, and trusted services designed to work together.</h3>
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-7 text-slate-200">KunThai is an original super-app experience focused on useful local services, clear controls, and dependable account identity.</p>
         </section>
 
@@ -48,7 +48,7 @@ export default function AboutKunThaiScreen({ hideHeader = false, onOpenTerms }) 
         </section>
 
         <button type="button" onClick={onOpenTerms} className="w-full rounded-[24px] border border-slate-200 bg-white p-5 text-left shadow-sm">
-          <p className="text-base font-black text-slate-950">Policies and open source information</p>
+          <p className="text-base font-black text-slate-950">Policy Center and open source information</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Review service policies, community expectations, and software license notices.</p>
         </button>
 

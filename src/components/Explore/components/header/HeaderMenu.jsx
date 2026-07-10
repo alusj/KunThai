@@ -57,7 +57,7 @@ const MENU_GROUPS = [
       ["your-voice", "Your Voice", "Share private ideas and product feedback with KunThai.", HiOutlineLightBulb],
       ["report-problem", "Report a Problem", "Tell support what went wrong.", HiOutlineExclamationTriangle],
       ["safety-center", "Safety Center", "Reporting, blocking, and safer service use.", HiOutlineShieldCheck],
-      ["terms-policies", "Terms & Policies", "Rules and policies for every KunThai service.", HiOutlineScale],
+      ["terms-policies", "Policy Center", "Rules, privacy, safety, and transparency.", HiOutlineScale],
       ["about-kunthai", "About KunThai", "Our connected super-app and its services.", HiOutlineInformationCircle],
     ],
   },

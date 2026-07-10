@@ -794,7 +794,7 @@ function CompanyIdentityStep({ form, onChange, onDocument }) {
           value={form.phone}
           onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile))}
           placeholder={getCountryPhoneHint(countryProfile)}
-          helper={phoneValidation.valid ? `${countryProfile.name}: ${phoneValidation.expected} national digits.` : phoneValidation.message}
+          helper={phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
         />
         <FormInput label="Business email optional" type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder="company@example.com" />
         <label className="block">

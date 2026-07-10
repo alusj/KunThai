@@ -1,388 +1,645 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  HiOutlineArchiveBox,
   HiOutlineArrowLeft,
+  HiOutlineArrowUp,
   HiOutlineBanknotes,
   HiOutlineCheckBadge,
   HiOutlineChevronRight,
   HiOutlineDocumentText,
+  HiOutlineExclamationTriangle,
+  HiOutlineMagnifyingGlass,
   HiOutlineScale,
   HiOutlineShieldCheck,
   HiOutlineTruck,
   HiOutlineUserMinus,
+  HiOutlineXMark,
 } from "react-icons/hi2";
 
+import { legalConfig, isResolvedLegalValue } from "../../../../config/legalConfig";
 import { useBrowserBack } from "../../../../Backend/hooks/useBrowserBack";
+import {
+  frequentPolicyIds,
+  policyCategories,
+  policyChangelog,
+  policyDocuments,
+  policiesById,
+  resolvePolicy,
+} from "../../../../data/policies";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
-const policies = [
-  {
-    id: "terms",
-    title: "Terms of Service",
-    icon: HiOutlineScale,
-    summary: "The basic rules for using KunThai and keeping your account in good standing.",
-    updated: "May 9, 2026",
-    overview: "These terms explain how you may use KunThai across Explore, Marketplace, Transport, and connected services. By using the app, you agree to use it honestly, lawfully, and respectfully.",
-    sections: [
-      {
-        title: "Your account",
-        text: "Keep your account information accurate, protect your login, and do not let another person misuse your account.",
-      },
-      {
-        title: "Using KunThai",
-        text: "You may post, message, buy, sell, book transport, and connect with others when you follow the rules that apply to each service.",
-      },
-      {
-        title: "Restricted activity",
-        text: "Do not impersonate others, run scams, attack the app, post illegal content, or use KunThai to harm people or businesses.",
-      },
-      {
-        title: "Service changes",
-        text: "Features may change over time as KunThai improves safety, reliability, payments, transport, and marketplace experiences.",
-      },
-    ],
-  },
-  {
-    id: "privacy",
-    title: "Privacy Policy",
-    icon: HiOutlineShieldCheck,
-    summary: "How KunThai handles account details, profile activity, messages, reports, and service data.",
-    updated: "May 9, 2026",
-    overview: "This policy explains the types of information KunThai uses to run your account, personalize features, protect users, and support services like Explore, Marketplace, and Transport.",
-    sections: [
-      {
-        title: "Information you provide",
-        text: "This includes profile details, posts, comments, messages, support requests, marketplace activity, transport bookings, and information you choose to add.",
-      },
-      {
-        title: "How information is used",
-        text: "KunThai uses information to show your profile, deliver posts, power notifications, support bookings and orders, prevent abuse, and improve reliability.",
-      },
-      {
-        title: "Your controls",
-        text: "Use Privacy and Settings to manage post audience, message permissions, mentions, content filters, notifications, and local cache.",
-      },
-      {
-        title: "Safety and legal needs",
-        text: "Reports, suspicious activity, and service records may be reviewed when needed to protect users, investigate abuse, or meet legal requirements.",
-      },
-    ],
-  },
-  {
-    id: "community",
-    title: "Community Guidelines",
-    icon: HiOutlineUserMinus,
-    summary: "The behavior expected from everyone using posts, comments, Swip, messages, and profiles.",
-    updated: "May 9, 2026",
-    overview: "KunThai should feel useful, respectful, and safe. These guidelines explain the kind of behavior that helps people connect without abuse, spam, or fear.",
-    sections: [
-      {
-        title: "Respect people",
-        text: "Do not harass, threaten, shame, exploit, or target people because of who they are or what they believe.",
-      },
-      {
-        title: "Be genuine",
-        text: "Use honest profile information, avoid fake engagement, and do not pretend to be a person, business, operator, or authority you are not.",
-      },
-      {
-        title: "Keep content safe",
-        text: "Do not share sexual exploitation, severe violence, hate, scams, dangerous instructions, or content that puts people at risk.",
-      },
-      {
-        title: "Use reporting tools",
-        text: "If you see abuse or unsafe behavior, report it from the relevant post, profile, message, marketplace item, or support screen.",
-      },
-    ],
-  },
-  {
-    id: "content",
-    title: "Content and Moderation",
-    icon: HiOutlineDocumentText,
-    summary: "How posts, comments, reports, review stages, and account actions may be handled.",
-    updated: "May 9, 2026",
-    overview: "KunThai may review content to reduce abuse, scams, illegal activity, and harmful behavior. Some checks happen before publishing, while others may happen after reports.",
-    sections: [
-      {
-        title: "Before content appears",
-        text: "Posts may pass through review stages such as preparing, scanning text, reviewing media, publishing, and syncing to the feed.",
-      },
-      {
-        title: "After content is reported",
-        text: "Reported content may be reviewed, limited, removed, or left in place depending on context and policy.",
-      },
-      {
-        title: "Account actions",
-        text: "Repeated or serious violations may lead to warnings, reduced reach, feature limits, suspension, or removal from certain services.",
-      },
-      {
-        title: "Appeals and support",
-        text: "If you believe a decision was wrong, use Help Center to send details so the issue can be reviewed.",
-      },
-    ],
-  },
-  {
-    id: "marketplace",
-    title: "Marketplace Policy",
-    icon: HiOutlineBanknotes,
-    summary: "Expectations for buyers, sellers, product listings, orders, delivery, and disputes.",
-    updated: "May 9, 2026",
-    overview: "Marketplace works best when listings are accurate, sellers communicate clearly, and buyers use checkout and support tools responsibly.",
-    sections: [
-      {
-        title: "Seller responsibilities",
-        text: "Sellers should list real products, show clear pricing, keep stock accurate, respond professionally, and fulfil confirmed orders.",
-      },
-      {
-        title: "Buyer responsibilities",
-        text: "Buyers should provide accurate delivery or pickup information, pay through supported flows, and avoid false claims or abusive messages.",
-      },
-      {
-        title: "Restricted listings",
-        text: "Illegal, unsafe, misleading, counterfeit, stolen, or heavily restricted products should not be listed.",
-      },
-      {
-        title: "Disputes",
-        text: "If something goes wrong, keep order details, messages, photos, and payment references so support can review the issue fairly.",
-      },
-    ],
-  },
-  {
-    id: "transport",
-    title: "Transport Policy",
-    icon: HiOutlineTruck,
-    summary: "Expectations for passengers, operators, fleet profiles, bookings, deliveries, and trip history.",
-    updated: "May 9, 2026",
-    overview: "Transport features connect passengers with operators and fleets. Accuracy, safety, and reliable communication are important for every ride, delivery, and booking.",
-    sections: [
-      {
-        title: "Passenger responsibilities",
-        text: "Passengers should enter accurate pickup, drop-off, package, and contact details, then use official booking and communication tools.",
-      },
-      {
-        title: "Operator responsibilities",
-        text: "Operators should keep fleet information accurate, accept only trips they can complete, and maintain professional service standards.",
-      },
-      {
-        title: "Fleet and route history",
-        text: "Trip, route, and delivery history may be used to support safety, service quality, account records, and customer support.",
-      },
-      {
-        title: "Safety issues",
-        text: "Report unsafe conduct, false fleet details, payment pressure, or delivery problems through Help Center as soon as possible.",
-      },
-    ],
-  },
-  {
-    id: "data",
-    title: "Data and Account Deletion",
-    icon: HiOutlineArchiveBox,
-    summary: "How to manage local cache, request account changes, and understand data retention.",
-    updated: "May 9, 2026",
-    overview: "You should be able to manage your account information and understand what happens when you clear local data or request account deletion.",
-    sections: [
-      {
-        title: "Local cache",
-        text: "Settings can clear local Explore data such as drafts, recent searches, and temporary screen state on your device.",
-      },
-      {
-        title: "Account deletion",
-        text: "When deletion is available, eligible personal data should be removed or anonymized after required checks are complete.",
-      },
-      {
-        title: "Records that may remain",
-        text: "Some records may need to remain for safety, fraud prevention, dispute handling, transaction records, or legal compliance.",
-      },
-      {
-        title: "Getting help",
-        text: "Use Help Center if you need support with account access, privacy controls, data requests, or account closure.",
-      },
-    ],
-  },
-  {
-    id: "cookies",
-    title: "Cookie Policy",
-    icon: HiOutlineArchiveBox,
-    summary: "How browser storage and similar tools support sessions, preferences, safety, and reliability.",
-    updated: "May 9, 2026",
-    overview: "KunThai may use cookies and local browser storage to keep you signed in, remember choices, protect services, and understand whether essential features are working.",
-    sections: [
-      { title: "Essential storage", text: "Some storage is needed for sign-in, security, navigation, and preferences that make the app function correctly." },
-      { title: "Preference storage", text: "KunThai may remember choices such as feed, video, notification, and display preferences on your device." },
-      { title: "Service measurement", text: "Limited reliability information may help identify broken screens, failed requests, and performance problems." },
-      { title: "Your choices", text: "Browser controls can clear stored data, although doing so may sign you out or reset device preferences." },
-    ],
-  },
-  {
-    id: "intellectual-property",
-    title: "Intellectual Property Policy",
-    icon: HiOutlineDocumentText,
-    summary: "Respect for original work, brand identity, ownership claims, and content removal requests.",
-    updated: "May 9, 2026",
-    overview: "People should share work they created or have permission to use. KunThai may review clear reports involving copied media, misleading brand use, or other ownership concerns.",
-    sections: [
-      { title: "Share responsibly", text: "Only upload content, product media, names, and designs you created or are allowed to use." },
-      { title: "Ownership reports", text: "A report should identify the protected work, the KunThai content involved, and why the reporter is authorized to act." },
-      { title: "Fair review", text: "KunThai may request more information before limiting or removing disputed content." },
-      { title: "Repeated misuse", text: "Repeated serious ownership violations may lead to content or account restrictions." },
-    ],
-  },
-  {
-    id: "open-source",
-    title: "Open Source Licenses",
-    icon: HiOutlineCheckBadge,
-    summary: "Notices for open source software that helps power the KunThai experience.",
-    updated: "May 9, 2026",
-    overview: "KunThai is built with open source software from many contributors. Their license notices and attribution requirements remain important parts of the product.",
-    sections: [
-      { title: "Third-party software", text: "The app uses libraries and tools that are licensed separately from KunThai product content." },
-      { title: "License notices", text: "Required notices should be made available with release information as the production license inventory is finalized." },
-      { title: "No ownership transfer", text: "Using KunThai does not change the ownership or license terms of included open source projects." },
-      { title: "Corrections", text: "License or attribution questions can be sent through Help Center for review." },
-    ],
-  },
-  {
-    id: "kunthai-money",
-    title: "KunThai Money Policy",
-    icon: HiOutlineBanknotes,
-    summary: "Account, transfer, payment, fraud-prevention, and transaction-record expectations.",
-    updated: "May 9, 2026",
-    overview: "KunThai Money features should make payment actions clear and traceable. Availability, limits, and verification requirements may differ by service and country.",
-    sections: [
-      { title: "Confirm before paying", text: "Review the recipient, amount, reason, and funding method before approving a payment or transfer." },
-      { title: "Protect access", text: "Never share passwords, one-time codes, or account-recovery details with another person." },
-      { title: "Transaction records", text: "References and status records may be retained for account support, disputes, fraud prevention, and legal requirements." },
-      { title: "Report concerns", text: "Use Help Center promptly when a payment looks unfamiliar, delayed, duplicated, or connected to suspected fraud." },
-    ],
-  },
-];
+const iconMap = {
+  banknotes: HiOutlineBanknotes,
+  document: HiOutlineDocumentText,
+  shield: HiOutlineShieldCheck,
+  store: HiOutlineBanknotes,
+  truck: HiOutlineTruck,
+  users: HiOutlineUserMinus,
+};
 
-const policyOrder = [
-  "community",
-  "terms",
-  "privacy",
-  "cookies",
-  "intellectual-property",
-  "open-source",
-  "marketplace",
-  "transport",
-  "kunthai-money",
-  "content",
-  "data",
-];
-const orderedPolicies = policyOrder.map((id) => policies.find((policy) => policy.id === id)).filter(Boolean);
+const unresolvedLegalFields = [
+  ["Legal business name", legalConfig.legalBusinessName],
+  ["Support email", legalConfig.supportEmail],
+  ["Privacy email", legalConfig.privacyEmail],
+  ["Copyright email", legalConfig.copyrightEmail],
+  ["Law-enforcement email", legalConfig.lawEnforcementEmail],
+  ["Registered address", legalConfig.registeredAddress],
+  ["Governing law", legalConfig.governingLaw],
+  ["Dispute jurisdiction", legalConfig.disputeJurisdiction],
+  ["Effective date", legalConfig.effectiveDate],
+  ["Last updated date", legalConfig.lastUpdated],
+].filter(([, value]) => !isResolvedLegalValue(value));
 
-function PolicyCard({ policy, onClick }) {
-  const Icon = policy.icon;
+function normalizeSearchText(value) {
+  return String(value || "").toLowerCase();
+}
 
+function getPolicySearchText(policy) {
+  return [
+    policy.title,
+    policy.shortTitle,
+    policy.summary,
+    policy.category,
+    policy.audience,
+    policy.appliesWhen,
+    ...(policy.keywords || []),
+    ...(policy.sections || []).flatMap((section) => [
+      section.title,
+      section.introduction,
+      ...(section.paragraphs || []),
+      ...(section.bullets || []),
+      ...(section.allowed || []),
+      ...(section.prohibited || []),
+      ...(section.examples || []),
+      ...(section.callouts || []),
+    ]),
+  ].join(" ");
+}
+
+function buildSearchResults(query) {
+  const needle = normalizeSearchText(query).trim();
+  if (needle.length < 2) return [];
+
+  return policyDocuments
+    .map((policy) => {
+      const policyText = normalizeSearchText(getPolicySearchText(policy));
+      if (!policyText.includes(needle)) return null;
+
+      const sectionMatches = (policy.sections || []).filter((section) =>
+        normalizeSearchText([
+          section.title,
+          section.introduction,
+          ...(section.paragraphs || []),
+          ...(section.bullets || []),
+          ...(section.allowed || []),
+          ...(section.prohibited || []),
+          ...(section.examples || []),
+          ...(section.callouts || []),
+        ].join(" ")).includes(needle),
+      );
+
+      return {
+        policy,
+        sectionMatches: sectionMatches.slice(0, 3),
+        titleMatch: normalizeSearchText(policy.title).includes(needle) || normalizeSearchText(policy.shortTitle).includes(needle),
+      };
+    })
+    .filter(Boolean);
+}
+
+function getInitialSlug(initialPolicyId) {
+  return resolvePolicy(initialPolicyId)?.slug || "";
+}
+
+function getHashSection() {
+  if (typeof window === "undefined") return "";
+  return window.location.hash ? decodeURIComponent(window.location.hash.replace(/^#/, "")) : "";
+}
+
+function CategoryIcon({ icon }) {
+  const Icon = iconMap[icon] || HiOutlineDocumentText;
+  return <Icon className="text-2xl" />;
+}
+
+function MetadataPill({ label, value }) {
+  return (
+    <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 shadow-sm">
+      {label}: {value || "Pending"}
+    </span>
+  );
+}
+
+function PolicySearch({ query, onChange }) {
+  return (
+    <label className="relative block">
+      <span className="sr-only">Search policies</span>
+      <HiOutlineMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-400" />
+      <input
+        value={query}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Search policies"
+        className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-12 text-sm font-black text-slate-950 shadow-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+      />
+      {query ? (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+          aria-label="Clear policy search"
+        >
+          <HiOutlineXMark className="text-xl" />
+        </button>
+      ) : null}
+    </label>
+  );
+}
+
+function PolicyListItem({ policy, onOpen, sectionId = "" }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="group rounded-[24px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-sky-200 hover:bg-sky-50"
+      onClick={() => onOpen(policy.slug, sectionId)}
+      className="group flex w-full items-start gap-3 rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-sm transition hover:border-sky-200 hover:bg-sky-50 focus:outline-none focus:ring-4 focus:ring-sky-100"
     >
-      <div className="flex items-start justify-between gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
-          <Icon className="text-2xl" />
-        </span>
-        <HiOutlineChevronRight className="mt-2 text-xl text-slate-400 transition group-hover:translate-x-1 group-hover:text-sky-700" />
-      </div>
-      <p className="mt-4 text-lg font-black text-slate-950">{policy.title}</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{policy.summary}</p>
-      <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Updated {policy.updated}</p>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+        <HiOutlineDocumentText className="text-xl" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black text-slate-950">{policy.title}</span>
+        <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{policy.summary}</span>
+      </span>
+      <HiOutlineChevronRight className="mt-2 shrink-0 text-xl text-slate-400 transition group-hover:translate-x-1 group-hover:text-sky-700" />
     </button>
   );
 }
 
-function PolicyDetail({ policy, onBack }) {
-  const Icon = policy.icon;
+function SearchResults({ query, results, onOpen }) {
+  if (!query.trim()) return null;
+
+  if (!results.length) {
+    return (
+      <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-sm font-black text-slate-950">No policy result found</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+          Try words like privacy, transport, emergency, Swip, seller, refund, report, or deletion.
+        </p>
+      </section>
+    );
+  }
 
   return (
-    <div className="w-full px-4 py-4 sm:px-6 lg:px-8">
-      <button
-        type="button"
-        onClick={onBack}
-        className="mb-4 inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm"
-      >
-        <HiOutlineArrowLeft className="text-xl" />
-        Back to policies
-      </button>
+    <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Search results</p>
+          <h3 className="mt-1 text-lg font-black text-slate-950">{results.length} matching polic{results.length === 1 ? "y" : "ies"}</h3>
+        </div>
+      </div>
+      <div className="grid gap-3">
+        {results.map(({ policy, sectionMatches, titleMatch }) => (
+          <article key={policy.id} className="rounded-2xl bg-slate-50 p-3">
+            <PolicyListItem policy={policy} onOpen={onOpen} />
+            {sectionMatches.length ? (
+              <div className="mt-2 grid gap-2 pl-2 sm:pl-12">
+                {sectionMatches.map((section) => (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => onOpen(policy.slug, section.id)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-xs font-bold text-slate-600 transition hover:border-sky-200 hover:text-sky-700"
+                  >
+                    Jump to {section.title}
+                  </button>
+                ))}
+              </div>
+            ) : titleMatch ? (
+              <p className="mt-2 pl-2 text-xs font-bold text-slate-500 sm:pl-12">Matched by policy title or summary.</p>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-      <article className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm lg:p-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
-            <Icon className="text-3xl" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Terms & Policies</p>
-            <h3 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">{policy.title}</h3>
-            <p className="mt-3 max-w-4xl text-base font-semibold leading-7 text-slate-600">{policy.overview}</p>
-            <p className="mt-4 inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">Last updated {policy.updated}</p>
+function PolicyCategoryCard({ category, onOpen }) {
+  const policies = category.policyIds.map((id) => policiesById.get(id)).filter(Boolean);
+
+  return (
+    <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+          <CategoryIcon icon={category.icon} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-black text-slate-950">{category.title}</h3>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{category.description}</p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {policies.map((policy) => (
+          <button
+            key={policy.id}
+            type="button"
+            onClick={() => onOpen(policy.slug)}
+            className="group flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-3 text-left transition hover:bg-sky-50"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-black text-slate-900">{policy.shortTitle || policy.title}</span>
+              <span className="mt-0.5 block truncate text-xs font-bold text-slate-500">{policy.status === "conditional" ? "Conditional" : `Version ${policy.version}`}</span>
+            </span>
+            <HiOutlineChevronRight className="shrink-0 text-lg text-slate-400 transition group-hover:translate-x-1 group-hover:text-sky-700" />
+          </button>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function PolicyCenterHome({ onOpen }) {
+  const [query, setQuery] = useState("");
+  const searchResults = useMemo(() => buildSearchResults(query), [query]);
+  const frequentPolicies = frequentPolicyIds.map((id) => policiesById.get(id)).filter(Boolean);
+
+  return (
+    <main className="w-full space-y-6 px-4 py-4 sm:px-6 lg:px-8">
+      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm lg:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Explore</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Policy Center</h1>
+            <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
+              Understand how KunThai works, what we expect from users, and how we protect the community.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <MetadataPill label="Version" value={legalConfig.policyVersion} />
+            <MetadataPill label="Effective" value={legalConfig.effectiveDate} />
+            <MetadataPill label="Last updated" value={legalConfig.lastUpdated} />
           </div>
         </div>
+        <div className="mt-5">
+          <PolicySearch query={query} onChange={setQuery} />
+        </div>
+      </section>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          {policy.sections.map((section) => (
-            <section key={section.title} className="rounded-[22px] bg-slate-50 p-4">
-              <div className="flex items-start gap-3">
-                <HiOutlineCheckBadge className="mt-0.5 shrink-0 text-2xl text-sky-700" />
-                <div>
-                  <h4 className="text-base font-black text-slate-950">{section.title}</h4>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{section.text}</p>
-                </div>
+      <SearchResults query={query} results={searchResults} onOpen={onOpen} />
+
+      {!query.trim() ? (
+        <>
+          <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Frequently accessed</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {frequentPolicies.map((policy) => (
+                  <PolicyListItem key={policy.id} policy={policy} onOpen={onOpen} />
+                ))}
               </div>
-            </section>
-          ))}
-        </div>
+            </div>
 
-        <div className="mt-6 rounded-[22px] border border-slate-200 p-4">
-          <p className="text-sm font-black text-slate-950">Questions about this policy?</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-            Visit Help Center to report a problem, ask for support, or get guidance about your account.
-          </p>
-        </div>
-      </article>
+            <aside className="rounded-[24px] border border-amber-100 bg-amber-50 p-5 text-amber-950 shadow-sm">
+              <HiOutlineExclamationTriangle className="text-3xl text-amber-700" />
+              <h2 className="mt-3 text-lg font-black">Service-specific policies</h2>
+              <p className="mt-2 text-sm font-bold leading-6">
+                Some policies apply only to services that are available for your account, country, role, or business type. Conditional services are marked clearly.
+              </p>
+              {unresolvedLegalFields.length ? (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-white/70 p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Needs legal confirmation</p>
+                  <p className="mt-1 text-sm font-bold leading-6">
+                    {unresolvedLegalFields.map(([label]) => label).join(", ")}.
+                  </p>
+                </div>
+              ) : null}
+            </aside>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            {policyCategories.map((category) => (
+              <PolicyCategoryCard key={category.id} category={category} onOpen={onOpen} />
+            ))}
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">What changed</p>
+              {policyChangelog.map((entry) => (
+                <div key={entry.id} className="mt-4 rounded-2xl bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">v{entry.version}</span>
+                    <span className="text-xs font-black text-slate-500">{entry.date}</span>
+                  </div>
+                  <p className="mt-3 text-sm font-bold leading-6 text-slate-600">{entry.summary}</p>
+                </div>
+              ))}
+            </article>
+
+            <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Help and privacy requests</p>
+              <h2 className="mt-2 text-lg font-black text-slate-950">Need support with a policy?</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                Use Help Center inside KunThai for support, reports, account access, privacy questions, data requests, and deletion guidance.
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <button type="button" onClick={() => onOpen("privacy")} className="h-11 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white">
+                  Privacy Policy
+                </button>
+                <button type="button" onClick={() => onOpen("reporting-appeals")} className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-700">
+                  Reports and appeals
+                </button>
+              </div>
+            </article>
+          </section>
+        </>
+      ) : null}
+
+      <footer className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-sm font-semibold leading-6 text-slate-500 shadow-sm">
+        Policy Center version {legalConfig.policyVersion}. Effective date: {legalConfig.effectiveDate}. Last updated: {legalConfig.lastUpdated}.
+      </footer>
+    </main>
+  );
+}
+
+function PolicyMetadata({ policy }) {
+  return (
+    <div className="mt-4 flex flex-wrap gap-2">
+      <MetadataPill label="Version" value={policy.version} />
+      <MetadataPill label="Effective" value={policy.effectiveDate} />
+      <MetadataPill label="Last updated" value={policy.lastUpdated} />
+      <MetadataPill label="Status" value={policy.status === "conditional" ? "Conditional" : "Current"} />
     </div>
   );
 }
 
-export default function TermsPoliciesScreen({ hideHeader = false, initialPolicyId = "" }) {
-  const [activeId, setActiveId] = useState(initialPolicyId);
-  const activePolicy = policies.find((policy) => policy.id === activeId) || null;
+function PolicyTableOfContents({ sections, onJump }) {
+  return (
+    <nav className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm" aria-label="Policy sections">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Contents</p>
+      <div className="mt-3 grid gap-2">
+        {sections.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            onClick={() => onJump(section.id)}
+            className="rounded-2xl bg-slate-50 px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-sky-50 hover:text-sky-700 focus:outline-none focus:ring-4 focus:ring-sky-100"
+          >
+            {section.title}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
 
-  useBrowserBack(Boolean(activePolicy), () => setActiveId(""), `terms-policy-${activeId || "list"}`);
+function TextList({ title, items, tone = "slate" }) {
+  if (!items?.length) return null;
+  const toneClass = tone === "green"
+    ? "border-emerald-100 bg-emerald-50 text-emerald-900"
+    : tone === "red"
+      ? "border-red-100 bg-red-50 text-red-900"
+      : "border-slate-100 bg-slate-50 text-slate-700";
+
+  return (
+    <div className={`mt-4 rounded-2xl border p-4 ${toneClass}`}>
+      <p className="text-xs font-black uppercase tracking-[0.16em]">{title}</p>
+      <ul className="mt-2 space-y-2 text-sm font-semibold leading-6">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2">
+            <HiOutlineCheckBadge className="mt-0.5 shrink-0 text-lg" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PolicySection({ section }) {
+  return (
+    <section id={`policy-section-${section.id}`} className="scroll-mt-28 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="text-xl font-black tracking-tight text-slate-950">{section.title}</h2>
+      {section.introduction ? <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">{section.introduction}</p> : null}
+      {(section.paragraphs || []).map((paragraph) => (
+        <p key={paragraph} className="mt-3 text-sm font-semibold leading-7 text-slate-600">
+          {paragraph}
+        </p>
+      ))}
+      <TextList title="Key points" items={section.bullets} />
+      <TextList title="Allowed" items={section.allowed} tone="green" />
+      <TextList title="Not allowed" items={section.prohibited} tone="red" />
+      <TextList title="Examples" items={section.examples} />
+      {(section.callouts || []).map((callout) => (
+        <p key={callout} className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+          {callout}
+        </p>
+      ))}
+    </section>
+  );
+}
+
+function PolicyActions({ actions = [], onOpenHelp, onOpenPrivacy, onOpenReport }) {
+  if (!actions.length) return null;
+
+  function runAction(action) {
+    const label = normalizeSearchText(action);
+    if (label.includes("data") || label.includes("delete") || label.includes("privacy")) {
+      onOpenPrivacy?.();
+      return;
+    }
+    if (label.includes("report") || label.includes("appeal") || label.includes("ip") || label.includes("accessibility")) {
+      onOpenReport?.();
+      return;
+    }
+    onOpenHelp?.();
+  }
+
+  return (
+    <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Actions</p>
+      <div className="mt-3 grid gap-2">
+        {actions.map((action) => (
+          <button
+            key={action}
+            type="button"
+            onClick={() => runAction(action)}
+            className="h-11 rounded-2xl border border-slate-200 px-3 text-sm font-black text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+          >
+            {action}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RelatedPolicies({ ids = [], onOpen }) {
+  const policies = ids.map((id) => policiesById.get(id)).filter(Boolean);
+  if (!policies.length) return null;
+
+  return (
+    <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Related policies</p>
+      <div className="mt-3 grid gap-2">
+        {policies.map((policy) => (
+          <button
+            key={policy.id}
+            type="button"
+            onClick={() => onOpen(policy.slug)}
+            className="group flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-3 text-left transition hover:bg-sky-50"
+          >
+            <span className="min-w-0 text-sm font-black text-slate-900">{policy.shortTitle || policy.title}</span>
+            <HiOutlineChevronRight className="shrink-0 text-lg text-slate-400 transition group-hover:translate-x-1 group-hover:text-sky-700" />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpenReport, sectionTarget }) {
+  const articleRef = useRef(null);
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => {
+    const target = sectionTarget || getHashSection();
+    if (!target) {
+      articleRef.current?.scrollIntoView({ block: "start" });
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      document.getElementById(`policy-section-${target}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [policy.slug, sectionTarget]);
+
+  useEffect(() => {
+    function onScroll() {
+      setShowTop(window.scrollY > 600);
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  function jumpToSection(sectionId) {
+    window.history.replaceState(window.history.state, "", `#${encodeURIComponent(sectionId)}`);
+    document.getElementById(`policy-section-${sectionId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  return (
+    <main ref={articleRef} className="w-full px-4 py-4 sm:px-6 lg:px-8">
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-4 inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-sky-100"
+      >
+        <HiOutlineArrowLeft className="text-xl" />
+        Back to Policy Center
+      </button>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <article className="min-w-0 space-y-5">
+          <header className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm lg:p-7">
+            <div className="flex items-start gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+                <HiOutlineScale className="text-3xl" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Policy Center</p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{policy.title}</h1>
+                <p className="mt-3 text-base font-semibold leading-7 text-slate-600">{policy.summary}</p>
+                <PolicyMetadata policy={policy} />
+              </div>
+            </div>
+          </header>
+
+          <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Who this applies to</p>
+            <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">{policy.audience}</p>
+            <p className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold leading-6 text-slate-600">
+              {policy.appliesWhen}
+            </p>
+          </section>
+
+          {policy.sections.map((item) => (
+            <PolicySection key={item.id} section={item} />
+          ))}
+        </article>
+
+        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+          <PolicyTableOfContents sections={policy.sections} onJump={jumpToSection} />
+          <RelatedPolicies ids={policy.relatedPolicies} onOpen={onOpen} />
+          <PolicyActions
+            actions={policy.supportActions}
+            onOpenHelp={onOpenHelp}
+            onOpenPrivacy={onOpenPrivacy}
+            onOpenReport={onOpenReport}
+          />
+        </aside>
+      </div>
+
+      {showTop ? (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-white shadow-xl"
+          aria-label="Scroll to top"
+        >
+          <HiOutlineArrowUp className="text-xl" />
+        </button>
+      ) : null}
+    </main>
+  );
+}
+
+export default function TermsPoliciesScreen({
+  hideHeader = false,
+  initialPolicyId = "",
+  onOpenHelp,
+  onOpenPrivacy,
+  onOpenReport,
+}) {
+  const [activeSlug, setActiveSlug] = useState(() => getInitialSlug(initialPolicyId));
+  const [sectionTarget, setSectionTarget] = useState("");
+  const activePolicy = resolvePolicy(activeSlug);
+  const browserBack = useBrowserBack(Boolean(activePolicy), () => {
+    setActiveSlug("");
+    setSectionTarget("");
+  }, `terms-policy-${activeSlug || "list"}`);
+
+  useEffect(() => {
+    setActiveSlug(getInitialSlug(initialPolicyId));
+    setSectionTarget(getHashSection());
+  }, [initialPolicyId]);
+
+  function openPolicy(slug, sectionId = "") {
+    setActiveSlug(slug);
+    setSectionTarget(sectionId);
+  }
 
   if (activePolicy) {
     return (
       <div>
         {!hideHeader ? <SocialScreenHeader title={activePolicy.title} subtitle={activePolicy.summary} /> : null}
-        <PolicyDetail policy={activePolicy} onBack={() => setActiveId("")} />
+        <PolicyReader
+          policy={activePolicy}
+          onBack={browserBack}
+          onOpen={openPolicy}
+          onOpenHelp={onOpenHelp}
+          onOpenPrivacy={onOpenPrivacy}
+          onOpenReport={onOpenReport}
+          sectionTarget={sectionTarget}
+        />
       </div>
     );
   }
 
   return (
     <div>
-      {!hideHeader ? <SocialScreenHeader title="Terms & Policies" subtitle="Understand your rights, responsibilities, and safety rules." /> : null}
-
-      <div className="w-full space-y-6 px-4 py-4 sm:px-6 lg:px-8">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Legal & Trust</p>
-          <h3 className="mt-2 text-2xl font-black text-slate-950">Know the rules before you use each service</h3>
-          <p className="mt-2 max-w-4xl text-base font-semibold leading-7 text-slate-600">
-            Review the policies that apply to your account, posts, messages, purchases, bookings, safety reports, and data choices.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-black text-sky-700">Current policy center</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">Last updated May 9, 2026</span>
-          </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {orderedPolicies.map((policy) => (
-            <PolicyCard key={policy.id} policy={policy} onClick={() => setActiveId(policy.id)} />
-          ))}
-        </section>
-      </div>
+      {!hideHeader ? <SocialScreenHeader title="Policy Center" subtitle="Rules, privacy, safety, marketplace, transport, and transparency." /> : null}
+      <PolicyCenterHome onOpen={openPolicy} />
     </div>
   );
 }

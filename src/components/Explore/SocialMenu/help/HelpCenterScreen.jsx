@@ -62,7 +62,7 @@ const helpTopics = [
   {
     id: "transport",
     group: "service",
-    title: "Transport help",
+    title: "UrRide help",
     icon: HiOutlineTruck,
     summary: "Bookings, saved operators, fleet profiles, trips, and deliveries.",
     bullets: ["Confirm operator and fleet details.", "Keep booking and route information available.", "Report unsafe conduct as soon as practical."],
@@ -80,7 +80,7 @@ const helpTopics = [
 const quickActions = [
   { title: "Report unsafe content", description: "Abuse, scams, impersonation, threats, or serious policy concerns.", priority: "urgent", category: "Privacy & Safety" },
   { title: "Account or profile issue", description: "Incorrect saved details, username, identity display, or account access.", priority: "normal", category: "Profile" },
-  { title: "Payment, order, or booking issue", description: "Marketplace checkout, payments, delivery, or Transport bookings.", priority: "high", category: "Payments" },
+  { title: "Payment, order, or booking issue", description: "Marketplace checkout, payments, delivery, or UrRide bookings.", priority: "high", category: "Payments" },
 ];
 
 function TopicCard({ topic }) {
@@ -139,7 +139,7 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
             <div>
               <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Search help</p>
               <h3 className="mt-2 text-2xl font-black text-slate-950">Find the right next step</h3>
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">Search guidance across Explore, Marketplace, Transport, Payments, privacy, and account support.</p>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">Search guidance across Explore, Marketplace, UrRide, Payments, privacy, and account support.</p>
             </div>
             <div className="rounded-[22px] bg-slate-50 p-4"><p className="text-sm font-black text-slate-950">{support.openCount} open request{support.openCount === 1 ? "" : "s"}</p><p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Recent requests remain visible below for easy follow-up.</p></div>
           </div>
@@ -178,7 +178,7 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
         ) : (
           <>
             <section><SectionHeading title="Popular topics" description="Common questions about accounts, content, and conversations." /><div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">{popularTopics.map((topic) => <TopicCard key={topic.id} topic={topic} />)}</div></section>
-            <section><SectionHeading title="Help by service" description="Safety, Marketplace, Transport, and Payments guidance." /><div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">{serviceTopics.map((topic) => <TopicCard key={topic.id} topic={topic} />)}</div></section>
+            <section><SectionHeading title="Help by service" description="Safety, Marketplace, UrRide, and Payments guidance." /><div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">{serviceTopics.map((topic) => <TopicCard key={topic.id} topic={topic} />)}</div></section>
           </>
         )}
 
@@ -199,7 +199,7 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
                 {support.feedback ? <p className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{support.feedback}</p> : null}
                 <div className="mt-4 grid gap-3">
                   <select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} className="h-12 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none">
-                    <option>Explore</option><option>Profile</option><option>Messages</option><option>Privacy & Safety</option><option>Marketplace</option><option>Transport</option><option>Payments</option>
+                    <option>Explore</option><option>Profile</option><option>Messages</option><option>Privacy & Safety</option><option>Marketplace</option><option>UrRide</option><option>Payments</option>
                   </select>
                   <input value={form.subject} onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} placeholder="Subject" className="h-12 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-800 outline-none" />
                   <textarea value={form.message} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} placeholder="Describe what happened, the screen you were on, and what you expected." rows={5} className="resize-none rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold leading-6 text-slate-800 outline-none" />

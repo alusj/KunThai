@@ -1,6 +1,17 @@
+import { useEffect, useState } from "react";
+import { ChevronRight, Minimize2 } from "lucide-react";
+
 import { postingStages } from "../ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 
 export default function PostingStatusBanner({ notice, onDismiss }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const noticeId = notice?.id || "";
+
+  // A new posting session always starts expanded so the user sees it begin.
+  useEffect(() => {
+    if (noticeId) setCollapsed(false);
+  }, [noticeId]);
+
   if (!notice) return null;
 
   const progress = Math.max(0, Math.min(100, notice.progress || 0));
@@ -25,9 +36,31 @@ export default function PostingStatusBanner({ notice, onDismiss }) {
   const message = notice.message || stageMessages[notice.stage] || "Processing your post securely.";
   const showMessage = (isError || isComplete) && message;
   const dismissLabel = isReviewing ? "Cancel video posting" : "Dismiss posting progress";
+  const ringColor = isError ? "#e11d48" : isComplete ? "#059669" : "#0284c7";
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setCollapsed(false)}
+        aria-label={`Show posting progress, currently ${progress} percent`}
+        className="kt-toast-expand-in kt-pressable fixed right-3 top-3 z-[90] flex items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 py-1 pl-1 pr-2 shadow-xl shadow-slate-900/12 backdrop-blur-xl transition-transform hover:scale-105"
+      >
+        <span
+          className="grid h-10 w-10 place-items-center rounded-full transition-all duration-500"
+          style={{ background: `conic-gradient(${ringColor} ${progress * 3.6}deg, #e2e8f0 0deg)` }}
+        >
+          <span className={`grid h-8 w-8 place-items-center rounded-full bg-white text-[10px] font-black ${isError ? "text-rose-600" : isComplete ? "text-emerald-700" : "text-sky-700"}`}>
+            {progress}%
+          </span>
+        </span>
+        <ChevronRight size={16} className="text-slate-500" />
+      </button>
+    );
+  }
 
   return (
-    <div className="fixed left-3 right-3 top-3 z-[90] mx-auto max-w-xl overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-xl shadow-slate-900/12 backdrop-blur-xl">
+    <div className="kt-toast-expand-in fixed left-3 right-3 top-3 z-[90] mx-auto max-w-xl overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-xl shadow-slate-900/12 backdrop-blur-xl">
       {isActive ? (
         <>
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-indigo-50" />
@@ -59,6 +92,15 @@ export default function PostingStatusBanner({ notice, onDismiss }) {
             <span className={`rounded-full px-2 py-0.5 text-xs font-black ${isError ? "bg-rose-50 text-rose-700" : isComplete ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700"}`}>
               {progress}%
             </span>
+            <button
+              type="button"
+              onClick={() => setCollapsed(true)}
+              aria-label="Minimize posting progress"
+              title="Minimize posting progress"
+              className="kt-pressable flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
+            >
+              <Minimize2 size={14} />
+            </button>
             <button
               type="button"
               onClick={onDismiss}

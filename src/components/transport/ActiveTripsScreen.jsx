@@ -46,7 +46,7 @@ const tripSteps = [
   { key: "completed", label: "Done" },
 ];
 
-export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification, initialActionRequest = null }) {
+export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification, onOpenEmergencyArea, initialActionRequest = null }) {
   const initialTrips = getActiveTrips();
   const [trips, setTrips] = useState(() => initialTrips);
   const [loading, setLoading] = useState(() => initialTrips.length === 0);
@@ -158,6 +158,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
         onRun={runTripAction}
         onSubmitSupport={submitSupport}
         onSubmitReview={submitReview}
+        onOpenEmergencyArea={onOpenEmergencyArea}
       />
     );
   }
@@ -321,13 +322,13 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
   );
 }
 
-function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSubmitReview }) {
+function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSubmitReview, onOpenEmergencyArea }) {
   const trip = screen.trip;
   const title = {
     hub: "Trip actions",
     pause: trip.rawStatus === "paused" ? "Continue trip" : "Pause trip",
     share: "Share live location",
-    emergency: "Emergency contacts",
+    emergency: "SOS / emergency",
     contact: "Contact operator",
     report: "Report trip",
     end: "End trip",
@@ -347,12 +348,12 @@ function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSu
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl px-3 py-4 sm:px-5">
-        {screen.type === "hub" ? <ActionHub trip={trip} onOpen={onOpen} /> : null}
+        {screen.type === "hub" ? <ActionHub trip={trip} onOpen={onOpen} onOpenEmergencyArea={onOpenEmergencyArea} /> : null}
         {screen.type === "pause" ? <PauseScreen trip={trip} onRun={onRun} /> : null}
         {screen.type === "share" ? <ShareLocationScreen /> : null}
-        {screen.type === "emergency" ? <EmergencyScreen trip={trip} onOpen={onOpen} /> : null}
+        {screen.type === "emergency" ? <EmergencyScreen trip={trip} onOpen={onOpen} onOpenEmergencyArea={onOpenEmergencyArea} /> : null}
         {screen.type === "contact" ? <ContactOperatorScreen trip={trip} /> : null}
-        {screen.type === "report" ? <ReportScreen trip={trip} onSubmit={onSubmitSupport} /> : null}
+        {screen.type === "report" ? <ReportScreen trip={trip} priority={screen.priority || "high"} onSubmit={onSubmitSupport} /> : null}
         {screen.type === "end" ? <EndTripScreen trip={trip} onRun={onRun} /> : null}
         {screen.type === "cancel" ? <CancelTripScreen trip={trip} onRun={onRun} /> : null}
         {screen.type === "review" ? <ReviewScreen trip={trip} onSubmit={onSubmitReview} /> : null}
@@ -361,8 +362,16 @@ function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSu
   );
 }
 
-function ActionHub({ trip, onOpen }) {
+function ActionHub({ trip, onOpen, onOpenEmergencyArea }) {
   const paused = trip.rawStatus === "paused";
+  const openEmergency = () => {
+    if (onOpenEmergencyArea) {
+      onOpenEmergencyArea(trip);
+      return;
+    }
+    onOpen({ type: "emergency" });
+  };
+
   return (
     <div className="grid gap-4">
       <LiveTripMetric trip={trip} />
@@ -373,7 +382,7 @@ function ActionHub({ trip, onOpen }) {
           <ActionRow icon={paused ? FiPlay : FiPause} label={paused ? "Continue trip" : "Pause trip"} detail={paused ? "Resume the live counter" : "Temporarily stop trip counting"} onClick={() => onOpen({ type: "pause" })} />
           <ActionRow icon={FiShare2} label="Share live location" detail="Share your current GPS point" onClick={() => onOpen({ type: "share" })} />
           <ActionRow icon={FiPhone} label="Contact operator" detail="Call the assigned operator" onClick={() => onOpen({ type: "contact" })} />
-          <ActionRow icon={FiAlertTriangle} label="Contact emergency" detail="Open urgent help options" onClick={() => onOpen({ type: "emergency" })} danger />
+          <ActionRow icon={FiAlertTriangle} label="SOS / Emergency" detail="Open Area View emergency help" onClick={openEmergency} danger />
           <ActionRow icon={FiFlag} label="Report" detail="Send a trip report to support" onClick={() => onOpen({ type: "report" })} />
           <ActionRow icon={FiXCircle} label="End trip" detail="Finish and move this trip to history" onClick={() => onOpen({ type: "end" })} danger />
         </div>
@@ -480,14 +489,14 @@ function ShareLocationScreen() {
   );
 }
 
-function EmergencyScreen({ trip, onOpen }) {
+function EmergencyScreen({ trip, onOpen, onOpenEmergencyArea }) {
   return (
     <section className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
       <FiAlertTriangle className="text-red-700" size={25} />
       <h2 className="mt-3 text-xl font-black text-slate-950">Urgent help</h2>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Use your local emergency number for immediate danger. You can also contact the operator or send an urgent KunThai report.</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Use official emergency services for immediate danger. Area View can show country-aware emergency numbers and nearby hospitals, police stations, pharmacies, and fire services.</p>
       <div className="mt-5 grid gap-2">
-        <a href="tel:112" className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-red-600 text-sm font-black text-white"><FiPhone size={17} /> Call emergency services</a>
+        <button type="button" onClick={() => onOpenEmergencyArea?.(trip)} disabled={!onOpenEmergencyArea} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-red-600 text-sm font-black text-white disabled:bg-gray-300"><FiAlertTriangle size={17} /> Open Area View SOS</button>
         <button type="button" onClick={() => onOpen({ type: "contact", trip })} className="h-12 rounded-2xl border border-gray-200 text-sm font-black text-slate-700">Contact operator</button>
         <button type="button" onClick={() => onOpen({ type: "report", trip, priority: "urgent" })} className="h-12 rounded-2xl border border-red-100 bg-red-50 text-sm font-black text-red-700">Send urgent report</button>
       </div>
@@ -507,7 +516,7 @@ function ContactOperatorScreen({ trip }) {
   );
 }
 
-function ReportScreen({ trip, onSubmit }) {
+function ReportScreen({ trip, priority = "high", onSubmit }) {
   const [body, setBody] = useState(`Trip report: ${trip.title} - ${trip.pickup} to ${trip.destination}`);
   const [busy, setBusy] = useState(false);
   return (
@@ -516,7 +525,7 @@ function ReportScreen({ trip, onSubmit }) {
       <h2 className="mt-3 text-xl font-black text-slate-950">Report this trip</h2>
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Explain the issue clearly so support receives the operator, route, and trip record together.</p>
       <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={6} className="mt-4 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500" />
-      <button type="button" disabled={busy} onClick={async () => { setBusy(true); await onSubmit({ tripId: trip.id, fleetId: trip.fleetId, topic: "Trip report", priority: "high", body }); setBusy(false); }} className="mt-4 h-12 w-full rounded-2xl bg-red-600 text-sm font-black text-white disabled:opacity-50">
+      <button type="button" disabled={busy} onClick={async () => { setBusy(true); await onSubmit({ tripId: trip.id, fleetId: trip.fleetId, topic: priority === "urgent" ? "Urgent trip report" : "Trip report", priority, body }); setBusy(false); }} className="mt-4 h-12 w-full rounded-2xl bg-red-600 text-sm font-black text-white disabled:opacity-50">
         {busy ? "Sending..." : "Send report"}
       </button>
     </section>

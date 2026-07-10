@@ -58,6 +58,7 @@ function mapBuyerProduct(product = {}) {
     reviewCount: Number(product.review_count || 0),
     seller: {
       id: business.id || product.business_id,
+      publicBusinessId: business.public_business_id || "",
       name: business.business_name || "UrMall seller",
       description: business.description || "",
       category: product.category || "General Seller",
@@ -96,7 +97,7 @@ const PRODUCT_SELECT = `
   marketplace_businesses (
     id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
     latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,country_iso,currency,
-    logo_url,banner_url,verification_status,readiness_score,created_at
+    logo_url,banner_url,verification_status,readiness_score,created_at,public_business_id
   )
 `;
 
@@ -108,7 +109,7 @@ const PRODUCT_DETAIL_SELECT = `
   marketplace_businesses (
     id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
     latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,country_iso,currency,
-    logo_url,banner_url,verification_status,readiness_score,created_at
+    logo_url,banner_url,verification_status,readiness_score,created_at,public_business_id
   )
 `;
 

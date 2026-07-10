@@ -122,7 +122,7 @@ export default function LocationContactStep({ registration }) {
             autoComplete="tel"
           />
           <span className={`mt-2 block text-xs font-bold ${phoneValidation.valid || !form.location.phone ? "text-gray-500" : "text-red-600"}`}>
-            {phoneValidation.valid ? `${countryProfile.name}: ${phoneValidation.expected} national digits.` : phoneValidation.message}
+            {phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
           </span>
         </RegistrationField>
         <RegistrationField label="Business email" error={errors.email}>

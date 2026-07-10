@@ -855,6 +855,11 @@ export default function SellerProfileDrawer({
 
                     <div className="mt-2 space-y-1">
                       <p className="break-words text-sm font-black text-gray-800">{sellerCategory}</p>
+                      {safeSeller.publicBusinessId || safeSeller.public_business_id ? (
+                        <p className="break-words text-xs font-black uppercase tracking-wide text-emerald-700">
+                          UrMall ID: {safeSeller.publicBusinessId || safeSeller.public_business_id}
+                        </p>
+                      ) : null}
                       <p className="break-words text-sm font-semibold text-gray-500">{cityCountry}</p>
                       {showFullAddress ? <p className="break-words text-sm font-semibold text-gray-500">{fullAddress}</p> : null}
                     </div>
