@@ -7,9 +7,7 @@ import supabase from "./Backend/lib/supabaseClient";
 import { consumeAuthIntent, enterGuestMode } from "./Backend/services/guestModeService";
 import FlagIcon from "./components/FlagIcon";
 import {
-  signInWithEmailAccount,
   signInWithPhone,
-  signUpWithEmailAccount,
   signUpWithPhone,
   resendPhoneOtp,
   verifyPhoneOtp,
@@ -154,15 +152,16 @@ function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "P
         {label}
       </span>
       <div className="flex gap-2">
-        <div className="w-[8.5rem] shrink-0">
+        <div className="w-[7.75rem] shrink-0 sm:w-[8.5rem]">
           <CountryPicker country={country} onCountryChange={onCountryChange} compact />
         </div>
         <input
           type="tel"
-          inputMode="numeric"
+          inputMode="tel"
           value={phone}
           onChange={(event) => onPhoneChange(constrainCountryPhoneInput(event.target.value, country))}
           placeholder={country.placeholder}
+          autoComplete="tel"
           className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           required
         />
@@ -171,31 +170,24 @@ function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "P
   );
 }
 
-function PhoneOrEmailInput({ country, value, onCountryChange, onValueChange }) {
+function PhoneAccountInput({ country, value, onCountryChange, onValueChange }) {
   return (
     <div className="block">
       <span className="mb-2 block text-sm font-semibold text-slate-700">
-        Phone / Email Account
+        Phone Account
       </span>
       <div className="flex gap-2">
-        <div className="w-[8.5rem] shrink-0">
+        <div className="w-[7.75rem] shrink-0 sm:w-[8.5rem]">
           <CountryPicker country={country} onCountryChange={onCountryChange} compact />
         </div>
         <input
-          type="text"
-          inputMode="email"
+          type="tel"
+          inputMode="tel"
           value={value}
-          onChange={(event) => {
-            const nextValue = event.target.value;
-            // Free typing for emails; phone-like input gets the country's
-            // digit grouping and stops at the national digit count.
-            onValueChange(/^[+\d\s()-]*$/.test(nextValue) && /\d/.test(nextValue)
-              ? constrainCountryPhoneInput(nextValue, country)
-              : nextValue);
-          }}
-          placeholder={`${country.placeholder} or email`}
-          autoComplete="username"
-          className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          onChange={(event) => onValueChange(constrainCountryPhoneInput(event.target.value, country))}
+          placeholder={country.placeholder}
+          autoComplete="tel"
+          className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           required
         />
       </div>
@@ -213,8 +205,6 @@ const normalizePhoneDigits = (value, country) => {
   return digits;
 };
 
-const isEmailValue = (value) => value.includes("@");
-
 const buildPhoneForAuth = (value, country) => {
   const trimmed = value.trim();
 
@@ -224,14 +214,79 @@ const buildPhoneForAuth = (value, country) => {
 
   return `${country.dialCode}${normalizePhoneDigits(trimmed, country)}`;
 };
+
+const scrollAuthToTop = () => {
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+};
+
+function AuthDivider() {
+  return (
+    <div className="flex items-center gap-4 py-2">
+      <div className="h-px flex-1 bg-slate-200" />
+      <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
+        OR
+      </span>
+      <div className="h-px flex-1 bg-slate-200" />
+    </div>
+  );
+}
+
+function SocialAuthButtons({ providerLoading, isLoading, onOAuth }) {
+  return (
+    <div className="space-y-3 pt-1">
+      <button
+        type="button"
+        onClick={() => onOAuth("google")}
+        disabled={isLoading}
+        className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+      >
+        <FcGoogle className="h-6 w-6 shrink-0" aria-hidden="true" />
+        <span>
+          {providerLoading === "google"
+            ? "Connecting Google..."
+            : "Continue with Google"}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onOAuth("apple")}
+        disabled={isLoading}
+        className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+      >
+        <FaApple className="h-7 w-7 shrink-0 text-black" aria-hidden="true" />
+        <span>
+          {providerLoading === "apple"
+            ? "Connecting Apple..."
+            : "Continue with Apple"}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function GuestButton({ isLoading, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={isLoading}
+      className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-60"
+    >
+      <Eye className="h-5 w-5 shrink-0" aria-hidden="true" />
+      <span>Visit as guest</span>
+    </button>
+  );
+}
+
 export default function Login() {
   const [mode, setMode] = useState(() => (consumeAuthIntent() === "signup" ? "signup" : "signin"));
-  const [signupStep, setSignupStep] = useState("options");
-  const [signupMethod, setSignupMethod] = useState("");
+  const [signupStep, setSignupStep] = useState("details");
   const [guestPromptOpen, setGuestPromptOpen] = useState(false);
   const [guestEntering, setGuestEntering] = useState(false);
 
-  const [email, setEmail] = useState("");
   const [signInAccount, setSignInAccount] = useState("");
   const [selectedCountry, setSelectedCountry] = useState(() => {
     const activeProfile = getActiveCountryProfile();
@@ -252,7 +307,6 @@ export default function Login() {
   const [recoveryPhone, setRecoveryPhone] = useState("");
 
   const redirectTo = window.location.origin;
-  const isPhoneSignup = mode === "signup" && signupMethod === "Phone";
   const phoneDigits = useMemo(
     () => normalizePhoneDigits(phoneNumber, selectedCountry),
     [phoneNumber, selectedCountry],
@@ -275,14 +329,14 @@ export default function Login() {
 
   function switchMode(nextMode) {
     setMode(nextMode);
-    setSignupStep("options");
-    setSignupMethod("");
+    setSignupStep("details");
     setConfirmPassword("");
     setOtpCode("");
     setPendingPhone("");
     setRecoveryOpen(false);
     setRecoveryPhone("");
     resetMessages();
+    scrollAuthToTop();
   }
 
   async function handleOAuth(provider, intent = "signin") {
@@ -312,13 +366,6 @@ export default function Login() {
     }
   }
 
-  function openSignupDetails(method) {
-    resetMessages();
-    setSignupMethod(method);
-    setSignupStep("details");
-    setOtpCode("");
-  }
-
   function validatePhoneDigits(digits, country) {
     if (digits.length < country.minLength || digits.length > country.maxLength) {
       const expected =
@@ -337,7 +384,7 @@ export default function Login() {
     return validatePhoneDigits(phoneDigits, selectedCountry);
   }
 
-  async function handleSignInWithPhoneOrEmail(event) {
+  async function handleSignInWithPhone(event) {
     event.preventDefault();
 
     try {
@@ -345,12 +392,10 @@ export default function Login() {
       setLoading(true);
 
       const account = signInAccount.trim();
-      if (!isEmailValue(account) && !validatePhoneDigits(normalizePhoneDigits(account, selectedCountry), selectedCountry)) {
+      if (!validatePhoneDigits(normalizePhoneDigits(account, selectedCountry), selectedCountry)) {
         return;
       }
-      const response = isEmailValue(account)
-        ? await signInWithEmailAccount(account, password)
-        : await signInWithPhone(buildPhoneForAuth(account, selectedCountry), password);
+      const response = await signInWithPhone(buildPhoneForAuth(account, selectedCountry), password);
 
       if (response.error) {
         throw response.error;
@@ -382,21 +427,16 @@ export default function Login() {
 
       const signupPhone = buildPhoneForAuth(phoneNumber, selectedCountry);
 
-      const { error: authError } = isPhoneSignup
-        ? await signUpWithPhone(signupPhone, password, selectedCountry)
-        : await signUpWithEmailAccount(email, signupPhone, password, redirectTo, selectedCountry);
+      const { error: authError } = await signUpWithPhone(signupPhone, password, selectedCountry);
 
       if (authError) {
         throw authError;
       }
 
-      if (isPhoneSignup) {
-        setPendingPhone(signupPhone);
-        setSignupStep("otp");
-        setMessage("OTP sent. Please verify your phone number.");
-      } else {
-        setMessage("Verification sent. Please check your email.");
-      }
+      setPendingPhone(signupPhone);
+      setSignupStep("otp");
+      setMessage("OTP sent. Please verify your phone number.");
+      scrollAuthToTop();
     } catch (err) {
       if (isPhoneAlreadyLinkedError(err)) {
         setPhoneConflict(true);
@@ -454,15 +494,15 @@ export default function Login() {
   const isLoading = providerLoading !== "" || loading;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-4 sm:py-8">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-        <h1 className="text-center text-3xl font-bold text-slate-900">
+    <div className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-slate-100 px-3 py-3 sm:items-center sm:px-4 sm:py-8">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
+        <h1 className="text-center text-3xl font-bold leading-tight text-slate-900">
           Welcome to KunThai
         </h1>
 
         {mode === "signin" && (
-          <form onSubmit={handleSignInWithPhoneOrEmail} className="mt-8 space-y-4">
-            <PhoneOrEmailInput
+          <form onSubmit={handleSignInWithPhone} className="mt-6 space-y-4 sm:mt-8">
+            <PhoneAccountInput
               country={selectedCountry}
               value={signInAccount}
               onCountryChange={setSelectedCountry}
@@ -482,138 +522,32 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+              className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Logging In..." : "Log in with Phone / Email"}
+              {loading ? "Logging In..." : "Log in with Phone"}
             </button>
 
-            <div className="flex items-center gap-4 py-2">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                OR
-              </span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
+            <AuthDivider />
 
-            <div className="space-y-3 pt-1">
-              <button
-                type="button"
-                onClick={() => handleOAuth("google")}
-                disabled={isLoading}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-              >
-                <FcGoogle className="h-6 w-6 shrink-0" aria-hidden="true" />
-                <span>
-                  {providerLoading === "google"
-                    ? "Connecting Google..."
-                    : "Continue with Google"}
-                </span>
-              </button>
+            <SocialAuthButtons
+              providerLoading={providerLoading}
+              isLoading={isLoading}
+              onOAuth={(provider) => handleOAuth(provider, "signin")}
+            />
 
-              <button
-                type="button"
-                onClick={() => handleOAuth("apple")}
-                disabled={isLoading}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-              >
-                <FaApple className="h-7 w-7 shrink-0 text-black" aria-hidden="true" />
-                <span>
-                  {providerLoading === "apple"
-                    ? "Connecting Apple..."
-                    : "Continue with Apple"}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setGuestPromptOpen(true)}
-                disabled={isLoading}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-60"
-              >
-                <Eye className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <span>Visit as guest</span>
-              </button>
-            </div>
+            <GuestButton isLoading={isLoading} onOpen={() => setGuestPromptOpen(true)} />
           </form>
         )}
 
-        {mode === "signup" && signupStep === "options" && (
-          <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              onClick={() => handleOAuth("google", "signup")}
-              disabled={isLoading}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              <FcGoogle className="h-6 w-6 shrink-0" aria-hidden="true" />
-              <span>
-                {providerLoading === "google"
-                  ? "Creating Google account..."
-                  : "Sign up with Google"}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => openSignupDetails("Phone")}
-              disabled={isLoading}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              Sign up with Phone
-            </button>
-
-            <button
-              type="button"
-              onClick={() => openSignupDetails("iCloud")}
-              disabled={isLoading}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              Sign up with iCloud
-            </button>
-          </div>
-        )}
-
         {mode === "signup" && signupStep === "details" && (
-          <form onSubmit={handleCreateAccount} className="mt-8 space-y-4">
-            <button
-              type="button"
-              onClick={() => setSignupStep("options")}
-              className="text-sm font-semibold text-slate-500"
-            >
-              Back
-            </button>
-
-            <h2 className="text-center text-xl font-bold text-slate-900">
-              Sign up with {signupMethod}
-            </h2>
-
-            {isPhoneSignup ? (
-              <PhoneInput
-                country={selectedCountry}
-                phone={phoneNumber}
-                onCountryChange={setSelectedCountry}
-                onPhoneChange={setPhoneNumber}
-              />
-            ) : (
-              <>
-                <AuthInput
-                  label="Email Account"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Enter email account"
-                  autoComplete="email"
-                  required
-                />
-                <PhoneInput
-                  country={selectedCountry}
-                  phone={phoneNumber}
-                  onCountryChange={setSelectedCountry}
-                  onPhoneChange={setPhoneNumber}
-                  label="Phone Number"
-                />
-              </>
-            )}
+          <form onSubmit={handleCreateAccount} className="mt-6 space-y-4 sm:mt-8">
+            <PhoneInput
+              country={selectedCountry}
+              phone={phoneNumber}
+              onCountryChange={setSelectedCountry}
+              onPhoneChange={setPhoneNumber}
+              label="Phone Account"
+            />
 
             <AuthInput
               label="Password"
@@ -638,10 +572,18 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+              className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Creating Account..." : "Create Account / Verify"}
+              {loading ? "Creating Account..." : "Sign up with Phone"}
             </button>
+
+            <AuthDivider />
+
+            <SocialAuthButtons
+              providerLoading={providerLoading}
+              isLoading={isLoading}
+              onOAuth={(provider) => handleOAuth(provider, "signup")}
+            />
           </form>
         )}
 
@@ -649,7 +591,10 @@ export default function Login() {
           <form onSubmit={handleVerifyPhoneOtp} className="mt-8 space-y-4">
             <button
               type="button"
-              onClick={() => setSignupStep("details")}
+              onClick={() => {
+                setSignupStep("details");
+                scrollAuthToTop();
+              }}
               className="text-sm font-semibold text-slate-500"
             >
               Back

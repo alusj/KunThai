@@ -162,15 +162,10 @@ function AppLoading({ page = "explore" }) {
           </div>
         ) : null}
         {page === "marketplace" ? (
-          <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((item) => (
-              <div key={item} className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="aspect-square animate-pulse rounded-[18px] bg-slate-100" />
-                <div className="mt-3 h-4 w-4/5 animate-pulse rounded-full bg-slate-200" />
-                <div className="mt-2 h-3 w-1/2 animate-pulse rounded-full bg-emerald-100" />
-              </div>
-            ))}
-          </div>
+          // UrMall intentionally renders no card skeleton here: the Browse
+          // screen shows its own product-grid loader, and stacking a second
+          // app-level one made the mall appear to load twice.
+          null
         ) : page === "transport" ? (
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-3">
@@ -240,6 +235,7 @@ export default function App() {
   const [onboardingReveal, setOnboardingReveal] = useState(null);
   const [accountControl, setAccountControl] = useState(null);
   const appGestureRef = useRef(null);
+  const pagePanelRef = useRef(null);
   const userId = user?.id || "";
   setNotificationSeenUser(userId);
 
@@ -445,6 +441,13 @@ export default function App() {
     setPage(nextPage);
   }
 
+  function getSwipeTargetPage(deltaX) {
+    if (deltaX < 0 && page === "marketplace") return "transport";
+    if (deltaX > 0 && page === "transport") return "marketplace";
+    if (deltaX > 0 && page === "marketplace") return "explore";
+    return "";
+  }
+
   function handleAppTouchStart(event) {
     if (page === "explore" || bottomTabsHidden || event.touches.length !== 1) {
       appGestureRef.current = null;
@@ -452,7 +455,10 @@ export default function App() {
     }
 
     const target = event.target;
-    if (target?.closest?.("input, textarea, select, [contenteditable='true']")) {
+    if (
+      target?.closest?.("input, textarea, select, [contenteditable='true']") ||
+      target?.closest?.(".overflow-x-auto, .overflow-x-scroll")
+    ) {
       appGestureRef.current = null;
       return;
     }
@@ -463,17 +469,42 @@ export default function App() {
       startY: touch.clientY,
       lastX: touch.clientX,
       lastY: touch.clientY,
+      axis: null,
     };
   }
 
   function handleAppTouchMove(event) {
-    if (!appGestureRef.current || event.touches.length !== 1) {
+    const gesture = appGestureRef.current;
+    if (!gesture || event.touches.length !== 1) {
       return;
     }
 
     const touch = event.touches[0];
-    appGestureRef.current.lastX = touch.clientX;
-    appGestureRef.current.lastY = touch.clientY;
+    gesture.lastX = touch.clientX;
+    gesture.lastY = touch.clientY;
+
+    const deltaX = gesture.lastX - gesture.startX;
+    const deltaY = gesture.lastY - gesture.startY;
+
+    if (!gesture.axis) {
+      if (Math.abs(deltaX) < 14 && Math.abs(deltaY) < 14) {
+        return;
+      }
+      gesture.axis = Math.abs(deltaX) > Math.abs(deltaY) * 1.35 ? "x" : "y";
+    }
+
+    if (gesture.axis !== "x" || !getSwipeTargetPage(deltaX)) {
+      return;
+    }
+
+    // The neighbouring page is not mounted, so the active page tracks the
+    // finger with light resistance for immediate feedback and the switch
+    // itself commits on release.
+    const node = pagePanelRef.current;
+    if (node) {
+      node.style.transition = "none";
+      node.style.transform = `translate3d(${deltaX * 0.35}px, 0, 0)`;
+    }
   }
 
   function handleAppTouchEnd() {
@@ -484,27 +515,28 @@ export default function App() {
       return;
     }
 
+    const node = pagePanelRef.current;
+    if (node && gesture.axis === "x") {
+      node.style.transition = "transform 190ms ease-out";
+      node.style.transform = "translate3d(0, 0, 0)";
+      window.setTimeout(() => {
+        node.style.transition = "";
+        node.style.transform = "";
+      }, 220);
+    }
+
     const deltaX = gesture.lastX - gesture.startX;
     const deltaY = gesture.lastY - gesture.startY;
     const horizontal = Math.abs(deltaX);
     const vertical = Math.abs(deltaY);
 
-    if (horizontal < 72 || horizontal < vertical * 1.25 || vertical > 112) {
+    if (gesture.axis !== "x" || horizontal < 72 || horizontal < vertical * 1.25) {
       return;
     }
 
-    if (deltaX < 0 && page === "marketplace") {
-      changePage("transport");
-      return;
-    }
-
-    if (deltaX > 0 && page === "transport") {
-      changePage("marketplace");
-      return;
-    }
-
-    if (deltaX > 0 && page === "marketplace") {
-      changePage("explore");
+    const targetPage = getSwipeTargetPage(deltaX);
+    if (targetPage) {
+      changePage(targetPage);
     }
   }
 
@@ -545,7 +577,7 @@ export default function App() {
           ) : null}
 
           {page === "marketplace" ? (
-            <section className={pagePanelClass("marketplace")} aria-hidden={false}>
+            <section ref={pagePanelRef} className={pagePanelClass("marketplace")} aria-hidden={false}>
               <Marketplace
                 nav={marketplaceNav}
                 setNav={setMarketplaceNav}
@@ -557,7 +589,7 @@ export default function App() {
           ) : null}
 
           {page === "transport" ? (
-            <section className={pagePanelClass("transport")} aria-hidden={false}>
+            <section ref={pagePanelRef} className={pagePanelClass("transport")} aria-hidden={false}>
               <Transport
                 onActivityChange={setTransportActivityOpen}
                 areaViewRequest={transportAreaRequest}

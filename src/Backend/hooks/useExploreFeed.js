@@ -43,7 +43,6 @@ import {
   storeMutedExploreAdvertiser,
   syncExploreReaction,
   updateExplorePost,
-  updateExplorePostCounts,
 } from "../services/exploreService";
 
 function isLocalPost(post) {
@@ -354,7 +353,8 @@ export function useExploreFeed(scope = "feed") {
   const savedPostsRef = useRef(savedPosts);
   const loadIdRef = useRef(0);
   const lastLoadAttemptRef = useRef(0);
-  const pendingReactionRef = useRef(new Set());
+  // key `${type}:${postId}` -> { desired, synced, running } reaction sync state.
+  const pendingReactionRef = useRef(new Map());
   const nextOffsetRef = useRef(initialPosts.filter((post) => !isLocalPost(post)).length);
 
   useEffect(() => {
@@ -538,7 +538,12 @@ export function useExploreFeed(scope = "feed") {
       setPosts((current) => {
         const nextPosts = current.map((post) => {
           const count = counts.get(post.id);
-          return count ? { ...post, ...count } : post;
+          // A post with an unsettled like/save toggle keeps its optimistic
+          // counts; the sync worker refreshes it again once it settles.
+          if (!count || hasPendingReactionSync(post.id)) {
+            return post;
+          }
+          return { ...post, ...count };
         });
         writeStoredPosts(scope, nextPosts);
         return nextPosts;
@@ -647,9 +652,16 @@ export function useExploreFeed(scope = "feed") {
 
           setPosts((current) => {
   const belongsInScope = postBelongsInScope(nextPost, scope);
+  // Keep the optimistic like/save counts while this user's own toggle is
+  // still syncing, otherwise the realtime snapshot rolls the number back
+  // for a beat and rapid taps compound into a wrong total.
+  const existing = current.find((post) => post.id === nextPost.id);
+  const incoming = existing && hasPendingReactionSync(nextPost.id)
+    ? { ...nextPost, likes_count: existing.likes_count, saves_count: existing.saves_count }
+    : nextPost;
   const withoutUpdatedPost = current.filter((post) => post.id !== nextPost.id);
-  const nextPosts = belongsInScope && isExplorePostVisibleInFeed(nextPost)
-    ? mergePosts([nextPost], withoutUpdatedPost)
+  const nextPosts = belongsInScope && isExplorePostVisibleInFeed(incoming)
+    ? mergePosts([incoming], withoutUpdatedPost)
     : withoutUpdatedPost;
 
   writeStoredPosts(scope, nextPosts);
@@ -877,103 +889,116 @@ export function useExploreFeed(scope = "feed") {
     }
   }
 
-  async function toggleReaction(postId, type) {
-    const pendingKey = `${type}:${postId}`;
-    if (pendingReactionRef.current.has(pendingKey)) {
-      return;
-    }
+  // Rapid like/unlike taps are coalesced per post: the UI flips instantly on
+  // every tap while a single worker syncs only the latest desired state to the
+  // backend. Counts are never written from the client — database triggers keep
+  // explore_posts counts accurate — so interleaved requests can no longer push
+  // a stale total that overshoots the real one.
+  function getReactionTools(type) {
+    return type === "like"
+      ? { stateSetter: setLikedPosts, stateRef: likedPostsRef, storageKey: LIKE_STORAGE_KEY, countKey: "likes_count" }
+      : { stateSetter: setSavedPosts, stateRef: savedPostsRef, storageKey: SAVE_STORAGE_KEY, countKey: "saves_count" };
+  }
 
-    pendingReactionRef.current.add(pendingKey);
-    haptics.light("explore");
+  function hasPendingReactionSync(postId) {
+    return ["like", "save"].some((type) => {
+      const entry = pendingReactionRef.current.get(`${type}:${postId}`);
+      return Boolean(entry && (entry.running || entry.desired !== entry.synced));
+    });
+  }
 
-    const stateSetter = type === "like" ? setLikedPosts : setSavedPosts;
-    const stateRef = type === "like" ? likedPostsRef : savedPostsRef;
-    const storageKey = type === "like" ? LIKE_STORAGE_KEY : SAVE_STORAGE_KEY;
-    const countKey = type === "like" ? "likes_count" : "saves_count";
-    const currentlyActive = stateRef.current.has(postId);
-    const delta = currentlyActive ? -1 : 1;
-    const previousSet = new Set(stateRef.current);
-    const previousPosts = postsRef.current;
-    const targetPost = postsRef.current.find((post) => post.id === postId);
-    const nextCount = Math.max(0, (targetPost?.[countKey] ?? 0) + delta);
-    const nextSet = new Set(previousSet);
-
-    if (currentlyActive) {
-      nextSet.delete(postId);
-    } else {
+  function applyReactionState(postId, type, active) {
+    const { stateSetter, stateRef, storageKey } = getReactionTools(type);
+    const nextSet = new Set(stateRef.current);
+    if (active) {
       nextSet.add(postId);
+    } else {
+      nextSet.delete(postId);
     }
-
     stateRef.current = nextSet;
     stateSetter(nextSet);
     writeStoredSet(storageKey, nextSet);
     window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { key: storageKey, type: `${type}-state` } }));
+  }
 
+  function applyReactionCountDelta(postId, type, delta) {
+    if (!delta) return;
+    const { countKey } = getReactionTools(type);
     setPosts((current) => {
-      const nextPosts = current.map((post) => {
-        if (post.id !== postId) {
-          return post;
-        }
-
-        return {
-          ...post,
-          [countKey]: nextCount,
-        };
-      });
+      const nextPosts = current.map((post) => (
+        post.id === postId ? { ...post, [countKey]: Math.max(0, (post[countKey] ?? 0) + delta) } : post
+      ));
       writeStoredPosts(scope, nextPosts);
       window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope, postId, type: `${type}-count` } }));
       return nextPosts;
     });
+  }
+
+  function toggleReaction(postId, type) {
+    haptics.light("explore");
+
+    const { stateRef } = getReactionTools(type);
+    const currentlyActive = stateRef.current.has(postId);
+    const nextActive = !currentlyActive;
+
+    applyReactionState(postId, type, nextActive);
+    applyReactionCountDelta(postId, type, nextActive ? 1 : -1);
+
+    const key = `${type}:${postId}`;
+    const entry = pendingReactionRef.current.get(key) || { desired: currentlyActive, synced: currentlyActive, running: false };
+    entry.desired = nextActive;
+    pendingReactionRef.current.set(key, entry);
+    runReactionSync(key, postId, type);
+  }
+
+  async function runReactionSync(key, postId, type) {
+    const entry = pendingReactionRef.current.get(key);
+    if (!entry || entry.running) {
+      return;
+    }
+    entry.running = true;
 
     try {
-      const syncResult = await syncExploreReaction(postId, type, !currentlyActive);
-      if (syncResult?.changed === false) {
-        const correctedSet = new Set(previousSet);
-        if (syncResult.active) correctedSet.add(postId);
-        else correctedSet.delete(postId);
-        stateRef.current = correctedSet;
-        stateSetter(correctedSet);
-        writeStoredSet(storageKey, correctedSet);
+      while (entry.desired !== entry.synced) {
+        const target = entry.desired;
+        const syncResult = await syncExploreReaction(postId, type, target);
+        entry.synced = target;
 
-        setPosts((current) => {
-          const correctedPosts = current.map((post) => (
-            post.id === postId ? { ...post, [countKey]: targetPost?.[countKey] ?? post[countKey] ?? 0 } : post
-          ));
-          writeStoredPosts(scope, correctedPosts);
-          return correctedPosts;
-        });
-        refreshPostCounts([postId]);
-        return;
+        if (target && syncResult?.changed !== false) {
+          const targetPost = postsRef.current.find((post) => post.id === postId);
+          if (isAdvertDraft(targetPost)) {
+            recordExploreAdvertEvent(targetPost, type, { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
+          }
+          if (targetPost?.user_id && targetPost.user_id !== currentUserId) {
+            createExploreNotification({
+              user_id: targetPost.user_id,
+              type: type === "like" ? "reaction" : type,
+              post_id: targetPost.id,
+              post_preview: targetPost.body,
+              media_type: getPostMediaType(targetPost),
+            }).catch(() => null);
+          }
+        }
       }
 
-      updateExplorePostCounts(postId, { [countKey]: nextCount }).catch(() => null);
-      if (!currentlyActive && isAdvertDraft(targetPost)) {
-        recordExploreAdvertEvent(targetPost, type, { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
-      }
+      entry.running = false;
+      pendingReactionRef.current.delete(key);
       refreshPostCounts([postId]);
-      if (!currentlyActive && targetPost?.user_id && targetPost.user_id !== currentUserId) {
-        await createExploreNotification({
-          user_id: targetPost.user_id,
-          type: type === "like" ? "reaction" : type,
-          post_id: targetPost.id,
-          post_preview: targetPost.body,
-          media_type: getPostMediaType(targetPost),
-        }).catch(() => null);
-      }
     } catch (err) {
-      stateRef.current = previousSet;
-      stateSetter(previousSet);
-      writeStoredSet(storageKey, previousSet);
-      window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { key: storageKey, type: `${type}-rollback` } }));
-      if (previousPosts.length) {
-        setPosts(previousPosts);
-        writeStoredPosts(scope, previousPosts);
+      const uiActive = getReactionTools(type).stateRef.current.has(postId);
+      entry.desired = entry.synced;
+      entry.running = false;
+      pendingReactionRef.current.delete(key);
+
+      if (uiActive !== entry.synced) {
+        applyReactionState(postId, type, entry.synced);
+        applyReactionCountDelta(postId, type, entry.synced ? 1 : -1);
         window.dispatchEvent(new CustomEvent(EXPLORE_CACHE_EVENT, { detail: { scope, postId, type: `${type}-rollback` } }));
       }
+
+      refreshPostCounts([postId]);
       setError(err.message || `Unable to update ${type}.`);
       showToast(err.message || `Unable to update ${type}.`, "danger");
-    } finally {
-      pendingReactionRef.current.delete(pendingKey);
     }
   }
 
@@ -1010,7 +1035,6 @@ export function useExploreFeed(scope = "feed") {
       if (isAdvertDraft(targetPost)) {
         recordExploreAdvertEvent(targetPost, "comment", { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
       }
-      updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
       refreshPostCounts([postId]);
       showToast("Comment posted.", "success");
       if (targetPost?.user_id && targetPost.user_id !== currentUserId) {

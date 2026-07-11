@@ -11,8 +11,6 @@ import {
   getCurrentUserProfile,
   reportExploreComment,
   syncExploreCommentLike,
-  updateExploreCommentCounts,
-  updateExplorePostCounts,
 } from "../services/exploreService";
 import { guardGuestAction } from "../services/guestModeService";
 import { haptics } from "../services/feedbackService";
@@ -71,7 +69,8 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
   const [error, setError] = useState("");
   const [currentProfile, setCurrentProfile] = useState(null);
   const [pendingKeys, setPendingKeys] = useState(new Set());
-  const pendingLikeRef = useRef(new Set());
+  // commentId -> { desired, synced, running } coalesced like-sync state.
+  const pendingLikeRef = useRef(new Map());
 
   async function load() {
     if (!postId || !enabled) {
@@ -301,9 +300,6 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
         });
       }
 
-      const nextCount = Math.max(Number(post?.comments_count || 0), comments.length) + 1;
-      updateExplorePostCounts(postId, { comments_count: nextCount }).catch(() => null);
-
       if (post?.user_id && post.user_id !== currentUserId) {
         createExploreNotification({
           user_id: post.user_id,
@@ -350,18 +346,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
     }
   }
 
-  async function toggleCommentLike(commentId) {
-    if (guardGuestAction("like", "comment")) return;
-    if (pendingLikeRef.current.has(commentId)) {
-      return;
-    }
-
-    pendingLikeRef.current.add(commentId);
-    const active = !likedComments.has(commentId);
-    const target = comments.find((comment) => comment.id === commentId);
-    const previousLikedComments = likedComments;
-    const previousComments = comments;
-    const nextCount = Math.max(0, (target?.likes_count || 0) + (active ? 1 : -1));
+  function applyCommentLikeState(commentId, active) {
     setLikedComments((current) => {
       const next = new Set(current);
       if (active) next.add(commentId);
@@ -372,21 +357,49 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
     setComments((current) =>
       current.map((comment) =>
         comment.id === commentId
-          ? { ...comment, likes_count: nextCount }
+          ? { ...comment, likes_count: Math.max(0, (comment.likes_count || 0) + (active ? 1 : -1)) }
           : comment,
       ),
     );
+  }
+
+  // Rapid like/unlike taps flip the UI instantly while a single worker syncs
+  // only the latest desired state. The like count in explore_post_comments is
+  // maintained by database triggers, so the client never writes totals.
+  async function toggleCommentLike(commentId) {
+    if (guardGuestAction("like", "comment")) return;
+
+    const active = !likedComments.has(commentId);
+    applyCommentLikeState(commentId, active);
+
+    const entry = pendingLikeRef.current.get(commentId) || { desired: !active, synced: !active, running: false };
+    entry.desired = active;
+    pendingLikeRef.current.set(commentId, entry);
+
+    if (entry.running) {
+      return;
+    }
+    entry.running = true;
 
     try {
-      await syncExploreCommentLike(commentId, active);
-      updateExploreCommentCounts(commentId, { likes_count: nextCount }).catch(() => null);
+      while (entry.desired !== entry.synced) {
+        const target = entry.desired;
+        await syncExploreCommentLike(commentId, target);
+        entry.synced = target;
+      }
+      pendingLikeRef.current.delete(commentId);
     } catch (err) {
-      setLikedComments(previousLikedComments);
-      setComments(previousComments);
+      // entry.desired mirrors what the UI shows right now; roll back to the
+      // last state the server confirmed.
+      const uiActive = entry.desired;
+      entry.desired = entry.synced;
+      entry.running = false;
+      pendingLikeRef.current.delete(commentId);
+      if (uiActive !== entry.synced) {
+        applyCommentLikeState(commentId, entry.synced);
+      }
       setError(err.message || "Unable to update comment like.");
       showToast(err.message || "Unable to update comment like.", "danger");
-    } finally {
-      pendingLikeRef.current.delete(commentId);
     }
   }
 

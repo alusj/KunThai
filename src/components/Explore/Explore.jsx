@@ -53,6 +53,13 @@ import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
 const EXPLORE_STACK_ANIMATION_MS = 280;
+// Interactive swipe tuning: panels track the finger once the gesture is
+// clearly horizontal, then commit past the distance or velocity threshold.
+const TAB_DRAG_ENGAGE_PX = 14;
+const TAB_DRAG_AXIS_RATIO = 1.35;
+const TAB_DRAG_COMMIT_RATIO = 0.3;
+const TAB_DRAG_COMMIT_VELOCITY = 0.45; // px per millisecond
+const TAB_DRAG_SETTLE_MS = 190;
 const LEFT_SIDE_MENU_SCREENS = new Set(["Menu", "Messages"]);
 const COMMENT_TARGET_NOTIFICATION_TYPES = new Set(["comment", "reply", "creator_reply", "thread_reply", "mention"]);
 
@@ -82,6 +89,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [swipPreviewTarget, setSwipPreviewTarget] = useState("");
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const [drawerDragging, setDrawerDragging] = useState(false);
+  const [drawerMountedByDrag, setDrawerMountedByDrag] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [headerOverlayOpen, setHeaderOverlayOpen] = useState(false);
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
@@ -89,6 +98,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const topChromeRef = useRef(null);
   const tabScrollRef = useRef({});
   const exploreGestureRef = useRef(null);
+  const tabPanelRefs = useRef({});
+  const drawerAsideRef = useRef(null);
+  const drawerBackdropRef = useRef(null);
+  const dragSettleTimerRef = useRef(null);
   const previousMenuStackRef = useRef([]);
   const stackCleanupTimerRef = useRef(null);
   const postingNoticeClearTimerRef = useRef(null);
@@ -181,6 +194,14 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       setLeftDrawerOpen(false);
     }
   }, [active]);
+
+  useEffect(() => {
+    if (!leftDrawerOpen && !drawerDragging && drawerMountedByDrag) {
+      setDrawerMountedByDrag(false);
+    }
+  }, [leftDrawerOpen, drawerDragging, drawerMountedByDrag]);
+
+  useEffect(() => () => window.clearTimeout(dragSettleTimerRef.current), []);
 
   useBodyScrollLock(anyExploreOverlayVisible);
 
@@ -545,14 +566,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     exploreNav.openMenuScreen(screen, options);
   }
 
-  function switchExploreTab(tab) {
+  function switchExploreTab(tab, options = {}) {
     if (tab === activeTab) {
       return;
     }
 
     const currentIndex = EXPLORE_TAB_ORDER.indexOf(activeTab);
     const nextIndex = EXPLORE_TAB_ORDER.indexOf(tab);
-    setTabSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
+    // A finger-driven swipe already moved the panels, so the class-based
+    // slide animation is skipped to avoid replaying the transition.
+    setTabSlideDirection(options.animate === false ? "none" : nextIndex >= currentIndex ? "forward" : "backward");
     tabScrollRef.current[activeTab] = window.scrollY || 0;
     exploreNav.setActiveTab(tab);
     const nextScroll = tabScrollRef.current[tab] || 0;
@@ -571,17 +594,201 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       return "hidden";
     }
 
+    if (tabSlideDirection === "none") {
+      return "block";
+    }
+
     return `${tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"} block`;
   }
 
+  function getDrawerWidth() {
+    return Math.min(window.innerWidth * 0.78, 390);
+  }
+
+  function clearTabDragStyles() {
+    EXPLORE_TAB_ORDER.forEach((tab) => {
+      const node = tabPanelRefs.current[tab];
+      if (!node) return;
+      node.style.transition = "";
+      node.style.transform = "";
+      node.style.display = "";
+      node.style.position = "";
+      node.style.top = "";
+      node.style.left = "";
+      node.style.right = "";
+      node.style.bottom = "";
+      node.style.zIndex = "";
+      node.style.overflow = "";
+      node.style.background = "";
+      node.style.pointerEvents = "";
+    });
+  }
+
+  // The incoming tab renders as a fixed overlay under the sticky header while
+  // the finger drags, so both panels can move together without re-flowing the
+  // page or losing the window scroll position of the active tab.
+  function prepareIncomingPanel(tab, initialOffset) {
+    const node = tabPanelRefs.current[tab];
+    if (!node) return;
+
+    node.style.display = "block";
+    node.style.position = "fixed";
+    node.style.top = `${topChromeHeight}px`;
+    node.style.left = "0";
+    node.style.right = "0";
+    node.style.bottom = "0";
+    node.style.zIndex = "25";
+    node.style.overflow = "hidden";
+    node.style.background = "rgb(241 245 249)";
+    node.style.pointerEvents = "none";
+    node.style.transition = "none";
+    node.style.transform = `translate3d(${initialOffset}px, 0, 0)`;
+    node.scrollTop = tabScrollRef.current[tab] || 0;
+  }
+
+  function beginHorizontalDrag(gesture, deltaX) {
+    gesture.width = window.innerWidth || 1;
+    const currentIndex = EXPLORE_TAB_ORDER.indexOf(activeTab);
+
+    if (deltaX > 0 && activeTab === "UrFeed") {
+      gesture.mode = "drawer";
+      setDrawerMountedByDrag(true);
+      setDrawerDragging(true);
+      return;
+    }
+
+    const targetIndex = deltaX > 0 ? currentIndex - 1 : currentIndex + 1;
+
+    if (targetIndex >= 0 && targetIndex < EXPLORE_TAB_ORDER.length) {
+      gesture.mode = "tabs";
+      gesture.incomingTab = EXPLORE_TAB_ORDER[targetIndex];
+      // sign is the horizontal direction panels travel: -1 toward the next
+      // tab (finger moves left), +1 toward the previous tab.
+      gesture.sign = targetIndex > currentIndex ? -1 : 1;
+      prepareIncomingPanel(gesture.incomingTab, -gesture.sign * gesture.width);
+      return;
+    }
+
+    if (deltaX < 0) {
+      // Last tab: no Explore panel to preview; the release hands over to
+      // UrMall like before, with light drag resistance for feedback.
+      gesture.mode = "exit";
+    }
+  }
+
+  function updateHorizontalDrag(gesture, rawDeltaX) {
+    if (gesture.mode === "drawer") {
+      const width = getDrawerWidth();
+      const shift = Math.min(width, Math.max(0, rawDeltaX));
+      const aside = drawerAsideRef.current;
+      if (aside) {
+        aside.style.transition = "none";
+        aside.style.transform = `translate3d(${-width + shift}px, 0, 0)`;
+      }
+      const backdrop = drawerBackdropRef.current;
+      if (backdrop) {
+        backdrop.style.transition = "none";
+        backdrop.style.opacity = String(shift / width);
+      }
+      return;
+    }
+
+    const activeNode = tabPanelRefs.current[activeTab];
+
+    if (gesture.mode === "exit") {
+      const deltaX = Math.min(0, rawDeltaX);
+      if (activeNode) {
+        activeNode.style.transition = "none";
+        activeNode.style.transform = `translate3d(${deltaX * 0.35}px, 0, 0)`;
+      }
+      return;
+    }
+
+    if (gesture.mode === "tabs") {
+      const deltaX = gesture.sign < 0 ? Math.min(0, rawDeltaX) : Math.max(0, rawDeltaX);
+      if (activeNode) {
+        activeNode.style.transition = "none";
+        activeNode.style.transform = `translate3d(${deltaX}px, 0, 0)`;
+      }
+      const incoming = tabPanelRefs.current[gesture.incomingTab];
+      if (incoming) {
+        incoming.style.transform = `translate3d(${-gesture.sign * gesture.width + deltaX}px, 0, 0)`;
+      }
+    }
+  }
+
+  function finishDrawerDrag(rawDeltaX, velocity) {
+    const width = getDrawerWidth();
+    const aside = drawerAsideRef.current;
+    const backdrop = drawerBackdropRef.current;
+    const commit = rawDeltaX > width * 0.35 || velocity > TAB_DRAG_COMMIT_VELOCITY;
+
+    if (aside) {
+      aside.style.transition = `transform ${TAB_DRAG_SETTLE_MS}ms ease-out`;
+      aside.style.transform = commit ? "translate3d(0, 0, 0)" : `translate3d(${-width}px, 0, 0)`;
+    }
+    if (backdrop) {
+      backdrop.style.transition = `opacity ${TAB_DRAG_SETTLE_MS}ms ease-out`;
+      backdrop.style.opacity = commit ? "1" : "0";
+    }
+
+    if (commit) {
+      setLeftDrawerOpen(true);
+    }
+
+    window.clearTimeout(dragSettleTimerRef.current);
+    dragSettleTimerRef.current = window.setTimeout(() => {
+      setDrawerDragging(false);
+      if (!commit) {
+        setDrawerMountedByDrag(false);
+      }
+      if (aside) {
+        aside.style.transition = "";
+        if (!commit) aside.style.transform = "";
+      }
+      if (backdrop) {
+        backdrop.style.transition = "";
+        if (!commit) backdrop.style.opacity = "";
+      }
+    }, TAB_DRAG_SETTLE_MS + 30);
+  }
+
+  function finishTabDrag(gesture, rawDeltaX, velocity) {
+    const activeNode = tabPanelRefs.current[activeTab];
+    const incoming = tabPanelRefs.current[gesture.incomingTab];
+    const deltaX = gesture.sign < 0 ? Math.min(0, rawDeltaX) : Math.max(0, rawDeltaX);
+    const fastEnough = gesture.sign < 0 ? velocity < -TAB_DRAG_COMMIT_VELOCITY : velocity > TAB_DRAG_COMMIT_VELOCITY;
+    const commit = Math.abs(deltaX) > gesture.width * TAB_DRAG_COMMIT_RATIO || (Math.abs(deltaX) > TAB_DRAG_ENGAGE_PX && fastEnough);
+
+    if (activeNode) {
+      activeNode.style.transition = `transform ${TAB_DRAG_SETTLE_MS}ms ease-out`;
+      activeNode.style.transform = commit ? `translate3d(${gesture.sign * gesture.width}px, 0, 0)` : "translate3d(0, 0, 0)";
+    }
+    if (incoming) {
+      incoming.style.transition = `transform ${TAB_DRAG_SETTLE_MS}ms ease-out`;
+      incoming.style.transform = commit ? "translate3d(0, 0, 0)" : `translate3d(${-gesture.sign * gesture.width}px, 0, 0)`;
+    }
+
+    window.clearTimeout(dragSettleTimerRef.current);
+    dragSettleTimerRef.current = window.setTimeout(() => {
+      clearTabDragStyles();
+      if (commit) {
+        switchExploreTabRef.current?.(gesture.incomingTab, { animate: false });
+      }
+    }, TAB_DRAG_SETTLE_MS + 30);
+  }
+
   function handleExploreTouchStart(event) {
-    if (!active || anyExploreOverlayVisible || event.touches.length !== 1) {
+    if (!active || anyExploreOverlayVisible || drawerDragging || event.touches.length !== 1) {
       exploreGestureRef.current = null;
       return;
     }
 
     const target = event.target;
-    if (target?.closest?.("input, textarea, select, [contenteditable='true']")) {
+    if (
+      target?.closest?.("input, textarea, select, [contenteditable='true']") ||
+      target?.closest?.(".overflow-x-auto, .overflow-x-scroll")
+    ) {
       exploreGestureRef.current = null;
       return;
     }
@@ -592,54 +799,105 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       startY: touch.clientY,
       lastX: touch.clientX,
       lastY: touch.clientY,
+      prevX: touch.clientX,
+      lastTime: Date.now(),
+      prevTime: Date.now(),
+      axis: null,
+      mode: null,
+      incomingTab: "",
+      sign: 0,
+      width: window.innerWidth || 1,
     };
   }
 
   function handleExploreTouchMove(event) {
-    if (!exploreGestureRef.current || event.touches.length !== 1) {
+    const gesture = exploreGestureRef.current;
+    if (!gesture || event.touches.length !== 1) {
       return;
     }
 
     const touch = event.touches[0];
-    exploreGestureRef.current.lastX = touch.clientX;
-    exploreGestureRef.current.lastY = touch.clientY;
+    gesture.prevX = gesture.lastX;
+    gesture.prevTime = gesture.lastTime;
+    gesture.lastX = touch.clientX;
+    gesture.lastY = touch.clientY;
+    gesture.lastTime = Date.now();
+
+    const deltaX = gesture.lastX - gesture.startX;
+    const deltaY = gesture.lastY - gesture.startY;
+
+    if (!gesture.axis) {
+      if (Math.abs(deltaX) < TAB_DRAG_ENGAGE_PX && Math.abs(deltaY) < TAB_DRAG_ENGAGE_PX) {
+        return;
+      }
+
+      gesture.axis = Math.abs(deltaX) > Math.abs(deltaY) * TAB_DRAG_AXIS_RATIO ? "x" : "y";
+
+      if (gesture.axis === "x") {
+        beginHorizontalDrag(gesture, deltaX);
+      }
+    }
+
+    if (gesture.axis !== "x" || !gesture.mode) {
+      return;
+    }
+
+    updateHorizontalDrag(gesture, deltaX);
   }
 
   function handleExploreTouchEnd() {
     const gesture = exploreGestureRef.current;
     exploreGestureRef.current = null;
 
-    if (!gesture || !active || anyExploreOverlayVisible) {
+    if (!gesture || gesture.axis !== "x" || !gesture.mode) {
       return;
     }
 
-    const deltaX = gesture.lastX - gesture.startX;
-    const deltaY = gesture.lastY - gesture.startY;
-    const horizontal = Math.abs(deltaX);
-    const vertical = Math.abs(deltaY);
+    const rawDeltaX = gesture.lastX - gesture.startX;
+    const elapsed = Math.max(1, gesture.lastTime - gesture.prevTime);
+    const velocity = (gesture.lastX - gesture.prevX) / elapsed;
 
-    if (horizontal < 68 || horizontal < vertical * 1.25 || vertical > 110) {
+    if (gesture.mode === "drawer") {
+      finishDrawerDrag(rawDeltaX, velocity);
       return;
     }
 
-    const currentIndex = EXPLORE_TAB_ORDER.indexOf(activeTab);
-
-    if (deltaX > 0) {
-      if (activeTab === "UrFeed") {
-        setLeftDrawerOpen(true);
-        return;
+    if (gesture.mode === "exit") {
+      const activeNode = tabPanelRefs.current[activeTab];
+      if (activeNode) {
+        activeNode.style.transition = `transform ${TAB_DRAG_SETTLE_MS}ms ease-out`;
+        activeNode.style.transform = "translate3d(0, 0, 0)";
+        window.clearTimeout(dragSettleTimerRef.current);
+        dragSettleTimerRef.current = window.setTimeout(() => clearTabDragStyles(), TAB_DRAG_SETTLE_MS + 30);
       }
-
-      switchExploreTab(EXPLORE_TAB_ORDER[Math.max(0, currentIndex - 1)]);
+      if (rawDeltaX < -68 || velocity < -TAB_DRAG_COMMIT_VELOCITY) {
+        onNavigateMain?.("marketplace");
+      }
       return;
     }
 
-    if (currentIndex < EXPLORE_TAB_ORDER.length - 1) {
-      switchExploreTab(EXPLORE_TAB_ORDER[currentIndex + 1]);
+    finishTabDrag(gesture, rawDeltaX, velocity);
+  }
+
+  function cancelHorizontalDrag() {
+    const gesture = exploreGestureRef.current;
+    exploreGestureRef.current = null;
+
+    if (!gesture || gesture.axis !== "x" || !gesture.mode) {
       return;
     }
 
-    onNavigateMain?.("marketplace");
+    if (gesture.mode === "drawer") {
+      finishDrawerDrag(0, 0);
+      return;
+    }
+
+    if (gesture.mode === "tabs") {
+      finishTabDrag(gesture, 0, 0);
+      return;
+    }
+
+    clearTabDragStyles();
   }
 
   function renderMenuScreen(screenKey) {
@@ -891,9 +1149,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       onTouchStart={handleExploreTouchStart}
       onTouchMove={handleExploreTouchMove}
       onTouchEnd={handleExploreTouchEnd}
-      onTouchCancel={() => {
-        exploreGestureRef.current = null;
-      }}
+      onTouchCancel={cancelHorizontalDrag}
     >
       <PostingStatusBanner notice={postingNotice} onDismiss={dismissPostingNotice} />
 
@@ -937,14 +1193,22 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
        {profileExists ? (
   <>
-    <section aria-hidden={activeTab !== "UrFeed"} className={getExploreTabPanelClass("UrFeed")}>
+    <section
+      ref={(node) => { tabPanelRefs.current.UrFeed = node; }}
+      aria-hidden={activeTab !== "UrFeed"}
+      className={getExploreTabPanelClass("UrFeed")}
+    >
       <UrFeed
         profile={profile}
         onViewProfile={openViewedProfile}
       />
     </section>
 
-    <section aria-hidden={activeTab !== "Swip"} className={getExploreTabPanelClass("Swip")}>
+    <section
+      ref={(node) => { tabPanelRefs.current.Swip = node; }}
+      aria-hidden={activeTab !== "Swip"}
+      className={getExploreTabPanelClass("Swip")}
+    >
       <Swip
         active={active && activeTab === "Swip"}
         currentUserId={profile.userId}
@@ -955,7 +1219,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       />
     </section>
 
-    <section aria-hidden={activeTab !== "Connections"} className={getExploreTabPanelClass("Connections")}>
+    <section
+      ref={(node) => { tabPanelRefs.current.Connections = node; }}
+      aria-hidden={activeTab !== "Connections"}
+      className={getExploreTabPanelClass("Connections")}
+    >
       <Connections
         currentUserId={profile.userId}
         onViewProfile={openViewedProfile}
@@ -966,15 +1234,21 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       </div>
 
     </div>
-    {leftDrawerOpen ? (
+    {leftDrawerOpen || drawerDragging ? (
       <div className="fixed inset-0 z-[75] flex h-screen w-screen overflow-hidden">
         <button
           type="button"
+          ref={drawerBackdropRef}
           aria-label="Close social menu"
           className="absolute inset-0 bg-slate-950/30"
+          style={drawerMountedByDrag && !leftDrawerOpen ? { opacity: 0 } : undefined}
           onClick={() => setLeftDrawerOpen(false)}
         />
-        <aside className="kt-explore-stack-enter-left relative z-10 flex h-full w-[min(78vw,390px)] min-w-[260px] max-w-sm flex-col bg-white shadow-2xl">
+        <aside
+          ref={drawerAsideRef}
+          style={drawerMountedByDrag && !leftDrawerOpen ? { transform: "translate3d(-100%, 0, 0)" } : undefined}
+          className={`${drawerMountedByDrag ? "" : "kt-explore-stack-enter-left"} relative z-10 flex h-full w-[min(78vw,390px)] min-w-[260px] max-w-sm flex-col bg-white shadow-2xl`}
+        >
           <header className="border-b border-slate-200 px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <button

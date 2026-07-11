@@ -23,6 +23,11 @@ function acquireBodyScrollLock() {
       bodyOverscrollBehavior: body.style.overscrollBehavior,
       htmlOverflow: html.style.overflow,
       htmlOverscrollBehavior: html.style.overscrollBehavior,
+      // Mobile Safari collapses the window scroll offset to 0 when the root
+      // element becomes overflow:hidden, so the position must be captured
+      // here and restored on release or the page reopens at the very top.
+      scrollX: window.scrollX || 0,
+      scrollY: window.scrollY || 0,
     };
 
     html.style.overflow = "hidden";
@@ -37,11 +42,18 @@ function acquireBodyScrollLock() {
 
     const body = document.body;
     const html = document.documentElement;
+    const { scrollX, scrollY } = savedStyles;
     body.style.overflow = savedStyles.bodyOverflow;
     body.style.overscrollBehavior = savedStyles.bodyOverscrollBehavior;
     html.style.overflow = savedStyles.htmlOverflow;
     html.style.overscrollBehavior = savedStyles.htmlOverscrollBehavior;
     savedStyles = null;
+
+    // Only repair the collapse-to-top case so intentional programmatic
+    // scrolls performed while the lock was held (e.g. jump-to-post) survive.
+    if (scrollY > 0 && (window.scrollY || 0) === 0) {
+      window.scrollTo({ left: scrollX, top: scrollY, behavior: "instant" });
+    }
   };
 }
 
