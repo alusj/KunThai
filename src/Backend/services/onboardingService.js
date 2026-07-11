@@ -372,14 +372,19 @@ export async function updateOnboardingProfile(patch) {
 
   const current = buildProfileFromUser(user);
   const requestedEmail = normalizeEmailForIdentity(patch.email ?? current.email);
+  const currentEmail = normalizeEmailForIdentity(current.email);
   const requestedCountry = patch.country ?? current.country;
   const requestedCountryProfile = getActiveCountryProfile(patch.countryCode || requestedCountry);
   const requestedPhone = normalizePhoneForIdentity(patch.phone ?? current.phone, requestedCountry);
+  const currentPhone = normalizePhoneForIdentity(current.phone, requestedCountry);
 
-  if (requestedEmail || requestedPhone) {
+  const emailChanged = requestedEmail && requestedEmail !== currentEmail;
+  const phoneChanged = requestedPhone && requestedPhone !== currentPhone;
+
+  if (emailChanged || phoneChanged) {
     await checkKunThaiIdentityAvailability({
-      email: requestedEmail,
-      phone: requestedPhone,
+      email: emailChanged ? requestedEmail : "",
+      phone: phoneChanged ? requestedPhone : "",
       country: requestedCountry,
     });
   }
@@ -409,10 +414,9 @@ export async function updateOnboardingProfile(patch) {
     onboarding_step: patch.onboardingStep ?? current.onboardingStep,
   };
 
-  const currentAuthEmail = normalizeEmailForIdentity(user.email);
   const authUpdate = { data: nextData };
 
-  if (requestedEmail && requestedEmail !== currentAuthEmail) {
+  if (emailChanged) {
     authUpdate.email = requestedEmail;
   }
 

@@ -7,7 +7,7 @@ export default function OnboardingFrame({ step, total, title, subtitle, children
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-700">
               Onboarding step {step} of {total}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-950">{title}</h1>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-950">{title}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{subtitle}</p>
           </div>
           <div className="hidden w-40 overflow-hidden rounded-full bg-slate-200 sm:block">

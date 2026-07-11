@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { markOnboardingComplete, updateOnboardingProfile } from "../../Backend/services/onboardingService";
 import { fetchUserTopicFollows, saveUserTopicFollows } from "../../Backend/services/explore/topicService";
@@ -50,8 +50,18 @@ export default function OnboardingFlow({ profile, onComplete }) {
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
+  const userEditedRef = useRef(false);
 
   const safeValues = useMemo(() => normalizeProfile(values), [values]);
+
+  useEffect(() => {
+    if (!profile || finishing || userEditedRef.current) return;
+
+    setStep(Math.min(Math.max(profile.onboardingStep ?? 1, 1), 4));
+    setValues(normalizeProfile(profile));
+    setError("");
+    setErrorCode("");
+  }, [finishing, profile]);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +76,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
   }, []);
 
   const updateField = (field, value) => {
+    userEditedRef.current = true;
     setError("");
     setErrorCode("");
     setValues((current) =>
@@ -82,6 +93,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
   };
 
   const toggleInterest = (interest) => {
+    userEditedRef.current = true;
     setValues((current) => {
       const exists = current.interests.includes(interest);
       return {
@@ -94,6 +106,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
   };
 
   const toggleContentTopic = (topic) => {
+    userEditedRef.current = true;
     setValues((current) => {
       const exists = current.contentTopics.includes(topic);
       return {

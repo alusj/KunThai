@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  HiOutlineArrowsUpDown,
   HiOutlineAtSymbol,
   HiOutlineExclamationTriangle,
   HiOutlineHashtag,
@@ -307,7 +308,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [mediaMode, setMediaMode] = useState("image");
   const [attachmentMode, setAttachmentMode] = useState(() => (
-    draft.video_url ? "video" : draft.image_url ? "image" : "voice"
+    draft.video_url ? "video" : draft.image_url ? "image" : "text"
   ));
   const [mediaMeta, setMediaMeta] = useState(() => {
     if (draft.post_type === "advert") return draft.media_meta || {};
@@ -341,6 +342,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [primaryTopicSlug, setPrimaryTopicSlug] = useState(
     draft.primary_topic_slug || draft.media_meta?.primaryTopic?.slug || "",
   );
+  const [composerDock, setComposerDock] = useState("bottom");
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -394,17 +396,17 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     scrollToTop();
     const frame = window.requestAnimationFrame(scrollToTop);
     return () => window.cancelAnimationFrame(frame);
-  }, [composerMode, open]);
+  }, [attachmentMode, composerMode, open]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("kuntai-explore-composer-visibility", {
-      detail: { open },
+      detail: { open, blocking: false },
     }));
 
     return () => {
       if (open) {
         window.dispatchEvent(new CustomEvent("kuntai-explore-composer-visibility", {
-          detail: { open: false },
+          detail: { open: false, blocking: false },
         }));
       }
     };
@@ -591,6 +593,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (guardGuestAction("create", "post")) return;
     setComposerMode(type === "advert" ? "advert" : "post");
     setOpen(true);
+    setFeedback("");
 
     if (type === "advert") {
       setAdvertForm((current) => ({
@@ -601,13 +604,27 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       return;
     }
 
+    if (type === "text") {
+      setAttachmentMode("text");
+      setTagPickerOpen(false);
+      setMentionPickerOpen(false);
+      setTopicPickerOpen(false);
+      window.setTimeout(() => textareaRef.current?.focus(), 120);
+      return;
+    }
+
     if (type === "image" || type === "video") {
       setAttachmentMode(type);
       setMediaMode(type);
       setTimeout(() => fileInputRef.current?.click(), 180);
+      return;
     }
 
     if (type === "voice") {
+      if (hasVideoAttachment) {
+        setFeedback("Remove the Swip video before adding a voice note.");
+        return;
+      }
       setAttachmentMode("voice");
     }
   }
@@ -814,6 +831,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   async function handleAudioClick() {
     setOpen(true);
+    setAttachmentMode("voice");
 
     if (hasVideoAttachment) {
       setFeedback("Remove the Swip video before adding a voice note.");
@@ -1176,7 +1194,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAudioPreview("");
     setAudioDuration(null);
     setMediaMeta({});
-    setAttachmentMode("voice");
+    setAttachmentMode("text");
     setComposerMode("post");
     setAdvertForm(normalizeAdvertDraft());
     setPendingVideoFile(null);
@@ -1217,6 +1235,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     if (!canSubmit) {
       setOpen(true);
+      if (!isAdvertMode) setAttachmentMode("text");
       setFeedback(isAdvertMode ? "Add an advert title, message, link, location, image, or video." : "Add text, an image, a video, or a voice note.");
       return;
     }
@@ -1558,7 +1577,7 @@ if (!isMobileVideoDevice) {
         creating={creating}
         onOpen={openComposer}
         onQuickMedia={openComposer}
-        onQuickVoice={handleAudioClick}
+        onQuickVoice={() => openComposer("voice")}
         onSubmit={handleSubmit}
       />
 
@@ -1592,37 +1611,53 @@ if (!isMobileVideoDevice) {
       ) : null}
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex bg-slate-950/30 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+        <div
+          className={`pointer-events-none fixed inset-x-0 z-[80] flex justify-center px-2 sm:px-4 ${
+            composerDock === "top"
+              ? "top-[calc(env(safe-area-inset-top)+0.5rem)] items-start"
+              : "bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] items-end"
+          }`}
+        >
           <form
             onSubmit={handleSubmit}
-            className="flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[min(760px,92vh)] sm:max-w-2xl sm:rounded-[28px]"
+            role="dialog"
+            aria-label={isAdvertMode ? "Create advertisement" : "Create Explore post"}
+            className={`pointer-events-auto flex h-[50dvh] max-h-[50dvh] min-h-0 w-full max-w-2xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/25 ${
+              composerDock === "top" ? "rounded-b-[28px] rounded-t-[20px]" : "rounded-b-[20px] rounded-t-[28px]"
+            } sm:rounded-[28px]`}
           >
-            <div className="flex h-16 flex-none items-center justify-between border-b border-slate-100 px-4">
+            <div className="flex h-14 flex-none items-center gap-2 border-b border-slate-100 px-3 sm:h-16 sm:px-4">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
-                aria-label="Close composer"
+                className="inline-flex h-10 min-w-[4.75rem] flex-none items-center justify-center rounded-2xl px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
               >
-                <HiOutlineXMark />
+                Cancel
               </button>
 
-              <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-700">{isAdvertMode ? "Promote" : "Create"}</p>
-                <h2 className="text-base font-black text-slate-950">{isAdvertMode ? "Advertisement" : "Explore Post"}</h2>
+              <div className="min-w-0 flex-1 text-center">
+                <h2 className="truncate text-sm font-black text-slate-950 sm:text-base">{isAdvertMode ? "Advertisement" : "Explore Post"}</h2>
+                <button
+                  type="button"
+                  onClick={() => setComposerDock((current) => (current === "bottom" ? "top" : "bottom"))}
+                  className="mx-auto mt-0.5 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-black text-slate-500 transition hover:bg-slate-100"
+                >
+                  <HiOutlineArrowsUpDown className="text-sm" />
+                  <span className="truncate">{composerDock === "bottom" ? "Move top" : "Move bottom"}</span>
+                </button>
               </div>
 
               <button
                 type="submit"
                 disabled={creating || Boolean(postingStage) || !canSubmit}
-                className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
+                className="inline-flex h-10 min-w-[4.75rem] flex-none items-center justify-center gap-1.5 rounded-2xl bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:hover:bg-slate-200"
               >
-                <HiOutlinePaperAirplane />
+                <HiOutlinePaperAirplane className="text-base" />
                 {postingStage ? "Posting" : isAdvertMode ? "Advert" : "Post"}
               </button>
             </div>
 
-            <div ref={composerScrollRef} data-explore-composer-scroll className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-5">
+            <div ref={composerScrollRef} data-explore-composer-scroll className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
               <div className="flex items-center gap-3">
                 <Avatar name={profile?.displayName || "KunThai"} src={profile?.avatarUrl} size="md" />
                 <div className="min-w-0">
@@ -1675,14 +1710,14 @@ if (!isMobileVideoDevice) {
                   ref={textareaRef}
                   value={value}
                   onChange={handleComposerTextChange}
-                  autoFocus={!isAdvertMode}
+                  autoFocus={!isAdvertMode && attachmentMode === "text"}
                   placeholder={isAdvertMode ? "Describe the offer, role, benefit, schedule, or announcement..." : "Write a thought, tag someone with @name, or add #topics..."}
                   className={`w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 ${
-                    isAdvertMode ? "min-h-[120px] sm:min-h-[150px]" : "min-h-[180px] sm:min-h-[220px]"
+                    isAdvertMode ? "min-h-[96px] sm:min-h-[130px]" : "min-h-[112px] sm:min-h-[150px]"
                   }`}
                 />
                 {!isAdvertMode ? (
-                  <div className="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
                     <button
                       type="button"
                       onClick={() => handleTool("mention")}
@@ -1704,11 +1739,11 @@ if (!isMobileVideoDevice) {
                     <button
                       type="button"
                       onClick={() => handleTool("topic")}
-                      className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
+                      className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
                         topicPickerOpen ? "bg-emerald-700 text-white" : "bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 hover:bg-emerald-50"
                       }`}
                     >
-                      <HiOutlineTag className="text-base" /> {selectedPrimaryTopic?.name || "Topic"}
+                      <HiOutlineTag className="flex-none text-base" /> <span className="truncate">{selectedPrimaryTopic?.name || "Topic"}</span>
                     </button>
                   </div>
                 ) : null}
@@ -1972,7 +2007,7 @@ if (!isMobileVideoDevice) {
               ) : null}
             </div>
 
-            <div className="flex-none space-y-3 border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
+            <div className="flex-none space-y-3 border-t border-slate-100 bg-white px-3 py-2.5 sm:px-5 sm:py-3">
               <ComposerActions
                 privacyOnly={!isAdvertMode}
                 privacy={privacy}

@@ -139,7 +139,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
   useEffect(() => {
     function handleComposerVisibility(event) {
-      setComposerOpen(Boolean(event.detail?.open));
+      setComposerOpen(Boolean(event.detail?.open && event.detail?.blocking !== false));
     }
 
     window.addEventListener("kuntai-explore-composer-visibility", handleComposerVisibility);
