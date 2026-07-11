@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   HiOutlineArrowsUpDown,
   HiOutlineAtSymbol,
@@ -387,6 +388,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     draft.primary_topic_slug || draft.media_meta?.primaryTopic?.slug || "",
   );
   const [composerDock, setComposerDock] = useState("bottom");
+  // "sheet" is the half-screen dockable panel used by the in-feed composer
+  // bar; "full" covers the whole screen and is used when a post type is
+  // picked from the header create menu.
+  const [composerDisplay, setComposerDisplay] = useState("sheet");
   const [composerClosing, setComposerClosing] = useState(false);
   const [composerMotionClass, setComposerMotionClass] = useState("kt-composer-sheet-enter-bottom");
 
@@ -550,7 +555,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   useEffect(() => {
     function handleCreatePost(event) {
       const type = event.detail?.type || "text";
-      openComposerRef.current?.(type);
+      // The header create menu launches the composer full-screen; the in-feed
+      // composer bar keeps the half-screen sheet.
+      openComposerRef.current?.(type, { display: "full" });
     }
 
     window.addEventListener("explore-create-post", handleCreatePost);
@@ -731,8 +738,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }));
   }
 
-  function openComposer(type = "text") {
+  function openComposer(type = "text", options = {}) {
     if (guardGuestAction("create", "post")) return;
+    setComposerDisplay(options.display === "full" ? "full" : "sheet");
     requestedComposerToolRef.current = type === "advert" ? "advert" : type;
     setComposerMode(type === "advert" ? "advert" : "post");
     showComposer(type === "advert" ? "advert" : "post");
@@ -1755,21 +1763,32 @@ if (!isMobileVideoDevice) {
         </div>
       ) : null}
 
-      {open ? (
+      {open ? createPortal(
+        // Rendered through a portal: the tab panels animate with transforms,
+        // which would otherwise turn this fixed overlay into a panel-relative
+        // box instead of a viewport one.
         <div
-          className={`pointer-events-none fixed inset-x-0 z-[80] flex justify-center px-2 sm:px-4 ${
-            composerDock === "top"
-              ? "top-[calc(env(safe-area-inset-top)+0.5rem)] items-start"
-              : "bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] items-end"
+          className={`pointer-events-none fixed inset-x-0 z-[80] flex justify-center ${
+            composerDisplay === "full"
+              ? "inset-y-0 items-stretch px-0"
+              : `px-2 sm:px-4 ${
+                  composerDock === "top"
+                    ? "top-[calc(env(safe-area-inset-top)+0.5rem)] items-start"
+                    : "bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] items-end"
+                }`
           }`}
         >
           <form
             onSubmit={handleSubmit}
             role="dialog"
             aria-label={isAdvertMode ? "Create advertisement" : "Create Explore post"}
-            className={`pointer-events-auto flex h-[50dvh] max-h-[50dvh] min-h-0 w-full max-w-2xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/25 ${
-              composerDock === "top" ? "rounded-b-[28px] rounded-t-[20px]" : "rounded-b-[20px] rounded-t-[28px]"
-            } ${composerMotionClass} ${composerClosing ? "pointer-events-none" : ""} sm:rounded-[28px]`}
+            className={`pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/25 ${
+              composerDisplay === "full"
+                ? "h-full max-h-full max-w-none rounded-none border-0 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
+                : `h-[50dvh] max-h-[50dvh] max-w-2xl ${
+                    composerDock === "top" ? "rounded-b-[28px] rounded-t-[20px]" : "rounded-b-[20px] rounded-t-[28px]"
+                  } sm:rounded-[28px]`
+            } ${composerMotionClass} ${composerClosing ? "pointer-events-none" : ""}`}
           >
             <div className="flex h-14 flex-none items-center gap-2 border-b border-slate-100 px-3 sm:h-16 sm:px-4">
               <button
@@ -1782,14 +1801,16 @@ if (!isMobileVideoDevice) {
 
               <div className="min-w-0 flex-1 text-center">
                 <h2 className="truncate text-sm font-black text-slate-950 sm:text-base">{isAdvertMode ? "Advertisement" : "Explore Post"}</h2>
-                <button
-                  type="button"
-                  onClick={moveComposerDock}
-                  className="mx-auto mt-0.5 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-black text-slate-500 transition hover:bg-slate-100"
-                >
-                  <HiOutlineArrowsUpDown className="text-sm" />
-                  <span className="truncate">{composerDock === "bottom" ? "Move top" : "Move bottom"}</span>
-                </button>
+                {composerDisplay === "full" ? null : (
+                  <button
+                    type="button"
+                    onClick={moveComposerDock}
+                    className="mx-auto mt-0.5 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-black text-slate-500 transition hover:bg-slate-100"
+                  >
+                    <HiOutlineArrowsUpDown className="text-sm" />
+                    <span className="truncate">{composerDock === "bottom" ? "Move top" : "Move bottom"}</span>
+                  </button>
+                )}
               </div>
 
               <button
@@ -2187,7 +2208,8 @@ if (!isMobileVideoDevice) {
               className="hidden"
             />
           </form>
-        </div>
+        </div>,
+        document.body,
       ) : null}
 
       <PostCautionDialog

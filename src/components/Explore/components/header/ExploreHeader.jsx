@@ -195,51 +195,55 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
 
       {createVisible
         ? createPortal(
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Create"
-              className={`fixed inset-0 z-[90] flex h-full w-full flex-col bg-slate-50 ${
-                createClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"
-              }`}
-            >
-              <header className="flex items-center justify-between border-b border-slate-200 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.9rem)]">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700">KunThai</p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">Create</h2>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Close create menu"
-                  className="kt-pressable grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-slate-300 hover:text-slate-950"
-                  onClick={() => closeCreateMenu()}
-                >
-                  <X size={18} strokeWidth={2.35} absoluteStrokeWidth />
-                </button>
-              </header>
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-5">
-                <div className="mx-auto w-full max-w-sm">
-                  <p className="px-1 pb-3 text-sm font-bold text-slate-500">What would you like to share?</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <CreateMenuItem accent="sky" icon={PenSquare} label="Text" onClick={() => selectCreateType("text")} />
-                    <CreateMenuItem accent="emerald" icon={Image} label="Photo" onClick={() => selectCreateType("image")} />
-                    <CreateMenuItem accent="violet" icon={Mic} label="Voice" onClick={() => selectCreateType("voice")} />
-                    <CreateMenuItem accent="rose" icon={Video} label="Video" onClick={() => selectCreateType("video")} />
+            <div className="fixed inset-0 z-[90] flex items-start justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-[calc(env(safe-area-inset-top)+5.25rem)] sm:items-center sm:pt-4">
+              <button
+                type="button"
+                aria-label="Close create menu"
+                className={`${createClosing ? "kt-create-popup-backdrop-out" : "kt-create-popup-backdrop"} absolute inset-0 cursor-default`}
+                onClick={() => closeCreateMenu()}
+              />
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Create"
+                className={`relative z-10 w-full max-w-sm rounded-[28px] border border-white/80 bg-white/95 p-3 text-left shadow-2xl shadow-slate-950/20 ${
+                  createClosing ? "kt-toast-collapse-out" : "kt-toast-expand-in"
+                }`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-2 pb-3 pt-1">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700">KunThai</p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">Create</h2>
                   </div>
                   <button
                     type="button"
-                    onClick={() => selectCreateType("advert")}
-                    className="kt-pressable mt-3 flex w-full items-center gap-3 rounded-[22px] border-2 border-amber-300 bg-amber-50/80 p-4 text-left shadow-sm shadow-amber-900/[0.05] hover:border-amber-400 hover:bg-amber-50"
+                    aria-label="Close create menu"
+                    className="kt-pressable grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-slate-300 hover:text-slate-950"
+                    onClick={() => closeCreateMenu()}
                   >
-                    <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-amber-700 ring-1 ring-amber-100">
-                      <Megaphone size={20} strokeWidth={2.3} absoluteStrokeWidth />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-base font-black text-slate-950">Advertisement</span>
-                      <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Promote an offer, job vacancy, event, service, or location.</span>
-                    </span>
+                    <X size={18} strokeWidth={2.35} absoluteStrokeWidth />
                   </button>
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <CreateMenuItem accent="sky" icon={PenSquare} label="Text" onClick={() => selectCreateType("text")} />
+                  <CreateMenuItem accent="emerald" icon={Image} label="Photo" onClick={() => selectCreateType("image")} />
+                  <CreateMenuItem accent="violet" icon={Mic} label="Voice" onClick={() => selectCreateType("voice")} />
+                  <CreateMenuItem accent="rose" icon={Video} label="Video" onClick={() => selectCreateType("video")} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => selectCreateType("advert")}
+                  className="kt-pressable mt-2 flex w-full items-center gap-3 rounded-[22px] border-2 border-amber-300 bg-amber-50/80 p-4 text-left shadow-sm shadow-amber-900/[0.05] hover:border-amber-400 hover:bg-amber-50"
+                >
+                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-amber-700 ring-1 ring-amber-100">
+                    <Megaphone size={20} strokeWidth={2.3} absoluteStrokeWidth />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-black text-slate-950">Advertisement</span>
+                    <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Promote an offer, job vacancy, event, service, or location.</span>
+                  </span>
+                </button>
               </div>
             </div>,
             document.body,
