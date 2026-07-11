@@ -219,6 +219,44 @@ function formatCoordinatesLabel(point) {
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 }
 
+function formatCoordinateCode(point) {
+  const lat = Number(point?.lat ?? point?.latitude);
+  const lng = Number(point?.lng ?? point?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+  return `Lat ${lat.toFixed(6)} / Lng ${lng.toFixed(6)}`;
+}
+
+function getDisplayAddress(location) {
+  const address = String(location?.address || location?.label || location?.fullAddress || "").trim();
+  const coordinateCode = formatCoordinateCode(location);
+  const coordinateLabel = formatCoordinatesLabel(location);
+  if (address && address !== coordinateLabel && address !== coordinateCode) return address;
+  return coordinateCode || coordinateLabel || "Selected map location";
+}
+
+function buildPinnedLocationPreview(location, fallbackName = "Pinned location") {
+  const coordinatesLabel = formatCoordinatesLabel(location);
+  const coordinateCode = formatCoordinateCode(location);
+  const address = getDisplayAddress(location);
+
+  return {
+    ...location,
+    address,
+    coordinateCode,
+    coordinatesLabel,
+    label: address,
+    name: fallbackName,
+  };
+}
+
+function formatPinnedLocationStatus(prefix, location) {
+  const address = getDisplayAddress(location);
+  const coordinateCode = location?.coordinateCode || formatCoordinateCode(location);
+  const coordinates = coordinateCode || location?.coordinatesLabel || formatCoordinatesLabel(location);
+  const coordinateSuffix = coordinates && coordinates !== address ? `. ${coordinates}` : "";
+  return `${prefix}${address}${coordinateSuffix}`.trim();
+}
+
 function toRadians(value) {
   return (value * Math.PI) / 180;
 }
@@ -705,6 +743,8 @@ export default function NearbyAreaScreen({
   const [currentPickerLocation, setCurrentPickerLocation] = useState(null);
   const [pickerStatus, setPickerStatus] = useState("");
   const [pickerBusy, setPickerBusy] = useState(false);
+  const [dropPinCollapseSignal, setDropPinCollapseSignal] = useState(0);
+  const [dropPinExpandSignal, setDropPinExpandSignal] = useState(0);
   const [oneKmMeasurementPreview, setOneKmMeasurementPreview] = useState(null);
   const [oneKmPreviewState, setOneKmPreviewState] = useState("idle");
   const mapCenterRef = useRef(null);
@@ -722,6 +762,7 @@ export default function NearbyAreaScreen({
   const initialDestinationHandledRef = useRef("");
   const initialEmergencyHandledRef = useRef("");
   const oneKmPreviewRequestRef = useRef(0);
+  const dropPinResolveRequestRef = useRef(0);
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
   const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
@@ -918,14 +959,9 @@ export default function NearbyAreaScreen({
     reverseGeocodePoint(userLocation)
       .then((location) => {
         if (cancelled) return;
-        const nextLocation = {
-          ...location,
-          name: resolvedPickerLabels.currentName,
-          label: location.address,
-          coordinatesLabel: formatCoordinatesLabel(location),
-        };
+        const nextLocation = buildPinnedLocationPreview(location, resolvedPickerLabels.currentName);
         setCurrentPickerLocation(nextLocation);
-        setPickerStatus(`Your current location is ${nextLocation.address}.`);
+        setPickerStatus(formatPinnedLocationStatus("Your current location is ", nextLocation));
       })
       .finally(() => {
         if (!cancelled) setPickerBusy(false);
@@ -935,6 +971,102 @@ export default function NearbyAreaScreen({
       cancelled = true;
     };
   }, [businessPickerMode, isBusinessLocationPicker, resolvedPickerLabels.currentName, resolvedPickerLabels.currentStatus, userLocation]);
+
+  const resolveDroppedPinPreview = useCallback(async (point, target) => {
+    const nextPosition = normalizePosition(point);
+    if (!nextPosition) return;
+
+    const requestId = dropPinResolveRequestRef.current + 1;
+    dropPinResolveRequestRef.current = requestId;
+    mapCenterRef.current = nextPosition;
+    setMapCenter(nextPosition);
+
+    const isBusinessTarget = target === "business";
+    if (isBusinessTarget) {
+      setPickerBusy(true);
+      setPickerStatus("Reading the selected map location...");
+    } else {
+      setAddLocationBusy(true);
+      setAddLocationStatus("Reading the selected map location...");
+    }
+
+    try {
+      const location = await reverseGeocodePoint(nextPosition);
+      if (dropPinResolveRequestRef.current !== requestId) return;
+
+      const preview = buildPinnedLocationPreview(
+        location,
+        isBusinessTarget ? resolvedPickerLabels.droppedName : areaAddLocationPickerLabels.droppedName,
+      );
+
+      if (isBusinessTarget) {
+        setCurrentPickerLocation(preview);
+        setPickerStatus(formatPinnedLocationStatus("Pinned location: ", preview));
+      } else {
+        setAddLocationDraft((current) => ({
+          ...current,
+          address: preview.address || current.address,
+          lat: preview.lat,
+          lng: preview.lng,
+          coordinatesLabel: preview.coordinatesLabel,
+          source: "dropPin",
+        }));
+        setAddLocationStatus(formatPinnedLocationStatus("Pinned location ready: ", preview));
+      }
+
+      setDropPinExpandSignal((value) => value + 1);
+    } catch (error) {
+      if (dropPinResolveRequestRef.current !== requestId) return;
+      const message = getFriendlyLocationError(error, "Unable to read the pinned location. Try again.");
+      if (isBusinessTarget) {
+        setPickerStatus(message);
+      } else {
+        setAddLocationStatus(message);
+      }
+      setDropPinExpandSignal((value) => value + 1);
+    } finally {
+      if (dropPinResolveRequestRef.current === requestId) {
+        if (isBusinessTarget) {
+          setPickerBusy(false);
+        } else {
+          setAddLocationBusy(false);
+        }
+      }
+    }
+  }, [areaAddLocationPickerLabels.droppedName, resolvedPickerLabels.droppedName]);
+
+  const handleMapInteractionStart = useCallback((event = {}) => {
+    if (event.type !== "dragstart") return;
+
+    if (isBusinessLocationPicker && businessPickerMode === "dropPin") {
+      setDropPinCollapseSignal((value) => value + 1);
+      setPickerStatus("Release the map to read this pin.");
+      return;
+    }
+
+    if (!isSpecialMode && adding && addLocationMode === "dropPin") {
+      setDropPinCollapseSignal((value) => value + 1);
+      setAddLocationStatus("Release the map to read this pin.");
+    }
+  }, [addLocationMode, adding, businessPickerMode, isBusinessLocationPicker, isSpecialMode]);
+
+  const handleMapInteractionEnd = useCallback((event = {}) => {
+    if (event.type !== "dragend") return;
+    const nextPosition = normalizePosition(event.center);
+    if (!nextPosition) return;
+
+    mapCenterRef.current = nextPosition;
+    setMapCenter(nextPosition);
+
+    if (isBusinessLocationPicker && businessPickerMode === "dropPin") {
+      resolveDroppedPinPreview(nextPosition, "business");
+      return;
+    }
+
+    if (!isSpecialMode && adding && addLocationMode === "dropPin") {
+      resolveDroppedPinPreview(nextPosition, "addLocation");
+    }
+  }, [addLocationMode, adding, businessPickerMode, isBusinessLocationPicker, isSpecialMode, resolveDroppedPinPreview]);
 
   useEffect(() => {
     const incomingRoutePlan = initialDestination?.routePlan;
@@ -1285,6 +1417,7 @@ export default function NearbyAreaScreen({
     setAddLocationMode("dropPin");
     setFocusMode(true);
     setAddLocationStatus(areaAddLocationPickerLabels.dropStatus);
+    setDropPinCollapseSignal((value) => value + 1);
   }, [areaAddLocationPickerLabels.dropStatus]);
 
   const confirmAddLocationLocateMe = useCallback(async () => {
@@ -1312,33 +1445,34 @@ export default function NearbyAreaScreen({
       });
 
       const location = await reverseGeocodePoint(point);
-      const coordinatesLabel = formatCoordinatesLabel(location);
+      const preview = buildPinnedLocationPreview(location, "Current location");
       setAddLocationDraft((current) => ({
         ...current,
-        address: location.address || current.address,
-        lat: location.lat,
-        lng: location.lng,
-        coordinatesLabel,
+        address: preview.address || current.address,
+        lat: preview.lat,
+        lng: preview.lng,
+        coordinatesLabel: preview.coordinatesLabel,
         source: "currentLocation",
       }));
-      setAddLocationStatus(`Your current location is ${location.address}. ${coordinatesLabel ? `Coordinates: ${coordinatesLabel}.` : ""}`);
+      setAddLocationStatus(formatPinnedLocationStatus("Your current location is ", preview));
     } catch (error) {
       const fallbackPoint = normalizePosition(mapCenterRef.current) || normalizePosition(userLocationRef.current) || normalizePosition(userLocation);
       if (fallbackPoint) {
         const location = await reverseGeocodePoint(fallbackPoint);
-        const coordinatesLabel = formatCoordinatesLabel(location);
+        const preview = buildPinnedLocationPreview(location, "Selected map point");
+        const fallbackStatus = formatPinnedLocationStatus("", preview);
         setAddLocationDraft((current) => ({
           ...current,
-          address: location.address || current.address,
-          lat: location.lat,
-          lng: location.lng,
-          coordinatesLabel,
+          address: preview.address || current.address,
+          lat: preview.lat,
+          lng: preview.lng,
+          coordinatesLabel: preview.coordinatesLabel,
           source: "selectedMapPoint",
         }));
         setAddLocationMode("form");
         setFocusMode(false);
         setAddLocationStatus(
-          `Device GPS could not confirm your exact position, so KunThai used the selected map point. ${coordinatesLabel ? `Coordinates: ${coordinatesLabel}. ` : ""}Use Drop Pin if you need to move it.`,
+          `Device GPS could not confirm your exact position, so KunThai used the selected map point. ${fallbackStatus ? `${fallbackStatus}. ` : ""}Use Drop Pin if you need to move it.`,
         );
       } else {
         setAddLocationStatus(getFriendlyLocationError(error));
@@ -1364,24 +1498,24 @@ export default function NearbyAreaScreen({
 
     try {
       const location = await reverseGeocodePoint(point);
-      const coordinatesLabel = formatCoordinatesLabel(location);
+      const preview = buildPinnedLocationPreview(location, areaAddLocationPickerLabels.droppedName);
       setAddLocationDraft((current) => ({
         ...current,
-        address: location.address || current.address,
-        lat: location.lat,
-        lng: location.lng,
-        coordinatesLabel,
+        address: preview.address || current.address,
+        lat: preview.lat,
+        lng: preview.lng,
+        coordinatesLabel: preview.coordinatesLabel,
         source: "dropPin",
       }));
       setAddLocationMode("form");
       setFocusMode(false);
-      setAddLocationStatus(`Pinned location added to the form. ${coordinatesLabel ? `Coordinates: ${coordinatesLabel}.` : ""}`);
+      setAddLocationStatus(formatPinnedLocationStatus("Pinned location added to the form. ", preview));
     } catch (error) {
       setAddLocationStatus(getFriendlyLocationError(error, "Unable to read the pinned location. Try again."));
     } finally {
       setAddLocationBusy(false);
     }
-  }, [mapInstance, userLocation]);
+  }, [areaAddLocationPickerLabels.droppedName, mapInstance, userLocation]);
 
   const submitAddLocationForReview = useCallback(async () => {
     const category = addLocationDraft.category === "Other"
@@ -1657,16 +1791,23 @@ export default function NearbyAreaScreen({
     setPickerBusy(true);
     setPickerStatus("Reading the selected map location...");
 
-    const location = await reverseGeocodePoint(point);
-    setPickerBusy(false);
-    onLocationPicked?.({
-      ...location,
-      name: resolvedPickerLabels.droppedName,
-      label: location.address,
-      coordinatesLabel: formatCoordinatesLabel(location),
-      source: "dropPin",
-    });
+    try {
+      const location = await reverseGeocodePoint(point);
+      const preview = buildPinnedLocationPreview(location, resolvedPickerLabels.droppedName);
+      onLocationPicked?.({
+        ...preview,
+        source: "dropPin",
+      });
+    } catch (error) {
+      setPickerStatus(getFriendlyLocationError(error, "Unable to read the pinned location. Try again."));
+    } finally {
+      setPickerBusy(false);
+    }
   }, [mapInstance, onLocationPicked, resolvedPickerLabels.droppedName, userLocation]);
+
+  const addLocationPinnedPreview = Number.isFinite(Number(addLocationDraft.lat)) && Number.isFinite(Number(addLocationDraft.lng))
+    ? buildPinnedLocationPreview(addLocationDraft, areaAddLocationPickerLabels.droppedName)
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -1684,6 +1825,8 @@ export default function NearbyAreaScreen({
           weatherCache={weatherCache}
           onMapLocationSelect={handleSelectLiveLocation}
           onReportSelect={handleSelectReport}
+          onMapInteractionStart={handleMapInteractionStart}
+          onMapInteractionEnd={handleMapInteractionEnd}
           recenterSignal={recenterSignal}
           measurementPreview={oneKmMeasurementPreview}
         >
@@ -1721,9 +1864,13 @@ export default function NearbyAreaScreen({
             onUseCurrent={handleAddCurrentPickerLocation}
             onDropPin={() => {
               setBusinessPickerMode("dropPin");
+              setCurrentPickerLocation(null);
               setPickerStatus(resolvedPickerLabels.dropStatus);
+              setDropPinCollapseSignal((value) => value + 1);
             }}
             onAddDroppedPin={handleAddDroppedPinLocation}
+            collapseSignal={dropPinCollapseSignal}
+            expandSignal={dropPinExpandSignal}
           />
         ) : null}
 
@@ -1732,12 +1879,14 @@ export default function NearbyAreaScreen({
             mode="dropPin"
             status={addLocationStatus}
             busy={addLocationBusy}
-            currentLocation={null}
+            currentLocation={addLocationPinnedPreview}
             labels={areaAddLocationPickerLabels}
             onBack={handleAddLocationBack}
             onUseCurrent={() => setAddLocationLocateCautionOpen(true)}
             onDropPin={startAddLocationDropPin}
             onAddDroppedPin={confirmAddLocationDroppedPin}
+            collapseSignal={dropPinCollapseSignal}
+            expandSignal={dropPinExpandSignal}
           />
         ) : null}
 
@@ -1751,6 +1900,7 @@ export default function NearbyAreaScreen({
               }}
               label={mapLocked ? "Map locked" : backLabel}
               historyKey="transport-nearby-area"
+              enableSwipe={false}
               className={`h-12 w-12 rounded-2xl shadow-lg ${
                 mapLocked ? "bg-slate-900 text-white opacity-70" : "bg-white/95 text-slate-900 hover:bg-white"
               }`}
@@ -1963,6 +2113,7 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
             label={backLabel}
             historyKey="transport-one-km-preview"
             useHistoryLayer={false}
+            enableSwipe={false}
             className="bg-white text-slate-900"
             iconSize={22}
           />
@@ -2024,10 +2175,14 @@ function BusinessLocationPickerChrome({
   onUseCurrent,
   onDropPin,
   onAddDroppedPin,
+  collapseSignal = 0,
+  expandSignal = 0,
 }) {
   const isDropPin = mode === "dropPin";
-  const coordinates = currentLocation?.coordinatesLabel || formatCoordinatesLabel(currentLocation);
-  const { collapsed, toggle } = useAutoCollapseCard({
+  const coordinateCode = currentLocation?.coordinateCode || formatCoordinateCode(currentLocation);
+  const coordinates = coordinateCode || currentLocation?.coordinatesLabel || formatCoordinatesLabel(currentLocation);
+  const displayAddress = currentLocation ? getDisplayAddress(currentLocation) : "";
+  const { collapse, collapsed, expand, toggle } = useAutoCollapseCard({
     enabled: isDropPin,
     resetKey: [
       mode,
@@ -2040,6 +2195,14 @@ function BusinessLocationPickerChrome({
   });
   const cardMotion = useMapCardCollapseTransition(collapsed);
 
+  useEffect(() => {
+    if (collapseSignal) collapse();
+  }, [collapse, collapseSignal]);
+
+  useEffect(() => {
+    if (expandSignal) expand();
+  }, [expand, expandSignal]);
+
   return (
     <>
       <header className="pointer-events-none absolute left-0 right-0 top-0 z-30 px-3 py-3 sm:px-5">
@@ -2049,6 +2212,7 @@ function BusinessLocationPickerChrome({
             label={labels.backLabel}
             historyKey={labels.historyKey}
             useHistoryLayer={false}
+            enableSwipe={false}
             className="bg-white text-slate-900"
             iconSize={22}
           />
@@ -2101,10 +2265,10 @@ function BusinessLocationPickerChrome({
               ? labels.dropInstruction
               : status || labels.currentPreparing}
           </p>
-          {!isDropPin && currentLocation ? (
+          {currentLocation ? (
             <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3">
-              <p className="text-sm font-black leading-5 text-blue-950">{currentLocation.address}</p>
-              {coordinates ? <p className="mt-2 text-xs font-bold text-blue-700">{coordinates}</p> : null}
+              <p className="text-sm font-black leading-5 text-blue-950">{displayAddress}</p>
+              {coordinates && coordinates !== displayAddress ? <p className="mt-2 text-xs font-bold text-blue-700">{coordinates}</p> : null}
             </div>
           ) : null}
           {isDropPin && status ? (
@@ -2474,6 +2638,7 @@ function AddLocationPanel({
               label="Back to Area View"
               historyKey="area-view-add-location"
               useHistoryLayer={false}
+              enableSwipe={false}
               className="h-11 w-11 bg-slate-100 text-slate-900"
               iconSize={21}
             />

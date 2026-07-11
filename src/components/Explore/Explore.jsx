@@ -390,8 +390,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   openViewedProfileRef.current = openViewedProfile;
   useEffect(() => {
     function handleOpenScreenRequest(event) {
-      const screen = event?.detail?.screen || consumePendingExploreScreen();
-      if (screen) openMenuScreenRef.current?.(screen);
+      const detail = event?.detail || {};
+      const screen = detail.screen || consumePendingExploreScreen();
+      if (screen) openMenuScreenRef.current?.(screen, detail.options || {});
     }
 
     function handleOpenProfileRequest(event) {
@@ -550,6 +551,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       return;
     }
 
+    if (screen === "YourVoice") {
+      setYourVoiceDraft(options.prefill || null);
+    }
+
     if (menuStack.at(-1) === screen) {
       return;
     }
@@ -559,9 +564,6 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (screen === "Messages") {
       setMessageRecipient(null);
       setMessageRecipientOwnerId("");
-    }
-    if (screen === "YourVoice") {
-      setYourVoiceDraft(options.prefill || null);
     }
     exploreNav.openMenuScreen(screen, options);
   }

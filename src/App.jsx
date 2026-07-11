@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
@@ -8,6 +9,7 @@ import Login from "./Login";
 import { PageTransition } from "./components/shared/motion";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 import { clearExploreScreenStack } from "./Backend/services/explore/navigationService";
+import { OPEN_EXPLORE_SCREEN_EVENT } from "./Backend/services/notificationBannerService";
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
@@ -21,6 +23,9 @@ const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
 const PAGE_VISITS_KEY = "kuntai-main-page-visits";
 const MARKETPLACE_NAV_KEY = "kuntai-marketplace-nav";
+const SCREENSHOT_PROMPT_AUTO_HIDE_MS = 12_000;
+const SCREENSHOT_PROMPT_EXIT_MS = 280;
+const SCREENSHOT_RETURN_WINDOW_MS = 2_200;
 const loadExplore = () => import("./components/Explore/Explore");
 const loadMarketplace = () => import("./components/Marketplace/Marketplace");
 const loadTransport = () => import("./components/transport/Transport");
@@ -441,6 +446,26 @@ export default function App() {
     setPage(nextPage);
   }
 
+  function openScreenshotVoice(prefill) {
+    const dispatchOpenYourVoice = () => {
+      window.dispatchEvent(new CustomEvent(OPEN_EXPLORE_SCREEN_EVENT, {
+        detail: {
+          screen: "YourVoice",
+          options: { prefill },
+        },
+      }));
+    };
+
+    if (page !== "explore") {
+      changePage("explore");
+      window.setTimeout(dispatchOpenYourVoice, 260);
+      window.setTimeout(dispatchOpenYourVoice, 700);
+      return;
+    }
+
+    window.requestAnimationFrame(dispatchOpenYourVoice);
+  }
+
   function getSwipeTargetPage(deltaX) {
     if (deltaX < 0 && page === "marketplace") return "transport";
     if (deltaX > 0 && page === "transport") return "marketplace";
@@ -603,8 +628,158 @@ export default function App() {
       </PageTransition>
 
       {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
+      <ScreenshotVoicePrompt page={page} onOpenYourVoice={openScreenshotVoice} />
       {guestSession ? <GuestGateCard /> : null}
       <NotificationBannerHost userId={userId} />
+    </div>
+  );
+}
+
+function ScreenshotVoicePrompt({ page, onOpenYourVoice }) {
+  const [prompt, setPrompt] = useState({ open: false, closing: false, capturedAt: 0 });
+  const hideTimerRef = useRef(null);
+  const closeTimerRef = useRef(null);
+  const blurAtRef = useRef(0);
+  const hiddenAtRef = useRef(0);
+  const lastRevealAtRef = useRef(0);
+  const suppressUntilRef = useRef(0);
+
+  useEffect(() => () => {
+    window.clearTimeout(hideTimerRef.current);
+    window.clearTimeout(closeTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    function revealPrompt() {
+      const now = Date.now();
+      if (now < suppressUntilRef.current) return;
+      if (now - lastRevealAtRef.current < 1_200) return;
+      lastRevealAtRef.current = now;
+      window.clearTimeout(hideTimerRef.current);
+      window.clearTimeout(closeTimerRef.current);
+      setPrompt({ open: true, closing: false, capturedAt: now });
+      hideTimerRef.current = window.setTimeout(closePrompt, SCREENSHOT_PROMPT_AUTO_HIDE_MS);
+    }
+
+    function closePrompt() {
+      setPrompt((current) => {
+        if (!current.open || current.closing) return current;
+        return { ...current, closing: true };
+      });
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = window.setTimeout(() => {
+        setPrompt({ open: false, closing: false, capturedAt: 0 });
+      }, SCREENSHOT_PROMPT_EXIT_MS);
+    }
+
+    function handleKeyDown(event) {
+      const key = String(event.key || "").toLowerCase();
+      const printScreen = key === "printscreen";
+      const desktopScreenshotCombo = (event.metaKey || event.ctrlKey) && event.shiftKey && ["3", "4", "5", "s"].includes(key);
+      if (printScreen || desktopScreenshotCombo) revealPrompt();
+    }
+
+    function handleKeyUp(event) {
+      if (String(event.key || "").toLowerCase() === "printscreen") revealPrompt();
+    }
+
+    function handleBlur() {
+      blurAtRef.current = Date.now();
+    }
+
+    function handleFocus() {
+      const elapsed = Date.now() - blurAtRef.current;
+      if (elapsed > 120 && elapsed < SCREENSHOT_RETURN_WINDOW_MS) revealPrompt();
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        hiddenAtRef.current = Date.now();
+        return;
+      }
+
+      const elapsed = Date.now() - hiddenAtRef.current;
+      if (elapsed > 120 && elapsed < SCREENSHOT_RETURN_WINDOW_MS) revealPrompt();
+    }
+
+    function handleSuppressPrompt(event) {
+      const duration = Math.max(0, Number(event.detail?.durationMs || 3_000));
+      suppressUntilRef.current = Math.max(suppressUntilRef.current, Date.now() + duration);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("kuntai-suppress-screenshot-prompt", handleSuppressPrompt);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("kuntai-suppress-screenshot-prompt", handleSuppressPrompt);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  if (!prompt.open) return null;
+
+  const category = page === "marketplace" ? "marketplace" : page === "transport" ? "transport" : "explore";
+  const currentScreen = page === "marketplace" ? "UrMall" : page === "transport" ? "Transport" : "Explore";
+  const motionClass = prompt.closing ? "kt-toast-collapse-out" : "kt-toast-expand-in";
+
+  function addToYourVoice() {
+    onOpenYourVoice?.({
+      feedbackType: "bug",
+      category,
+      title: `${currentScreen} screenshot feedback`,
+      message: "I took a screenshot here and want to share what happened.",
+      currentScreen,
+      requestScreenshot: true,
+    });
+    setPrompt({ open: false, closing: false, capturedAt: 0 });
+  }
+
+  function dismiss() {
+    setPrompt((current) => ({ ...current, closing: true }));
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => {
+      setPrompt({ open: false, closing: false, capturedAt: 0 });
+    }, SCREENSHOT_PROMPT_EXIT_MS);
+  }
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-[1350] flex justify-center px-4 sm:bottom-5">
+      <div className={`${motionClass} pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-[24px] border border-sky-100 bg-white/95 p-2 shadow-2xl shadow-slate-950/18 backdrop-blur-xl`}>
+        <button
+          type="button"
+          onClick={addToYourVoice}
+          className="kt-pressable flex min-w-0 flex-1 items-center gap-3 rounded-[20px] bg-slate-950 px-3 py-3 text-left text-white"
+        >
+          <span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-sky-400 text-slate-950">
+            <HiOutlineCamera className="text-xl" />
+          </span>
+          <span className="min-w-0">
+            <span className="flex items-center gap-1.5 text-sm font-black">
+              <HiOutlineLightBulb className="text-base text-sky-200" />
+              Add to Your Voice
+            </span>
+            <span className="mt-0.5 block truncate text-xs font-bold text-slate-300">
+              Attach the screenshot and tell KunThai what happened.
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="grid h-11 w-11 flex-none place-items-center rounded-[18px] bg-slate-100 text-slate-600 hover:bg-slate-200"
+          aria-label="Dismiss screenshot prompt"
+        >
+          <HiOutlineXMark className="text-xl" />
+        </button>
+      </div>
     </div>
   );
 }

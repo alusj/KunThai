@@ -175,6 +175,13 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
     if (screenshotInputRef.current) screenshotInputRef.current.value = "";
   }
 
+  function openScreenshotPicker() {
+    window.dispatchEvent(new CustomEvent("kuntai-suppress-screenshot-prompt", {
+      detail: { durationMs: 3_500 },
+    }));
+    screenshotInputRef.current?.click();
+  }
+
   function reportThisScreen() {
     setForm((current) => ({
       ...current,
@@ -236,7 +243,7 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
             </div>
           </div>
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => screenshotInputRef.current?.click()} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-sky-200 bg-white text-sm font-black text-sky-700"><HiOutlineCamera className="text-xl" /> Attach screenshot</button>
+            <button type="button" onClick={openScreenshotPicker} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-sky-200 bg-white text-sm font-black text-sky-700"><HiOutlineCamera className="text-xl" /> Attach screenshot</button>
             <button type="button" onClick={reportThisScreen} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 text-sm font-black text-white"><HiOutlineBugAnt className="text-xl" /> Report this screen</button>
           </div>
         </section>
@@ -265,7 +272,7 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
 
           <input ref={screenshotInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseScreenshot} className="hidden" />
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <AttachmentCard icon={HiOutlineCamera} title="Screenshot" detail={screenshot?.name || "PNG, JPG, JPEG, or WebP · maximum 5MB"} active={Boolean(screenshot)} onAdd={() => screenshotInputRef.current?.click()} onRemove={removeScreenshot} />
+            <AttachmentCard icon={HiOutlineCamera} title="Screenshot" detail={screenshot?.name || "PNG, JPG, JPEG, or WebP · maximum 5MB"} active={Boolean(screenshot)} onAdd={openScreenshotPicker} onRemove={removeScreenshot} />
             <AttachmentCard icon={recording ? HiOutlineStopCircle : HiOutlineMicrophone} title="Voice note" detail={recording ? `Recording ${recordingSeconds}s / 60s` : voiceNote?.name || "Optional · maximum 60 seconds and 5MB"} active={Boolean(voiceNote || recording)} onAdd={recording ? stopRecording : startRecording} onRemove={() => setVoiceNote(null)} actionLabel={recording ? "Stop" : voiceNote ? "Replace" : "Record"} />
           </div>
 

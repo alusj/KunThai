@@ -6,8 +6,10 @@ import {
   HiOutlineHashtag,
   HiOutlineMapPin,
   HiOutlinePaperAirplane,
+  HiOutlinePhoto,
   HiOutlineSparkles,
   HiOutlineTag,
+  HiOutlineVideoCamera,
   HiOutlineXMark,
 } from "react-icons/hi2";
 
@@ -57,6 +59,7 @@ const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
 const MAX_EXPLORE_VIDEO_MB = Math.round(MAX_EXPLORE_VIDEO_BYTES / (1024 * 1024));
 const MAX_POST_TITLE_LENGTH = 30;
+const COMPOSER_SHEET_ANIMATION_MS = 300;
 const COMPOSER_AREA_RETURN_KEY = "kuntai.explore.composerAreaReturn";
 const DEFAULT_ADVERT = {
   setupComplete: false,
@@ -289,6 +292,47 @@ function VideoLimitNotice() {
   );
 }
 
+function MediaPickerCallout({ refNode, type, onPick }) {
+  const isVideo = type === "video";
+  const Icon = isVideo ? HiOutlineVideoCamera : HiOutlinePhoto;
+
+  return (
+    <div
+      ref={refNode}
+      className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
+    >
+      <div className="flex items-start gap-3">
+        <span className={`grid h-11 w-11 flex-none place-items-center rounded-2xl ${
+          isVideo ? "bg-rose-50 text-rose-700 ring-1 ring-rose-100" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+        }`}
+        >
+          <Icon className="text-xl" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-slate-950">
+            {isVideo ? "Add a video" : "Add a photo"}
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+            {isVideo
+              ? "Choose a short Swip-ready video, then trim it before posting."
+              : "Choose a photo from this device and preview it before posting."}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onPick}
+        className={`mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-white transition ${
+          isVideo ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-700 hover:bg-emerald-800"
+        }`}
+      >
+        <Icon className="text-lg" />
+        {isVideo ? "Choose video" : "Choose photo"}
+      </button>
+    </div>
+  );
+}
+
 export default function FeedComposer({ profile, creating, onSubmit }) {
   const draft = readDraft();
   const privacySettings = readPrivacySettings();
@@ -343,9 +387,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     draft.primary_topic_slug || draft.media_meta?.primaryTopic?.slug || "",
   );
   const [composerDock, setComposerDock] = useState("bottom");
+  const [composerClosing, setComposerClosing] = useState(false);
+  const [composerMotionClass, setComposerMotionClass] = useState("kt-composer-sheet-enter-bottom");
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
+  const textPanelRef = useRef(null);
+  const mediaPickerRef = useRef(null);
+  const mediaPanelRef = useRef(null);
+  const voiceCapsuleRef = useRef(null);
   const composerScrollRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -356,6 +406,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const originalVideoFileRef = useRef(null);
   const originalImageFileRef = useRef(null);
   const openComposerRef = useRef(null);
+  const composerCloseTimerRef = useRef(null);
+  const composerAfterCloseRef = useRef(null);
+  const requestedComposerToolRef = useRef(attachmentMode);
 
   const isAdvertMode = composerMode === "advert";
   const hasContent = Boolean(postTitle.trim() || value.trim() || imagePreview || audioPreview || videoPreview || pendingVideoFile);
@@ -383,20 +436,39 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   useEffect(() => {
     const returnMode = consumeComposerAreaReturn();
     if (!returnMode) return;
+    setComposerClosing(false);
+    setComposerMotionClass("kt-composer-sheet-enter-bottom");
     setComposerMode(returnMode);
     setOpen(true);
   }, []);
 
-  useBrowserBack(open, () => setOpen(false), "explore-composer");
+  useBrowserBack(open, () => closeComposer(), "explore-composer");
 
   useLayoutEffect(() => {
     if (!open) return undefined;
 
-    const scrollToTop = () => composerScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    scrollToTop();
-    const frame = window.requestAnimationFrame(scrollToTop);
+    const scrollToRequestedTool = () => {
+      const requestedTool = requestedComposerToolRef.current || attachmentMode;
+      const hasRequestedMediaPreview = Boolean(imagePreview || videoPreview || pendingVideoFile || pendingVideoUrl);
+      const scrollTarget = requestedTool === "voice"
+        ? voiceCapsuleRef.current
+        : requestedTool === "image" || requestedTool === "video"
+          ? hasRequestedMediaPreview ? mediaPanelRef.current : mediaPickerRef.current
+          : textPanelRef.current;
+
+      if (!scrollComposerNodeIntoView(scrollTarget)) {
+        composerScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }
+
+      if (!isAdvertMode && requestedTool === "text") {
+        textareaRef.current?.focus();
+      }
+    };
+
+    scrollToRequestedTool();
+    const frame = window.requestAnimationFrame(scrollToRequestedTool);
     return () => window.cancelAnimationFrame(frame);
-  }, [attachmentMode, composerMode, open]);
+  }, [attachmentMode, composerMode, imagePreview, isAdvertMode, open, pendingVideoFile, pendingVideoUrl, videoPreview]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("kuntai-explore-composer-visibility", {
@@ -430,6 +502,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   useEffect(() => {
     return () => {
+      if (composerCloseTimerRef.current) {
+        window.clearTimeout(composerCloseTimerRef.current);
+      }
+
       if (recorderRef.current?.stream) {
         recorderRef.current.stream.getTracks().forEach((track) => track.stop());
       }
@@ -589,13 +665,81 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setFeedback("");
   }
 
+  function showComposer(mode = composerMode) {
+    if (composerCloseTimerRef.current) {
+      window.clearTimeout(composerCloseTimerRef.current);
+      composerCloseTimerRef.current = null;
+    }
+    composerAfterCloseRef.current = null;
+    setComposerClosing(false);
+    setComposerMotionClass(`kt-composer-sheet-enter-${composerDock}`);
+    if (mode) setComposerMode(mode);
+    setOpen(true);
+  }
+
+  function closeComposer({ afterClose } = {}) {
+    if (!open) {
+      afterClose?.();
+      return;
+    }
+
+    if (composerCloseTimerRef.current) {
+      window.clearTimeout(composerCloseTimerRef.current);
+    }
+
+    composerAfterCloseRef.current = afterClose || null;
+    setComposerClosing(true);
+    setComposerMotionClass(`kt-composer-sheet-exit-${composerDock}`);
+    composerCloseTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      setComposerClosing(false);
+      composerCloseTimerRef.current = null;
+      const callback = composerAfterCloseRef.current;
+      composerAfterCloseRef.current = null;
+      callback?.();
+    }, COMPOSER_SHEET_ANIMATION_MS);
+  }
+
+  function moveComposerDock() {
+    const nextDock = composerDock === "bottom" ? "top" : "bottom";
+    setComposerClosing(false);
+    setComposerDock(nextDock);
+    setComposerMotionClass(nextDock === "top" ? "kt-composer-sheet-move-up" : "kt-composer-sheet-move-down");
+  }
+
+  function scrollComposerNodeIntoView(node) {
+    const scroller = composerScrollRef.current;
+    if (!node || !scroller) return false;
+
+    const scrollerRect = scroller.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const nextTop = scroller.scrollTop + nodeRect.top - scrollerRect.top - 8;
+    scroller.scrollTo({ top: Math.max(0, nextTop), left: 0, behavior: "auto" });
+    return true;
+  }
+
+  function resetComposerToolPanels() {
+    setTagPickerOpen(false);
+    setMentionPickerOpen(false);
+    setTopicPickerOpen(false);
+    setHashtagTrigger(null);
+  }
+
+  function suppressScreenshotPrompt(durationMs = 3_500) {
+    window.dispatchEvent(new CustomEvent("kuntai-suppress-screenshot-prompt", {
+      detail: { durationMs },
+    }));
+  }
+
   function openComposer(type = "text") {
     if (guardGuestAction("create", "post")) return;
+    requestedComposerToolRef.current = type === "advert" ? "advert" : type;
     setComposerMode(type === "advert" ? "advert" : "post");
-    setOpen(true);
+    showComposer(type === "advert" ? "advert" : "post");
     setFeedback("");
 
     if (type === "advert") {
+      resetComposerToolPanels();
       setAdvertForm((current) => ({
         ...current,
         currency: getCountryCurrencyCode(profile?.countryCode || profile?.country),
@@ -606,17 +750,19 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     if (type === "text") {
       setAttachmentMode("text");
-      setTagPickerOpen(false);
-      setMentionPickerOpen(false);
-      setTopicPickerOpen(false);
+      resetComposerToolPanels();
       window.setTimeout(() => textareaRef.current?.focus(), 120);
       return;
     }
 
     if (type === "image" || type === "video") {
+      resetComposerToolPanels();
       setAttachmentMode(type);
       setMediaMode(type);
-      setTimeout(() => fileInputRef.current?.click(), 180);
+      setTimeout(() => {
+        suppressScreenshotPrompt();
+        fileInputRef.current?.click();
+      }, 180);
       return;
     }
 
@@ -625,6 +771,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         setFeedback("Remove the Swip video before adding a voice note.");
         return;
       }
+      resetComposerToolPanels();
       setAttachmentMode("voice");
     }
   }
@@ -672,7 +819,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         setVideoTrimEnd(Math.min(duration || MAX_VIDEO_SECONDS, MAX_VIDEO_SECONDS));
         setVideoPreview("");
         if (!isAdvertMode) setImagePreview("");
-        setOpen(true);
+        showComposer();
         setFeedback("");
         setTrimError("");
         return;
@@ -710,7 +857,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         }));
       }
 
-      setOpen(true);
+      showComposer();
       setFeedback("");
     } catch (error) {
       const message = error.message || "Unable to attach media.";
@@ -830,7 +977,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   async function handleAudioClick() {
-    setOpen(true);
+    showComposer();
     setAttachmentMode("voice");
 
     if (hasVideoAttachment) {
@@ -998,6 +1145,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (type === "image" || type === "video") {
       setAttachmentMode(type);
       setMediaMode(type);
+      suppressScreenshotPrompt();
       fileInputRef.current?.click();
       return;
     }
@@ -1090,7 +1238,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
               source: location.source || "areaView",
             }));
             window.setTimeout(() => {
-              setOpen(true);
+              showComposer("advert");
               setFeedback("");
             }, 120);
           },
@@ -1154,7 +1302,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
               },
             }));
             window.setTimeout(() => {
-              setOpen(true);
+              showComposer("post");
               setFeedback("");
             }, 120);
           },
@@ -1234,7 +1382,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     event?.preventDefault?.();
 
     if (!canSubmit) {
-      setOpen(true);
+      showComposer();
       if (!isAdvertMode) setAttachmentMode("text");
       setFeedback(isAdvertMode ? "Add an advert title, message, link, location, image, or video." : "Add text, an image, a video, or a voice note.");
       return;
@@ -1256,7 +1404,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         finalVideoPreview = await trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd);
 
         if (!finalVideoPreview) {
-          setOpen(true);
+          showComposer();
           return;
         }
       }
@@ -1303,7 +1451,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
       // Move the user back to UrFeed immediately. Review/upload continues below
       // and the app shell can show the small floating publishing card.
-      setOpen(false);
+      closeComposer();
       window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "UrFeed" } }));
 
       publishPostingUpdate({
@@ -1470,8 +1618,7 @@ if (!isMobileVideoDevice) {
               nextRunAt: Date.now() + 24_000,
               message: "Your video is uploaded. KunThai is checking the full file in the background.",
             });
-            setOpen(false);
-            resetComposer();
+            closeComposer({ afterClose: resetComposer });
             return;
           }
 
@@ -1479,7 +1626,7 @@ if (!isMobileVideoDevice) {
           await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
           setPostingStage("");
           setPostingProgress(0);
-          setOpen(true);
+          showComposer();
           setFeedback(pendingMessage);
           publishPostingUpdate({ status: "error", progress: 0, message: pendingMessage });
           return;
@@ -1488,7 +1635,7 @@ if (!isMobileVideoDevice) {
         await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
         setPostingStage("");
         setPostingProgress(0);
-        setOpen(true);
+        showComposer();
         setFeedback(review.reason);
         publishPostingUpdate({ status: "error", progress: 0, message: review.reason });
         return;
@@ -1547,8 +1694,7 @@ if (!isMobileVideoDevice) {
           message: result.warning || (isAdvertMode ? "Your sponsored campaign is now live in Explore." : "Your post is now live on Explore."),
         });
 
-        setOpen(false);
-        resetComposer();
+        closeComposer({ afterClose: resetComposer });
         return;
       }
 
@@ -1556,7 +1702,7 @@ if (!isMobileVideoDevice) {
       await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
       setPostingStage("");
       setPostingProgress(0);
-      setOpen(true);
+      showComposer();
       setFeedback(message);
       publishPostingUpdate({ status: "error", progress: 0, message });
     } catch (error) {
@@ -1564,7 +1710,7 @@ if (!isMobileVideoDevice) {
       const message = error.message || (isAdvertMode ? "Unable to publish this advertisement. Your draft is still here." : "Unable to publish this post. Your draft is still here.");
       setPostingStage("");
       setPostingProgress(0);
-      setOpen(true);
+      showComposer();
       setFeedback(message);
       publishPostingUpdate({ status: "error", progress: 0, message });
     }
@@ -1578,7 +1724,6 @@ if (!isMobileVideoDevice) {
         onOpen={openComposer}
         onQuickMedia={openComposer}
         onQuickVoice={() => openComposer("voice")}
-        onSubmit={handleSubmit}
       />
 
       {videoNotice ? (
@@ -1624,12 +1769,12 @@ if (!isMobileVideoDevice) {
             aria-label={isAdvertMode ? "Create advertisement" : "Create Explore post"}
             className={`pointer-events-auto flex h-[50dvh] max-h-[50dvh] min-h-0 w-full max-w-2xl flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/25 ${
               composerDock === "top" ? "rounded-b-[28px] rounded-t-[20px]" : "rounded-b-[20px] rounded-t-[28px]"
-            } sm:rounded-[28px]`}
+            } ${composerMotionClass} ${composerClosing ? "pointer-events-none" : ""} sm:rounded-[28px]`}
           >
             <div className="flex h-14 flex-none items-center gap-2 border-b border-slate-100 px-3 sm:h-16 sm:px-4">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => closeComposer()}
                 className="inline-flex h-10 min-w-[4.75rem] flex-none items-center justify-center rounded-2xl px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
               >
                 Cancel
@@ -1639,7 +1784,7 @@ if (!isMobileVideoDevice) {
                 <h2 className="truncate text-sm font-black text-slate-950 sm:text-base">{isAdvertMode ? "Advertisement" : "Explore Post"}</h2>
                 <button
                   type="button"
-                  onClick={() => setComposerDock((current) => (current === "bottom" ? "top" : "bottom"))}
+                  onClick={moveComposerDock}
                   className="mx-auto mt-0.5 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-black text-slate-500 transition hover:bg-slate-100"
                 >
                   <HiOutlineArrowsUpDown className="text-sm" />
@@ -1681,7 +1826,7 @@ if (!isMobileVideoDevice) {
               ) : null}
 
               {!isAdvertMode || advertForm.setupComplete ? (
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <div ref={textPanelRef} className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
                 {!isAdvertMode ? (
                   <label className="mb-4 block border-b border-slate-200 pb-4">
                     <span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
@@ -1923,79 +2068,91 @@ if (!isMobileVideoDevice) {
               ) : null}
 
               {!isAdvertMode && attachmentMode === "voice" && !hasVideoAttachment ? (
-                <VoiceCapsuleRecorder
-                  isRecording={isRecording}
-                  isPaused={recordingPaused}
-                  duration={recordingSeconds || audioDuration || 0}
-                  audioPreview={audioPreview}
-                  onStart={handleAudioClick}
-                  onStop={handleAudioClick}
-                  onPause={pauseVoiceRecording}
-                  onResume={resumeVoiceRecording}
-                  onCancel={cancelVoiceRecording}
+                <div ref={voiceCapsuleRef}>
+                  <VoiceCapsuleRecorder
+                    isRecording={isRecording}
+                    isPaused={recordingPaused}
+                    duration={recordingSeconds || audioDuration || 0}
+                    audioPreview={audioPreview}
+                    onStart={handleAudioClick}
+                    onStop={handleAudioClick}
+                    onPause={pauseVoiceRecording}
+                    onResume={resumeVoiceRecording}
+                    onCancel={cancelVoiceRecording}
+                  />
+                </div>
+              ) : null}
+
+              {!isAdvertMode && (attachmentMode === "image" || attachmentMode === "video") && !imagePreview && !videoPreview && !pendingVideoFile ? (
+                <MediaPickerCallout
+                  refNode={mediaPickerRef}
+                  type={attachmentMode}
+                  onPick={() => handleTool(attachmentMode)}
                 />
               ) : null}
 
               {!isAdvertMode || advertForm.setupComplete ? (
-              <MediaPreview
-                imagePreview={imagePreview}
-                videoPreview={videoPreview}
-                audioPreview={audioPreview}
-                pendingVideoUrl={pendingVideoUrl}
-                videoDuration={videoDuration}
-                videoTrimStart={videoTrimStart}
-                videoTrimEnd={videoTrimEnd}
-                maxVideoSeconds={MAX_VIDEO_SECONDS}
-                trimmingVideo={trimmingVideo}
-                trimError={trimError}
-                onTrimStartChange={(start) => {
-                  const { start: nextStart, end: nextEnd } = clampTrimWindow(start, videoTrimEnd);
-                  setVideoTrimStart(nextStart);
-                  setVideoTrimEnd(nextEnd);
-                  setVideoPreview("");
-                  setTrimError("");
-                }}
-                onTrimEndChange={(end) => {
-                  const { start: nextStart, end: nextEnd } = clampTrimWindow(videoTrimStart, end);
-                  setVideoTrimStart(nextStart);
-                  setVideoTrimEnd(nextEnd);
-                  setVideoPreview("");
-                  setTrimError("");
-                }}
-                onTrimPreset={chooseTrimPreset}
-                onTrimVideo={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
-                onRetryTrim={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
-                onRemoveImage={() => {
-                  setImagePreview("");
-                  originalImageFileRef.current = null;
-                  setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
-                }}
-                onRemoveVideo={() => {
-                  trimRequestRef.current += 1;
-                  trimmedVideoMetaRef.current = null;
-                  originalVideoFileRef.current = null;
-                  setVideoPreview("");
-                  setPendingVideoFile(null);
+              <div ref={mediaPanelRef}>
+                <MediaPreview
+                  imagePreview={imagePreview}
+                  videoPreview={videoPreview}
+                  audioPreview={audioPreview}
+                  pendingVideoUrl={pendingVideoUrl}
+                  videoDuration={videoDuration}
+                  videoTrimStart={videoTrimStart}
+                  videoTrimEnd={videoTrimEnd}
+                  maxVideoSeconds={MAX_VIDEO_SECONDS}
+                  trimmingVideo={trimmingVideo}
+                  trimError={trimError}
+                  onTrimStartChange={(start) => {
+                    const { start: nextStart, end: nextEnd } = clampTrimWindow(start, videoTrimEnd);
+                    setVideoTrimStart(nextStart);
+                    setVideoTrimEnd(nextEnd);
+                    setVideoPreview("");
+                    setTrimError("");
+                  }}
+                  onTrimEndChange={(end) => {
+                    const { start: nextStart, end: nextEnd } = clampTrimWindow(videoTrimStart, end);
+                    setVideoTrimStart(nextStart);
+                    setVideoTrimEnd(nextEnd);
+                    setVideoPreview("");
+                    setTrimError("");
+                  }}
+                  onTrimPreset={chooseTrimPreset}
+                  onTrimVideo={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
+                  onRetryTrim={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
+                  onRemoveImage={() => {
+                    setImagePreview("");
+                    originalImageFileRef.current = null;
+                    setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
+                  }}
+                  onRemoveVideo={() => {
+                    trimRequestRef.current += 1;
+                    trimmedVideoMetaRef.current = null;
+                    originalVideoFileRef.current = null;
+                    setVideoPreview("");
+                    setPendingVideoFile(null);
 
-                  if (pendingVideoUrl) {
-                    URL.revokeObjectURL(pendingVideoUrl);
-                    setPendingVideoUrl("");
-                  }
+                    if (pendingVideoUrl) {
+                      URL.revokeObjectURL(pendingVideoUrl);
+                      setPendingVideoUrl("");
+                    }
 
-                  setVideoDuration(0);
-                  setVideoTrimStart(0);
-                  setVideoTrimEnd(MAX_VIDEO_SECONDS);
-                  setTrimError("");
-                  setMediaMeta((current) => ({ ...current, videoName: "", videoType: "", videoSize: 0 }));
-                }}
-                onRemoveAudio={() => {
-                  setAudioPreview("");
-                  setAudioDuration(null);
-                  setRecordingSeconds(0);
-                  setMediaMeta((current) => ({ ...current, audioName: "", audioType: "", audioSize: 0 }));
-                  setFeedback("");
-                }}
-              />
+                    setVideoDuration(0);
+                    setVideoTrimStart(0);
+                    setVideoTrimEnd(MAX_VIDEO_SECONDS);
+                    setTrimError("");
+                    setMediaMeta((current) => ({ ...current, videoName: "", videoType: "", videoSize: 0 }));
+                  }}
+                  onRemoveAudio={() => {
+                    setAudioPreview("");
+                    setAudioDuration(null);
+                    setRecordingSeconds(0);
+                    setMediaMeta((current) => ({ ...current, audioName: "", audioType: "", audioSize: 0 }));
+                    setFeedback("");
+                  }}
+                />
+              </div>
               ) : null}
 
               {postingStage ? <PostingProgress progress={postingProgress} stage={postingStage} /> : null}

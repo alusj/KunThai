@@ -1397,6 +1397,8 @@ export default function NearbyAreaMap({
   weatherCache = null,
   onMapLocationSelect,
   onReportSelect,
+  onMapInteractionStart,
+  onMapInteractionEnd,
   recenterSignal = 0,
   measurementPreview = null,
 }) {
@@ -1439,6 +1441,8 @@ export default function NearbyAreaMap({
   const headingRef = useRef(null);
   const smartCameraRef = useRef(true);
   const weatherCacheRef = useRef(weatherCache);
+  const onMapInteractionStartRef = useRef(onMapInteractionStart);
+  const onMapInteractionEndRef = useRef(onMapInteractionEnd);
   const isUserInteractingRef = useRef(false);
   const userInteractionIdleTimerRef = useRef(null);
   const lastParentLocationRef = useRef(null);
@@ -1482,6 +1486,14 @@ export default function NearbyAreaMap({
   const canUseHeading = headingMode !== "north";
   const weatherInsight = getSmartWeatherMessage(weather);
   const showWeatherBadge = Boolean(weatherError || weatherInsight.relevant);
+
+  useEffect(() => {
+    onMapInteractionStartRef.current = onMapInteractionStart;
+  }, [onMapInteractionStart]);
+
+  useEffect(() => {
+    onMapInteractionEndRef.current = onMapInteractionEnd;
+  }, [onMapInteractionEnd]);
 
   // Picking a search result should not cover the map: the direction card
   // opens collapsed to its summary pill, and the user expands it when needed.
@@ -1835,10 +1847,18 @@ export default function NearbyAreaMap({
       if (!event?.originalEvent) return;
       if (userInteractionIdleTimerRef.current) window.clearTimeout(userInteractionIdleTimerRef.current);
       isUserInteractingRef.current = true;
+      onMapInteractionStartRef.current?.({ type: event.type });
     };
 
-    const markUserInteractionEnd = () => {
+    const markUserInteractionEnd = (event) => {
       if (userInteractionIdleTimerRef.current) window.clearTimeout(userInteractionIdleTimerRef.current);
+      const center = map.getCenter?.();
+      if (center) {
+        onMapInteractionEndRef.current?.({
+          center: { lat: center.lat, lng: center.lng },
+          type: event?.type || "interactionend",
+        });
+      }
       userInteractionIdleTimerRef.current = window.setTimeout(() => {
         isUserInteractingRef.current = false;
         userInteractionIdleTimerRef.current = null;
