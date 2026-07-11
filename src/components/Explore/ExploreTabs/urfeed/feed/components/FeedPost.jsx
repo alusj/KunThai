@@ -17,6 +17,7 @@ import PostMedia from "../post/PostMedia";
 import PostOptionsMenu from "../post/PostOptionsMenu";
 import { copyPostLink, sharePost } from "../post/postUtils";
 import AdvertMetaActions from "../../../../shared/AdvertMetaActions";
+import { openMentionContent } from "../../../../../../Backend/services/explore/linkTokenService";
 import ExpandablePostText from "../../../../shared/ExpandablePostText";
 import {
   formatAdvertType,
@@ -327,7 +328,7 @@ export default function FeedPost({
             <button
               key={`mention-${mention}`}
               type="button"
-              onClick={() => openExploreSearch(`@${mention}`)}
+              onClick={() => openMentionContent(mention)}
               className="kt-pressable inline-flex h-9 items-center gap-1.5 rounded-2xl bg-violet-50 px-3 text-xs font-black text-violet-700"
             >
               <AtSign size={14} strokeWidth={2.5} />

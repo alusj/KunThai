@@ -32,12 +32,12 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
       onClick={() => setPage(id)}
       aria-current={page === id ? "page" : undefined}
       className={`kt-pressable flex min-h-[48px] w-full flex-col items-center justify-center gap-0.5 rounded-[20px] px-1.5 py-1.5 text-[11px] font-black select-none ${
-        page === id ? "text-white" : "text-slate-500 hover:text-slate-950"
+        page === id ? "text-white dark:text-slate-950" : "text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
       }`}
     >
       <span
         className={`grid h-7 w-7 place-items-center rounded-xl ${
-          page === id ? "bg-white/10" : "bg-white/80"
+          page === id ? "bg-white/10 dark:bg-slate-950/10" : "bg-white/[0.82] dark:bg-white/10"
         } relative`}
       >
         {createElement(icon, { size: 18, strokeWidth: 2.25, absoluteStrokeWidth: true })}
@@ -59,9 +59,9 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
       style={{ zIndex: 50, bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       aria-label="Main navigation"
     >
-      <div className="relative mx-auto grid max-w-md grid-cols-3 gap-1 rounded-[26px] border border-white/80 bg-white/65 p-1 shadow-2xl shadow-slate-950/15 ring-1 ring-slate-950/10 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55">
+      <div className="relative mx-auto grid max-w-md grid-cols-3 gap-1 rounded-[26px] border border-white/80 bg-white/65 p-1 shadow-2xl shadow-slate-950/15 ring-1 ring-slate-950/10 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55 dark:border-slate-700/60 dark:bg-slate-900/85 dark:shadow-black/40 dark:ring-white/10 dark:supports-[backdrop-filter]:bg-slate-900/75">
         <span
-          className="pointer-events-none absolute bottom-1 top-1 z-0 rounded-[22px] bg-slate-950/90 shadow-lg shadow-slate-950/20 transition-[left] duration-300 ease-out"
+          className="pointer-events-none absolute bottom-1 top-1 z-0 rounded-[22px] bg-slate-950/90 shadow-lg shadow-slate-950/20 transition-[left] duration-300 ease-out dark:bg-white dark:shadow-black/40"
           style={{
             left: `calc(0.25rem + ${activeIndex} * ((100% - 1rem) / 3 + 0.25rem))`,
             width: "calc((100% - 1rem) / 3)",

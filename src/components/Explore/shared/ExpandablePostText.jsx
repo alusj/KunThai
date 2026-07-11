@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import LinkifiedText from "./LinkifiedText";
+
 export default function ExpandablePostText({
   text = "",
   className = "",
@@ -43,7 +45,7 @@ export default function ExpandablePostText({
         ref={textRef}
         className={`kuntai-break ${expanded ? "whitespace-pre-wrap" : "line-clamp-1"} ${textClassName}`}
       >
-        {value}
+        <LinkifiedText text={value} />
       </p>
       {expandable ? (
         <button

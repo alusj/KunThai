@@ -8,6 +8,7 @@ import {
 
 import { formatRelativeTime } from "../../../../../../Backend/services/exploreService";
 import Avatar from "../../../../shared/Avatar";
+import LinkifiedText from "../../../../shared/LinkifiedText";
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 
 function isPlaceholderName(value) {
@@ -85,7 +86,11 @@ export default function CommentItem({
             </div>
           </div>
 
-          {comment.body ? <p className="kuntai-break mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{comment.body}</p> : null}
+          {comment.body ? (
+            <p className="kuntai-break mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+              <LinkifiedText text={comment.body} />
+            </p>
+          ) : null}
           {comment.audio_url ? (
             <audio
               controls
