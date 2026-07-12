@@ -1,5 +1,5 @@
 import supabase from "../../lib/supabaseClient";
-import { getActiveCountryProfile } from "../../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 import { normalizeTierPricing } from "./tierPricingUtils";

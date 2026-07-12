@@ -2,7 +2,7 @@ import {
   formatCountryMoney,
   getActiveCountryProfile,
   getCountryCurrencyCode,
-} from "../../data/westAfricanCountryProfiles";
+} from "../../data/globalCountryProfiles";
 
 export function detectCurrency(country = "") {
   return getCountryCurrencyCode(country);

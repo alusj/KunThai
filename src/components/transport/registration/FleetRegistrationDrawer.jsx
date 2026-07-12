@@ -28,7 +28,12 @@ import {
   getCountryPhoneHint,
   normalizeCountryIso,
   validateCountryPhone,
-} from "../../../data/westAfricanCountryProfiles";
+} from "../../../data/globalCountryProfiles";
+import {
+  formatDocumentRequirementLabel,
+  getUrRideDocumentRequirements,
+  getUrRideFleetImageRequirements,
+} from "../../../data/globalDocumentRequirements";
 
 const categories = ["Transport", "Delivery", "Both"];
 const fleetTypes = ["Car", "Motorcycle", "Tricycle"];
@@ -51,34 +56,6 @@ const locationSuggestions = [
   "Residential area",
   "Border route",
 ];
-const requiredFleetImages = [
-  "Front view",
-  "Back view",
-  "Left side",
-  "Right side",
-];
-
-const baseDocuments = [
-  "National ID",
-  "Operator selfie/photo",
-  "Driver or rider license",
-  "Vehicle registration",
-  "Insurance document",
-];
-
-const categoryDocuments = {
-  Transport: [
-    "Road worthiness or inspection certificate",
-    "Passenger interior or seating photo",
-  ],
-  Delivery: ["Delivery box, bag, or storage photo", "Item handling agreement"],
-  Both: [
-    "Road worthiness or inspection certificate",
-    "Passenger interior or seating photo",
-    "Delivery box, bag, or storage photo",
-    "Item handling agreement",
-  ],
-};
 
 const fleetQuestions = {
   Car: [
@@ -159,6 +136,18 @@ function getProfileCountryPatch(profile = {}) {
 
 function formatFareReview(value, formCountry) {
   return formatCountryMoney(value, formCountry || activeCountry.iso2, { maximumFractionDigits: 0 });
+}
+
+function requirementUploadKey(prefix, requirement) {
+  return `${prefix}-${requirement.key}`;
+}
+
+function legacyRequirementUploadKey(prefix, requirement) {
+  return `${prefix}-${requirement.legacyLabel || requirement.label}`;
+}
+
+function getRequirementUpload(uploads, prefix, requirement) {
+  return uploads[requirementUploadKey(prefix, requirement)] || uploads[legacyRequirementUploadKey(prefix, requirement)];
 }
 
 function getAccountDisplayName(profile) {
@@ -264,12 +253,20 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     };
   }, []);
 
-  const documents = useMemo(() => {
-    return [...baseDocuments, ...(categoryDocuments[form.category] || [])];
-  }, [form.category]);
+  const fleetImageRequirements = useMemo(() => getUrRideFleetImageRequirements({
+    country: form.country,
+    countryCode: form.countryCode,
+    category: form.category,
+  }), [form.category, form.country, form.countryCode]);
+
+  const documents = useMemo(() => getUrRideDocumentRequirements({
+    country: form.country,
+    countryCode: form.countryCode,
+    category: form.category,
+  }), [form.category, form.country, form.countryCode]);
 
   const questions = fleetQuestions[form.fleetType] || [];
-  const fleetImageCount = requiredFleetImages.filter((image) => uploads[`fleet-${image}`]).length;
+  const fleetImageCount = fleetImageRequirements.filter((requirement) => getRequirementUpload(uploads, "fleet", requirement)).length;
   const stepSlideDirection = useDirectionalStep(step);
 
   const update = (field, value) => {
@@ -333,11 +330,15 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     if (targetStep === 4) {
       if (documentsSkipped) return [];
       const missing = [];
-      requiredFleetImages.forEach((image) => {
-        if (!uploads[`fleet-${image}`]) missing.push(image.toLowerCase());
+      fleetImageRequirements.forEach((requirement) => {
+        if (!getRequirementUpload(uploads, "fleet", requirement)) {
+          missing.push(formatDocumentRequirementLabel(requirement).toLowerCase());
+        }
       });
-      documents.forEach((document) => {
-        if (!uploads[`doc-${document}`]) missing.push(document.toLowerCase());
+      documents.forEach((requirement) => {
+        if (!getRequirementUpload(uploads, "doc", requirement)) {
+          missing.push(formatDocumentRequirementLabel(requirement).toLowerCase());
+        }
       });
       return missing;
     }
@@ -735,12 +736,12 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                   </span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {requiredFleetImages.map((image) => (
+                  {fleetImageRequirements.map((requirement) => (
                     <UploadField
-                      key={image}
-                      label={image}
-                      value={uploads[`fleet-${image}`]}
-                      onChange={(file) => markUpload(`fleet-${image}`, file)}
+                      key={requirement.key}
+                      label={formatDocumentRequirementLabel(requirement)}
+                      value={getRequirementUpload(uploads, "fleet", requirement)}
+                      onChange={(file) => markUpload(requirementUploadKey("fleet", requirement), file)}
                     />
                   ))}
                 </div>
@@ -766,12 +767,12 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                   </div>
                 )}
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {documents.map((document) => (
+                  {documents.map((requirement) => (
                     <UploadField
-                      key={document}
-                      label={document}
-                      value={uploads[`doc-${document}`]}
-                      onChange={(file) => markUpload(`doc-${document}`, file)}
+                      key={requirement.key}
+                      label={formatDocumentRequirementLabel(requirement)}
+                      value={getRequirementUpload(uploads, "doc", requirement)}
+                      onChange={(file) => markUpload(requirementUploadKey("doc", requirement), file)}
                     />
                   ))}
                 </div>
@@ -784,7 +785,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                     {[1, 2, 3].map((item) => (
                       <UploadField
                         key={item}
-                        label={`Additional document ${item}`}
+                        label={`Additional document ${item} (if applicable)`}
                         value={uploads[`doc-additional-${item}`]}
                         onChange={(file) => markUpload(`doc-additional-${item}`, file)}
                       />
@@ -813,7 +814,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 <ReviewRow label="Starting price" value={form.baseFare ? formatFareReview(form.baseFare, form.currency || form.countryCode || form.country) : "Not filled"} />
                 <ReviewRow label="Distance rate" value={form.pricePerKm ? `${formatFareReview(form.pricePerKm, form.currency || form.countryCode || form.country)} per km` : "Not filled"} />
                 <ReviewRow label="Time rate" value={form.pricePerHour ? `${formatFareReview(form.pricePerHour, form.currency || form.countryCode || form.country)} per hour` : "Not filled"} />
-                <ReviewRow label="Fleet images" value={`${fleetImageCount}/4 uploaded`} />
+                <ReviewRow label="Fleet images" value={`${fleetImageCount}/${fleetImageRequirements.length} uploaded`} />
                 <ReviewRow
                   label="Current status"
                   value={documentsSkipped ? "Unverified - documents skipped" : "Verification Pending"}

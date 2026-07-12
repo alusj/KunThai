@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from "lucide-react";
 
-import { getActiveCountryProfile } from "../../../../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile } from "../../../../../data/globalCountryProfiles";
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 

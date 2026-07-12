@@ -1,5 +1,5 @@
 import supabase from "../lib/supabaseClient";
-import { getActiveCountryProfile } from "../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
 
 export const PHONE_ALREADY_LINKED_CODE = "phone_exists";
 export const PHONE_ALREADY_LINKED_MESSAGE =

@@ -15,8 +15,8 @@ import {
   getCountryAddressPlaceholder,
   getCountryPhoneHint,
   validateCountryPhone,
-  WEST_AFRICAN_COUNTRY_PROFILES,
-} from "../../../../../data/westAfricanCountryProfiles";
+  GLOBAL_COUNTRY_PROFILES,
+} from "../../../../../data/globalCountryProfiles";
 
 export default function LocationContactStep({ registration }) {
   const {
@@ -57,7 +57,7 @@ export default function LocationContactStep({ registration }) {
             autoComplete="country-name"
             className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           >
-            {WEST_AFRICAN_COUNTRY_PROFILES.map((country) => (
+            {GLOBAL_COUNTRY_PROFILES.map((country) => (
               <option key={country.iso2} value={country.name}>{country.name}</option>
             ))}
           </select>

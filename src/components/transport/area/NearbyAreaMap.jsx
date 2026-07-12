@@ -8,7 +8,7 @@ import {
   getRouteBetweenPoints,
   getRouteThroughPoints,
 } from "../../../Backend/services/routeService";
-import { getActiveCountryProfile } from "../../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 
 const defaultCountryProfile = getActiveCountryProfile();
 const DEFAULT_CENTER = defaultCountryProfile.mapCenter;

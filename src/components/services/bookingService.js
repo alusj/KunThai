@@ -1,5 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
-import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { calculateFleetFare } from "./transportPricingService";
 
 async function getCurrentPassenger(message = "Sign in to book transport.") {

@@ -2,7 +2,7 @@ import supabase from "../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./explore/errors";
 import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage";
 import { normalizeSocialLinks } from "./explore/socialLinks";
-import { getActiveCountryProfile, storeCountryContext } from "../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile, storeCountryContext } from "../../data/globalCountryProfiles";
 import { consumeOAuthFlow } from "./sessionService";
 import {
   checkKunThaiIdentityAvailability,

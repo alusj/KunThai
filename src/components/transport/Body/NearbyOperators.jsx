@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FiMapPin, FiStar } from "react-icons/fi";
-import { formatCountryMoney } from "../../../data/westAfricanCountryProfiles";
+import { formatCountryMoney } from "../../../data/globalCountryProfiles";
 import { fetchTransportFleets, getTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 import VerificationDetailsModal from "../verification/VerificationDetailsModal";

@@ -13,14 +13,14 @@ import {
   verifyPhoneOtp,
 } from "./Backend/services/authService";
 import {
-  DEFAULT_WEST_AFRICAN_COUNTRY_CODE,
-  WEST_AFRICAN_COUNTRY_CODES,
-} from "./data/westAfricanCountryCodes";
+  DEFAULT_GLOBAL_COUNTRY_CODE,
+  GLOBAL_COUNTRY_CODES,
+} from "./data/globalCountryCodes";
 import {
   constrainCountryPhoneInput,
   getActiveCountryProfile,
   storeCountryContext,
-} from "./data/westAfricanCountryProfiles";
+} from "./data/globalCountryProfiles";
 import {
   clearOAuthFlow,
   consumeSwitchAccountPrefill,
@@ -115,7 +115,7 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
 
       {open ? (
         <div className="absolute left-0 z-30 mt-2 max-h-48 w-[min(20rem,calc(100vw-4rem))] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-          {WEST_AFRICAN_COUNTRY_CODES.map((item) => (
+          {GLOBAL_COUNTRY_CODES.map((item) => (
             <button
               key={item.iso2}
               type="button"
@@ -290,7 +290,7 @@ export default function Login() {
   const [signInAccount, setSignInAccount] = useState("");
   const [selectedCountry, setSelectedCountry] = useState(() => {
     const activeProfile = getActiveCountryProfile();
-    return WEST_AFRICAN_COUNTRY_CODES.find((country) => country.iso2 === activeProfile.iso2) || DEFAULT_WEST_AFRICAN_COUNTRY_CODE;
+    return GLOBAL_COUNTRY_CODES.find((country) => country.iso2 === activeProfile.iso2) || DEFAULT_GLOBAL_COUNTRY_CODE;
   });
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pendingPhone, setPendingPhone] = useState("");

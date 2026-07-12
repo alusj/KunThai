@@ -21,7 +21,7 @@ import {
   fetchTransportFleetReviews,
   submitTransportFleetReview,
 } from "../services/transportFleetService";
-import { formatCountryMoney } from "../../data/westAfricanCountryProfiles";
+import { formatCountryMoney } from "../../data/globalCountryProfiles";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import VerificationBadge from "./verification/VerificationBadge";

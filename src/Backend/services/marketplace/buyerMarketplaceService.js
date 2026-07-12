@@ -3,7 +3,7 @@ import {
   filterCountryScopedItems,
   getCountryCurrencyCode,
   normalizeCountryIso,
-} from "../../../data/westAfricanCountryProfiles";
+} from "../../../data/globalCountryProfiles";
 import { getTierUnitPrice, normalizeTierPricing } from "./tierPricingUtils";
 
 function toOptionalNumber(value) {

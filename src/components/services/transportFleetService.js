@@ -4,7 +4,7 @@ import {
   formatCountryMoney,
   getCountryCurrencyCode,
   normalizeCountryIso,
-} from "../../data/westAfricanCountryProfiles";
+} from "../../data/globalCountryProfiles";
 
 export function subscribeToFleetUpdates(callback) {
   const channel = supabase

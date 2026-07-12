@@ -43,7 +43,7 @@ import {
   subscribeNotificationSeen,
 } from "../../Backend/services/notificationSeenStore";
 import { createSupportTicket } from "../../Backend/services/explore/supportService";
-import { formatCountryMoney, getCountryCurrencyCode } from "../../data/westAfricanCountryProfiles";
+import { formatCountryMoney, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import {
   fetchOperatorDashboard,
   subscribeOperatorTrips,

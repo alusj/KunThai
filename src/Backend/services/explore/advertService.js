@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
 
 const AD_SESSION_KEY = "kunthai_explore_ad_session_v1";
 const AD_SEEN_SESSION_KEY = "kunthai_explore_seen_ads_v1";
@@ -118,7 +119,7 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
     p_ends_at: endsAt,
     p_budget_type: advert.budgetType || "total",
     p_budget_amount: Math.max(0, Number(advert.budgetAmount) || 0),
-    p_currency: advert.currency || "SLE",
+    p_currency: advert.currency || getCountryCurrencyCode(),
   });
 
   if (error) {

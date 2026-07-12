@@ -1,4 +1,4 @@
-import { normalizeCountryIso, storeCountryContext } from "../../data/westAfricanCountryProfiles";
+import { normalizeCountryIso, storeCountryContext } from "../../data/globalCountryProfiles";
 
 export async function detectCountryFromCoords(lat, lng) {
   const latitude = Number(lat);

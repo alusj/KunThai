@@ -1,4 +1,4 @@
-import { getActiveCountryProfile } from "../../../../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile } from "../../../../../data/globalCountryProfiles";
 import BusinessStatus from "./BusinessStatus";
 import EditBusinessButton from "./EditBusinessButton";
 

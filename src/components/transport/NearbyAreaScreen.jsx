@@ -35,7 +35,7 @@ import {
   subscribeToAreaViewLiveData,
 } from "../../Backend/services/nearbyAreaLiveService";
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
-import { constrainCountryPhoneInput, getActiveCountryProfile, getCountryPhoneHint } from "../../data/westAfricanCountryProfiles";
+import { constrainCountryPhoneInput, getActiveCountryProfile, getCountryPhoneHint } from "../../data/globalCountryProfiles";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { haptics } from "../../Backend/services/feedbackService";
 import {

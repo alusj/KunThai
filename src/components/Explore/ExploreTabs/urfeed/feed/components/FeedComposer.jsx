@@ -50,7 +50,7 @@ import {
 } from "../composer/composerUtils";
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentModeration";
-import { getCountryCurrencyCode } from "../../../../../../data/westAfricanCountryProfiles";
+import { getCountryCurrencyCode } from "../../../../../../data/globalCountryProfiles";
 import { findExploreTopic } from "../../../../../../data/exploreTopics";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
@@ -209,7 +209,7 @@ function cleanAdvertCampaignForSubmit(advert = {}) {
     customEnd: String(normalized.customEnd || ""),
     budgetType: normalized.budgetType === "daily" ? "daily" : "total",
     budgetAmount: Math.max(0, Number(normalized.budgetAmount) || 0),
-    currency: String(normalized.currency || "SLE").toUpperCase().slice(0, 5),
+    currency: String(normalized.currency || getCountryCurrencyCode()).toUpperCase().slice(0, 5),
   };
 }
 

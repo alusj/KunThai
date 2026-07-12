@@ -2,7 +2,11 @@ import supabase from "../../lib/supabaseClient";
 import {
   getActiveCountryProfile,
   storeCountryContext,
-} from "../../../data/westAfricanCountryProfiles";
+} from "../../../data/globalCountryProfiles";
+import {
+  formatDocumentRequirementLabel,
+  getUrMallDocumentRequirements,
+} from "../../../data/globalDocumentRequirements";
 import { isMissingColumn } from "../explore/errors";
 
 export const BUSINESS_CATEGORIES = [
@@ -115,6 +119,39 @@ async function uploadBusinessFile(userId, file, folder) {
 
   const { data } = supabase.storage.from("marketplace-business-media").getPublicUrl(path);
   return data.publicUrl;
+}
+
+async function uploadBusinessDocumentRequirements(userId, trustPayout, requirements) {
+  return Promise.all(
+    requirements.map(async (requirement) => ({
+      requirement,
+      fileName: trustPayout[requirement.nameField] || "",
+      fileUrl: await uploadBusinessFile(userId, trustPayout[requirement.fileField], "documents"),
+    })),
+  );
+}
+
+function requireBusinessDocuments(trustPayout, requirements) {
+  const missing = requirements.filter((requirement) =>
+    requirement.required && !trustPayout[requirement.fileField] && !trustPayout[requirement.nameField]
+  );
+
+  if (missing.length) {
+    throw new Error(`Upload ${missing.map(formatDocumentRequirementLabel).join(", ")} before submitting.`);
+  }
+}
+
+function buildBusinessDocumentRows(businessId, documentUploads) {
+  return documentUploads
+    .map(({ requirement, fileName, fileUrl }) => fileUrl
+      ? {
+          business_id: businessId,
+          document_type: requirement.legacyDocumentType || requirement.key,
+          file_name: fileName,
+          file_url: fileUrl,
+        }
+      : null)
+    .filter(Boolean);
 }
 
 function normalizeBusiness(row, categories = [], payoutMethod = null, documents = []) {
@@ -258,18 +295,19 @@ export async function submitSellerRegistration(registration) {
   const userId = await getCurrentUserId();
   storeCountryContext(registration.location.country);
   const countryProfile = getActiveCountryProfile(registration.location.country);
-  if (!registration.trustPayout.idDocumentFile || !registration.trustPayout.businessDocumentFile) {
-    throw new Error("Upload both your identity document and business registration document before submitting.");
-  }
+  const documentRequirements = getUrMallDocumentRequirements({
+    country: registration.location.country,
+    countryCode: registration.location.countryIso || countryProfile.iso2,
+  });
+  requireBusinessDocuments(registration.trustPayout, documentRequirements);
   const readinessScore = calculateReadinessScore(registration);
-  const [logoUrl, bannerUrl, idDocumentUrl, businessDocumentUrl] = await Promise.all([
+  const [logoUrl, bannerUrl, documentUploads] = await Promise.all([
     uploadBusinessFile(userId, registration.identity.logoFile, "logos"),
     uploadBusinessFile(userId, registration.identity.bannerFile, "banners"),
-    uploadBusinessFile(userId, registration.trustPayout.idDocumentFile, "documents"),
-    uploadBusinessFile(userId, registration.trustPayout.businessDocumentFile, "documents"),
+    uploadBusinessDocumentRequirements(userId, registration.trustPayout, documentRequirements),
   ]);
 
-  const verified = Boolean(idDocumentUrl || businessDocumentUrl);
+  const verified = documentUploads.some((document) => document.fileUrl);
   const businessPayload = {
     user_id: userId,
     business_kind: registration.identity.businessKind || "retail",
@@ -357,24 +395,7 @@ export async function submitSellerRegistration(registration) {
     .upsert(payoutPayload, { onConflict: "business_id" });
   if (payoutError) throw new Error(payoutError.message);
 
-  const documentRows = [
-    idDocumentUrl
-      ? {
-          business_id: business.id,
-          document_type: "id",
-          file_name: registration.trustPayout.idDocumentName,
-          file_url: idDocumentUrl,
-        }
-      : null,
-    businessDocumentUrl
-      ? {
-          business_id: business.id,
-          document_type: "business",
-          file_name: registration.trustPayout.businessDocumentName,
-          file_url: businessDocumentUrl,
-        }
-      : null,
-  ].filter(Boolean);
+  const documentRows = buildBusinessDocumentRows(business.id, documentUploads);
 
   if (documentRows.length) {
     const { error: documentError } = await supabase.from("marketplace_business_documents").insert(documentRows);
@@ -424,11 +445,15 @@ export async function updateRegisteredBusinessProfile(updates) {
       businessDocumentFile: updates.trustPayout?.businessDocumentFile || null,
     },
   };
-  const [logoUrl, bannerUrl, idDocumentUrl, businessDocumentUrl] = await Promise.all([
+  const countryProfile = getActiveCountryProfile(registration.location.country || registration.location.countryIso);
+  const documentRequirements = getUrMallDocumentRequirements({
+    country: registration.location.country,
+    countryCode: registration.location.countryIso || countryProfile.iso2,
+  });
+  const [logoUrl, bannerUrl, documentUploads] = await Promise.all([
     uploadBusinessFile(userId, registration.identity.logoFile, "logos"),
     uploadBusinessFile(userId, registration.identity.bannerFile, "banners"),
-    uploadBusinessFile(userId, registration.trustPayout.idDocumentFile, "documents"),
-    uploadBusinessFile(userId, registration.trustPayout.businessDocumentFile, "documents"),
+    uploadBusinessDocumentRequirements(userId, registration.trustPayout, documentRequirements),
   ]);
 
   const businessPayload = {
@@ -436,6 +461,8 @@ export async function updateRegisteredBusinessProfile(updates) {
     business_name: registration.identity.businessName.trim(),
     description: registration.identity.description.trim(),
     country: registration.location.country.trim(),
+    country_iso: countryProfile.iso2,
+    currency: countryProfile.currency.code,
     city: registration.location.city.trim(),
     address: registration.location.address.trim(),
     phone: registration.location.phone.trim(),
@@ -463,8 +490,18 @@ export async function updateRegisteredBusinessProfile(updates) {
     .update(businessPayload)
     .eq("id", currentBusiness.id);
 
-  if (error && (isMissingColumn(error, "website_url") || isMissingColumn(error, "operating_days") || isMissingColumn(error, "business_kind"))) {
-    const { website_url: _websiteUrl, operating_days: _operatingDays, business_kind: _businessKind, ...fallbackPayload } = businessPayload;
+  if (
+    error &&
+    ["website_url", "operating_days", "country_iso", "currency", "business_kind"].some((column) => isMissingColumn(error, column))
+  ) {
+    const {
+      website_url: _websiteUrl,
+      operating_days: _operatingDays,
+      country_iso: _countryIso,
+      currency: _currency,
+      business_kind: _businessKind,
+      ...fallbackPayload
+    } = businessPayload;
     const fallback = await supabase
       .from("marketplace_businesses")
       .update(fallbackPayload)
@@ -512,24 +549,7 @@ export async function updateRegisteredBusinessProfile(updates) {
     .upsert(payoutPayload, { onConflict: "business_id" });
   if (payoutError) throw new Error(payoutError.message);
 
-  const documentRows = [
-    idDocumentUrl
-      ? {
-          business_id: currentBusiness.id,
-          document_type: "id",
-          file_name: registration.trustPayout.idDocumentName,
-          file_url: idDocumentUrl,
-        }
-      : null,
-    businessDocumentUrl
-      ? {
-          business_id: currentBusiness.id,
-          document_type: "business",
-          file_name: registration.trustPayout.businessDocumentName,
-          file_url: businessDocumentUrl,
-        }
-      : null,
-  ].filter(Boolean);
+  const documentRows = buildBusinessDocumentRows(currentBusiness.id, documentUploads);
 
   if (documentRows.length) {
     const { error: documentError } = await supabase.from("marketplace_business_documents").insert(documentRows);
@@ -542,6 +562,12 @@ export async function updateRegisteredBusinessProfile(updates) {
 export function calculateReadinessScore(registration) {
   const usesCategories = registration.identity.businessKind === "retail";
   const usesFulfillment = ["retail", "restaurant"].includes(registration.identity.businessKind);
+  const documentChecks = getUrMallDocumentRequirements({
+    country: registration.location?.country,
+    countryCode: registration.location?.countryIso,
+  }).map((requirement) =>
+    registration.trustPayout[requirement.fileField] || registration.trustPayout[requirement.nameField]
+  );
   const checks = [
     registration.identity.businessName,
     !usesCategories || registration.identity.categories.length > 0,
@@ -558,8 +584,7 @@ export function calculateReadinessScore(registration) {
     !usesFulfillment || registration.operations.deliveryEnabled || registration.operations.pickupEnabled,
     registration.operations.openTime,
     registration.operations.closeTime,
-    registration.trustPayout.idDocumentFile || registration.trustPayout.idDocumentName,
-    registration.trustPayout.businessDocumentFile || registration.trustPayout.businessDocumentName,
+    ...documentChecks,
     registration.trustPayout.connectKunThaiMoney || registration.trustPayout.bankName,
   ];
 

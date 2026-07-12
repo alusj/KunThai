@@ -1,5 +1,14 @@
+import {
+  formatDocumentRequirementLabel,
+  getUrMallDocumentRequirements,
+} from "../../../../../data/globalDocumentRequirements";
+
 export default function ReviewSubmitStep({ registration }) {
   const { form, readinessScore, goToStep } = registration;
+  const documentRequirements = getUrMallDocumentRequirements({
+    country: form.location.country,
+    countryCode: form.location.countryIso,
+  });
 
   return (
     <div className="space-y-4">
@@ -39,8 +48,11 @@ export default function ReviewSubmitStep({ registration }) {
               ? "KunThai Money connected"
               : "Bank fallback selected"}
         </p>
-        <p>ID: {form.trustPayout.idDocumentName || "Not uploaded yet"}</p>
-        <p>Business document: {form.trustPayout.businessDocumentName || "Not uploaded yet"}</p>
+        {documentRequirements.map((requirement) => (
+          <p key={requirement.key}>
+            {formatDocumentRequirementLabel(requirement)}: {form.trustPayout[requirement.nameField] || "Not uploaded yet"}
+          </p>
+        ))}
       </SummaryCard>
     </div>
   );

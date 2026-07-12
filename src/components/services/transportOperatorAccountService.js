@@ -6,7 +6,7 @@ import {
   getCountryCurrencyCode,
   normalizeCountryIso,
   storeCountryContext,
-} from "../../data/westAfricanCountryProfiles";
+} from "../../data/globalCountryProfiles";
 import {
   getTransportUploadFile,
   getTransportUploadName,
@@ -15,9 +15,33 @@ import {
   uploadTransportPublicImage,
   uploadTransportVerificationDocument,
 } from "./transportPublicMediaService";
+import {
+  URRIDE_DOCUMENT_REQUIREMENTS,
+  URRIDE_FLEET_IMAGE_REQUIREMENTS,
+} from "../../data/globalDocumentRequirements";
 
 const DRAFT_KEY = "kuntai.transport.operatorDraft";
 const DRAFT_KEY_PREFIX = `${DRAFT_KEY}.`;
+
+const URRIDE_UPLOAD_LABELS = new Map([
+  ...URRIDE_DOCUMENT_REQUIREMENTS.flatMap((requirement) => [
+    [`doc-${requirement.key}`, requirement.legacyLabel || requirement.label],
+    [`doc-${requirement.legacyLabel || requirement.label}`, requirement.legacyLabel || requirement.label],
+  ]),
+  ...URRIDE_FLEET_IMAGE_REQUIREMENTS.flatMap((requirement) => [
+    [`fleet-${requirement.key}`, `Fleet photo - ${requirement.legacyLabel || requirement.label}`],
+    [`fleet-${requirement.legacyLabel || requirement.label}`, `Fleet photo - ${requirement.legacyLabel || requirement.label}`],
+  ]),
+]);
+
+const URRIDE_OPERATOR_PHOTO_KEYS = new Set(
+  URRIDE_DOCUMENT_REQUIREMENTS
+    .filter((requirement) => requirement.publicMediaRole === "operator_photo")
+    .flatMap((requirement) => [
+      `doc-${requirement.key}`,
+      `doc-${requirement.legacyLabel || requirement.label}`,
+    ]),
+);
 const LEGACY_ACCOUNT_KEY = "kuntai.transport.operatorAccount";
 
 function safeParse(value) {
@@ -250,6 +274,7 @@ function uploadKeyToDocumentType(key = "") {
   if (key.startsWith("doc-additional-")) {
     return `Additional document ${key.replace("doc-additional-", "")}`;
   }
+  if (URRIDE_UPLOAD_LABELS.has(key)) return URRIDE_UPLOAD_LABELS.get(key);
   if (key.startsWith("doc-")) return key.replace("doc-", "");
   if (key.startsWith("fleet-")) return `Fleet photo - ${key.replace("fleet-", "")}`;
   return key;
@@ -286,15 +311,16 @@ async function prepareOperatorPublicMedia(userId, uploads = {}) {
   for (const [key, value] of Object.entries(uploads)) {
     const file = getTransportUploadFile(value);
     const isFleetPhoto = key.startsWith("fleet-");
-    const isOperatorPhoto = key === "doc-Operator selfie/photo";
+    const isOperatorPhoto = URRIDE_OPERATOR_PHOTO_KEYS.has(key);
     let publicUrl = getTransportUploadUrl(value);
+    const uploadLabel = uploadKeyToDocumentType(key).replace(/^Fleet photo - /, "");
 
     if ((isFleetPhoto || isOperatorPhoto) && file) {
       publicUrl = await uploadTransportPublicImage({
         file,
         ownerUserId: userId,
         scope: isFleetPhoto ? "fleet" : "operator",
-        label: key.replace(/^fleet-|^doc-/, ""),
+        label: uploadLabel,
       });
     }
 
@@ -305,11 +331,11 @@ async function prepareOperatorPublicMedia(userId, uploads = {}) {
             file,
             ownerUserId: userId,
             scope: "operator-registration",
-            label: key.replace(/^doc-|^fleet-/, ""),
+            label: uploadLabel,
           })
         : toStoredTransportUpload(value, "");
     if (isFleetPhoto && publicUrl) {
-      fleetPhotos.push({ label: key.replace(/^fleet-/, ""), url: publicUrl });
+      fleetPhotos.push({ label: uploadLabel, url: publicUrl });
     }
     if (isOperatorPhoto && publicUrl) operatorPhotoUrl = publicUrl;
   }

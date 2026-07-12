@@ -1,3 +1,5 @@
+import { getCountryProfile } from "../data/globalCountryProfiles";
+
 const FLAG_VIEWBOX = "0 0 64 48";
 
 function FlagFrame({ children, className = "" }) {
@@ -25,6 +27,26 @@ function Star({ cx, cy, r, fill = "#111827", rotation = -90 }) {
   }).join(" ");
 
   return <polygon points={points} fill={fill} />;
+}
+
+function GenericStripeFlag({ flag, className }) {
+  const colors = Array.isArray(flag?.colors) && flag.colors.length ? flag.colors : ["#e2e8f0"];
+  const vertical = flag?.direction === "vertical";
+
+  return (
+    <FlagFrame className={className}>
+      {colors.map((color, index) => (
+        <rect
+          key={`${color}-${index}`}
+          x={vertical ? (64 / colors.length) * index : 0}
+          y={vertical ? 0 : (48 / colors.length) * index}
+          width={vertical ? 64 / colors.length : 64}
+          height={vertical ? 48 : 48 / colors.length}
+          fill={color}
+        />
+      ))}
+    </FlagFrame>
+  );
 }
 
 function FlagSvg({ code, className }) {
@@ -200,11 +222,7 @@ function FlagSvg({ code, className }) {
         </FlagFrame>
       );
     default:
-      return (
-        <FlagFrame className={className}>
-          <rect width="64" height="48" fill="#e2e8f0" />
-        </FlagFrame>
-      );
+      return <GenericStripeFlag flag={getCountryProfile(code)?.flag} className={className} />;
   }
 }
 

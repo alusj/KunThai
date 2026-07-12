@@ -1,5 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
-import { formatCountryMoney, getCountryCurrencyCode } from "../../data/westAfricanCountryProfiles";
+import { formatCountryMoney, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { fetchTransportFleetById } from "./transportFleetService";
 
 const TRANSPORT_SAVED_PLACES_KEY = "kuntai.transport.savedPlaces";

@@ -1,9 +1,17 @@
 import RegistrationField from "./RegistrationField";
 import RegistrationInput from "./RegistrationInput";
 import ToggleRow from "./ToggleRow";
+import {
+  formatDocumentRequirementLabel,
+  getUrMallDocumentRequirements,
+} from "../../../../../data/globalDocumentRequirements";
 
 export default function TrustPayoutStep({ registration }) {
   const { form, errors, updateSection } = registration;
+  const documentRequirements = getUrMallDocumentRequirements({
+    country: form.location.country,
+    countryCode: form.location.countryIso,
+  });
 
   return (
     <div className="space-y-5">
@@ -12,31 +20,31 @@ export default function TrustPayoutStep({ registration }) {
           <div>
             <p className="font-black text-emerald-900">Verified Seller Badge Preview</p>
             <p className="mt-1 text-sm font-medium text-emerald-700">
-              Every new UrMall business must submit both documents. KunThai sends them privately to the admin verification queue.
+              KunThai sends document fields that apply to this market privately to the admin verification queue.
             </p>
           </div>
         </div>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <RegistrationField label="Owner/representative ID required" error={errors.idDocument}>
-          <RegistrationInput
-            type="file"
-            onChange={(event) => {
-              const file = event.target.files?.[0] || null;
-              updateSection("trustPayout", { idDocumentFile: file, idDocumentName: file?.name || "" });
-            }}
-          />
-        </RegistrationField>
-        <RegistrationField label="Business registration document required" error={errors.businessDocument}>
-          <RegistrationInput
-            type="file"
-            onChange={(event) => {
-              const file = event.target.files?.[0] || null;
-              updateSection("trustPayout", { businessDocumentFile: file, businessDocumentName: file?.name || "" });
-            }}
-          />
-        </RegistrationField>
+        {documentRequirements.map((requirement) => (
+          <RegistrationField
+            key={requirement.key}
+            label={formatDocumentRequirementLabel(requirement)}
+            error={errors[requirement.errorKey]}
+          >
+            <RegistrationInput
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0] || null;
+                updateSection("trustPayout", {
+                  [requirement.fileField]: file,
+                  [requirement.nameField]: file?.name || "",
+                });
+              }}
+            />
+          </RegistrationField>
+        ))}
       </div>
 
       <ToggleRow

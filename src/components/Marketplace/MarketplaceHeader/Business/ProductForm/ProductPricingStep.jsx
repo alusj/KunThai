@@ -1,7 +1,7 @@
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductToggle from "./ProductToggle";
-import { getCountryCurrencyCode } from "../../../../../data/westAfricanCountryProfiles";
+import { getCountryCurrencyCode } from "../../../../../data/globalCountryProfiles";
 
 export default function ProductPricingStep({ productForm }) {
   const { form, errors, updateSection } = productForm;

@@ -28,7 +28,7 @@ import {
   constrainCountryPhoneInput,
   getCountryPhoneHint,
   validateCountryPhone,
-} from "../../../data/westAfricanCountryProfiles";
+} from "../../../data/globalCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { fetchTransportFleets } from "../../services/transportFleetService";

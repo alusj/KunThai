@@ -5,7 +5,7 @@ import {
   getTransportFleets,
   subscribeToFleetUpdates,
 } from "../services/transportFleetService";
-import { formatCountryMoney } from "../../data/westAfricanCountryProfiles";
+import { formatCountryMoney } from "../../data/globalCountryProfiles";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";

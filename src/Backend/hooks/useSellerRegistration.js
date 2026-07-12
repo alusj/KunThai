@@ -15,7 +15,11 @@ import {
   getActiveCountryProfile,
   storeCountryContext,
   validateCountryPhone,
-} from "../../data/westAfricanCountryProfiles";
+} from "../../data/globalCountryProfiles";
+import {
+  formatDocumentRequirementLabel,
+  getUrMallDocumentRequirements,
+} from "../../data/globalDocumentRequirements";
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
 
@@ -386,12 +390,18 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     }
 
     if (nextStep === 3) {
-      if (!form.trustPayout.idDocumentFile && !form.trustPayout.idDocumentName) {
-        nextErrors.idDocument = "Upload the owner or representative identity document.";
-      }
-      if (!form.trustPayout.businessDocumentFile && !form.trustPayout.businessDocumentName) {
-        nextErrors.businessDocument = "Upload the business registration or operating document.";
-      }
+      getUrMallDocumentRequirements({
+        country: form.location.country,
+        countryCode: form.location.countryIso,
+      }).forEach((requirement) => {
+        if (
+          requirement.required &&
+          !form.trustPayout[requirement.fileField] &&
+          !form.trustPayout[requirement.nameField]
+        ) {
+          nextErrors[requirement.errorKey] = `Upload ${formatDocumentRequirementLabel(requirement).toLowerCase()}.`;
+        }
+      });
     }
 
     setErrors(nextErrors);

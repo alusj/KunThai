@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { markOnboardingComplete, updateOnboardingProfile } from "../../Backend/services/onboardingService";
 import { fetchUserTopicFollows, saveUserTopicFollows } from "../../Backend/services/explore/topicService";
-import { getActiveCountryProfile } from "../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
 import WelcomeStep from "./WelcomeStep";
 import ProfileStep from "./ProfileStep";
 import InterestsStep from "./InterestsStep";

@@ -1,4 +1,4 @@
-import { getActiveCountryProfile } from "../../../../../data/westAfricanCountryProfiles";
+import { getActiveCountryProfile } from "../../../../../data/globalCountryProfiles";
 
 export default function BusinessName() {
   const countryProfile = getActiveCountryProfile();

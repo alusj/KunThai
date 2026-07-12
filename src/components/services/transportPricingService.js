@@ -1,6 +1,6 @@
 import { searchLocations } from "../../Backend/services/locationSearchService";
 import { getRouteBetweenPoints } from "../../Backend/services/routeService";
-import { formatCountryMoney } from "../../data/westAfricanCountryProfiles";
+import { formatCountryMoney } from "../../data/globalCountryProfiles";
 
 function toFiniteNumber(value) {
   const number = Number(value);

@@ -12,8 +12,8 @@ import {
   getCountryPhoneHint,
   storeCountryContext,
   validateCountryPhone,
-  WEST_AFRICAN_COUNTRY_PROFILES,
-} from "../../data/westAfricanCountryProfiles";
+  GLOBAL_COUNTRY_PROFILES,
+} from "../../data/globalCountryProfiles";
 import OnboardingFrame from "./OnboardingFrame";
 
 const accountTypes = [
@@ -313,7 +313,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 }}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
               >
-                {WEST_AFRICAN_COUNTRY_PROFILES.map((country) => (
+                {GLOBAL_COUNTRY_PROFILES.map((country) => (
                   <option key={country.iso2} value={country.name}>{country.name}</option>
                 ))}
               </select>

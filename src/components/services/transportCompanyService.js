@@ -9,7 +9,7 @@ import {
   uploadTransportPublicImage,
   uploadTransportVerificationDocument,
 } from "./transportPublicMediaService";
-import { storeCountryContext } from "../../data/westAfricanCountryProfiles";
+import { storeCountryContext } from "../../data/globalCountryProfiles";
 
 const COMPANY_DRAFT_PREFIX = "kuntai.transport.companyDraft.";
 const COMPANY_ACCOUNT_PREFIX = "kuntai.transport.companyAccount.";

@@ -46,7 +46,7 @@ import {
   selectTransportSavedPlace,
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
-import { getCountryCurrencyCode } from "../../../data/westAfricanCountryProfiles";
+import { getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { submitTransportSupportTicket } from "../../services/bookingService";
 import TransportCautionCard from "../shared/TransportCautionCard";

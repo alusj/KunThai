@@ -37,8 +37,14 @@ import {
   getCountryPhoneHint,
   storeCountryContext,
   validateCountryPhone,
-  WEST_AFRICAN_COUNTRY_PROFILES,
-} from "../../../data/westAfricanCountryProfiles";
+  GLOBAL_COUNTRY_PROFILES,
+} from "../../../data/globalCountryProfiles";
+import {
+  formatDocumentRequirementLabel,
+  getUrRideCompanyDocumentRequirements,
+  getUrRideDocumentRequirements,
+  getUrRideFleetImageRequirements,
+} from "../../../data/globalDocumentRequirements";
 
 const steps = [
   { label: "Company", icon: FiBriefcase },
@@ -50,14 +56,14 @@ const steps = [
 const fleetTypes = ["Motorbike", "Tricycle", "Taxi", "Van"];
 const serviceCategories = ["Ride only", "Delivery only", "Ride and delivery"];
 const companyTypes = ["Transport company", "Delivery company", "Taxi union", "Bike riders group", "Community fleet", "Other organization"];
-const companyDocuments = ["Business registration", "Transport permit", "Tax or business ID", "Owner national ID"];
-const fleetDocuments = [
-  "Vehicle registration",
-  "Insurance document",
-  "Road worthiness or inspection certificate",
-  "Passenger interior or seating photo",
-];
-const requiredFleetImages = ["Front view", "Back view", "Left side", "Right side"];
+const companyFleetDocumentKeys = new Set([
+  "vehicle_registration",
+  "insurance_document",
+  "roadworthiness_certificate",
+  "passenger_interior_photo",
+  "delivery_storage_photo",
+  "item_handling_agreement",
+]);
 const fleetSafetyQuestions = {
   Taxi: [
     { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
@@ -102,6 +108,39 @@ function createSafetyAnswers(fleetType) {
 
 function fleetImageDocumentKey(image) {
   return `Fleet image - ${image}`;
+}
+
+function documentStorageKey(requirement) {
+  return requirement.legacyLabel || requirement.label || requirement.key;
+}
+
+function documentGridItem(requirement, keyPrefix = "") {
+  const storageKey = keyPrefix ? `${keyPrefix}${documentStorageKey(requirement)}` : documentStorageKey(requirement);
+  return {
+    key: storageKey,
+    label: formatDocumentRequirementLabel(requirement),
+  };
+}
+
+function fleetRequirementCategory(serviceCategory = "") {
+  if (serviceCategory === "Delivery only") return "Delivery";
+  if (serviceCategory === "Ride and delivery") return "Both";
+  return "Transport";
+}
+
+function getFleetImageRequirements(form) {
+  return getUrRideFleetImageRequirements({
+    country: form.country,
+    countryCode: form.countryCode,
+  });
+}
+
+function getFleetDocumentRequirements(form, fleet) {
+  return getUrRideDocumentRequirements({
+    country: form.country,
+    countryCode: form.countryCode,
+    category: fleetRequirementCategory(fleet.serviceCategory),
+  }).filter((requirement) => companyFleetDocumentKeys.has(requirement.key));
 }
 
 function createCompanyForm(profile = {}) {
@@ -231,18 +270,27 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     };
   }, [addOperatorMode, existingCompany]);
 
+  const companyDocumentRequirements = useMemo(() => getUrRideCompanyDocumentRequirements({
+    country: form.country,
+    countryCode: form.countryCode,
+  }), [form.country, form.countryCode]);
+
   const completion = useMemo(() => {
     const companyReady = Boolean(form.companyName && form.ownerName && form.phone);
     const locationReady = Boolean(form.country && form.city && form.address && hasLocation);
-    const fleetReady = fleets.some((fleet) => fleet.fleetType && fleet.plateNumber && fleet.documents?.["Fleet registration"]);
-    const documentReady = companyDocuments.some((document) => form.documents?.[document]);
+    const fleetReady = fleets.some((fleet) =>
+      fleet.fleetType &&
+      fleet.plateNumber &&
+      getFleetDocumentRequirements(form, fleet).some((requirement) => fleet.documents?.[documentStorageKey(requirement)])
+    );
+    const documentReady = companyDocumentRequirements.some((requirement) => form.documents?.[documentStorageKey(requirement)]);
     return [
       companyReady,
       locationReady,
       fleetReady,
       documentReady,
     ].filter(Boolean).length;
-  }, [fleets, form, hasLocation]);
+  }, [companyDocumentRequirements, fleets, form, hasLocation]);
 
   function updateForm(field, value) {
     if (field === "country") {
@@ -363,9 +411,13 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         fleet.pricePerHour,
       ].some((value) => !String(value || "").trim()));
       if (incompleteFleet) return "Each fleet needs its name, plate, make, model, year, color, operating area, home base, starting price, per-kilometre price, and hourly price.";
-      const missingImageFleet = fleets.find((fleet) => requiredFleetImages.some((image) => !fleet.documents?.[fleetImageDocumentKey(image)]));
+      const missingImageFleet = fleets.find((fleet) =>
+        getFleetImageRequirements(form).some((requirement) => !fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))])
+      );
       if (missingImageFleet) return "Upload the front, back, left-side, and right-side image for every fleet.";
-      const missingDocumentFleet = fleets.find((fleet) => fleetDocuments.some((document) => !fleet.documents?.[document]));
+      const missingDocumentFleet = fleets.find((fleet) =>
+        getFleetDocumentRequirements(form, fleet).some((requirement) => !fleet.documents?.[documentStorageKey(requirement)])
+      );
       if (missingDocumentFleet) return "Upload all required vehicle documents for every fleet.";
       const incompleteSafetyFleet = fleets.find((fleet) => (fleetSafetyQuestions[fleet.fleetType] || []).some((question) => !String(fleet.safetyAnswers?.[question.key] || "").trim()));
       if (incompleteSafetyFleet) return "Answer every security and safety question for each fleet.";
@@ -609,7 +661,12 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
           <StepSlideTransition stepKey={step} direction={stepDirection}>
             {step === 0 ? (
-              <CompanyIdentityStep form={form} onChange={updateForm} onDocument={markCompanyDocument} />
+              <CompanyIdentityStep
+                documentRequirements={companyDocumentRequirements}
+                form={form}
+                onChange={updateForm}
+                onDocument={markCompanyDocument}
+              />
             ) : null}
             {step === 1 ? (
               <LocationOperationsStep
@@ -627,6 +684,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 acceptedOperators={(existingCompany?.fleets || []).flatMap((fleet) => fleet.operators || []).filter((operator) => operator.status === "accepted")}
                 allowMultiple={!addOperatorMode}
                 fleets={fleets}
+                form={form}
                 onAddFleet={addFleet}
                 onInvite={addOperatorInvite}
                 onRemoveFleet={removeFleet}
@@ -773,7 +831,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   );
 }
 
-function CompanyIdentityStep({ form, onChange, onDocument }) {
+function CompanyIdentityStep({ documentRequirements = [], form, onChange, onDocument }) {
   const countryProfile = getActiveCountryProfile(form.country);
   const phoneValidation = validateCountryPhone(form.phone, countryProfile);
   return (
@@ -803,7 +861,7 @@ function CompanyIdentityStep({ form, onChange, onDocument }) {
           <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">Use this ID when adding company admins, fleet managers, or operator invitations.</span>
         </label>
       </div>
-      <DocumentGrid documents={companyDocuments} uploads={form.documents} onUpload={onDocument} />
+      <DocumentGrid documents={documentRequirements.map((requirement) => documentGridItem(requirement))} uploads={form.documents} onUpload={onDocument} />
     </div>
   );
 }
@@ -817,7 +875,7 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
         <h2 className="mt-1 text-2xl font-black text-slate-950">Set the verified location passengers and operators can trust.</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <SelectField label="Country" value={countryProfile.name} options={WEST_AFRICAN_COUNTRY_PROFILES.map((country) => country.name)} onChange={(value) => onChange("country", value)} />
+        <SelectField label="Country" value={countryProfile.name} options={GLOBAL_COUNTRY_PROFILES.map((country) => country.name)} onChange={(value) => onChange("country", value)} />
         <FormInput label="City / district" value={form.city} onChange={(value) => onChange("city", value)} placeholder={countryProfile.cityPlaceholder} />
         <div className="md:col-span-2">
           <FormInput label="Office, station, or dispatch address" value={form.address} onChange={(value) => onChange("address", value)} placeholder={getCountryAddressPlaceholder(countryProfile)} />
@@ -861,7 +919,7 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
   );
 }
 
-function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument }) {
+function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets, form, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument }) {
   const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
     <div className="space-y-5">
@@ -880,6 +938,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets
             key={fleet.localId}
             fleet={fleet}
             acceptedPublicIds={acceptedPublicIds}
+            form={form}
             index={index}
             onInvite={onInvite}
             onRemove={onRemoveFleet}
@@ -893,7 +952,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets
   );
 }
 
-function FleetCard({ acceptedPublicIds = [], fleet, index, onInvite, onRemove, onUpdate, onUploadDocument, removable }) {
+function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRemove, onUpdate, onUploadDocument, removable }) {
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
@@ -1014,11 +1073,15 @@ function FleetCard({ acceptedPublicIds = [], fleet, index, onInvite, onRemove, o
           <FormInput label="Passenger price note optional" value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder="Example: final fare confirmed in booking" />
         </div>
       </section>
-      <FleetImagesSection fleet={fleet} onUploadDocument={onUploadDocument} />
+      <FleetImagesSection fleet={fleet} form={form} onUploadDocument={onUploadDocument} />
       <section className="mt-5">
         <h4 className="font-black text-slate-950">Required vehicle documents</h4>
         <p className="mt-1 text-xs font-semibold text-slate-500">Use clear PDF or image files, matching the sole-operator document style.</p>
-        <DocumentGrid documents={fleetDocuments} uploads={fleet.documents} onUpload={(document, file) => onUploadDocument(fleet.localId, document, file)} />
+        <DocumentGrid
+          documents={getFleetDocumentRequirements(form, fleet).map((requirement) => documentGridItem(requirement))}
+          uploads={fleet.documents}
+          onUpload={(document, file) => onUploadDocument(fleet.localId, document, file)}
+        />
       </section>
       <FleetSafetySection fleet={fleet} onUpdate={onUpdate} />
 
@@ -1072,8 +1135,9 @@ function FleetCard({ acceptedPublicIds = [], fleet, index, onInvite, onRemove, o
   );
 }
 
-function FleetImagesSection({ fleet, onUploadDocument }) {
-  const imageCount = requiredFleetImages.filter((image) => fleet.documents?.[fleetImageDocumentKey(image)]).length;
+function FleetImagesSection({ fleet, form, onUploadDocument }) {
+  const imageRequirements = getFleetImageRequirements(form);
+  const imageCount = imageRequirements.filter((requirement) => fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))]).length;
   return (
     <section className="mt-5 rounded-3xl border border-slate-100 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
@@ -1081,10 +1145,10 @@ function FleetImagesSection({ fleet, onUploadDocument }) {
           <h4 className="font-black text-slate-950">Required fleet images</h4>
           <p className="mt-1 text-xs font-semibold text-slate-500">Upload at least front, back, left side, and right side views.</p>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{imageCount}/4</span>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{imageCount}/{imageRequirements.length}</span>
       </div>
       <DocumentGrid
-        documents={requiredFleetImages.map(fleetImageDocumentKey)}
+        documents={imageRequirements.map((requirement) => documentGridItem(requirement, "Fleet image - "))}
         uploads={fleet.documents}
         onUpload={(document, file) => onUploadDocument(fleet.localId, document, file)}
       />
@@ -1231,9 +1295,18 @@ function CompanyReviewStep({ fleets, form }) {
 function DocumentGrid({ compact = false, documents, onUpload, uploads = {} }) {
   return (
     <div className={`mt-4 grid gap-3 ${compact ? "sm:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
-      {documents.map((document) => (
-        <UploadField key={document} label={document} value={uploads?.[document]} onChange={(file) => onUpload(document, file)} />
-      ))}
+      {documents.map((document) => {
+        const key = typeof document === "string" ? document : document.key;
+        const label = typeof document === "string" ? `${document} (if applicable)` : document.label;
+        return (
+          <UploadField
+            key={key}
+            label={label}
+            value={uploads?.[key]}
+            onChange={(file) => onUpload(key, file)}
+          />
+        );
+      })}
     </div>
   );
 }
