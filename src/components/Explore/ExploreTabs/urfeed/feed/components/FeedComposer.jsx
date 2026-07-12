@@ -51,6 +51,7 @@ import {
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentModeration";
 import { getCountryCurrencyCode } from "../../../../../../data/globalCountryProfiles";
+import { getUnavailableFeatureMessage, isFeatureAvailable } from "../../../../../../data/globalFeatureAvailability";
 import { findExploreTopic } from "../../../../../../data/exploreTopics";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
@@ -740,6 +741,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   function openComposer(type = "text", options = {}) {
     if (guardGuestAction("create", "post")) return;
+
+    if (type === "advert" && !isFeatureAvailable("adverts", profile?.countryCode || profile?.country || {})) {
+      showToast(getUnavailableFeatureMessage("adverts", profile?.countryCode || profile?.country || {}), "info", {
+        title: "Advertising unavailable",
+      });
+      return;
+    }
+
     setComposerDisplay(options.display === "full" ? "full" : "sheet");
     requestedComposerToolRef.current = type === "advert" ? "advert" : type;
     setComposerMode(type === "advert" ? "advert" : "post");
@@ -1782,10 +1791,10 @@ if (!isMobileVideoDevice) {
             onSubmit={handleSubmit}
             role="dialog"
             aria-label={isAdvertMode ? "Create advertisement" : "Create Explore post"}
-            className={`pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/25 ${
+            className={`pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden bg-white shadow-2xl shadow-slate-950/25 ${
               composerDisplay === "full"
-                ? "h-full max-h-full max-w-none rounded-none border-0 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
-                : `h-[50dvh] max-h-[50dvh] max-w-2xl ${
+                ? "h-full max-h-full max-w-none rounded-none pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
+                : `h-[50dvh] max-h-[50dvh] max-w-2xl border-2 border-sky-400/60 ${
                     composerDock === "top" ? "rounded-b-[28px] rounded-t-[20px]" : "rounded-b-[20px] rounded-t-[28px]"
                   } sm:rounded-[28px]`
             } ${composerMotionClass} ${composerClosing ? "pointer-events-none" : ""}`}
@@ -1794,9 +1803,10 @@ if (!isMobileVideoDevice) {
               <button
                 type="button"
                 onClick={() => closeComposer()}
-                className="inline-flex h-10 min-w-[4.75rem] flex-none items-center justify-center rounded-2xl px-3 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                aria-label="Cancel"
+                className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-100"
               >
-                Cancel
+                <HiOutlineXMark className="text-xl" />
               </button>
 
               <div className="min-w-0 flex-1 text-center">

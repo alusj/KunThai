@@ -35,6 +35,12 @@ export function useExploreNavigation(menuScreens) {
         window.scrollTo({ top: nextScroll, behavior: "instant" });
       });
     });
+    // The immediate restore is a no-op while the overlay's body scroll lock
+    // is still held (the exit animation keeps it for ~280ms), so re-apply
+    // once the lock has released and the page can actually scroll again.
+    window.setTimeout(() => {
+      window.scrollTo({ top: nextScroll, behavior: "instant" });
+    }, 360);
   }, []);
 
   return useMemo(
@@ -70,7 +76,10 @@ export function useExploreNavigation(menuScreens) {
 
           return { ...current, menuStack: stack };
         });
-        window.scrollTo({ top: 0, behavior: "instant" });
+        // The window deliberately keeps its scroll position: menu screens
+        // render in a fixed overlay with their own scroll container, and the
+        // body scroll lock captures the true feed offset so closing the
+        // screen returns to the exact content the user left.
       },
       goBackMenuScreen() {
         setNavigation((current) => {

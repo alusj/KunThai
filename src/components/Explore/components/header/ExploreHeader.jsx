@@ -24,6 +24,7 @@ import {
   markNotificationsSeen,
   subscribeNotificationSeen,
 } from "../../../../Backend/services/notificationSeenStore";
+import { isFeatureAvailable } from "../../../../data/globalFeatureAvailability";
 import PremiumHeader, { PremiumHeaderButton } from "../../../shared/PremiumHeader";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import SearchOverlay from "./search/SearchOverlay";
@@ -231,19 +232,21 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                   <CreateMenuItem accent="violet" icon={Mic} label="Voice" onClick={() => selectCreateType("voice")} />
                   <CreateMenuItem accent="rose" icon={Video} label="Video" onClick={() => selectCreateType("video")} />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => selectCreateType("advert")}
-                  className="kt-pressable mt-2 flex w-full items-center gap-3 rounded-[22px] border-2 border-amber-300 bg-amber-50/80 p-4 text-left shadow-sm shadow-amber-900/[0.05] hover:border-amber-400 hover:bg-amber-50"
-                >
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-amber-700 ring-1 ring-amber-100">
-                    <Megaphone size={20} strokeWidth={2.3} absoluteStrokeWidth />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-base font-black text-slate-950">Advertisement</span>
-                    <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Promote an offer, job vacancy, event, service, or location.</span>
-                  </span>
-                </button>
+                {isFeatureAvailable("adverts", currentProfile?.countryCode || currentProfile?.country || {}) ? (
+                  <button
+                    type="button"
+                    onClick={() => selectCreateType("advert")}
+                    className="kt-pressable mt-2 flex w-full items-center gap-3 rounded-[22px] border-2 border-amber-300 bg-amber-50/80 p-4 text-left shadow-sm shadow-amber-900/[0.05] hover:border-amber-400 hover:bg-amber-50"
+                  >
+                    <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-amber-700 ring-1 ring-amber-100">
+                      <Megaphone size={20} strokeWidth={2.3} absoluteStrokeWidth />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base font-black text-slate-950">Advertisement</span>
+                      <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Promote an offer, job vacancy, event, service, or location.</span>
+                    </span>
+                  </button>
+                ) : null}
               </div>
             </div>,
             document.body,

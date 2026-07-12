@@ -158,6 +158,43 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     return () => window.removeEventListener("explore-open-reposted-swip", openRepostedSwip);
   }, []);
 
+  useEffect(() => {
+    // Leaving Explore for the area view (e.g. a post's tagged location)
+    // unmounts this whole screen, so the feed offset is remembered on the way
+    // out and restored when Explore mounts again on return.
+    const rememberFeedPositionForAreaView = () => {
+      sessionStorage.setItem("exploreFeedScrollY", String(window.scrollY || 0));
+    };
+
+    window.addEventListener("kuntai-open-area-view", rememberFeedPositionForAreaView);
+    return () => window.removeEventListener("kuntai-open-area-view", rememberFeedPositionForAreaView);
+  }, []);
+
+  useEffect(() => {
+    const savedScroll = Number(sessionStorage.getItem("exploreFeedScrollY") || 0);
+    if (!savedScroll) return undefined;
+
+    // Seed the per-tab scroll memory so switching back to UrFeed later also
+    // lands on the remembered content, not the top of the feed.
+    if (!tabScrollRef.current.UrFeed) tabScrollRef.current.UrFeed = savedScroll;
+    if (activeTab !== "UrFeed") return undefined;
+
+    // Feed posts render from the session cache on remount, so the saved
+    // offset points at real content by the time these restores run.
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: "instant" }));
+    });
+    const retry = window.setTimeout(() => {
+      window.scrollTo({ top: savedScroll, behavior: "instant" });
+    }, 420);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(retry);
+    };
+    // Mount-only: restores the feed position saved before Explore unmounted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useLayoutEffect(() => {
     const node = topChromeRef.current;
     if (!node) {
@@ -584,6 +621,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.scrollTo({ top: nextScroll, behavior: "instant" }));
     });
+    // Re-apply after the tab slide animation: a browser-back arrival (e.g.
+    // returning from a reposted Swip) can trigger the browser's own scroll
+    // restoration, which would otherwise override the saved feed position.
+    window.setTimeout(() => {
+      window.scrollTo({ top: nextScroll, behavior: "instant" });
+    }, 360);
   }
 
   function returnFromRepostedSwip() {

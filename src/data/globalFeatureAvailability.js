@@ -22,6 +22,10 @@ const EXISTING_MARKET_COUNTRIES = new Set([
   "SL", "NG", "GH", "LR", "GN", "CI", "SN", "GM", "ML", "BF", "BJ", "TG", "NE", "GW", "CV", "MR",
 ]);
 
+// Offline/first-paint fallback only. The database rows in
+// kunthai_country_feature_settings are the source of truth and are hydrated
+// onto each profile's `features` by countryConfigService, which overrides
+// these defaults per country.
 const GLOBAL_SOCIAL_FEATURES = Object.freeze({
   explore: true,
   urfeed: true,
@@ -35,7 +39,7 @@ const GLOBAL_SOCIAL_FEATURES = Object.freeze({
   transport_booking: true,
   driver_registration: true,
   company_registration: true,
-  adverts: false,
+  adverts: true,
   phone_authentication: true,
   emergency_assistance: true,
 });

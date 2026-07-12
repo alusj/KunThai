@@ -33,6 +33,30 @@ const TAXI_ONLY_PERSONAL_SERVICE_CATEGORIES = Object.freeze(["Transport", "Deliv
 const FULL_COMPANY_SERVICE_CATEGORIES = Object.freeze(["Ride only", "Delivery only", "Ride and delivery"]);
 const TAXI_ONLY_COMPANY_SERVICE_CATEGORIES = Object.freeze(["Ride only", "Delivery only"]);
 
+// Database fleet-type keys (kunthai_countries.ride_fleet_types /
+// delivery_fleet_types) mapped onto the UI option shapes.
+const RIDE_OPTION_BY_DB_TYPE = Object.freeze({
+  motorcycle: FULL_RIDE_OPTIONS[0],
+  tricycle: FULL_RIDE_OPTIONS[1],
+  car: FULL_RIDE_OPTIONS[2],
+});
+
+const DELIVERY_OPTION_BY_DB_TYPE = Object.freeze({
+  motorcycle: FULL_DELIVERY_OPTIONS[0],
+  tricycle: FULL_DELIVERY_OPTIONS[1],
+  van: FULL_DELIVERY_OPTIONS[2],
+  car: FULL_DELIVERY_OPTIONS[2],
+});
+
+function optionsFromDbTypes(types, optionByType) {
+  const byValue = new Map();
+  for (const type of types) {
+    const option = optionByType[String(type || "").trim().toLowerCase()];
+    if (option && !byValue.has(option.value)) byValue.set(option.value, { ...option });
+  }
+  return Array.from(byValue.values());
+}
+
 function profileForContext(context = {}) {
   return getActiveCountryProfile(
     context?.countryCode ||
@@ -58,6 +82,25 @@ function serviceKey(value = "") {
 export function getTransportCapabilities(context = {}) {
   const country = profileForContext(context);
   const iso2 = normalizeCountryIso(country);
+
+  // Database capability arrays (hydrated by countryConfigService) win; the
+  // static taxi-only country set is only the offline/first-paint fallback.
+  const dbRideTypes = Array.isArray(country?.transport?.rideFleetTypes) ? country.transport.rideFleetTypes : [];
+  const dbDeliveryTypes = Array.isArray(country?.transport?.deliveryFleetTypes) ? country.transport.deliveryFleetTypes : [];
+
+  if (dbRideTypes.length || dbDeliveryTypes.length) {
+    const rideOptions = optionsFromDbTypes(dbRideTypes, RIDE_OPTION_BY_DB_TYPE);
+    const deliveryOptions = optionsFromDbTypes(dbDeliveryTypes, DELIVERY_OPTION_BY_DB_TYPE);
+
+    return {
+      country,
+      iso2,
+      taxiOnlyRide: rideOptions.length > 0 && rideOptions.every((option) => option.value === "Car"),
+      rideOptions: rideOptions.length ? rideOptions : cloneOptions(FULL_RIDE_OPTIONS),
+      deliveryOptions: deliveryOptions.length ? deliveryOptions : cloneOptions(FULL_DELIVERY_OPTIONS),
+    };
+  }
+
   const taxiOnlyRide = TAXI_ONLY_RIDE_COUNTRIES.has(iso2);
 
   return {
@@ -113,19 +156,19 @@ export function getPersonalServiceCategoryOptions(context = {}) {
     : [...FULL_PERSONAL_SERVICE_CATEGORIES];
 }
 
+const PERSONAL_FLEET_ORDER = ["Car", "Motorcycle", "Tricycle"];
+
 export function getPersonalFleetTypeOptions(context = {}, category = "Transport") {
   const capabilities = getTransportCapabilities(context);
   const key = serviceKey(category);
+  const source = key === "ride"
+    ? capabilities.rideOptions
+    : key === "delivery"
+      ? capabilities.deliveryOptions
+      : [...capabilities.rideOptions, ...capabilities.deliveryOptions];
 
-  if (!capabilities.taxiOnlyRide) {
-    return ["Car", "Motorcycle", "Tricycle"];
-  }
-
-  if (key === "delivery") {
-    return ["Motorcycle", "Car"];
-  }
-
-  return ["Car"];
+  const values = Array.from(new Set(source.map((option) => option.value)));
+  return PERSONAL_FLEET_ORDER.filter((value) => values.includes(value));
 }
 
 export function getCompanyServiceCategoryOptions(context = {}) {
@@ -134,19 +177,21 @@ export function getCompanyServiceCategoryOptions(context = {}) {
     : [...FULL_COMPANY_SERVICE_CATEGORIES];
 }
 
+const COMPANY_FLEET_ORDER = ["Motorbike", "Tricycle", "Taxi", "Van"];
+
 export function getCompanyFleetTypeOptions(context = {}, serviceCategory = "Ride only") {
   const capabilities = getTransportCapabilities(context);
   const key = serviceKey(serviceCategory);
+  // Delivery vans surface as companyValue "Van"; ride cars as "Taxi". Each
+  // purpose only offers the fleet types the country actually allows for it.
+  const source = key === "ride"
+    ? capabilities.rideOptions
+    : key === "delivery"
+      ? capabilities.deliveryOptions
+      : [...capabilities.rideOptions, ...capabilities.deliveryOptions];
 
-  if (!capabilities.taxiOnlyRide) {
-    return ["Motorbike", "Tricycle", "Taxi", "Van"];
-  }
-
-  if (key === "delivery") {
-    return ["Motorbike", "Van"];
-  }
-
-  return ["Taxi"];
+  const values = Array.from(new Set(source.map((option) => option.companyValue)));
+  return COMPANY_FLEET_ORDER.filter((value) => values.includes(value));
 }
 
 export function normalizeTransportFleetType(value = "") {

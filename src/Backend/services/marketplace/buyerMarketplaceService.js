@@ -1,7 +1,9 @@
 import supabase from "../../lib/supabaseClient";
 import {
   filterCountryScopedItems,
+  getActiveCountryProfile,
   getCountryCurrencyCode,
+  getNearbyCountryProfiles,
   normalizeCountryIso,
 } from "../../../data/globalCountryProfiles";
 import { getTierUnitPrice, normalizeTierPricing } from "./tierPricingUtils";
@@ -159,7 +161,7 @@ async function runRecoverableSelects(selectClauses, queryFactory, fallbackMessag
   throw new Error(lastError?.message || fallbackMessage);
 }
 
-async function runProductListQuery({ filters = {}, businessId = null } = {}) {
+async function runProductListQuery({ filters = {}, businessId = null, countryIsos = null } = {}) {
   let lastError = null;
 
   for (const selectClause of PRODUCT_LIST_SELECTS) {
@@ -170,6 +172,7 @@ async function runProductListQuery({ filters = {}, businessId = null } = {}) {
       .gt("stock", 0);
 
     if (businessId) query = query.eq("business_id", businessId);
+    if (Array.isArray(countryIsos) && countryIsos.length) query = query.in("country_iso", countryIsos);
     query = applyProductFilters(query, filters);
 
     const { data, error } = await query.order("created_at", { ascending: false });
@@ -179,6 +182,30 @@ async function runProductListQuery({ filters = {}, businessId = null } = {}) {
   }
 
   throw new Error(lastError?.message || "Unable to load marketplace products.");
+}
+
+// Country scoping happens in the database query: local market first (plus
+// legacy rows without a stamped country), then nearby markets, then the
+// unscoped catalogue. The client-side filterCountryScopedItems pass stays as
+// the final ordering/labelling step over the much smaller result.
+async function runCountryScopedProductListQuery({ filters = {} } = {}) {
+  const activeCountry = getActiveCountryProfile(filters.country || filters.countryCode);
+  const nearbyIsos = getNearbyCountryProfiles(activeCountry.iso2).map((profile) => profile.iso2);
+
+  try {
+    const localRows = await runProductListQuery({ filters, countryIsos: [activeCountry.iso2, ""] });
+    if (localRows.length) return localRows;
+
+    if (nearbyIsos.length) {
+      const nearbyRows = await runProductListQuery({ filters, countryIsos: [...nearbyIsos, ""] });
+      if (nearbyRows.length) return nearbyRows;
+    }
+  } catch {
+    // Older deployments without the country_iso column fall through to the
+    // unscoped query below.
+  }
+
+  return runProductListQuery({ filters });
 }
 
 async function runProductDetailQuery(productId) {
@@ -382,7 +409,7 @@ export async function deleteBuyerDeliveryAddress(addressId) {
 }
 
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
-  const data = await runProductListQuery({ filters });
+  const data = await runCountryScopedProductListQuery({ filters });
   const scoped = filterCountryScopedItems(
     (data || []).map(mapBuyerProduct),
     (product) => [product.seller?.country, product.location],
@@ -428,7 +455,7 @@ export async function fetchBuyerProductDetail(productId) {
 }
 
 export async function fetchBuyerDiscoveryOptions() {
-  const data = await runProductListQuery();
+  const data = await runCountryScopedProductListQuery();
   const scoped = filterCountryScopedItems(
     (data || []).map(mapBuyerProduct),
     (product) => [product.seller?.country, product.location],

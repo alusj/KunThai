@@ -8,8 +8,10 @@ import "./styles/appearance.css";
 import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
 import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
 import { registerKunThaiServiceWorker } from "./Backend/services/pushService.js";
+import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 
 registerKunThaiServiceWorker();
+initCountryConfig();
 
 const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
 const PublicPolicyPage = lazy(() => import("./components/public/PublicPolicyPage.jsx"));

@@ -2,7 +2,9 @@ import supabase from "../../Backend/lib/supabaseClient";
 import {
   filterCountryScopedItems,
   formatCountryMoney,
+  getActiveCountryProfile,
   getCountryCurrencyCode,
+  getNearbyCountryProfiles,
   normalizeCountryIso,
 } from "../../data/globalCountryProfiles";
 import {
@@ -318,17 +320,44 @@ export function getTransportFleetById() {
   return null;
 }
 
-export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
-  const includeOffline = selection.includeOffline === true;
-  const selectionCountry = selection.country || selection.countryCode || selection.countryIso || selection.country_iso || "";
-  const { data, error } = await supabase
+async function runFleetListQuery(countryIsos = null) {
+  let query = supabase
     .from("transport_fleets")
     .select("*, transport_operators(id, full_name, phone, city, operator_code, display_code, verification_status)")
     .order("updated_at", { ascending: false })
     .limit(100);
 
-  if (error) {
-    throw error;
+  if (Array.isArray(countryIsos) && countryIsos.length) {
+    query = query.in("country_iso", countryIsos);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
+  const includeOffline = selection.includeOffline === true;
+  const selectionCountry = selection.country || selection.countryCode || selection.countryIso || selection.country_iso || "";
+
+  // Country scoping happens in the database query: the active market first
+  // (plus legacy rows without a stamped country), then nearby markets, then
+  // the unscoped list. The client-side pass below stays as the final
+  // labelling/safety net over the smaller result.
+  const activeCountry = getActiveCountryProfile(selectionCountry);
+  const nearbyIsos = getNearbyCountryProfiles(activeCountry.iso2).map((profile) => profile.iso2);
+
+  let data = [];
+  try {
+    data = await runFleetListQuery([activeCountry.iso2, ""]);
+    if (!data.length && nearbyIsos.length) {
+      data = await runFleetListQuery([...nearbyIsos, ""]);
+    }
+  } catch {
+    data = [];
+  }
+  if (!data.length) {
+    data = await runFleetListQuery();
   }
 
   const [affiliations, stats] = await Promise.all([

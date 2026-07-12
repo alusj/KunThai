@@ -135,27 +135,103 @@ export const URMALL_DOCUMENT_REQUIREMENTS = Object.freeze([
   },
 ]);
 
+// Hydrated copy of public.kunthai_document_requirements. The database is the
+// source of truth (and enforces required documents on approval); the static
+// lists above are only the offline/first-paint fallback.
+let RUNTIME_REQUIREMENTS = null;
+
+function normalizeDbRequirement(row) {
+  const key = row?.field_key || row?.key;
+  if (!row?.surface || !key) return null;
+
+  return {
+    surface: String(row.surface).toLowerCase(),
+    group: String(row.requirement_group || row.group || "").toLowerCase(),
+    countryIso: String(row.country_iso || GLOBAL_COUNTRY_SCOPE).toUpperCase() === GLOBAL_COUNTRY_SCOPE
+      ? GLOBAL_COUNTRY_SCOPE
+      : String(row.country_iso).toUpperCase(),
+    key,
+    label: row.label || key,
+    legacyLabel: row.legacy_label || row.label || "",
+    ...(row.legacy_document_type ? { legacyDocumentType: row.legacy_document_type } : {}),
+    ...(row.file_field ? { fileField: row.file_field } : {}),
+    ...(row.name_field ? { nameField: row.name_field } : {}),
+    ...(row.error_key ? { errorKey: row.error_key } : {}),
+    ...(row.public_media_role ? { publicMediaRole: row.public_media_role } : {}),
+    inlineNote: row.inline_note ?? IF_APPLICABLE_NOTE,
+    required: row.required !== false,
+    appliesToCategories: Array.isArray(row.applies_to_categories) ? row.applies_to_categories : [],
+    sortOrder: Number(row.sort_order ?? 100),
+  };
+}
+
+export function applyDocumentRequirementOverrides(rows) {
+  if (!Array.isArray(rows) || !rows.length) return 0;
+  const normalized = rows.map(normalizeDbRequirement).filter(Boolean);
+  if (!normalized.length) return 0;
+  RUNTIME_REQUIREMENTS = normalized;
+  return normalized.length;
+}
+
+// Mirrors kunthai_get_document_requirements: a country-specific row overrides
+// the '*' global row with the same surface/group/field key.
+function resolveRuntimeRequirements(surface, group, context = {}) {
+  if (!RUNTIME_REQUIREMENTS) return null;
+
+  const iso2 = normalizeCountryIso(context.countryCode || context.country);
+  const scoped = RUNTIME_REQUIREMENTS.filter((requirement) =>
+    requirement.surface === surface &&
+      requirement.group === group &&
+      (requirement.countryIso === GLOBAL_COUNTRY_SCOPE || (iso2 && requirement.countryIso === iso2)),
+  );
+  if (!scoped.length) return null;
+
+  const byKey = new Map();
+  for (const requirement of scoped) {
+    const existing = byKey.get(requirement.key);
+    if (!existing || (existing.countryIso === GLOBAL_COUNTRY_SCOPE && requirement.countryIso !== GLOBAL_COUNTRY_SCOPE)) {
+      byKey.set(requirement.key, requirement);
+    }
+  }
+
+  return Array.from(byKey.values()).sort(
+    (first, second) => first.sortOrder - second.sortOrder || first.label.localeCompare(second.label),
+  );
+}
+
 export function getUrRideFleetImageRequirements(context = {}) {
-  return URRIDE_FLEET_IMAGE_REQUIREMENTS.filter((requirement) =>
-    appliesToCountry(requirement, context.countryCode || context.country),
+  return (
+    resolveRuntimeRequirements("urride", "fleet_image", context) ||
+    URRIDE_FLEET_IMAGE_REQUIREMENTS.filter((requirement) =>
+      appliesToCountry(requirement, context.countryCode || context.country),
+    )
   );
 }
 
 export function getUrRideCompanyDocumentRequirements(context = {}) {
-  return URRIDE_COMPANY_DOCUMENT_REQUIREMENTS.filter((requirement) =>
-    appliesToCountry(requirement, context.countryCode || context.country),
+  return (
+    resolveRuntimeRequirements("urride", "company", context) ||
+    URRIDE_COMPANY_DOCUMENT_REQUIREMENTS.filter((requirement) =>
+      appliesToCountry(requirement, context.countryCode || context.country),
+    )
   );
 }
 
 export function getUrRideDocumentRequirements(context = {}) {
-  return URRIDE_DOCUMENT_REQUIREMENTS.filter((requirement) =>
-    appliesToCountry(requirement, context.countryCode || context.country) &&
-      appliesToCategory(requirement, context.category),
-  );
+  const source =
+    resolveRuntimeRequirements("urride", "operator", context) ||
+    URRIDE_DOCUMENT_REQUIREMENTS.filter((requirement) =>
+      appliesToCountry(requirement, context.countryCode || context.country),
+    );
+
+  return source.filter((requirement) => appliesToCategory(requirement, context.category));
 }
 
 export function getUrMallDocumentRequirements(context = {}) {
-  return URMALL_DOCUMENT_REQUIREMENTS.filter((requirement) =>
-    appliesToCountry(requirement, context.countryCode || context.country),
+  return (
+    resolveRuntimeRequirements("urmall", "seller", context) ||
+    URMALL_DOCUMENT_REQUIREMENTS.filter((requirement) =>
+      appliesToCountry(requirement, context.countryCode || context.country),
+    )
   );
 }

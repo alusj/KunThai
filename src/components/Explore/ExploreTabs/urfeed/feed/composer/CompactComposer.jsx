@@ -1,9 +1,11 @@
 import { Megaphone } from "lucide-react";
 import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlinePhoto } from "react-icons/hi2";
 
+import { isFeatureAvailable } from "../../../../../../data/globalFeatureAvailability";
 import Avatar from "../../../../shared/Avatar";
 
 export default function CompactComposer({ profile, creating, onOpen, onQuickMedia, onQuickVoice }) {
+  const advertsAvailable = isFeatureAvailable("adverts", profile?.countryCode || profile?.country || {});
   return (
     <div className="mt-4 w-full min-w-0 px-3 sm:px-5 lg:px-8">
       <div className="flex w-full min-w-0 items-center gap-2 rounded-[20px] border border-slate-200 bg-white p-2.5 shadow-sm sm:p-3">
@@ -36,14 +38,16 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
           >
             <HiOutlineMicrophone />
           </button>
-          <button
-            type="button"
-            onClick={() => onOpen?.("advert")}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-lg text-amber-700 transition hover:border-amber-200 hover:bg-amber-100 sm:h-10 sm:w-10"
-            aria-label="Advertisement"
-          >
-            <Megaphone size={18} strokeWidth={2.3} absoluteStrokeWidth />
-          </button>
+          {advertsAvailable ? (
+            <button
+              type="button"
+              onClick={() => onOpen?.("advert")}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-lg text-amber-700 transition hover:border-amber-200 hover:bg-amber-100 sm:h-10 sm:w-10"
+              aria-label="Advertisement"
+            >
+              <Megaphone size={18} strokeWidth={2.3} absoluteStrokeWidth />
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => onOpen?.("text")}

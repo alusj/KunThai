@@ -653,6 +653,49 @@ for (const profile of GLOBAL_COUNTRY_PROFILES) {
   }
 }
 
+// Hydrates the in-memory profiles with the database country configuration
+// (kunthai_get_client_country_config). The database is the source of truth;
+// the static data above is only the offline/first-paint fallback. Profiles are
+// mutated in place so every module holding a reference sees the update.
+export function applyCountryConfigOverrides(config) {
+  const countries = Array.isArray(config?.countries) ? config.countries : [];
+  let applied = 0;
+
+  for (const entry of countries) {
+    const iso2 = String(entry?.iso2 || "").toUpperCase();
+    const profile = COUNTRY_BY_ISO.get(iso2);
+    if (!profile) continue;
+
+    if (entry.dialCode) profile.dialCode = entry.dialCode;
+    if (entry.marketStatus) profile.marketStatus = entry.marketStatus;
+
+    if (entry.currencyCode) {
+      profile.currency = {
+        code: entry.currencyCode,
+        name: entry.currencyName || profile.currency?.name || entry.currencyCode,
+        symbol: entry.currencySymbol || profile.currency?.symbol || entry.currencyCode,
+      };
+      if (!COUNTRY_BY_CURRENCY.has(entry.currencyCode)) {
+        COUNTRY_BY_CURRENCY.set(entry.currencyCode, profile);
+      }
+    }
+
+    if (entry.features && typeof entry.features === "object") {
+      profile.features = { ...entry.features };
+    }
+
+    const rideFleetTypes = Array.isArray(entry.rideFleetTypes) ? entry.rideFleetTypes : [];
+    const deliveryFleetTypes = Array.isArray(entry.deliveryFleetTypes) ? entry.deliveryFleetTypes : [];
+    if (rideFleetTypes.length || deliveryFleetTypes.length) {
+      profile.transport = { rideFleetTypes, deliveryFleetTypes };
+    }
+
+    applied += 1;
+  }
+
+  return applied;
+}
+
 function normalizeText(value) {
   return String(value || "")
     .normalize("NFD")

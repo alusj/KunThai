@@ -19,6 +19,7 @@ import { copyPostLink, sharePost } from "../post/postUtils";
 import AdvertMetaActions from "../../../../shared/AdvertMetaActions";
 import { openMentionContent } from "../../../../../../Backend/services/explore/linkTokenService";
 import ExpandablePostText from "../../../../shared/ExpandablePostText";
+import TextPostCanvas, { isTextCanvasPost } from "../../../../shared/TextPostCanvas";
 import {
   formatAdvertType,
   getAdvertMeta,
@@ -222,7 +223,9 @@ export default function FeedPost({
           type: "post-location",
           status: "public",
         },
-        returnTo: "explore",
+        // Transport's area-view back handler matches "explore-" prefixed
+        // returnTo values; this is what routes the user back to the feed.
+        returnTo: "explore-post",
         source: "explore-post",
       },
     }));
@@ -298,17 +301,23 @@ export default function FeedPost({
           onViewProfile={viewProfileAndTrack}
         />
       ) : postTitle || post.body ? (
-        <div className="px-4 pb-4">
-          {postTitle ? <h3 className="kuntai-break text-lg font-black leading-6 text-slate-950">{postTitle}</h3> : null}
-          {post.body ? (
-            <ExpandablePostText
-              text={post.body}
-              className={`${postTitle ? "mt-2" : ""} text-base font-semibold leading-7`}
-              textClassName="text-slate-900"
-              controlClassName="text-sky-700"
-            />
-          ) : null}
-        </div>
+        isTextCanvasPost(post, postTitle) ? (
+          <div className="pb-1 pt-1">
+            <TextPostCanvas post={post} title={postTitle} />
+          </div>
+        ) : (
+          <div className="px-4 pb-4">
+            {postTitle ? <h3 className="kuntai-break text-lg font-black leading-6 text-slate-950">{postTitle}</h3> : null}
+            {post.body ? (
+              <ExpandablePostText
+                text={post.body}
+                className={`${postTitle ? "mt-2" : ""} text-base font-semibold leading-7`}
+                textClassName="text-slate-900"
+                controlClassName="text-sky-700"
+              />
+            ) : null}
+          </div>
+        )
       ) : null}
 
       {!sensitiveGateActive && !advertPost && (hashtags.length || mentions.length || postLocation) ? (
