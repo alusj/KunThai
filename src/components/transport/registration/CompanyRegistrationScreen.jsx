@@ -45,6 +45,10 @@ import {
   getUrRideDocumentRequirements,
   getUrRideFleetImageRequirements,
 } from "../../../data/globalDocumentRequirements";
+import {
+  getCompanyFleetTypeOptions,
+  getCompanyServiceCategoryOptions,
+} from "../../../data/globalTransportCapabilities";
 
 const steps = [
   { label: "Company", icon: FiBriefcase },
@@ -53,8 +57,6 @@ const steps = [
   { label: "Review", icon: FiCheckCircle },
 ];
 
-const fleetTypes = ["Motorbike", "Tricycle", "Taxi", "Van"];
-const serviceCategories = ["Ride only", "Delivery only", "Ride and delivery"];
 const companyTypes = ["Transport company", "Delivery company", "Taxi union", "Bike riders group", "Community fleet", "Other organization"];
 const companyFleetDocumentKeys = new Set([
   "vehicle_registration",
@@ -167,12 +169,24 @@ function createCompanyForm(profile = {}) {
   };
 }
 
-function createFleetDraft(index = 0) {
+function preferredCompanyServiceCategory(context = {}, fleetType = "") {
+  const options = getCompanyServiceCategoryOptions(context);
+  if (["Motorbike", "Van"].includes(fleetType) && options.includes("Delivery only")) {
+    return "Delivery only";
+  }
+  return options.includes("Ride and delivery") ? "Ride and delivery" : options[0] || "Ride only";
+}
+
+function createFleetDraft(index = 0, context = {}) {
+  const serviceCategory = preferredCompanyServiceCategory(context);
+  const fleetTypes = getCompanyFleetTypeOptions(context, serviceCategory);
+  const fleetType = fleetTypes[index % Math.max(1, fleetTypes.length)] || fleetTypes[0] || "Taxi";
+
   return {
     localId: `fleet-${Date.now()}-${index}`,
     fleetCode: createTransportCompanyFleetCode(),
-    fleetType: fleetTypes[index % fleetTypes.length],
-    serviceCategory: "Ride and delivery",
+    fleetType,
+    serviceCategory,
     fleetName: "",
     plateNumber: "",
     make: "",
@@ -186,10 +200,33 @@ function createFleetDraft(index = 0) {
     pricePerHour: "",
     priceHint: "",
     documents: {},
-    safetyAnswers: createSafetyAnswers(fleetTypes[index % fleetTypes.length]),
+    safetyAnswers: createSafetyAnswers(fleetType),
     operators: [],
     status: "pending_review",
   };
+}
+
+function sanitizeCompanyFleetForCountry(fleet = {}, context = {}, index = 0) {
+  const serviceOptions = getCompanyServiceCategoryOptions(context);
+  const serviceCategory = serviceOptions.includes(fleet.serviceCategory)
+    ? fleet.serviceCategory
+    : preferredCompanyServiceCategory(context, fleet.fleetType);
+  const fleetTypes = getCompanyFleetTypeOptions(context, serviceCategory);
+  const fleetType = fleetTypes.includes(fleet.fleetType)
+    ? fleet.fleetType
+    : fleetTypes[index % Math.max(1, fleetTypes.length)] || fleetTypes[0] || "Taxi";
+
+  return {
+    ...fleet,
+    serviceCategory,
+    fleetType,
+    safetyAnswers: fleetType === fleet.fleetType ? fleet.safetyAnswers : createSafetyAnswers(fleetType),
+  };
+}
+
+function sanitizeCompanyFleetsForCountry(fleets = [], context = {}) {
+  const source = fleets.length ? fleets : [createFleetDraft(0, context)];
+  return source.map((fleet, index) => sanitizeCompanyFleetForCountry(fleet, context, index));
 }
 
 function splitAreas(value = "") {
@@ -246,22 +283,28 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       const source = existingCompany || (addOperatorMode ? null : draft);
       if (source?.companyName || source?.company?.companyName) {
         const company = source.company || source;
-        setForm({
+        const nextForm = {
           ...createCompanyForm(profile || {}),
           ...company,
           ownerPublicId: company.ownerPublicId || getKunThaiPublicUserId({ ...(profile || {}), userId: source.userId }),
           documents: company.documents || {},
-        });
+        };
+        setForm(nextForm);
         setFleets(addOperatorMode
-          ? [createFleetDraft(0)]
-          : ((source.fleets || [createFleetDraft(0)]).length ? source.fleets : [createFleetDraft(0)]));
+          ? [createFleetDraft(0, nextForm)]
+          : sanitizeCompanyFleetsForCountry(
+              (source.fleets || [createFleetDraft(0, nextForm)]).length ? source.fleets : [createFleetDraft(0, nextForm)],
+              nextForm,
+            ));
         setAreaText((company.operatingAreas || []).join(", "));
         setStep(addOperatorMode ? 2 : source.step || 0);
         setMaxStepReached(addOperatorMode ? 2 : source.maxStepReached || source.step || 0);
         return;
       }
 
-      setForm(createCompanyForm(profile || {}));
+      const nextForm = createCompanyForm(profile || {});
+      setForm(nextForm);
+      setFleets((items) => sanitizeCompanyFleetsForCountry(items, nextForm));
     }
 
     loadContext();
@@ -274,6 +317,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     country: form.country,
     countryCode: form.countryCode,
   }), [form.country, form.countryCode]);
+
+  useEffect(() => {
+    setFleets((items) => sanitizeCompanyFleetsForCountry(items, form));
+  }, [form.country, form.countryCode]);
 
   const completion = useMemo(() => {
     const companyReady = Boolean(form.companyName && form.ownerName && form.phone);
@@ -301,6 +348,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         country: selectedCountry.name,
         countryCode: selectedCountry.iso2,
         currency: selectedCountry.currency.code,
+      }));
+      setFleets((items) => sanitizeCompanyFleetsForCountry(items, {
+        country: selectedCountry.name,
+        countryCode: selectedCountry.iso2,
       }));
     } else {
       setForm((current) => ({ ...current, [field]: value }));
@@ -342,7 +393,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }
 
   function addFleet() {
-    setFleets((items) => [...items, createFleetDraft(items.length)]);
+    setFleets((items) => [...items, createFleetDraft(items.length, form)]);
   }
 
   function removeFleet(fleetId) {
@@ -554,6 +605,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         latitude: location.lat,
         longitude: location.lng,
       },
+    }));
+    setFleets((items) => sanitizeCompanyFleetsForCountry(items, {
+      country: selectedCountry.name,
+      countryCode: selectedCountry.iso2,
     }));
     setLocationPickerMode(null);
     setLocationCautionOpen(false);
@@ -957,6 +1012,8 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const serviceCategoryOptions = getCompanyServiceCategoryOptions(form);
+  const fleetTypeOptions = getCompanyFleetTypeOptions(form, fleet.serviceCategory);
 
   const applyLookupResult = useCallback((match) => {
     if (match && acceptedPublicIds.includes(compactPublicId(match.publicId))) {
@@ -1033,6 +1090,16 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
     setLookupStatus("Operator request added to this fleet.");
   }
 
+  function updateServiceCategory(value) {
+    const nextFleetTypes = getCompanyFleetTypeOptions(form, value);
+    const fleetType = nextFleetTypes.includes(fleet.fleetType) ? fleet.fleetType : nextFleetTypes[0] || "Taxi";
+    onUpdate(fleet.localId, {
+      serviceCategory: value,
+      fleetType,
+      safetyAnswers: fleetType === fleet.fleetType ? fleet.safetyAnswers : createSafetyAnswers(fleetType),
+    });
+  }
+
   return (
     <section className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -1051,8 +1118,8 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
           <p className="text-xs font-black uppercase tracking-wide text-blue-600">Unique fleet code</p>
           <p className="mt-1 font-black text-slate-950">{fleet.fleetCode}</p>
         </div>
-        <SelectField label="Fleet type" value={fleet.fleetType} options={fleetTypes} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value) })} />
-        <SelectField label="Service category" value={fleet.serviceCategory} options={serviceCategories} onChange={(value) => onUpdate(fleet.localId, { serviceCategory: value })} />
+        <SelectField label="Fleet type" value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value) })} />
+        <SelectField label="Service category" value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />
         <FormInput label="Fleet name" value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder="Example: Lumley taxi 01" />
         <FormInput label="Plate number" value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder="Plate number" />
         <FormInput label="Make / brand" value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder="Make or brand" />

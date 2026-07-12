@@ -5,6 +5,10 @@ import {
   getCountryCurrencyCode,
   normalizeCountryIso,
 } from "../../data/globalCountryProfiles";
+import {
+  isFleetAllowedForTransportMode,
+  isFleetTypeAvailableForService,
+} from "../../data/globalTransportCapabilities";
 
 export function subscribeToFleetUpdates(callback) {
   const channel = supabase
@@ -58,11 +62,17 @@ function normalizeVerification(value) {
   return map[value] || value || "pending";
 }
 
-function displayTypeForFleet(fleetType, serviceCategory) {
+function displayTypeForFleet(fleetType, serviceCategory, countryContext = "") {
   const type = displayFleetType(fleetType);
-  if (serviceCategory === "Delivery" && type === "Motorcycle") return "Delivery Bike";
-  if (serviceCategory === "Delivery" && type === "Car") return "Delivery Van";
-  if (serviceCategory === "Delivery" && type === "Tricycle") return "Delivery Tricycle";
+  const deliveryOnlyByCountry =
+    serviceCategory === "Both" &&
+    !isFleetTypeAvailableForService(type, "ride", countryContext) &&
+    isFleetTypeAvailableForService(type, "delivery", countryContext);
+  const deliveryLabel = serviceCategory === "Delivery" || deliveryOnlyByCountry;
+
+  if (deliveryLabel && type === "Motorcycle") return "Delivery Bike";
+  if (deliveryLabel && type === "Car") return "Delivery Van";
+  if (deliveryLabel && type === "Tricycle") return "Delivery Tricycle";
   if (type === "Car") return "Taxi";
   if (type === "Motorcycle") return "Motorbike";
   return type;
@@ -199,7 +209,7 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null) {
     plateNumber: row.plate_number || "Plate pending",
     serviceCategory,
     fleetType,
-    displayType: displayTypeForFleet(row.fleet_type, serviceCategory),
+    displayType: displayTypeForFleet(row.fleet_type, serviceCategory, countryCode || country),
     verificationStatus: normalizeVerification(row.verification_status || operator.verification_status),
     activeStatus: row.active_status || "offline",
     isVisibleToPassengers: Boolean(row.is_visible_to_passengers),
@@ -310,6 +320,7 @@ export function getTransportFleetById() {
 
 export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
   const includeOffline = selection.includeOffline === true;
+  const selectionCountry = selection.country || selection.countryCode || selection.countryIso || selection.country_iso || "";
   const { data, error } = await supabase
     .from("transport_fleets")
     .select("*, transport_operators(id, full_name, phone, city, operator_code, display_code, verification_status)")
@@ -338,6 +349,7 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
   return sortFleets(
     passengerFleets.filter((fleet) =>
       matchesMode(fleet, selection.mode) &&
+      isFleetAllowedForTransportMode(fleet, selection.mode, selectionCountry || fleet.countryCode || fleet.country) &&
       (!fleet.isCompanyFleet || fleet.isVisibleToPassengers) &&
       (!selection.fleetType || fleet.fleetType === selection.fleetType) &&
       (includeOffline || fleet.activeStatus === "active")

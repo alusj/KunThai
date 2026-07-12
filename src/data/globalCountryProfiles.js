@@ -3,8 +3,9 @@ const COUNTRY_STORAGE_KEY = "kunthai.activeCountryIso";
 export const DEFAULT_COUNTRY_ISO = "SL";
 
 import { getEmergencyContacts } from "./emergencyContacts";
+import { INTERNATIONAL_COUNTRY_DIALING_PROFILES } from "./internationalCountryDialingProfiles";
 
-export const GLOBAL_COUNTRY_PROFILES = [
+const CURATED_GLOBAL_COUNTRY_PROFILES = [
   {
     name: "Sierra Leone",
     iso2: "SL",
@@ -596,8 +597,61 @@ export const GLOBAL_COUNTRY_PROFILES = [
   },
 ];
 
+const CURATED_COUNTRY_ISOS = new Set(CURATED_GLOBAL_COUNTRY_PROFILES.map((profile) => profile.iso2));
+
+function buildGenericPhonePlaceholder(maxLength) {
+  if (maxLength <= 7) return "000 0000";
+  if (maxLength <= 8) return "00 000 000";
+  if (maxLength <= 9) return "000 000 000";
+  if (maxLength <= 10) return "000 000 0000";
+  if (maxLength <= 11) return "000 0000 0000";
+  return "000 000 000 000";
+}
+
+function buildGenericCountryProfile(country) {
+  const dialDigits = String(country.dialCode || "").replace(/\D/g, "");
+  const maxLength = country.dialCode === "+1"
+    ? 10
+    : Math.max(8, 15 - Math.max(1, dialDigits.length));
+
+  return {
+    name: country.name,
+    iso2: country.iso2,
+    aliases: [],
+    dialCode: country.dialCode,
+    placeholder: buildGenericPhonePlaceholder(maxLength),
+    minLength: Math.min(4, maxLength),
+    maxLength,
+    currency: {
+      code: country.currencyCode || "USD",
+      name: country.currencyCode || "USD",
+      symbol: country.currencyCode || "USD",
+    },
+    locale: `en-${country.iso2}`,
+    cityPlaceholder: "",
+    popularArea: "",
+    addressExample: "",
+    mapCenter: null,
+    nearbyCountries: [],
+  };
+}
+
+export const GLOBAL_COUNTRY_PROFILES = [
+  ...CURATED_GLOBAL_COUNTRY_PROFILES,
+  ...INTERNATIONAL_COUNTRY_DIALING_PROFILES
+    .filter((country) => !CURATED_COUNTRY_ISOS.has(country.iso2))
+    .sort((first, second) => first.name.localeCompare(second.name))
+    .map(buildGenericCountryProfile),
+];
+
 const COUNTRY_BY_ISO = new Map(GLOBAL_COUNTRY_PROFILES.map((profile) => [profile.iso2, profile]));
-const COUNTRY_BY_CURRENCY = new Map(GLOBAL_COUNTRY_PROFILES.map((profile) => [profile.currency.code, profile]));
+const COUNTRY_BY_CURRENCY = new Map();
+
+for (const profile of GLOBAL_COUNTRY_PROFILES) {
+  if (!COUNTRY_BY_CURRENCY.has(profile.currency.code)) {
+    COUNTRY_BY_CURRENCY.set(profile.currency.code, profile);
+  }
+}
 
 function normalizeText(value) {
   return String(value || "")
@@ -617,12 +671,12 @@ for (const profile of GLOBAL_COUNTRY_PROFILES) {
 
   keys.forEach((key) => {
     const normalized = normalizeText(key);
-    if (normalized) COUNTRY_ALIASES.set(normalized, profile.iso2);
+    if (normalized && !COUNTRY_ALIASES.has(normalized)) COUNTRY_ALIASES.set(normalized, profile.iso2);
   });
 
   textKeys.forEach((key) => {
     const normalized = normalizeText(key);
-    if (normalized) COUNTRY_TEXT_ALIASES.set(normalized, profile.iso2);
+    if (normalized && !COUNTRY_TEXT_ALIASES.has(normalized)) COUNTRY_TEXT_ALIASES.set(normalized, profile.iso2);
   });
 }
 

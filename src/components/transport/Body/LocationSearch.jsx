@@ -1,11 +1,6 @@
 import { FiMap, FiMapPin, FiNavigation, FiSearch, FiSend, FiSliders } from "react-icons/fi";
 
-const fleetTypes = [
-  { value: "", label: "Any fleet" },
-  { value: "Motorcycle", label: "Bike" },
-  { value: "Tricycle", label: "Tricycle" },
-  { value: "Car", label: "Taxi / van" },
-];
+import { getPassengerFleetFilterOptions } from "../../../data/globalTransportCapabilities";
 
 function getPlaceLabel(place) {
   return place.category === "Other" ? place.customCategory || "Other" : place.category || "Saved";
@@ -28,6 +23,8 @@ export default function LocationSearch({
   onLocateArea,
   onOpenBooking,
 }) {
+  const fleetTypes = getPassengerFleetFilterOptions({}, filters?.mode || "topRated");
+
   return (
     <section className="mb-5 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">

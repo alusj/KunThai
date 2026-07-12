@@ -9,7 +9,7 @@ import {
   Siren,
   X,
 } from "lucide-react";
-import { DEFAULT_EMERGENCY, EMERGENCY_CONTACTS } from "../../data/emergencyContacts";
+import { getEmergencyContacts } from "../../data/emergencyContacts";
 
 const nearbyActions = [
   {
@@ -106,7 +106,7 @@ export default function EmergencySheet({
   if (!open) return null;
 
   const normalizedCountryCode = String(countryCode || "").toUpperCase();
-  const emergency = EMERGENCY_CONTACTS[normalizedCountryCode] || DEFAULT_EMERGENCY;
+  const emergency = getEmergencyContacts(normalizedCountryCode);
   const countryLabel = detectingCountry ? "Detecting country..." : emergency.country;
 
   return (

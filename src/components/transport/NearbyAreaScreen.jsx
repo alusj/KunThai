@@ -35,8 +35,15 @@ import {
   subscribeToAreaViewLiveData,
 } from "../../Backend/services/nearbyAreaLiveService";
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
-import { constrainCountryPhoneInput, getActiveCountryProfile, getCountryPhoneHint } from "../../data/globalCountryProfiles";
+import {
+  constrainCountryPhoneInput,
+  getActiveCountryProfile,
+  getCountryPhoneHint,
+  normalizeCountryIso,
+  storeCountryContext,
+} from "../../data/globalCountryProfiles";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
+import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
 import { haptics } from "../../Backend/services/feedbackService";
 import {
   locationCategories,
@@ -471,6 +478,7 @@ async function reverseGeocodePoint(point) {
       address: "Selected map location",
       city: "",
       country: "",
+      countryCode: "",
       lat: null,
       lng: null,
     };
@@ -486,10 +494,12 @@ async function reverseGeocodePoint(point) {
 
     const data = await response.json();
     const address = data?.address || {};
+    const countryCode = normalizeCountryIso(address.country_code || address.country);
     return {
       address: data?.display_name || fallbackAddress,
       city: address.city || address.town || address.village || address.county || "",
       country: address.country || "",
+      countryCode,
       lat,
       lng,
     };
@@ -498,6 +508,7 @@ async function reverseGeocodePoint(point) {
       address: fallbackAddress,
       city: "",
       country: "",
+      countryCode: "",
       lat,
       lng,
     };
@@ -737,6 +748,7 @@ export default function NearbyAreaScreen({
   const [addLocationBusy, setAddLocationBusy] = useState(false);
   const [addLocationLocateCautionOpen, setAddLocationLocateCautionOpen] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
+  const [areaCountryCode, setAreaCountryCode] = useState(SOS_FALLBACK_COUNTRY);
   const [detectedCountryCode, setDetectedCountryCode] = useState(SOS_FALLBACK_COUNTRY);
   const [detectingSosCountry, setDetectingSosCountry] = useState(false);
   const [businessPickerMode, setBusinessPickerMode] = useState(pickerStart === "dropPin" ? "dropPin" : "current");
@@ -759,6 +771,7 @@ export default function NearbyAreaScreen({
   const lastLiveAreaRefreshAtRef = useRef(0);
   const searchRequestRef = useRef(0);
   const sosDetectionRequestRef = useRef(0);
+  const areaCountryDetectionRef = useRef("");
   const initialDestinationHandledRef = useRef("");
   const initialEmergencyHandledRef = useRef("");
   const oneKmPreviewRequestRef = useRef(0);
@@ -861,13 +874,36 @@ export default function NearbyAreaScreen({
   const publishLiveOperators = useCallback(
     (operators = []) => {
       const nextOperators = Array.isArray(operators)
-        ? operators.filter((operator) => operator?.id && operator?.lat != null && operator?.lng != null)
+        ? operators.filter((operator) =>
+            operator?.id &&
+            operator?.lat != null &&
+            operator?.lng != null &&
+            isMapFleetTypeVisible(operator.type, areaCountryCode)
+          )
         : [];
 
       setLiveOperators(nextOperators);
     },
-    [],
+    [areaCountryCode],
   );
+
+  const updateAreaCountryFromPoint = useCallback(async (position) => {
+    const point = normalizePosition(position);
+    if (!point) return;
+
+    const detectionKey = `${point.lat.toFixed(2)},${point.lng.toFixed(2)}`;
+    if (areaCountryDetectionRef.current === detectionKey) return;
+    areaCountryDetectionRef.current = detectionKey;
+
+    const detected = await detectCountryFromCoords(point.lat, point.lng);
+    const nextCountryCode = normalizeCountryIso(detected?.countryCode);
+    if (!nextCountryCode) return;
+
+    setAreaCountryCode(nextCountryCode);
+    setDetectedCountryCode(nextCountryCode);
+    cacheSosCountryCode(nextCountryCode);
+    storeCountryContext(nextCountryCode);
+  }, []);
 
   useEffect(() => {
     if (!isOneKmPreview || !userLocation?.lat || !userLocation?.lng) {
@@ -914,6 +950,7 @@ export default function NearbyAreaScreen({
 
     userLocationRef.current = nextPosition;
     mapCenterRef.current = nextPosition;
+    updateAreaCountryFromPoint(nextPosition);
 
     const previousPosition = lastPublishedCenterRef.current;
     const movedMeters = distanceInMeters(previousPosition, nextPosition);
@@ -929,7 +966,7 @@ export default function NearbyAreaScreen({
       setMapCenter(nextPosition);
       mapCenterPublishTimerRef.current = null;
     }, MAP_CENTER_PUBLISH_DEBOUNCE_MS);
-  }, []);
+  }, [updateAreaCountryFromPoint]);
 
   useEffect(() => {
     return () => {
@@ -1057,6 +1094,7 @@ export default function NearbyAreaScreen({
 
     mapCenterRef.current = nextPosition;
     setMapCenter(nextPosition);
+    updateAreaCountryFromPoint(nextPosition);
 
     if (isBusinessLocationPicker && businessPickerMode === "dropPin") {
       resolveDroppedPinPreview(nextPosition, "business");
@@ -1066,7 +1104,7 @@ export default function NearbyAreaScreen({
     if (!isSpecialMode && adding && addLocationMode === "dropPin") {
       resolveDroppedPinPreview(nextPosition, "addLocation");
     }
-  }, [addLocationMode, adding, businessPickerMode, isBusinessLocationPicker, isSpecialMode, resolveDroppedPinPreview]);
+  }, [addLocationMode, adding, businessPickerMode, isBusinessLocationPicker, isSpecialMode, resolveDroppedPinPreview, updateAreaCountryFromPoint]);
 
   useEffect(() => {
     const incomingRoutePlan = initialDestination?.routePlan;
@@ -2504,11 +2542,12 @@ const MapPinButton = memo(function MapPinButton({ location, active, onSelect }) 
 function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocation }) {
   const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
   const emergency = getEmergencyContacts(countryCode);
+  const formatEmergencyNumbers = (numbers = []) => numbers.filter(Boolean).join(" / ");
   const emergencyContacts = [
-    emergency.national?.[0] ? { id: "national", label: "National Emergency", value: emergency.national[0] } : null,
-    { id: "police", label: "Police", value: emergency.police?.[0] },
-    { id: "ambulance", label: "Ambulance / Medical", value: emergency.ambulance?.[0] },
-    { id: "fire", label: "Fire Force", value: emergency.fire?.[0] },
+    emergency.national?.length ? { id: "national", label: "National Emergency", value: formatEmergencyNumbers(emergency.national) } : null,
+    { id: "police", label: "Police", value: formatEmergencyNumbers(emergency.police) },
+    { id: "ambulance", label: "Ambulance / Medical", value: formatEmergencyNumbers(emergency.ambulance) },
+    { id: "fire", label: "Fire Force", value: formatEmergencyNumbers(emergency.fire) },
   ].filter((contact) => contact?.value);
 
   if (!open) return null;

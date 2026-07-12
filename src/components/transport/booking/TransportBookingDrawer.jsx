@@ -37,15 +37,9 @@ import {
   describeFleetFare,
   formatBookingDistance,
 } from "../../services/transportPricingService";
+import { getPassengerFleetFilterOptions } from "../../../data/globalTransportCapabilities";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
-
-const fleetTypes = [
-  { value: "", label: "Any active fleet" },
-  { value: "Motorcycle", label: "Bike / motorcycle" },
-  { value: "Tricycle", label: "Tricycle" },
-  { value: "Car", label: "Taxi / van" },
-];
 
 function modeForFleet(fleet, fallback = "ride") {
   if (fallback === "delivery") return "delivery";
@@ -176,6 +170,19 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const nearbyActiveFleets = useMemo(() => nearbyMatchingFleets.filter(isFleetBookable), [nearbyMatchingFleets]);
   const selectedFleet = target?.fleet || null;
   const isDirectedBooking = Boolean(selectedFleet);
+  const selectionCountry = selectedFleet?.countryCode ||
+    selectedFleet?.country ||
+    target?.selection?.countryCode ||
+    target?.selection?.country ||
+    form.pickupPoint?.countryCode ||
+    form.pickupPoint?.country ||
+    form.dropoffPoint?.countryCode ||
+    form.dropoffPoint?.country ||
+    "";
+  const fleetTypes = useMemo(
+    () => getPassengerFleetFilterOptions(selectionCountry, selection.mode),
+    [selection.mode, selectionCountry],
+  );
   const bookingTargetFleets = useMemo(
     () => (selectedFleet ? [selectedFleet] : nearbyMatchingFleets),
     [nearbyMatchingFleets, selectedFleet],
@@ -277,6 +284,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       alive = false;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!selection.fleetType) return;
+    if (fleetTypes.some((type) => type.value === selection.fleetType)) return;
+
+    setSelection((current) => ({ ...current, fleetType: null }));
+  }, [fleetTypes, selection.fleetType]);
 
   useEffect(() => {
     if (!open || form.bookingMethod !== "distance" || !hasText(form.pickup) || !hasText(form.dropoff)) return undefined;

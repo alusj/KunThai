@@ -2,8 +2,16 @@ import { FaCarSide, FaMotorcycle } from "react-icons/fa";
 import { MdElectricRickshaw } from "react-icons/md";
 
 import FleetOptionButton from "../FleetOptionButton";
+import { getRideFleetOptions } from "../../../../data/globalTransportCapabilities";
 
 export default function BookRide({ onSelectFleetType }) {
+  const options = getRideFleetOptions();
+  const icons = {
+    Car: <FaCarSide />,
+    Motorcycle: <FaMotorcycle />,
+    Tricycle: <MdElectricRickshaw />,
+  };
+
   return (
     <div className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-white p-3 shadow-lg shadow-emerald-100/70">
       <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[4rem] bg-emerald-50" />
@@ -15,10 +23,15 @@ export default function BookRide({ onSelectFleetType }) {
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <FleetOptionButton icon={<FaMotorcycle />} label="Bike" onClick={() => onSelectFleetType("ride", "Motorcycle", "Bike")} />
-          <FleetOptionButton icon={<MdElectricRickshaw />} label="Tricycle" onClick={() => onSelectFleetType("ride", "Tricycle", "Tricycle")} />
-          <FleetOptionButton icon={<FaCarSide />} label="Taxi" onClick={() => onSelectFleetType("ride", "Car", "Taxi")} />
+        <div className={`grid gap-2 sm:gap-3 ${options.length === 1 ? "grid-cols-1" : options.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+          {options.map((option) => (
+            <FleetOptionButton
+              key={option.value}
+              icon={icons[option.value] || <FaCarSide />}
+              label={option.label}
+              onClick={() => onSelectFleetType("ride", option.value, option.displayName || option.label)}
+            />
+          ))}
         </div>
       </div>
     </div>

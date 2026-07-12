@@ -155,14 +155,14 @@ with feature_defaults(feature_key, active_enabled, global_enabled) as (
     ('voice_notes', true, true),
     ('media_uploads', true, true),
     ('your_say', true, true),
-    ('urmall', true, false),
-    ('seller_registration', true, false),
-    ('transport_booking', true, false),
-    ('driver_registration', true, false),
-    ('company_registration', true, false),
+    ('urmall', true, true),
+    ('seller_registration', true, true),
+    ('transport_booking', true, true),
+    ('driver_registration', true, true),
+    ('company_registration', true, true),
     ('adverts', true, false),
-    ('phone_authentication', true, false),
-    ('emergency_assistance', true, false)
+    ('phone_authentication', true, true),
+    ('emergency_assistance', true, true)
 )
 insert into public.kunthai_country_feature_settings (
   country_iso, feature_key, enabled, status, rollout_note
@@ -282,6 +282,10 @@ begin
       else 3
     end
   limit 1;
+
+  if resolved_iso is null and upper_value ~ '^[A-Z]{2}$' then
+    return upper_value;
+  end if;
 
   return coalesce(resolved_iso, '');
 end;
@@ -475,6 +479,12 @@ grant execute on function public.kunthai_get_document_requirements(text, text, t
 
 do $$
 begin
+  if to_regclass('public.transport_companies') is not null then
+    alter table public.transport_companies
+      add column if not exists country_iso text not null default '',
+      add column if not exists currency text not null default '';
+  end if;
+
   if to_regclass('public.explore_ad_campaigns') is not null then
     alter table public.explore_ad_campaigns
       alter column currency set default public.kunthai_resolve_currency();
@@ -816,6 +826,14 @@ begin
   if to_regclass('public.transport_fleets') is not null
      and to_regclass('public.transport_company_fleets') is not null
      and to_regclass('public.transport_companies') is not null then
+    update public.transport_companies company
+    set
+      country_iso = public.kunthai_resolve_country_iso(nullif(company.country, '')),
+      currency = public.kunthai_resolve_currency(nullif(company.country, ''), nullif(company.currency, '')),
+      updated_at = now()
+    where nullif(company.country, '') is not null
+      and (nullif(company.country_iso, '') is null or nullif(company.currency, '') is null);
+
     update public.transport_fleets runtime
     set
       country = coalesce(nullif(runtime.country, ''), nullif(company.country, ''), runtime.country),

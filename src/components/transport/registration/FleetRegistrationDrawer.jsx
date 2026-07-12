@@ -34,9 +34,11 @@ import {
   getUrRideDocumentRequirements,
   getUrRideFleetImageRequirements,
 } from "../../../data/globalDocumentRequirements";
+import {
+  getPersonalFleetTypeOptions,
+  getPersonalServiceCategoryOptions,
+} from "../../../data/globalTransportCapabilities";
 
-const categories = ["Transport", "Delivery", "Both"];
-const fleetTypes = ["Car", "Motorcycle", "Tricycle"];
 const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends only", "Night service"];
 const fuelTypes = ["Petrol", "Diesel", "Hybrid", "Electric", "Not applicable"];
 const carBodyTypes = ["Sedan", "SUV", "Hatchback", "Minivan", "Pickup", "Van"];
@@ -258,6 +260,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     countryCode: form.countryCode,
     category: form.category,
   }), [form.category, form.country, form.countryCode]);
+  const categoryOptions = useMemo(
+    () => getPersonalServiceCategoryOptions(form),
+    [form.country, form.countryCode],
+  );
+  const fleetTypeOptions = useMemo(
+    () => getPersonalFleetTypeOptions(form, form.category),
+    [form.category, form.country, form.countryCode],
+  );
 
   const documents = useMemo(() => getUrRideDocumentRequirements({
     country: form.country,
@@ -269,8 +279,33 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   const fleetImageCount = fleetImageRequirements.filter((requirement) => getRequirementUpload(uploads, "fleet", requirement)).length;
   const stepSlideDirection = useDirectionalStep(step);
 
+  useEffect(() => {
+    setForm((current) => {
+      const nextCategories = getPersonalServiceCategoryOptions(current);
+      const fallbackCategory = current.fleetType === "Motorcycle" ? "Delivery" : "Transport";
+      const category = nextCategories.includes(current.category)
+        ? current.category
+        : nextCategories.includes(fallbackCategory)
+          ? fallbackCategory
+          : nextCategories[0] || "Transport";
+      const nextFleetTypes = getPersonalFleetTypeOptions(current, category);
+      const fleetType = nextFleetTypes.includes(current.fleetType) ? current.fleetType : nextFleetTypes[0] || "Car";
+      if (category === current.category && fleetType === current.fleetType) return current;
+      return { ...current, category, fleetType };
+    });
+  }, [form.category, form.country, form.countryCode]);
+
   const update = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+    setStepError("");
+  };
+
+  const updateCategory = (value) => {
+    setForm((current) => {
+      const nextFleetTypes = getPersonalFleetTypeOptions(current, value);
+      const fleetType = nextFleetTypes.includes(current.fleetType) ? current.fleetType : nextFleetTypes[0] || "Car";
+      return { ...current, category: value, fleetType };
+    });
     setStepError("");
   };
 
@@ -611,16 +646,16 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 
           {step === 1 && (
             <div className="space-y-5">
-              <SelectField
+                <SelectField
                 label="Service category"
-                options={categories}
+                options={categoryOptions}
                 value={form.category}
-                onChange={(value) => update("category", value)}
+                onChange={updateCategory}
                 helper="Choose what this fleet will offer to passengers."
               />
               <SelectField
                 label="Fleet type"
-                options={fleetTypes}
+                options={fleetTypeOptions}
                 value={form.fleetType}
                 onChange={(value) => update("fleetType", value)}
                 helper="This controls the safety questions and required review details."

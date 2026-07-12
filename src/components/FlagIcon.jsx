@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { getCountryProfile } from "../data/globalCountryProfiles";
 
 const FLAG_VIEWBOX = "0 0 64 48";
@@ -46,6 +48,40 @@ function GenericStripeFlag({ flag, className }) {
         />
       ))}
     </FlagFrame>
+  );
+}
+
+function LetterFlag({ code, className }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex items-center justify-center overflow-hidden bg-slate-200 text-center text-[0.62em] font-semibold text-slate-600 ${className}`}
+      style={{ lineHeight: 1 }}
+    >
+      {String(code || "").slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
+
+// Flag emoji don't render on Windows (Chrome/Edge fall back to bare letter
+// codes), so non-curated countries use flag images instead.
+function ImageFlag({ code, className }) {
+  const [failed, setFailed] = useState(false);
+  const iso = String(code || "").toLowerCase();
+
+  if (failed || !/^[a-z]{2}$/.test(iso)) {
+    return <LetterFlag code={code} className={className} />;
+  }
+
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${iso}.png`}
+      srcSet={`https://flagcdn.com/w80/${iso}.png 2x`}
+      alt=""
+      aria-hidden="true"
+      className={`object-cover ${className}`}
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -221,8 +257,12 @@ function FlagSvg({ code, className }) {
           <Star cx={32} cy={18} r={5.8} fill="#facc15" />
         </FlagFrame>
       );
-    default:
-      return <GenericStripeFlag flag={getCountryProfile(code)?.flag} className={className} />;
+    default: {
+      const flag = getCountryProfile(code)?.flag;
+      return flag?.colors
+        ? <GenericStripeFlag flag={flag} className={className} />
+        : <ImageFlag code={code} className={className} />;
+    }
   }
 }
 

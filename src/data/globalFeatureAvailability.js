@@ -30,14 +30,14 @@ const GLOBAL_SOCIAL_FEATURES = Object.freeze({
   voice_notes: true,
   media_uploads: true,
   your_say: true,
-  urmall: false,
-  seller_registration: false,
-  transport_booking: false,
-  driver_registration: false,
-  company_registration: false,
+  urmall: true,
+  seller_registration: true,
+  transport_booking: true,
+  driver_registration: true,
+  company_registration: true,
   adverts: false,
-  phone_authentication: false,
-  emergency_assistance: false,
+  phone_authentication: true,
+  emergency_assistance: true,
 });
 
 const EXISTING_MARKET_FEATURES = Object.freeze({
@@ -88,14 +88,14 @@ export function getUnavailableFeatureMessage(featureKey, context = {}) {
   const countryName = country?.name || "your country";
 
   const messages = {
-    urmall: `UrMall is currently available in selected regions. ${countryName} can be enabled when local marketplace rules are ready.`,
-    seller_registration: `Seller registration is not yet available in ${countryName}.`,
-    transport_booking: `UrRide transport services are not yet available in ${countryName}.`,
-    driver_registration: `UrRide driver registration is not yet available in ${countryName}.`,
-    company_registration: `UrRide company registration is not yet available in ${countryName}.`,
+    urmall: `UrMall is available globally, but local compliance settings for ${countryName} may still need review.`,
+    seller_registration: `Seller registration is available globally, but local compliance settings for ${countryName} may still need review.`,
+    transport_booking: `UrRide is available globally, but fleet types can vary by country.`,
+    driver_registration: `UrRide driver registration is available globally, but accepted fleet types can vary by country.`,
+    company_registration: `UrRide company registration is available globally, but accepted fleet types can vary by country.`,
     adverts: `Advertising is not yet available in ${countryName}.`,
     phone_authentication: `Phone verification is not currently supported for ${countryName}.`,
-    emergency_assistance: `Emergency information for ${countryName} has not been verified yet.`,
+    emergency_assistance: `Emergency assistance is available globally. Confirm local numbers before dispatching help in ${countryName}.`,
   };
 
   return messages[featureKey] || `This feature is coming soon in ${countryName}.`;

@@ -47,6 +47,7 @@ import {
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 import { getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
+import { getRideFleetOptions } from "../../../data/globalTransportCapabilities";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { submitTransportSupportTicket } from "../../services/bookingService";
 import TransportCautionCard from "../shared/TransportCautionCard";
@@ -1476,6 +1477,15 @@ function SupportPage({ seed }) {
 function TransportSettingsPage() {
   const [settings, setSettings] = useState(() => getTransportPassengerSettings());
   const [message, setMessage] = useState("");
+  const defaultRideTypeOptions = useMemo(
+    () => ["Any available", ...getRideFleetOptions().map((option) => option.label), "Delivery"],
+    [],
+  );
+
+  useEffect(() => {
+    if (defaultRideTypeOptions.includes(settings.defaultRideType)) return;
+    updateSettings({ defaultRideType: "Any available" });
+  }, [defaultRideTypeOptions, settings.defaultRideType]);
 
   function updateSettings(patch) {
     setSettings((current) => ({ ...current, ...patch }));
@@ -1545,11 +1555,9 @@ function TransportSettingsPage() {
             onChange={(event) => updateSettings({ defaultRideType: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
-            <option>Any available</option>
-            <option>Bike</option>
-            <option>Tricycle</option>
-            <option>Taxi</option>
-            <option>Delivery</option>
+            {defaultRideTypeOptions.map((option) => (
+              <option key={option}>{option}</option>
+            ))}
           </select>
         </label>
 
