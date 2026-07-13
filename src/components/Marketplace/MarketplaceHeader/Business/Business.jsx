@@ -224,7 +224,7 @@ export default function Business({ onBack }) {
               replaceSellerScreen("dashboard");
               setActiveTab("store");
               setEditingProduct(null);
-              setToastMessage(wasEditing ? "Product listing updated successfully" : "Product added successfully");
+              setToastMessage(wasEditing ? "Updated Successfully" : "Added Successfully");
               setTimeout(() => setToastMessage(""), 4500);
             }}
           />

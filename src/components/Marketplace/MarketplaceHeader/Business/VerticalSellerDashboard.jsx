@@ -119,6 +119,7 @@ function RestaurantDashboard({ business }) {
     submissionLock.current = true;
     setSubmitting(true);
     try {
+      const wasEditing = editingMeal;
       await saveRestaurantMenuItem(business.id, { ...form, day_of_week: day }, setUploadStage);
       setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, ...createEmptyVerticalMedia() });
       setFormOpen(false);
@@ -126,7 +127,7 @@ function RestaurantDashboard({ business }) {
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast(`${DAYS[day]} menu updated.`, "success");
+      showToast(wasEditing ? "Updated Successfully" : "Added Successfully", "success");
     } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
@@ -182,7 +183,7 @@ function HotelDashboard({ business }) {
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast("Hotel media published.", "success");
+      showToast("Added Successfully", "success");
     } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
@@ -237,6 +238,7 @@ function PropertyDashboard({ business }) {
     submissionLock.current = true;
     setSubmitting(true);
     try {
+      const wasEditing = editingProperty;
       await savePropertyListing(business.id, form, setUploadStage);
       setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, address: "", city: business.location || "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
       setFormOpen(false);
@@ -244,7 +246,7 @@ function PropertyDashboard({ business }) {
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast("Property published for buyers.", "success");
+      showToast(wasEditing ? "Updated Successfully" : "Added Successfully", "success");
     } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 

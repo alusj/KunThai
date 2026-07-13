@@ -57,6 +57,7 @@ function normalizeAreaOptions(options = {}) {
   if (lat == null || lng == null) {
     return {
       bounds: null,
+      center: null,
       limit: Number(area?.limit || options?.limit || 120),
     };
   }
@@ -70,6 +71,7 @@ function normalizeAreaOptions(options = {}) {
   const lngDelta = radiusKm / Math.max(38, 111.32 * Math.cos((lat * Math.PI) / 180));
 
   return {
+    center: { lat, lng },
     bounds: {
       minLat: lat - latDelta,
       maxLat: lat + latDelta,
@@ -156,7 +158,7 @@ function normalizeLocationCategory(category) {
   if (["shop", "shops", "supermarket", "pharmacy", "fuel station"].includes(value)) return "Shops";
   if (["school", "schools"].includes(value)) return "Schools";
   if (["market", "markets"].includes(value)) return "Markets";
-  if (["hospital", "clinic", "hospital / clinic", "police", "emergency"].includes(value)) return "Emergency";
+  if (["hospital", "clinic", "hospital / clinic", "police", "fire station", "fire service", "emergency"].includes(value)) return "Emergency";
 
   return "Community";
 }
@@ -328,19 +330,28 @@ function normalizeWeatherCache(row) {
 }
 
 function distanceInMeters(pointA, pointB) {
-  if (!pointA?.lat || !pointA?.lng || !pointB?.lat || !pointB?.lng) return Infinity;
+  const startLat = toNumber(pointA?.lat);
+  const startLng = toNumber(pointA?.lng);
+  const endLat = toNumber(pointB?.lat);
+  const endLng = toNumber(pointB?.lng);
+  if (startLat == null || startLng == null || endLat == null || endLng == null) return Infinity;
 
   const earthRadius = 6371000;
   const toRadians = (value) => (value * Math.PI) / 180;
-  const lat1 = toRadians(pointA.lat);
-  const lat2 = toRadians(pointB.lat);
-  const deltaLat = toRadians(pointB.lat - pointA.lat);
-  const deltaLng = toRadians(pointB.lng - pointA.lng);
+  const lat1 = toRadians(startLat);
+  const lat2 = toRadians(endLat);
+  const deltaLat = toRadians(endLat - startLat);
+  const deltaLng = toRadians(endLng - startLng);
   const a =
     Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
 
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function sortByDistance(items = [], center = null) {
+  if (!center) return items;
+  return [...items].sort((first, second) => distanceInMeters(center, first) - distanceInMeters(center, second));
 }
 
 function dedupeById(items) {
@@ -362,7 +373,7 @@ async function getCurrentUserId() {
 }
 
 export async function getApprovedNearbyLocations(options = {}) {
-  const { limit } = normalizeAreaOptions(options);
+  const { center, limit } = normalizeAreaOptions(options);
   const rows = await executeBoundedQuery((bounds) => {
     let query = supabase
       .from("nearby_area_locations")
@@ -376,7 +387,7 @@ export async function getApprovedNearbyLocations(options = {}) {
     return query;
   }, options);
 
-  return dedupeById(rows.map(normalizeNearbyLocation).filter(Boolean));
+  return sortByDistance(dedupeById(rows.map(normalizeNearbyLocation).filter(Boolean)), center);
 }
 
 export async function submitNearbyAreaLocation(input = {}) {
@@ -472,7 +483,7 @@ export async function submitNearbyAreaLocation(input = {}) {
 }
 
 export async function getLiveOperators(options = {}) {
-  const { limit } = normalizeAreaOptions(options);
+  const { center, limit } = normalizeAreaOptions(options);
   const staleCutoff = new Date(Date.now() - ACTIVE_OPERATOR_WINDOW_MS).toISOString();
   const rows = await executeBoundedQuery((bounds) => {
     let query = supabase
@@ -487,11 +498,11 @@ export async function getLiveOperators(options = {}) {
     return query;
   }, options);
 
-  return dedupeById(rows.map(normalizeOperator).filter(Boolean));
+  return sortByDistance(dedupeById(rows.map(normalizeOperator).filter(Boolean)), center);
 }
 
 export async function getNearbyReports(options = {}) {
-  const { limit } = normalizeAreaOptions(options);
+  const { center, limit } = normalizeAreaOptions(options);
   const rows = await executeBoundedQuery((bounds) => {
     let query = supabase
       .from("nearby_area_reports")
@@ -504,11 +515,11 @@ export async function getNearbyReports(options = {}) {
     return query;
   }, options);
 
-  return dedupeById(rows.map(normalizeReport).filter(Boolean));
+  return sortByDistance(dedupeById(rows.map(normalizeReport).filter(Boolean)), center);
 }
 
 export async function getTrafficSnapshots(options = {}) {
-  const { limit } = normalizeAreaOptions(options);
+  const { center, limit } = normalizeAreaOptions(options);
   const rows = await executeBoundedQuery((bounds) => {
     let query = supabase
       .from("nearby_area_traffic_snapshots")
@@ -521,7 +532,7 @@ export async function getTrafficSnapshots(options = {}) {
     return query;
   }, options);
 
-  return dedupeById(rows.map(normalizeTrafficSnapshot).filter(Boolean));
+  return sortByDistance(dedupeById(rows.map(normalizeTrafficSnapshot).filter(Boolean)), center);
 }
 
 export async function getWeatherCacheNearArea(position = null) {
@@ -649,7 +660,10 @@ function subscribeToTable({ table, key, fetcher, callback, area, getArea }) {
   if (!callback) return () => {};
 
   const timers = {};
-  const refresh = () => fetcher(getRuntimeOptions({ area, getArea })).then((items) => callback(items));
+  const refresh = () =>
+    fetcher(getRuntimeOptions({ area, getArea }))
+      .then((items) => callback(items))
+      .catch(() => {});
   const channel = supabase
     .channel(`area-view-${key}-${Math.random().toString(36).slice(2)}`)
     .on("postgres_changes", { event: "*", schema: "public", table }, () => {

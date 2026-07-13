@@ -45,6 +45,7 @@ import {
 import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
 import { haptics } from "../../Backend/services/feedbackService";
+import { showToast } from "../../Backend/services/toastService";
 import {
   locationCategories,
   locationStatusStyles,
@@ -59,6 +60,7 @@ const addCategories = [
   "Pharmacy",
   "Hospital / Clinic",
   "Police",
+  "Fire Station",
   "Fuel Station",
   "Pickup Point",
   "Transport Park",
@@ -89,23 +91,46 @@ const emergencySearchActions = {
   hospital: {
     query: "hospital",
     label: "Hospital",
+    addCategory: "Hospital / Clinic",
     description: "Nearest hospital or clinic found from Area View search. Confirm details before travelling.",
   },
   police: {
     query: "police station",
     label: "Police station",
+    addCategory: "Police",
     description: "Nearest police station found from Area View search. Confirm details before travelling.",
   },
   pharmacy: {
     query: "pharmacy",
     label: "Pharmacy",
+    addCategory: "Pharmacy",
     description: "Nearest pharmacy found from Area View search. Confirm details before travelling.",
   },
   fire: {
     query: "fire station",
     label: "Fire station",
+    addCategory: "Fire Station",
     description: "Nearest fire service location found from Area View search. Confirm details before travelling.",
   },
+};
+
+const areaCategoryAddDefaults = {
+  Pickup: "Pickup Point",
+  Shops: "Shop",
+  Schools: "School",
+  Markets: "Market",
+  Emergency: "Hospital / Clinic",
+  Community: "Other",
+};
+
+const areaCategoryLabels = {
+  Fleets: "fleet",
+  Pickup: "pickup point",
+  Shops: "shop",
+  Schools: "school",
+  Markets: "market",
+  Emergency: "emergency location",
+  Community: "community location",
 };
 
 function readCachedSosCountryCode() {
@@ -285,6 +310,52 @@ function distanceInMeters(pointA, pointB) {
       Math.sin(deltaLng / 2);
 
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getAreaReferencePoint(...points) {
+  return points.map(normalizePosition).find(Boolean) || null;
+}
+
+function sortLocationsByDistance(locations = [], referencePoint = null) {
+  if (!referencePoint) return locations;
+
+  return [...locations].sort((first, second) => {
+    const firstDistance = distanceInMeters(referencePoint, first);
+    const secondDistance = distanceInMeters(referencePoint, second);
+    return firstDistance - secondDistance;
+  });
+}
+
+function getLocationsForAreaCategory(category, locations = []) {
+  if (category === "All") return locations;
+  return locations.filter((location) => location.category === category);
+}
+
+function getAreaCategoryLabel(category) {
+  return areaCategoryLabels[category] || String(category || "location").toLowerCase();
+}
+
+function getAddCategoryForAreaCategory(category) {
+  return areaCategoryAddDefaults[category] || "";
+}
+
+function getAddLocationDraftForCategory(categoryHint = "") {
+  const draft = createAddLocationDraft();
+  const normalizedHint = String(categoryHint || "").trim();
+  if (!normalizedHint) return draft;
+
+  const directCategory = addCategories.find((category) => category.toLowerCase() === normalizedHint.toLowerCase());
+  const mappedCategory = directCategory || getAddCategoryForAreaCategory(normalizedHint);
+
+  if (mappedCategory && mappedCategory !== "Other") {
+    return { ...draft, category: mappedCategory };
+  }
+
+  return {
+    ...draft,
+    category: "Other",
+    categoryName: mappedCategory === "Other" ? "" : normalizedHint,
+  };
 }
 
 function destinationPointFromDistance(origin, distanceMeters, bearingDegrees = 90) {
@@ -821,12 +892,15 @@ export default function NearbyAreaScreen({
 
   const displayLocations = useMemo(() => {
     const ids = new Set();
-    return [...nearbyLocations, ...liveLocations].filter((location) => {
+    const referencePoint = getAreaReferencePoint(mapCenter, userLocation);
+    const deduped = [...nearbyLocations, ...liveLocations].filter((location) => {
       if (!location?.id || ids.has(location.id)) return false;
       ids.add(location.id);
       return true;
     });
-  }, [liveLocations]);
+
+    return sortLocationsByDistance(deduped, referencePoint);
+  }, [liveLocations, mapCenter, userLocation]);
 
   const filteredLocations = useMemo(() => {
     if (activeCategory === "All") return displayLocations;
@@ -866,9 +940,69 @@ export default function NearbyAreaScreen({
     ].join(":");
   }, [autoRoute, initialDestination]);
 
+  const openAddLocation = useCallback((categoryHint = "") => {
+    const draft = getAddLocationDraftForCategory(categoryHint);
+    const categoryLabel = getAreaCategoryLabel(categoryHint);
+    const hasCategoryHint = Boolean(String(categoryHint || "").trim());
+
+    setLocationPanelOpen(false);
+    setAddLocationDraft(draft);
+    setAddLocationMode("form");
+    setAddLocationStatus(
+      hasCategoryHint
+        ? `Use Locate Me or Drop Pin so this ${categoryLabel} can be reviewed with an exact map point.`
+        : "Use Locate Me or Drop Pin so the new location can be reviewed with an exact map point.",
+    );
+    setAddLocationLocateCautionOpen(false);
+    setAddLocationBusy(false);
+    setFocusMode(false);
+    setAdding(true);
+  }, []);
+
   function chooseLocationCategory(category) {
     setActiveCategory(category);
     setMoreCategoriesOpen(false);
+
+    if (category === "All") {
+      setLocationPanelOpen(false);
+      return;
+    }
+
+    if (category === "Fleets") {
+      if (!liveOperators.length) {
+        showToast("No nearby fleet available.", "warning", {
+          title: "Area View",
+          duration: 5200,
+        });
+      }
+      setLocationPanelOpen(false);
+      return;
+    }
+
+    const referencePoint = getAreaReferencePoint(mapCenterRef.current, userLocationRef.current, mapCenter, userLocation);
+    const matches = sortLocationsByDistance(getLocationsForAreaCategory(category, displayLocations), referencePoint);
+    const nearest = matches[0];
+
+    if (!nearest) {
+      const label = getAreaCategoryLabel(category);
+      showToast(`No nearby ${label} available.`, "warning", {
+        title: "Area View",
+        actionLabel: `Add ${label}`,
+        duration: 6500,
+        onAction: () => openAddLocation(category),
+      });
+      setLocationPanelOpen(false);
+      return;
+    }
+
+    setActiveLocation(nearest);
+    setSelectedSearchLocation(nearest);
+    setLocationPanelOpen(true);
+    mapInstance?.flyTo({
+      center: [nearest.lng, nearest.lat],
+      zoom: 15.5,
+      essential: true,
+    });
   }
 
   const publishLiveOperators = useCallback(
@@ -1259,16 +1393,23 @@ export default function NearbyAreaScreen({
     async function loadLiveAreaData() {
       const initialWeatherPosition = mapCenterRef.current || userLocationRef.current || null;
       const areaOptions = { center: initialWeatherPosition, radiusKm: LIVE_AREA_RADIUS_KM };
-      const [locations, operators, reports, traffic, history, weather] = await Promise.all([
-        getApprovedNearbyLocations(areaOptions),
-        getActiveTransportOperators(areaOptions),
-        getActiveAreaReports(areaOptions),
-        getActiveTrafficSnapshots(areaOptions),
-        getRecentSearchHistory(),
-        getWeatherCacheNearArea(initialWeatherPosition),
-      ]);
+      let results = null;
+
+      try {
+        results = await Promise.all([
+          getApprovedNearbyLocations(areaOptions),
+          getActiveTransportOperators(areaOptions),
+          getActiveAreaReports(areaOptions),
+          getActiveTrafficSnapshots(areaOptions),
+          getRecentSearchHistory(),
+          getWeatherCacheNearArea(initialWeatherPosition),
+        ]);
+      } catch {
+        results = [[], [], [], [], [], null];
+      }
 
       if (!mounted) return;
+      const [locations, operators, reports, traffic, history, weather] = results;
       setLiveLocations(locations);
       publishLiveOperators(operators);
       setLiveReports(reports);
@@ -1327,13 +1468,20 @@ export default function NearbyAreaScreen({
     if (shouldRefreshLiveArea && !liveAreaRefreshTimerRef.current) {
       liveAreaRefreshTimerRef.current = window.setTimeout(async () => {
         const areaOptions = { center: nextPosition, radiusKm: LIVE_AREA_RADIUS_KM };
-        const [locations, operators, reports, traffic] = await Promise.all([
-          getApprovedNearbyLocations(areaOptions),
-          getActiveTransportOperators(areaOptions),
-          getActiveAreaReports(areaOptions),
-          getActiveTrafficSnapshots(areaOptions),
-        ]);
+        let results = null;
 
+        try {
+          results = await Promise.all([
+            getApprovedNearbyLocations(areaOptions),
+            getActiveTransportOperators(areaOptions),
+            getActiveAreaReports(areaOptions),
+            getActiveTrafficSnapshots(areaOptions),
+          ]);
+        } catch {
+          results = [[], [], [], []];
+        }
+
+        const [locations, operators, reports, traffic] = results;
         setLiveLocations(locations);
         publishLiveOperators(operators);
         setLiveReports(reports);
@@ -1413,17 +1561,6 @@ export default function NearbyAreaScreen({
 
     return () => window.clearTimeout(timeout);
   }, [searchOverlayOpen, searchQuery, selectionLocked]);
-
-  const openAddLocation = useCallback(() => {
-    setLocationPanelOpen(false);
-    setAddLocationDraft(createAddLocationDraft());
-    setAddLocationMode("form");
-    setAddLocationStatus("Use Locate Me or Drop Pin so the new location can be reviewed with an exact map point.");
-    setAddLocationLocateCautionOpen(false);
-    setAddLocationBusy(false);
-    setFocusMode(false);
-    setAdding(true);
-  }, []);
 
   const updateAddLocationDraft = useCallback((field, value) => {
     setAddLocationDraft((current) => ({ ...current, [field]: value }));
@@ -1674,8 +1811,16 @@ export default function NearbyAreaScreen({
       const nearest = (results || []).find((result) => result?.lat != null && result?.lng != null);
 
       if (!nearest) {
+        const label = String(action.label || "location").toLowerCase();
         setSelectionLocked(false);
         setSearchResults(results || []);
+        setSearchOverlayOpen(false);
+        showToast(`No nearby ${label} available.`, "warning", {
+          title: "Area View",
+          actionLabel: `Add ${label}`,
+          duration: 7000,
+          onAction: () => openAddLocation(action.addCategory || action.label),
+        });
         return;
       }
 
@@ -1710,7 +1855,7 @@ export default function NearbyAreaScreen({
     } finally {
       setSearching(false);
     }
-  }, [mapCenter, mapInstance, userLocation]);
+  }, [mapCenter, mapInstance, openAddLocation, userLocation]);
 
   useEffect(() => {
     if (!initialEmergencyRequest) return;
@@ -1808,7 +1953,26 @@ export default function NearbyAreaScreen({
   const handlePinnedLocationSelect = useCallback((location) => {
     setActiveLocation(location);
     setLocationPanelOpen(true);
+    setOperatorRoutePlan(null);
+    setSelectedSearchLocation(location);
   }, []);
+
+  const handleGetDirections = useCallback((location = activeLocation) => {
+    if (!Number.isFinite(Number(location?.lat)) || !Number.isFinite(Number(location?.lng))) {
+      showToast("This location does not have an exact map point yet.", "warning", {
+        title: "Area View",
+      });
+      return;
+    }
+
+    setOperatorRoutePlan(null);
+    setSelectedSearchLocation(location);
+    mapInstance?.flyTo({
+      center: [location.lng, location.lat],
+      zoom: 15.5,
+      essential: true,
+    });
+  }, [activeLocation, mapInstance]);
 
   const handleAddCurrentPickerLocation = useCallback(() => {
     if (!currentPickerLocation) return;
@@ -2082,6 +2246,7 @@ export default function NearbyAreaScreen({
             open={locationPanelOpen}
             onClose={() => setLocationPanelOpen(false)}
             onAddLocation={openAddLocation}
+            onGetDirections={handleGetDirections}
           />
         )}
 
@@ -2539,7 +2704,7 @@ const MapPinButton = memo(function MapPinButton({ location, active, onSelect }) 
     </button>
   );
 });
-function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocation }) {
+function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocation, onGetDirections }) {
   const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
   const emergency = getEmergencyContacts(countryCode);
   const formatEmergencyNumbers = (numbers = []) => numbers.filter(Boolean).join(" / ");
@@ -2582,8 +2747,12 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
       <p className="mt-3 text-sm leading-6 text-slate-600">{activeLocation?.description}</p>
 
       <div className="mt-4 grid gap-2">
-        <button className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white">
-          Set as Pickup
+        <button
+          type="button"
+          onClick={() => onGetDirections?.(activeLocation)}
+          className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
+        >
+          Get Directions
         </button>
 
         <button
@@ -2782,9 +2951,10 @@ function AddLocationPanel({
             type="button"
             onClick={onLocateMe}
             disabled={busy}
-            className="h-11 rounded-2xl border border-green-200 bg-green-50 px-4 text-sm font-black text-green-700 disabled:opacity-60"
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-3 text-sm font-black text-green-700 disabled:opacity-60"
           >
-            Locate Me
+            <span>Locate Me</span>
+            <span className="rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-black uppercase text-white">Recommended</span>
           </button>
 
           <button

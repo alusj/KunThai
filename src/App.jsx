@@ -129,10 +129,24 @@ function readStoredMarketplaceNav() {
 function AppLoading({ page = "explore" }) {
   const pageTitle = page === "marketplace" ? "UrMall" : page === "transport" ? "UrRide" : "Explore";
   const [showPatienceNotice, setShowPatienceNotice] = useState(false);
+  const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setShowPatienceNotice(true), 6000);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    function syncNetworkState() {
+      setOffline(typeof navigator !== "undefined" && navigator.onLine === false);
+    }
+
+    window.addEventListener("online", syncNetworkState);
+    window.addEventListener("offline", syncNetworkState);
+    return () => {
+      window.removeEventListener("online", syncNetworkState);
+      window.removeEventListener("offline", syncNetworkState);
+    };
   }, []);
 
   return (
@@ -161,8 +175,9 @@ function AppLoading({ page = "explore" }) {
           <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
             <p className="text-sm font-black text-slate-950">This is taking a little longer than usual</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-              We may be upgrading our services, or your network connection is unstable at the moment.
-              Please hold on — KunThai will continue automatically as soon as everything is ready.
+              {offline
+                ? "Your network appears offline. KunThai will continue automatically when the connection returns."
+                : "Your network connection may be unstable at the moment. KunThai will continue automatically as soon as everything is ready."}
             </p>
           </div>
         ) : null}

@@ -114,6 +114,8 @@ export function getCaseTypeLabel(item = {}) {
   if (item.resource_type === "explore_post_report" || type === "content_report") return "Reported post";
   if (item.resource_type === "explore_comment_report" || type === "comment_report") return "Reported comment";
   if (item.resource_type === "explore_profile_report" || type === "profile_report") return "Reported profile";
+  if (item.resource_type === "area_location_verification" || type === "area_location_review") return "Area View location";
+  if (item.resource_type === "area_report" || type === "area_safety_report") return "Area View report";
   if (type === "seller_verification") return "Seller verification";
   if (type === "operator_verification") return "Operator verification";
   if (type === "company_verification") return "Company verification";
@@ -370,6 +372,65 @@ async function normalizeUserVoiceContent(row = {}) {
   };
 }
 
+function mapUrlFor(row = {}) {
+  const lat = Number(row.lat ?? row.latitude);
+  const lng = Number(row.lng ?? row.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
+
+function coordinateLabelFor(row = {}) {
+  const lat = Number(row.lat ?? row.latitude);
+  const lng = Number(row.lng ?? row.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+  return `Lat ${lat.toFixed(6)} / Lng ${lng.toFixed(6)}`;
+}
+
+function normalizeAreaLocationContent(row = {}) {
+  const metadata = row.metadata || {};
+  return {
+    id: row.id,
+    type: "area_location",
+    title: row.name || row.place_name ? `Area View location: ${row.name || row.place_name}` : "Area View location request",
+    description: row.description || row.landmark || row.address || "A user submitted a missing Area View location for admin review.",
+    meta: [
+      row.category ? `Category: ${row.category}` : "",
+      row.type ? `Type: ${row.type}` : "",
+      row.status ? `Status: ${row.status}` : "",
+      row.visibility ? `Visibility: ${row.visibility}` : "",
+      row.address ? `Address: ${row.address}` : "",
+      row.landmark ? `Landmark: ${row.landmark}` : "",
+      row.phone ? `Phone: ${row.phone}` : "",
+      coordinateLabelFor(row),
+      metadata.source ? `Source: ${metadata.source}` : "",
+    ].filter(Boolean),
+    media: [],
+    mapUrl: mapUrlFor(row),
+    source: row,
+  };
+}
+
+function normalizeAreaReportContent(row = {}) {
+  return {
+    id: row.id,
+    type: "area_report",
+    title: row.title || row.report_type ? `Area View report: ${titleCaseForService(row.title || row.report_type)}` : "Area View safety report",
+    description: row.description || row.message || "A user submitted an Area View safety report for validation.",
+    meta: [
+      row.report_type ? `Type: ${titleCaseForService(row.report_type)}` : "",
+      row.severity ? `Severity: ${titleCaseForService(row.severity)}` : "",
+      row.status ? `Status: ${titleCaseForService(row.status)}` : "",
+      row.road_name ? `Road: ${row.road_name}` : "",
+      row.area_name ? `Area: ${row.area_name}` : "",
+      coordinateLabelFor(row),
+      row.expires_at ? `Expires: ${row.expires_at}` : "",
+    ].filter(Boolean),
+    media: [],
+    mapUrl: mapUrlFor(row),
+    source: row,
+  };
+}
+
 function fallbackCaseContent(item = {}) {
   const source = sourceFor(item);
   return [{
@@ -409,6 +470,12 @@ function previewCaseContent(item = {}) {
       source: sourceFor(item),
     }];
   }
+  if (item.resource_type === "area_location_verification") {
+    return [normalizeAreaLocationContent(sourceFor(item))];
+  }
+  if (item.resource_type === "area_report") {
+    return [normalizeAreaReportContent(sourceFor(item))];
+  }
   return fallbackCaseContent(item);
 }
 
@@ -434,6 +501,12 @@ export async function getAdminCaseContent(item) {
   } else if (item.resource_type === "user_care_feedback" || item.case_type === "user_voice") {
     const row = await fetchSingle("user_care_feedback", "id", source.id || item.resource_id);
     content = await normalizeUserVoiceContent(row || source);
+  } else if (item.resource_type === "area_location_verification") {
+    const row = await fetchSingle("nearby_area_locations", "id", source.id || item.resource_id);
+    content = normalizeAreaLocationContent(row || source);
+  } else if (item.resource_type === "area_report") {
+    const row = await fetchSingle("nearby_area_reports", "id", source.id || item.resource_id);
+    content = normalizeAreaReportContent(row || source);
   }
 
   return content ? [content] : fallbackCaseContent(item);

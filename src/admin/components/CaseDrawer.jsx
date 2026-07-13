@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, ClipboardCheck, ExternalLink, FileAudio, FileText, FileVideo, Image as ImageIcon, LoaderCircle, MessageSquareText, UserRoundCheck, X } from "lucide-react";
 import { CASE_DECISIONS, CASE_STATUSES, formatCaseNumber, formatDateTime, titleCase } from "../adminConfig";
 import { addCaseNote, applyCaseDecision, claimCase, getAdminCaseContent, getAdminCaseEvidence, getCaseActivity, getCaseCountryLabel, getCaseTypeLabel, reviewCaseApproval, transitionCase } from "../adminService";
+import { showToast } from "../../Backend/services/toastService";
 
 export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const [activity, setActivity] = useState({ events: [], notes: [], approvals: [] });
@@ -36,12 +37,13 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
 
   if (!item) return null;
 
-  async function run(action, task) {
+  async function run(action, task, onSuccess) {
     setBusy(action);
     setError("");
     try {
       const updated = await task();
       if (updated?.id) onUpdated(updated);
+      onSuccess?.(updated);
     } catch (taskError) {
       setError(taskError.message || "The admin action failed.");
     } finally {
@@ -178,7 +180,10 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
                   <select value={decision} onChange={(event) => setDecision(event.target.value)} className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 focus:border-emerald-600 focus:outline-none">
                     {CASE_DECISIONS.map((value) => <option key={value.key} value={value.key}>{value.label}</option>)}
                   </select>
-                  <button type="button" disabled={busy || !reason.trim()} onClick={() => run("decision", () => applyCaseDecision(item.id, decision, reason.trim()))} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-black text-white hover:bg-emerald-800 disabled:opacity-50">
+                  <button type="button" disabled={busy || !reason.trim()} onClick={() => run("decision", () => applyCaseDecision(item.id, decision, reason.trim()), () => {
+                    showToast("Decision applied.", "success", { title: "Admin case updated" });
+                    onClose();
+                  })} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-black text-white hover:bg-emerald-800 disabled:opacity-50">
                     {busy === "decision" ? <LoaderCircle className="animate-spin" size={17} /> : <CheckCircle2 size={17} />} Apply decision
                   </button>
                 </div>
@@ -292,6 +297,11 @@ function ContentPreview({ entry, onOpenMedia }) {
         <div className="mt-3 flex flex-wrap gap-2">
           {entry.meta.map((meta) => <span key={meta} className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-600">{meta}</span>)}
         </div>
+      ) : null}
+      {entry.mapUrl ? (
+        <a href={entry.mapUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50">
+          <ExternalLink size={14} /> Open map point
+        </a>
       ) : null}
       {entry.media?.length ? (
         <div className="kuntai-scrollbar-none mt-4 flex max-h-72 gap-3 overflow-x-auto pb-2">

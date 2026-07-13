@@ -45,26 +45,63 @@ function RootApplication() {
 class AppErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { failed: false };
+    this.state = { failed: false, message: "" };
   }
 
-  static getDerivedStateFromError() {
-    return { failed: true };
+  static getDerivedStateFromError(error) {
+    return { failed: true, message: error?.message || "" };
   }
 
   componentDidCatch(error) {
     console.error("[KunThai] App render failed", error);
   }
 
+  componentDidMount() {
+    window.addEventListener("online", this.handleOnline);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("online", this.handleOnline);
+  }
+
+  handleOnline = () => {
+    if (this.state.failed && !this.isChunkLoadFailure()) {
+      this.setState({ failed: false, message: "" });
+    }
+  };
+
+  isChunkLoadFailure() {
+    return /chunk|dynamically imported module|failed to fetch|load failed|loading css chunk/i.test(this.state.message || "");
+  }
+
+  retry = () => {
+    this.setState({ failed: false, message: "" });
+  };
+
+  reload = () => {
+    window.location.reload();
+  };
+
   render() {
     if (this.state.failed) {
+      const chunkFailure = this.isChunkLoadFailure();
       return (
         <div className="flex min-h-screen items-center justify-center bg-slate-100 p-5">
           <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
             <h1 className="text-base font-black text-slate-950">KunThai is recovering</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              Something failed while loading this screen. Refresh once to reload your latest data.
+              {chunkFailure
+                ? "Your connection may have dropped while KunThai was loading an app file. Reload once when the network is stable."
+                : "Something failed while loading this screen. Try again, or reload if the problem continues."}
             </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={this.retry} className="h-11 rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-700 hover:bg-slate-50">
+                Try again
+              </button>
+              <button type="button" onClick={this.reload} className="h-11 rounded-xl bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800">
+                Reload app
+              </button>
+            </div>
           </div>
         </div>
       );
