@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, ClipboardCheck, ExternalLink, FileText, Image as ImageIcon, LoaderCircle, MessageSquareText, UserRoundCheck, X } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ExternalLink, FileAudio, FileText, FileVideo, Image as ImageIcon, LoaderCircle, MessageSquareText, UserRoundCheck, X } from "lucide-react";
 import { CASE_DECISIONS, CASE_STATUSES, formatCaseNumber, formatDateTime, titleCase } from "../adminConfig";
-import { addCaseNote, applyCaseDecision, claimCase, getAdminCaseEvidence, getCaseActivity, reviewCaseApproval, transitionCase } from "../adminService";
+import { addCaseNote, applyCaseDecision, claimCase, getAdminCaseContent, getAdminCaseEvidence, getCaseActivity, getCaseCountryLabel, getCaseTypeLabel, reviewCaseApproval, transitionCase } from "../adminService";
 
 export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const [activity, setActivity] = useState({ events: [], notes: [], approvals: [] });
@@ -12,6 +12,9 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [evidence, setEvidence] = useState([]);
+  const [caseContent, setCaseContent] = useState([]);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState(null);
 
   useEffect(() => {
     if (!item?.id) return;
@@ -24,7 +27,10 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
     if (!item?.id) return;
     let active = true;
     setEvidence([]);
+    setCaseContent([]);
+    setContentLoading(true);
     getAdminCaseEvidence(item).then((value) => { if (active) setEvidence(value); }).catch(() => { if (active) setEvidence([]); });
+    getAdminCaseContent(item).then((value) => { if (active) setCaseContent(value); }).catch(() => { if (active) setCaseContent([]); }).finally(() => { if (active) setContentLoading(false); });
     return () => { active = false; };
   }, [item]);
 
@@ -88,11 +94,29 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
             <h1 className="mt-4 text-xl font-black text-zinc-950">{item.title}</h1>
             <p className="mt-2 text-sm font-medium leading-6 text-zinc-600">{item.description || "No description was supplied."}</p>
 
-            <dl className="mt-5 grid gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-3">
+            <dl className="mt-5 grid gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-2 lg:grid-cols-5">
               <div><dt className="text-[11px] font-black uppercase text-zinc-400">Status</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{titleCase(item.status)}</dd></div>
+              <div><dt className="text-[11px] font-black uppercase text-zinc-400">Type</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{getCaseTypeLabel(item)}</dd></div>
+              <div><dt className="text-[11px] font-black uppercase text-zinc-400">Country</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{getCaseCountryLabel(item)}</dd></div>
               <div><dt className="text-[11px] font-black uppercase text-zinc-400">Opened</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{formatDateTime(item.created_at)}</dd></div>
               <div><dt className="text-[11px] font-black uppercase text-zinc-400">SLA due</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{formatDateTime(item.sla_due_at)}</dd></div>
             </dl>
+          </section>
+
+          <section className="border-b border-zinc-200 bg-zinc-50/60 p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-zinc-950">Reported or attached content</h3>
+                <p className="mt-1 text-xs font-medium text-zinc-500">Open the source content and any attached media directly from this case.</p>
+              </div>
+              {contentLoading ? <LoaderCircle className="animate-spin text-zinc-400" size={18} /> : null}
+            </div>
+            <div className="mt-4 space-y-3">
+              {caseContent.map((entry, index) => (
+                <ContentPreview key={`${entry.type}-${entry.id || index}`} entry={entry} onOpenMedia={setSelectedMedia} />
+              ))}
+              {!contentLoading && !caseContent.length ? <p className="rounded-lg border border-dashed border-zinc-300 bg-white p-4 text-sm font-semibold text-zinc-500">No source content was resolved for this case.</p> : null}
+            </div>
           </section>
 
           {Object.keys(source).length ? (
@@ -108,21 +132,10 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
 
           {evidence.length ? (
             <section className="border-b border-zinc-200 p-4 sm:p-6">
-              <h3 className="text-sm font-black text-zinc-950">Documents and images</h3>
-              <p className="mt-1 text-xs font-medium text-zinc-500">Submitted registration evidence available before verification begins.</p>
+              <h3 className="text-sm font-black text-zinc-950">Attachments and evidence</h3>
+              <p className="mt-1 text-xs font-medium text-zinc-500">Submitted files, screenshots, recordings, and verification documents connected to this case.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {evidence.map((entry, index) => {
-                  const image = /^data:image\//i.test(entry.url || "") || String(entry.contentType || "").startsWith("image/") || /\.(png|jpe?g|webp|gif|heic|heif)(\?|$)/i.test(entry.url || "");
-                  return (
-                    <article key={`${entry.url || entry.path}-${index}`} className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
-                      {image && entry.url ? <img src={entry.url} alt={entry.label} className="h-40 w-full bg-zinc-100 object-cover" /> : <div className="grid h-24 place-items-center bg-zinc-100 text-zinc-500">{image ? <ImageIcon size={28} /> : <FileText size={28} />}</div>}
-                      <div className="p-3">
-                        <p className="break-words text-xs font-black text-zinc-800">{titleCase(entry.label)}</p>
-                        {entry.url ? <a href={entry.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-black text-emerald-700 hover:text-emerald-800"><ExternalLink size={13} /> Open evidence</a> : <p className="mt-2 text-xs font-semibold text-red-600">Evidence could not be opened.</p>}
-                      </div>
-                    </article>
-                  );
-                })}
+                {evidence.map((entry, index) => <EvidenceTile key={`${entry.url || entry.path}-${index}`} entry={entry} onOpenMedia={setSelectedMedia} />)}
               </div>
             </section>
           ) : null}
@@ -198,6 +211,113 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
 
         {error ? <div role="alert" className="border-t border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 sm:px-6">{error}</div> : null}
       </aside>
+      {selectedMedia ? <MediaLightbox media={selectedMedia} onClose={() => setSelectedMedia(null)} /> : null}
+    </div>
+  );
+}
+
+function mediaKind(entry = {}) {
+  if (entry.kind) return entry.kind;
+  const value = `${entry.contentType || ""} ${entry.url || ""} ${entry.path || ""}`.toLowerCase();
+  if (/image\//.test(value) || /\.(png|jpe?g|webp|gif|heic|heif|avif)(\?|$)/i.test(value)) return "image";
+  if (/video\//.test(value) || /\.(mp4|mov|webm|m4v|avi)(\?|$)/i.test(value)) return "video";
+  if (/audio\//.test(value) || /\.(mp3|m4a|wav|ogg|webm)(\?|$)/i.test(value)) return "audio";
+  return "document";
+}
+
+function MediaIcon({ kind }) {
+  if (kind === "image") return <ImageIcon size={24} />;
+  if (kind === "video") return <FileVideo size={24} />;
+  if (kind === "audio") return <FileAudio size={24} />;
+  return <FileText size={24} />;
+}
+
+function MediaTile({ entry, compact = false, onOpenMedia }) {
+  const kind = mediaKind(entry);
+  const label = entry.label || "Attachment";
+  if (!entry.url) {
+    return (
+      <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs font-semibold text-red-700">
+        {label} could not be opened.
+      </div>
+    );
+  }
+  if (kind === "image") {
+    return (
+      <button type="button" onClick={() => onOpenMedia?.({ ...entry, kind })} className={`overflow-hidden rounded-xl border border-zinc-200 bg-white text-left shadow-sm ${compact ? "min-w-52" : ""}`}>
+        <img src={entry.url} alt={label} className={`${compact ? "h-36" : "h-44"} w-full bg-zinc-100 object-cover`} />
+        <p className="break-words p-3 text-xs font-black text-zinc-800">{titleCase(label)}</p>
+      </button>
+    );
+  }
+  if (kind === "video") {
+    return (
+      <article className={`overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm ${compact ? "min-w-72" : ""}`}>
+        <video src={entry.url} controls preload="metadata" className={`${compact ? "h-36" : "h-44"} w-full bg-black object-contain`} />
+        <p className="break-words p-3 text-xs font-black text-zinc-800">{titleCase(label)}</p>
+      </article>
+    );
+  }
+  if (kind === "audio") {
+    return (
+      <article className={`rounded-xl border border-zinc-200 bg-white p-3 shadow-sm ${compact ? "min-w-72" : ""}`}>
+        <div className="mb-3 flex items-center gap-2 text-xs font-black text-zinc-800"><FileAudio size={17} /> {titleCase(label)}</div>
+        <audio src={entry.url} controls className="w-full" />
+      </article>
+    );
+  }
+  return (
+    <article className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-black text-zinc-800"><MediaIcon kind={kind} /> {titleCase(label)}</div>
+      <a href={entry.url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-black text-emerald-700 hover:text-emerald-800"><ExternalLink size={13} /> Open file</a>
+    </article>
+  );
+}
+
+function EvidenceTile({ entry, onOpenMedia }) {
+  return <MediaTile entry={entry} onOpenMedia={onOpenMedia} />;
+}
+
+function ContentPreview({ entry, onOpenMedia }) {
+  return (
+    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase text-emerald-700">{titleCase(entry.type || "content")}</p>
+          <h4 className="mt-1 text-base font-black text-zinc-950">{entry.title || "Case content"}</h4>
+          <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-6 text-zinc-600">{entry.description || "No written content was supplied."}</p>
+        </div>
+      </div>
+      {entry.meta?.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {entry.meta.map((meta) => <span key={meta} className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-600">{meta}</span>)}
+        </div>
+      ) : null}
+      {entry.media?.length ? (
+        <div className="kuntai-scrollbar-none mt-4 flex max-h-72 gap-3 overflow-x-auto pb-2">
+          {entry.media.map((media, index) => <MediaTile key={`${media.url || media.label}-${index}`} entry={media} compact onOpenMedia={onOpenMedia} />)}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function MediaLightbox({ media, onClose }) {
+  const kind = mediaKind(media);
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-zinc-950/75 p-4">
+      <button type="button" aria-label="Close media preview" onClick={onClose} className="absolute inset-0" />
+      <section className="relative z-10 w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-2xl">
+        <header className="flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+          <p className="truncate text-sm font-black text-zinc-900">{titleCase(media.label || "Media preview")}</p>
+          <button type="button" title="Close preview" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100"><X size={18} /></button>
+        </header>
+        <div className="max-h-[78vh] overflow-auto bg-zinc-950 p-3">
+          {kind === "image" ? <img src={media.url} alt={media.label || "Preview"} className="mx-auto max-h-[72vh] object-contain" /> : null}
+          {kind === "video" ? <video src={media.url} controls autoPlay className="mx-auto max-h-[72vh] w-full bg-black object-contain" /> : null}
+          {kind === "audio" ? <div className="rounded-lg bg-white p-4"><audio src={media.url} controls autoPlay className="w-full" /></div> : null}
+        </div>
+      </section>
     </div>
   );
 }

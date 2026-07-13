@@ -4,7 +4,6 @@ import {
   storeCountryContext,
 } from "../../../data/globalCountryProfiles";
 import {
-  formatDocumentRequirementLabel,
   getUrMallDocumentRequirements,
 } from "../../../data/globalDocumentRequirements";
 import { isMissingColumn } from "../explore/errors";
@@ -44,7 +43,7 @@ export const URMALL_BUSINESS_KINDS = [
   { id: "retail", label: "Retail Store", description: "Products, stock, discounts, delivery, and pickup." },
   { id: "restaurant", label: "Restaurant", description: "Daily menus, meal availability, food orders, and preparation times." },
   { id: "hotel", label: "Hotel", description: "Property galleries, rooms, nightly rates, and availability." },
-  { id: "property_agent", label: "Property Agent", description: "Verified houses, apartments, land, and commercial property for rent or sale." },
+  { id: "property_agent", label: "Real Estate Agent", description: "Homes, apartments, land, and commercial property for rent or sale." },
 ];
 
 const ACTIVE_BUSINESS_PREFIX = "kunthai.marketplace.active-business.v1";
@@ -129,16 +128,6 @@ async function uploadBusinessDocumentRequirements(userId, trustPayout, requireme
       fileUrl: await uploadBusinessFile(userId, trustPayout[requirement.fileField], "documents"),
     })),
   );
-}
-
-function requireBusinessDocuments(trustPayout, requirements) {
-  const missing = requirements.filter((requirement) =>
-    requirement.required && !trustPayout[requirement.fileField] && !trustPayout[requirement.nameField]
-  );
-
-  if (missing.length) {
-    throw new Error(`Upload ${missing.map(formatDocumentRequirementLabel).join(", ")} before submitting.`);
-  }
 }
 
 function buildBusinessDocumentRows(businessId, documentUploads) {
@@ -299,7 +288,6 @@ export async function submitSellerRegistration(registration) {
     country: registration.location.country,
     countryCode: registration.location.countryIso || countryProfile.iso2,
   });
-  requireBusinessDocuments(registration.trustPayout, documentRequirements);
   const readinessScore = calculateReadinessScore(registration);
   const [logoUrl, bannerUrl, documentUploads] = await Promise.all([
     uploadBusinessFile(userId, registration.identity.logoFile, "logos"),
@@ -307,7 +295,7 @@ export async function submitSellerRegistration(registration) {
     uploadBusinessDocumentRequirements(userId, registration.trustPayout, documentRequirements),
   ]);
 
-  const verified = documentUploads.some((document) => document.fileUrl);
+  const submittedDocuments = documentUploads.some((document) => document.fileUrl);
   const businessPayload = {
     user_id: userId,
     business_kind: registration.identity.businessKind || "retail",
@@ -334,7 +322,7 @@ export async function submitSellerRegistration(registration) {
     close_time: registration.operations.closeTime || null,
     logo_url: logoUrl || null,
     banner_url: bannerUrl || null,
-    verification_status: verified ? "submitted" : "pending",
+    verification_status: submittedDocuments ? "submitted" : "not_verified",
     readiness_score: readinessScore,
     updated_at: new Date().toISOString(),
   };

@@ -117,77 +117,11 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
 
                 <div className="mt-5"><TransportCautionCard /></div>
 
-                <p className="mt-8 text-lg font-black text-slate-800">
-                  Learn about transport registration
-                </p>
-
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  Understand how registration works, what information is required,
-                  what KunThai UrRide can provide, and the responsibilities of
-                  operators, companies, and fleet owners.
-                </p>
-
-                <p className="mt-8 text-lg font-black text-slate-800">
-                  Read our policy and guidance
-                </p>
-
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  KunThai may assist with bookings, route records, emergency reporting,
-                  account verification, fraud prevention, and lawful information requests.
-                  KunThai is a technology platform and cannot physically guarantee safety,
-                  prevent crime, or replace emergency services.
-                </p>
-
-                <div className="mt-5 grid gap-3">
-                  <PolicyItem
-                    title="Registration accuracy"
-                    body="Use your real name, active phone number, correct vehicle or fleet details, and valid documents. False information may delay approval or lead to account restriction."
-                  />
-
-                  <PolicyItem
-                    title="How a company invites an operator"
-                    body="The company owner creates the company and fleet, then adds the operator using the operator's public KunThai ID. The invitation appears in the operator's Transport dashboard with Accept and Reject actions."
-                  />
-
-                  <PolicyItem
-                    title="How an operator joins"
-                    body="The operator checks the company and fleet details, accepts only if they recognize the company, and uploads their own national ID, driver or rider license, and a recent selfie. The company handles company records, vehicle details, fleet photos, and vehicle documents."
-                  />
-
-                  <PolicyItem
-                    title="Company prices and passenger information"
-                    body="The company owner or CEO sets the starting price, per-kilometre price, and hourly price for company fleets. Operators do not set company fleet prices. Passengers can see approved fleet photos and the operator selfie so they can confirm the correct person and vehicle before a trip."
-                  />
-
-                  <PolicyItem
-                    title="Invitation and account safety"
-                    body="An invitation does not give a company the operator's password or ownership of the operator's KunThai account. Operators can reject unknown requests, and leaving a company does not delete their personal account or identity."
-                  />
-
-                  <PolicyItem
-                    title="Safety responsibility"
-                    body="KunThai can provide tools, route guidance, booking records, contact details, reporting channels, and emergency information. However, KunThai cannot physically prevent danger, accidents, criminal activity, unsafe driving, or misconduct in the real world."
-                  />
-
-                  <PolicyItem
-                    title="Verification and review"
-                    body="Your registration may be reviewed before full access is granted. We may request documents, photos, location details, or additional checks to protect passengers, operators, companies, and the platform."
-                  />
-
-                  <PolicyItem
-                    title="Information sharing"
-                    body="KunThai may share necessary trip, operator, passenger, fleet, location, payment, or account information when required by law, court order, verified government request, emergency investigation, fraud review, or serious safety incident."
-                  />
-
-                  <PolicyItem
-                    title="Platform limitation"
-                    body="KunThai is a technology platform. We guide, connect, inform, and support users, but we are not a police service, ambulance service, insurance company, or physical security provider."
-                  />
-
-                  <PolicyItem
-                    title="Professional conduct"
-                    body="Operators and companies must treat passengers respectfully, avoid unsafe driving, follow local transport laws, protect customer privacy, and never misuse passenger information."
-                  />
+                <div className="mt-5 rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-sm font-black text-slate-950">Professional responsibility</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                    KunThai may assist with bookings, route records, emergency reporting, account verification, fraud prevention, and lawful information requests. UrRide is a technology platform, so operators and companies must still follow local transport laws, protect passengers, and keep every trip safe and respectful.
+                  </p>
                 </div>
               </div>
 
@@ -200,7 +134,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                 >
                   {leavingCaution
                     ? "Opening registration options..."
-                    : "I Have Read and Accepted the Condition"}
+                    : "I Understand and Want to Continue"}
                 </button>
               </div>
             </section>
@@ -313,16 +247,5 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
         </main>
       </ScreenSlideTransition>
     </>
-  );
-}
-
-function PolicyItem({ title, body }) {
-  return (
-    <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-      <h3 className="text-sm font-black text-slate-950">{title}</h3>
-      <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-        {body}
-      </p>
-    </div>
   );
 }

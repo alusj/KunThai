@@ -998,7 +998,7 @@ export default function NearbyAreaScreen({
         if (cancelled) return;
         const nextLocation = buildPinnedLocationPreview(location, resolvedPickerLabels.currentName);
         setCurrentPickerLocation(nextLocation);
-        setPickerStatus(formatPinnedLocationStatus("Your current location is ", nextLocation));
+        setPickerStatus("Current location ready. Review the address below, then add the location.");
       })
       .finally(() => {
         if (!cancelled) setPickerBusy(false);
@@ -1038,7 +1038,7 @@ export default function NearbyAreaScreen({
 
       if (isBusinessTarget) {
         setCurrentPickerLocation(preview);
-        setPickerStatus(formatPinnedLocationStatus("Pinned location: ", preview));
+        setPickerStatus("Pin ready. Review the address above, then add the location.");
       } else {
         setAddLocationDraft((current) => ({
           ...current,
@@ -1048,7 +1048,7 @@ export default function NearbyAreaScreen({
           coordinatesLabel: preview.coordinatesLabel,
           source: "dropPin",
         }));
-        setAddLocationStatus(formatPinnedLocationStatus("Pinned location ready: ", preview));
+        setAddLocationStatus("Pin ready. Review the address above, then add the location.");
       }
 
       setDropPinExpandSignal((value) => value + 1);
@@ -1492,7 +1492,7 @@ export default function NearbyAreaScreen({
         coordinatesLabel: preview.coordinatesLabel,
         source: "currentLocation",
       }));
-      setAddLocationStatus(formatPinnedLocationStatus("Your current location is ", preview));
+      setAddLocationStatus("Current location ready. Review the address in the form, then submit when the details are correct.");
     } catch (error) {
       const fallbackPoint = normalizePosition(mapCenterRef.current) || normalizePosition(userLocationRef.current) || normalizePosition(userLocation);
       if (fallbackPoint) {
@@ -1547,7 +1547,7 @@ export default function NearbyAreaScreen({
       }));
       setAddLocationMode("form");
       setFocusMode(false);
-      setAddLocationStatus(formatPinnedLocationStatus("Pinned location added to the form. ", preview));
+      setAddLocationStatus("Pinned location added to the form. Review the address before submitting.");
     } catch (error) {
       setAddLocationStatus(getFriendlyLocationError(error, "Unable to read the pinned location. Try again."));
     } finally {

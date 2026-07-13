@@ -24,7 +24,9 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
   const discountPercent = hasDiscount ? Math.round(((product.price - product.discountPrice) / product.price) * 100) : 0;
-  const verifiedSeller = product.seller?.verificationStatus === "verified";
+  const verifiedSeller = ["verified", "approved", "recommended", "verified_recommended"].includes(
+    String(product.seller?.verificationStatus || "").toLowerCase(),
+  );
 
   function openProduct() {
     onProductSelect?.(product);

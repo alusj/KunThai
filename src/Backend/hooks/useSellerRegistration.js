@@ -16,10 +16,6 @@ import {
   storeCountryContext,
   validateCountryPhone,
 } from "../../data/globalCountryProfiles";
-import {
-  formatDocumentRequirementLabel,
-  getUrMallDocumentRequirements,
-} from "../../data/globalDocumentRequirements";
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
 
@@ -387,21 +383,6 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
 
     if (nextStep === 2 && ["retail", "restaurant"].includes(form.identity.businessKind) && !form.operations.deliveryEnabled && !form.operations.pickupEnabled) {
       nextErrors.fulfillment = "Enable delivery, pickup, or both.";
-    }
-
-    if (nextStep === 3) {
-      getUrMallDocumentRequirements({
-        country: form.location.country,
-        countryCode: form.location.countryIso,
-      }).forEach((requirement) => {
-        if (
-          requirement.required &&
-          !form.trustPayout[requirement.fileField] &&
-          !form.trustPayout[requirement.nameField]
-        ) {
-          nextErrors[requirement.errorKey] = `Upload ${formatDocumentRequirementLabel(requirement).toLowerCase()}.`;
-        }
-      });
     }
 
     setErrors(nextErrors);

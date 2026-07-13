@@ -21,6 +21,21 @@ function moneyTotal(items) {
   return items.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
 }
 
+function normalizeVerificationStatus(status, hasDocuments) {
+  const value = String(status || "").toLowerCase();
+  if (["recommended", "verified_recommended", "verify-recommended", "verified recommended"].includes(value)) return "recommended";
+  if (["verified", "approved"].includes(value)) return "verified";
+  if (["submitted", "pending", "verification_pending", "under_review", "pending_review", "in_review"].includes(value)) return "pending";
+  return hasDocuments ? "pending" : "not_verified";
+}
+
+function getVerificationLabel(status) {
+  if (status === "recommended") return "Verified recommended";
+  if (status === "verified") return "Verified Seller";
+  if (status === "pending") return "Verification Pending";
+  return "Not verified";
+}
+
 export async function fetchSellerOverview() {
   const registeredBusiness = await readRegisteredBusiness();
 
@@ -29,10 +44,12 @@ export async function fetchSellerOverview() {
   }
 
   const score = calculateReadinessScore(registeredBusiness);
-  const verified = Boolean(
+  const hasDocuments = Boolean(
     registeredBusiness.trustPayout.idDocumentName ||
       registeredBusiness.trustPayout.businessDocumentName,
   );
+  const verificationStatus = normalizeVerificationStatus(registeredBusiness.verificationStatus, hasDocuments);
+  const verified = ["recommended", "verified"].includes(verificationStatus);
   const todayStart = startOfDay(new Date());
 
   const [ordersResult, messagesResult, productsResult] = await Promise.all([
@@ -84,8 +101,8 @@ export async function fetchSellerOverview() {
       currency: registeredBusiness.location.currency || "",
       countryIso: registeredBusiness.location.countryIso || "",
       verified,
-      verificationStatus: registeredBusiness.verificationStatus,
-      verificationLabel: verified ? "Verified Seller" : "Verification Pending",
+      verificationStatus,
+      verificationLabel: getVerificationLabel(verificationStatus),
       rating: 0,
       reviewCount: 0,
     },

@@ -8,7 +8,7 @@ export const marketplaceVerificationStatuses = {
     colorClass: "border-red-200 bg-red-50 text-red-700",
     panelClass: "border-red-200 bg-red-50 text-red-900",
     buyerNote: "Caution: this seller has not completed marketplace verification. Confirm the seller, product, and payment details before sending money.",
-    sellerNote: "Your store is not verified yet. Buyers may avoid paying until your identity and business details are checked.",
+    sellerNote: "Your store is not verified yet. Add clear government-recognized documents and request review when you are ready.",
     actions: ["Choose verified sellers", "Message seller first", "Report concern"],
   },
   pending: {
@@ -47,7 +47,8 @@ export function normalizeMarketplaceVerificationStatus(status, verified) {
   const value = String(status || "").toLowerCase();
   if (["recommended", "verified_recommended", "verify-recommended", "verified recommended"].includes(value)) return "recommended";
   if (["verified", "approved"].includes(value)) return "verified";
-  if (["submitted", "pending", "verification_pending", "under_review"].includes(value)) return "pending";
+  if (["submitted", "pending", "verification_pending", "under_review", "pending_review", "in_review", "review"].includes(value)) return "pending";
+  if (["not_verified", "notverified", "none", "false"].includes(value)) return "notVerified";
   if (!value && verified === true) return "verified";
   return "notVerified";
 }

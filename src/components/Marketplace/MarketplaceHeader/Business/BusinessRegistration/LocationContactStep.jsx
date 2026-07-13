@@ -95,7 +95,7 @@ export default function LocationContactStep({ registration }) {
         tone="blue"
       />
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
         <button
           type="button"
           onClick={locateBusiness}
@@ -103,6 +103,9 @@ export default function LocationContactStep({ registration }) {
         >
           Locate me
         </button>
+        <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+          Recommended
+        </span>
         <button
           type="button"
           onClick={openDropPinPicker}
@@ -212,7 +215,7 @@ export default function LocationContactStep({ registration }) {
                 Preparing location tools...
               </p>
             ) : null}
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <div className="mt-5 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
               <button
                 type="button"
                 onClick={openCurrentLocationPicker}
@@ -220,6 +223,9 @@ export default function LocationContactStep({ registration }) {
               >
                 Yes, locate
               </button>
+              <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+                Recommended
+              </span>
               <button
                 type="button"
                 onClick={openDropPinPicker}

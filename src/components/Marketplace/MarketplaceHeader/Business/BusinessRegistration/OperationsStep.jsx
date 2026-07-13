@@ -43,8 +43,8 @@ export default function OperationsStep({ registration }) {
       </div> : (
         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold leading-6 text-blue-900">
           {kind === "hotel"
-            ? "Room types, nightly rates, photographs, and availability are managed from the dedicated hotel dashboard after approval."
-            : "Property listings, viewing information, photographs, and availability are managed from the dedicated Property Agent dashboard after approval."}
+            ? "Room types, nightly rates, photographs, and availability are managed from the dedicated hotel dashboard after registration."
+            : "Property listings, viewing information, photographs, and availability are managed from the dedicated Real Estate Agent dashboard after registration."}
         </div>
       )}
       {errors.fulfillment ? <p className="text-xs font-bold text-red-600">{errors.fulfillment}</p> : null}

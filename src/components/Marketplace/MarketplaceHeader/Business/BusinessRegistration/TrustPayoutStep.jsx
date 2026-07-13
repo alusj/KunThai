@@ -15,12 +15,12 @@ export default function TrustPayoutStep({ registration }) {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+      <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="font-black text-emerald-900">Verified Seller Badge Preview</p>
-            <p className="mt-1 text-sm font-medium text-emerald-700">
-              KunThai sends document fields that apply to this market privately to the admin verification queue.
+            <p className="font-black text-blue-950">Verification documents</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-blue-800">
+              Upload clear documents from a known government organization when you have them. You can still submit this UrMall business without documents, but the seller profile will show Not verified until the documents are added and approved.
             </p>
           </div>
         </div>

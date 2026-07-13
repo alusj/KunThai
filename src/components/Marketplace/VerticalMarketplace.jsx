@@ -249,8 +249,8 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
         </VerticalSection>
       ) : null}
       {sections.includes("properties") ? (
-        <VerticalSection eyebrow="Property" title="Property for rent and sale" subtitle="Verified property agents can publish available homes, land, and commercial spaces.">
-          <CardLayout compact={mode === "all"} empty="No verified property listings are available yet.">
+        <VerticalSection eyebrow="Property" title="Property for rent and sale" subtitle="Real estate agents can publish available homes, land, and commercial spaces. Check the seller verification badge before you transact.">
+          <CardLayout compact={mode === "all"} empty="No property listings are available yet.">
             {catalog.properties.map((item) => <PropertyCard key={item.id} item={item} onClick={() => setSelected({ type: "property", item })} onVerification={() => setVerification(item)} />)}
           </CardLayout>
         </VerticalSection>

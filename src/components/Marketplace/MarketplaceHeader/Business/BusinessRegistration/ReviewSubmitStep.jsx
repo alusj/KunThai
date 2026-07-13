@@ -9,6 +9,7 @@ export default function ReviewSubmitStep({ registration }) {
     country: form.location.country,
     countryCode: form.location.countryIso,
   });
+  const uploadedDocumentCount = documentRequirements.filter((requirement) => form.trustPayout[requirement.nameField]).length;
 
   return (
     <div className="space-y-4">
@@ -33,20 +34,25 @@ export default function ReviewSubmitStep({ registration }) {
         <p>{form.location.city}, {form.location.country}</p>
         <p>{form.location.address}</p>
         {form.location.website ? <p>{form.location.website}</p> : null}
-        <p>{form.location.phone} · {form.location.email}</p>
+        <p>{form.location.phone} | {form.location.email}</p>
       </SummaryCard>
 
       <SummaryCard title="Operations" onEdit={() => goToStep(2)}>
         <p>Type: {form.operations.businessType}</p>
-        <p>Delivery: {form.operations.deliveryEnabled ? "Yes" : "No"} · Pickup: {form.operations.pickupEnabled ? "Yes" : "No"}</p>
+        <p>Delivery: {form.operations.deliveryEnabled ? "Yes" : "No"} | Pickup: {form.operations.pickupEnabled ? "Yes" : "No"}</p>
         <p>{form.operations.openTime} - {form.operations.closeTime}</p>
       </SummaryCard>
 
       <SummaryCard title="Trust & Payout" onEdit={() => goToStep(3)}>
         <p>
           {form.trustPayout.connectKunThaiMoney
-              ? "KunThai Money connected"
-              : "Bank fallback selected"}
+            ? "KunThai Money connected"
+            : "Bank fallback selected"}
+        </p>
+        <p className={uploadedDocumentCount ? "text-blue-700" : "text-amber-700"}>
+          {uploadedDocumentCount
+            ? "Verification documents will be sent for review."
+            : "No verification documents uploaded yet. This business can submit, but it will show Not verified until documents are added and approved."}
         </p>
         {documentRequirements.map((requirement) => (
           <p key={requirement.key}>

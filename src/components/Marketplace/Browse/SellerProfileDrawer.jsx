@@ -126,6 +126,13 @@ function getVerificationStatus(seller) {
     };
   }
 
+  if (["not_verified", "notverified", "false", "none"].includes(rawStatus)) {
+    return {
+      label: "Not Verified",
+      className: "border-red-100 bg-red-50 text-red-700",
+    };
+  }
+
   return {
     label: "Verification Pending",
     className: "border-amber-100 bg-amber-50 text-amber-700",

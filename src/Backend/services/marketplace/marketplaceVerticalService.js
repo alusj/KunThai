@@ -265,6 +265,7 @@ export async function savePropertyListing(businessId, input = {}, onProgress) {
     video_url: videoUrl,
     amenities: String(input.amenitiesText || "").split(",").map((item) => item.trim()).filter(Boolean),
     availability_status: input.availability_status || "available",
+    authorization_status: "verified",
     published: Boolean(input.published),
     updated_at: new Date().toISOString(),
   };

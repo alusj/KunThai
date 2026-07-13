@@ -1,6 +1,29 @@
-import { BadgeCheck, ChevronRight, Store } from "lucide-react";
+import { AlertTriangle, BadgeCheck, ChevronRight, Clock, Store } from "lucide-react";
 
 import { useSellerOverview } from "../../../../../../Backend/hooks/useSellerOverview";
+
+function getVerificationTone(status, verified) {
+  const value = String(status || "").toLowerCase();
+  if (verified || ["verified", "recommended"].includes(value)) {
+    return {
+      icon: BadgeCheck,
+      label: "Verified",
+      className: "border-emerald-300/30 bg-emerald-400/15 text-emerald-100",
+    };
+  }
+  if (["pending", "submitted", "under_review", "pending_review", "in_review"].includes(value)) {
+    return {
+      icon: Clock,
+      label: "Verification pending",
+      className: "border-amber-300/30 bg-amber-300/15 text-amber-100",
+    };
+  }
+  return {
+    icon: AlertTriangle,
+    label: "Not verified",
+    className: "border-red-300/30 bg-red-400/15 text-red-100",
+  };
+}
 
 export default function SellerDrawerProfile({ onOpenProfile }) {
   const { business, health, storeStatus, loading } = useSellerOverview();
@@ -12,6 +35,8 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
   }
 
   const statusLabel = storeStatus?.open ? "Store open" : "Store closed";
+  const verification = getVerificationTone(business.verificationStatus, business.verified);
+  const VerificationIcon = verification.icon;
 
   return (
     <button
@@ -45,6 +70,10 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
           <p className="mt-1 truncate text-xs font-semibold text-white/55">
             {business.location || statusLabel}
           </p>
+          <span className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${verification.className}`}>
+            <VerificationIcon size={13} strokeWidth={2.5} />
+            <span className="truncate">{business.verificationLabel || verification.label}</span>
+          </span>
         </div>
 
         <ChevronRight className="shrink-0 text-white/60" size={19} />

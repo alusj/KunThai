@@ -249,12 +249,12 @@ function PropertyDashboard({ business }) {
   }
 
   return (
-    <WorkspaceShell icon={House} eyebrow="Property Agent workspace" title={business.name} subtitle="Publish authorised property for rent or sale." stats={[{ label: "Listings", value: listings.length }, { label: "Available", value: counts.available }, { label: "Published", value: counts.published }, { label: "Awaiting proof", value: listings.filter((item) => item.authorization_status === "pending").length }]}>
+    <WorkspaceShell icon={House} eyebrow="Real Estate Agent workspace" title={business.name} subtitle="Publish property for rent or sale while seller verification remains a separate trust badge." stats={[{ label: "Listings", value: listings.length }, { label: "Available", value: counts.available }, { label: "Published", value: counts.published }, { label: "Drafts", value: listings.filter((item) => !item.published).length }]}>
       <VerticalActivityStrip activity={activity} commerceLabel="Bookings" commerceValue={activity.bookings} />
       <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm">
         <SectionHeading eyebrow="Property desk" title="Properties and enquiries"><PrimaryButton onClick={openNewProperty} label="Add property" className="bg-violet-700" /></SectionHeading>
         <div className="mt-5 grid gap-4 md:grid-cols-2">{listings.map((item) => <PropertyListingCard key={item.id} item={item} business={business} onEdit={() => editProperty(item)} onDelete={async () => { await deletePropertyListing(item); await load(); notifyVerticalListingUpdated(business.id); showToast("Property deleted.", "success"); }} />)}</div>
-        {!listings.length ? <EmptyState text="Add the first authorised property listing." /> : null}
+        {!listings.length ? <EmptyState text="Add the first real estate listing." /> : null}
       </section>
       <BookingRequests bookings={activity.recentBookings} />
       <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingProperty ? "Edit property" : "Add property"} subtitle="Property listing" formId="property-listing-form" actionLabel={editingProperty ? "Save changes" : "Add property"} processingLabel={editingProperty ? "Saving..." : "Adding..."} processing={submitting} accentClass="bg-violet-700" uploadStage={uploadStage} uploadTitle="Adding your property">
@@ -331,6 +331,8 @@ function MealCard({ business, item, onDelete, onEdit, onToggle }) {
 }
 
 function PropertyListingCard({ business, item, onDelete, onEdit }) {
+  const listingState = item.published ? "Published" : "Draft";
+  item.authorization_status = listingState;
   return <article className="relative rounded-2xl border border-gray-200 bg-white"><div className="absolute right-3 top-3 z-10"><SellerItemActions label={item.title} shareUrl={buildShareUrl("property", item.id)} onDelete={onDelete} onEdit={onEdit} /></div><MediaImage src={item.image_urls?.[0]} alt={item.title} className="h-44 w-full rounded-t-2xl object-cover" icon={House} /><div className="p-4"><span className="rounded-full bg-violet-50 px-2 py-1 text-[11px] font-black uppercase text-violet-700">For {item.purpose}</span><h3 className="mt-3 truncate pr-8 text-lg font-black">{item.title}</h3><p className="mt-1 flex items-center gap-1 text-sm font-bold text-gray-500"><MapPin size={15} /> {item.address}</p><div className="mt-3 flex gap-3 text-xs font-bold text-gray-500"><span className="flex gap-1"><BedDouble size={15} /> {item.bedrooms}</span><span className="flex gap-1"><Bath size={15} /> {item.bathrooms}</span><strong className="ml-auto text-gray-950">{business.currency} {Number(item.price).toLocaleString()}</strong></div><div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-black text-gray-500"><span className="capitalize">{item.authorization_status}</span><span>·</span><span>{item.image_urls?.length || 0} images</span>{item.video_url ? <><span>·</span><span className="flex items-center gap-1"><Film size={13} /> Video</span></> : null}</div></div></article>;
 }
 

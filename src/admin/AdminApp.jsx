@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Database, LoaderCircle, ShieldOff, Wrench } from "lucide-react";
+import { ArrowLeft, Database, Globe2, LoaderCircle, ShieldOff, Wrench } from "lucide-react";
 import { useAuth } from "../Backend/hooks/useAuth";
 import supabase from "../Backend/lib/supabaseClient";
 import AdminLogin from "./AdminLogin";
 import AdminMfaGate from "./AdminMfaGate";
 import { ADMIN_NAV_GROUPS, canAccess } from "./adminConfig";
-import { enableAdminPreview, getAdminAccess, getAdminCases, getDashboardSummary, isAdminPreview } from "./adminService";
+import { enableAdminPreview, getAdminAccess, getAdminCases, getCaseSearchText, getCountryOptions, getDashboardSummary, isAdminPreview, matchesCaseCountry } from "./adminService";
 import AdminShell from "./components/AdminShell";
 import CaseDrawer from "./components/CaseDrawer";
 import {
@@ -61,6 +61,39 @@ function initialPage() {
   return page || "overview";
 }
 
+function buildCaseSummary(cases = [], fallback = {}) {
+  const open = cases.filter((item) => !["resolved", "closed"].includes(item.status));
+  return {
+    ...fallback,
+    openCases: open.length,
+    urgentCases: open.filter((item) => ["urgent", "critical"].includes(item.priority)).length,
+    unassignedCases: open.filter((item) => !item.assignee_user_id).length,
+    overdueCases: open.filter((item) => item.sla_due_at && new Date(item.sla_due_at) < new Date()).length,
+    bySector: Object.fromEntries(["explore", "marketplace", "transport"].map((sector) => [sector, open.filter((item) => item.sector === sector).length])),
+    byQueue: Object.fromEntries(["verification", "reports", "support", "finance"].map((queue) => [queue, open.filter((item) => item.queue === queue).length])),
+  };
+}
+
+function GlobalOperationsFilter({ countryFilter, countryOptions, onCountryFilterChange, totalCases, visibleCases }) {
+  return (
+    <section className="mb-5 flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700"><Globe2 size={19} /></span>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-zinc-950">Global case scope</p>
+          <p className="mt-0.5 text-xs font-semibold text-zinc-500">{visibleCases} of {totalCases} cases shown in this country scope.</p>
+        </div>
+      </div>
+      <label className="min-w-56">
+        <span className="sr-only">Country scope</span>
+        <select value={countryFilter} onChange={(event) => onCountryFilterChange(event.target.value)} className="h-10 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm font-black text-zinc-800 outline-none focus:border-emerald-600 focus:bg-white">
+          {countryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>
+    </section>
+  );
+}
+
 function AdminWorkspace({ access, user, preview }) {
   const [requestedPage, setPageState] = useState(initialPage);
   const [summary, setSummary] = useState({ openCases: 0, urgentCases: 0, unassignedCases: 0, overdueCases: 0, resolvedToday: 0, bySector: {}, byQueue: {} });
@@ -70,6 +103,7 @@ function AdminWorkspace({ access, user, preview }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
+  const [countryFilter, setCountryFilter] = useState("all");
 
   const visiblePages = useMemo(() => new Set(ADMIN_NAV_GROUPS.flatMap((group) => group.items).filter((item) => canAccess(access, item.permission, item.sector)).map((item) => item.id)), [access]);
   const page = visiblePages.has(requestedPage) ? requestedPage : "overview";
@@ -114,21 +148,24 @@ function AdminWorkspace({ access, user, preview }) {
     setSelectedCase((current) => current?.id === updated.id ? { ...current, ...updated } : current);
   }
 
-  const searchedCases = globalSearch ? cases.filter((item) => `${item.case_number} ${item.title} ${item.description}`.toLowerCase().includes(globalSearch.toLowerCase())) : cases;
+  const countryCases = useMemo(() => cases.filter((item) => matchesCaseCountry(item, countryFilter)), [cases, countryFilter]);
+  const countryOptions = useMemo(() => getCountryOptions(cases), [cases]);
+  const searchedCases = globalSearch ? countryCases.filter((item) => getCaseSearchText(item).includes(globalSearch.toLowerCase())) : countryCases;
+  const visibleSummary = useMemo(() => buildCaseSummary(countryCases, summary), [countryCases, summary]);
 
   if (loading) return <LoadingScreen message="Loading queues and permissions…" />;
 
   let content;
-  if (page === "overview") content = <OverviewView summary={summary} cases={cases} onOpenCase={setSelectedCase} onNavigate={setPage} refreshing={refreshing} onRefresh={() => refresh(true)} />;
+  if (page === "overview") content = <OverviewView summary={visibleSummary} cases={countryCases} onOpenCase={setSelectedCase} onNavigate={setPage} refreshing={refreshing} onRefresh={() => refresh(true)} />;
   else if (page === "my-work") content = <QueueView title={globalSearch ? `Search results for “${globalSearch}”` : "My work"} description={globalSearch ? "Matching cases across your permitted sectors." : "Cases assigned to you and unassigned cases available to claim."} cases={searchedCases} onOpenCase={setSelectedCase} />;
   else if (page === "users") content = <UsersView access={access} />;
-  else if (["explore", "marketplace", "transport"].includes(page)) content = <SectorView sector={page} cases={cases} onOpenCase={setSelectedCase} />;
-  else if (page === "verification") content = <QueueView title="Verification" description="Seller, operator, company, fleet, document, and profile review work." cases={cases} defaultQueue="verification" onOpenCase={setSelectedCase} />;
-  else if (page === "reports") content = <QueueView title="Reports and safety" description="Content reports, fraud, safety incidents, and Area View validation." cases={cases} defaultQueue="reports" onOpenCase={setSelectedCase} />;
-  else if (page === "support") content = <QueueView title="Support and disputes" description="User, seller, order, trip, and operator support requiring administrative action." cases={cases} defaultQueue="support" onOpenCase={setSelectedCase} />;
+  else if (["explore", "marketplace", "transport"].includes(page)) content = <SectorView sector={page} cases={countryCases} onOpenCase={setSelectedCase} />;
+  else if (page === "verification") content = <QueueView title="Verification" description="Seller, operator, company, fleet, document, and profile review work." cases={countryCases} defaultQueue="verification" onOpenCase={setSelectedCase} />;
+  else if (page === "reports") content = <QueueView title="Reports and safety" description="Content reports, fraud, safety incidents, and Area View validation." cases={countryCases} defaultQueue="reports" onOpenCase={setSelectedCase} />;
+  else if (page === "support") content = <QueueView title="Support and disputes" description="My Voice, user, seller, order, trip, and operator support requiring administrative action." cases={countryCases} defaultQueue="support" onOpenCase={setSelectedCase} />;
   else if (page === "notifications") content = <NotificationsView access={access} />;
-  else if (page === "finance") content = <FinanceView cases={cases} onOpenCase={setSelectedCase} />;
-  else if (page === "analytics") content = <AnalyticsView summary={summary} cases={cases} />;
+  else if (page === "finance") content = <FinanceView cases={countryCases} onOpenCase={setSelectedCase} />;
+  else if (page === "analytics") content = <AnalyticsView summary={visibleSummary} cases={countryCases} />;
   else if (page === "team") content = <TeamView access={access} />;
   else if (page === "audit") content = <AuditView />;
   else if (page === "settings") content = <SettingsView access={access} />;
@@ -139,12 +176,13 @@ function AdminWorkspace({ access, user, preview }) {
       user={user}
       page={page}
       setPage={setPage}
-      caseCount={cases.filter((item) => !["resolved", "closed"].includes(item.status)).length}
+      caseCount={countryCases.filter((item) => !["resolved", "closed"].includes(item.status)).length}
       onActivity={handleAdminActivity}
       onSearch={(value) => { setGlobalSearch(value); setPage("my-work"); }}
     >
       {preview ? <div className="mb-4 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-800"><Wrench size={15} /> Development preview. Production access still requires a database assignment and MFA.</div> : null}
       {error ? <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div> : null}
+      <GlobalOperationsFilter countryFilter={countryFilter} countryOptions={countryOptions} onCountryFilterChange={setCountryFilter} totalCases={cases.length} visibleCases={countryCases.length} />
       {content}
       {selectedCase ? <CaseDrawer item={selectedCase} access={access} onClose={() => setSelectedCase(null)} onUpdated={updateCase} /> : null}
     </AdminShell>

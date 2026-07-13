@@ -28,6 +28,8 @@ import { ADMIN_ROLES, ADMIN_SECTORS, formatDateTime, formatRelativeTime, titleCa
 import {
   approveNotificationCampaign,
   createNotificationCampaign,
+  getCaseSearchText,
+  getCaseTypeLabel,
   getAdminTeam,
   getAuditLog,
   getFeatureFlags,
@@ -148,16 +150,28 @@ export function OverviewView({ summary, cases, onOpenCase, onNavigate, refreshin
 
 export function QueueView({ title, description, cases, onOpenCase, defaultQueue = "", defaultSector = "", assignee = "", hideHeading = false }) {
   const [status, setStatus] = useState("open");
+  const [caseType, setCaseType] = useState("all");
   const [search, setSearch] = useState("");
+  const typeOptions = useMemo(() => {
+    const options = new Map();
+    cases.forEach((item) => {
+      if (defaultQueue && item.queue !== defaultQueue) return;
+      if (defaultSector && item.sector !== defaultSector) return;
+      const value = item.case_type || item.resource_type || "case";
+      options.set(value, getCaseTypeLabel(item));
+    });
+    return Array.from(options.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [cases, defaultQueue, defaultSector]);
   const visible = useMemo(() => cases.filter((item) => {
     if (defaultQueue && item.queue !== defaultQueue) return false;
     if (defaultSector && item.sector !== defaultSector) return false;
     if (assignee === "me" && !item.assignee_user_id) return false;
     if (status === "open" && ["resolved", "closed"].includes(item.status)) return false;
     if (status !== "open" && status !== "all" && item.status !== status) return false;
-    if (search && !`${item.case_number} ${item.title} ${item.description}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (caseType !== "all" && item.case_type !== caseType && item.resource_type !== caseType) return false;
+    if (search && !getCaseSearchText(item).includes(search.toLowerCase())) return false;
     return true;
-  }), [assignee, cases, defaultQueue, defaultSector, search, status]);
+  }), [assignee, caseType, cases, defaultQueue, defaultSector, search, status]);
 
   return (
     <>
@@ -166,6 +180,10 @@ export function QueueView({ title, description, cases, onOpenCase, defaultQueue 
         <label className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search this queue" className="h-10 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-9 pr-3 text-sm font-semibold outline-none focus:border-emerald-600 focus:bg-white" /></label>
         <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-10 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-bold text-zinc-700 outline-none focus:border-emerald-600">
           <option value="open">Open work</option><option value="new">New</option><option value="in_review">In review</option><option value="waiting_information">Waiting for information</option><option value="resolved">Resolved</option><option value="all">All statuses</option>
+        </select>
+        <select value={caseType} onChange={(event) => setCaseType(event.target.value)} className="h-10 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-bold text-zinc-700 outline-none focus:border-emerald-600">
+          <option value="all">All content types</option>
+          {typeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
         <span className="whitespace-nowrap px-2 text-xs font-black text-zinc-500">{visible.length} cases</span>
       </div>
