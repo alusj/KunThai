@@ -24,4 +24,12 @@ export const locationStatusStyles = {
     label: "Verified Location",
     className: "border-green-200 bg-green-100 text-green-700",
   },
+  approved: {
+    label: "Approved",
+    className: "border-green-200 bg-green-100 text-green-700",
+  },
+  rejected: {
+    label: "Declined",
+    className: "border-rose-200 bg-rose-100 text-rose-700",
+  },
 };

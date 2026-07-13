@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiBookmark,
+  FiCheckCircle,
   FiChevronDown,
   FiChevronUp,
   FiCrosshair,
@@ -28,11 +29,13 @@ import {
   getActiveTransportOperators,
   getApprovedNearbyLocations,
   deleteNearbySearchHistory,
+  getMyNearbyAreaLocationReviews,
   getWeatherCacheNearArea,
   getRecentSearchHistory,
   saveSearchHistory,
   submitNearbyAreaLocation,
   subscribeToAreaViewLiveData,
+  subscribeToMyNearbyAreaLocationReviews,
 } from "../../Backend/services/nearbyAreaLiveService";
 import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
 import {
@@ -82,6 +85,7 @@ const WEATHER_REFRESH_DEBOUNCE_MS = 900;
 const LIVE_AREA_REFRESH_METERS = 1600;
 const LIVE_AREA_REFRESH_MS = 1000 * 60 * 2;
 const LIVE_AREA_RADIUS_KM = 25;
+const AREA_LOCATION_REVIEW_DISMISS_KEY = "kuntai-area-location-review-dismissed-v1";
 const ONE_KM_PREVIEW_METERS = 1000;
 const ONE_KM_ROUTE_SEARCH_METERS = 1350;
 const ONE_KM_ROUTE_START_SNAP_LIMIT_METERS = 160;
@@ -165,6 +169,8 @@ function createAddLocationDraft() {
     lat: null,
     lng: null,
     coordinatesLabel: "",
+    suggestedAddress: "",
+    accuracyMeters: null,
     source: "",
   };
 }
@@ -281,12 +287,63 @@ function buildPinnedLocationPreview(location, fallbackName = "Pinned location") 
   };
 }
 
+function buildExactMapPointPreview(location, fallbackName = "Pinned location") {
+  const coordinatesLabel = formatCoordinatesLabel(location);
+  const coordinateCode = formatCoordinateCode(location);
+  const exactLabel = coordinateCode || coordinatesLabel || "Selected map point";
+  const suggestedAddress = String(location?.suggestedAddress || location?.address || location?.label || location?.fullAddress || "").trim();
+  const hasUsefulSuggestion = suggestedAddress && suggestedAddress !== coordinatesLabel && suggestedAddress !== coordinateCode;
+
+  return {
+    ...location,
+    address: exactLabel,
+    coordinateCode,
+    coordinatesLabel,
+    label: exactLabel,
+    name: fallbackName,
+    suggestedAddress: hasUsefulSuggestion ? suggestedAddress : "",
+  };
+}
+
 function formatPinnedLocationStatus(prefix, location) {
   const address = getDisplayAddress(location);
   const coordinateCode = location?.coordinateCode || formatCoordinateCode(location);
   const coordinates = coordinateCode || location?.coordinatesLabel || formatCoordinatesLabel(location);
   const coordinateSuffix = coordinates && coordinates !== address ? `. ${coordinates}` : "";
   return `${prefix}${address}${coordinateSuffix}`.trim();
+}
+
+function getReviewNoticeKey(review) {
+  if (!review?.id) return "";
+  return [review.id, review.status, review.reviewedAt || review.updatedAt || ""].join(":");
+}
+
+function readDismissedReviewNoticeKeys() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(AREA_LOCATION_REVIEW_DISMISS_KEY) || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.filter(Boolean) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function dismissReviewNoticeKey(key) {
+  if (!key) return;
+  try {
+    const dismissed = readDismissedReviewNoticeKeys();
+    dismissed.add(key);
+    localStorage.setItem(AREA_LOCATION_REVIEW_DISMISS_KEY, JSON.stringify(Array.from(dismissed).slice(-60)));
+  } catch {
+    // The card can still be dismissed for this session when storage is blocked.
+  }
+}
+
+function pickLatestUndismissedReviewNotice(reviews = []) {
+  const dismissed = readDismissedReviewNoticeKeys();
+  return reviews.find((review) => {
+    const key = getReviewNoticeKey(review);
+    return key && !dismissed.has(key);
+  }) || null;
 }
 
 function toRadians(value) {
@@ -813,6 +870,7 @@ export default function NearbyAreaScreen({
   const [trafficSnapshots, setTrafficSnapshots] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
   const [weatherCache, setWeatherCache] = useState(null);
+  const [locationReviewNotice, setLocationReviewNotice] = useState(null);
   const [addLocationDraft, setAddLocationDraft] = useState(createAddLocationDraft);
   const [addLocationMode, setAddLocationMode] = useState("form");
   const [addLocationStatus, setAddLocationStatus] = useState("");
@@ -921,6 +979,10 @@ export default function NearbyAreaScreen({
       }),
     [liveOperators, liveReports, trafficSnapshots],
   );
+
+  const publishLocationReviewNotices = useCallback((reviews = []) => {
+    setLocationReviewNotice(pickLatestUndismissedReviewNotice(reviews));
+  }, []);
 
   const filteredMapLocations = useMemo(
     () => filteredLocations.filter((location) => location?.lat != null && location?.lng != null),
@@ -1165,10 +1227,9 @@ export default function NearbyAreaScreen({
       const location = await reverseGeocodePoint(nextPosition);
       if (dropPinResolveRequestRef.current !== requestId) return;
 
-      const preview = buildPinnedLocationPreview(
-        location,
-        isBusinessTarget ? resolvedPickerLabels.droppedName : areaAddLocationPickerLabels.droppedName,
-      );
+      const preview = isBusinessTarget
+        ? buildPinnedLocationPreview(location, resolvedPickerLabels.droppedName)
+        : buildExactMapPointPreview(location, areaAddLocationPickerLabels.droppedName);
 
       if (isBusinessTarget) {
         setCurrentPickerLocation(preview);
@@ -1176,13 +1237,14 @@ export default function NearbyAreaScreen({
       } else {
         setAddLocationDraft((current) => ({
           ...current,
-          address: preview.address || current.address,
+          address: current.address,
           lat: preview.lat,
           lng: preview.lng,
           coordinatesLabel: preview.coordinatesLabel,
+          suggestedAddress: preview.suggestedAddress,
           source: "dropPin",
         }));
-        setAddLocationStatus("Pin ready. Review the address above, then add the location.");
+        setAddLocationStatus("Exact pin saved. The coordinates match the map point; add a street or landmark only if you are sure.");
       }
 
       setDropPinExpandSignal((value) => value + 1);
@@ -1403,19 +1465,21 @@ export default function NearbyAreaScreen({
           getActiveTrafficSnapshots(areaOptions),
           getRecentSearchHistory(),
           getWeatherCacheNearArea(initialWeatherPosition),
+          getMyNearbyAreaLocationReviews(),
         ]);
       } catch {
-        results = [[], [], [], [], [], null];
+        results = [[], [], [], [], [], null, []];
       }
 
       if (!mounted) return;
-      const [locations, operators, reports, traffic, history, weather] = results;
+      const [locations, operators, reports, traffic, history, weather, reviews] = results;
       setLiveLocations(locations);
       publishLiveOperators(operators);
       setLiveReports(reports);
       setTrafficSnapshots(traffic);
       setRecentSearches(history);
       setWeatherCache(weather);
+      publishLocationReviewNotices(reviews);
       weatherPositionRef.current = initialWeatherPosition;
       liveAreaPositionRef.current = initialWeatherPosition;
       lastLiveAreaRefreshAtRef.current = Date.now();
@@ -1435,12 +1499,16 @@ export default function NearbyAreaScreen({
         radiusKm: LIVE_AREA_RADIUS_KM,
       }),
     });
+    const unsubscribeReviews = subscribeToMyNearbyAreaLocationReviews((reviews) => {
+      if (mounted) publishLocationReviewNotices(reviews);
+    });
 
     return () => {
       mounted = false;
       unsubscribe?.();
+      unsubscribeReviews?.();
     };
-  }, [publishLiveOperators]);
+  }, [publishLiveOperators, publishLocationReviewNotices]);
 
   useEffect(() => {
     const expiryTimer = window.setInterval(() => {
@@ -1620,28 +1688,31 @@ export default function NearbyAreaScreen({
       });
 
       const location = await reverseGeocodePoint(point);
-      const preview = buildPinnedLocationPreview(location, "Current location");
+      const preview = buildExactMapPointPreview({ ...location, accuracyMeters: point.accuracyMeters }, "Current location");
       setAddLocationDraft((current) => ({
         ...current,
-        address: preview.address || current.address,
+        address: current.address,
         lat: preview.lat,
         lng: preview.lng,
         coordinatesLabel: preview.coordinatesLabel,
+        suggestedAddress: preview.suggestedAddress,
+        accuracyMeters: point.accuracyMeters,
         source: "currentLocation",
       }));
-      setAddLocationStatus("Current location ready. Review the address in the form, then submit when the details are correct.");
+      setAddLocationStatus("Current location saved with exact coordinates. Add a street or landmark only if you are sure it matches this point.");
     } catch (error) {
       const fallbackPoint = normalizePosition(mapCenterRef.current) || normalizePosition(userLocationRef.current) || normalizePosition(userLocation);
       if (fallbackPoint) {
         const location = await reverseGeocodePoint(fallbackPoint);
-        const preview = buildPinnedLocationPreview(location, "Selected map point");
+        const preview = buildExactMapPointPreview(location, "Selected map point");
         const fallbackStatus = formatPinnedLocationStatus("", preview);
         setAddLocationDraft((current) => ({
           ...current,
-          address: preview.address || current.address,
+          address: current.address,
           lat: preview.lat,
           lng: preview.lng,
           coordinatesLabel: preview.coordinatesLabel,
+          suggestedAddress: preview.suggestedAddress,
           source: "selectedMapPoint",
         }));
         setAddLocationMode("form");
@@ -1673,18 +1744,19 @@ export default function NearbyAreaScreen({
 
     try {
       const location = await reverseGeocodePoint(point);
-      const preview = buildPinnedLocationPreview(location, areaAddLocationPickerLabels.droppedName);
+      const preview = buildExactMapPointPreview(location, areaAddLocationPickerLabels.droppedName);
       setAddLocationDraft((current) => ({
         ...current,
-        address: preview.address || current.address,
+        address: current.address,
         lat: preview.lat,
         lng: preview.lng,
         coordinatesLabel: preview.coordinatesLabel,
+        suggestedAddress: preview.suggestedAddress,
         source: "dropPin",
       }));
       setAddLocationMode("form");
       setFocusMode(false);
-      setAddLocationStatus("Pinned location added to the form. Review the address before submitting.");
+      setAddLocationStatus("Pinned point saved with exact coordinates. Add a street or landmark only if you are sure it matches this point.");
     } catch (error) {
       setAddLocationStatus(getFriendlyLocationError(error, "Unable to read the pinned location. Try again."));
     } finally {
@@ -1974,6 +2046,36 @@ export default function NearbyAreaScreen({
     });
   }, [activeLocation, mapInstance]);
 
+  const dismissLocationReviewNotice = useCallback(() => {
+    const key = getReviewNoticeKey(locationReviewNotice);
+    dismissReviewNoticeKey(key);
+    setLocationReviewNotice(null);
+  }, [locationReviewNotice]);
+
+  const viewLocationReviewNotice = useCallback(() => {
+    if (!locationReviewNotice) return;
+
+    const reviewLocation = {
+      ...locationReviewNotice,
+      id: `review-${locationReviewNotice.id}`,
+      status: locationReviewNotice.status,
+      distance: locationReviewNotice.address || formatCoordinateCode(locationReviewNotice) || "Submitted Area View location",
+      description: locationReviewNotice.reason
+        ? `Admin note: ${locationReviewNotice.reason}`
+        : locationReviewNotice.status === "approved"
+          ? "KunThai approved this submitted location."
+          : "KunThai reviewed this submitted location.",
+    };
+
+    setActiveLocation(reviewLocation);
+    setLocationPanelOpen(true);
+    mapInstance?.flyTo({
+      center: [reviewLocation.lng, reviewLocation.lat],
+      zoom: 16,
+      essential: true,
+    });
+  }, [locationReviewNotice, mapInstance]);
+
   const handleAddCurrentPickerLocation = useCallback(() => {
     if (!currentPickerLocation) return;
     onLocationPicked?.(currentPickerLocation);
@@ -2008,7 +2110,7 @@ export default function NearbyAreaScreen({
   }, [mapInstance, onLocationPicked, resolvedPickerLabels.droppedName, userLocation]);
 
   const addLocationPinnedPreview = Number.isFinite(Number(addLocationDraft.lat)) && Number.isFinite(Number(addLocationDraft.lng))
-    ? buildPinnedLocationPreview(addLocationDraft, areaAddLocationPickerLabels.droppedName)
+    ? buildExactMapPointPreview(addLocationDraft, areaAddLocationPickerLabels.droppedName)
     : null;
 
   return (
@@ -2249,6 +2351,14 @@ export default function NearbyAreaScreen({
             onGetDirections={handleGetDirections}
           />
         )}
+
+        {!isSpecialMode && !adding && locationReviewNotice ? (
+          <AreaLocationReviewNotice
+            notice={locationReviewNotice}
+            onDismiss={dismissLocationReviewNotice}
+            onView={viewLocationReviewNotice}
+          />
+        ) : null}
 
         {!isSpecialMode && searchOverlayOpen && (
           <SearchOverlay
@@ -2786,6 +2896,74 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
   );
 }
 
+function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
+  if (!notice) return null;
+
+  const approved = notice.status === "approved";
+  const title = approved ? "Location approved" : "Location declined";
+  const message = approved
+    ? "The location you added has been approved and can now appear in Area View."
+    : "The location you added was reviewed but not approved.";
+  const coordinates = formatCoordinateCode(notice);
+
+  return (
+    <aside className="absolute bottom-5 left-3 right-3 z-40 rounded-3xl border border-white/20 bg-slate-950/95 p-4 text-white shadow-2xl backdrop-blur sm:left-5 sm:right-auto sm:w-[390px]">
+      <div className="flex items-start gap-3">
+        <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+          approved ? "bg-green-500 text-white" : "bg-amber-400 text-slate-950"
+        }`}>
+          {approved ? <FiCheckCircle size={21} /> : <FiAlertTriangle size={20} />}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Area View review</p>
+              <h2 className="mt-1 text-lg font-black">{title}</h2>
+            </div>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-slate-300 hover:bg-white/15 hover:text-white"
+              aria-label="Dismiss location review"
+            >
+              <FiX size={17} />
+            </button>
+          </div>
+
+          <p className="mt-2 text-sm font-semibold leading-5 text-slate-200">{message}</p>
+          <p className="mt-2 truncate text-sm font-black text-white">{notice.name}</p>
+          {notice.reason ? (
+            <p className="mt-2 rounded-2xl bg-white/10 px-3 py-2 text-xs font-bold leading-5 text-slate-200">
+              Admin reason: {notice.reason}
+            </p>
+          ) : null}
+          {coordinates ? <p className="mt-2 text-xs font-bold text-slate-400">{coordinates}</p> : null}
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="h-10 rounded-2xl border border-white/15 text-sm font-black text-slate-200 hover:bg-white/10"
+            >
+              Dismiss
+            </button>
+            <button
+              type="button"
+              onClick={onView}
+              className={`h-10 rounded-2xl text-sm font-black ${
+                approved ? "bg-green-600 text-white hover:bg-green-700" : "bg-white text-slate-950 hover:bg-slate-100"
+              }`}
+            >
+              View point
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function AddLocationPanel({
   busy,
   cautionOpen,
@@ -2800,8 +2978,9 @@ function AddLocationPanel({
   status,
 }) {
   const category = draft.category || addCategories[0];
-  const selectedLocationLabel = draft.coordinatesLabel || formatCoordinatesLabel(draft);
+  const selectedLocationLabel = formatCoordinateCode(draft) || draft.coordinatesLabel || formatCoordinatesLabel(draft);
   const hasSelectedLocation = Number.isFinite(Number(draft.lat)) && Number.isFinite(Number(draft.lng));
+  const suggestedAddress = String(draft.suggestedAddress || "").trim();
   const panelCollapse = useAutoCollapseCard({
     enabled: false,
     resetKey: [
@@ -2873,9 +3052,13 @@ function AddLocationPanel({
 
         {hasSelectedLocation ? (
           <div className="mb-4 rounded-2xl border border-green-100 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-wide text-green-700">Selected map point</p>
-            <p className="mt-1 text-sm font-black text-slate-950">{draft.address || "Pinned location"}</p>
-            {selectedLocationLabel ? <p className="mt-1 text-xs font-bold text-green-700">{selectedLocationLabel}</p> : null}
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">Exact selected point</p>
+            <p className="mt-1 text-sm font-black text-slate-950">{selectedLocationLabel || "Pinned coordinates saved"}</p>
+            {suggestedAddress ? (
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+                Nearby map label: {suggestedAddress}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -2910,10 +3093,10 @@ function AddLocationPanel({
           ) : null}
 
           <FormInput
-            label="Street / address"
+            label="Street / address optional"
             value={draft.address}
             onChange={(value) => onChange("address", value)}
-            placeholder="Street, junction, or area"
+            placeholder="Only add if it matches the selected point"
           />
           <FormInput
             label="Landmark"

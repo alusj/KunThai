@@ -217,6 +217,43 @@ function normalizeNearbyLocation(row) {
   };
 }
 
+function normalizeLocationReview(row) {
+  const point = getLatLng(row);
+  if (!row || !point) return null;
+
+  const status = String(row.status || "").toLowerCase();
+  if (!["approved", "rejected"].includes(status)) return null;
+
+  const metadata = getRowMetadata(row);
+  const reason = String(
+    row.admin_decision_reason ||
+      row.review_reason ||
+      row.rejection_reason ||
+      row.admin_note ||
+      metadata.adminDecisionReason ||
+      metadata.decisionReason ||
+      metadata.reason ||
+      "",
+  ).trim();
+
+  return {
+    id: String(row.id),
+    name: row.name || row.place_name || "Submitted location",
+    category: row.category || row.type || "Community",
+    type: row.type || row.category || "Area View location",
+    status,
+    reason,
+    address: row.address || "",
+    landmark: row.landmark || "",
+    description: row.description || "",
+    lat: point.lat,
+    lng: point.lng,
+    reviewedAt: row.admin_decided_at || row.reviewed_at || row.updated_at || row.created_at,
+    updatedAt: row.updated_at || row.created_at,
+    raw: row,
+  };
+}
+
 function isMissingNearbyAreaColumn(error, columnName) {
   const code = String(error?.code || "").toUpperCase();
   const message = String(error?.message || "").toLowerCase();
@@ -425,6 +462,8 @@ export async function submitNearbyAreaLocation(input = {}) {
     metadata: {
       source: input.source || "area_view",
       coordinates_label: input.coordinatesLabel || "",
+      suggested_address: String(input.suggestedAddress || "").trim(),
+      accuracy_meters: toNumber(input.accuracyMeters),
     },
   };
 
@@ -480,6 +519,53 @@ export async function submitNearbyAreaLocation(input = {}) {
   }
 
   throw new Error("Unable to submit this location for review.");
+}
+
+export async function getMyNearbyAreaLocationReviews(limit = 12) {
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+
+  const resultLimit = Math.max(1, Math.min(Number(limit) || 12, 40));
+  const applyBaseQuery = () =>
+    supabase
+      .from("nearby_area_locations")
+      .select("*")
+      .in("status", ["approved", "rejected"])
+      .order("updated_at", { ascending: false })
+      .limit(resultLimit);
+
+  try {
+    const { data, error } = await applyBaseQuery().or(`user_id.eq.${userId},submitted_by.eq.${userId}`);
+    if (error) throw error;
+    return (data || []).map(normalizeLocationReview).filter(Boolean);
+  } catch (error) {
+    if (isMissingNearbyAreaTable(error)) return [];
+    if (!isMissingNearbyAreaColumn(error, "submitted_by") && !isMissingNearbyAreaColumn(error, "user_id")) {
+      return [];
+    }
+  }
+
+  const attempts = [
+    (query) => query.eq("user_id", userId),
+    (query) => query.eq("submitted_by", userId),
+  ];
+  const reviews = [];
+
+  for (const applyOwnerFilter of attempts) {
+    try {
+      const { data, error } = await applyOwnerFilter(applyBaseQuery());
+      if (error) throw error;
+      reviews.push(...(data || []).map(normalizeLocationReview).filter(Boolean));
+    } catch {
+      // Older deployments may not have both owner columns. Keep the screen usable.
+    }
+  }
+
+  return sortByDistance(dedupeById(reviews), null).sort((first, second) => {
+    const firstTime = toTimestamp(first.reviewedAt || first.updatedAt) || 0;
+    const secondTime = toTimestamp(second.reviewedAt || second.updatedAt) || 0;
+    return secondTime - firstTime;
+  });
 }
 
 export async function getLiveOperators(options = {}) {
@@ -736,6 +822,42 @@ export function subscribeToAreaViewLiveData({
       if (timer) window.clearTimeout(timer);
     });
     supabase.removeChannel(channel);
+  };
+}
+
+export function subscribeToMyNearbyAreaLocationReviews(callback) {
+  if (!callback) return () => {};
+
+  const timers = {};
+  let channel = null;
+  let cancelled = false;
+
+  const refresh = () =>
+    getMyNearbyAreaLocationReviews()
+      .then((items) => {
+        if (!cancelled) callback(items);
+      })
+      .catch(() => {});
+
+  getCurrentUserId().then((userId) => {
+    if (cancelled || !userId) return;
+
+    channel = supabase
+      .channel(`area-view-location-reviews-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "nearby_area_locations" }, () => {
+        scheduleLiveRefresh(timers, "location-reviews", refresh);
+      })
+      .subscribe();
+
+    refresh();
+  });
+
+  return () => {
+    cancelled = true;
+    Object.values(timers).forEach((timer) => {
+      if (timer) window.clearTimeout(timer);
+    });
+    if (channel) supabase.removeChannel(channel);
   };
 }
 
