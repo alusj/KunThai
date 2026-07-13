@@ -26,6 +26,7 @@ import {
 import supabase from "../../Backend/lib/supabaseClient";
 import { ADMIN_NAV_GROUPS, canAccess, formatRelativeTime } from "../adminConfig";
 import {
+  ADMIN_ACTIVITY_REFRESH_EVENT,
   getAdminActivityNotifications,
   markAdminActivityNotificationsRead,
   subscribeToAdminActivityNotifications,
@@ -64,6 +65,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
   const unreadActivity = activity.filter((item) => !item.read_at).length;
 
   const loadActivity = useCallback(() => {
+    setActivityError("");
     getAdminActivityNotifications(20)
       .then(setActivity)
       .catch((error) => setActivityError(error.message || "Unable to load activity."));
@@ -76,6 +78,11 @@ export default function AdminShell({ access, user, page, setPage, children, case
       onActivity?.(notification);
     });
   }, [loadActivity, onActivity, user?.id]);
+
+  useEffect(() => {
+    window.addEventListener(ADMIN_ACTIVITY_REFRESH_EVENT, loadActivity);
+    return () => window.removeEventListener(ADMIN_ACTIVITY_REFRESH_EVENT, loadActivity);
+  }, [loadActivity]);
 
   function navigate(nextPage) {
     setPage(nextPage);

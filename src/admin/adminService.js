@@ -13,6 +13,7 @@ import {
 
 const previewDelay = (value) => new Promise((resolve) => window.setTimeout(() => resolve(structuredClone(value)), 120));
 const GENERAL_COUNTRY_KEY = "__general__";
+export const ADMIN_ACTIVITY_REFRESH_EVENT = "kunthai-admin-activity-refresh";
 const USER_CARE_STORAGE = {
   screenshot_url: { bucket: "user-care-screenshots", kind: "image", label: "Screenshot" },
   screenshotUrl: { bucket: "user-care-screenshots", kind: "image", label: "Screenshot" },
@@ -43,6 +44,17 @@ function unwrap(result, fallbackMessage) {
     throw error;
   }
   return result.data;
+}
+
+function requestAdminActivityRefresh(detail = {}) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(ADMIN_ACTIVITY_REFRESH_EVENT, { detail }));
+}
+
+async function runAdminMutation(task, detail = {}) {
+  const result = await task();
+  requestAdminActivityRefresh(detail);
+  return result;
 }
 
 function firstText(...values) {
@@ -513,28 +525,28 @@ export async function getAdminCaseContent(item) {
 }
 
 export async function claimCase(caseId) {
-  if (isAdminPreview()) return previewDelay(updatePreviewCase(caseId, { assignee_user_id: "preview-user", status: "assigned" }));
-  return unwrap(await supabase.rpc("admin_claim_case", { case_uuid: caseId }), "Unable to claim this case.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay(updatePreviewCase(caseId, { assignee_user_id: "preview-user", status: "assigned" })), { action: "case.claimed", caseId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_claim_case", { case_uuid: caseId }), "Unable to claim this case."), { action: "case.claimed", caseId });
 }
 
 export async function transitionCase(caseId, status, note = "") {
-  if (isAdminPreview()) return previewDelay(updatePreviewCase(caseId, { status, resolution_note: note || null }));
-  return unwrap(await supabase.rpc("admin_transition_case", { case_uuid: caseId, next_status: status, transition_note: note }), "Unable to update this case.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay(updatePreviewCase(caseId, { status, resolution_note: note || null })), { action: "case.status_changed", caseId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_transition_case", { case_uuid: caseId, next_status: status, transition_note: note }), "Unable to update this case."), { action: "case.status_changed", caseId });
 }
 
 export async function applyCaseDecision(caseId, decision, reason) {
-  if (isAdminPreview()) return previewDelay(updatePreviewCase(caseId, { status: decision === "request_information" ? "waiting_information" : "resolved", resolution_code: decision, resolution_note: reason }));
-  return unwrap(await supabase.rpc("admin_apply_case_decision", { case_uuid: caseId, decision_key: decision, decision_reason: reason }), "Unable to apply this decision.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay(updatePreviewCase(caseId, { status: decision === "request_information" ? "waiting_information" : "resolved", resolution_code: decision, resolution_note: reason })), { action: "case.decision_applied", caseId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_apply_case_decision", { case_uuid: caseId, decision_key: decision, decision_reason: reason }), "Unable to apply this decision."), { action: "case.decision_applied", caseId });
 }
 
 export async function reviewCaseApproval(approvalId, approved, reason, caseId = "") {
-  if (isAdminPreview()) return previewDelay(updatePreviewCase(caseId, { status: approved ? "resolved" : "in_review" }));
-  return unwrap(await supabase.rpc("admin_review_approval", { approval_uuid: approvalId, approve_action: approved, review_reason: reason }), "Unable to review this approval.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay(updatePreviewCase(caseId, { status: approved ? "resolved" : "in_review" })), { action: approved ? "case.approval_granted" : "case.approval_rejected", caseId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_review_approval", { approval_uuid: approvalId, approve_action: approved, review_reason: reason }), "Unable to review this approval."), { action: approved ? "case.approval_granted" : "case.approval_rejected", caseId });
 }
 
 export async function addCaseNote(caseId, body, visibility = "internal") {
-  if (isAdminPreview()) return previewDelay({ id: crypto.randomUUID(), case_id: caseId, body, visibility, created_at: new Date().toISOString() });
-  return unwrap(await supabase.rpc("admin_add_case_note", { case_uuid: caseId, note_body: body, note_visibility: visibility }), "Unable to add the note.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: crypto.randomUUID(), case_id: caseId, body, visibility, created_at: new Date().toISOString() }), { action: "case.note_added", caseId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_add_case_note", { case_uuid: caseId, note_body: body, note_visibility: visibility }), "Unable to add the note."), { action: "case.note_added", caseId });
 }
 
 export async function searchAdminUsers(search = "") {
@@ -546,14 +558,14 @@ export async function searchAdminUsers(search = "") {
 }
 
 export async function setAdminUserStatus(input) {
-  if (isAdminPreview()) return previewDelay({ user_id: input.userId, status: input.status, reason: input.reason, restricted_sectors: input.sectors, expires_at: input.expiresAt || null });
-  return unwrap(await supabase.rpc("admin_set_user_status", {
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ user_id: input.userId, status: input.status, reason: input.reason, restricted_sectors: input.sectors, expires_at: input.expiresAt || null }), { action: "user.status_changed", userId: input.userId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_set_user_status", {
     target_user_id: input.userId,
     next_status: input.status,
     action_reason: input.reason,
     target_sectors: input.sectors,
     status_expires_at: input.expiresAt || null,
-  }), "Unable to update the account status.");
+  }), "Unable to update the account status."), { action: "user.status_changed", userId: input.userId });
 }
 
 export async function getAdminTeam() {
@@ -562,20 +574,20 @@ export async function getAdminTeam() {
 }
 
 export async function grantAdminAccess(input) {
-  if (isAdminPreview()) return previewDelay(input);
-  return unwrap(await supabase.rpc("admin_grant_access", {
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay(input), { action: "team.access_granted" });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_grant_access", {
     target_email: input.email,
     target_role_key: input.roleKey,
     target_sectors: input.sectors,
     target_regions: input.regions,
     target_authority: input.authority,
     reason: input.reason,
-  }), "Unable to grant admin access.");
+  }), "Unable to grant admin access."), { action: "team.access_granted" });
 }
 
 export async function revokeAdminAccess(assignmentId, reason) {
-  if (isAdminPreview()) return previewDelay({ id: assignmentId, status: "revoked" });
-  return unwrap(await supabase.rpc("admin_revoke_access", { assignment_uuid: assignmentId, reason }), "Unable to revoke admin access.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: assignmentId, status: "revoked" }), { action: "team.access_revoked", assignmentId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_revoke_access", { assignment_uuid: assignmentId, reason }), "Unable to revoke admin access."), { action: "team.access_revoked", assignmentId });
 }
 
 export async function getNotificationCampaigns() {
@@ -584,8 +596,8 @@ export async function getNotificationCampaigns() {
 }
 
 export async function createNotificationCampaign(input) {
-  if (isAdminPreview()) return previewDelay({ id: crypto.randomUUID(), ...input, status: input.schedule ? "pending_approval" : "draft", created_at: new Date().toISOString(), delivery_count: 0, failure_count: 0 });
-  return unwrap(await supabase.rpc("admin_create_campaign", {
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: crypto.randomUUID(), ...input, status: input.schedule ? "pending_approval" : "draft", created_at: new Date().toISOString(), delivery_count: 0, failure_count: 0 }), { action: "notification.campaign_created" });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_create_campaign", {
     campaign_title: input.title,
     campaign_body: input.body,
     campaign_sector: input.sector,
@@ -593,17 +605,17 @@ export async function createNotificationCampaign(input) {
     campaign_priority: input.priority,
     campaign_filter: input.filter || {},
     campaign_schedule: input.schedule || null,
-  }), "Unable to create the campaign.");
+  }), "Unable to create the campaign."), { action: "notification.campaign_created" });
 }
 
 export async function approveNotificationCampaign(campaignId) {
-  if (isAdminPreview()) return previewDelay({ id: campaignId, status: "approved" });
-  return unwrap(await supabase.rpc("admin_approve_campaign", { campaign_uuid: campaignId }), "Unable to approve the campaign.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: campaignId, status: "approved" }), { action: "notification.campaign_approved", campaignId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_approve_campaign", { campaign_uuid: campaignId }), "Unable to approve the campaign."), { action: "notification.campaign_approved", campaignId });
 }
 
 export async function publishNotificationCampaign(campaignId) {
-  if (isAdminPreview()) return previewDelay({ id: campaignId, status: "completed", sent_at: new Date().toISOString(), delivery_count: 3842, failure_count: 0 });
-  return unwrap(await supabase.rpc("admin_publish_campaign", { campaign_uuid: campaignId }), "Unable to publish the campaign.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: campaignId, status: "completed", sent_at: new Date().toISOString(), delivery_count: 3842, failure_count: 0 }), { action: "notification.campaign_published", campaignId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_publish_campaign", { campaign_uuid: campaignId }), "Unable to publish the campaign."), { action: "notification.campaign_published", campaignId });
 }
 
 export async function getAuditLog() {
@@ -665,6 +677,6 @@ export async function getFeatureFlags() {
 }
 
 export async function updateFeatureFlag(flagKey, enabled, reason) {
-  if (isAdminPreview()) return previewDelay(updatePreviewFlag(flagKey, enabled));
-  return unwrap(await supabase.rpc("admin_update_feature_flag", { target_flag_key: flagKey, next_enabled: enabled, next_configuration: null, change_reason: reason }), "Unable to update the feature flag.");
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay(updatePreviewFlag(flagKey, enabled)), { action: "settings.feature_flag_updated", flagKey });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_update_feature_flag", { target_flag_key: flagKey, next_enabled: enabled, next_configuration: null, change_reason: reason }), "Unable to update the feature flag."), { action: "settings.feature_flag_updated", flagKey });
 }
