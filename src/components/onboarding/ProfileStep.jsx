@@ -8,7 +8,6 @@ import FindAccountModal from "../auth/FindAccountModal";
 import {
   constrainCountryPhoneInput,
   getActiveCountryProfile,
-  getCountryAddressPlaceholder,
   getCountryPhoneHint,
   storeCountryContext,
   validateCountryPhone,
@@ -234,7 +233,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               <input
                 type="tel"
                 value={values.phone}
-                onChange={(event) => onChange("phone", constrainCountryPhoneInput(event.target.value, countryProfile))}
+                onChange={(event) => onChange("phone", constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }))}
                 placeholder={getCountryPhoneHint(countryProfile)}
                 inputMode="tel"
                 aria-invalid={phoneConflict || (!phoneValidation.valid && Boolean(values.phone))}
@@ -272,7 +271,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
             <input
               value={values.address || ""}
               onChange={(event) => onChange("address", event.target.value)}
-              placeholder={getCountryAddressPlaceholder(countryProfile)}
+              placeholder="Address"
               className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
             />
           </label>
@@ -293,7 +292,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               <input
                 value={values.city}
                 onChange={(event) => onChange("city", event.target.value)}
-                placeholder={countryProfile.cityPlaceholder}
+                placeholder="City"
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
               />
             </label>

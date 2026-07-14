@@ -724,7 +724,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   icon={FiPhone}
                   label="Phone"
                   value={form.phone}
-                  onChange={(value) => updateForm({ phone: constrainCountryPhoneInput(value) })}
+                  onChange={(value) => updateForm({ phone: constrainCountryPhoneInput(value, "", { international: true }) })}
                   placeholder={getCountryPhoneHint()}
                 />
               </div>

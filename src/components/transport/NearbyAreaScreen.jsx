@@ -859,6 +859,7 @@ export default function NearbyAreaScreen({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [searchSortByDistance, setSearchSortByDistance] = useState(false);
   const [selectionLocked, setSelectionLocked] = useState(false);
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedSearchLocation, setSelectedSearchLocation] = useState(null);
@@ -1614,7 +1615,7 @@ export default function NearbyAreaScreen({
 
       try {
         const searchCenter = mapCenterRef.current || userLocationRef.current;
-        const results = await searchLocations(text, searchCenter);
+        const results = await searchLocations(text, searchCenter, { sortByDistance: searchSortByDistance });
         if (searchRequestRef.current !== requestId) return;
         setSearchResults(results || []);
       } catch {
@@ -1628,7 +1629,7 @@ export default function NearbyAreaScreen({
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [searchOverlayOpen, searchQuery, selectionLocked]);
+  }, [searchOverlayOpen, searchQuery, searchSortByDistance, selectionLocked]);
 
   const updateAddLocationDraft = useCallback((field, value) => {
     setAddLocationDraft((current) => ({ ...current, [field]: value }));
@@ -1866,68 +1867,19 @@ export default function NearbyAreaScreen({
       description: "Nearby emergency location found from Area View search. Confirm details before travelling.",
     };
     const query = action.query || String(type || "").trim();
-    const searchCenter = mapCenterRef.current || userLocationRef.current || userLocation || mapCenter;
 
     setSosOpen(false);
     setActiveCategory("Emergency");
     setOperatorRoutePlan(null);
     setLocationPanelOpen(false);
-    setSelectionLocked(true);
+    setSelectedSearchLocation(null);
+    setSelectionLocked(false);
+    setSearchSortByDistance(true);
     setSearchResults([]);
     setSearchQuery(query);
     setSearchOverlayOpen(true);
     setSearching(true);
-
-    try {
-      const results = await searchLocations(query, searchCenter, { limit: 8 });
-      const nearest = (results || []).find((result) => result?.lat != null && result?.lng != null);
-
-      if (!nearest) {
-        const label = String(action.label || "location").toLowerCase();
-        setSelectionLocked(false);
-        setSearchResults(results || []);
-        setSearchOverlayOpen(false);
-        showToast(`No nearby ${label} available.`, "warning", {
-          title: "Area View",
-          actionLabel: `Add ${label}`,
-          duration: 7000,
-          onAction: () => openAddLocation(action.addCategory || action.label),
-        });
-        return;
-      }
-
-      const emergencyLocation = {
-        ...nearest,
-        id: `emergency-${type || "place"}-${nearest.id}`,
-        name: nearest.name || action.label,
-        type: action.label,
-        category: "Emergency",
-        status: "verified",
-        description: action.description,
-        distance: nearest.distance || getShortAddress(nearest),
-      };
-
-      saveSearchHistory({ query, result: emergencyLocation, selected: true }).then(() => {
-        getRecentSearchHistory().then(setRecentSearches);
-      });
-
-      setActiveLocation(emergencyLocation);
-      setSelectedSearchLocation(emergencyLocation);
-      setLocationPanelOpen(true);
-      setSearchOverlayOpen(false);
-      setSearchResults(results || []);
-      mapInstance?.flyTo({
-        center: [emergencyLocation.lng, emergencyLocation.lat],
-        zoom: 15.5,
-        essential: true,
-      });
-    } catch {
-      setSelectionLocked(false);
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }, [mapCenter, mapInstance, openAddLocation, userLocation]);
+  }, []);
 
   useEffect(() => {
     if (!initialEmergencyRequest) return;
@@ -1969,6 +1921,7 @@ export default function NearbyAreaScreen({
       getRecentSearchHistory().then(setRecentSearches);
     });
     setSelectionLocked(true);
+    setSearchSortByDistance(false);
     setSearchQuery(result.name);
     setSearchResults([]);
     setSearching(false);
@@ -2365,6 +2318,7 @@ export default function NearbyAreaScreen({
             query={searchQuery}
             setQuery={(value) => {
               setSelectionLocked(false);
+              setSearchSortByDistance(false);
               setSearchQuery(value);
             }}
             searching={searching}
@@ -3107,7 +3061,7 @@ function AddLocationPanel({
           <FormInput
             label="Phone optional"
             value={draft.phone}
-            onChange={(value) => onChange("phone", constrainCountryPhoneInput(value))}
+            onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, "", { international: true }))}
             placeholder={getCountryPhoneHint()}
           />
           <FormInput

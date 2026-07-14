@@ -47,6 +47,7 @@ import {
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 import { getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
+import { requestUrRideAccountDeletion } from "../../../Backend/services/accountDeletionRequestService";
 import { getRideFleetOptions } from "../../../data/globalTransportCapabilities";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { submitTransportSupportTicket } from "../../services/bookingService";
@@ -117,6 +118,12 @@ const menuSections = [
         icon: Settings,
         title: "UrRide settings",
         description: "Trip alerts, privacy, language, and travel preferences.",
+      },
+      {
+        id: "requestDeletion",
+        icon: Trash2,
+        title: "Request account deletion",
+        description: "Ask admin to review your UrRide account, trips, and support records before deletion.",
       },
     ],
   },
@@ -258,6 +265,10 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet }) {
 
     if (screenId === "settings") {
       return <TransportSettingsPage />;
+    }
+
+    if (screenId === "requestDeletion") {
+      return <RequestAccountDeletionPage />;
     }
 
     return null;
@@ -1469,6 +1480,72 @@ function SupportPage({ seed }) {
         <p className="mt-1 text-xs font-semibold leading-5 text-red-700">
           If a passenger is in immediate danger, contact local emergency help first. Transport support should follow after the person is safe.
         </p>
+      </section>
+    </div>
+  );
+}
+
+function RequestAccountDeletionPage() {
+  const [reason, setReason] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function sendRequest() {
+    setSending(true);
+    setMessage("");
+    try {
+      await requestUrRideAccountDeletion(reason);
+      setReason("");
+      setMessage("Account deletion request sent to KunThai admin for review.");
+    } catch (error) {
+      setMessage(error.message || "Unable to send this account deletion request.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {message ? (
+        <p className={`rounded-xl p-3 text-sm font-bold ${message.startsWith("Unable") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+          {message}
+        </p>
+      ) : null}
+
+      <InfoPanel
+        icon={Trash2}
+        tone="amber"
+        title="Request account deletion"
+        body="This sends a review case to KunThai admin. Admins can inspect the UrRide account, recent trips, and support tickets before deciding what action should happen."
+      />
+
+      <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <label className="space-y-1">
+          <span className="text-xs font-black uppercase text-gray-500">Reason</span>
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Tell admin why you want your UrRide account deleted"
+            rows={5}
+            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-rose-400"
+          />
+        </label>
+
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm font-black text-amber-900">Admin review happens first</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+            Your request is not an instant delete. KunThai checks safety, trip, support, and account records before taking final action.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={sendRequest}
+          disabled={sending}
+          className="kt-touchable h-12 rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {sending ? "Sending..." : "Send deletion request"}
+        </button>
       </section>
     </div>
   );

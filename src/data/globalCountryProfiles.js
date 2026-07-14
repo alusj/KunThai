@@ -894,9 +894,16 @@ export function formatCountryPhoneDigits(digits = "", country = "") {
 
 // Format-as-you-type: strips the dial code if pasted, caps the input at the
 // country's national digit count, and applies the country's digit grouping.
-export function constrainCountryPhoneInput(phone = "", country = "") {
+export function constrainCountryPhoneInput(phone = "", country = "", { international = false } = {}) {
   const profile = getActiveCountryProfile(country);
-  return formatCountryPhoneDigits(normalizeCountryPhoneDigits(phone, profile), profile);
+  const nationalDigits = normalizeCountryPhoneDigits(phone, profile);
+  const formattedNational = formatCountryPhoneDigits(nationalDigits, profile);
+
+  if (!international) {
+    return formattedNational;
+  }
+
+  return formattedNational ? `${profile.dialCode} ${formattedNational}` : "";
 }
 
 export function formatCountryMoney(amount, countryOrCurrency = "", options = {}) {

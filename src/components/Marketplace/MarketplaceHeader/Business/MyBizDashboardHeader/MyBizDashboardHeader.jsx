@@ -28,10 +28,10 @@ export default function MyBizDashboardHeader({ onEditProfile, overview }) {
           status={storeStatus}
           onEditProfile={onEditProfile}
         />
-        <HealthScoreCard health={health} />
+        <HealthScoreCard health={health} onEditProfile={onEditProfile} />
       </div>
 
-      {["retail", "restaurant"].includes(business.kind || "retail") ? <TodaySummaryCard today={today} /> : null}
+      <TodaySummaryCard today={today} />
       {business.kind !== "property_agent" ? <SellerIntelligence /> : null}
     </div>
   );

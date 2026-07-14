@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
+import FlagIcon from "../FlagIcon";
 
 const nearbyActions = [
   {
@@ -108,6 +109,7 @@ export default function EmergencySheet({
   const normalizedCountryCode = String(countryCode || "").toUpperCase();
   const emergency = getEmergencyContacts(normalizedCountryCode);
   const countryLabel = detectingCountry ? "Detecting country..." : emergency.country;
+  const showCountryFlag = !detectingCountry && /^[A-Z]{2}$/.test(normalizedCountryCode);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-end bg-slate-950/60 px-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
@@ -127,23 +129,23 @@ export default function EmergencySheet({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
           <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300 sm:hidden" />
 
-          <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-[26px] border border-red-200/60 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 p-4 text-white shadow-sm shadow-red-950/20">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-wide text-red-600">Emergency numbers</p>
-                <h2 id="kuntai-sos-title" className="mt-1 text-xl font-black leading-tight text-slate-950">
+                <p className="text-xs font-black uppercase tracking-wide text-red-100">Emergency numbers</p>
+                <h2 id="kuntai-sos-title" className="mt-1 text-xl font-black leading-tight text-white">
                   Call for help
                 </h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
+                <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-red-50">
+                  {showCountryFlag ? <FlagIcon code={normalizedCountryCode} className="h-5 w-7 shrink-0 rounded-[4px] ring-1 ring-white/60" /> : null}
                   {countryLabel}
-                  {!detectingCountry && normalizedCountryCode ? ` (${normalizedCountryCode})` : ""}
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 active:scale-95"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 active:scale-95"
                 aria-label="Close emergency numbers"
               >
                 <X size={21} />

@@ -848,6 +848,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             mode={companyRegistrationMode}
             onBack={closeRegistrationFlow}
             onSaveExit={exitRegistrationFlow}
+            onViewOneKmPreview={openRegistrationOneKmPreview}
             onComplete={(account, origin) => {
               setCompanyAccount(account);
               setRegistrationOpen(false);

@@ -4,6 +4,7 @@ import {
   storeCountryContext,
 } from "../../../data/globalCountryProfiles";
 import {
+  formatDocumentRequirementLabel,
   getUrMallDocumentRequirements,
 } from "../../../data/globalDocumentRequirements";
 import { isMissingColumn } from "../explore/errors";
@@ -547,35 +548,55 @@ export async function updateRegisteredBusinessProfile(updates) {
   return readRegisteredBusiness();
 }
 
-export function calculateReadinessScore(registration) {
-  const usesCategories = registration.identity.businessKind === "retail";
-  const usesFulfillment = ["retail", "restaurant"].includes(registration.identity.businessKind);
-  const documentChecks = getUrMallDocumentRequirements({
-    country: registration.location?.country,
-    countryCode: registration.location?.countryIso,
-  }).map((requirement) =>
-    registration.trustPayout[requirement.fileField] || registration.trustPayout[requirement.nameField]
-  );
-  const checks = [
-    registration.identity.businessName,
-    !usesCategories || registration.identity.categories.length > 0,
-    registration.identity.description,
-    registration.identity.logoFile || registration.identity.logoUrl || registration.identity.logoName,
-    registration.location.country,
-    registration.location.city,
-    registration.location.address,
-    registration.location.phone,
-    registration.location.email,
-    registration.location.website,
-    registration.location.coordinates,
-    registration.operations.businessType,
-    !usesFulfillment || registration.operations.deliveryEnabled || registration.operations.pickupEnabled,
-    registration.operations.openTime,
-    registration.operations.closeTime,
-    ...documentChecks,
-    registration.trustPayout.connectKunThaiMoney || registration.trustPayout.bankName,
-  ];
+function readinessItem(key, label, complete) {
+  return { key, label, complete: Boolean(complete) };
+}
 
-  const complete = checks.filter(Boolean).length;
+export function getReadinessChecklist(registration = INITIAL_REGISTRATION) {
+  const identity = registration.identity || INITIAL_REGISTRATION.identity;
+  const location = registration.location || INITIAL_REGISTRATION.location;
+  const operations = registration.operations || INITIAL_REGISTRATION.operations;
+  const trustPayout = registration.trustPayout || INITIAL_REGISTRATION.trustPayout;
+  const categories = Array.isArray(identity.categories) ? identity.categories : [];
+  const usesCategories = identity.businessKind === "retail";
+  const usesFulfillment = ["retail", "restaurant"].includes(identity.businessKind);
+  const documentChecks = getUrMallDocumentRequirements({
+    country: location.country,
+    countryCode: location.countryIso,
+  }).map((requirement) => readinessItem(
+    `document-${requirement.key}`,
+    `${formatDocumentRequirementLabel(requirement)} document`,
+    trustPayout[requirement.fileField] || trustPayout[requirement.nameField],
+  ));
+
+  return [
+    readinessItem("business-name", "Business name", identity.businessName),
+    readinessItem("categories", "Retail categories", !usesCategories || categories.length > 0),
+    readinessItem("description", "Business description", identity.description),
+    readinessItem("logo", "Business logo", identity.logoFile || identity.logoUrl || identity.logoName),
+    readinessItem("country", "Country", location.country),
+    readinessItem("city", "City or district", location.city),
+    readinessItem("address", "Street address or landmark", location.address),
+    readinessItem("phone", "Business phone number", location.phone),
+    readinessItem("email", "Business email", location.email),
+    readinessItem("website", "Website or public page", location.website),
+    readinessItem("coordinates", "Map location pin", location.coordinates),
+    readinessItem("business-type", "Business type", operations.businessType),
+    readinessItem(
+      "fulfillment",
+      "Delivery or pickup option",
+      !usesFulfillment || operations.deliveryEnabled || operations.pickupEnabled,
+    ),
+    readinessItem("open-time", "Opening time", operations.openTime),
+    readinessItem("close-time", "Closing time", operations.closeTime),
+    ...documentChecks,
+    readinessItem("payout", "KunThai Money or bank payout method", trustPayout.connectKunThaiMoney || trustPayout.bankName),
+  ];
+}
+
+export function calculateReadinessScore(registration) {
+  const checks = getReadinessChecklist(registration);
+
+  const complete = checks.filter((item) => item.complete).length;
   return Math.round((complete / checks.length) * 100);
 }

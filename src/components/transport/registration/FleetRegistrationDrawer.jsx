@@ -44,20 +44,6 @@ const fuelTypes = ["Petrol", "Diesel", "Hybrid", "Electric", "Not applicable"];
 const carBodyTypes = ["Sedan", "SUV", "Hatchback", "Minivan", "Pickup", "Van"];
 const deliveryBodyTypes = ["Open cargo", "Covered cargo", "Delivery box", "Insulated box", "Passenger + cargo"];
 const activeCountry = getActiveCountryProfile();
-const locationSuggestions = [
-  `${activeCountry.cityPlaceholder} CBD`,
-  `${activeCountry.cityPlaceholder} main road`,
-  `${activeCountry.cityPlaceholder} market area`,
-  "Central business district",
-  "Main transport park",
-  "Airport route",
-  "School area",
-  "Hospital area",
-  "Market area",
-  "Community junction",
-  "Residential area",
-  "Border route",
-];
 
 const fleetQuestions = {
   Car: [
@@ -620,7 +606,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 label="Phone number"
                 type="tel"
                 value={form.phone}
-                onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country))}
+                onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))}
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
                 helper="This number is used for operator contact and account review."
@@ -630,13 +616,12 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 value={form.city}
                 onChange={(value) => update("city", value)}
                 placeholder="City or district"
-                helper="Start typing and choose the closest operating city or district."
               />
               <FormInput
                 label="Emergency contact"
                 type="tel"
                 value={form.emergencyContact}
-                onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country))}
+                onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))}
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
                 helper="A trusted contact for urgent transport safety follow-up."
@@ -671,8 +656,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               <FormInput label="Model" value={form.model} onChange={(value) => update("model", value)} placeholder="Model" />
               <FormInput label="Year" type="number" value={form.year} onChange={(value) => update("year", value)} placeholder="Year" min="1950" helper="Vehicle manufacture year." />
               <FormInput label="Color" value={form.color} onChange={(value) => update("color", value)} placeholder="Color" />
-              <LocationInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder="Operating area" helper="Main area where passengers should expect service." />
-              <LocationInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder="Home base or station" helper="Where the fleet usually starts or parks." />
+              <LocationInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder="Operating area" />
+              <LocationInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder="Home base or station" />
               <FormInput label="Starting price" type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder="Starting price" min="0" helper="The minimum fare shown when a distance or time total is lower than your starting price." />
               <div>
                 <FormInput label="Price per 1 km or kilometer" type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder="Price for 1 km" min="0" helper="Distance bookings calculate this rate against the passenger route." />
@@ -1136,16 +1121,10 @@ function LocationInput({ label, value, onChange, placeholder = "", helper = "" }
       <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
       <input
         value={value}
-        list="transport-location-suggestions"
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
       />
-      <datalist id="transport-location-suggestions">
-        {locationSuggestions.map((location) => (
-          <option key={location} value={location} />
-        ))}
-      </datalist>
       {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
     </label>
   );

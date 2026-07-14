@@ -1,4 +1,5 @@
 import supabase from "../Backend/lib/supabaseClient";
+import { GLOBAL_COUNTRY_PROFILES, normalizeCountryIso } from "../data/globalCountryProfiles";
 import {
   previewAccess,
   previewAudit,
@@ -13,6 +14,7 @@ import {
 
 const previewDelay = (value) => new Promise((resolve) => window.setTimeout(() => resolve(structuredClone(value)), 120));
 const GENERAL_COUNTRY_KEY = "__general__";
+const COUNTRY_PROFILES_BY_ISO = new Map(GLOBAL_COUNTRY_PROFILES.map((profile) => [profile.iso2, profile]));
 export const ADMIN_ACTIVITY_REFRESH_EVENT = "kunthai-admin-activity-refresh";
 const USER_CARE_STORAGE = {
   screenshot_url: { bucket: "user-care-screenshots", kind: "image", label: "Screenshot" },
@@ -64,6 +66,8 @@ function firstText(...values) {
 function normalizeCountryKey(value = "") {
   const text = String(value || "").trim();
   if (!text) return GENERAL_COUNTRY_KEY;
+  const iso2 = normalizeCountryIso(text);
+  if (iso2) return iso2;
   return text.length <= 3 ? text.toUpperCase() : text.toLowerCase();
 }
 
@@ -73,7 +77,7 @@ function sourceFor(item) {
 
 export function getCaseCountry(item = {}) {
   const source = sourceFor(item);
-  const code = firstText(
+  const rawCode = firstText(
     item.country_iso,
     item.country_code,
     source.country_iso,
@@ -82,7 +86,7 @@ export function getCaseCountry(item = {}) {
     source.location_country_iso,
     source.locationCountryIso,
   ).toUpperCase();
-  const name = firstText(
+  const rawName = firstText(
     item.country_name,
     item.country,
     source.country_name,
@@ -91,6 +95,10 @@ export function getCaseCountry(item = {}) {
     source.location_country,
     source.locationCountry,
   );
+  const iso2 = normalizeCountryIso(rawCode || rawName);
+  const profile = iso2 ? COUNTRY_PROFILES_BY_ISO.get(iso2) : null;
+  const code = iso2 || rawCode;
+  const name = profile?.name || rawName;
   return { code, name, key: normalizeCountryKey(code || name) };
 }
 
@@ -105,7 +113,10 @@ export function matchesCaseCountry(item, countryKey = "all") {
 }
 
 export function getCountryOptions(cases = []) {
-  const options = new Map();
+  const options = new Map(GLOBAL_COUNTRY_PROFILES
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((profile) => [profile.iso2, { value: profile.iso2, label: profile.name, code: profile.iso2 }]));
   let hasGeneral = false;
   cases.forEach((item) => {
     const country = getCaseCountry(item);
@@ -113,15 +124,17 @@ export function getCountryOptions(cases = []) {
       hasGeneral = true;
       return;
     }
+    if (options.has(country.key)) return;
     options.set(country.key, { value: country.key, label: country.name || country.code, code: country.code });
   });
-  const ordered = Array.from(options.values()).sort((a, b) => a.label.localeCompare(b.label));
+  const ordered = Array.from(options.values());
   if (hasGeneral) ordered.push({ value: GENERAL_COUNTRY_KEY, label: "General / unknown", code: "" });
   return [{ value: "all", label: "All countries", code: "" }, ...ordered];
 }
 
 export function getCaseTypeLabel(item = {}) {
   const type = item.case_type || item.resource_type || "";
+  if (type === "account_deletion_request" || String(item.resource_type || "").includes("account_deletion_request")) return "Account deletion request";
   if (type === "user_voice" || item.resource_type === "user_care_feedback") return "My Voice";
   if (item.resource_type === "explore_post_report" || type === "content_report") return "Reported post";
   if (item.resource_type === "explore_comment_report" || type === "comment_report") return "Reported comment";
@@ -443,6 +456,62 @@ function normalizeAreaReportContent(row = {}) {
   };
 }
 
+function deletionMetric(source = {}, key, label) {
+  const value = Number(source[key] || 0);
+  return value ? `${label}: ${value}` : "";
+}
+
+function recentDeletionSummary(source = {}) {
+  const parts = [];
+  if (Array.isArray(source.recent_messages) && source.recent_messages.length) {
+    parts.push(`Recent message: ${source.recent_messages[0].topic || source.recent_messages[0].preview || source.recent_messages[0].buyer_name || "Buyer message"}`);
+  }
+  if (Array.isArray(source.recent_orders) && source.recent_orders.length) {
+    parts.push(`Recent order: ${source.recent_orders[0].status || "order"} ${source.recent_orders[0].total_amount || ""}`.trim());
+  }
+  if (Array.isArray(source.recent_bookings) && source.recent_bookings.length) {
+    parts.push(`Recent booking: ${source.recent_bookings[0].listing_name || source.recent_bookings[0].status || "booking request"}`);
+  }
+  if (Array.isArray(source.recent_trips) && source.recent_trips.length) {
+    parts.push(`Recent trip: ${source.recent_trips[0].status || source.recent_trips[0].title || "transport trip"}`);
+  }
+  return parts;
+}
+
+function normalizeAccountDeletionContent(source = {}, item = {}) {
+  const surface = source.surface || (item.sector === "marketplace" ? "UrMall" : "UrRide");
+  const accountName = source.business_name || source.account_name || item.title || "KunThai account";
+  return {
+    id: item.resource_id || source.id || item.id,
+    type: "account_deletion_request",
+    title: `${surface} deletion request: ${accountName}`,
+    description: [
+      source.reason || item.description || "The user requested account deletion from the app.",
+      ...recentDeletionSummary(source),
+    ].filter(Boolean).join("\n"),
+    meta: [
+      source.business_kind ? `Business type: ${titleCaseForService(source.business_kind)}` : "",
+      source.verification_status ? `Verification: ${titleCaseForService(source.verification_status)}` : "",
+      source.readiness_score ? `Setup score: ${source.readiness_score}%` : "",
+      source.country || source.city ? `Location: ${[source.city, source.country].filter(Boolean).join(", ")}` : "",
+      deletionMetric(source, "orders_count", "Orders"),
+      deletionMetric(source, "messages_count", "Messages"),
+      deletionMetric(source, "bookings_count", "Bookings"),
+      deletionMetric(source, "products_count", "Products"),
+      deletionMetric(source, "menu_items_count", "Menu items"),
+      deletionMetric(source, "hotel_rooms_count", "Hotel rooms"),
+      deletionMetric(source, "property_listings_count", "Property listings"),
+      deletionMetric(source, "trips_count", "Trips"),
+      deletionMetric(source, "support_tickets_count", "Support tickets"),
+    ].filter(Boolean),
+    media: [
+      mediaItem(source.logo_url, "Business logo", "image"),
+      mediaItem(source.banner_url, "Business banner", "image"),
+    ].filter(Boolean),
+    source,
+  };
+}
+
 function fallbackCaseContent(item = {}) {
   const source = sourceFor(item);
   return [{
@@ -488,6 +557,9 @@ function previewCaseContent(item = {}) {
   if (item.resource_type === "area_report") {
     return [normalizeAreaReportContent(sourceFor(item))];
   }
+  if (item.case_type === "account_deletion_request" || String(item.resource_type || "").includes("account_deletion_request")) {
+    return [normalizeAccountDeletionContent(sourceFor(item), item)];
+  }
   return fallbackCaseContent(item);
 }
 
@@ -519,6 +591,8 @@ export async function getAdminCaseContent(item) {
   } else if (item.resource_type === "area_report") {
     const row = await fetchSingle("nearby_area_reports", "id", source.id || item.resource_id);
     content = normalizeAreaReportContent(row || source);
+  } else if (item.case_type === "account_deletion_request" || String(item.resource_type || "").includes("account_deletion_request")) {
+    content = normalizeAccountDeletionContent(source, item);
   }
 
   return content ? [content] : fallbackCaseContent(item);

@@ -183,7 +183,7 @@ export default function AdvertComposerFields({
                   <input
                     value={advert.targetArea}
                     onChange={(event) => onChange("targetArea", event.target.value)}
-                    placeholder="Example: Freetown"
+                    placeholder="Target city or area"
                     maxLength={80}
                     className="mt-2 h-11 w-full rounded-2xl border border-emerald-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-emerald-300"
                   />

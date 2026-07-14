@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { deleteRegisteredBusiness, readRegisteredBusiness } from "../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { requestUrMallAccountDeletion } from "../../../../../../Backend/services/accountDeletionRequestService";
+import { readRegisteredBusiness } from "../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { showToast } from "../../../../../../Backend/services/toastService";
 import MenuHeader from "./MenuHeader";
 import SellerDrawerNavItem from "./SellerDrawerNavItem";
@@ -71,7 +72,8 @@ export default function MyBizMenu({
   const [rendered, setRendered] = useState(isOpen);
   const [panelOpen, setPanelOpen] = useState(isOpen);
   const [businessToDelete, setBusinessToDelete] = useState(null);
-  const [deletingBusiness, setDeletingBusiness] = useState(false);
+  const [deletionReason, setDeletionReason] = useState("");
+  const [requestingDeletion, setRequestingDeletion] = useState(false);
   const menuTimerRef = useRef(null);
   const screenTimerRef = useRef(null);
   const activeScreen = visibleScreenKey
@@ -288,8 +290,8 @@ export default function MyBizMenu({
                 <SellerDrawerSection title="Danger zone">
                   <SellerDrawerNavItem
                     icon={Trash2}
-                    title="Delete this business"
-                    description="Permanently remove this business, its products, and its records. Your other businesses and your KunThai account stay."
+                    title="Request account deletion"
+                    description="Ask KunThai admin to review this UrMall business, orders, messages, listings, and deletion request before anything is removed."
                     onClick={() => {
                       readRegisteredBusiness()
                         .then((business) => {
@@ -320,48 +322,61 @@ export default function MyBizMenu({
           <section
             role="alertdialog"
             aria-modal="true"
-            aria-label="Delete business"
+            aria-label="Request business deletion"
             className="kt-toast-expand-in w-full max-w-md rounded-[28px] border border-rose-100 bg-white p-6 shadow-2xl"
           >
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-rose-600">
               <Trash2 size={22} />
             </span>
             <h2 className="mt-4 text-2xl font-black text-slate-950">
-              Delete {businessToDelete.identity?.businessName || "this business"}?
+              Request deletion for {businessToDelete.identity?.businessName || "this business"}?
             </h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              This permanently removes this {String(businessToDelete.businessKind || "business").replaceAll("_", " ")} workspace,
-              including its products, categories, documents, and order history. Your other business
-              workspaces and your personal KunThai account are not affected. This cannot be undone.
+              This sends a review case to KunThai admin. Admins will see this {String(businessToDelete.businessKind || "business").replaceAll("_", " ")}
+              workspace, its messages, orders, bookings, products, listings, and account details before any deletion action is approved.
             </p>
+            <label className="mt-4 block">
+              <span className="text-xs font-black uppercase text-slate-500">Reason</span>
+              <textarea
+                value={deletionReason}
+                onChange={(event) => setDeletionReason(event.target.value)}
+                rows={4}
+                placeholder="Tell admin why you want this UrMall business deleted"
+                className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-900 outline-none focus:border-rose-400"
+              />
+            </label>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                disabled={deletingBusiness}
-                onClick={() => setBusinessToDelete(null)}
+                disabled={requestingDeletion}
+                onClick={() => {
+                  setBusinessToDelete(null);
+                  setDeletionReason("");
+                }}
                 className="h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 disabled:opacity-50"
               >
                 Keep business
               </button>
               <button
                 type="button"
-                disabled={deletingBusiness}
+                disabled={requestingDeletion}
                 onClick={async () => {
-                  setDeletingBusiness(true);
+                  setRequestingDeletion(true);
                   try {
-                    await deleteRegisteredBusiness(businessToDelete.id);
-                    showToast("Your business was deleted. Other workspaces remain untouched.", "success");
+                    await requestUrMallAccountDeletion(businessToDelete.id, deletionReason);
+                    showToast("Deletion request sent to admin for review.", "success", { title: "Request submitted" });
                     setBusinessToDelete(null);
+                    setDeletionReason("");
                     closeDrawer();
                   } catch (error) {
-                    showToast(error.message || "Unable to delete this business.", "danger");
+                    showToast(error.message || "Unable to request business deletion.", "danger");
                   } finally {
-                    setDeletingBusiness(false);
+                    setRequestingDeletion(false);
                   }
                 }}
                 className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60"
               >
-                {deletingBusiness ? "Deleting…" : "Delete business"}
+                {requestingDeletion ? "Sending..." : "Send request"}
               </button>
             </div>
           </section>

@@ -27,13 +27,13 @@ import {
   saveTransportCompanyDraft,
 } from "../../services/transportCompanyService";
 import AppBackTab from "../../shared/AppBackTab";
+import { AddressAreaStatusIcon, useAddressAreaValidation } from "../../shared/AddressAreaValidation";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
 import NearbyAreaScreen from "../NearbyAreaScreen";
 import {
   constrainCountryPhoneInput,
   getActiveCountryProfile,
-  getCountryAddressPlaceholder,
   getCountryPhoneHint,
   storeCountryContext,
   validateCountryPhone,
@@ -240,7 +240,7 @@ function compactPublicId(value = "") {
   return String(value).replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
-export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaveExit }) {
+export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaveExit, onViewOneKmPreview }) {
   const addOperatorMode = mode === "addOperator";
   const [step, setStep] = useState(() => (addOperatorMode ? 2 : 0));
   const [maxStepReached, setMaxStepReached] = useState(() => (addOperatorMode ? 2 : 0));
@@ -248,6 +248,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const [fleets, setFleets] = useState(() => [createFleetDraft(0)]);
   const [areaText, setAreaText] = useState("");
   const [status, setStatus] = useState("");
+  const [statusTone, setStatusTone] = useState("info");
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -256,8 +257,24 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const [locationCautionOpen, setLocationCautionOpen] = useState(false);
   const [saveCheckpointOpen, setSaveCheckpointOpen] = useState(false);
   const stepDirection = useDirectionalStep(step);
-  const hasLocation = Boolean(form.coordinates?.latitude || form.coordinates?.lat);
+  const latitude = form.coordinates?.latitude ?? form.coordinates?.lat;
+  const longitude = form.coordinates?.longitude ?? form.coordinates?.lng;
+  const hasLocation = latitude != null && longitude != null;
   const formTopRef = useRef(null);
+  const statusClassName = statusTone === "error"
+    ? "border-rose-200 bg-rose-50 text-rose-800"
+    : statusTone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : "border-blue-100 bg-blue-50 text-blue-800";
+
+  function showStatus(message, tone = "info") {
+    setStatus(message);
+    setStatusTone(tone);
+  }
+
+  function clearStatus() {
+    setStatus("");
+  }
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -324,7 +341,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   const completion = useMemo(() => {
     const companyReady = Boolean(form.companyName && form.ownerName && form.phone);
-    const locationReady = Boolean(form.country && form.city && form.address && hasLocation);
+    const locationReady = Boolean(form.country && form.city && form.address);
     const fleetReady = fleets.some((fleet) =>
       fleet.fleetType &&
       fleet.plateNumber &&
@@ -337,7 +354,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       fleetReady,
       documentReady,
     ].filter(Boolean).length;
-  }, [companyDocumentRequirements, fleets, form, hasLocation]);
+  }, [companyDocumentRequirements, fleets, form]);
 
   function updateForm(field, value) {
     if (field === "country") {
@@ -356,7 +373,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     } else {
       setForm((current) => ({ ...current, [field]: value }));
     }
-    setStatus("");
+    clearStatus();
   }
 
   function markCompanyDocument(document, file) {
@@ -367,11 +384,12 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         [document]: file?.name || "Selected",
       },
     }));
+    clearStatus();
   }
 
   function updateFleet(fleetId, patch) {
     setFleets((items) => items.map((fleet) => (fleet.localId === fleetId ? { ...fleet, ...patch } : fleet)));
-    setStatus("");
+    clearStatus();
   }
 
   function markFleetDocument(fleetId, document, file) {
@@ -390,19 +408,22 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           : fleet,
       ),
     );
+    clearStatus();
   }
 
   function addFleet() {
     setFleets((items) => [...items, createFleetDraft(items.length, form)]);
+    clearStatus();
   }
 
   function removeFleet(fleetId) {
     setFleets((items) => (items.length <= 1 ? items : items.filter((fleet) => fleet.localId !== fleetId)));
+    clearStatus();
   }
 
   function addOperatorInvite(fleetId, operator) {
     if (compactPublicId(operator.publicId) && compactPublicId(operator.publicId) === compactPublicId(form.ownerPublicId)) {
-      setStatus("Use the selected fleet operator's KunThai ID. The company owner does not receive operator invitation requests.");
+      showStatus("Use the selected fleet operator's KunThai ID. The company owner does not receive operator invitation requests.", "error");
       return;
     }
 
@@ -433,7 +454,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     );
   }
 
-  function validateStep(targetStep = step) {
+  function validateStep(targetStep = step, { final = false } = {}) {
     if (targetStep === 0) {
       if (!form.companyName.trim()) return "Enter the company or organization name.";
       if (!form.ownerName.trim()) return "Enter the responsible owner or director name.";
@@ -443,7 +464,6 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
     if (targetStep === 1) {
       if (!form.city.trim() || !form.address.trim()) return "Add the company base address.";
-      if (!hasLocation) return "Use Locate Me or Drop Pin so KunThai can verify the company base on the map.";
     }
 
     if (targetStep === 2) {
@@ -462,14 +482,16 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         fleet.pricePerHour,
       ].some((value) => !String(value || "").trim()));
       if (incompleteFleet) return "Each fleet needs its name, plate, make, model, year, color, operating area, home base, starting price, per-kilometre price, and hourly price.";
-      const missingImageFleet = fleets.find((fleet) =>
-        getFleetImageRequirements(form).some((requirement) => !fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))])
-      );
-      if (missingImageFleet) return "Upload the front, back, left-side, and right-side image for every fleet.";
-      const missingDocumentFleet = fleets.find((fleet) =>
-        getFleetDocumentRequirements(form, fleet).some((requirement) => !fleet.documents?.[documentStorageKey(requirement)])
-      );
-      if (missingDocumentFleet) return "Upload all required vehicle documents for every fleet.";
+      if (final) {
+        const missingImageFleet = fleets.find((fleet) =>
+          getFleetImageRequirements(form).some((requirement) => !fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))])
+        );
+        if (missingImageFleet) return "Upload the front, back, left-side, and right-side image for every fleet.";
+        const missingDocumentFleet = fleets.find((fleet) =>
+          getFleetDocumentRequirements(form, fleet).some((requirement) => !fleet.documents?.[documentStorageKey(requirement)])
+        );
+        if (missingDocumentFleet) return "Upload all required vehicle documents for every fleet.";
+      }
       const incompleteSafetyFleet = fleets.find((fleet) => (fleetSafetyQuestions[fleet.fleetType] || []).some((question) => !String(fleet.safetyAnswers?.[question.key] || "").trim()));
       if (incompleteSafetyFleet) return "Answer every security and safety question for each fleet.";
       if (addOperatorMode && fleets.some((fleet) => !(fleet.operators || []).length)) {
@@ -483,10 +505,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   function nextStep() {
     const error = validateStep();
     if (error) {
-      setStatus(error);
+      showStatus(error, "error");
       return;
     }
 
+    clearStatus();
     setStep((current) => {
       const next = Math.min(current + 1, steps.length - 1);
       setMaxStepReached((reached) => Math.max(reached, next));
@@ -538,14 +561,24 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     try {
       setSaving(true);
       await saveTransportCompanyDraft(buildPayload("draft"));
-      setStatus("Company draft saved. You can continue from this same step.");
+      showStatus("Company draft saved. You can keep editing or leave the form.", "success");
       return true;
     } catch (error) {
-      setStatus(error.message || "Unable to save company draft.");
+      showStatus(error.message || "Unable to save company draft.", "error");
       return false;
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleViewOneKmPreview() {
+    if (!onViewOneKmPreview) {
+      showStatus("The one kilometre preview is not available right now.", "error");
+      return;
+    }
+
+    const saved = await saveDraft();
+    if (saved) onViewOneKmPreview();
   }
 
   async function handleSaveDraft() {
@@ -555,7 +588,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   function continueAfterSave() {
     setSaveCheckpointOpen(false);
-    setStatus("Company draft saved. You can continue from this same step.");
+    showStatus("Company draft saved. You can keep completing the registration.", "success");
   }
 
   function saveAndExit() {
@@ -572,9 +605,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const origin = buttonRect
       ? { x: `${buttonRect.left + buttonRect.width / 2}px`, y: `${buttonRect.top + buttonRect.height / 2}px` }
       : { x: "50%", y: "70%" };
-    const firstError = (addOperatorMode ? [2] : [0, 1, 2]).map(validateStep).find(Boolean);
+    const firstError = (addOperatorMode ? [2] : [0, 1, 2]).map((item) => validateStep(item, { final: true })).find(Boolean);
     if (firstError) {
-      setStatus(firstError);
+      showStatus(firstError, "error");
       return;
     }
 
@@ -586,7 +619,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       await new Promise((resolve) => window.setTimeout(resolve, 480));
       onComplete?.(account, origin);
     } catch (error) {
-      setStatus(error.message || "Unable to submit company registration.");
+      showStatus(error.message || "Unable to submit company registration.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -612,7 +645,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     }));
     setLocationPickerMode(null);
     setLocationCautionOpen(false);
-    setStatus(`Company base set to ${location.address || "selected map point"}.`);
+    showStatus(`Company base set to ${location.address || "selected map point"}.`, "success");
   }
 
   function handleRegistrationBack() {
@@ -709,7 +742,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
         <section className="min-w-0 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
           {status ? (
-            <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
+            <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${statusClassName}`}>
               {status}
             </div>
           ) : null}
@@ -745,6 +778,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 onRemoveFleet={removeFleet}
                 onUpdateFleet={updateFleet}
                 onUploadFleetDocument={markFleetDocument}
+                onViewOneKmPreview={handleViewOneKmPreview}
               />
             ) : null}
             {step === 3 ? (
@@ -753,6 +787,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           </StepSlideTransition>
 
           <div className="mt-6 border-t border-slate-100 pt-4">
+            {status && statusTone === "error" ? (
+              <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${statusClassName}`}>
+                {status}
+              </div>
+            ) : null}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
@@ -859,7 +898,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
               <div>
                 <h2 className="text-lg font-black text-slate-950">Your information has been saved</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  When you return to company registration, KunThai will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
+                  When you return to company registration, KunThai will continue from this same step. Choose Save and exit if you want to leave the form now, or Keep editing if you want to keep completing it.
                 </p>
               </div>
             </div>
@@ -869,14 +908,14 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 onClick={saveAndExit}
                 className="h-11 rounded-2xl border border-blue-200 bg-blue-50 text-sm font-black text-blue-700 hover:bg-blue-100"
               >
-                Save
+                Save and exit
               </button>
               <button
                 type="button"
                 onClick={continueAfterSave}
                 className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700"
               >
-                Continue
+                Keep editing
               </button>
             </div>
           </section>
@@ -905,7 +944,7 @@ function CompanyIdentityStep({ documentRequirements = [], form, onChange, onDocu
           label="Support phone"
           type="tel"
           value={form.phone}
-          onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile))}
+          onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }))}
           placeholder={getCountryPhoneHint(countryProfile)}
           helper={phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
         />
@@ -923,30 +962,47 @@ function CompanyIdentityStep({ documentRequirements = [], form, onChange, onDocu
 
 function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onChange, onDropPin, onLocateMe }) {
   const countryProfile = getActiveCountryProfile(form.country);
+  const selectedPoint = hasLocation
+    ? {
+        lat: form.coordinates?.latitude ?? form.coordinates?.lat,
+        lng: form.coordinates?.longitude ?? form.coordinates?.lng,
+        address: form.address,
+        city: form.city,
+        country: form.country,
+      }
+    : null;
+  const areaValidation = useAddressAreaValidation(form.address, { selectedPoint });
   return (
     <div className="space-y-5">
       <div>
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">Company base</p>
-        <h2 className="mt-1 text-2xl font-black text-slate-950">Set the verified location passengers and operators can trust.</h2>
+        <h2 className="mt-1 text-2xl font-black text-slate-950">Add the company location passengers and operators can trust.</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <SelectField label="Country" value={countryProfile.name} options={GLOBAL_COUNTRY_PROFILES.map((country) => country.name)} onChange={(value) => onChange("country", value)} />
-        <FormInput label="City / district" value={form.city} onChange={(value) => onChange("city", value)} placeholder={countryProfile.cityPlaceholder} />
+        <FormInput label="City / district" value={form.city} onChange={(value) => onChange("city", value)} placeholder="City or district" />
         <div className="md:col-span-2">
-          <FormInput label="Office, station, or dispatch address" value={form.address} onChange={(value) => onChange("address", value)} placeholder={getCountryAddressPlaceholder(countryProfile)} />
+          <FormInput
+            label="Office, station, or dispatch address"
+            value={form.address}
+            onChange={(value) => onChange("address", value)}
+            placeholder="Office, station, or dispatch address"
+            helper="Area View checks this address when you type, but an exact map point is optional."
+          />
+          <CompanyAreaViewStatus validation={areaValidation} />
         </div>
       </div>
-      <div className={`rounded-3xl border p-4 ${hasLocation ? "border-emerald-100 bg-emerald-50" : "border-amber-100 bg-amber-50"}`}>
+      <div className={`rounded-3xl border p-4 ${hasLocation ? "border-emerald-100 bg-emerald-50" : "border-blue-100 bg-blue-50"}`}>
         <div className="flex items-start gap-3">
-          {hasLocation ? <FiCheckCircle className="mt-1 text-emerald-700" /> : <FiAlertTriangle className="mt-1 text-amber-700" />}
+          {hasLocation ? <FiCheckCircle className="mt-1 text-emerald-700" /> : <FiMapPin className="mt-1 text-blue-700" />}
           <div className="min-w-0 flex-1">
-            <h3 className={`font-black ${hasLocation ? "text-emerald-900" : "text-amber-900"}`}>
-              {hasLocation ? "Company base is mapped" : "Map location needed"}
+            <h3 className={`font-black ${hasLocation ? "text-emerald-900" : "text-blue-900"}`}>
+              {hasLocation ? "Exact map point added" : "Exact map point optional"}
             </h3>
-            <p className={`mt-1 text-sm font-semibold leading-6 ${hasLocation ? "text-emerald-800" : "text-amber-800"}`}>
+            <p className={`mt-1 text-sm font-semibold leading-6 ${hasLocation ? "text-emerald-800" : "text-blue-800"}`}>
               {hasLocation
                 ? "KunThai can review the exact company base using the selected map point."
-                : "Use Locate Me if you are at the company base, or Drop Pin if you need to place it manually."}
+                : "You can continue with the typed address. Use Locate Me if you are at the company base, or Drop Pin if you want to place it manually."}
             </p>
           </div>
         </div>
@@ -959,7 +1015,7 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
           </button>
         </div>
       </div>
-      <FormInput label="Operating areas" value={areaText} onChange={onAreaText} placeholder="Lumley, Aberdeen, Waterloo" helper="Separate areas with commas." />
+      <FormInput label="Operating areas" value={areaText} onChange={onAreaText} placeholder="Operating areas" helper="Separate areas with commas." />
       <label className="block">
         <span className="mb-2 block text-sm font-bold text-slate-700">Dispatch and safety policy</span>
         <textarea
@@ -974,7 +1030,36 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
   );
 }
 
-function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets, form, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument }) {
+function CompanyAreaViewStatus({ validation }) {
+  const status = validation?.status || "idle";
+  if (status === "idle") return null;
+
+  const copy = {
+    searching: {
+      tone: "border-slate-200 bg-slate-50 text-slate-700",
+      text: "Checking whether KunThai Area View can find this address...",
+    },
+    found: {
+      tone: "border-emerald-100 bg-emerald-50 text-emerald-800",
+      text: "Location findable by KunThai Area View.",
+    },
+    notFound: {
+      tone: "border-rose-100 bg-rose-50 text-rose-800",
+      text: "Location is not findable by KunThai Area View yet. You can still continue, or use Locate Me / Drop a Pin below to add an exact map point.",
+    },
+  }[status];
+
+  if (!copy) return null;
+
+  return (
+    <div className={`mt-3 flex items-start gap-2 rounded-2xl border px-3 py-2 text-xs font-bold leading-5 ${copy.tone}`}>
+      <AddressAreaStatusIcon status={status} className="mt-0.5 shrink-0" />
+      <span>{copy.text}</span>
+    </div>
+  );
+}
+
+function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets, form, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
   const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
     <div className="space-y-5">
@@ -999,6 +1084,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets
             onRemove={onRemoveFleet}
             onUpdate={onUpdateFleet}
             onUploadDocument={onUploadFleetDocument}
+            onViewOneKmPreview={onViewOneKmPreview}
             removable={fleets.length > 1}
           />
         ))}
@@ -1007,11 +1093,12 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets
   );
 }
 
-function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRemove, onUpdate, onUploadDocument, removable }) {
+function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const [activePricingGuide, setActivePricingGuide] = useState("");
   const serviceCategoryOptions = getCompanyServiceCategoryOptions(form);
   const fleetTypeOptions = getCompanyFleetTypeOptions(form, fleet.serviceCategory);
 
@@ -1120,7 +1207,7 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
         </div>
         <SelectField label="Fleet type" value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value) })} />
         <SelectField label="Service category" value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />
-        <FormInput label="Fleet name" value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder="Example: Lumley taxi 01" />
+        <FormInput label="Fleet name" value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder="Fleet name" />
         <FormInput label="Plate number" value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder="Plate number" />
         <FormInput label="Make / brand" value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder="Make or brand" />
         <FormInput label="Model" value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder="Model" />
@@ -1134,10 +1221,25 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
         <h4 className="mt-1 text-lg font-black text-slate-950">Set the prices passengers will see</h4>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">The company owner or CEO controls these prices. The assigned operator can manage availability and trips, but cannot replace company pricing.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FormInput label="Starting price" type="number" value={fleet.baseFare} onChange={(value) => onUpdate(fleet.localId, { baseFare: value })} placeholder="0" />
-          <FormInput label="Price per 1 km" type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" />
-          <FormInput label="Price per 1 hour" type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" />
-          <FormInput label="Passenger price note optional" value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder="Example: final fare confirmed in booking" />
+          <FormInput label="Starting price" type="number" value={fleet.baseFare} onChange={(value) => onUpdate(fleet.localId, { baseFare: value })} placeholder="0" helper="The minimum fare shown when distance or time totals are lower than your starting price." />
+          <div>
+            <FormInput label="Price per 1 km" type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper="Distance bookings multiply this rate by the passenger route." />
+            <PricingGuide
+              type="km"
+              open={activePricingGuide === "km"}
+              onToggle={() => setActivePricingGuide((current) => (current === "km" ? "" : "km"))}
+              onViewOneKm={onViewOneKmPreview}
+            />
+          </div>
+          <div>
+            <FormInput label="Price per 1 hour" type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" helper="Time bookings use this rate for booked or waiting hours." />
+            <PricingGuide
+              type="hour"
+              open={activePricingGuide === "hour"}
+              onToggle={() => setActivePricingGuide((current) => (current === "hour" ? "" : "hour"))}
+            />
+          </div>
+          <FormInput label="Passenger price note optional" value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder="Example: final fare confirmed in booking" helper="Add a short public note only when passengers need extra price context." />
         </div>
       </section>
       <FleetImagesSection fleet={fleet} form={form} onUploadDocument={onUploadDocument} />
@@ -1387,6 +1489,51 @@ function UploadField({ label, onChange, value }) {
       <input type="file" className="mt-3 block w-full text-xs font-semibold text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white" onChange={(event) => onChange(event.target.files?.[0])} />
       {selectedName ? <span className="mt-2 block truncate text-xs font-black text-emerald-700">{selectedName}</span> : null}
     </label>
+  );
+}
+
+function PricingGuide({ type, open, onToggle, onViewOneKm }) {
+  const isDistance = type === "km";
+  const audience = isDistance ? "customers and passengers" : "customers booking by time";
+
+  return (
+    <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3">
+      <p className="text-xs font-bold leading-5 text-blue-800">
+        Please enter a fair price to attract more {audience}.
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-black text-blue-700 hover:bg-blue-100"
+        >
+          {open ? "Show less" : "Read more"}
+        </button>
+        {isDistance ? (
+          <button
+            type="button"
+            onClick={onViewOneKm}
+            disabled={!onViewOneKm}
+            className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            View 1 KM
+          </button>
+        ) : null}
+      </div>
+      {open ? (
+        <div className="mt-3 rounded-2xl bg-white px-3 py-3 text-xs font-semibold leading-5 text-slate-600">
+          {isDistance ? (
+            <p>
+              A lower and honest price per kilometre can help passengers choose this company fleet more often, especially for short trips. Set a rate that covers fuel, maintenance, operator time, and company costs without making nearby trips feel too expensive.
+            </p>
+          ) : (
+            <p>
+              Hourly pricing is useful for waiting time, events, dispatch work, and booked blocks of service. Keep the hourly rate clear and fair so passengers understand what they will pay before they confirm.
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

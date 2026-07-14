@@ -12,7 +12,6 @@ import { useAutoCollapseCard } from "../../../../shared/motionHooks";
 import {
   constrainCountryPhoneInput,
   getActiveCountryProfile,
-  getCountryAddressPlaceholder,
   getCountryPhoneHint,
   validateCountryPhone,
   GLOBAL_COUNTRY_PROFILES,
@@ -66,7 +65,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.city}
             onChange={(event) => updateSection("location", { city: event.target.value })}
-            placeholder={countryProfile.cityPlaceholder}
+            placeholder="City"
             autoComplete="address-level2"
           />
         </RegistrationField>
@@ -83,7 +82,7 @@ export default function LocationContactStep({ registration }) {
         <RegistrationInput
             value={form.location.address}
             onChange={(event) => updateSection("location", { address: event.target.value })}
-          placeholder={getCountryAddressPlaceholder(countryProfile)}
+          placeholder="Business address"
           autoComplete="street-address"
         />
       </RegistrationField>
@@ -120,7 +119,7 @@ export default function LocationContactStep({ registration }) {
         <RegistrationField label="Phone number" error={errors.phone}>
           <RegistrationInput
             value={form.location.phone}
-            onChange={(event) => updateSection("location", { phone: constrainCountryPhoneInput(event.target.value, countryProfile) })}
+            onChange={(event) => updateSection("location", { phone: constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }) })}
             placeholder={getCountryPhoneHint(countryProfile)}
             autoComplete="tel"
           />
@@ -159,7 +158,7 @@ export default function LocationContactStep({ registration }) {
         <RegistrationField label="WhatsApp number">
           <RegistrationInput
             value={form.location.whatsapp}
-            onChange={(event) => updateSection("location", { whatsapp: constrainCountryPhoneInput(event.target.value, countryProfile) })}
+            onChange={(event) => updateSection("location", { whatsapp: constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }) })}
             placeholder={getCountryPhoneHint(countryProfile)}
           />
         </RegistrationField>

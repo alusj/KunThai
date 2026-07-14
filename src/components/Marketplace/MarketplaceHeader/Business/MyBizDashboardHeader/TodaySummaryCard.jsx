@@ -12,10 +12,10 @@ export default function TodaySummaryCard({ today }) {
       {
         key: "orders",
         icon: PackageCheck,
-        label: "Orders",
+        label: today.orderMetricLabel || "Orders",
         value: today.orders || 0,
-        title: "Today's orders",
-        description: "Orders created today, including pending and completed orders.",
+        title: `Today's ${String(today.orderMetricLabel || "orders").toLowerCase()}`,
+        description: today.orderDescription || "Orders created today, including pending and completed orders.",
         rows: today.details?.orders || [],
         tone: "blue",
       },

@@ -39,7 +39,7 @@ export default function ProductDeliveryReviewStep({ productForm }) {
           <ProductFormInput
             value={form.delivery.location}
             onChange={(event) => updateSection("delivery", { location: event.target.value })}
-            placeholder={`${countryProfile.cityPlaceholder}, ${countryProfile.name}`}
+            placeholder="City, country"
           />
         </ProductFormField>
       </div>

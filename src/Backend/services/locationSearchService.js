@@ -130,7 +130,7 @@ function uniquePlaces(places = []) {
   });
 }
 
-function sortPlaces(places = [], searchText = "") {
+function sortPlaces(places = [], searchText = "", distanceFirst = false) {
   const query = searchText.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const queryTokens = query.split(/\s+/).filter((token) => token.length > 1);
   const relevance = (place) => {
@@ -141,6 +141,10 @@ function sortPlaces(places = [], searchText = "") {
     return (name === query ? 4 : name.startsWith(query) ? 2 : searchable.includes(query) ? 1 : 0) + coverage;
   };
   return [...places].sort((first, second) => {
+    if (distanceFirst) {
+      const distanceDelta = Number(first.distanceMeters ?? Infinity) - Number(second.distanceMeters ?? Infinity);
+      if (distanceDelta !== 0) return distanceDelta;
+    }
     const firstRelevance = relevance(first);
     const secondRelevance = relevance(second);
     if (firstRelevance !== secondRelevance) return secondRelevance - firstRelevance;
@@ -225,7 +229,7 @@ export async function searchLocations(query, center = null, options = {}) {
       if (index > 0 && collected.length > 0) break;
     }
 
-    return sortPlaces(collected, searchText).slice(0, limit);
+    return sortPlaces(collected, searchText, options.sortByDistance === true).slice(0, limit);
   } catch {
     return [];
   }
