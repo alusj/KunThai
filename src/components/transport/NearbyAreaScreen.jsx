@@ -1308,6 +1308,7 @@ export default function NearbyAreaScreen({
     const destination = buildInitialMapDestination(initialDestination);
     const searchText = getInitialDestinationSearchText(initialDestination);
     if (!incomingRoutePlan && !destination && !searchText) return;
+    if (autoRoute && !mapInstance) return;
     if (initialDestinationHandledRef.current === initialDestinationKey) return;
 
     initialDestinationHandledRef.current = initialDestinationKey;
@@ -1379,7 +1380,9 @@ export default function NearbyAreaScreen({
       let cancelled = false;
       const searchCenter = mapCenterRef.current || userLocationRef.current;
 
-      searchLocations(searchText, searchCenter)
+      searchLocations(searchText, searchCenter, {
+        countryCode: normalizeCountryIso(initialDestination?.countryCode || initialDestination?.country),
+      })
         .then((results) => {
           if (cancelled) return;
 
@@ -1394,9 +1397,12 @@ export default function NearbyAreaScreen({
             ...result,
             id: result.id || `destination-${result.lat}-${result.lng}`,
             type: initialDestination?.type || "destination",
-            name: result.name || searchText,
+            name: initialDestination?.name || initialDestination?.label || result.name || searchText,
+            label: initialDestination?.label || initialDestination?.name || result.label || result.name || searchText,
             category: initialDestination?.category || "Destination",
-            address: result.address || result.name || searchText,
+            address: result.address || result.fullAddress || searchText,
+            fullAddress: result.fullAddress || result.address || searchText,
+            searchQuery: searchText,
             distance: initialDestination?.distance || "Resolved from Area View search",
             status: initialDestination?.status || "verified",
             description: initialDestination?.description || "Selected destination from KunThai transport.",

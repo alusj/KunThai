@@ -955,6 +955,32 @@ export async function fetchSellerCatalog(businessId) {
   return (data || []).map(mapBuyerProduct);
 }
 
+// Sellers can register up to 10 store locations (main store plus branches).
+// Buyers use them to locate the nearest branch. Returns [] when the seller
+// has no location rows so callers can fall back to the business row's pin.
+export async function fetchSellerLocations(businessId) {
+  if (!businessId) return [];
+
+  const { data, error } = await supabase
+    .from("marketplace_business_locations")
+    .select("id,label,address,city,country,latitude,longitude,is_primary,position")
+    .eq("business_id", businessId)
+    .order("position", { ascending: true });
+
+  if (error) return [];
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    label: row.label || (row.is_primary ? "Main store" : "Branch"),
+    address: row.address || "",
+    city: row.city || "",
+    country: row.country || "",
+    latitude: toOptionalNumber(row.latitude),
+    longitude: toOptionalNumber(row.longitude),
+    isPrimary: Boolean(row.is_primary),
+  }));
+}
+
 function averageRating(reviews) {
   if (!reviews.length) return 0;
   return reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length;

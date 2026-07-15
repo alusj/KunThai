@@ -66,6 +66,8 @@ export const INITIAL_REGISTRATION = {
     country: "",
     city: "",
     address: "",
+    mainLabel: "Main store",
+    branches: [],
     phone: "",
     whatsappEnabled: false,
     whatsapp: "",
@@ -144,8 +146,96 @@ function buildBusinessDocumentRows(businessId, documentUploads) {
     .filter(Boolean);
 }
 
-function normalizeBusiness(row, categories = [], payoutMethod = null, documents = []) {
+export const MAX_BUSINESS_LOCATIONS = 10;
+
+function normalizeBranchRow(row) {
+  return {
+    id: row.id,
+    label: row.label || "Branch",
+    address: row.address || "",
+    city: row.city || "",
+    country: row.country || "",
+    coordinates:
+      typeof row.latitude === "number" && typeof row.longitude === "number"
+        ? { latitude: row.latitude, longitude: row.longitude }
+        : null,
+  };
+}
+
+function isMissingLocationsTable(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("marketplace_business_locations") &&
+    (message.includes("does not exist") || message.includes("schema cache") || message.includes("could not find"))
+  );
+}
+
+// Every location (main store plus branches) lives in
+// marketplace_business_locations; the primary row is also mirrored onto the
+// business row's address/latitude/longitude columns for older readers.
+async function saveBusinessLocations(businessId, registration) {
+  const location = registration.location || {};
+  const branches = (Array.isArray(location.branches) ? location.branches : [])
+    .filter((branch) => branch && (String(branch.address || "").trim() || branch.coordinates))
+    .slice(0, MAX_BUSINESS_LOCATIONS - 1);
+
+  const rows = [
+    {
+      business_id: businessId,
+      label: String(location.mainLabel || "Main store").trim() || "Main store",
+      address: String(location.address || "").trim(),
+      city: String(location.city || "").trim(),
+      country: String(location.country || "").trim(),
+      latitude: location.coordinates?.latitude ?? null,
+      longitude: location.coordinates?.longitude ?? null,
+      is_primary: true,
+      position: 0,
+    },
+    ...branches.map((branch, index) => ({
+      business_id: businessId,
+      label: String(branch.label || `Branch ${index + 2}`).trim() || `Branch ${index + 2}`,
+      address: String(branch.address || "").trim(),
+      city: String(branch.city || location.city || "").trim(),
+      country: String(branch.country || location.country || "").trim(),
+      latitude: branch.coordinates?.latitude ?? null,
+      longitude: branch.coordinates?.longitude ?? null,
+      is_primary: false,
+      position: index + 1,
+    })),
+  ];
+
+  const { error: deleteError } = await supabase
+    .from("marketplace_business_locations")
+    .delete()
+    .eq("business_id", businessId);
+  if (deleteError) {
+    if (isMissingLocationsTable(deleteError)) return;
+    throw new Error(deleteError.message);
+  }
+
+  const { error: insertError } = await supabase.from("marketplace_business_locations").insert(rows);
+  if (insertError) {
+    if (isMissingLocationsTable(insertError)) return;
+    throw new Error(insertError.message);
+  }
+}
+
+async function readBusinessLocations(businessId) {
+  const { data, error } = await supabase
+    .from("marketplace_business_locations")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("position", { ascending: true });
+
+  if (error) return [];
+  return data || [];
+}
+
+function normalizeBusiness(row, categories = [], payoutMethod = null, documents = [], locations = []) {
   if (!row) return null;
+
+  const primaryLocation = locations.find((item) => item.is_primary) || null;
+  const branchRows = locations.filter((item) => !item.is_primary);
 
   return {
     id: row.id,
@@ -169,6 +259,8 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
       currency: row.currency || "",
       city: row.city,
       address: row.address,
+      mainLabel: primaryLocation?.label || "Main store",
+      branches: branchRows.map(normalizeBranchRow),
       phone: row.phone,
       whatsappEnabled: row.whatsapp_enabled,
       whatsapp: row.whatsapp,
@@ -224,12 +316,13 @@ export async function readRegisteredBusinesses() {
 
   if (error) throw new Error(error.message);
   const businesses = await Promise.all((rows || []).map(async (business) => {
-    const [{ data: categories }, { data: payoutMethod }, { data: documents }] = await Promise.all([
+    const [{ data: categories }, { data: payoutMethod }, { data: documents }, locations] = await Promise.all([
       supabase.from("marketplace_business_categories").select("category").eq("business_id", business.id),
       supabase.from("marketplace_payout_methods").select("*").eq("business_id", business.id).maybeSingle(),
       supabase.from("marketplace_business_documents").select("*").eq("business_id", business.id),
+      readBusinessLocations(business.id),
     ]);
-    return normalizeBusiness(business, categories || [], payoutMethod || null, documents || []);
+    return normalizeBusiness(business, categories || [], payoutMethod || null, documents || [], locations);
   }));
 
   return businesses;
@@ -356,6 +449,8 @@ export async function submitSellerRegistration(registration) {
     );
     if (categoryError) throw new Error(categoryError.message);
   }
+
+  await saveBusinessLocations(business.id, registration);
 
   const payoutPayload = registration.trustPayout.skipped
     ? {
@@ -510,6 +605,8 @@ export async function updateRegisteredBusinessProfile(updates) {
       if (categoryError) throw new Error(categoryError.message);
     }
   }
+
+  await saveBusinessLocations(currentBusiness.id, registration);
 
   const payoutPayload = registration.trustPayout.skipped
     ? {

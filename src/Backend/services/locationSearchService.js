@@ -1,5 +1,22 @@
 const NEARBY_VIEWBOX_RADIUS_DEGREES = 0.45;
 const NEARBY_FALLBACK_RADIUS_METERS = 350_000;
+const ADDRESS_STOP_WORDS = new Set([
+  "street",
+  "st",
+  "road",
+  "rd",
+  "avenue",
+  "ave",
+  "lane",
+  "ln",
+  "drive",
+  "dr",
+  "close",
+  "junction",
+  "community",
+  "town",
+  "city",
+]);
 
 function toFiniteCoordinate(value) {
   const coordinate = Number(value);
@@ -55,6 +72,114 @@ function formatDistance(distanceMeters) {
   if (!Number.isFinite(distanceMeters)) return "";
   if (distanceMeters < 1000) return `${Math.round(distanceMeters)} m away`;
   return `${(distanceMeters / 1000).toFixed(distanceMeters >= 10_000 ? 0 : 1)} km away`;
+}
+
+function cleanAddressText(value = "") {
+  return String(value)
+    .replace(/\s*,+\s*/g, ", ")
+    .replace(/,\s*,+/g, ", ")
+    .replace(/\s+/g, " ")
+    .replace(/^,\s*|\s*,$/g, "")
+    .trim();
+}
+
+function normalizeSearchText(value = "") {
+  return String(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function tokenizeAddressSegment(value = "") {
+  return normalizeSearchText(value)
+    .split(/\s+/)
+    .filter((token) => token.length > 1)
+    .filter((token) => !/^\d+[a-z]?$/.test(token))
+    .filter((token) => !ADDRESS_STOP_WORDS.has(token));
+}
+
+function countTokenMatches(searchable, tokens = []) {
+  if (!tokens.length) return 0;
+  const padded = ` ${searchable} `;
+  return tokens.filter((token) => padded.includes(` ${token} `)).length;
+}
+
+function buildAddressContext(searchText = "") {
+  const cleaned = cleanAddressText(searchText);
+  const segments = cleaned.split(",").map((segment) => segment.trim()).filter((segment) => segment.length >= 2);
+  const streetTokens = tokenizeAddressSegment(segments[0] || cleaned);
+  const communityTokens = tokenizeAddressSegment(segments[1] || "");
+  const trailingTokens = segments.slice(1).flatMap(tokenizeAddressSegment);
+  const cityCountryTokens = segments.slice(-2).flatMap(tokenizeAddressSegment);
+  const allTokens = [...new Set(segments.flatMap(tokenizeAddressSegment))];
+
+  return {
+    cleaned,
+    segments,
+    streetTokens,
+    communityTokens,
+    trailingTokens: [...new Set(trailingTokens)],
+    cityCountryTokens: [...new Set(cityCountryTokens)],
+    allTokens,
+    structured: segments.length > 1,
+  };
+}
+
+function getSearchablePlaceText(place) {
+  return normalizeSearchText([place.name, place.label, place.address, place.fullAddress, place.country].filter(Boolean).join(" "));
+}
+
+function scoreAddressMatch(place, context) {
+  const searchable = getSearchablePlaceText(place);
+  const allMatches = countTokenMatches(searchable, context.allTokens);
+  const streetMatches = countTokenMatches(searchable, context.streetTokens);
+  const communityMatches = countTokenMatches(searchable, context.communityTokens);
+  const trailingMatches = countTokenMatches(searchable, context.trailingTokens);
+  const cityCountryMatches = countTokenMatches(searchable, context.cityCountryTokens);
+  const coverage = context.allTokens.length ? allMatches / context.allTokens.length : 0;
+  const exactCleaned = normalizeSearchText(context.cleaned);
+
+  let score =
+    coverage * 4 +
+    streetMatches * 2 +
+    communityMatches * 7 +
+    trailingMatches * 2.5 +
+    cityCountryMatches * 1.5;
+
+  if (exactCleaned && searchable.includes(exactCleaned)) score += 8;
+
+  // Same street/area names can exist in different communities. If the typed
+  // address includes a community, do not let a street-only match outrank the
+  // community and city context.
+  if (context.communityTokens.length && streetMatches > 0 && communityMatches === 0) {
+    score -= 10;
+  }
+
+  if (context.structured && allMatches <= Math.max(1, streetMatches) && context.trailingTokens.length) {
+    score -= 8;
+  }
+
+  return score;
+}
+
+function hasStrongAddressMatch(places = [], context) {
+  if (!context.structured) return places.length > 0;
+  return places.some((place) => {
+    const searchable = getSearchablePlaceText(place);
+    const streetMatches = countTokenMatches(searchable, context.streetTokens);
+    const communityMatches = countTokenMatches(searchable, context.communityTokens);
+    const trailingMatches = countTokenMatches(searchable, context.trailingTokens);
+    const cityCountryMatches = countTokenMatches(searchable, context.cityCountryTokens);
+
+    if (context.communityTokens.length) {
+      return communityMatches > 0 && (streetMatches > 0 || cityCountryMatches > 0 || trailingMatches >= 2);
+    }
+
+    return trailingMatches >= Math.min(2, context.trailingTokens.length || 2) || streetMatches > 0;
+  });
 }
 
 function compactAddress(address = {}) {
@@ -131,14 +256,19 @@ function uniquePlaces(places = []) {
 }
 
 function sortPlaces(places = [], searchText = "", distanceFirst = false) {
-  const query = searchText.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const queryTokens = query.split(/\s+/).filter((token) => token.length > 1);
+  const context = buildAddressContext(searchText);
+  const query = normalizeSearchText(searchText);
+  const queryTokens = context.allTokens.length ? context.allTokens : query.split(/\s+/).filter((token) => token.length > 1);
   const relevance = (place) => {
-    const name = String(place.name || "").toLowerCase();
-    const searchable = [place.name, place.address, place.fullAddress].join(" ").toLowerCase().replace(/[^a-z0-9]+/g, " ");
-    const tokenMatches = queryTokens.filter((token) => searchable.includes(token)).length;
+    const name = normalizeSearchText(place.name || "");
+    const searchable = getSearchablePlaceText(place);
+    const tokenMatches = queryTokens.filter((token) => ` ${searchable} `.includes(` ${token} `)).length;
     const coverage = queryTokens.length ? tokenMatches / queryTokens.length : 0;
-    return (name === query ? 4 : name.startsWith(query) ? 2 : searchable.includes(query) ? 1 : 0) + coverage;
+    return (
+      (name === query ? 4 : name.startsWith(query) ? 2 : searchable.includes(query) ? 1 : 0) +
+      coverage +
+      scoreAddressMatch(place, context)
+    );
   };
   return [...places].sort((first, second) => {
     if (distanceFirst) {
@@ -153,21 +283,21 @@ function sortPlaces(places = [], searchText = "", distanceFirst = false) {
 }
 
 function buildSearchVariants(searchText = "") {
-  const normalized = String(searchText).replace(/\s+/g, " ").trim();
+  const normalized = cleanAddressText(searchText);
   const segments = normalized.split(",").map((segment) => segment.trim()).filter((segment) => segment.length >= 2);
   const variants = [normalized];
-
-  if (segments.length > 1) {
-    variants.push(segments.slice(0, -1).join(", "));
-    variants.push(segments.slice(0, 2).join(", "));
-    variants.push(segments[0]);
-    variants.push(segments.slice(1).join(", "));
-  }
-
   const withoutPostcode = normalized.replace(/\b[A-Z]{0,2}\d{3,6}\b/gi, "").replace(/\s+,/g, ",").trim();
   if (withoutPostcode && withoutPostcode !== normalized) variants.push(withoutPostcode);
 
-  return [...new Set(variants.filter(Boolean))].slice(0, 5);
+  if (segments.length > 1) {
+    variants.push(segments.slice(0, -1).join(", "));
+    variants.push(segments.slice(1).join(", "));
+    variants.push([segments[0], segments[1], ...segments.slice(-2)].filter(Boolean).join(", "));
+    variants.push(segments.slice(0, 2).join(", "));
+    variants.push(segments[0]);
+  }
+
+  return [...new Set(variants.filter(Boolean))].slice(0, 7);
 }
 
 async function fetchNominatim(url) {
@@ -200,6 +330,7 @@ export async function searchLocations(query, center = null, options = {}) {
     const countryParam = centerCountryCode ? `&countrycodes=${encodeURIComponent(centerCountryCode)}` : "";
     const baseParams = `format=json&addressdetails=1&namedetails=1&limit=${limit}${countryParam}`;
     const variants = buildSearchVariants(searchText);
+    const addressContext = buildAddressContext(searchText);
     let collected = [];
 
     const normalizeResults = (data, source) => (Array.isArray(data) ? data : [])
@@ -225,8 +356,8 @@ export async function searchLocations(query, center = null, options = {}) {
         collected = uniquePlaces([...collected, ...normalizeResults(globalData, "global")]);
       }
 
-      if (collected.length >= Math.min(4, limit)) break;
-      if (index > 0 && collected.length > 0) break;
+      if (collected.length >= Math.min(4, limit) && hasStrongAddressMatch(collected, addressContext)) break;
+      if (!addressContext.structured && index > 0 && collected.length > 0) break;
     }
 
     return sortPlaces(collected, searchText, options.sortByDistance === true).slice(0, limit);

@@ -1,17 +1,35 @@
 import { useState } from "react";
+import { Scissors } from "lucide-react";
 
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
+import ProductVideoTrimmer from "./ProductVideoTrimmer";
+import { MAX_PRODUCT_VIDEO_MB, MAX_PRODUCT_VIDEO_SECONDS, formatVideoMb } from "./productVideoLimits";
 
 function readVideoDuration(file) {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
     const url = URL.createObjectURL(file);
 
+    function finish(duration) {
+      URL.revokeObjectURL(url);
+      resolve(duration || 0);
+    }
+
     video.preload = "metadata";
     video.onloadedmetadata = () => {
-      URL.revokeObjectURL(url);
-      resolve(video.duration || 0);
+      if (Number.isFinite(video.duration)) {
+        finish(video.duration);
+        return;
+      }
+
+      // Some recorded videos (screen captures, chat exports) report Infinity
+      // until the element is seeked far past the end.
+      video.ontimeupdate = () => {
+        video.ontimeupdate = null;
+        finish(Number.isFinite(video.duration) ? video.duration : 0);
+      };
+      video.currentTime = Number.MAX_SAFE_INTEGER;
     };
     video.onerror = () => {
       URL.revokeObjectURL(url);
@@ -28,6 +46,8 @@ export default function ProductMediaStep({ productForm }) {
   const [coverGuideOpen, setCoverGuideOpen] = useState(false);
   const [videoGuideOpen, setVideoGuideOpen] = useState(false);
   const [videoError, setVideoError] = useState("");
+  const [videoTrimCandidate, setVideoTrimCandidate] = useState(null);
+  const [trimmerOpen, setTrimmerOpen] = useState(false);
   const [extraImagesNote, setExtraImagesNote] = useState("");
   const extraImages = form.media.extraImageFiles || [];
   const extraImagesFull = extraImages.length >= MAX_EXTRA_IMAGES;
@@ -129,18 +149,32 @@ export default function ProductMediaStep({ productForm }) {
           onChange={async (event) => {
             const file = event.target.files?.[0] || null;
             setVideoError("");
+            setVideoTrimCandidate(null);
 
             if (file) {
+              if (file.size > MAX_PRODUCT_VIDEO_MB * 1024 * 1024) {
+                setVideoError(
+                  `Your video is ${formatVideoMb(file.size)} MB and we are only accepting a video that is less than ${MAX_PRODUCT_VIDEO_MB} MB for now.`,
+                );
+                setVideoTrimCandidate(file);
+                event.target.value = "";
+                updateSection("media", { videoFile: null, videoName: "" });
+                return;
+              }
+
               try {
                 const duration = await readVideoDuration(file);
-                if (duration > 30.5) {
-                  setVideoError("Product video must be 30 seconds or less.");
+                if (duration > MAX_PRODUCT_VIDEO_SECONDS + 0.5) {
+                  setVideoError(
+                    `Your video is ${Math.round(duration)} seconds and we are only accepting a video that is ${MAX_PRODUCT_VIDEO_SECONDS} seconds or less for now.`,
+                  );
+                  setVideoTrimCandidate(file);
                   event.target.value = "";
                   updateSection("media", { videoFile: null, videoName: "" });
                   return;
                 }
               } catch {
-                setVideoError("Unable to check this video. Please choose a 30 seconds or shorter video.");
+                setVideoError(`Unable to check this video. Please choose a ${MAX_PRODUCT_VIDEO_SECONDS} seconds or shorter video.`);
                 event.target.value = "";
                 updateSection("media", { videoFile: null, videoName: "" });
                 return;
@@ -150,8 +184,35 @@ export default function ProductMediaStep({ productForm }) {
             updateSection("media", { videoFile: file, videoName: file?.name || "" });
           }}
         />
-        {videoError ? <p className="mt-2 text-xs font-bold text-red-600">{videoError}</p> : null}
+        {videoError ? (
+          <div className="mt-2 space-y-2">
+            <p className="text-xs font-bold text-red-600">{videoError}</p>
+            {videoTrimCandidate ? (
+              <button
+                type="button"
+                onClick={() => setTrimmerOpen(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-black text-white transition hover:bg-gray-800"
+              >
+                <Scissors size={15} />
+                Trim
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </ProductFormField>
+
+      {trimmerOpen && videoTrimCandidate ? (
+        <ProductVideoTrimmer
+          file={videoTrimCandidate}
+          onCancel={() => setTrimmerOpen(false)}
+          onComplete={(trimmedFile) => {
+            setTrimmerOpen(false);
+            setVideoTrimCandidate(null);
+            setVideoError("");
+            updateSection("media", { videoFile: trimmedFile, videoName: trimmedFile.name });
+          }}
+        />
+      ) : null}
 
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm font-medium text-gray-600">
         <p>Cover: {form.media.coverImageName || "Not selected"}</p>

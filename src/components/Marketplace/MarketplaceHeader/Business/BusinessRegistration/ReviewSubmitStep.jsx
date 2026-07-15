@@ -32,7 +32,12 @@ export default function ReviewSubmitStep({ registration }) {
 
       <SummaryCard title="Location & Contact" onEdit={() => goToStep(1)}>
         <p>{form.location.city}, {form.location.country}</p>
-        <p>{form.location.address}</p>
+        <p>{form.location.mainLabel || "Main store"}: {form.location.address}</p>
+        {(form.location.branches || [])
+          .filter((branch) => String(branch.address || "").trim() || branch.coordinates)
+          .map((branch, index) => (
+            <p key={`review-branch-${index}`}>{branch.label || `Branch ${index + 2}`}: {branch.address || "Pinned on map"}</p>
+          ))}
         {form.location.website ? <p>{form.location.website}</p> : null}
         <p>{form.location.phone} | {form.location.email}</p>
       </SummaryCard>

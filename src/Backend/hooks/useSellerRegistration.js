@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BUSINESS_CATEGORIES,
   INITIAL_REGISTRATION,
+  MAX_BUSINESS_LOCATIONS,
   URMALL_BUSINESS_KINDS,
   calculateReadinessScore,
   readRegisteredBusiness,
@@ -19,12 +20,32 @@ import {
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
 
+const BRANCH_LABEL_SUGGESTIONS = [
+  "Second branch",
+  "Third branch",
+  "Fourth branch",
+  "Fifth branch",
+  "Sixth branch",
+  "Seventh branch",
+  "Eighth branch",
+  "Ninth branch",
+  "Tenth branch",
+];
+
+function cloneBranches(branches) {
+  return (Array.isArray(branches) ? branches : []).map((branch) => ({
+    ...branch,
+    coordinates: branch?.coordinates ? { ...branch.coordinates } : null,
+  }));
+}
+
 function cloneInitialRegistration() {
   const countryProfile = getActiveCountryProfile();
   return {
     identity: { ...INITIAL_REGISTRATION.identity, categories: [...INITIAL_REGISTRATION.identity.categories] },
     location: {
       ...INITIAL_REGISTRATION.location,
+      branches: [],
       country: countryProfile.name,
       countryIso: countryProfile.iso2,
       currency: countryProfile.currency.code,
@@ -44,7 +65,7 @@ function sanitizeDraftForm(form) {
       bannerFile: null,
       bannerName: "",
     },
-    location: { ...form.location },
+    location: { ...form.location, branches: cloneBranches(form.location.branches) },
     operations: { ...form.operations },
     trustPayout: {
       ...form.trustPayout,
@@ -67,7 +88,7 @@ function readDraft() {
       savedAt: draft.savedAt || "",
       form: {
         identity: { ...initial.identity, ...draft.form.identity, categories: Array.isArray(draft.form.identity?.categories) ? draft.form.identity.categories : [] },
-        location: { ...initial.location, ...draft.form.location },
+        location: { ...initial.location, ...draft.form.location, branches: cloneBranches(draft.form.location?.branches) },
         operations: { ...initial.operations, ...draft.form.operations },
         trustPayout: { ...initial.trustPayout, ...draft.form.trustPayout },
       },
@@ -92,6 +113,7 @@ function formFromRegisteredBusiness(business) {
     location: {
       ...initial.location,
       ...(business.location || {}),
+      branches: cloneBranches(business.location?.branches),
     },
     operations: {
       ...initial.operations,
@@ -163,6 +185,8 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   const [locationStatus, setLocationStatus] = useState("");
   const [locationPromptOpen, setLocationPromptOpen] = useState(false);
   const [locationCandidate, setLocationCandidate] = useState(null);
+  // Which address the next picked location applies to: "main" or a branch index.
+  const [locationTarget, setLocationTarget] = useState("main");
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(editing);
@@ -295,6 +319,16 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
         currency: countryProfile.currency.code,
       };
     }
+    if (
+      section === "location" &&
+      Object.prototype.hasOwnProperty.call(patch || {}, "address") &&
+      !Object.prototype.hasOwnProperty.call(patch || {}, "coordinates")
+    ) {
+      nextPatch = {
+        ...nextPatch,
+        coordinates: null,
+      };
+    }
     setDraftStatus("");
     setForm((current) => ({
       ...current,
@@ -415,10 +449,92 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     return payload;
   }
 
-  function locateBusiness() {
+  function updateBranch(index, patch) {
+    const nextPatch =
+      Object.prototype.hasOwnProperty.call(patch || {}, "address") &&
+      !Object.prototype.hasOwnProperty.call(patch || {}, "coordinates")
+        ? { ...patch, coordinates: null }
+        : patch;
+    setDraftStatus("");
+    setForm((current) => ({
+      ...current,
+      location: {
+        ...current.location,
+        branches: (current.location.branches || []).map((branch, branchIndex) =>
+          branchIndex === index ? { ...branch, ...nextPatch } : branch,
+        ),
+      },
+    }));
+  }
+
+  function addBranch() {
+    const branches = form.location.branches || [];
+    if (branches.length >= MAX_BUSINESS_LOCATIONS - 1) {
+      setLocationStatus(`You can add up to ${MAX_BUSINESS_LOCATIONS} store addresses.`);
+      return;
+    }
+
+    setDraftStatus("");
+    setForm((current) => ({
+      ...current,
+      location: {
+        ...current.location,
+        branches: [
+          ...(current.location.branches || []),
+          {
+            label: BRANCH_LABEL_SUGGESTIONS[(current.location.branches || []).length] || "Branch",
+            address: "",
+            city: "",
+            country: "",
+            coordinates: null,
+          },
+        ],
+      },
+    }));
+  }
+
+  function removeBranch(index) {
+    setDraftStatus("");
+    if (locationTarget === index) setLocationTarget("main");
+    setForm((current) => ({
+      ...current,
+      location: {
+        ...current.location,
+        branches: (current.location.branches || []).filter((_, branchIndex) => branchIndex !== index),
+      },
+    }));
+  }
+
+  function applyPickedLocation({ address, city, country, coordinates }, statusAddress) {
+    if (locationTarget === "main") {
+      updateSection("location", {
+        address,
+        city: city || form.location.city,
+        country: country || form.location.country,
+        coordinates,
+      });
+    } else {
+      updateBranch(locationTarget, {
+        address,
+        city: city || form.location.city,
+        country: country || form.location.country,
+        coordinates,
+      });
+    }
+    setLocationStatus(`Location added: ${statusAddress}`);
+    setLocationPromptOpen(false);
+    setLocationCandidate(null);
+  }
+
+  function locateBusiness(target = "main") {
+    setLocationTarget(typeof target === "number" ? target : "main");
     setLocationPromptOpen(true);
     setLocationCandidate(null);
     setLocationStatus("");
+  }
+
+  function targetLocation(target) {
+    setLocationTarget(typeof target === "number" ? target : "main");
   }
 
   function closeLocationPrompt() {
@@ -464,15 +580,15 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   function acceptDetectedLocation() {
     if (!locationCandidate) return;
 
-    updateSection("location", {
-      address: locationCandidate.address,
-      city: locationCandidate.city || form.location.city,
-      country: locationCandidate.country || form.location.country,
-      coordinates: locationCandidate.coordinates,
-    });
-    setLocationStatus(`Location added: ${locationCandidate.address}`);
-    setLocationPromptOpen(false);
-    setLocationCandidate(null);
+    applyPickedLocation(
+      {
+        address: locationCandidate.address,
+        city: locationCandidate.city,
+        country: locationCandidate.country,
+        coordinates: locationCandidate.coordinates,
+      },
+      locationCandidate.address,
+    );
   }
 
   function acceptAreaViewLocation(location) {
@@ -486,20 +602,18 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
       return;
     }
 
-    updateSection("location", {
-      address: address || formatCoordinates(latitude, longitude),
-      city: location?.city || form.location.city,
-      country: location?.country || form.location.country,
-      coordinates: hasCoordinates
-        ? {
-            latitude,
-            longitude,
-          }
-        : form.location.coordinates,
-    });
-    setLocationStatus(`Location added: ${address || formatCoordinates(latitude, longitude)}`);
-    setLocationPromptOpen(false);
-    setLocationCandidate(null);
+    const resolvedAddress = address || formatCoordinates(latitude, longitude);
+    applyPickedLocation(
+      {
+        address: resolvedAddress,
+        city: location?.city || "",
+        country: location?.country || "",
+        coordinates: hasCoordinates
+          ? { latitude, longitude }
+          : (locationTarget === "main" ? form.location.coordinates : form.location.branches?.[locationTarget]?.coordinates) || null,
+      },
+      resolvedAddress,
+    );
   }
 
   function enterLocationManually() {
@@ -554,14 +668,20 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     locationStatus,
     locationPromptOpen,
     locationCandidate,
+    locationTarget,
     locating,
     loadingExisting,
     mode,
     submitting,
+    maxBusinessLocations: MAX_BUSINESS_LOCATIONS,
     updateSection,
     toggleCategory,
     updateOtherCategory,
     addOtherCategory,
+    addBranch,
+    updateBranch,
+    removeBranch,
+    targetLocation,
     locateBusiness,
     closeLocationPrompt,
     detectBusinessLocation,

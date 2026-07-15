@@ -245,8 +245,16 @@ async function getCurrentUserId() {
   return data.user.id;
 }
 
+const MAX_PRODUCT_VIDEO_BYTES = 50 * 1024 * 1024;
+
 async function uploadProductFile(userId, file, folder) {
   if (!file) return "";
+
+  if (folder === "videos" && file.size > MAX_PRODUCT_VIDEO_BYTES) {
+    throw new Error(
+      `Your video is ${(file.size / (1024 * 1024)).toFixed(1)} MB and we are only accepting a video that is less than 50 MB for now. Trim it and try again.`,
+    );
+  }
 
   const uploadFile = await optimizeImageFile(file);
   const extension = uploadFile.name.split(".").pop() || "bin";

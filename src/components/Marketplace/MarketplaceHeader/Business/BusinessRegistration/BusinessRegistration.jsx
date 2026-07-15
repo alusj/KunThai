@@ -78,8 +78,13 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
       registration.closeLocationPrompt();
       setLocationPickerMode("current");
     },
-    openDropPinPicker() {
+    // Accepts "main" or a branch index so the picked pin lands on the right
+    // address row; calls without a target keep whatever address was targeted.
+    openDropPinPicker(target) {
       registration.closeLocationPrompt();
+      if (target === "main" || typeof target === "number") {
+        registration.targetLocation(target);
+      }
       setLocationPickerMode("dropPin");
     },
   };

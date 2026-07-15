@@ -1,4 +1,5 @@
-import { FiChevronDown, FiChevronUp } from "react-icons/fi";
+import { useEffect } from "react";
+import { FiChevronDown, FiChevronUp, FiMapPin, FiPlus, FiTrash2 } from "react-icons/fi";
 
 import RegistrationField from "./RegistrationField";
 import RegistrationInput from "./RegistrationInput";
@@ -17,6 +18,21 @@ import {
   GLOBAL_COUNTRY_PROFILES,
 } from "../../../../../data/globalCountryProfiles";
 
+function toOptionalCoordinate(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const coordinate = Number(value);
+  return Number.isFinite(coordinate) ? coordinate : null;
+}
+
+function coordinatesMatch(first, second) {
+  const firstLat = toOptionalCoordinate(first?.latitude ?? first?.lat);
+  const firstLng = toOptionalCoordinate(first?.longitude ?? first?.lng);
+  const secondLat = toOptionalCoordinate(second?.latitude ?? second?.lat);
+  const secondLng = toOptionalCoordinate(second?.longitude ?? second?.lng);
+  if (firstLat === null || firstLng === null || secondLat === null || secondLng === null) return false;
+  return Math.abs(firstLat - secondLat) < 0.000001 && Math.abs(firstLng - secondLng) < 0.000001;
+}
+
 export default function LocationContactStep({ registration }) {
   const {
     form,
@@ -30,7 +46,14 @@ export default function LocationContactStep({ registration }) {
     openDropPinPicker,
     updateSection,
     locateBusiness,
+    addBranch,
+    updateBranch,
+    removeBranch,
+    maxBusinessLocations = 10,
   } = registration;
+  const branches = form.location.branches || [];
+  const totalAddresses = 1 + branches.length;
+  const addressesFull = totalAddresses >= maxBusinessLocations;
   const locationPoint = form.location.coordinates
     ? {
         lat: form.location.coordinates.latitude ?? form.location.coordinates.lat,
@@ -39,12 +62,30 @@ export default function LocationContactStep({ registration }) {
       }
     : null;
   const addressValidation = useAddressAreaValidation(form.location.address, { selectedPoint: locationPoint });
+  const addressValidationResult = addressValidation.result;
   const locationPromptCollapse = useAutoCollapseCard({
     enabled: locationPromptOpen && !locating,
     resetKey: [locationPromptOpen ? "open" : "closed", locationStatus, locating ? "locating" : "ready"].join("|"),
   });
   const countryProfile = getActiveCountryProfile(form.location.country);
   const phoneValidation = validateCountryPhone(form.location.phone, countryProfile);
+
+  useEffect(() => {
+    if (addressValidation.status !== "found" || !String(form.location.address || "").trim()) return;
+
+    const latitude = toOptionalCoordinate(
+      addressValidationResult?.lat ?? addressValidationResult?.latitude ?? addressValidationResult?.coordinates?.latitude,
+    );
+    const longitude = toOptionalCoordinate(
+      addressValidationResult?.lng ?? addressValidationResult?.longitude ?? addressValidationResult?.coordinates?.longitude,
+    );
+    if (latitude === null || longitude === null) return;
+
+    const nextCoordinates = { latitude, longitude };
+    if (coordinatesMatch(form.location.coordinates, nextCoordinates)) return;
+
+    updateSection("location", { coordinates: nextCoordinates });
+  }, [addressValidation.status, addressValidationResult, form.location.address, form.location.coordinates, updateSection]);
 
   return (
     <div className="space-y-5">
@@ -71,48 +112,139 @@ export default function LocationContactStep({ registration }) {
         </RegistrationField>
       </div>
 
-      <RegistrationField
-        label={(
-          <span className="inline-flex items-center gap-2">
-            Address
-            <AddressAreaStatusIcon status={addressValidation.status} />
-          </span>
-        )}
-      >
-        <RegistrationInput
+      <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Address 1 of {maxBusinessLocations}</p>
+
+        <RegistrationField label="Store name">
+          <RegistrationInput
+            value={form.location.mainLabel ?? "Main store"}
+            onChange={(event) => updateSection("location", { mainLabel: event.target.value })}
+            placeholder="Main store"
+          />
+        </RegistrationField>
+
+        <RegistrationField
+          label={(
+            <span className="inline-flex items-center gap-2">
+              Address
+              <AddressAreaStatusIcon status={addressValidation.status} />
+            </span>
+          )}
+        >
+          <RegistrationInput
             value={form.location.address}
             onChange={(event) => updateSection("location", { address: event.target.value })}
-          placeholder="Business address"
-          autoComplete="street-address"
+            placeholder="Business address"
+            autoComplete="street-address"
+          />
+        </RegistrationField>
+
+        <AddressAreaResolutionCard
+          validation={addressValidation}
+          onLocateMe={() => locateBusiness("main")}
+          onDropPin={() => openDropPinPicker("main")}
+          tone="blue"
         />
-      </RegistrationField>
 
-      <AddressAreaResolutionCard
-        validation={addressValidation}
-        onLocateMe={locateBusiness}
-        onDropPin={openDropPinPicker}
-        tone="blue"
-      />
-
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
-        <button
-          type="button"
-          onClick={locateBusiness}
-          className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
-        >
-          Locate me
-        </button>
-        <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
-          Recommended
-        </span>
-        <button
-          type="button"
-          onClick={openDropPinPicker}
-          className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
-        >
-          Drop a pin
-        </button>
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
+          <button
+            type="button"
+            onClick={() => locateBusiness("main")}
+            className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
+          >
+            Locate me
+          </button>
+          <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+            Recommended
+          </span>
+          <button
+            type="button"
+            onClick={() => openDropPinPicker("main")}
+            className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+          >
+            Drop a pin
+          </button>
+        </div>
       </div>
+
+      {branches.map((branch, index) => (
+        <div key={`branch-${index}`} className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-wide text-gray-500">Address {index + 2} of {maxBusinessLocations}</p>
+            <button
+              type="button"
+              onClick={() => removeBranch(index)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-700 transition hover:bg-red-100"
+              aria-label={`Remove ${branch.label || `address ${index + 2}`}`}
+            >
+              <FiTrash2 />
+              Remove
+            </button>
+          </div>
+
+          <RegistrationField label="Store name">
+            <RegistrationInput
+              value={branch.label}
+              onChange={(event) => updateBranch(index, { label: event.target.value })}
+              placeholder="Second branch"
+            />
+          </RegistrationField>
+
+          <RegistrationField
+            label={(
+              <span className="inline-flex items-center gap-2">
+                Address
+                {branch.coordinates ? <FiMapPin className="text-emerald-600" aria-label="Location pinned" /> : null}
+              </span>
+            )}
+          >
+            <RegistrationInput
+              value={branch.address}
+              onChange={(event) => updateBranch(index, { address: event.target.value })}
+              placeholder="Branch address"
+              autoComplete="street-address"
+            />
+          </RegistrationField>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => locateBusiness(index)}
+              className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
+            >
+              Locate me
+            </button>
+            <button
+              type="button"
+              onClick={() => openDropPinPicker(index)}
+              className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+            >
+              Drop a pin
+            </button>
+          </div>
+          {branch.coordinates ? (
+            <p className="text-xs font-bold text-emerald-700">Map location pinned for this branch.</p>
+          ) : null}
+        </div>
+      ))}
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={addBranch}
+          disabled={addressesFull}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-blue-200 bg-white px-4 text-sm font-black text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <FiPlus strokeWidth={3} />
+          Add another address
+        </button>
+        <p className="text-xs font-bold text-gray-500">
+          {addressesFull
+            ? `All ${maxBusinessLocations} store addresses are added. Remove one to add a different location.`
+            : `Own shops in different locations? Add up to ${maxBusinessLocations} addresses so buyers always find your nearest store. ${totalAddresses} of ${maxBusinessLocations} added.`}
+        </p>
+      </div>
+
       {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">

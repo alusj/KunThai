@@ -30,6 +30,7 @@ import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerReviews,
   fetchSellerCatalog,
+  fetchSellerLocations,
   sendBuyerMarketplaceMessage,
   submitMarketplaceReview,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
@@ -97,6 +98,10 @@ function getSellerCategory(seller, catalog) {
 function getFullAddress(seller) {
   const safeSeller = asObject(seller);
   return [safeSeller.address, safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || "Address not added yet";
+}
+
+function getLocationSearchText(location, fallback = "") {
+  return [location?.address, location?.city, location?.country].filter(Boolean).join(", ") || fallback;
 }
 
 function getVerificationStatus(seller) {
@@ -520,6 +525,7 @@ export default function SellerProfileDrawer({
   const [copiedProductId, setCopiedProductId] = useState(null);
   const [locationWarning, setLocationWarning] = useState("");
   const [buyerPosition, setBuyerPosition] = useState(null);
+  const [storeLocationRows, setStoreLocationRows] = useState([]);
   const [messagePanelOpen, setMessagePanelOpen] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const safeSeller = useMemo(() => asObject(seller), [seller]);
@@ -541,14 +547,17 @@ export default function SellerProfileDrawer({
       setLoadingProfile(true);
       setLocationWarning("");
       setOpenActionProductId(null);
+      setStoreLocationRows([]);
 
       try {
-        const [catalogItems, marketplaceReviews] = await Promise.all([
+        const [catalogItems, marketplaceReviews, sellerLocations] = await Promise.all([
           fetchSellerCatalog(safeSeller.id),
           fetchBuyerReviews({ businessId: safeSeller.id, reviewType: "marketplace" }),
+          fetchSellerLocations(safeSeller.id).catch(() => []),
         ]);
         if (alive) {
           setCatalog(asArray(catalogItems));
+          setStoreLocationRows(asArray(sellerLocations));
           setReviews({
             rating: toSafeNumber(marketplaceReviews?.rating, 0),
             reviewCount: toSafeNumber(marketplaceReviews?.reviewCount, 0),
@@ -587,7 +596,12 @@ export default function SellerProfileDrawer({
   useEffect(() => {
     const lat = toOptionalCoordinate(safeSeller.latitude ?? safeSeller.lat);
     const lng = toOptionalCoordinate(safeSeller.longitude ?? safeSeller.lng);
-    if (!open || lat === null || lng === null || !navigator.geolocation) return undefined;
+    const hasBranchCoordinates = storeLocationRows.some(
+      (row) => Number.isFinite(row?.latitude) && Number.isFinite(row?.longitude),
+    );
+    if (!open || (lat === null && !hasBranchCoordinates) || (lng === null && !hasBranchCoordinates) || !navigator.geolocation) {
+      return undefined;
+    }
 
     let cancelled = false;
     navigator.geolocation.getCurrentPosition(
@@ -607,7 +621,7 @@ export default function SellerProfileDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, safeSeller.latitude, safeSeller.lat, safeSeller.longitude, safeSeller.lng]);
+  }, [open, safeSeller.latitude, safeSeller.lat, safeSeller.longitude, safeSeller.lng, storeLocationRows]);
 
   const sellerName = useMemo(() => getSellerName(safeSeller), [safeSeller]);
   const sellerCategory = useMemo(() => getSellerCategory(safeSeller, safeCatalog), [safeCatalog, safeSeller]);
@@ -642,10 +656,57 @@ export default function SellerProfileDrawer({
     if (lat === null || lng === null) return null;
     return { lat, lng };
   }, [safeSeller.latitude, safeSeller.lat, safeSeller.longitude, safeSeller.lng]);
-  const distanceLabel = useMemo(
-    () => formatDistanceLabel(distanceInKm(buyerPosition, sellerDestination)),
-    [buyerPosition, sellerDestination],
-  );
+  // Every registered store location for this seller. Sellers without rows in
+  // marketplace_business_locations fall back to the pin on the business row.
+  const storeLocations = useMemo(() => {
+    const rows = storeLocationRows
+      .filter((row) => row && (String(row.address || "").trim() || (Number.isFinite(row.latitude) && Number.isFinite(row.longitude))))
+      .map((row) => ({ ...row }));
+    if (rows.length) return rows;
+    if (!sellerDestination && !String(safeSeller.address || "").trim()) return [];
+    return [
+      {
+        id: "business-row",
+        label: "Main store",
+        address: safeSeller.address || "",
+        city: safeSeller.city || "",
+        country: safeSeller.country || "",
+        latitude: sellerDestination?.lat ?? null,
+        longitude: sellerDestination?.lng ?? null,
+        isPrimary: true,
+      },
+    ];
+  }, [storeLocationRows, sellerDestination, safeSeller.address, safeSeller.city, safeSeller.country]);
+  const nearestStoreLocation = useMemo(() => {
+    const withCoordinates = storeLocations.filter(
+      (location) => Number.isFinite(location.latitude) && Number.isFinite(location.longitude),
+    );
+    if (!withCoordinates.length) {
+      return (
+        storeLocations.find((location) => location.isPrimary && getLocationSearchText(location, fullAddress)) ||
+        storeLocations.find((location) => getLocationSearchText(location, fullAddress)) ||
+        null
+      );
+    }
+    if (!buyerPosition) return withCoordinates.find((location) => location.isPrimary) || withCoordinates[0];
+
+    let nearest = null;
+    let nearestKm = Infinity;
+    withCoordinates.forEach((location) => {
+      const km = distanceInKm(buyerPosition, { lat: location.latitude, lng: location.longitude });
+      if (km !== null && km < nearestKm) {
+        nearestKm = km;
+        nearest = location;
+      }
+    });
+    return nearest || withCoordinates[0];
+  }, [buyerPosition, fullAddress, storeLocations]);
+  const distanceLabel = useMemo(() => {
+    const destination = nearestStoreLocation
+      ? { lat: nearestStoreLocation.latitude, lng: nearestStoreLocation.longitude }
+      : sellerDestination;
+    return formatDistanceLabel(distanceInKm(buyerPosition, destination));
+  }, [buyerPosition, nearestStoreLocation, sellerDestination]);
 
   if (!open || !seller) return null;
 
@@ -747,30 +808,35 @@ export default function SellerProfileDrawer({
     }
   }
 
-  function handleLocateStore() {
+  function locateStoreLocation(location) {
     setLocationWarning("");
 
-    if (!sellerDestination) {
-      const message = "Location is not available for this seller.";
+    const lat = toOptionalCoordinate(location?.latitude);
+    const lng = toOptionalCoordinate(location?.longitude);
+    const locationAddress = getLocationSearchText(location, fullAddress);
+    if ((lat === null || lng === null) && !locationAddress) {
+      const message = "Map location is not available for this store address yet.";
       setLocationWarning(message);
       onNotice?.(message, "danger");
       return;
     }
 
+    const destinationName =
+      storeLocations.length > 1 && location.label ? `${sellerName} - ${location.label}` : sellerName;
     const routeDetail = {
       autoRoute: true,
       returnTo: "marketplace-seller",
       destination: {
         type: "seller",
         id: safeSeller.id,
-        name: sellerName,
-        address: fullAddress,
+        name: destinationName,
+        address: locationAddress,
         category: sellerCategory,
-        lat: sellerDestination.lat,
-        lng: sellerDestination.lng,
-        searchQuery: fullAddress || sellerName,
-        country: safeSeller.country || "",
-        city: safeSeller.city || "",
+        searchQuery: locationAddress || sellerName,
+        country: location.country || safeSeller.country || "",
+        countryCode: location.countryCode || safeSeller.countryCode || safeSeller.country_iso || "",
+        city: location.city || safeSeller.city || "",
+        ...(lat !== null && lng !== null ? { lat, lng } : {}),
       },
     };
 
@@ -784,6 +850,19 @@ export default function SellerProfileDrawer({
         }),
       );
     }, 80);
+  }
+
+  // The main Locate button always routes to the branch closest to the buyer,
+  // which may not be the main store.
+  function handleLocateStore() {
+    if (!nearestStoreLocation) {
+      const message = "Location is not available for this seller.";
+      setLocationWarning(message);
+      onNotice?.(message, "danger");
+      return;
+    }
+
+    locateStoreLocation(nearestStoreLocation);
   }
 
   function openMessagePanel() {
@@ -907,6 +986,54 @@ export default function SellerProfileDrawer({
                     </div>
                   </div>
                 </div>
+
+                {storeLocations.length > 1 ? (
+                  <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-gray-400">
+                      Store locations ({storeLocations.length})
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {storeLocations.map((location, index) => {
+                        const isNearest = nearestStoreLocation && (location.id ?? index) === (nearestStoreLocation.id ?? index);
+                        const rowDistance = buyerPosition && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
+                          ? formatDistanceLabel(distanceInKm(buyerPosition, { lat: location.latitude, lng: location.longitude }))
+                          : "";
+                        return (
+                          <div
+                            key={location.id || `store-location-${index}`}
+                            className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-black text-gray-950">{location.label || "Store"}</p>
+                                {isNearest ? (
+                                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">
+                                    Nearest to you
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-0.5 break-words text-xs font-semibold text-gray-500">
+                                {[location.address, location.city, location.country].filter(Boolean).join(", ") || "Pinned on the map"}
+                              </p>
+                              {rowDistance ? (
+                                <p className="mt-0.5 text-[11px] font-black text-sky-700">{rowDistance}</p>
+                              ) : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => locateStoreLocation(location)}
+                              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                              aria-label={`Locate ${location.label || "store"}`}
+                              title={`Locate ${location.label || "store"}`}
+                            >
+                              <Navigation size={17} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
 
                 {locationWarning ? (
                   <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">
