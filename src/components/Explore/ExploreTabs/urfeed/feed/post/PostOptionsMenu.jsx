@@ -49,7 +49,7 @@ export default function PostOptionsMenu({
     ...(!advertPost ? [{ label: "Repost", icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
     { label: "Share", icon: HiOutlineShare, action: onShare },
     { label: "Copy link", icon: HiOutlineLink, action: onCopy },
-    ...(followed ? [{ label: "Unfollow account", icon: HiOutlineUserMinus, action: onFollow }] : []),
+    ...(followed ? [{ label: "Remove connection", icon: HiOutlineUserMinus, action: onFollow }] : []),
     ...(advertPost ? [
       { label: "Why am I seeing this?", icon: HiOutlineInformationCircle, action: onWhyAdvert },
       { label: "Hide advertisement", icon: HiOutlineEyeSlash, action: onHide },

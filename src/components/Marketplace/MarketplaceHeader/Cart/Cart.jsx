@@ -9,6 +9,7 @@ import {
   updateBuyerCartItem,
 } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { urMallShareToastOptions } from "../../../../Backend/services/shareCtaService";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import CartButton from "./CartButton";
 import CartDrawer from "./CartDrawer";
@@ -70,12 +71,12 @@ export default function Cart({ onOpenChange }) {
     }
   }
 
-  async function checkout(deliveryLocation) {
-    const orders = await checkoutBuyerCart(deliveryLocation);
+  async function checkout(deliveryLocation, options = {}) {
+    const orders = await checkoutBuyerCart(deliveryLocation, options);
     await loadCart();
     haptics.medium("marketplace");
     sounds.success("marketplace");
-    showToast("Checkout created successfully", "success");
+    showToast("Checkout created successfully. Share UrMall with family and friends.", "success", urMallShareToastOptions());
     return orders;
   }
 

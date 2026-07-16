@@ -306,23 +306,71 @@ export async function setActiveRegisteredBusiness(businessId) {
   return businessId;
 }
 
-export async function readRegisteredBusinesses() {
-  const userId = await getCurrentUserId();
-  const { data: rows, error } = await supabase
+// Accepted admin roles surface the other owner's business in the same
+// workspace list; RLS enforces what the admin can actually read or change
+// per responsibility, so the client only carries the role metadata.
+async function readAcceptedAdminBusinessRows(userId) {
+  const { data: adminRows, error } = await supabase
+    .from("marketplace_business_admins")
+    .select("business_id, responsibilities, business_name")
+    .eq("user_id", userId)
+    .eq("status", "accepted");
+
+  if (error || !adminRows?.length) return [];
+
+  const businessIds = [...new Set(adminRows.map((row) => row.business_id).filter(Boolean))];
+  const { data: businessRows, error: businessError } = await supabase
     .from("marketplace_businesses")
     .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
+    .in("id", businessIds);
+
+  if (businessError) return [];
+
+  const responsibilitiesById = new Map(adminRows.map((row) => [row.business_id, row.responsibilities || {}]));
+  return (businessRows || []).map((row) => ({
+    row,
+    responsibilities: responsibilitiesById.get(row.id) || {},
+  }));
+}
+
+export async function readRegisteredBusinesses() {
+  const userId = await getCurrentUserId();
+  const [{ data: rows, error }, adminBusinesses] = await Promise.all([
+    supabase
+      .from("marketplace_businesses")
+      .select("*")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false }),
+    readAcceptedAdminBusinessRows(userId).catch(() => []),
+  ]);
 
   if (error) throw new Error(error.message);
-  const businesses = await Promise.all((rows || []).map(async (business) => {
+
+  const ownedIds = new Set((rows || []).map((row) => row.id));
+  const entries = [
+    ...(rows || []).map((row) => ({ row, role: "owner", responsibilities: null })),
+    ...adminBusinesses
+      .filter((entry) => !ownedIds.has(entry.row.id))
+      .map((entry) => ({ row: entry.row, role: "admin", responsibilities: entry.responsibilities })),
+  ];
+
+  const businesses = await Promise.all(entries.map(async ({ row, role, responsibilities }) => {
     const [{ data: categories }, { data: payoutMethod }, { data: documents }, locations] = await Promise.all([
-      supabase.from("marketplace_business_categories").select("category").eq("business_id", business.id),
-      supabase.from("marketplace_payout_methods").select("*").eq("business_id", business.id).maybeSingle(),
-      supabase.from("marketplace_business_documents").select("*").eq("business_id", business.id),
-      readBusinessLocations(business.id),
+      supabase.from("marketplace_business_categories").select("category").eq("business_id", row.id),
+      supabase.from("marketplace_payout_methods").select("*").eq("business_id", row.id).maybeSingle(),
+      supabase.from("marketplace_business_documents").select("*").eq("business_id", row.id),
+      readBusinessLocations(row.id),
     ]);
-    return normalizeBusiness(business, categories || [], payoutMethod || null, documents || [], locations);
+    const business = normalizeBusiness(row, categories || [], payoutMethod || null, documents || [], locations);
+    business.role = role;
+    business.adminResponsibilities = role === "admin"
+      ? {
+          addProducts: Boolean(responsibilities?.addProducts),
+          messageReplies: Boolean(responsibilities?.messageReplies),
+          dashboardAccess: responsibilities?.dashboardAccess !== false,
+        }
+      : null;
+    return business;
   }));
 
   return businesses;

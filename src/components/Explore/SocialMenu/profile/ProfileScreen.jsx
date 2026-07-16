@@ -4,11 +4,19 @@ import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
 import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
 import { useTrustSafety } from "../../../../Backend/hooks/useTrustSafety";
-import { updateExploreProfile } from "../../../../Backend/services/exploreService";
-import { reportExploreProfile } from "../../../../Backend/services/explore/safetyService";
+import {
+  SPACE_IDENTITY_TYPE,
+  getProfileIdentity,
+  postMatchesIdentity,
+  respondExploreSpaceInvite,
+  updateExploreProfile,
+  updateExploreSpace,
+} from "../../../../Backend/services/exploreService";
+import { blockExploreIdentity, reportExploreProfile, reportExploreSpace } from "../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../Backend/services/toastService";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
+import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
 import ActivityScreen from "../activity/ActivityScreen";
 import SavedPostsScreen from "../savedPosts/SavedPostsScreen";
@@ -30,7 +38,10 @@ function fileToDataUrl(file) {
 
 function shareProfile(values) {
   const url = new URL(window.location.href);
-  url.hash = `profile-${values.userId || values.username || "user"}`;
+  const identity = getProfileIdentity(values);
+  url.hash = identity.type === SPACE_IDENTITY_TYPE
+    ? `space-${values.spaceId || values.username || identity.id || "space"}`
+    : `profile-${values.userId || values.username || "user"}`;
   const data = {
     title: `${values.displayName || "Profile"} on KunThai`,
     text: values.bio || `View @${values.username || "user"} on KunThai Explore`,
@@ -54,9 +65,12 @@ export default function ProfileScreen({
   onEditProfile,
   onOpenNotification,
   onProfileUpdate,
+  onSpaceInviteResponse,
+  onSwitchIdentity,
   onStartChat,
   profile,
   profileFetched = true,
+  spaces = [],
 }) {
   const [editing, setEditing] = useState(false);
   const [postTab, setPostTab] = useState("feed");
@@ -68,17 +82,19 @@ export default function ProfileScreen({
   const coverInputRef = useRef(null);
   const feed = useExploreFeed("feed");
   const swipFeed = useExploreFeed("swip");
-  const followStats = useExploreFollowStats(values?.userId);
+  const profileIdentity = getProfileIdentity(values);
+  const isSpace = profileIdentity.type === SPACE_IDENTITY_TYPE;
+  const followStats = useExploreFollowStats(profileIdentity);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
   const safety = useTrustSafety();
-  const profileFeedPosts = feed.posts.filter((post) => post.user_id === values?.userId);
-  const profileSwipPosts = swipFeed.posts.filter((post) => post.user_id === values?.userId && post.video_url);
+  const profileFeedPosts = feed.posts.filter((post) => postMatchesIdentity(post, profileIdentity));
+  const profileSwipPosts = swipFeed.posts.filter((post) => postMatchesIdentity(post, profileIdentity) && post.video_url);
   const displayedStats = {
     ...(followStats.stats || {}),
     feed: profileFeedPosts.length,
     swip: profileSwipPosts.length,
   };
-  const followed = Boolean(values?.userId && followedUsers.has(values.userId));
+  const followed = Boolean(profileIdentity.key && (followedUsers.has(profileIdentity.key) || followedUsers.has(profileIdentity.id)));
   const accountUnavailable = Boolean(values?.deactivatedAt) && !editable;
 
   useEffect(() => {
@@ -86,12 +102,12 @@ export default function ProfileScreen({
   }, [profile]);
 
   useEffect(() => {
-    if (postTab === "swip" && values?.userId && !swipFeed.loading) {
+    if (postTab === "swip" && profileIdentity.id && !swipFeed.loading) {
       swipFeed.reload();
     }
     // swipFeed is a hook facade; tab/user changes are the intended refresh triggers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postTab, values?.userId]);
+  }, [postTab, profileIdentity.id, profileIdentity.key]);
 
   function updateField(field, value) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -127,16 +143,18 @@ export default function ProfileScreen({
   async function saveProfile() {
     try {
       setSaving(true);
-      const updated = await updateExploreProfile({
-        ...authProfile,
-        ...values,
-        userId: currentUserId || values.userId || authProfile?.userId || "",
-      });
+      const updated = isSpace
+        ? await updateExploreSpace(values.spaceId || profileIdentity.id, values)
+        : await updateExploreProfile({
+          ...authProfile,
+          ...values,
+          userId: currentUserId || values.userId || authProfile?.userId || "",
+        });
       setValues(updated);
       onProfileUpdate?.(updated);
       setEditing(false);
-      setFeedback(updated.avatarWarning || "Profile updated.");
-      showToast("Profile updated.", "success");
+      setFeedback(updated.avatarWarning || (isSpace ? "Space updated." : "Profile updated."));
+      showToast(isSpace ? "Space updated." : "Profile updated.", "success");
     } catch (error) {
       setFeedback(error.message || "Unable to update profile.");
     } finally {
@@ -145,7 +163,7 @@ export default function ProfileScreen({
   }
 
   async function followProfile() {
-    await toggleFollow(values.userId);
+    await toggleFollow(profileIdentity);
   }
 
   function changeProfileTab(nextTab) {
@@ -167,12 +185,37 @@ export default function ProfileScreen({
     }
   }
 
-  function blockProfile() {
+  async function blockProfile() {
+    if (isSpace) {
+      try {
+        await blockExploreIdentity(profileIdentity, "blocked from Space profile");
+        setFeedback("Space blocked.");
+        showToast("Space blocked.", "success");
+      } catch (error) {
+        const message = error.message || "Unable to block this Space.";
+        setFeedback(message);
+        showToast(message, "danger");
+      }
+      return;
+    }
     safety.blockUser(values.userId, "blocked from profile");
     setFeedback("Profile blocked.");
   }
 
   async function reportProfile() {
+    if (isSpace) {
+      try {
+        const result = await reportExploreSpace(values.spaceId || profileIdentity.id);
+        const message = result.alreadyReported ? "You already reported this Space." : "Space report sent for review.";
+        setFeedback(message);
+        showToast(message, "success");
+      } catch (error) {
+        const message = error.message || "Unable to send this Space report.";
+        setFeedback(message);
+        showToast(message, "danger");
+      }
+      return;
+    }
     try {
       const result = await reportExploreProfile(values.userId);
       const message = result.alreadyReported ? "You already reported this profile." : "Profile report sent for review.";
@@ -180,6 +223,20 @@ export default function ProfileScreen({
       showToast(message, "success");
     } catch (error) {
       const message = error.message || "Unable to send this profile report.";
+      setFeedback(message);
+      showToast(message, "danger");
+    }
+  }
+
+  async function respondToSpaceInvite(space, accept) {
+    try {
+      const result = await respondExploreSpaceInvite(space, accept);
+      onSpaceInviteResponse?.(space, result, accept);
+      const message = accept ? "Space invitation accepted." : "Space invitation declined.";
+      setFeedback(message);
+      showToast(message, "success");
+    } catch (error) {
+      const message = error.message || "Unable to respond to this Space invitation.";
       setFeedback(message);
       showToast(message, "danger");
     }
@@ -269,6 +326,36 @@ export default function ProfileScreen({
 
         {!loading && !loadError && !accountUnavailable && (profile || editing) ? (
           <>
+        {editable && !isSpace && spaces.length ? (
+          <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Your Spaces</p>
+            <div className="mt-3 flex gap-3 overflow-x-auto pb-1 kuntai-scrollbar-none">
+              {spaces.map((space) => (
+                <div
+                  key={space.spaceId}
+                  className="flex min-w-[112px] flex-col items-center gap-2 rounded-2xl bg-slate-50 px-3 py-3 text-center"
+                >
+                  <button type="button" disabled={space.membershipStatus === "pending"} onClick={() => onSwitchIdentity?.(space, { openDashboard: true })} className="kt-pressable flex flex-col items-center gap-2 disabled:cursor-default">
+                    <Avatar name={space.displayName} src={space.avatarUrl} size="md" />
+                    <span className="line-clamp-2 text-xs font-black leading-4 text-slate-700">{space.displayName}</span>
+                  </button>
+                  {space.membershipStatus === "pending" ? (
+                    <div className="grid w-full grid-cols-2 gap-1">
+                      <button type="button" onClick={() => respondToSpaceInvite(space, true)} className="h-8 rounded-xl bg-sky-700 text-[11px] font-black text-white">
+                        Accept
+                      </button>
+                      <button type="button" onClick={() => respondToSpaceInvite(space, false)} className="h-8 rounded-xl bg-white text-[11px] font-black text-slate-600">
+                        Decline
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-sky-700">{space.memberRole || "member"}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
         <ProfileHeaderCard
           editable={editable}
           editing={editing}

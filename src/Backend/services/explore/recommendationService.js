@@ -142,21 +142,24 @@ export async function fetchRecommendedPeople(userId, limit = 20) {
     return null;
   }
 
-  return (data || []).map((profile) => ({
-    id: profile.user_id,
-    user_id: profile.user_id,
-    name: profile.display_name || "Profile",
-    username: profile.username || "user",
-    avatar_url: profile.avatar_url || "",
-    bio: profile.bio || "",
-    account_type: profile.account_type || "personal",
-    verified: Boolean(profile.verified),
-    status: profile.reason || "Suggested for you",
-    isFollowing: false,
-    followsYou: profile.reason === "Follows you",
-    mutual_count: Number(profile.mutual_count) || 0,
-    recommendation_score: Number(profile.score) || 0,
-  }));
+  return (data || []).map((profile) => {
+    const reason = profile.reason === "Follows you" ? "Connected with you" : profile.reason;
+    return {
+      id: profile.user_id,
+      user_id: profile.user_id,
+      name: profile.display_name || "Profile",
+      username: profile.username || "user",
+      avatar_url: profile.avatar_url || "",
+      bio: profile.bio || "",
+      account_type: profile.account_type || "personal",
+      verified: Boolean(profile.verified),
+      status: reason || "Suggested for you",
+      isFollowing: false,
+      followsYou: profile.reason === "Follows you" || profile.reason === "Connected with you",
+      mutual_count: Number(profile.mutual_count) || 0,
+      recommendation_score: Number(profile.score) || 0,
+    };
+  });
 }
 
 /**

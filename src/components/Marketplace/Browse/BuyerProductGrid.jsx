@@ -1,6 +1,7 @@
 import { Fragment } from "react";
-import { BadgeCheck, Heart, MapPin, PackageSearch, ShoppingCart, Star, Truck } from "lucide-react";
+import { BadgeCheck, Heart, MapPin, PackageSearch, Share2, ShoppingCart, Star, Truck } from "lucide-react";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
+import { shareUrMallLink } from "../../../Backend/services/shareCtaService";
 
 function ProductImage({ product }) {
   if (product.imageUrl) {
@@ -182,6 +183,15 @@ export default function BuyerProductGrid({
       <div className="rounded-lg border border-gray-200 bg-white p-5 text-center shadow-sm">
         <p className="font-black text-gray-950">{emptyTitle}</p>
         <p className="mt-1 text-sm font-medium text-gray-500">{emptyBody}</p>
+        <p className="mt-3 text-sm font-semibold leading-6 text-gray-500">Share UrMall with family and friends while more listings arrive.</p>
+        <button
+          type="button"
+          onClick={shareUrMallLink}
+          className="mx-auto mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-gray-950 px-4 text-sm font-black text-white"
+        >
+          <Share2 size={16} />
+          Share UrMall
+        </button>
       </div>
     );
   }

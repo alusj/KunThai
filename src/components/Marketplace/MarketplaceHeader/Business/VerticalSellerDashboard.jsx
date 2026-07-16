@@ -19,6 +19,7 @@ import {
   toggleRestaurantMenuItem,
 } from "../../../../Backend/services/marketplace/marketplaceVerticalService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { urMallShareToastOptions } from "../../../../Backend/services/shareCtaService";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import { createEmptyVerticalMedia } from "../../../../Backend/services/marketplace/verticalMediaValidation";
 import VerticalMediaFields from "./VerticalMediaFields";
@@ -127,7 +128,7 @@ function RestaurantDashboard({ business }) {
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast(wasEditing ? "Updated Successfully" : "Added Successfully", "success");
+      showToast(wasEditing ? "Updated Successfully. Share UrMall to bring more buyers in." : "Added Successfully. Share UrMall to bring more buyers in.", "success", urMallShareToastOptions());
     } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
@@ -183,7 +184,7 @@ function HotelDashboard({ business }) {
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast("Added Successfully", "success");
+      showToast("Added Successfully. Share UrMall to bring more buyers in.", "success", urMallShareToastOptions());
     } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
@@ -246,7 +247,7 @@ function PropertyDashboard({ business }) {
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast(wasEditing ? "Updated Successfully" : "Added Successfully", "success");
+      showToast(wasEditing ? "Updated Successfully. Share UrMall to bring more buyers in." : "Added Successfully. Share UrMall to bring more buyers in.", "success", urMallShareToastOptions());
     } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 

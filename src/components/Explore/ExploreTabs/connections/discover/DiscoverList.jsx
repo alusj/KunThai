@@ -8,16 +8,23 @@ export default function DiscoverList({ mode = "discover", onBlock, onFollow, onR
           key={user.id}
           user={user}
           mode={mode}
-          onBlock={() => onBlock?.(user.user_id)}
-          onFollow={() => onFollow?.(user.user_id)}
-          onRemove={() => onRemove?.(user.user_id)}
+          onBlock={() => onBlock?.(user)}
+          onFollow={() => onFollow?.(user)}
+          onRemove={() => onRemove?.(user)}
           onViewProfile={() =>
             onViewProfile?.({
               userId: user.user_id || "",
+              ownerUserId: user.owner_user_id || user.user_id || "",
+              identityType: user.identity_type || (user.space_id ? "space" : "profile"),
+              identityId: user.identity_id || user.space_id || user.user_id || "",
+              actorType: user.identity_type || (user.space_id ? "space" : "profile"),
+              actorId: user.identity_id || user.space_id || user.user_id || "",
+              spaceId: user.space_id || "",
               displayName: user.name || "Profile",
               username: user.username || "",
               avatarUrl: user.avatar_url || "",
-              accountType: user.account_type || "personal",
+              accountType: user.account_type || (user.space_id ? "space" : "personal"),
+              categoryLabel: user.category_label || "",
             })
           }
         />

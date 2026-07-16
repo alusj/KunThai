@@ -1,5 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./errors";
+import { SPACE_IDENTITY_TYPE, normalizeIdentityTarget } from "./identityService";
 
 const EMPTY_STATS = {
   feed: 0,
@@ -7,6 +8,7 @@ const EMPTY_STATS = {
   circle: 0,
   followers: 0,
   following: 0,
+  team: 0,
   suggested: 0,
 };
 
@@ -23,11 +25,19 @@ async function countRows(query, optionalColumn = "") {
   return count || 0;
 }
 
-async function countPosts(userId, scope) {
-  const { data, error } = await supabase
+async function countPosts(identity, scope) {
+  const normalized = normalizeIdentityTarget(identity || "");
+  let query = supabase
     .from("explore_posts")
-    .select("id, feed_scope, video_url")
-    .eq("user_id", userId);
+    .select("id, feed_scope, video_url, actor_type, actor_id, space_id");
+
+  if (normalized.type === SPACE_IDENTITY_TYPE) {
+    query = query.eq("actor_type", SPACE_IDENTITY_TYPE).eq("actor_id", normalized.id);
+  } else {
+    query = query.eq("user_id", normalized.id).neq("actor_type", SPACE_IDENTITY_TYPE);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     if (isMissingTable(error) || isMissingColumn(error, "feed_scope") || isMissingColumn(error, "video_url")) {
@@ -85,21 +95,52 @@ async function countMutualFollows(userId) {
 }
 
 export async function fetchExploreProfileStats(profileUserId) {
-  if (!profileUserId) {
+  const identity = normalizeIdentityTarget(profileUserId || "");
+  if (!identity.id) {
     return EMPTY_STATS;
+  }
+
+  if (identity.type === SPACE_IDENTITY_TYPE) {
+    const [followers, team, feed, swip] = await Promise.all([
+      countRows(
+        supabase
+          .from("explore_identity_connections")
+          .select("id", { count: "exact", head: true })
+          .eq("target_type", SPACE_IDENTITY_TYPE)
+          .eq("target_space_id", identity.id),
+      ),
+      countRows(
+        supabase
+          .from("explore_space_members")
+          .select("id", { count: "exact", head: true })
+          .eq("space_id", identity.id)
+          .eq("status", "active"),
+      ),
+      countPosts(identity, "feed"),
+      countPosts(identity, "swip"),
+    ]);
+
+    return {
+      ...EMPTY_STATS,
+      feed,
+      swip,
+      followers,
+      circle: followers,
+      team,
+    };
   }
 
   const [followers, following, circle, feed, swip, suggested] = await Promise.all([
     countRows(
-      supabase.from("explore_follows").select("id", { count: "exact", head: true }).eq("following_id", profileUserId),
+      supabase.from("explore_follows").select("id", { count: "exact", head: true }).eq("following_id", identity.id),
     ),
     countRows(
-      supabase.from("explore_follows").select("id", { count: "exact", head: true }).eq("follower_id", profileUserId),
+      supabase.from("explore_follows").select("id", { count: "exact", head: true }).eq("follower_id", identity.id),
     ),
-    countMutualFollows(profileUserId),
-    countPosts(profileUserId, "feed"),
-    countPosts(profileUserId, "swip"),
-    countSuggestedProfiles(profileUserId),
+    countMutualFollows(identity.id),
+    countPosts(identity, "feed"),
+    countPosts(identity, "swip"),
+    countSuggestedProfiles(identity.id),
   ]);
 
   return {

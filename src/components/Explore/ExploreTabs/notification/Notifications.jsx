@@ -9,6 +9,7 @@ import {
   markNotificationScopeVisited,
   markNotificationsSeen,
 } from "../../../../Backend/services/notificationSeenStore";
+import { SPACE_IDENTITY_TYPE, getIdentityKey } from "../../../../Backend/services/exploreService";
 import { showToast } from "../../../../Backend/services/toastService";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
@@ -61,11 +62,16 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
   }
 
   async function followBack(item) {
-    if (!item?.actor_user_id || follows.followedUsers.has(item.actor_user_id)) {
+    const isSpaceActor = item?.actor_type === SPACE_IDENTITY_TYPE || Boolean(item?.actor_space_id);
+    const actorId = isSpaceActor ? item.actor_space_id || item.actor_id : item?.actor_user_id || item?.actor_id;
+    const actorType = isSpaceActor ? SPACE_IDENTITY_TYPE : "profile";
+    const actorKey = getIdentityKey(actorType, actorId || "");
+
+    if (!actorId || follows.followedUsers.has(actorKey) || follows.followedUsers.has(actorId)) {
       return;
     }
 
-    await follows.toggleFollow(item.actor_user_id);
+    await follows.toggleFollow({ identityType: actorType, identityId: actorId });
   }
 
   async function handleMarkAllRead() {

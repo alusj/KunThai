@@ -5,6 +5,8 @@ import { getCurrentUserProfile } from "./explore/profileService";
 import { buildExploreProfileFromUser } from "./explore/profileStorage";
 import { formatRelativeTime } from "./explore/time";
 import { fetchRecommendedPeople } from "./explore/recommendationService";
+import { fetchExploreSpacesForDiscovery } from "./explore/spaceService";
+import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getIdentityKey } from "./explore/identityService";
 export {
   createExplorePost,
   deleteExplorePost,
@@ -32,6 +34,42 @@ export {
 export { ensureExploreProfile, fetchExploreProfile, getCurrentUserProfile, updateExploreProfile } from "./explore/profileService";
 export { fetchExploreFollowers, fetchExploreFollowing, fetchExploreFollowStats, syncExploreFollow } from "./explore/followService";
 export { fetchExploreProfileStats } from "./explore/profileStatsService";
+export {
+  SPACE_CATEGORIES,
+  SPACE_ROLES,
+  SPACE_RESPONSIBILITIES,
+  createExploreSpace,
+  deleteExploreSpace,
+  fetchExploreSpace,
+  fetchExploreSpaceDepartments,
+  fetchExploreSpaceMembers,
+  fetchExploreSpacesForDiscovery,
+  fetchMyExploreSpaces,
+  inviteExploreSpaceMember,
+  isExploreSpaceProfile,
+  leaveExploreSpace,
+  normalizeSpaceResponsibilities,
+  normalizeSpaceSlug,
+  readActiveExploreIdentity,
+  removeExploreSpaceMember,
+  respondExploreSpaceInvite,
+  updateExploreSpaceMember,
+  updateExploreSpace,
+  updateExploreSpaceStatus,
+  writeActiveExploreIdentity,
+} from "./explore/spaceService";
+export {
+  PROFILE_IDENTITY_TYPE,
+  SPACE_IDENTITY_TYPE,
+  buildProfileIdentity,
+  buildSpaceIdentity,
+  getIdentityKey,
+  getPostIdentity,
+  getProfileIdentity,
+  isSpaceIdentity,
+  normalizeIdentityTarget,
+  postMatchesIdentity,
+} from "./explore/identityService";
 export {
   fetchRecommendedExplorePosts,
   fetchRecommendedPeople,
@@ -151,7 +189,7 @@ function getNotificationMessage(type, actorName, mediaType = "post") {
     case "mention":
       return `${name} mentioned you`;
     case "follow":
-      return `${name} started following you`;
+      return `${name} connected with you`;
     case "new_login":
       return "New login detected on your account";
     case "password_changed":
@@ -266,12 +304,23 @@ export async function createExploreNotification(input) {
     return null;
   }
 
-  const actor = (await getCurrentUserProfile()) || {
+  const currentActor = (await getCurrentUserProfile()) || {
     id: null,
     name: "Someone",
     username: "someone",
     avatar_url: "",
   };
+  const actor = input.actor_name || input.actorName
+    ? {
+      id: currentActor.id,
+      name: input.actor_name || input.actorName,
+      username: input.actor_username || input.actorUsername || "",
+      avatar_url: input.actor_avatar_url || input.actorAvatarUrl || "",
+    }
+    : currentActor;
+  const actorType = input.actor_type || input.actorType || "profile";
+  const actorId = input.actor_id || input.actorId || (actorType === "space" ? input.actor_space_id || input.actorSpaceId || null : actor.id || null);
+  const actorSpaceId = actorType === "space" ? input.actor_space_id || input.actorSpaceId || actorId : null;
 
   if (actor.id && actor.id === targetUserId) {
     return null;
@@ -281,6 +330,10 @@ export async function createExploreNotification(input) {
     id: `local-notification-${Date.now()}`,
     user_id: targetUserId,
     actor_user_id: actor.id || null,
+    actor_type: actorType,
+    actor_id: actorId,
+    actor_space_id: actorSpaceId,
+    recipient_space_id: input.recipient_space_id || input.recipientSpaceId || null,
     actor_name: actor.name,
     actor_avatar_url: actor.avatar_url,
     type: input.type || "system",
@@ -303,6 +356,10 @@ export async function createExploreNotification(input) {
   const payload = {
     user_id: draft.user_id,
     actor_user_id: draft.actor_user_id,
+    actor_type: draft.actor_type,
+    actor_id: draft.actor_id,
+    actor_space_id: draft.actor_space_id,
+    recipient_space_id: draft.recipient_space_id,
     actor_name: draft.actor_name,
     actor_avatar_url: draft.actor_avatar_url,
     type: draft.type,
@@ -329,7 +386,21 @@ export async function createExploreNotification(input) {
       break;
     }
 
-    const optionalColumns = ["post_id", "post_preview", "actor_avatar_url", "actor_user_id", "media_type", "message", "priority", "category", "group_key"];
+    const optionalColumns = [
+      "post_id",
+      "post_preview",
+      "actor_avatar_url",
+      "actor_user_id",
+      "actor_type",
+      "actor_id",
+      "actor_space_id",
+      "recipient_space_id",
+      "media_type",
+      "message",
+      "priority",
+      "category",
+      "group_key",
+    ];
     const missingColumn = optionalColumns.find((column) => isMissingColumn(error, column));
 
     if (!missingColumn) {
@@ -347,6 +418,10 @@ export async function createExploreNotification(input) {
       !isMissingColumn(error, "post_preview") &&
       !isMissingColumn(error, "actor_avatar_url") &&
       !isMissingColumn(error, "actor_user_id") &&
+      !isMissingColumn(error, "actor_type") &&
+      !isMissingColumn(error, "actor_id") &&
+      !isMissingColumn(error, "actor_space_id") &&
+      !isMissingColumn(error, "recipient_space_id") &&
       !isMissingColumn(error, "media_type") &&
       !isMissingColumn(error, "message") &&
       !isMissingColumn(error, "priority") &&
@@ -536,20 +611,31 @@ export async function fetchExploreNotifications(options = {}) {
 
 export async function fetchExploreConnections(kind = "discover", profileUserId = "") {
   const currentUserId = profileUserId || (await getCurrentUserId());
+  let recommendedItems = null;
 
   if (currentUserId) {
     if (kind === "discover") {
       const authenticatedUserId = await getCurrentUserId();
       if (authenticatedUserId === currentUserId) {
-        const recommendedItems = await fetchRecommendedPeople(currentUserId, 20);
-        if (recommendedItems) {
-          return recommendedItems;
-        }
+        recommendedItems = await fetchRecommendedPeople(currentUserId, 20);
       }
     }
 
     const liveItems = await fetchProfileConnections(kind, currentUserId);
     if (liveItems) {
+      if (kind === "discover" && recommendedItems) {
+        const spaces = liveItems.filter((item) => item.identity_type === SPACE_IDENTITY_TYPE);
+        const people = recommendedItems.map((profile) => ({
+          ...profile,
+          id: getIdentityKey(PROFILE_IDENTITY_TYPE, profile.user_id),
+          identityKey: getIdentityKey(PROFILE_IDENTITY_TYPE, profile.user_id),
+          identity_type: PROFILE_IDENTITY_TYPE,
+          identity_id: profile.user_id,
+          targetType: PROFILE_IDENTITY_TYPE,
+          label: "A Profile",
+        }));
+        return [...people, ...spaces].slice(0, 30);
+      }
       return liveItems;
     }
   }
@@ -605,6 +691,34 @@ async function fetchAllExploreProfiles() {
   return profiles;
 }
 
+async function fetchIdentityConnectionRows(currentUserId) {
+  if (!currentUserId) return [];
+
+  const { data, error } = await supabase
+    .from("explore_identity_connections")
+    .select("connector_user_id, target_type, target_profile_user_id, target_space_id")
+    .or(`connector_user_id.eq.${currentUserId},target_profile_user_id.eq.${currentUserId}`);
+
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+
+  return data || [];
+}
+
+function normalizeConnectionItem(base, identityType, identityId) {
+  const identityKey = getIdentityKey(identityType, identityId);
+  return {
+    ...base,
+    id: identityKey,
+    identityKey,
+    identity_type: identityType,
+    identity_id: identityId,
+    targetType: identityType,
+  };
+}
+
 async function fetchProfileConnections(kind, currentUserId) {
   const followsResult = await supabase.from("explore_follows").select("follower_id, following_id");
 
@@ -616,11 +730,18 @@ async function fetchProfileConnections(kind, currentUserId) {
   }
 
   const follows = followsResult.data || [];
+  const identityRows = await fetchIdentityConnectionRows(currentUserId);
   const followingIds = follows.filter((item) => item.follower_id === currentUserId).map((item) => item.following_id);
   const followerIds = follows.filter((item) => item.following_id === currentUserId).map((item) => item.follower_id);
   const followingSet = new Set(followingIds);
   const followerSet = new Set(followerIds);
   const mutualIds = followerIds.filter((id) => followingSet.has(id));
+  const connectedSpaceIds = new Set(
+    identityRows
+      .filter((item) => item.connector_user_id === currentUserId && item.target_type === SPACE_IDENTITY_TYPE)
+      .map((item) => item.target_space_id)
+      .filter(Boolean),
+  );
 
   let targetIds = [];
   if (kind === "mycircle" || kind === "following") {
@@ -637,7 +758,7 @@ async function fetchProfileConnections(kind, currentUserId) {
 
   const targetSet = new Set(targetIds);
 
-  return allProfiles
+  const profileItems = allProfiles
     .filter((profile) => profile.user_id !== currentUserId)
     .filter((profile) => {
       if (kind === "discover") return true;
@@ -650,8 +771,7 @@ async function fetchProfileConnections(kind, currentUserId) {
     .map((profile) => {
       const isFollowing = followingSet.has(profile.user_id);
       const followsYou = followerSet.has(profile.user_id);
-      return {
-        id: profile.user_id,
+      return normalizeConnectionItem({
         user_id: profile.user_id,
         name: profile.display_name || "Profile",
         username: profile.username || "user",
@@ -659,12 +779,48 @@ async function fetchProfileConnections(kind, currentUserId) {
         bio: profile.bio || "",
         account_type: profile.account_type || "personal",
         verified: Boolean(profile.verified),
-        status: followsYou && isFollowing ? "Mutual connection" : followsYou ? "Follows you" : isFollowing ? "Following" : "Suggested for you",
+        label: "A Profile",
+        status: followsYou && isFollowing ? "Mutual connection" : followsYou ? "Connected with you" : isFollowing ? "Connected" : "Suggested for you",
         isFollowing,
         followsYou,
         mutual_count: followsYou && isFollowing ? 1 : 0,
-      };
+      }, PROFILE_IDENTITY_TYPE, profile.user_id);
     });
+
+  const spaceProfiles = await fetchExploreSpacesForDiscovery(80);
+  const spaceItems = spaceProfiles
+    .filter((space) => space.spaceId)
+    .filter((space) => space.ownerUserId !== currentUserId || kind !== "discover")
+    .filter((space) => {
+      const connected = connectedSpaceIds.has(space.spaceId);
+      if (kind === "discover") return !connected;
+      if (kind === "mycircle" || kind === "following") return connected;
+      return false;
+    })
+    .map((space) => normalizeConnectionItem({
+      user_id: "",
+      space_id: space.spaceId,
+      owner_user_id: space.ownerUserId || "",
+      name: space.displayName || "Space",
+      username: space.username || "",
+      avatar_url: space.avatarUrl || "",
+      bio: space.bio || "",
+      account_type: "space",
+      category: space.category || "business",
+      category_label: space.categoryLabel || "Space",
+      verified: Boolean(space.verified),
+      label: "A Space",
+      status: connectedSpaceIds.has(space.spaceId) ? "Connected" : `${space.categoryLabel || "Space"} Space`,
+      isFollowing: connectedSpaceIds.has(space.spaceId),
+      followsYou: false,
+      mutual_count: 0,
+    }, SPACE_IDENTITY_TYPE, space.spaceId));
+
+  if (kind === "discover") {
+    return [...profileItems, ...spaceItems].slice(0, 40);
+  }
+
+  return [...profileItems, ...spaceItems];
 }
 
 export { formatRelativeTime };

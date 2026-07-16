@@ -56,7 +56,7 @@ function buildProductForm(product, options) {
       sku: product.sku || "",
       lowStockAlert: product.lowStockAlert === undefined ? "3" : String(product.lowStockAlert),
       allowNegotiation: Boolean(product.allowNegotiation),
-      publishStatus: product.status || "active",
+      publishStatus: product.promoted ? "promoted" : product.status || "active",
     },
     delivery: {
       deliveryAvailable: product.deliveryAvailable ?? options.deliveryAvailable,

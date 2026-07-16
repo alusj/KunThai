@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 
-import { createExploreNotification, fetchExploreFollowing, syncExploreFollow } from "../services/exploreService";
+import {
+  SPACE_IDENTITY_TYPE,
+  createExploreNotification,
+  fetchExploreFollowing,
+  fetchExploreSpace,
+  normalizeIdentityTarget,
+  syncExploreFollow,
+} from "../services/exploreService";
 import { guardGuestAction } from "../services/guestModeService";
 import { haptics } from "../services/feedbackService";
 import { showToast } from "../services/toastService";
@@ -44,8 +51,10 @@ export function useExploreFollows(currentUserId) {
     };
   }, [currentUserId]);
 
-  async function toggleFollow(userId) {
-    if (!userId || userId === currentUserId) {
+  async function toggleFollow(targetIdentity) {
+    const target = normalizeIdentityTarget(targetIdentity || "");
+
+    if (!target.id || (target.type !== SPACE_IDENTITY_TYPE && target.id === currentUserId)) {
       return false;
     }
     if (guardGuestAction("follow", "profile")) {
@@ -58,12 +67,14 @@ export function useExploreFollows(currentUserId) {
 
     setFollowedUsers((current) => {
       const next = new Set(current);
-      nextActive = !next.has(userId);
+      nextActive = !next.has(target.key) && !next.has(target.id);
 
       if (nextActive) {
-        next.add(userId);
+        next.add(target.key);
+        if (target.type !== SPACE_IDENTITY_TYPE) next.add(target.id);
       } else {
-        next.delete(userId);
+        next.delete(target.key);
+        next.delete(target.id);
       }
 
       writeStoredFollows(next);
@@ -71,22 +82,45 @@ export function useExploreFollows(currentUserId) {
     });
 
     try {
-      await syncExploreFollow(userId, nextActive);
+      await syncExploreFollow(target, nextActive);
       if (nextActive) {
-        createExploreNotification({
-          user_id: userId,
-          type: "follow",
-          media_type: "profile",
-          post_preview: "New follower",
-        }).catch(() => {});
+        if (target.type === SPACE_IDENTITY_TYPE) {
+          fetchExploreSpace(target.id)
+            .then((space) => {
+              if (!space?.ownerUserId) return null;
+              return createExploreNotification({
+                user_id: space.ownerUserId,
+                type: "connect",
+                media_type: "Space",
+                post_preview: `New connection for ${space.displayName || "your Space"}`,
+                recipient_space_id: target.id,
+              });
+            })
+            .catch(() => {});
+        } else {
+          createExploreNotification({
+            user_id: target.id,
+            type: "connect",
+            media_type: "profile",
+            post_preview: "New connection",
+          }).catch(() => {});
+        }
       }
     } catch (error) {
       setFollowedUsers(previous);
       writeStoredFollows(previous);
-      showToast(error.message || "Unable to update follow.", "error");
+      showToast(error.message || "Unable to update connection.", "error");
       return !nextActive;
     }
-    window.dispatchEvent(new CustomEvent(EXPLORE_FOLLOW_CHANGED_EVENT, { detail: { userId, active: nextActive } }));
+    window.dispatchEvent(new CustomEvent(EXPLORE_FOLLOW_CHANGED_EVENT, {
+      detail: {
+        userId: target.type === SPACE_IDENTITY_TYPE ? "" : target.id,
+        identityKey: target.key,
+        identityType: target.type,
+        identityId: target.id,
+        active: nextActive,
+      },
+    }));
     return nextActive;
   }
 

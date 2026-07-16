@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlineXMark } from "react-icons/hi2";
 
 import { fileToDataUrl } from "../composer/composerUtils";
+import { MentionHashtagSuggestions } from "../../../../shared/MentionHashtagAutocomplete";
+import { useMentionHashtagAutocomplete } from "../../../../../../Backend/hooks/useMentionHashtagAutocomplete";
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 
 function getReplyName(comment) {
@@ -20,6 +22,8 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
   const [pendingSignature, setPendingSignature] = useState("");
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const inputRef = useRef(null);
+  const autocomplete = useMentionHashtagAutocomplete({ value, onValueChange: setValue, inputRef });
 
   async function toggleRecording() {
     if (isRecording) {
@@ -100,10 +104,18 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
         </div>
       ) : null}
 
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="relative flex min-w-0 items-center gap-2">
+        <MentionHashtagSuggestions
+          trigger={autocomplete.trigger}
+          results={autocomplete.results}
+          loading={autocomplete.loading}
+          onSelect={autocomplete.selectSuggestion}
+        />
         <input
+          ref={inputRef}
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={autocomplete.handleInputChange}
+          onBlur={() => window.setTimeout(autocomplete.closeSuggestions, 150)}
           placeholder="Comment with text, @mention, or voice..."
           className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none transition-colors duration-150 focus:bg-slate-50 focus:ring-2 focus:ring-sky-100"
         />

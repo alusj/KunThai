@@ -88,6 +88,45 @@ export async function subscribeSellerHeaderChanges(onChange) {
   return () => supabase.removeChannel(channel);
 }
 
+// Pending orders and unread buyer messages for the given businesses (used for
+// the business-switcher badge covering the workspaces the seller is NOT
+// currently viewing — owned or assigned admin roles alike). RLS trims the
+// rows to what this account may actually see, so counts never leak data an
+// admin role does not grant.
+export async function fetchBusinessAttentionCounts(businessIds = []) {
+  const ids = [...new Set(businessIds.filter(Boolean))];
+  if (!ids.length) return { total: 0, byBusiness: {} };
+
+  const [ordersResult, messagesResult] = await Promise.all([
+    supabase
+      .from("marketplace_orders")
+      .select("id,business_id")
+      .in("business_id", ids)
+      .eq("status", "pending")
+      .limit(200),
+    supabase
+      .from("marketplace_customer_messages")
+      .select("id,business_id")
+      .in("business_id", ids)
+      .eq("unread", true)
+      .or("sender_role.eq.buyer,sender_role.is.null")
+      .limit(200),
+  ]);
+
+  const byBusiness = {};
+  function add(businessId, key) {
+    if (!businessId) return;
+    if (!byBusiness[businessId]) byBusiness[businessId] = { orders: 0, messages: 0 };
+    byBusiness[businessId][key] += 1;
+  }
+
+  (ordersResult.data || []).forEach((row) => add(row.business_id, "orders"));
+  (messagesResult.data || []).forEach((row) => add(row.business_id, "messages"));
+
+  const total = Object.values(byBusiness).reduce((sum, item) => sum + item.orders + item.messages, 0);
+  return { total, byBusiness };
+}
+
 export async function searchSellerWorkspace(query) {
   const trimmedQuery = query.trim().toLowerCase();
 

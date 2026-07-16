@@ -59,6 +59,10 @@ export async function fetchSellerSales() {
         preview: order.preview || "UrMall order",
         buyerName: order.buyer_name || "Buyer",
         deliveryLocation: order.delivery_location || "",
+        deliveryLatitude: order.delivery_latitude === null || order.delivery_latitude === undefined ? null : Number(order.delivery_latitude),
+        deliveryLongitude: order.delivery_longitude === null || order.delivery_longitude === undefined ? null : Number(order.delivery_longitude),
+        currency: order.currency || "",
+        countryIso: order.country_iso || "",
         createdAt: order.created_at,
       })),
   };
@@ -73,6 +77,22 @@ export async function updateSellerOrderStatus(orderId, status) {
   const { error } = await supabase
     .from("marketplace_orders")
     .update({ status })
+    .eq("id", orderId)
+    .eq("business_id", business.id);
+
+  if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
+}
+
+export async function deleteSellerOrder(orderId) {
+  const business = await readRegisteredBusiness();
+  if (!business) {
+    throw new Error("Register a business before managing orders.");
+  }
+
+  const { error } = await supabase
+    .from("marketplace_orders")
+    .delete()
     .eq("id", orderId)
     .eq("business_id", business.id);
 

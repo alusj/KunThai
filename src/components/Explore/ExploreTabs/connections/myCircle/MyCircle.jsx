@@ -16,8 +16,8 @@ export default function MyCircle({ connectionState, kind = "mycircle", onViewPro
   if (!items.length) {
     return (
       <EmptyState
-        title={kind === "followers" ? "No followers yet" : "No connections yet"}
-        message={kind === "followers" ? "People who follow you will appear here." : "People you follow who also follow you back will appear here."}
+        title={kind === "followers" ? "No connections yet" : "No connections yet"}
+        message={kind === "followers" ? "People who connect with you will appear here." : "People and Spaces you connect with will appear here."}
       />
     );
   }

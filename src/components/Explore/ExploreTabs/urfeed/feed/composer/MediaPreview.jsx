@@ -132,8 +132,11 @@ export default function MediaPreview({
 
   const safeDuration = Math.max(1, videoDuration || 1);
   const safeTrimStart = Math.max(0, Math.min(videoTrimStart, Math.max(0, safeDuration - 0.5)));
-  const safeTrimEnd = Math.min(safeDuration, Math.max(safeTrimStart + 0.5, Math.min(videoTrimEnd, safeTrimStart + maxVideoSeconds)));
-  const clipSeconds = Math.max(0.5, Math.min(maxVideoSeconds, safeTrimEnd - safeTrimStart));
+  // Handles are free-form (like the UrMall trimmer): the selection may exceed
+  // the max while dragging; Done stays disabled until it fits.
+  const safeTrimEnd = Math.min(safeDuration, Math.max(safeTrimStart + 0.5, videoTrimEnd));
+  const clipSeconds = Math.max(0.5, safeTrimEnd - safeTrimStart);
+  const clipTooLong = clipSeconds > maxVideoSeconds + 0.05;
   const clipEnd = safeTrimStart + clipSeconds;
   const selectedLeft = Math.max(0, (safeTrimStart / safeDuration) * 100);
   const selectedWidth = Math.max(4, (clipSeconds / safeDuration) * 100);
@@ -219,18 +222,14 @@ export default function MediaPreview({
 
 
   function clampSelection(start, end) {
+    // Free-form trimming: each handle moves independently from the left or the
+    // right and only stops at the opposite handle (minimum playable clip) or
+    // the media edge. Selections longer than the max are allowed while
+    // dragging; publishing is gated on the length check instead.
     const minClipSeconds = 0.5;
     const maxEnd = safeDuration;
-    let nextStart = Math.max(0, Math.min(Number(start || 0), Math.max(0, maxEnd - minClipSeconds)));
-    let nextEnd = Math.max(nextStart + minClipSeconds, Math.min(Number(end || nextStart + minClipSeconds), maxEnd));
-
-    if (nextEnd - nextStart > maxVideoSeconds) {
-      if (dragRef.current?.type === "left") {
-        nextEnd = Math.min(maxEnd, nextStart + maxVideoSeconds);
-      } else {
-        nextStart = Math.max(0, nextEnd - maxVideoSeconds);
-      }
-    }
+    const nextStart = Math.max(0, Math.min(Number(start || 0), Math.max(0, maxEnd - minClipSeconds)));
+    const nextEnd = Math.max(nextStart + minClipSeconds, Math.min(Number(end || nextStart + minClipSeconds), maxEnd));
 
     return { start: nextStart, end: nextEnd };
   }
@@ -345,7 +344,7 @@ export default function MediaPreview({
             <button
               type="button"
               onClick={() => (trimError ? onRetryTrim?.() : onTrimVideo?.())}
-              disabled={trimmingVideo}
+              disabled={trimmingVideo || clipTooLong}
               className="kt-pressable inline-flex h-11 items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 text-base font-black text-white shadow-lg shadow-black/30 backdrop-blur disabled:text-white/45"
             >
               {trimmingVideo ? "Preparing" : "Done"}
@@ -385,7 +384,9 @@ export default function MediaPreview({
               </button>
             </div>
 
-            <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+112px)] left-5 rounded-full bg-white/12 px-3 py-1 text-xs font-black text-white/85 backdrop-blur">
+            <div className={`absolute bottom-[calc(env(safe-area-inset-bottom)+112px)] left-5 rounded-full px-3 py-1 text-xs font-black backdrop-blur ${
+              clipTooLong ? "bg-rose-500/25 text-rose-100" : "bg-white/12 text-white/85"
+            }`}>
               {formatTime(safeTrimStart)} to {formatTime(clipEnd)} | {formatTime(clipSeconds)} / max {formatTime(maxVideoSeconds)}
             </div>
           </div>
@@ -394,6 +395,13 @@ export default function MediaPreview({
             {trimError ? (
               <div className="rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm font-bold text-rose-100">
                 {trimError}
+              </div>
+            ) : null}
+
+            {clipTooLong ? (
+              <div className="rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm font-bold text-rose-100">
+                Your selection is {formatTime(clipSeconds)} — keep it {formatTime(maxVideoSeconds)} or less. Drag a handle
+                inwards from the left or the right to shorten it.
               </div>
             ) : null}
 
@@ -431,7 +439,9 @@ export default function MediaPreview({
                 </div>
 
                 <div
-                  className="absolute inset-y-0 touch-none rounded-md border-[3px] border-white bg-white/10 shadow-[0_0_0_999px_rgba(0,0,0,0.48)]"
+                  className={`absolute inset-y-0 touch-none rounded-md border-[3px] bg-white/10 shadow-[0_0_0_999px_rgba(0,0,0,0.48)] ${
+                    clipTooLong ? "border-rose-400" : "border-white"
+                  }`}
                   style={{
                     left: `${selectedLeft}%`,
                     width: `${selectedWidth}%`,

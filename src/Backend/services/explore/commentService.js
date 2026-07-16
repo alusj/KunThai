@@ -2,6 +2,8 @@ import supabase from "../../lib/supabaseClient";
 import { isMissingColumn, isMissingTable } from "./errors";
 import { uploadMediaDataUrl } from "./mediaService";
 import { getCurrentUserProfile } from "./profileService";
+import { SPACE_IDENTITY_TYPE } from "./identityService";
+import { normalizeSpaceResponsibilities, readActiveExploreIdentity } from "./spaceService";
 
 async function getCurrentUserId() {
   const {
@@ -91,6 +93,9 @@ async function insertNotificationDraft(draft) {
 
   const payload = {
     ...draft,
+    actor_type: draft.actor_type || "profile",
+    actor_id: draft.actor_id || draft.actor_user_id || null,
+    actor_space_id: draft.actor_space_id || null,
     priority: draft.priority || getNotificationPriority(draft.type),
     category: draft.category || getNotificationCategory(draft.type),
     group_key: draft.group_key || buildNotificationGroupKey(draft),
@@ -109,6 +114,9 @@ async function insertNotificationDraft(draft) {
       "actor_user_id",
       "actor_name",
       "actor_avatar_url",
+      "actor_type",
+      "actor_id",
+      "actor_space_id",
       "media_type",
       "message",
       "post_id",
@@ -176,12 +184,26 @@ export async function fetchCurrentUserCommentLikes(commentIds = []) {
 
 async function hydrateCommentAuthors(comments) {
   const userIds = Array.from(new Set(comments.map((comment) => comment.user_id).filter(Boolean)));
-  if (!userIds.length) return comments;
+  const spaceIds = Array.from(new Set(comments
+    .filter((comment) => comment.actor_type === SPACE_IDENTITY_TYPE || comment.space_id)
+    .map((comment) => comment.space_id || comment.actor_id)
+    .filter(Boolean)));
+  if (!userIds.length && !spaceIds.length) return comments;
 
-  const { data, error } = await supabase
-    .from("explore_profiles")
-    .select("user_id, display_name, username, avatar_url, account_type")
-    .in("user_id", userIds);
+  const [{ data, error }, { data: spaces, error: spacesError }] = await Promise.all([
+    userIds.length
+      ? supabase
+        .from("explore_profiles")
+        .select("user_id, display_name, username, avatar_url, account_type")
+        .in("user_id", userIds)
+      : { data: [], error: null },
+    spaceIds.length
+      ? supabase
+        .from("explore_spaces")
+        .select("id, owner_user_id, name, slug, avatar_url, category, verified")
+        .in("id", spaceIds)
+      : { data: [], error: null },
+  ]);
 
   if (error) {
     return comments;
@@ -199,8 +221,36 @@ async function hydrateCommentAuthors(comments) {
       },
     ]),
   );
+  const spacesById = new Map(
+    (spacesError ? [] : spaces || []).map((space) => [
+      space.id,
+      {
+        userId: space.owner_user_id || "",
+        displayName: space.name || "Space",
+        username: space.slug || "",
+        avatarUrl: space.avatar_url || "",
+        accountType: "space",
+        identityType: SPACE_IDENTITY_TYPE,
+        identityId: space.id,
+        spaceId: space.id,
+      },
+    ]),
+  );
 
   return comments.map((comment) => {
+    if (comment.actor_type === SPACE_IDENTITY_TYPE || comment.space_id) {
+      const spaceProfile = spacesById.get(comment.space_id || comment.actor_id);
+      if (spaceProfile) {
+        return {
+          ...comment,
+          authorProfile: spaceProfile,
+          author_name: spaceProfile.displayName || comment.author_name || "",
+          author_username: spaceProfile.username || comment.author_username || "",
+          author_avatar_url: spaceProfile.avatarUrl || comment.author_avatar_url || "",
+        };
+      }
+    }
+
     const authorProfile = profilesByUserId.get(comment.user_id) || {
       userId: comment.user_id || "",
       displayName: getReadableAuthorName(comment.author_name, comment.author_username, comment.user_id),
@@ -217,6 +267,57 @@ async function hydrateCommentAuthors(comments) {
       author_avatar_url: authorProfile.avatarUrl || comment.author_avatar_url || "",
     };
   });
+}
+
+async function getCommentActorContext(userId) {
+  const activeIdentity = readActiveExploreIdentity();
+  if (activeIdentity.type !== SPACE_IDENTITY_TYPE || !activeIdentity.id) {
+    const profile = await getCurrentUserProfile();
+    return {
+      actorType: "profile",
+      actorId: userId,
+      spaceId: null,
+      actorMetadata: {},
+      authorName: getReadableAuthorName(profile?.name || profile?.displayName, profile?.username, userId),
+      authorUsername: profile?.username || "user",
+      authorAvatarUrl: profile?.avatar_url || "",
+    };
+  }
+
+  const [{ data: space, error: spaceError }, { data: membership, error: memberError }] = await Promise.all([
+    supabase.from("explore_spaces").select("id, name, slug, avatar_url, category, status").eq("id", activeIdentity.id).maybeSingle(),
+    supabase
+      .from("explore_space_members")
+      .select("role, status, responsibilities")
+      .eq("space_id", activeIdentity.id)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+
+  if (spaceError || memberError) {
+    if (isMissingTable(spaceError || memberError)) {
+      throw new Error("Spaces need the latest KunThai database update.");
+    }
+    throw spaceError || memberError;
+  }
+
+  const responsibilities = normalizeSpaceResponsibilities(membership?.responsibilities || {}, membership?.role || "member");
+  if (!space || space.status !== "active" || membership?.status !== "active" || !responsibilities.canReplyComments) {
+    throw new Error("You need a Space team responsibility that can reply to comments.");
+  }
+
+  return {
+    actorType: SPACE_IDENTITY_TYPE,
+    actorId: space.id,
+    spaceId: space.id,
+    actorMetadata: {
+      spaceRole: membership.role || "member",
+      responsibilities,
+    },
+    authorName: space.name || "Space",
+    authorUsername: space.slug || "",
+    authorAvatarUrl: space.avatar_url || "",
+  };
 }
 
 export async function createExploreComment(input) {
@@ -236,16 +337,19 @@ export async function createExploreComment(input) {
     throw new Error("Add text or a voice comment.");
   }
 
-  const profile = await getCurrentUserProfile();
-  const authorName = getReadableAuthorName(profile?.name || profile?.displayName, profile?.username, userId);
+  const actor = await getCommentActorContext(userId);
   const audioUrl = payload.audio_url ? await uploadMediaDataUrl(payload.audio_url, "comment-audio", userId) : "";
   const draft = {
     post_id: payload.post_id,
     parent_comment_id: payload.parent_comment_id || null,
     user_id: userId,
-    author_name: authorName,
-    author_username: profile?.username || "user",
-    author_avatar_url: profile?.avatar_url || "",
+    actor_type: actor.actorType,
+    actor_id: actor.actorId,
+    space_id: actor.spaceId,
+    actor_metadata: actor.actorMetadata,
+    author_name: actor.authorName,
+    author_username: actor.authorUsername,
+    author_avatar_url: actor.authorAvatarUrl,
     body: trimmedBody,
     audio_url: audioUrl,
     audio_duration_seconds: payload.audio_duration_seconds ?? null,
@@ -269,6 +373,10 @@ export async function createExploreComment(input) {
 
     const optionalColumns = [
       "parent_comment_id",
+      "actor_type",
+      "actor_id",
+      "space_id",
+      "actor_metadata",
       "author_name",
       "author_username",
       "author_avatar_url",
@@ -319,6 +427,9 @@ async function notifyPostOwnerComment(comment, draft) {
   await insertNotificationDraft({
     user_id: post.user_id,
     actor_user_id: draft.user_id,
+    actor_type: draft.actor_type,
+    actor_id: draft.actor_id,
+    actor_space_id: draft.space_id,
     actor_name: draft.author_name,
     actor_avatar_url: draft.author_avatar_url,
     type,
@@ -363,6 +474,9 @@ async function notifyCommentReply(comment, draft) {
   await insertNotificationDraft({
     user_id: parent.user_id,
     actor_user_id: draft.user_id,
+    actor_type: draft.actor_type,
+    actor_id: draft.actor_id,
+    actor_space_id: draft.space_id,
     actor_name: draft.author_name,
     actor_avatar_url: draft.author_avatar_url,
     type: replyType,
@@ -408,6 +522,9 @@ async function notifyMentionedUsers(comment, draft) {
     targets.map((profile) => insertNotificationDraft({
       user_id: profile.user_id,
       actor_user_id: draft.user_id,
+      actor_type: draft.actor_type,
+      actor_id: draft.actor_id,
+      actor_space_id: draft.space_id,
       actor_name: draft.author_name,
       actor_avatar_url: draft.author_avatar_url,
       type: "mention",

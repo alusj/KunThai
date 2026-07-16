@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { UserRoundPlus } from "lucide-react";
+import { Share2, UserRoundPlus } from "lucide-react";
 
 import supabase from "../../../../../Backend/lib/supabaseClient";
 import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollows";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
+import { shareKunThaiLink } from "../../../../../Backend/services/shareCtaService";
 import { isAdvertPost } from "../../../shared/advertUtils";
-import { recordExploreAdvertEvent, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
+import { getPostIdentity, recordExploreAdvertEvent, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
 import Avatar from "../../../shared/Avatar";
 import EmptyState from "../../../shared/EmptyState";
 import FeedPost from "./components/FeedPost";
@@ -39,13 +40,14 @@ export default function FeedList({
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
 
   async function handleFollow(post) {
-    const active = await toggleFollow(post.user_id);
+    const identity = getPostIdentity(post);
+    const active = await toggleFollow(identity);
 
-    if (active && post.user_id) {
-      return "Following";
+    if (active && identity.id) {
+      return "Connected";
     }
 
-    return active === false ? "Unfollowed" : "";
+    return active === false ? "Connection removed" : "";
   }
 
   if ((loading || error) && !posts?.length) {
@@ -90,13 +92,19 @@ export default function FeedList({
             onViewProfile={() =>
               onViewProfile?.({
                 userId: post.user_id || "",
+                ownerUserId: post.user_id || "",
+                identityType: getPostIdentity(post).type,
+                identityId: getPostIdentity(post).id,
+                actorType: post.actor_type || "profile",
+                actorId: post.actor_id || post.user_id || "",
+                spaceId: post.space_id || (post.actor_type === "space" ? post.actor_id : ""),
                 displayName: post.author_name || "Profile",
                 username: post.author_username || "",
                 avatarUrl: post.author_avatar_url || "",
-                accountType: "personal",
+                accountType: post.actor_type === "space" ? "space" : "personal",
               })
             }
-            followed={Boolean(post.user_id && followedUsers.has(post.user_id))}
+            followed={Boolean(getPostIdentity(post).key && (followedUsers.has(getPostIdentity(post).key) || followedUsers.has(post.user_id)))}
             onFollow={() => handleFollow(post)}
             isOwner={Boolean(currentUserId && post.user_id === currentUserId)}
             />
@@ -123,7 +131,18 @@ export default function FeedList({
           {loadingMore ? "Loading more..." : "Show more"}
         </button>
       ) : (
-        <p className="py-5 text-center text-sm font-bold text-slate-400">You are all caught up.</p>
+        <div className="mx-auto mt-5 max-w-xl rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-center shadow-sm">
+          <p className="text-sm font-black text-slate-950">You are all caught up.</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Share KunThai to family and friends to keep the fun going.</p>
+          <button
+            type="button"
+            onClick={shareKunThaiLink}
+            className="kt-pressable mx-auto mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+          >
+            <Share2 size={16} />
+            Share KunThai
+          </button>
+        </div>
       )}
     </div>
   );
@@ -290,7 +309,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
               onClick={() => followSuggestion(profile.user_id)}
               className="kt-pressable h-9 flex-none rounded-2xl bg-sky-700 px-4 text-xs font-black text-white transition hover:bg-sky-800 disabled:opacity-60"
             >
-              Follow
+              Connect
             </button>
           </div>
         ))}

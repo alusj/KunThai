@@ -2,8 +2,8 @@ import { HiOutlineSparkles, HiOutlineUserGroup, HiOutlineUsers } from "react-ico
 
 export default function ConnectionsSummary({ activeTab = "mycircle", counts, loading = false, onSelect, slideDirection = "forward" }) {
   const items = [
-    { id: "mycircle", label: "My Circle", value: counts.circle, icon: HiOutlineUserGroup },
-    { id: "followers", label: "Followers", value: counts.followers, icon: HiOutlineUsers },
+    { id: "mycircle", label: "Connected", value: counts.circle, icon: HiOutlineUserGroup },
+    { id: "followers", label: "Connects You", value: counts.followers, icon: HiOutlineUsers },
     { id: "discover", label: "Suggested", value: counts.discover, icon: HiOutlineSparkles },
   ];
 

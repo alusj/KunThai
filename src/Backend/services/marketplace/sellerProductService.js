@@ -152,6 +152,8 @@ function normalizeSellerProduct(product) {
     mainImageUrl: product.main_image_url,
     imageUrls: Array.isArray(product.image_urls) ? product.image_urls : [],
     videoUrl: product.video_url,
+    promoted: Boolean(product.promoted),
+    promotedAt: product.promoted_at || null,
     publishedAt: product.published_at,
     views: product.views,
     sales: product.sales,
@@ -291,7 +293,7 @@ function normalizeProductAttributes(details = {}) {
 async function insertProductPayload(payload) {
   let { data, error } = await supabase.from("marketplace_products").insert(payload).select().maybeSingle();
 
-  if (error && ["user_id", "product_attributes", "tier_pricing", "country", "country_iso", "currency"].some((column) => isMissingColumn(error, column))) {
+  if (error && ["user_id", "product_attributes", "tier_pricing", "country", "country_iso", "currency", "promoted", "promoted_at"].some((column) => isMissingColumn(error, column))) {
     const {
       user_id: _userId,
       product_attributes: _attributes,
@@ -299,6 +301,8 @@ async function insertProductPayload(payload) {
       country: _country,
       country_iso: _countryIso,
       currency: _currency,
+      promoted: _promoted,
+      promoted_at: _promotedAt,
       ...fallbackPayload
     } = payload;
     const fallback = await supabase.from("marketplace_products").insert(fallbackPayload).select().maybeSingle();
@@ -312,7 +316,7 @@ async function insertProductPayload(payload) {
 async function updateProductPayload(productId, businessId, payload) {
   let { data, error } = await supabase.from("marketplace_products").update(payload).eq("id", productId).eq("business_id", businessId).select().maybeSingle();
 
-  if (error && ["user_id", "product_attributes", "tier_pricing", "country", "country_iso", "currency"].some((column) => isMissingColumn(error, column))) {
+  if (error && ["user_id", "product_attributes", "tier_pricing", "country", "country_iso", "currency", "promoted", "promoted_at"].some((column) => isMissingColumn(error, column))) {
     const {
       user_id: _userId,
       product_attributes: _attributes,
@@ -320,6 +324,8 @@ async function updateProductPayload(productId, businessId, payload) {
       country: _country,
       country_iso: _countryIso,
       currency: _currency,
+      promoted: _promoted,
+      promoted_at: _promotedAt,
       ...fallbackPayload
     } = payload;
     const fallback = await supabase.from("marketplace_products").update(fallbackPayload).eq("id", productId).eq("business_id", businessId).select().maybeSingle();
@@ -391,7 +397,10 @@ export async function submitSellerProduct(form, onProgress) {
     }
   }
 
-  const status = form.pricing.publishStatus;
+  // "promoted" is a publish choice, not a product status: it publishes the
+  // product as active and flags it for the buyer-side advert slider.
+  const wantsPromotion = form.pricing.publishStatus === "promoted";
+  const status = wantsPromotion ? "active" : form.pricing.publishStatus;
   const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("save");
   const payload = {
@@ -422,6 +431,8 @@ export async function submitSellerProduct(form, onProgress) {
     main_image_url: coverUrl || null,
     image_urls: extraImageUrls,
     video_url: videoUrl || null,
+    promoted: wantsPromotion,
+    promoted_at: wantsPromotion ? new Date().toISOString() : null,
     published_at: status === "active" ? new Date().toISOString() : null,
   };
   const { data, error } = await withTimeout(
@@ -430,6 +441,10 @@ export async function submitSellerProduct(form, onProgress) {
   );
 
   if (error) throw new Error(error.message);
+
+  if (wantsPromotion) {
+    promoteSellerProduct({ name: form.basics.name.trim() }).catch(() => {});
+  }
 
   withTimeout(
     insertMarketplaceActivity({
@@ -482,7 +497,8 @@ export async function updateSellerProductListing(product, form, onProgress) {
     }
   }
 
-  const status = form.pricing.publishStatus;
+  const wantsPromotion = form.pricing.publishStatus === "promoted";
+  const status = wantsPromotion ? "active" : form.pricing.publishStatus;
   const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("save");
   const payload = {
@@ -512,6 +528,8 @@ export async function updateSellerProductListing(product, form, onProgress) {
     main_image_url: coverUrl,
     image_urls: extraImageUrls,
     video_url: videoUrl,
+    promoted: wantsPromotion,
+    promoted_at: wantsPromotion ? product.promotedAt || new Date().toISOString() : null,
     published_at: status === "active" ? product.publishedAt || new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   };
@@ -521,6 +539,10 @@ export async function updateSellerProductListing(product, form, onProgress) {
   );
 
   if (error) throw new Error(error.message);
+
+  if (wantsPromotion && !product.promoted) {
+    promoteSellerProduct({ name: form.basics.name.trim() }).catch(() => {});
+  }
 
   withTimeout(
     insertMarketplaceActivity({

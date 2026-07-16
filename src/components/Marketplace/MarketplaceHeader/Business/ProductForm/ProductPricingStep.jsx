@@ -69,22 +69,26 @@ export default function ProductPricingStep({ productForm }) {
 
       <div>
         <p className="text-sm font-black text-gray-800">Publish option</p>
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+        <div className="mt-2 grid gap-3 sm:grid-cols-3">
           {[
-            { id: "active", label: "Publish now" },
-            { id: "draft", label: "Save as draft" },
+            { id: "active", label: "Publish now", description: "Product appears in UrMall listings." },
+            { id: "promoted", label: "Publish & promote", description: "Product also appears in the UrMall advert slider." },
+            { id: "draft", label: "Save as draft", description: "Only you can see this product." },
           ].map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => updateSection("pricing", { publishStatus: item.id })}
-              className={`rounded-lg border p-4 text-left font-black ${
+              className={`rounded-lg border p-4 text-left ${
                 form.pricing.publishStatus === item.id
-                  ? "border-blue-600 bg-blue-50 text-blue-800"
+                  ? item.id === "promoted"
+                    ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                    : "border-blue-600 bg-blue-50 text-blue-800"
                   : "border-gray-200 bg-white text-gray-700"
               }`}
             >
-              {item.label}
+              <span className="block font-black">{item.label}</span>
+              <span className="mt-1 block text-xs font-semibold text-gray-500">{item.description}</span>
             </button>
           ))}
         </div>

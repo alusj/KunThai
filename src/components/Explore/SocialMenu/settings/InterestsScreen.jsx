@@ -88,7 +88,7 @@ export default function InterestsScreen({ hideHeader = false }) {
               <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Your Explore interests</p>
               <h3 className="mt-1 text-2xl font-black text-slate-950">Guide discovery, don’t restrict it</h3>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                Selected topics are private and provide a light personalization signal. Followed accounts, nearby posts, freshness, and fair discovery still remain active.
+                Selected topics are private and provide a light personalization signal. Connected accounts, nearby posts, freshness, and fair discovery still remain active.
               </p>
             </div>
           </div>

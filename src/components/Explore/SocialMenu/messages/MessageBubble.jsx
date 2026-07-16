@@ -21,6 +21,8 @@ export default function MessageBubble({
   const mediaUrl = message.mediaUrl || message.media_url || "";
   const mediaType = message.type || message.media_type || "text";
   const metadata = message.metadata || {};
+  const actor = metadata.actor || {};
+  const actorName = actor.actorType === "space" ? actor.actorName || "" : "";
   const bodyLocationMatch = String(message.body || "").match(/\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)/);
   const hasSharedMapPoint = (
     Number.isFinite(Number(metadata.lat ?? metadata.latitude)) &&
@@ -163,6 +165,9 @@ export default function MessageBubble({
       <div className={`${bubbleClass} relative cursor-pointer`} onClick={() => setOptionsOpen((open) => !open)}>
         {mediaType === "image" && mediaUrl ? (
           <img src={mediaUrl} alt="Message attachment" className="mb-2 max-h-72 w-full rounded-2xl object-cover" />
+        ) : null}
+        {!mine && actorName ? (
+          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-700">{actorName}</p>
         ) : null}
         {mediaType === "audio" && mediaUrl ? (
           <div className={`mb-2 rounded-2xl p-2 ${mine ? "bg-white/10" : "bg-white"}`}>

@@ -25,6 +25,7 @@ import {
   FiShield,
   FiSliders,
   FiStar,
+  FiTrash2,
   FiTruck,
   FiUser,
   FiUsers,
@@ -32,6 +33,7 @@ import {
 } from "react-icons/fi";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 import TransportGroupSwitcher from "./TransportGroupSwitcher";
+import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
@@ -143,6 +145,7 @@ export default function OperatorDashboardScreen({
   const [activeView, setActiveView] = useState(initialView);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
+  const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
   const [operatorSafetyOpen, setOperatorSafetyOpen] = useState(false);
   const [dashboard, setDashboard] = useState(account?.dashboard || null);
@@ -732,6 +735,10 @@ export default function OperatorDashboardScreen({
           setOperatorMenuOpen(false);
           openOperatorArea(areaText, kind);
         }}
+        onRequestDeletion={() => {
+          setOperatorMenuOpen(false);
+          setAccountDeletionOpen(true);
+        }}
       />
 
       <OperatorSafetyDrawer
@@ -739,6 +746,13 @@ export default function OperatorDashboardScreen({
         fleetName={fleetName}
         operatorName={operatorName}
         onClose={() => setOperatorSafetyOpen(false)}
+      />
+
+      <OperatorAccountDeletionDrawer
+        open={accountDeletionOpen}
+        fleetName={fleetName}
+        operatorName={operatorName}
+        onClose={() => setAccountDeletionOpen(false)}
       />
     </div>
   );
@@ -1856,6 +1870,7 @@ function OperatorMenuDrawer({
   onShowVerification,
   onEditProfile,
   onLocateArea,
+  onRequestDeletion,
 }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
@@ -1962,6 +1977,14 @@ function OperatorMenuDrawer({
       label: "Schedule",
       detail: readOnly ? "Review operating hours" : "Plan shifts and operating hours",
     },
+    !readOnly
+      ? {
+          icon: FiTrash2,
+          label: "Request account deletion",
+          detail: "Ask admin to review your UrRide operator account, trips, and support records before deletion",
+          onClick: onRequestDeletion,
+        }
+      : null,
   ].filter(Boolean);
 
   return (
@@ -2119,6 +2142,68 @@ const operatorSafetyTopics = [
       "Report passenger threats, unsafe pickup locations, fake bookings, harassment, unpaid fares, dangerous parcels, wrong saved locations, or route incidents with clear details. Include route, time, passenger name, phone if available, screenshots, and what action you took to keep people safe.",
   },
 ];
+
+function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose }) {
+  const { rendered, panelOpen } = useDrawerTransition(open);
+  useBodyScrollLock(rendered);
+
+  useEffect(() => {
+    if (!rendered) return undefined;
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose?.();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose, rendered]);
+
+  if (!rendered) return null;
+
+  return (
+    <div className={`fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+      <button
+        type="button"
+        aria-label="Close account deletion overlay"
+        onClick={onClose}
+        className={`absolute inset-0 border-0 bg-slate-950/35 p-0 transition-opacity duration-300 ${
+          panelOpen ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
+      <aside
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl ${
+          panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
+        }`}
+      >
+        <header className="sticky top-0 z-20 border-b border-gray-100 bg-white px-5 py-4 shadow-sm">
+          <div className="flex items-center gap-4">
+            <AppBackTab
+              onBack={onClose}
+              label="Back to operator menu"
+              historyKey="transport-operator-account-deletion"
+              className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+              useHistoryLayer={false}
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-wide text-rose-700">Operator Account</p>
+              <h2 className="truncate text-lg font-black text-gray-950">Request account deletion</h2>
+              <p className="truncate text-xs font-semibold text-gray-500">
+                {fleetName} - {operatorName}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          <RequestAccountDeletionPage />
+        </div>
+      </aside>
+    </div>
+  );
+}
 
 function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
   const { rendered, panelOpen } = useDrawerTransition(open);

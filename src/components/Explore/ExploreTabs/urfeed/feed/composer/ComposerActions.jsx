@@ -154,8 +154,8 @@ function formatAudience(value) {
   const labels = {
     recommended: "Recommended Reach",
     everyone: "Everyone",
-    followers: "Followers Only",
-    followers_similar: "Followers + Similar",
+    followers: "Connections Only",
+    followers_similar: "Connections + Similar",
     nearby: "Nearby Reach",
   };
   return labels[value] || "Recommended Reach";

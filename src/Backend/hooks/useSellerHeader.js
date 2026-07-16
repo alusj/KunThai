@@ -154,10 +154,13 @@ export function useSellerHeader() {
 
   return {
     ...headerState,
-    // Badge counts must reflect what the seller has not viewed yet, not the
-    // raw server totals, or the MyBiz badge can never clear.
-    orderCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.orders, headerState.orderItems, { unreadOnly: true }),
-    messageCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.messages, headerState.messageItems, { unreadOnly: true }),
+    // The orders badge tracks live pending orders: it stays visible until the
+    // seller marks each order shipped, completed, or cancelled — viewing the
+    // list alone must not clear it.
+    orderCount: headerState.orderCount,
+    // Message badge mirrors the orders badge: it tracks live unread buyer
+    // messages and only clears when the seller opens (reads) them.
+    messageCount: headerState.messageCount,
     notificationCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.notifications, headerState.notificationItems, { unreadOnly: true }),
     query,
     setQuery,

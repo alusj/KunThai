@@ -102,6 +102,57 @@ async function searchPeople(query) {
   }));
 }
 
+// People suggestions for @mention autocomplete. An empty query returns the
+// people the user follows (fallback: recently active profiles) so suggestions
+// appear as soon as "@" is typed.
+export async function searchExplorePeople(query = "") {
+  const value = String(query || "").trim().replace(/^@/, "");
+  if (value) return searchPeople(value);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+
+  let profileIds = [];
+  if (user?.id) {
+    const { data } = await supabase
+      .from("explore_follows")
+      .select("following_id")
+      .eq("follower_id", user.id)
+      .limit(12);
+    profileIds = (data || []).map((row) => row.following_id).filter(Boolean);
+  }
+
+  let query_ = supabase
+    .from("explore_profiles")
+    .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
+    .limit(12);
+  query_ = profileIds.length ? query_.in("user_id", profileIds) : query_.order("updated_at", { ascending: false });
+
+  let { data, error } = await query_;
+  if (error && isMissingColumn(error, "updated_at")) {
+    ({ data, error } = await supabase
+      .from("explore_profiles")
+      .select("user_id, display_name, username, avatar_url, bio, account_type, verified")
+      .limit(12));
+  }
+  if (error) return [];
+
+  return (data || [])
+    .filter((profile) => profile.user_id !== user?.id)
+    .map((profile) => ({
+      id: profile.user_id,
+      type: "people",
+      title: profile.display_name || "Profile",
+      subtitle: profile.bio || `@${profile.username || "user"}`,
+      username: profile.username || "",
+      avatarUrl: profile.avatar_url || "",
+      userId: profile.user_id,
+      accountType: profile.account_type || "personal",
+      verified: Boolean(profile.verified),
+    }));
+}
+
 export function readRecentSearches() {
   return readJsonArray(RECENT_SEARCHES_KEY).slice(0, 8);
 }

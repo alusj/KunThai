@@ -113,7 +113,9 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
                       ? "Update Listing"
                       : productForm.form.pricing.publishStatus === "draft"
                         ? "Save Draft"
-                        : "Publish Product"}
+                        : productForm.form.pricing.publishStatus === "promoted"
+                          ? "Publish & Promote"
+                          : "Publish Product"}
                 </button>
               )}
             </div>

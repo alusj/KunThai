@@ -1,5 +1,14 @@
 import NotificationItem from "../components/NotificationItem";
 
+function getActorIdentity(item = {}) {
+  const type = item.actor_type === "space" || item.actor_space_id ? "space" : "profile";
+  const id = type === "space" ? item.actor_space_id || item.actor_id : item.actor_user_id || item.actor_id;
+  return {
+    id: id || "",
+    key: id ? `${type}:${id}` : "",
+  };
+}
+
 function groupNotifications(data) {
   const groups = new Map();
 
@@ -34,7 +43,16 @@ export default function NotificationsList({ data, followedUsers, onFollowBack, o
   return (
     <div className="w-full space-y-3">
       {groupedData.map((item) => (
-        <NotificationItem key={item.id} followed={Boolean(item.actor_user_id && followedUsers?.has(item.actor_user_id))} item={item} onFollowBack={onFollowBack} onOpen={onOpen} />
+        <NotificationItem
+          key={item.id}
+          followed={(() => {
+            const actor = getActorIdentity(item);
+            return Boolean(actor.id && (followedUsers?.has(actor.key) || followedUsers?.has(actor.id)));
+          })()}
+          item={item}
+          onFollowBack={onFollowBack}
+          onOpen={onOpen}
+        />
       ))}
     </div>
   );

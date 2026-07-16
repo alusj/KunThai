@@ -36,6 +36,7 @@ import {
   readRegisteredBusinesses,
   setActiveRegisteredBusiness,
 } from "../../../../Backend/services/marketplace/sellerRegistrationService";
+import { consumeSellerOrdersAreaViewReturn } from "../../../../Backend/services/marketplace/navigationHandoffService";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
@@ -94,6 +95,13 @@ export default function Business({ onBack }) {
   const [dashboardReveal, setDashboardReveal] = useState(null);
   const [businesses, setBusinesses] = useState([]);
   const sellerScreenTimerRef = useRef(null);
+
+  // Returning from an order-address Area View lands directly on the orders
+  // screen the seller left from.
+  useEffect(() => {
+    if (!consumeSellerOrdersAreaViewReturn()) return;
+    setActiveScreen("orders");
+  }, []);
 
   useEffect(() => {
     if (!hasBusiness) return undefined;

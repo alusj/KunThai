@@ -5,8 +5,11 @@ import { MAX_EXPLORE_VIDEO_BYTES, removeUploadedMediaUrl, uploadMediaDataUrl, up
 import { buildExploreProfileFromUser } from "./profileStorage";
 import { recordHashtagUsage } from "./hashtagService";
 import { normalizeExploreTopicSlug } from "../../../data/exploreTopics";
+import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getPostIdentity } from "./identityService";
+import { normalizeSpaceResponsibilities } from "./spaceService";
 
 const MAX_SWIP_SECONDS = 15;
+const SPACE_POSTING_ROLES = new Set(["owner", "administrator", "moderator", "editor", "customer_support"]);
 
 function logExploreFeed(event, detail = {}) {
   if (import.meta.env.DEV) {
@@ -145,21 +148,34 @@ async function getCurrentUserContext() {
   const userId = await getCurrentUserId();
 
   if (!userId) {
-    return { userId: null, followingIds: new Set() };
+    return { userId: null, followingIds: new Set(), connectedSpaceIds: new Set() };
   }
 
-  const { data, error } = await supabase.from("explore_follows").select("following_id").eq("follower_id", userId);
+  const [followResult, identityResult] = await Promise.all([
+    supabase.from("explore_follows").select("following_id").eq("follower_id", userId),
+    supabase
+      .from("explore_identity_connections")
+      .select("target_type, target_space_id")
+      .eq("connector_user_id", userId)
+      .eq("target_type", SPACE_IDENTITY_TYPE),
+  ]);
 
-  if (error) {
-    if (isMissingTable(error)) {
-      return { userId, followingIds: new Set() };
+  if (followResult.error) {
+    if (!isMissingTable(followResult.error)) {
+      throw followResult.error;
     }
-    throw error;
+  }
+
+  if (identityResult.error) {
+    if (!isMissingTable(identityResult.error)) {
+      throw identityResult.error;
+    }
   }
 
   return {
     userId,
-    followingIds: new Set((data || []).map((item) => item.following_id).filter(Boolean)),
+    followingIds: new Set((followResult.data || []).map((item) => item.following_id).filter(Boolean)),
+    connectedSpaceIds: new Set((identityResult.data || []).map((item) => item.target_space_id).filter(Boolean)),
   };
 }
 
@@ -172,6 +188,7 @@ function normalizePostPrivacy(post) {
 function canCurrentUserViewPost(post, context) {
   const privacy = normalizePostPrivacy(post);
   const postUserId = post?.user_id || "";
+  const postIdentity = getPostIdentity(post);
 
   if (privacy === "public") {
     return true;
@@ -186,10 +203,99 @@ function canCurrentUserViewPost(post, context) {
   }
 
   if (privacy === "circle") {
+    if (postIdentity.type === SPACE_IDENTITY_TYPE) {
+      return context.connectedSpaceIds.has(postIdentity.id);
+    }
     return context.followingIds.has(postUserId);
   }
 
   return false;
+}
+
+function getPayloadActor(payload = {}, userId = "") {
+  const requestedType = payload.actor_type || payload.actorType || payload.identityType || (payload.space_id || payload.spaceId ? SPACE_IDENTITY_TYPE : PROFILE_IDENTITY_TYPE);
+  const actorType = requestedType === SPACE_IDENTITY_TYPE ? SPACE_IDENTITY_TYPE : PROFILE_IDENTITY_TYPE;
+  const actorId = actorType === SPACE_IDENTITY_TYPE
+    ? payload.space_id || payload.spaceId || payload.actor_id || payload.actorId || payload.identityId || ""
+    : userId;
+
+  return {
+    actorType,
+    actorId,
+    spaceId: actorType === SPACE_IDENTITY_TYPE ? actorId : null,
+  };
+}
+
+async function getSpaceActorContext(spaceId, user) {
+  if (!spaceId) {
+    throw new Error("Choose a Space before publishing as one.");
+  }
+
+  const [{ data: space, error: spaceError }, { data: membership, error: memberError }] = await Promise.all([
+    supabase.from("explore_spaces").select("*").eq("id", spaceId).maybeSingle(),
+    supabase
+      .from("explore_space_members")
+      .select("role, status, responsibilities")
+      .eq("space_id", spaceId)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
+
+  if (spaceError) {
+    if (isMissingTable(spaceError)) {
+      throw new Error("Spaces need the latest KunThai database update.");
+    }
+    throw spaceError;
+  }
+
+  if (memberError) {
+    if (isMissingTable(memberError)) {
+      throw new Error("Spaces need the latest KunThai database update.");
+    }
+    throw memberError;
+  }
+
+  if (!space || space.status !== "active") {
+    throw new Error("This Space is not available for publishing.");
+  }
+
+  const responsibilities = normalizeSpaceResponsibilities(membership?.responsibilities || {}, membership?.role || "member");
+  if (!membership || membership.status !== "active" || (!SPACE_POSTING_ROLES.has(membership.role) && !responsibilities.canCreatePosts)) {
+    throw new Error("You need a Space team role that can publish.");
+  }
+
+  return {
+    actorType: SPACE_IDENTITY_TYPE,
+    actorId: space.id,
+    spaceId: space.id,
+    authorName: space.name || "Space",
+    authorUsername: space.slug || "",
+    authorAvatarUrl: space.avatar_url || "",
+    actorMetadata: {
+      spaceCategory: space.category || "business",
+      spaceRole: membership.role,
+      responsibilities,
+    },
+  };
+}
+
+async function getPostActorContext(payload, user) {
+  const actor = getPayloadActor(payload, user.id);
+
+  if (actor.actorType === SPACE_IDENTITY_TYPE) {
+    return getSpaceActorContext(actor.spaceId, user);
+  }
+
+  const profile = buildExploreProfileFromUser(user);
+  return {
+    actorType: PROFILE_IDENTITY_TYPE,
+    actorId: user.id,
+    spaceId: null,
+    authorName: profile.displayName || user.email || "Profile",
+    authorUsername: profile.username || user.email?.split("@")[0] || "",
+    authorAvatarUrl: profile.avatarUrl || "",
+    actorMetadata: {},
+  };
 }
 
 export async function fetchExplorePosts(scope = "feed", options = {}) {
@@ -400,13 +506,17 @@ export async function createExplorePost(input, scope = "feed") {
     : payload.video_url
       ? await uploadMediaDataUrl(payload.video_url, "video", user.id)
       : "";
-  const profile = buildExploreProfileFromUser(user);
+  const actor = await getPostActorContext(payload, user);
 
   const draft = {
     user_id: user.id,
-    author_name: profile.displayName || user.email || "Profile",
-    author_username: profile.username || user.email?.split("@")[0] || "",
-    author_avatar_url: profile.avatarUrl || "",
+    actor_type: actor.actorType,
+    actor_id: actor.actorId,
+    space_id: actor.spaceId,
+    actor_metadata: actor.actorMetadata,
+    author_name: actor.authorName,
+    author_username: actor.authorUsername,
+    author_avatar_url: actor.authorAvatarUrl,
     feed_scope: classification.feedScope,
     post_type: classification.postType,
     category: classification.category,
@@ -537,6 +647,10 @@ async function insertExplorePostDraft(draft) {
     "mentions",
     "post_type",
     "category",
+    "actor_type",
+    "actor_id",
+    "space_id",
+    "actor_metadata",
     "video_trim_start",
     "video_trim_end",
     "moderation_status",

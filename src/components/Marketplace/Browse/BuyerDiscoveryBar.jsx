@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
 import { Filter, MapPin, Search, SlidersHorizontal, Truck, X } from "lucide-react";
+import {
+  LOCATION_SCOPE_COUNTRY,
+  LOCATION_SCOPE_NEARBY,
+} from "../../../Backend/services/marketplace/buyerMarketplaceService";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
@@ -9,12 +13,35 @@ const SORT_OPTIONS = [
   { value: "discount", label: "Biggest deals" },
 ];
 
+// Business verticals selectable from the category filter alongside the retail
+// product categories.
+const VERTICAL_CATEGORIES = [
+  { value: "vertical:restaurant", label: "Restaurant" },
+  { value: "vertical:property_agent", label: "Real Estate" },
+  { value: "vertical:retail", label: "Retail" },
+  { value: "vertical:hotel", label: "Hotel" },
+];
+
+const LOCATION_SCOPES = [
+  { value: "", label: "All locations" },
+  { value: LOCATION_SCOPE_NEARBY, label: "Nearby" },
+  { value: LOCATION_SCOPE_COUNTRY, label: "Country" },
+];
+
+function getCategoryLabel(category) {
+  return VERTICAL_CATEGORIES.find((option) => option.value === category)?.label || category;
+}
+
+function getLocationLabel(location) {
+  return LOCATION_SCOPES.find((option) => option.value === location)?.label || location;
+}
+
 export default function BuyerDiscoveryBar({ filters, setFilters, categories = [], locations = [], onClear }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilters = useMemo(
     () => [
-      filters.category !== "all" ? filters.category : "",
-      filters.location,
+      filters.category !== "all" ? getCategoryLabel(filters.category) : "",
+      filters.location ? getLocationLabel(filters.location) : "",
       filters.delivery !== "all" ? filters.delivery === "delivery" ? "Delivery" : "Pickup" : "",
       filters.minPrice ? `Min ${filters.minPrice}` : "",
       filters.maxPrice ? `Max ${filters.maxPrice}` : "",
@@ -38,11 +65,22 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           className="min-w-0 flex-1 bg-transparent outline-none"
         >
           <option value="all">All categories</option>
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
+          <optgroup label="Business types">
+            {VERTICAL_CATEGORIES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </optgroup>
+          {categories.length ? (
+            <optgroup label="Retail categories">
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
         </select>
       </label>
 
@@ -53,12 +91,20 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           onChange={(event) => updateField("location", event.target.value)}
           className="min-w-0 flex-1 bg-transparent outline-none"
         >
-          <option value="">All locations</option>
-          {locations.map((location) => (
-            <option key={location} value={location}>
-              {location}
+          {LOCATION_SCOPES.map((option) => (
+            <option key={option.value || "all"} value={option.value}>
+              {option.label}
             </option>
           ))}
+          {locations.length ? (
+            <optgroup label="Seller locations">
+              {locations.map((location) => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
         </select>
       </label>
 

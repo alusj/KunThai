@@ -172,7 +172,7 @@ export default function FeedPost({
 
   async function followAndTrack() {
     const result = await onFollow?.();
-    if (advertPost && result === "Following") {
+    if (advertPost && result === "Connected") {
       recordExploreAdvertEvent(post, "follow", { surface: "urfeed" }).catch(() => false);
     }
     return result;
@@ -478,7 +478,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
   const opensWebsite = Boolean(url && actionHref === url);
   const title = advert.title || "Advertisement";
   const profileAction = advert.ctaLabel === "View profile";
-  const followAction = advert.ctaLabel === "Follow";
+  const followAction = advert.ctaLabel === "Follow" || advert.ctaLabel === "Connect";
 
   return (
     <section className="mx-4 mb-4 rounded-[24px] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white p-4 shadow-sm">
@@ -524,7 +524,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
       ) : null}
       {!actionHref && followAction ? (
         <button type="button" onClick={onFollow} className="kt-pressable mt-3 flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-          {followed ? "Following" : "Follow"}
+          {followed ? "Connected" : "Connect"}
         </button>
       ) : null}
     </section>

@@ -24,6 +24,7 @@ import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
 import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
 
 import BuyerDiscoveryBar from "./BuyerDiscoveryBar";
+import PromotedAdsCarousel from "./PromotedAdsCarousel";
 import ProductDetailDrawer from "./ProductDetailDrawer";
 import SellerProfileDrawer from "./SellerProfileDrawer";
 
@@ -104,7 +105,7 @@ function rememberRecentProduct(product) {
   }
 }
 
-export default function Browse({ activeTab = "new", onProductModeChange, supplementalContent = null }) {
+export default function Browse({ activeTab = "new", onProductModeChange, searchOpen = false, supplementalContent = null }) {
   const initialQueryFilters = cloneFilters(BROWSE_MEMORY.queryFilters);
   const initialCatalog = normalizeCatalog(
     BROWSE_CATALOG_MEMORY.get(buildCatalogKey(initialQueryFilters))?.catalog || BROWSE_MEMORY.catalog,
@@ -149,6 +150,16 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
   useEffect(() => {
     BROWSE_MEMORY.filters = cloneFilters(filters);
   }, [filters]);
+
+  // Closing the header search hides the discovery bar, so drop its filters or
+  // the grid would stay silently filtered with no visible controls.
+  const prevSearchOpenRef = useRef(searchOpen);
+  useEffect(() => {
+    if (prevSearchOpenRef.current && !searchOpen) {
+      setFilters(cloneFilters(DEFAULT_FILTERS));
+    }
+    prevSearchOpenRef.current = searchOpen;
+  }, [searchOpen]);
 
   useEffect(() => {
     BROWSE_MEMORY.queryFilters = cloneFilters(queryFilters);
@@ -458,12 +469,12 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
     onToggleSaved: toggleSaved,
     supplementalContent,
   };
-  const initialProductLoading = loading && !catalogHasProducts(catalog);
-
   return (
     <div className="space-y-4">
       <PullToRefresh className="space-y-4" onRefresh={() => loadProductsRef.current?.()} disabled={detailOpen || sellerOpen}>
-      {!initialProductLoading ? (
+      {/* The advert slider lives where the search card used to be; the full
+          search card only appears when the header search icon is active. */}
+      {searchOpen ? (
         <BuyerDiscoveryBar
           filters={filters}
           setFilters={setFilters}
@@ -471,7 +482,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, supplem
           locations={options.locations}
           onClear={() => setFilters(DEFAULT_FILTERS)}
         />
-      ) : null}
+      ) : (
+        <PromotedAdsCarousel onProductSelect={openProduct} />
+      )}
 
       {notice && (
         <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">

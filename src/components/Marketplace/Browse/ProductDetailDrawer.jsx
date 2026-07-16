@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
+  BookmarkCheck,
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Heart,
@@ -565,6 +567,7 @@ export default function ProductDetailDrawer({
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderForm, setOrderForm] = useState(() => ({ ...readDefaultAddress(), quantity: 1, fulfillment: "delivery" }));
   const [savedAddresses, setSavedAddresses] = useState(readSavedAddresses);
+  const [savedAddressesOpen, setSavedAddressesOpen] = useState(false);
   const [orderAreaPicker, setOrderAreaPicker] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [messageSending, setMessageSending] = useState(false);
@@ -726,6 +729,7 @@ export default function ProductDetailDrawer({
       endDate: "",
     });
     setOrderAreaPicker(null);
+    setSavedAddressesOpen(false);
     setOrderOpen(true);
 
     if (isBooking) return;
@@ -1121,22 +1125,47 @@ export default function ProductDetailDrawer({
                     Pickup
                   </button>
                 </div> : null}
-                {!isBooking && savedAddresses.length ? (
-                  <div className="col-span-2 space-y-2">
-                    <p className="text-xs font-black uppercase text-gray-500">Saved addresses</p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {savedAddresses.map((address) => (
-                        <button
-                          key={address.id || `${address.category}-${address.street}`}
-                          type="button"
-                          onClick={() => updateOrderForm(mapSavedAddressToOrder(address))}
-                          className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
-                        >
-                          <p className="text-xs font-black text-gray-950">{getAddressLabel(address)} address</p>
-                          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{address.street || address.detectedAddress}</p>
-                        </button>
-                      ))}
-                    </div>
+                {!isBooking ? (
+                  <div className="col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => setSavedAddressesOpen((current) => !current)}
+                      aria-expanded={savedAddressesOpen}
+                      className="flex h-11 w-full items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/50"
+                    >
+                      <BookmarkCheck size={16} className="shrink-0 text-emerald-700" />
+                      <span className="min-w-0 flex-1 truncate text-xs font-black uppercase text-gray-600">
+                        Saved addresses{savedAddresses.length ? ` (${savedAddresses.length})` : ""}
+                      </span>
+                      <ChevronDown
+                        size={17}
+                        className={`shrink-0 text-gray-500 transition-transform ${savedAddressesOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {savedAddressesOpen ? (
+                      savedAddresses.length ? (
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {savedAddresses.map((address) => (
+                            <button
+                              key={address.id || `${address.category}-${address.street}`}
+                              type="button"
+                              onClick={() => {
+                                updateOrderForm(mapSavedAddressToOrder(address));
+                                setSavedAddressesOpen(false);
+                              }}
+                              className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
+                            >
+                              <p className="text-xs font-black text-gray-950">{getAddressLabel(address)} address</p>
+                              <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{address.street || address.detectedAddress}</p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-center text-xs font-bold text-gray-400">
+                          No saved addresses
+                        </p>
+                      )
+                    ) : null}
                   </div>
                 ) : null}
                 <input

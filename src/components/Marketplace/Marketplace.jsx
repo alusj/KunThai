@@ -3,7 +3,6 @@ import Browse from "./Browse/Browse";
 import MarketplaceHeader from "./MarketplaceHeader/MarketplaceHeader";
 import Business from "./MarketplaceHeader/Business/Business";
 import Messages from "./Messages";
-import Orders from "./Orders";
 import ParentTabs from "./ParentTabs";
 import MarketplaceParentNav from "./MarketplaceParentNav";
 import VerticalMarketplace from "./VerticalMarketplace";
@@ -11,6 +10,7 @@ import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { useSellerHeader } from "../../Backend/hooks/useSellerHeader";
+import { peekSellerOrdersAreaViewReturn } from "../../Backend/services/marketplace/navigationHandoffService";
 import {
   fetchMarketplaceParentAvailability,
   MARKETPLACE_PARENT_TAB_MIN_ITEMS,
@@ -22,6 +22,7 @@ const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 export default function Marketplace({ active = false, nav, setNav, onActivityChange, onNotificationCountChange }) {
   const [activeTab, setActiveTab] = useState("new");
   const [activeParent, setActiveParent] = useState("all");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [verticalDetailOpen, setVerticalDetailOpen] = useState(false);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [activeUtility, setActiveUtility] = useState(null);
@@ -43,6 +44,18 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
     .filter(([, count]) => Number(count || 0) >= MARKETPLACE_PARENT_TAB_MIN_ITEMS)
     .map(([id]) => id);
   const parentNavVisible = qualifiedParents.length >= 2;
+
+  // Coming back from an order-address Area View: Marketplace remounts when
+  // the page returns from transport, so a mount-time check reopens the
+  // business workspace; the workspace itself consumes the flag and opens its
+  // orders screen.
+  useEffect(() => {
+    if (!peekSellerOrdersAreaViewReturn()) return;
+    setNav({ root: "marketplace", sub: "business" });
+    // Runs only on mount: the flag is only ever set right before this
+    // component unmounts for the Area View.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -168,7 +181,8 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
           <MarketplaceHeader
             activeUtility={activeUtility}
             onActivityChange={setHeaderActivityOpen}
-            onOrdersClick={() => setActiveUtility((current) => (current === "orders" ? null : "orders"))}
+            onSearchClick={() => setSearchOpen((current) => !current)}
+            searchOpen={searchOpen}
             onMessagesClick={() => setActiveUtility((current) => (current === "messages" ? null : "messages"))}
             onMyBizClick={openMyBiz}
             onNotificationCountChange={setBuyerNotificationCount}
@@ -206,24 +220,16 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
         {activeParent === "all" ? (
           <Browse
             activeTab={activeTab}
+            searchOpen={searchOpen}
             onProductModeChange={setMarketplaceScreenMode}
             supplementalContent={<VerticalMarketplace mode="mixed" onDetailChange={setVerticalDetailOpen} />}
           />
         ) : null}
-        {activeParent === "shop" ? <Browse activeTab={activeTab} onProductModeChange={setMarketplaceScreenMode} /> : null}
+        {activeParent === "shop" ? <Browse activeTab={activeTab} searchOpen={searchOpen} onProductModeChange={setMarketplaceScreenMode} /> : null}
         {activeParent === "food" ? <VerticalMarketplace mode="food" onDetailChange={setVerticalDetailOpen} /> : null}
         {activeParent === "hotels" ? <VerticalMarketplace mode="hotels" onDetailChange={setVerticalDetailOpen} /> : null}
         {activeParent === "property" ? <VerticalMarketplace mode="property" onDetailChange={setVerticalDetailOpen} /> : null}
       </div>
-
-      <UtilityScreen
-        open={activeUtility === "orders"}
-        title="Orders"
-        subtitle="Your UrMall purchases and checkout requests"
-        onClose={() => setActiveUtility(null)}
-      >
-        <Orders onBack={() => setActiveUtility(null)} onProductOpen={openProductFromUtility} compact />
-      </UtilityScreen>
 
       <UtilityScreen
         open={activeUtility === "messages"}

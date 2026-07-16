@@ -7,6 +7,7 @@ import {
   subscribeMarketplaceVerticalDiscovery,
 } from "../../Backend/services/marketplace/marketplaceVerticalService";
 import { createBuyerProductOrder, sendBuyerMarketplaceMessage } from "../../Backend/services/marketplace/buyerMarketplaceService";
+import { urMallShareToastOptions } from "../../Backend/services/shareCtaService";
 import { showToast } from "../../Backend/services/toastService";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
@@ -136,7 +137,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
   async function orderRestaurant(product, orderInput) {
     try {
       await createBuyerProductOrder(product, orderInput);
-      showToast("Restaurant order sent.", "success");
+      showToast("Restaurant order sent. Share UrMall with friends who may love local sellers too.", "success", urMallShareToastOptions());
     } catch (error) {
       showToast(error.message || "Unable to send this order.", "danger");
       throw error;
@@ -146,7 +147,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
   async function bookVertical(product, bookingInput) {
     try {
       await createVerticalBooking(product, bookingInput);
-      showToast("Booking request sent to the business.", "success");
+      showToast("Booking request sent. Share UrMall so more people can discover local businesses.", "success", urMallShareToastOptions());
     } catch (error) {
       showToast(error.message || "Unable to send this booking request.", "danger");
       throw error;

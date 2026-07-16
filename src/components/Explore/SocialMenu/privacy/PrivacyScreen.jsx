@@ -137,7 +137,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
               className="h-11 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none"
             >
               <option value="everyone">Everyone</option>
-              <option value="followers">Followers</option>
+              <option value="followers">Connections</option>
               <option value="none">No one</option>
             </select>
           </SettingRow>
@@ -154,7 +154,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             </button>
           </SettingRow>
 
-          <SettingRow icon={HiOutlineBolt} title="Activity visibility" description="Show likes, follows, and recent social actions on your profile activity surfaces.">
+          <SettingRow icon={HiOutlineBolt} title="Activity visibility" description="Show likes, connections, and recent social actions on your profile activity surfaces.">
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ showActivity: !settings.showActivity })}

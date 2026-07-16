@@ -109,7 +109,8 @@ export default function CartDrawer({
         deliveryLocation.trim() ? `Note: ${deliveryLocation.trim()}` : "",
         paymentPreference ? `Payment preference: ${paymentPreference}` : "",
       ].filter(Boolean).join(" | ");
-      const orders = await onCheckout?.(checkoutNote);
+      const checkoutCoordinates = deliveryMode === "delivery" ? selectedAddress?.coordinates || null : null;
+      const orders = await onCheckout?.(checkoutNote, { coordinates: checkoutCoordinates });
       setCheckoutStatus(`${orders.length} order${orders.length === 1 ? "" : "s"} created.`);
       setDeliveryLocation("");
     } catch (err) {

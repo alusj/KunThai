@@ -20,3 +20,35 @@ export function consumeSellerAreaViewReturn() {
     return null;
   }
 }
+
+// Set when a seller opens an order address in Area View so the back action can
+// land on the seller orders screen instead of the marketplace home.
+const SELLER_ORDERS_AREA_RETURN_KEY = "kuntai.marketplace.areaViewSellerOrdersReturn";
+
+export function storeSellerOrdersAreaViewReturn() {
+  try {
+    sessionStorage.setItem(SELLER_ORDERS_AREA_RETURN_KEY, "1");
+  } catch {
+    // Area View navigation should still work when session storage is unavailable.
+  }
+}
+
+// Peeked (without clearing) by Marketplace to reopen the business workspace;
+// consumed by the workspace itself to open the orders screen.
+export function peekSellerOrdersAreaViewReturn() {
+  try {
+    return sessionStorage.getItem(SELLER_ORDERS_AREA_RETURN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function consumeSellerOrdersAreaViewReturn() {
+  try {
+    const stored = sessionStorage.getItem(SELLER_ORDERS_AREA_RETURN_KEY) === "1";
+    sessionStorage.removeItem(SELLER_ORDERS_AREA_RETURN_KEY);
+    return stored;
+  } catch {
+    return false;
+  }
+}

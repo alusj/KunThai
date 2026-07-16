@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { fetchExploreConnections } from "../services/exploreService";
+import { getIdentityKey, normalizeIdentityTarget } from "../services/exploreService";
+import { blockExploreIdentity, fetchBlockedIdentityKeys, unblockExploreIdentity } from "../services/explore/safetyService";
 import { showToast } from "../services/toastService";
 import { EXPLORE_FOLLOW_CHANGED_EVENT, useExploreFollows } from "./useExploreFollows";
 
@@ -60,6 +62,13 @@ function readBlockedUsers() {
 
 function writeBlockedUsers(value) {
   localStorage.setItem(BLOCK_STORAGE_KEY, JSON.stringify(Array.from(value)));
+}
+
+function getConnectionIdentity(item) {
+  return normalizeIdentityTarget({
+    identityType: item?.identityType || item?.identity_type || item?.targetType || item?.target_type || (item?.space_id ? "space" : "profile"),
+    identityId: item?.identityId || item?.identity_id || item?.space_id || item?.user_id || item?.id || "",
+  });
 }
 
 export function useExploreConnections(kind, currentUserId = "") {
@@ -156,6 +165,11 @@ export function useExploreConnections(kind, currentUserId = "") {
     }
 
     loadActive();
+    fetchBlockedIdentityKeys()
+      .then((blocked) => {
+        if (active) setBlockedUsers(new Set(blocked));
+      })
+      .catch(() => {});
 
     return () => {
       active = false;
@@ -164,12 +178,13 @@ export function useExploreConnections(kind, currentUserId = "") {
 
   useEffect(() => {
     function handleFollowChanged(event) {
-      const { userId, active } = event.detail || {};
-      if (!userId) {
+      const { userId, identityKey, identityType, identityId, active } = event.detail || {};
+      const targetKey = identityKey || getIdentityKey(identityType || "profile", identityId || userId || "");
+      if (!targetKey) {
         return;
       }
 
-      setItems((current) => current.map((item) => (item.user_id === userId ? { ...item, isFollowing: active } : item)));
+      setItems((current) => current.map((item) => (getConnectionIdentity(item).key === targetKey ? { ...item, isFollowing: active } : item)));
 
       load({ force: true });
     }
@@ -180,13 +195,14 @@ export function useExploreConnections(kind, currentUserId = "") {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind]);
 
-  async function followUser(userId) {
-    const targetItem = items.find((item) => item.user_id === userId);
-    const active = await toggleFollow(userId);
-    showToast(active ? "Added to your circle." : "Unfollowed.", "success", {
+  async function followUser(target) {
+    const targetIdentity = getConnectionIdentity(typeof target === "object" ? target : { user_id: target });
+    const targetItem = items.find((item) => getConnectionIdentity(item).key === targetIdentity.key);
+    const active = await toggleFollow(targetIdentity);
+    showToast(active ? "Connected." : "Connection removed.", "success", {
       actionLabel: "Undo",
       onAction: async () => {
-        await toggleFollow(userId);
+        await toggleFollow(targetIdentity);
         load({ force: true });
       },
     });
@@ -194,62 +210,71 @@ export function useExploreConnections(kind, currentUserId = "") {
     if (active && targetItem) {
       setItems((current) => {
         if (kind === "discover") {
-          return current.filter((item) => item.user_id !== userId);
+          return current.filter((item) => getConnectionIdentity(item).key !== targetIdentity.key);
         }
 
         if (kind === "followers") {
-          return current.filter((item) => item.user_id !== userId);
+          return current.filter((item) => getConnectionIdentity(item).key !== targetIdentity.key);
         }
 
-        return current.map((item) => (item.user_id === userId ? { ...item, isFollowing: true, status: "In your circle" } : item));
+        return current.map((item) => (getConnectionIdentity(item).key === targetIdentity.key ? { ...item, isFollowing: true, status: "Connected" } : item));
       });
     }
 
     load({ force: true });
   }
 
-  function blockUser(userId) {
-    const blockedItem = items.find((item) => item.user_id === userId);
-    setBlockedUsers((current) => {
-      const next = new Set(current);
-      next.add(userId);
-      writeBlockedUsers(next);
-      return next;
-    });
+  async function blockUser(target) {
+    const targetIdentity = getConnectionIdentity(typeof target === "object" ? target : { user_id: target });
+    const blockedItem = items.find((item) => getConnectionIdentity(item).key === targetIdentity.key);
+    const optimistic = new Set(blockedUsers);
+    optimistic.add(targetIdentity.key);
+    writeBlockedUsers(optimistic);
+    setBlockedUsers(optimistic);
+
+    try {
+      const synced = await blockExploreIdentity(targetIdentity, "blocked from Explore connections");
+      setBlockedUsers(new Set(synced));
+    } catch (error) {
+      showToast(error.message || "Account blocked on this device.", "danger");
+    }
+
     showToast("Account blocked.", "danger", {
       actionLabel: "Undo",
-      onAction: () => {
+      onAction: async () => {
         setBlockedUsers((current) => {
           const next = new Set(current);
-          next.delete(userId);
+          next.delete(targetIdentity.key);
           writeBlockedUsers(next);
           return next;
         });
+        await unblockExploreIdentity(targetIdentity).catch(() => null);
         if (blockedItem) {
-          setItems((current) => (current.some((item) => item.user_id === userId) ? current : [blockedItem, ...current]));
+          setItems((current) => (current.some((item) => getConnectionIdentity(item).key === targetIdentity.key) ? current : [blockedItem, ...current]));
         }
       },
     });
   }
 
-  async function removeUser(userId) {
-    const removedItem = items.find((item) => item.user_id === userId);
-    const wasFollowing = followedUsers.has(userId) || removedItem?.isFollowing;
+  async function removeUser(target) {
+    const targetIdentity = getConnectionIdentity(typeof target === "object" ? target : { user_id: target });
+    const removedItem = items.find((item) => getConnectionIdentity(item).key === targetIdentity.key);
+    const wasFollowing = followedUsers.has(targetIdentity.key) || followedUsers.has(targetIdentity.id) || removedItem?.isFollowing;
 
-    if (followedUsers.has(userId)) {
-      await toggleFollow(userId);
+    if (wasFollowing) {
+      await toggleFollow(targetIdentity);
     }
 
-    setItems((current) => current.filter((item) => item.user_id !== userId));
+    setItems((current) => current.filter((item) => getConnectionIdentity(item).key !== targetIdentity.key));
     showToast("Connection removed from this list.", "info", {
       actionLabel: "Undo",
       onAction: async () => {
         if (removedItem) {
-          setItems((current) => (current.some((item) => item.user_id === userId) ? current : [removedItem, ...current]));
+          setItems((current) => (current.some((item) => getConnectionIdentity(item).key === targetIdentity.key) ? current : [removedItem, ...current]));
         }
 
         if (wasFollowing) {
-          await toggleFollow(userId);
+          await toggleFollow(targetIdentity);
           load({ force: true });
         }
       },
@@ -257,8 +282,11 @@ export function useExploreConnections(kind, currentUserId = "") {
   }
 
   const visibleItems = items
-    .filter((item) => !blockedUsers.has(item.user_id))
-    .map((item) => ({ ...item, isFollowing: followedUsers.has(item.user_id) || item.isFollowing }));
+    .filter((item) => !blockedUsers.has(getConnectionIdentity(item).key))
+    .map((item) => {
+      const identity = getConnectionIdentity(item);
+      return { ...item, identityKey: identity.key, isFollowing: followedUsers.has(identity.key) || followedUsers.has(identity.id) || item.isFollowing };
+    });
 
   return {
     items: visibleItems,

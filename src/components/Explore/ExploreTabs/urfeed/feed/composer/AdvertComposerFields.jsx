@@ -35,7 +35,7 @@ const CTA_OPTIONS = [
   "Learn more",
   "Visit website",
   "View profile",
-  "Follow",
+  "Connect",
   "Call or message",
   "Watch now",
   "Get directions",
@@ -52,7 +52,7 @@ const PLACEMENTS = [
 const OBJECTIVES = [
   { value: "brand_awareness", label: "Brand Awareness", description: "Introduce your name, offer, or work." },
   { value: "profile_visits", label: "More Profile Visits", description: "Guide interested people to your Explore profile." },
-  { value: "followers", label: "More Followers", description: "Grow an audience around your account." },
+  { value: "followers", label: "More Connections", description: "Grow connected people around your account." },
   { value: "website_clicks", label: "More Website Clicks", description: "Send people to your website or application page." },
   { value: "messages", label: "More Messages", description: "Encourage direct enquiries and conversations." },
   { value: "video_views", label: "More Video Views", description: "Prioritize people likely to watch your video." },
@@ -62,8 +62,8 @@ const OBJECTIVES = [
 const AUDIENCES = [
   { value: "recommended", label: "Recommended Reach", description: "KunThai uses transparent Explore activity signals. AI-ready, without AI targeting yet." },
   { value: "everyone", label: "Everyone", description: "Eligible across public Explore, with relevance and safety ranking." },
-  { value: "followers", label: "Followers Only", description: "Promoted to people who already follow your account." },
-  { value: "followers_similar", label: "Followers + Similar Users", description: "Followers plus people with related Explore interests." },
+  { value: "followers", label: "Connections Only", description: "Promoted to people already connected with your account." },
+  { value: "followers_similar", label: "Connections + Similar Users", description: "Connected people plus others with related Explore interests." },
   { value: "nearby", label: "Nearby Reach", description: "Uses only coarse area personalization that viewers have permitted." },
 ];
 
@@ -114,7 +114,7 @@ export default function AdvertComposerFields({
     onChange("objective", value);
     const suggestedActions = {
       profile_visits: "View profile",
-      followers: "Follow",
+      followers: "Connect",
       website_clicks: "Visit website",
       messages: "Call or message",
       video_views: "Watch now",

@@ -192,8 +192,8 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
               <Toggle active={notifications.reactions} label="Likes" onChange={(value) => updateSection("notifications", { reactions: value })} />
               <Toggle active={notifications.comments} label="Comments" onChange={(value) => updateSection("notifications", { comments: value })} />
             </SettingRow>
-            <SettingRow icon={HiOutlineSignal} title="Social and followed posts" description="Follow alerts and posts from people you follow.">
-              <Toggle active={notifications.follows} label="Follows" onChange={(value) => updateSection("notifications", { follows: value })} />
+            <SettingRow icon={HiOutlineSignal} title="Social and connected posts" description="Connection alerts and posts from people or Spaces you connect with.">
+              <Toggle active={notifications.follows} label="Connects" onChange={(value) => updateSection("notifications", { follows: value })} />
               <Toggle active={notifications.followedPosts} label="Posts" onChange={(value) => updateSection("notifications", { followedPosts: value })} />
             </SettingRow>
             <SettingRow icon={HiOutlineChatBubbleLeftRight} title="Messages and safety alerts" description="Message badges, safety notices, reports, and account alerts.">

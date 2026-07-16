@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Minimize2 } from "lucide-react";
+import { ChevronRight, Minimize2, Share2 } from "lucide-react";
 
 import { postingStages } from "../ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 
-export default function PostingStatusBanner({ notice, onDismiss }) {
+export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai }) {
   const [collapsed, setCollapsed] = useState(false);
   const noticeId = notice?.id || "";
 
@@ -121,6 +121,19 @@ export default function PostingStatusBanner({ notice, onDismiss }) {
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {isComplete && onShareKunThai ? (
+              <div className="mt-2 flex flex-col gap-2 rounded-2xl bg-emerald-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-black leading-5 text-emerald-900">Share KunThai to gain more visibility.</p>
+                <button
+                  type="button"
+                  onClick={onShareKunThai}
+                  className="kt-pressable inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-xs font-black text-white"
+                >
+                  <Share2 size={14} />
+                  Share KunThai
+                </button>
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>

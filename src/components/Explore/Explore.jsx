@@ -5,9 +5,18 @@ import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
 import { useScrollHidden } from "../../Backend/hooks/useScrollHidden";
-import { buildExploreProfileFromUser, ensureExploreProfile, fetchExploreProfile } from "../../Backend/services/exploreService";
+import {
+  buildExploreProfileFromUser,
+  ensureExploreProfile,
+  fetchExploreProfile,
+  fetchExploreSpace,
+  fetchMyExploreSpaces,
+  readActiveExploreIdentity,
+  writeActiveExploreIdentity,
+} from "../../Backend/services/exploreService";
 import { guardGuestAction } from "../../Backend/services/guestModeService";
 import { consumePendingExploreScreen, OPEN_EXPLORE_SCREEN_EVENT } from "../../Backend/services/notificationBannerService";
+import { shareKunThaiLink } from "../../Backend/services/shareCtaService";
 import {
   clearPostingNotice,
   getPostingNoticeClearDelay,
@@ -24,6 +33,7 @@ import Connections from "./ExploreTabs/connections/Connections"
 import Notifications from "./ExploreTabs/notification/Notifications";
 import ActivityScreen from "./SocialMenu/activity/ActivityScreen";
 import AboutKunThaiScreen from "./SocialMenu/about/AboutKunThaiScreen";
+import FutureFeaturesScreen from "./SocialMenu/future/FutureFeaturesScreen";
 import HelpCenterScreen from "./SocialMenu/help/HelpCenterScreen";
 import MessagesScreen from "./SocialMenu/messages/MessagesScreen";
 import MyPostsScreen from "./SocialMenu/myPosts/MyPostsScreen";
@@ -31,6 +41,8 @@ import PrivacyScreen from "./SocialMenu/privacy/PrivacyScreen";
 import PermissionsScreen from "./SocialMenu/permissions/PermissionsScreen";
 import ProfileEditScreen from "./SocialMenu/profile/ProfileEditScreen";
 import ProfileScreen from "./SocialMenu/profile/ProfileScreen";
+import SpaceCreateScreen from "./SocialMenu/spaces/SpaceCreateScreen";
+import SpaceDashboardScreen from "./SocialMenu/spaces/SpaceDashboardScreen";
 import SavedPostsScreen from "./SocialMenu/savedPosts/SavedPostsScreen";
 import SettingsScreen from "./SocialMenu/settings/SettingsScreen";
 import InterestsScreen from "./SocialMenu/settings/InterestsScreen";
@@ -76,6 +88,8 @@ const COMMENT_TARGET_NOTIFICATION_TYPES = new Set(["comment", "reply", "creator_
 
 export default function Explore({ active = true, onNavigateMain, onScreenModeChange, user = null, authLoading = false }) {
   const [profileOverride, setProfileOverride] = useState(null);
+  const [spaceProfiles, setSpaceProfiles] = useState([]);
+  const [activeIdentity, setActiveIdentity] = useState(() => readActiveExploreIdentity());
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
   const [profileFetched, setProfileFetched] = useState(false);
@@ -124,8 +138,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   });
   const authProfile = buildExploreProfileFromUser(user);
   const profileOverrideMatchesUser = Boolean(user?.id && profileOverride?.userId === user.id);
-  const profile = profileOverrideMatchesUser ? profileOverride : authProfile;
-  const currentUserId = profile?.userId || user?.id || "";
+  const personalProfile = profileOverrideMatchesUser ? profileOverride : authProfile;
+  const activeSpaceProfile = activeIdentity?.type === "space"
+    ? spaceProfiles.find((space) => space.spaceId === activeIdentity.id)
+    : null;
+  const profile = activeSpaceProfile || personalProfile;
+  const currentUserId = user?.id || personalProfile?.userId || "";
   const profileExists = !authLoading && Boolean(user?.id && profile);
   const showProfileSkeleton = false;
 
@@ -302,6 +320,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     if (!authenticatedUser?.id) {
       setProfileOverride(null);
+      setSpaceProfiles([]);
+      setActiveIdentity({ type: "profile", id: "", key: "" });
       setProfileLoading(false);
       setProfileFetched(true);
       return undefined;
@@ -309,6 +329,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     let alive = true;
     setProfileOverride((current) => (current?.userId === authenticatedUser.id ? current : null));
+    setSpaceProfiles([]);
     setViewedProfile(null);
     setMessageRecipient(null);
     setMessageRecipientOwnerId("");
@@ -317,10 +338,21 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     setProfileFetched(false);
     setProfileError("");
 
-    ensureExploreProfile(authenticatedUser)
-      .then((profileData) => {
+    Promise.all([
+      ensureExploreProfile(authenticatedUser),
+      fetchMyExploreSpaces().catch(() => []),
+    ])
+      .then(([profileData, spaces]) => {
         if (alive) {
           setProfileOverride(profileData);
+          setSpaceProfiles(spaces || []);
+          const savedIdentity = readActiveExploreIdentity();
+          if (savedIdentity.type === "space" && !(spaces || []).some((space) => space.spaceId === savedIdentity.id && space.membershipStatus !== "pending")) {
+            writeActiveExploreIdentity({ type: "profile" });
+            setActiveIdentity({ type: "profile", id: "", key: "" });
+          } else {
+            setActiveIdentity(savedIdentity);
+          }
           setProfileFetched(true);
         }
       })
@@ -471,11 +503,90 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
   }
 
+  function switchExploreIdentity(nextIdentity, options = {}) {
+    if (nextIdentity?.spaceId) {
+      if (nextIdentity.membershipStatus === "pending") {
+        return;
+      }
+      const identity = { type: "space", id: nextIdentity.spaceId, key: `space:${nextIdentity.spaceId}` };
+      setActiveIdentity(identity);
+      writeActiveExploreIdentity(identity);
+      setProfileOverride((current) => current);
+      if (options.openDashboard) {
+        exploreNav.openMenuScreen("SpaceDashboard");
+        return;
+      }
+      exploreNav.closeMenuScreens();
+      window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "UrFeed" } }));
+      return;
+    }
+
+    const identity = { type: "profile", id: "", key: "" };
+    setActiveIdentity(identity);
+    writeActiveExploreIdentity(identity);
+    if (options.openProfile) {
+      exploreNav.openMenuScreen("Profile");
+    }
+  }
+
+  function handleSpaceCreated(space) {
+    if (!space?.spaceId) return;
+    setSpaceProfiles((current) => {
+      const next = [space, ...current.filter((item) => item.spaceId !== space.spaceId)];
+      return next;
+    });
+    switchExploreIdentity(space, { openDashboard: true });
+  }
+
+  function handleSpaceInviteResponse(originalSpace, result, accepted) {
+    if (!accepted) {
+      setSpaceProfiles((current) => current.filter((space) => space.membershipId !== originalSpace?.membershipId));
+      return;
+    }
+
+    if (result?.spaceId) {
+      setSpaceProfiles((current) => [result, ...current.filter((space) => space.spaceId !== result.spaceId)]);
+    }
+  }
+
+  function updateCurrentIdentityProfile(updated) {
+    if (updated?.spaceId) {
+      setSpaceProfiles((current) => current.map((space) => (space.spaceId === updated.spaceId ? { ...space, ...updated } : space)));
+      return;
+    }
+
+    setProfileOverride(updated);
+  }
+
+  function handleSpaceDashboardUpdated(updated) {
+    if (!updated?.spaceId) return;
+    setSpaceProfiles((current) => current.map((space) => (space.spaceId === updated.spaceId ? { ...space, ...updated } : space)));
+  }
+
+  function handleSpaceDashboardRemoved(removedSpace) {
+    if (removedSpace?.spaceId) {
+      setSpaceProfiles((current) => current.filter((space) => space.spaceId !== removedSpace.spaceId));
+    }
+    switchExploreIdentity(null, { openProfile: true });
+  }
+
   function openViewedProfile(authorProfile) {
     stopAllExploreMedia();
     exploreNav.rememberScrollPosition();
     setViewedProfile(authorProfile);
     exploreNav.openMenuScreen("ViewedProfile");
+
+    if (authorProfile?.identityType === "space" || authorProfile?.spaceId) {
+      const spaceId = authorProfile.spaceId || authorProfile.identityId || authorProfile.actorId || authorProfile.username || "";
+      fetchExploreSpace(spaceId)
+        .then((spaceProfile) => {
+          if (spaceProfile) {
+            setViewedProfile({ ...authorProfile, ...spaceProfile });
+          }
+        })
+        .catch(() => {});
+      return;
+    }
 
     if (authorProfile?.userId) {
       fetchExploreProfile(authorProfile.userId)
@@ -491,7 +602,20 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   function openNotificationTarget(notification) {
     exploreNav.closeMenuScreens();
 
-    if (notification?.type === "follow" && notification.actor_name) {
+    if ((notification?.actor_type === "space" || notification?.actor_space_id) && notification.actor_name) {
+      openViewedProfile({
+        identityType: "space",
+        identityId: notification.actor_space_id || notification.actor_id || "",
+        spaceId: notification.actor_space_id || notification.actor_id || "",
+        displayName: notification.actor_name,
+        username: "",
+        avatarUrl: notification.actor_avatar_url || "",
+        accountType: "space",
+      });
+      return;
+    }
+
+    if ((notification?.type === "follow" || notification?.type === "connect") && notification.actor_name) {
       openViewedProfile({
         userId: notification.actor_user_id || "",
         displayName: notification.actor_name,
@@ -576,7 +700,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (guardGuestAction("message", "user")) return;
     stopAllExploreMedia();
     exploreNav.rememberScrollPosition();
-    setMessageRecipient(recipient);
+    const messageTarget = recipient?.identityType === "space" || recipient?.spaceId
+      ? {
+        ...recipient,
+        userId: recipient.ownerUserId || recipient.userId || "",
+        displayName: recipient.displayName || recipient.name || "Space",
+        avatarUrl: recipient.avatarUrl || "",
+      }
+      : recipient;
+    setMessageRecipient(messageTarget);
     setMessageRecipientOwnerId(currentUserId);
     exploreNav.openMenuScreen("Messages");
   }
@@ -603,6 +735,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       setMessageRecipientOwnerId("");
     }
     exploreNav.openMenuScreen(screen, options);
+  }
+
+  function handleCreateSelect(type) {
+    if (type === "space") {
+      openMenuScreen("CreateSpace");
+      return;
+    }
+
+    exploreNav.openComposer(type);
   }
 
   function switchExploreTab(tab, options = {}) {
@@ -954,7 +1095,13 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       return (
         <div className="min-h-[calc(100vh-72px)] bg-slate-100">
           <aside className="flex min-h-[calc(100vh-72px)] w-full flex-col bg-white shadow-sm">
-            <SocialMenuContent onNavigate={openMenuScreen} />
+            <SocialMenuContent
+              currentProfile={profile}
+              spaces={spaceProfiles}
+              onCreateSpace={() => openMenuScreen("CreateSpace")}
+              onNavigate={openMenuScreen}
+              onSelectIdentity={switchExploreIdentity}
+            />
           </aside>
         </div>
       );
@@ -973,8 +1120,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           profileFetched={profileFetched}
           onEditProfile={() => openMenuScreen("EditProfile")}
           onOpenNotification={openNotificationTarget}
-          onProfileUpdate={setProfileOverride}
+          onProfileUpdate={updateCurrentIdentityProfile}
+          onSpaceInviteResponse={handleSpaceInviteResponse}
+          onSwitchIdentity={switchExploreIdentity}
           onStartChat={startChat}
+          spaces={spaceProfiles}
         />
       );
     }
@@ -984,7 +1134,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         <ProfileEditScreen
           authProfile={authProfile}
           currentUserId={currentUserId}
-          onProfileUpdate={setProfileOverride}
+          onProfileUpdate={updateCurrentIdentityProfile}
           profile={profile}
         />
       );
@@ -1001,8 +1151,30 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           loading={!viewedProfile}
           profileFetched={Boolean(viewedProfile)}
           onOpenNotification={openNotificationTarget}
-          onProfileUpdate={setProfileOverride}
+          onProfileUpdate={updateCurrentIdentityProfile}
+          onSwitchIdentity={switchExploreIdentity}
           onStartChat={startChat}
+          spaces={spaceProfiles}
+        />
+      );
+    }
+
+    if (screenKey === "CreateSpace") {
+      return <SpaceCreateScreen hideHeader onCreated={handleSpaceCreated} />;
+    }
+
+    if (screenKey === "SpaceDashboard") {
+      return (
+        <SpaceDashboardScreen
+          personalProfile={personalProfile}
+          space={activeSpaceProfile}
+          onOpenEdit={() => openMenuScreen("EditProfile")}
+          onOpenMessages={() => openMenuScreen("Messages")}
+          onOpenNotifications={() => openMenuScreen("Notifications")}
+          onOpenProfile={() => openMenuScreen("Profile")}
+          onSpaceRemoved={handleSpaceDashboardRemoved}
+          onSpaceUpdated={handleSpaceDashboardUpdated}
+          onSwitchProfile={() => switchExploreIdentity(null, { openProfile: true })}
         />
       );
     }
@@ -1116,6 +1288,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       return <AboutKunThaiScreen hideHeader onOpenTerms={() => openMenuScreen("TermsPolicies")} />;
     }
 
+    if (screenKey === "FutureFeatures") {
+      return <FutureFeaturesScreen hideHeader onOpenYourVoice={(prefill) => openMenuScreen("YourVoice", { prefill })} />;
+    }
+
     return null;
   }
 
@@ -1196,7 +1372,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       onTouchEnd={handleExploreTouchEnd}
       onTouchCancel={cancelHorizontalDrag}
     >
-      <PostingStatusBanner notice={postingNotice} onDismiss={dismissPostingNotice} />
+      <PostingStatusBanner notice={postingNotice} onDismiss={dismissPostingNotice} onShareKunThai={shareKunThaiLink} />
 
       {/* =========================
           HEADER + PARENT TABS
@@ -1213,7 +1389,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
               currentProfile={profile}
               onAlertsClick={() => openMenuScreen("Notifications")}
               onNavigate={openMenuScreen}
-              onCreateSelect={exploreNav.openComposer}
+              onCreateSelect={handleCreateSelect}
               onSearchResult={openSearchResult}
               onOverlayChange={setHeaderOverlayOpen}
             />
@@ -1312,11 +1488,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           </header>
           <SocialMenuContent
             compact
+            currentProfile={profile}
+            spaces={spaceProfiles}
             onClose={() => setLeftDrawerOpen(false)}
+            onCreateSpace={() => openMenuScreen("CreateSpace")}
             onNavigate={(screen, options) => {
               setLeftDrawerOpen(false);
               openMenuScreen(screen, options);
             }}
+            onSelectIdentity={switchExploreIdentity}
           />
         </aside>
       </div>

@@ -9,13 +9,13 @@ import Login from "./Login";
 import { PageTransition } from "./components/shared/motion";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 import { clearExploreScreenStack } from "./Backend/services/explore/navigationService";
-import { OPEN_EXPLORE_SCREEN_EVENT } from "./Backend/services/notificationBannerService";
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
+import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import supabase from "./Backend/lib/supabaseClient";
 
@@ -461,26 +461,6 @@ export default function App() {
     setPage(nextPage);
   }
 
-  function openScreenshotVoice(prefill) {
-    const dispatchOpenYourVoice = () => {
-      window.dispatchEvent(new CustomEvent(OPEN_EXPLORE_SCREEN_EVENT, {
-        detail: {
-          screen: "YourVoice",
-          options: { prefill },
-        },
-      }));
-    };
-
-    if (page !== "explore") {
-      changePage("explore");
-      window.setTimeout(dispatchOpenYourVoice, 260);
-      window.setTimeout(dispatchOpenYourVoice, 700);
-      return;
-    }
-
-    window.requestAnimationFrame(dispatchOpenYourVoice);
-  }
-
   function getSwipeTargetPage(deltaX) {
     if (deltaX < 0 && page === "marketplace") return "transport";
     if (deltaX > 0 && page === "transport") return "marketplace";
@@ -643,15 +623,16 @@ export default function App() {
       </PageTransition>
 
       {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
-      <ScreenshotVoicePrompt page={page} onOpenYourVoice={openScreenshotVoice} />
+      <ScreenshotVoicePrompt page={page} />
       {guestSession ? <GuestGateCard /> : null}
       <NotificationBannerHost userId={userId} />
     </div>
   );
 }
 
-function ScreenshotVoicePrompt({ page, onOpenYourVoice }) {
+function ScreenshotVoicePrompt({ page }) {
   const [prompt, setPrompt] = useState({ open: false, closing: false, capturedAt: 0 });
+  const [voiceCardOpen, setVoiceCardOpen] = useState(false);
   const hideTimerRef = useRef(null);
   const closeTimerRef = useRef(null);
   const blurAtRef = useRef(0);
@@ -739,22 +720,29 @@ function ScreenshotVoicePrompt({ page, onOpenYourVoice }) {
     };
   }, []);
 
-  if (!prompt.open) return null;
-
   const category = page === "marketplace" ? "marketplace" : page === "transport" ? "transport" : "explore";
   const currentScreen = page === "marketplace" ? "UrMall" : page === "transport" ? "Transport" : "Explore";
   const motionClass = prompt.closing ? "kt-toast-collapse-out" : "kt-toast-expand-in";
 
+  // The floating card replaces the old navigation to the Your Voice menu, so
+  // the user can complain (with the screenshot) without leaving this screen.
+  if (voiceCardOpen) {
+    return (
+      <ScreenshotVoiceCard
+        category={category}
+        currentScreen={currentScreen}
+        onClose={() => setVoiceCardOpen(false)}
+      />
+    );
+  }
+
+  if (!prompt.open) return null;
+
   function addToYourVoice() {
-    onOpenYourVoice?.({
-      feedbackType: "bug",
-      category,
-      title: `${currentScreen} screenshot feedback`,
-      message: "I took a screenshot here and want to share what happened.",
-      currentScreen,
-      requestScreenshot: true,
-    });
+    window.clearTimeout(hideTimerRef.current);
+    window.clearTimeout(closeTimerRef.current);
     setPrompt({ open: false, closing: false, capturedAt: 0 });
+    setVoiceCardOpen(true);
   }
 
   function dismiss() {

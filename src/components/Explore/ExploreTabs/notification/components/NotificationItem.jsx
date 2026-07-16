@@ -13,7 +13,7 @@ import Avatar from "../../../shared/Avatar";
 import NotificationAction from "./NotificationAction";
 
 function getIcon(type) {
-  if (type === "follow") return HiOutlineUserPlus;
+  if (type === "follow" || type === "connect") return HiOutlineUserPlus;
   if (type === "like" || type === "reaction") return HiOutlineHandThumbUp;
   if (type === "comment" || type === "reply" || type === "creator_reply" || type === "thread_reply" || type === "mention") return HiOutlineChatBubbleOvalLeft;
   if (type === "save") return HiOutlineBookmark;
@@ -40,7 +40,7 @@ function getMessage(item) {
   const name = item.actor_name || item.user || "Someone";
   const mediaType = item.media_type || "post";
 
-  if (item.type === "follow") return `${name} started following you`;
+  if (item.type === "follow" || item.type === "connect") return `${name} connected with you`;
   if (item.type === "like") return `${name} reacted to your ${mediaType}`;
   if (item.type === "reaction") return `${name} reacted to your ${mediaType}`;
   if (item.type === "comment") return `${name} joined the conversation on your ${mediaType}`;

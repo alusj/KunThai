@@ -40,6 +40,7 @@ import {
   recordExploreAdvertEvent,
   recordRecommendationSignal,
   setExploreAdvertUserControl,
+  SPACE_IDENTITY_TYPE,
   storeMutedExploreAdvertiser,
   syncExploreReaction,
   updateExplorePost,
@@ -167,6 +168,10 @@ function isCurrentUserPost(post, profile) {
     return false;
   }
 
+  if (post.actor_type === SPACE_IDENTITY_TYPE || post.space_id) {
+    return false;
+  }
+
   if (profile.id && post.user_id === profile.id) {
     return true;
   }
@@ -189,6 +194,10 @@ function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
     post_type: isAdvert ? "advert" : hasVideo ? "video" : "post",
     category: isAdvert ? "advert" : hasVideo ? "swip" : feedScope === "connections" ? "connections" : "urfeed",
     user_id: draft.user_id || "",
+    actor_type: draft.actor_type || draft.actorType || (draft.space_id || draft.spaceId ? SPACE_IDENTITY_TYPE : "profile"),
+    actor_id: draft.actor_id || draft.actorId || draft.space_id || draft.spaceId || draft.user_id || "",
+    space_id: draft.space_id || draft.spaceId || null,
+    actor_metadata: draft.actor_metadata || draft.actorMetadata || {},
     author_name: draft.author_name || "You",
     author_username: draft.author_username || "you",
     author_avatar_url: draft.author_avatar_url || "",
@@ -841,11 +850,19 @@ export function useExploreFeed(scope = "feed") {
         });
 
       if (isExplorePostVisibleInFeed(created) && !isAdvertDraft(created)) {
-        const followers = await fetchExploreFollowers(created.user_id).catch(() => []);
+        const followerTarget = created.actor_type === SPACE_IDENTITY_TYPE
+          ? { identityType: SPACE_IDENTITY_TYPE, identityId: created.actor_id || created.space_id }
+          : created.user_id;
+        const followers = await fetchExploreFollowers(followerTarget).catch(() => []);
         await Promise.all(
           followers.map((followerId) =>
             createExploreNotification({
               user_id: followerId,
+              actor_type: created.actor_type || "profile",
+              actor_id: created.actor_id || created.user_id,
+              actor_space_id: created.space_id || null,
+              actor_name: created.author_name,
+              actor_avatar_url: created.author_avatar_url,
               type: "post",
               post_id: created.id,
               post_preview: created.body,

@@ -23,6 +23,7 @@ export default function Header({
   onNotificationCountChange,
   onRegisterFleet,
   onViewFleet,
+  onOpenEmergencyArea,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -120,6 +121,7 @@ export default function Header({
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         onViewFleet={onViewFleet}
+        onOpenEmergencyArea={onOpenEmergencyArea}
       />
     </>
   );

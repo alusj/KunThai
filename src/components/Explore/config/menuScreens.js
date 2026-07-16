@@ -33,7 +33,15 @@ export const MENU_SCREENS = {
   },
   Connections: {
     title: "Connections",
-    subtitle: "Manage your circle and discover people to follow.",
+    subtitle: "Manage people and Spaces you connect with.",
+  },
+  CreateSpace: {
+    title: "Create Space",
+    subtitle: "Create a managed identity for a brand, organization, community, or team.",
+  },
+  SpaceDashboard: {
+    title: "Space Dashboard",
+    subtitle: "Manage a Space identity, content responsibilities, and team members.",
   },
   Privacy: {
     title: "Privacy Center",
@@ -86,6 +94,10 @@ export const MENU_SCREENS = {
   AboutKunThai: {
     title: "About KunThai",
     subtitle: "Learn how KunThai brings social, marketplace, transport, and trusted service tools together.",
+  },
+  FutureFeatures: {
+    title: "Future Features",
+    subtitle: "Monetization, Go Live, creator tools, business growth, events, and advanced community features.",
   },
   ViewedProfile: {
     title: "Profile",

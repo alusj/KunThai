@@ -5,6 +5,7 @@ import {
   HiOutlineArrowsRightLeft,
   HiOutlineBolt,
   HiOutlineBookmark,
+  HiOutlineBuildingOffice2,
   HiOutlineChatBubbleLeftRight,
   HiOutlineCircleStack,
   HiOutlineCog6Tooth,
@@ -15,6 +16,7 @@ import {
   HiOutlineKey,
   HiOutlineLightBulb,
   HiOutlineQuestionMarkCircle,
+  HiOutlineRocketLaunch,
   HiOutlineScale,
   HiOutlineShieldCheck,
   HiOutlineUserCircle,
@@ -63,7 +65,7 @@ const MENU_GROUPS = [
   },
 ];
 
-export function SocialMenuContent({ compact = false, onClose, onNavigate }) {
+export function SocialMenuContent({ compact = false, currentProfile = null, onClose, onCreateSpace, onNavigate, onSelectIdentity, spaces = [] }) {
   const handleSelect = (target) => {
     onClose?.();
 
@@ -85,6 +87,7 @@ export function SocialMenuContent({ compact = false, onClose, onNavigate }) {
       "safety-center": "SafetyCenter",
       "terms-policies": "TermsPolicies",
       "about-kunthai": "AboutKunThai",
+      "future-features": "FutureFeatures",
     };
 
     if (navigationMap[target]) {
@@ -112,8 +115,49 @@ export function SocialMenuContent({ compact = false, onClose, onNavigate }) {
               label="Your Explore profile"
               description="View your public identity, bio, links, and profile activity."
               tone="strong"
-              onClick={() => handleSelect("profile")}
+              onClick={() => {
+                onSelectIdentity?.(null);
+                handleSelect("profile");
+              }}
             />
+          </div>
+
+          <div className="rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-3 px-1">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Spaces</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Managed identities you can post from.</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {spaces.map((space) => {
+                const active = currentProfile?.spaceId && currentProfile.spaceId === space.spaceId;
+                return (
+                  <MenuActionButton
+                    key={space.spaceId}
+                    icon={HiOutlineBuildingOffice2}
+                    label={space.displayName || "Space"}
+                    description={`${active ? "Currently active · " : ""}${space.categoryLabel || "A Space"} · ${space.memberRole || "member"}`}
+                    tone={active ? "strong" : "default"}
+                    onClick={() => {
+                      if (space.membershipStatus === "pending") return;
+                      onClose?.();
+                      onSelectIdentity?.(space, { openDashboard: true });
+                    }}
+                  />
+                );
+              })}
+              <MenuActionButton
+                icon={HiOutlineBuildingOffice2}
+                label="Create Space"
+                description="Create a managed identity for a business, organization, community, or team."
+                tone="strong"
+                onClick={() => {
+                  onClose?.();
+                  onCreateSpace?.();
+                }}
+              />
+            </div>
           </div>
 
           <div className={`grid gap-5 ${compact ? "grid-cols-1" : "lg:grid-cols-2 xl:grid-cols-3"}`}>
@@ -139,6 +183,13 @@ export function SocialMenuContent({ compact = false, onClose, onNavigate }) {
                 description="Securely end this KunThai session."
                 tone="danger"
                 onClick={handleSignOut}
+              />
+              <MenuActionButton
+                icon={HiOutlineRocketLaunch}
+                label="Future Features"
+                description="Monetization, Go Live, creator tools, verification, events, and more."
+                tone="strong"
+                onClick={() => handleSelect("future-features")}
               />
             </MenuSection>
           </div>

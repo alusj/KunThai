@@ -17,18 +17,20 @@ import {
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import {
   MAX_EXPLORE_VIDEO_BYTES,
+  SPACE_IDENTITY_TYPE,
   removeExploreVideoUpload,
   uploadExploreVideoForReview,
 } from "../../../../../../Backend/services/exploreService";
 import { guardGuestAction } from "../../../../../../Backend/services/guestModeService";
 import { publishPostingNotice } from "../../../../../../Backend/services/explore/postingProgressService";
-import { searchExplore } from "../../../../../../Backend/services/explore/searchService";
+import { searchExplorePeople } from "../../../../../../Backend/services/explore/searchService";
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../../../Backend/services/toastService";
 import { fetchHashtagSuggestions, normalizeHashtag } from "../../../../../../Backend/services/explore/hashtagService";
 import { startPendingVideoReviewJob } from "../../../../../../Backend/services/explore/videoReviewService";
 import { fetchExploreTopics } from "../../../../../../Backend/services/explore/topicService";
 import Avatar from "../../../../shared/Avatar";
+import VideoTrimmerScreen from "../../../../../shared/VideoTrimmerScreen";
 import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
@@ -235,12 +237,6 @@ function formatVideoSeconds(seconds = 0) {
   return `${rounded} second${Number(rounded) === 1 ? "" : "s"}`;
 }
 
-function createVideoSpecError(message) {
-  const error = new Error(message);
-  error.name = "VideoSpecError";
-  return error;
-}
-
 async function uploadVideoWithProgress(file, onProgress) {
   let progress = 24;
   let timedOut = false;
@@ -370,6 +366,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [trimmingVideo, setTrimmingVideo] = useState(false);
   const [trimError, setTrimError] = useState("");
   const [videoNotice, setVideoNotice] = useState(null);
+  const [oversizedVideoFile, setOversizedVideoFile] = useState(null);
   const [postingStage, setPostingStage] = useState("");
   const [postingProgress, setPostingProgress] = useState(0);
   const [cautionOpen, setCautionOpen] = useState(false);
@@ -379,6 +376,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [hashtagSuggestions, setHashtagSuggestions] = useState([]);
   const [hashtagSuggestionsLoading, setHashtagSuggestionsLoading] = useState(false);
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
+  const [mentionTrigger, setMentionTrigger] = useState(null);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionResults, setMentionResults] = useState([]);
   const [mentionLoading, setMentionLoading] = useState(false);
@@ -589,15 +587,18 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     let active = true;
     const query = mentionQuery.trim().replace(/^@/, "");
 
-    if (!mentionPickerOpen || !query) {
+    if (!mentionPickerOpen) {
       setMentionResults([]);
       setMentionLoading(false);
       return undefined;
     }
 
+    // An empty query (the user just typed "@") still loads default people so
+    // suggestions appear immediately and keep narrowing until a space ends
+    // the mention.
     setMentionLoading(true);
     const timeout = window.setTimeout(() => {
-      searchExplore(`@${query}`, "people")
+      searchExplorePeople(query)
         .then((results) => {
           if (active) setMentionResults(results.filter((item) => item.type === "people"));
         })
@@ -607,7 +608,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         .finally(() => {
           if (active) setMentionLoading(false);
         });
-    }, 180);
+    }, query ? 180 : 0);
 
     return () => {
       active = false;
@@ -731,6 +732,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setMentionPickerOpen(false);
     setTopicPickerOpen(false);
     setHashtagTrigger(null);
+    setMentionTrigger(null);
   }
 
   function suppressScreenshotPrompt(durationMs = 3_500) {
@@ -793,6 +795,54 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
   }
 
+  async function processVideoFile(file) {
+    setAttachmentMode("video");
+    if (!isAdvertMode) originalImageFileRef.current = null;
+    trimRequestRef.current += 1;
+    trimmedVideoMetaRef.current = null;
+    cancelVoiceRecording();
+
+    const isSupportedVideo = file.type.startsWith("video/") && (!file.type || SUPPORTED_VIDEO_TYPES.includes(file.type));
+    if (!isSupportedVideo) {
+      throw new Error("This video format is not supported. Please use MP4, MOV, or WebM.");
+    }
+
+    // Oversized videos are not rejected: the shared trimmer re-encodes a
+    // shorter clip that fits the Explore limits.
+    if (file.size > MAX_EXPLORE_VIDEO_BYTES) {
+      setOversizedVideoFile(file);
+      showToast(
+        `Your video is ${formatVideoFileSize(file.size)} — over the ${MAX_EXPLORE_VIDEO_MB}MB Explore limit. Trim the part you want to keep instead.`,
+        "info",
+        { title: "Trim your video", duration: 6200 },
+      );
+      return;
+    }
+
+    const duration = await getVideoDuration(file);
+
+    if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
+    if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
+
+    setPendingVideoFile(file);
+    originalVideoFileRef.current = file;
+    setPendingVideoUrl(URL.createObjectURL(file));
+    setVideoDuration(duration);
+    setVideoTrimStart(0);
+    setVideoTrimEnd(Math.min(duration || MAX_VIDEO_SECONDS, MAX_VIDEO_SECONDS));
+    setVideoPreview("");
+    if (!isAdvertMode) setImagePreview("");
+    showComposer();
+    // Long videos also stay: the trim screen that opens next selects the
+    // 15-second window to publish.
+    setFeedback(
+      duration > MAX_VIDEO_SECONDS
+        ? `Your video is ${formatVideoSeconds(duration)} long. Drag the handles to choose up to ${MAX_VIDEO_SECONDS} seconds.`
+        : "",
+    );
+    setTrimError("");
+  }
+
   async function handleMediaChange(event) {
     const file = event.target.files?.[0];
 
@@ -800,45 +850,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     try {
       if (file.type.startsWith("video/") || mediaMode === "video") {
-        setAttachmentMode("video");
-        if (!isAdvertMode) originalImageFileRef.current = null;
-        trimRequestRef.current += 1;
-        trimmedVideoMetaRef.current = null;
-        cancelVoiceRecording();
-
-        const isSupportedVideo = file.type.startsWith("video/") && (!file.type || SUPPORTED_VIDEO_TYPES.includes(file.type));
-        if (!isSupportedVideo) {
-          throw new Error("This video format is not supported. Please use MP4, MOV, or WebM.");
-        }
-
-        if (file.size > MAX_EXPLORE_VIDEO_BYTES) {
-          throw createVideoSpecError(
-            `Your video is ${formatVideoFileSize(file.size)}. KunThai accepts Explore videos under ${MAX_EXPLORE_VIDEO_MB}MB. Please compress it to at most ${MAX_EXPLORE_VIDEO_MB}MB and try again.`,
-          );
-        }
-
-        const duration = await getVideoDuration(file);
-
-        if (duration > MAX_VIDEO_SECONDS) {
-          throw createVideoSpecError(
-            `Your video is ${formatVideoSeconds(duration)} long. KunThai accepts Explore videos up to ${MAX_VIDEO_SECONDS} seconds. Please trim it to ${MAX_VIDEO_SECONDS} seconds or less and try again.`,
-          );
-        }
-
-        if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
-        if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
-
-        setPendingVideoFile(file);
-        originalVideoFileRef.current = file;
-        setPendingVideoUrl(URL.createObjectURL(file));
-        setVideoDuration(duration);
-        setVideoTrimStart(0);
-        setVideoTrimEnd(Math.min(duration || MAX_VIDEO_SECONDS, MAX_VIDEO_SECONDS));
-        setVideoPreview("");
-        if (!isAdvertMode) setImagePreview("");
-        showComposer();
-        setFeedback("");
-        setTrimError("");
+        await processVideoFile(file);
         return;
       } else {
         setAttachmentMode("image");
@@ -1098,6 +1110,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     const cursor = event.target.selectionStart ?? nextValue.length;
     const beforeCursor = nextValue.slice(0, cursor);
     const activeHashtag = beforeCursor.match(/(?:^|\s)#([a-zA-Z0-9_]*)$/);
+    const activeMention = beforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_]*)$/);
 
     setValue(nextValue);
     setFeedback("");
@@ -1108,6 +1121,19 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setTagDraft(query);
       setTagPickerOpen(true);
       setMentionPickerOpen(false);
+      setMentionTrigger(null);
+      return;
+    }
+
+    // Typing "@" opens people suggestions inline; the mention stays active
+    // until a space (or any non-word character) closes it.
+    if (activeMention) {
+      const query = activeMention[1] || "";
+      setMentionTrigger({ start: cursor - query.length - 1, end: cursor });
+      setMentionQuery(query);
+      setMentionPickerOpen(true);
+      setTagPickerOpen(false);
+      setHashtagTrigger(null);
       return;
     }
 
@@ -1124,6 +1150,12 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setHashtagTrigger(null);
       setTagPickerOpen(false);
       setTagDraft("");
+    }
+
+    if (mentionTrigger) {
+      setMentionTrigger(null);
+      setMentionPickerOpen(false);
+      setMentionQuery("");
     }
   }
 
@@ -1152,7 +1184,22 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function addMention(profileResult) {
-    appendComposerToken("@", profileResult?.username);
+    const username = String(profileResult?.username || "").trim().replace(/^@+/, "");
+    if (!username) return;
+
+    if (mentionTrigger) {
+      // Replace the "@query" the user is typing with the chosen person.
+      const nextCursor = mentionTrigger.start + username.length + 2;
+      setValue((current) => `${current.slice(0, mentionTrigger.start)}@${username} ${current.slice(mentionTrigger.end)}`);
+      window.setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange?.(nextCursor, nextCursor);
+      }, 0);
+    } else {
+      appendComposerToken("@", username);
+    }
+
+    setMentionTrigger(null);
     setMentionQuery("");
     setMentionResults([]);
     setMentionPickerOpen(false);
@@ -1440,6 +1487,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       };
       const finalAudioPreview = finalVideoPreview ? "" : audioPreview;
       const finalAudioDuration = finalVideoPreview ? null : audioDuration;
+      const actorType = profile?.identityType === SPACE_IDENTITY_TYPE || profile?.spaceId ? SPACE_IDENTITY_TYPE : "profile";
+      const actorId = actorType === SPACE_IDENTITY_TYPE ? profile?.spaceId : profile?.userId;
 
       const postDraft = {
         body: value,
@@ -1447,6 +1496,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         author_username: profile?.username || "user",
         author_avatar_url: profile?.avatarUrl || "",
         user_id: profile?.userId || "",
+        actor_type: actorType,
+        actor_id: actorId || "",
+        space_id: actorType === SPACE_IDENTITY_TYPE ? profile?.spaceId || actorId || "" : null,
+        actor_metadata: actorType === SPACE_IDENTITY_TYPE ? { spaceRole: profile?.memberRole || "" } : {},
         image_url: isAdvertMode ? imagePreview : finalVideoPreview ? "" : imagePreview,
         image_file: isAdvertMode || !finalVideoPreview ? originalImageFileRef.current : null,
         audio_url: finalAudioPreview,
@@ -1602,6 +1655,10 @@ if (!isMobileVideoDevice) {
             author_username: postDraft.author_username,
             author_avatar_url: postDraft.author_avatar_url,
             user_id: postDraft.user_id,
+            actor_type: postDraft.actor_type,
+            actor_id: postDraft.actor_id,
+            space_id: postDraft.space_id,
+            actor_metadata: postDraft.actor_metadata,
             image_url: postDraft.image_url,
             image_file: postDraft.image_file,
             audio_url: postDraft.audio_url,
@@ -1672,6 +1729,10 @@ if (!isMobileVideoDevice) {
         author_username: postDraft.author_username,
         author_avatar_url: postDraft.author_avatar_url,
         user_id: postDraft.user_id,
+        actor_type: postDraft.actor_type,
+        actor_id: postDraft.actor_id,
+        space_id: postDraft.space_id,
+        actor_metadata: postDraft.actor_metadata,
         image_url: postDraft.image_url,
         image_file: postDraft.image_file,
         audio_url: postDraft.audio_url,
@@ -1708,7 +1769,7 @@ if (!isMobileVideoDevice) {
           progress: 100,
           postId: publishedPostId,
           tab: publishedTab,
-          message: result.warning || (isAdvertMode ? "Your sponsored campaign is now live in Explore." : "Your post is now live on Explore."),
+          message: result.warning || (isAdvertMode ? "Your sponsored campaign is now live in Explore. Share KunThai to gain more visibility." : "Your post is now live on Explore. Share KunThai to gain more visibility."),
         });
 
         closeComposer({ afterClose: resetComposer });
@@ -1742,6 +1803,22 @@ if (!isMobileVideoDevice) {
         onQuickMedia={openComposer}
         onQuickVoice={() => openComposer("voice")}
       />
+
+      {oversizedVideoFile ? (
+        <VideoTrimmerScreen
+          file={oversizedVideoFile}
+          maxSeconds={MAX_VIDEO_SECONDS}
+          maxMb={MAX_EXPLORE_VIDEO_MB}
+          eyebrow="Trim Explore video"
+          onCancel={() => setOversizedVideoFile(null)}
+          onComplete={(trimmedFile) => {
+            setOversizedVideoFile(null);
+            processVideoFile(trimmedFile).catch((error) => {
+              showToast(error.message || "Unable to use the trimmed clip.", "danger", { title: "Media not added" });
+            });
+          }}
+        />
+      ) : null}
 
       {videoNotice ? (
         <div className="fixed inset-x-0 bottom-0 z-[90] flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:justify-end sm:pb-0">
@@ -2053,8 +2130,10 @@ if (!isMobileVideoDevice) {
                   />
                   <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
                     {mentionLoading ? <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">Finding people...</p> : null}
-                    {!mentionLoading && mentionQuery.trim() && !mentionResults.length ? (
-                      <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">No matching Explore profile.</p>
+                    {!mentionLoading && !mentionResults.length ? (
+                      <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">
+                        {mentionQuery.trim() ? "No matching Explore profile." : "People you follow will appear here — or search by name."}
+                      </p>
                     ) : null}
                     {mentionResults.map((result) => (
                       <button

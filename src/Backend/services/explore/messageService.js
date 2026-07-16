@@ -1,5 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import { uploadMediaDataUrl } from "./mediaService";
+import { SPACE_IDENTITY_TYPE } from "./identityService";
+import { normalizeSpaceResponsibilities } from "./spaceService";
 
 const CONVERSATIONS_KEY = "explore-message-conversations";
 const MESSAGES_KEY = "explore-message-items";
@@ -251,6 +253,40 @@ function normalizeMessageInput(input) {
     mediaUrl,
     metadata,
     type: mediaUrl || !["image", "audio", "video"].includes(type) ? type : "text",
+  };
+}
+
+async function getMessageActorMetadata(senderProfile, senderId) {
+  if (senderProfile?.identityType !== SPACE_IDENTITY_TYPE && !senderProfile?.spaceId) {
+    return {};
+  }
+
+  const spaceId = senderProfile.spaceId || senderProfile.identityId || "";
+  if (!spaceId) return {};
+
+  const { data: membership, error } = await supabase
+    .from("explore_space_members")
+    .select("role, status, responsibilities")
+    .eq("space_id", spaceId)
+    .eq("user_id", senderId)
+    .maybeSingle();
+
+  if (error && !isMissingMessageStore(error)) {
+    throw error;
+  }
+
+  const responsibilities = normalizeSpaceResponsibilities(membership?.responsibilities || {}, membership?.role || "member");
+  if (membership?.status !== "active" || !responsibilities.canReplyMessages) {
+    throw new Error("You need a Space team responsibility that can reply to messages.");
+  }
+
+  return {
+    actorType: SPACE_IDENTITY_TYPE,
+    actorId: spaceId,
+    spaceId,
+    actorName: senderProfile.displayName || senderProfile.name || "Space",
+    actorAvatarUrl: senderProfile.avatarUrl || senderProfile.avatar_url || "",
+    actorRole: membership.role || "member",
   };
 }
 
@@ -717,6 +753,7 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
 
   const profileUserId = senderProfile?.userId || senderProfile?.id || "";
   const senderId = await getAuthenticatedUserId(profileUserId);
+  const actorMetadata = await getMessageActorMetadata(senderProfile, senderId);
   const isLocalConversation = isLocalConversationId(conversationId);
   const mediaUrl = !isLocalConversation && draft.mediaUrl
     ? await uploadMediaDataUrl(draft.mediaUrl, draft.type, senderId)
@@ -728,7 +765,7 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
     body: draft.body,
     type: draft.type,
     mediaUrl,
-    metadata: draft.metadata,
+    metadata: { ...(draft.metadata || {}), actor: actorMetadata },
     read: false,
     createdAt: new Date().toISOString(),
   };
@@ -752,7 +789,7 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
     body: message.body,
     media_type: message.type,
     media_url: message.mediaUrl,
-    metadata: message.metadata || {},
+    metadata: { ...(message.metadata || {}), actor: actorMetadata },
     read: message.read,
     created_at: message.createdAt,
   };

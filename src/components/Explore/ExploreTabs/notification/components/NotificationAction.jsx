@@ -1,5 +1,5 @@
 export default function NotificationAction({ followed, onFollowBack, type }) {
-  if (type === "follow") {
+  if (type === "follow" || type === "connect") {
     return (
       <button
         type="button"
@@ -9,7 +9,7 @@ export default function NotificationAction({ followed, onFollowBack, type }) {
           followed ? "bg-slate-100 text-slate-400" : "bg-sky-600 text-white active:scale-95"
         }`}
       >
-        {followed ? "Following" : "Follow back"}
+        {followed ? "Connected" : "Connect back"}
       </button>
     );
   }

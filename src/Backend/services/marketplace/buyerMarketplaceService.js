@@ -19,6 +19,47 @@ function normalizeNestedBusiness(value) {
   return value && typeof value === "object" ? value : {};
 }
 
+// Location filter scopes that are not free-text location matches.
+export const LOCATION_SCOPE_NEARBY = "__nearby";
+export const LOCATION_SCOPE_COUNTRY = "__country";
+const NEARBY_RADIUS_KM = 50;
+const VERTICAL_CATEGORY_PREFIX = "vertical:";
+
+function isLocationScope(value) {
+  return value === LOCATION_SCOPE_NEARBY || value === LOCATION_SCOPE_COUNTRY;
+}
+
+function getVerticalCategory(category) {
+  return String(category || "").startsWith(VERTICAL_CATEGORY_PREFIX)
+    ? String(category).slice(VERTICAL_CATEGORY_PREFIX.length)
+    : "";
+}
+
+function getBrowserPosition(timeoutMs = 6000) {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 300000 },
+    );
+  });
+}
+
+function distanceKm(a, b) {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h = sinLat * sinLat + Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * sinLng * sinLng;
+  return 2 * earthRadiusKm * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 function mapBuyerProduct(product = {}) {
   const business = normalizeNestedBusiness(product.marketplace_businesses);
   const imageUrls = Array.isArray(product.image_urls) ? product.image_urls : [];
@@ -79,6 +120,7 @@ function mapBuyerProduct(product = {}) {
       latitude: toOptionalNumber(business.latitude),
       longitude: toOptionalNumber(business.longitude),
       businessType: business.business_type || "both",
+      businessKind: business.business_kind || "retail",
       deliveryEnabled: Boolean(business.delivery_enabled),
       pickupEnabled: Boolean(business.pickup_enabled),
       operatingDays: Array.isArray(business.operating_days) ? business.operating_days : [],
@@ -97,7 +139,7 @@ const PRODUCT_SELECT = `
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
   delivery_time,allow_negotiation,country,country_iso,currency,
   marketplace_businesses (
-    id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
+    id,business_name,business_kind,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
     latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,country_iso,currency,
     logo_url,banner_url,verification_status,readiness_score,created_at,public_business_id
   )
@@ -109,7 +151,7 @@ const PRODUCT_DETAIL_SELECT = `
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
   delivery_time,allow_negotiation,country,country_iso,currency,
   marketplace_businesses (
-    id,business_name,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
+    id,business_name,business_kind,description,address,city,country,phone,whatsapp_enabled,whatsapp,email,website_url,
     latitude,longitude,business_type,delivery_enabled,pickup_enabled,open_time,close_time,country_iso,currency,
     logo_url,banner_url,verification_status,readiness_score,created_at,public_business_id
   )
@@ -248,11 +290,14 @@ async function getCurrentBuyer(message = "Sign in to continue.") {
 function applyProductFilters(query, filters = {}) {
   let nextQuery = query;
 
-  if (filters.category && filters.category !== "all") {
+  // Vertical categories (restaurant, hotel, real estate, retail) filter on the
+  // joined business kind after mapping, not on the product category column.
+  if (filters.category && filters.category !== "all" && !getVerticalCategory(filters.category)) {
     nextQuery = nextQuery.eq("category", filters.category);
   }
 
-  if (filters.location) {
+  // Nearby and Country scopes are resolved client-side after mapping.
+  if (filters.location && !isLocationScope(filters.location)) {
     nextQuery = nextQuery.ilike("location", `%${filters.location}%`);
   }
 
@@ -324,7 +369,7 @@ async function insertMarketplaceOrder(payload) {
 
   const missingCountryContextColumn = (() => {
     const message = String(error?.message || error?.details || error?.hint || "").toLowerCase();
-    return ["country", "country_iso", "currency"].some((column) =>
+    return ["country", "country_iso", "currency", "delivery_latitude", "delivery_longitude"].some((column) =>
       message.includes(`'${column}'`) ||
       message.includes(`"${column}"`) ||
       message.includes(`${column} column`),
@@ -332,7 +377,14 @@ async function insertMarketplaceOrder(payload) {
   })();
 
   if (error && missingCountryContextColumn) {
-    const { country: _country, country_iso: _countryIso, currency: _currency, ...fallbackPayload } = payload;
+    const {
+      country: _country,
+      country_iso: _countryIso,
+      currency: _currency,
+      delivery_latitude: _deliveryLatitude,
+      delivery_longitude: _deliveryLongitude,
+      ...fallbackPayload
+    } = payload;
     const fallback = await supabase
       .from("marketplace_orders")
       .insert(fallbackPayload)
@@ -408,6 +460,53 @@ export async function deleteBuyerDeliveryAddress(addressId) {
   return true;
 }
 
+// Applies the "Nearby" / "Country" location scopes and vertical (business
+// kind) categories that the database query intentionally skips.
+async function applyClientProductScopes(products, filters = {}) {
+  let scopedProducts = products;
+
+  const verticalKind = getVerticalCategory(filters.category);
+  if (verticalKind) {
+    scopedProducts = scopedProducts.filter((product) => (product.seller?.businessKind || "retail") === verticalKind);
+  }
+
+  if (filters.location === LOCATION_SCOPE_COUNTRY) {
+    const activeCountry = getActiveCountryProfile(filters.country || filters.countryCode);
+    scopedProducts = scopedProducts.filter((product) => {
+      const productIso = product.countryCode || product.seller?.countryCode || "";
+      return !productIso || productIso === activeCountry.iso2;
+    });
+  }
+
+  if (filters.location === LOCATION_SCOPE_NEARBY) {
+    const position = await getBrowserPosition();
+    if (position) {
+      scopedProducts = scopedProducts
+        .map((product) => {
+          const latitude = product.seller?.latitude;
+          const longitude = product.seller?.longitude;
+          if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) {
+            return { product, distance: null };
+          }
+          return { product, distance: distanceKm(position, { latitude, longitude }) };
+        })
+        .filter((entry) => entry.distance !== null && entry.distance <= NEARBY_RADIUS_KM)
+        .sort((a, b) => a.distance - b.distance)
+        .map((entry) => entry.product);
+    } else {
+      // Without a device position, "Nearby" degrades to the buyer's country
+      // so the screen still shows relevant products instead of an empty list.
+      const activeCountry = getActiveCountryProfile(filters.country || filters.countryCode);
+      scopedProducts = scopedProducts.filter((product) => {
+        const productIso = product.countryCode || product.seller?.countryCode || "";
+        return !productIso || productIso === activeCountry.iso2;
+      });
+    }
+  }
+
+  return scopedProducts;
+}
+
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
   const data = await runCountryScopedProductListQuery({ filters });
   const scoped = filterCountryScopedItems(
@@ -415,7 +514,8 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
     (product) => [product.seller?.country, product.location],
     filters.country || filters.countryCode,
   );
-  const products = sortProducts(scoped.items, filters.sort);
+  const scopedItems = await applyClientProductScopes(scoped.items, filters);
+  const products = sortProducts(scopedItems, filters.sort);
 
   return {
     newProducts: products,
@@ -428,6 +528,37 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
     country: scoped.country,
     fallbackCountries: scoped.fallbackCountries,
   };
+}
+
+// Promoted listings power the advert slider: only products the seller
+// published with "Publish & promote" (promoted = true) appear. Publish-only
+// products never show here.
+export async function fetchPromotedMarketplaceProducts(limit = 12) {
+  let lastError = null;
+
+  for (const selectClause of PRODUCT_LIST_SELECTS) {
+    const { data, error } = await supabase
+      .from("marketplace_products")
+      .select(selectClause)
+      .eq("status", "active")
+      .eq("promoted", true)
+      .gt("stock", 0)
+      .order("promoted_at", { ascending: false, nullsFirst: false })
+      .limit(limit);
+
+    if (!error) {
+      const scoped = filterCountryScopedItems(
+        (data || []).map(mapBuyerProduct),
+        (product) => [product.seller?.country, product.location],
+      );
+      return scoped.items;
+    }
+    if (!isRecoverableSelectError(error)) return [];
+    lastError = error;
+  }
+
+  if (lastError) return [];
+  return [];
 }
 
 export function subscribeBuyerMarketplaceProducts(onChange) {
@@ -656,10 +787,14 @@ export async function fetchSavedBuyerProducts() {
     .filter(Boolean);
 }
 
-export async function checkoutBuyerCart(deliveryLocation = "") {
+export async function checkoutBuyerCart(deliveryLocation = "", options = {}) {
   const buyerId = await getCurrentUserId("Sign in to checkout.");
   const items = await fetchBuyerCart();
   if (!items.length) throw new Error("Your cart is empty.");
+
+  const checkoutCoordinates = options.coordinates || null;
+  const deliveryLatitude = toOptionalNumber(checkoutCoordinates?.latitude ?? checkoutCoordinates?.lat);
+  const deliveryLongitude = toOptionalNumber(checkoutCoordinates?.longitude ?? checkoutCoordinates?.lng);
 
   const grouped = items.reduce((acc, item) => {
     const key = item.businessId;
@@ -681,6 +816,8 @@ export async function checkoutBuyerCart(deliveryLocation = "") {
         item_count: groupItems.reduce((sum, item) => sum + item.qty, 0),
         preview: groupItems.map((item) => `${item.name} x${item.qty}`).join(", "),
         delivery_location: deliveryLocation.trim(),
+        delivery_latitude: deliveryLatitude,
+        delivery_longitude: deliveryLongitude,
         ...orderContext,
       });
 
@@ -716,6 +853,10 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
     .filter(Boolean)
     .join(" | ");
 
+  const orderCoordinates = orderInput.coordinates || null;
+  const deliveryLatitude = toOptionalNumber(orderCoordinates?.latitude ?? orderCoordinates?.lat);
+  const deliveryLongitude = toOptionalNumber(orderCoordinates?.longitude ?? orderCoordinates?.lng);
+
   const { data, error } = await insertMarketplaceOrder({
       buyer_id: buyer.id,
       buyer_name: buyerName.trim() || buyer.name,
@@ -726,6 +867,8 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
       item_count: quantity,
       preview: `${product.name} x${quantity}`,
       delivery_location: deliveryDetails,
+      delivery_latitude: deliveryLatitude,
+      delivery_longitude: deliveryLongitude,
       ...orderCountryContext(product),
     });
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { updateExploreProfile } from "../../../../Backend/services/exploreService";
+import { SPACE_IDENTITY_TYPE, getProfileIdentity, updateExploreProfile, updateExploreSpace } from "../../../../Backend/services/exploreService";
 import { showToast } from "../../../../Backend/services/toastService";
 import ProfileEditForm from "./ProfileEditForm";
 import ProfileHeaderCard from "./ProfileHeaderCard";
@@ -25,6 +25,8 @@ export default function ProfileEditScreen({
   const [feedback, setFeedback] = useState("");
   const fileInputRef = useRef(null);
   const coverInputRef = useRef(null);
+  const profileIdentity = getProfileIdentity(values);
+  const isSpace = profileIdentity.type === SPACE_IDENTITY_TYPE;
 
   useEffect(() => {
     setValues(profile || {});
@@ -64,15 +66,17 @@ export default function ProfileEditScreen({
   async function saveProfile() {
     try {
       setSaving(true);
-      const updated = await updateExploreProfile({
-        ...authProfile,
-        ...values,
-        userId: currentUserId || values.userId || authProfile?.userId || "",
-      });
+      const updated = isSpace
+        ? await updateExploreSpace(values.spaceId || profileIdentity.id, values)
+        : await updateExploreProfile({
+          ...authProfile,
+          ...values,
+          userId: currentUserId || values.userId || authProfile?.userId || "",
+        });
       setValues(updated);
       onProfileUpdate?.(updated);
-      setFeedback(updated.avatarWarning || "Profile updated.");
-      showToast("Profile updated.", "success");
+      setFeedback(updated.avatarWarning || (isSpace ? "Space updated." : "Profile updated."));
+      showToast(isSpace ? "Space updated." : "Profile updated.", "success");
     } catch (error) {
       setFeedback(error.message || "Unable to update profile.");
     } finally {

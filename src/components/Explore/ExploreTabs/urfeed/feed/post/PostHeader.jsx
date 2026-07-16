@@ -50,7 +50,7 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
               onClick={runFollow}
               className="kt-pressable h-7 flex-none rounded-full bg-slate-950 px-3 text-xs font-bold text-white hover:bg-slate-800"
             >
-              Follow
+              Connect
             </button>
           ) : null}
           {post.contextLabel ? (

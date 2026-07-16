@@ -1049,6 +1049,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
                 ? "Back to messages"
                 : nearbyAreaRequest?.returnTo === "marketplace-seller"
                   ? "Back to seller profile"
+                : nearbyAreaRequest?.returnTo === "marketplace-seller-orders"
+                  ? "Back to seller orders"
                 : "Back to transport"
           }
         />
@@ -1198,6 +1200,15 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         onNotificationCountChange={onNotificationCountChange}
         onActivityChange={setHeaderActivityOpen}
         onViewFleet={setActiveFleetId}
+        onOpenEmergencyArea={(searchType = "") => {
+          openNearbyAreaRoute(null, {
+            emergency: {
+              open: !searchType,
+              source: "passenger-safety-menu",
+              searchType,
+            },
+          });
+        }}
         onRegisterFleet={() => {
           if (guardGuestAction("register", "transport account")) return;
           if (operatorAccount) {

@@ -56,6 +56,7 @@ export default function ProfileHeaderCard({
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
   const coverStyle = getCoverStyle(values.coverUrl);
   const publicUserId = getKunThaiPublicUserId(values);
+  const isSpace = values.identityType === "space" || values.accountType === "space" || values.isSpace;
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -183,9 +184,9 @@ export default function ProfileHeaderCard({
                     <button
                       type="button"
                       onClick={onFollow}
-                      className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white"
-                    >
-                      Follow
+                    className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white"
+                  >
+                      Connect
                     </button>
                   ) : null}
                   <button
@@ -218,7 +219,7 @@ export default function ProfileHeaderCard({
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineUserMinus className="text-lg" />
-                    Unfollow account
+                    Remove connection
                   </button>
                 ) : null}
                 <button
@@ -227,7 +228,7 @@ export default function ProfileHeaderCard({
                   className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                 >
                   <HiOutlineArrowTopRightOnSquare className="text-lg" />
-                  Share profile
+                  {isSpace ? "Share Space" : "Share profile"}
                 </button>
                 {!editable ? (
                   <>
@@ -236,16 +237,16 @@ export default function ProfileHeaderCard({
                       onClick={() => runMenuAction(onReport)}
                       className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                     >
-                      <HiOutlineFlag className="text-lg" />
-                      Report profile
+                    <HiOutlineFlag className="text-lg" />
+                      {isSpace ? "Report Space" : "Report profile"}
                     </button>
                     <button
                       type="button"
                       onClick={() => runMenuAction(onBlock)}
                       className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-rose-700 hover:bg-rose-50"
                     >
-                      <HiOutlineNoSymbol className="text-lg" />
-                      Block profile
+                    <HiOutlineNoSymbol className="text-lg" />
+                      {isSpace ? "Block Space" : "Block profile"}
                     </button>
                   </>
                 ) : (
@@ -255,7 +256,7 @@ export default function ProfileHeaderCard({
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineArchiveBox className="text-lg" />
-                    Copy public profile
+                    {isSpace ? "Copy Space link" : "Copy public profile"}
                   </button>
                 )}
               </div>
@@ -268,10 +269,22 @@ export default function ProfileHeaderCard({
             <h3 className="truncate text-2xl font-semibold text-slate-950">{values.displayName || "Profile"}</h3>
             {values.verified ? <HiOutlineCheckBadge className="flex-none text-xl text-sky-600" /> : null}
           </div>
-          {values.username ? <p className="mt-1 text-sm font-bold text-slate-500">@{values.username}</p> : null}
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {values.username ? <p className="text-sm font-bold text-slate-500">@{values.username}</p> : null}
+            {isSpace ? (
+              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-sky-700">
+                A Space
+              </span>
+            ) : null}
+            {isSpace && values.categoryLabel ? (
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">
+                {values.categoryLabel}
+              </span>
+            ) : null}
+          </div>
           <div className="mt-2 flex w-fit max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
             <span className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-slate-500">
-              KunThai ID
+              {isSpace ? "Space ID" : "KunThai ID"}
             </span>
             <span className="min-w-0 truncate text-sm font-black text-slate-950">{publicUserId}</span>
             <button
@@ -299,8 +312,8 @@ export default function ProfileHeaderCard({
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
             <StatTile label="Feed" value={stats?.feed} loading={loadingStats} />
             <StatTile label="Swip" value={stats?.swip} loading={loadingStats} />
-            <StatTile label="Followers" value={stats?.followers} loading={loadingStats} />
-            <StatTile label="Following" value={stats?.following} loading={loadingStats} />
+            <StatTile label="Connections" value={stats?.followers} loading={loadingStats} />
+            <StatTile label={isSpace ? "Team" : "Connected"} value={isSpace ? stats?.team : stats?.following} loading={loadingStats} />
           </div>
 
           {feedback ? <p className="mt-3 text-xs font-bold text-sky-700">{feedback}</p> : null}

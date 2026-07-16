@@ -1,4 +1,4 @@
-import { MessageCircle, PackageCheck, Plus, ShoppingBag, Store } from "lucide-react";
+import { MessageCircle, Plus, Search, ShoppingBag, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
 import {
@@ -29,8 +29,9 @@ function mapHeaderItem(prefix, item) {
 
 export default function MarketplaceHeader({
   onMyBizClick,
-  onOrdersClick,
   onMessagesClick,
+  onSearchClick,
+  searchOpen = false,
   activeUtility,
   onActivityChange,
   onNotificationCountChange,
@@ -44,8 +45,11 @@ export default function MarketplaceHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const businessLabel = loading || hasBusiness ? "Open your business workspace" : "Register your business";
   const orderCount = getUnseenNotificationCount(BUYER_ORDER_SCOPE, orderItems);
-  const messageCount = getUnseenNotificationCount(BUYER_MESSAGE_SCOPE, messageItems, { unreadOnly: true });
-  const activeHint = orderCount ? "orders" : messageCount ? "messages" : "";
+  // The message badge tracks live unread seller messages: it only clears when
+  // the buyer actually opens the conversation (which marks it read), not when
+  // the header is merely glanced at.
+  const messageCount = messageItems.length;
+  const activeHint = messageCount ? "messages" : "";
   const unreadCount = orderCount + messageCount;
 
   useEffect(() => {
@@ -114,13 +118,6 @@ export default function MarketplaceHeader({
     if (activeUtility === "messages" && messageItems.length) markNotificationsSeen(BUYER_MESSAGE_SCOPE, messageItems);
   }, [activeUtility, messageItems, orderItems]);
 
-  function openOrders() {
-    markNotificationsSeen(BUYER_ORDER_SCOPE, orderItems);
-    markNotificationScopeVisited(BUYER_ORDER_SCOPE);
-    setSeenVersion((version) => version + 1);
-    onOrdersClick?.();
-  }
-
   function openMessages() {
     markNotificationsSeen(BUYER_MESSAGE_SCOPE, messageItems);
     markNotificationScopeVisited(BUYER_MESSAGE_SCOPE);
@@ -149,20 +146,13 @@ export default function MarketplaceHeader({
       )}
       right={(
         <>
-          <HeaderButtonWithHint
-            hint="New order update"
-            visible={activeHint === "orders"}
-            onClick={openOrders}
-          >
-            <PremiumHeaderButton
-              active={activeUtility === "orders"}
-              accent="emerald"
-              badge={orderCount}
-              icon={PackageCheck}
-              label="Open orders"
-              onClick={openOrders}
-            />
-          </HeaderButtonWithHint>
+          <PremiumHeaderButton
+            active={searchOpen}
+            accent="emerald"
+            icon={Search}
+            label={searchOpen ? "Close search" : "Search UrMall products"}
+            onClick={() => onSearchClick?.()}
+          />
           <HeaderButtonWithHint
             hint="New seller message"
             visible={activeHint === "messages"}

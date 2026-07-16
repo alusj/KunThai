@@ -5,6 +5,7 @@ import Avatar from "../../../shared/Avatar";
 
 export default function ConnectionCard({ user, mode = "discover", onBlock, onFollow, onRemove, onViewProfile }) {
   const isFollowing = Boolean(user.isFollowing);
+  const isSpace = user.identity_type === "space" || user.account_type === "space" || Boolean(user.space_id);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -67,7 +68,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineUserMinus className="text-lg" />
-                    Unfollow
+                    Remove connection
                   </button>
                 ) : null}
                 {mode !== "discover" ? (
@@ -94,10 +95,16 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
           <button type="button" onClick={onViewProfile} className="block max-w-full truncate text-left text-sm font-bold text-slate-500 hover:text-sky-700">
             @{user.username}
           </button>
+          {isSpace ? (
+            <span className="mt-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-sky-700">
+              A Space
+            </span>
+          ) : null}
           {user.bio ? <p className="mt-2 line-clamp-2 text-base font-semibold leading-7 text-slate-600">{user.bio}</p> : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-black">
             {user.status ? <span className="rounded-full bg-sky-50 px-3.5 py-1.5 text-sky-700">{user.status}</span> : null}
+            {isSpace && user.category_label ? <span className="rounded-full bg-slate-100 px-3.5 py-1.5 text-slate-600">{user.category_label}</span> : null}
             {user.mutual_count ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-slate-600">
                 <HiOutlineUsers />
@@ -115,7 +122,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
             onClick={onFollow}
             className="h-12 w-full rounded-2xl bg-slate-950 px-4 text-base font-black text-white transition hover:bg-slate-800"
           >
-            Follow
+            Connect
           </button>
         ) : null}
       </div>

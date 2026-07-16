@@ -10,7 +10,25 @@ import {
   sendBuyerMarketplaceMessage,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { formatCurrency } from "../../Backend/utils/formatCurrency";
+import { parseOrderDeliveryDetails, formatOrderFulfillment } from "../../Backend/utils/orderDeliveryDetails";
+import {
+  markNotificationScopeVisited,
+  markNotificationsSeen,
+} from "../../Backend/services/notificationSeenStore";
 import AppBackTab from "../shared/AppBackTab";
+
+const BUYER_ORDER_SCOPE = "urmall:buyer:orders";
+
+// Must mirror mapHeaderItem in MarketplaceHeader so viewing the order list
+// clears the same notification ids the header badge counts.
+function toOrderNotificationItem(order) {
+  const changeKey = [order.status, order.createdAt].filter(Boolean).join(":");
+  return {
+    id: `buyer-order:${order.id}${changeKey ? `:${changeKey}` : ""}`,
+    unread: true,
+    created_at: order.createdAt || null,
+  };
+}
 
 function formatDate(value) {
   if (!value) return "";
@@ -50,7 +68,11 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
 
       try {
         const rows = await fetchBuyerOrders();
-        if (alive) setOrders(rows);
+        if (alive) {
+          setOrders(rows);
+          markNotificationsSeen(BUYER_ORDER_SCOPE, rows.map(toOrderNotificationItem));
+          markNotificationScopeVisited(BUYER_ORDER_SCOPE);
+        }
       } catch (err) {
         if (alive) setError(err.message || "Unable to load orders.");
       } finally {
@@ -240,9 +262,26 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
               </div>
             </button>
 
-            {order.deliveryLocation ? (
-              <p className="mt-3 text-xs font-bold text-gray-500">Delivery note: {order.deliveryLocation}</p>
-            ) : null}
+            {order.deliveryLocation ? (() => {
+              const details = parseOrderDeliveryDetails(order.deliveryLocation);
+              const fulfillment = formatOrderFulfillment(details);
+              const address = details.address || details.raw;
+              return (
+                <div className="mt-3 space-y-1 rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+                  {fulfillment ? (
+                    <p className="text-[11px] font-black uppercase text-gray-500">{fulfillment}{details.addressLabel ? ` | ${details.addressLabel} address` : ""}</p>
+                  ) : null}
+                  {address ? (
+                    <p className="flex items-start gap-1.5 text-xs font-bold text-gray-700">
+                      <MapPin size={13} className="mt-0.5 shrink-0 text-emerald-700" />
+                      <span className="break-words">{address}</span>
+                    </p>
+                  ) : null}
+                  {details.phone ? <p className="text-xs font-semibold text-gray-500">Phone: {details.phone}</p> : null}
+                  {details.note ? <p className="text-xs font-semibold text-gray-500">Note: {details.note}</p> : null}
+                </div>
+              );
+            })() : null}
 
             <div className="mt-4 grid grid-cols-3 gap-2">
               {timelineSteps(order).map((step) => (

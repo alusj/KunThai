@@ -1,8 +1,10 @@
 import { Component, useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Share2 } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { useExploreFeed } from "../../../../../Backend/hooks/useExploreFeed";
+import { shareKunThaiLink } from "../../../../../Backend/services/shareCtaService";
+import { getPostIdentity } from "../../../../../Backend/services/exploreService";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import { stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
@@ -180,6 +182,18 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
           title="No Swip videos yet"
           message="Videos you post from the composer will appear in Swip automatically."
         />
+        <div className="mx-auto mt-4 max-w-md rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-center shadow-sm">
+          <p className="text-sm font-black text-slate-950">Keep the fun going</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Share KunThai with family and friends while Swip fills up.</p>
+          <button
+            type="button"
+            onClick={shareKunThaiLink}
+            className="kt-pressable mx-auto mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+          >
+            <Share2 size={16} />
+            Share KunThai
+          </button>
+        </div>
       </div>
     );
   }
@@ -246,10 +260,16 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
             onViewProfile={() =>
               onViewProfile?.({
                 userId: post.user_id || "",
+                ownerUserId: post.user_id || "",
+                identityType: getPostIdentity(post).type,
+                identityId: getPostIdentity(post).id,
+                actorType: post.actor_type || "profile",
+                actorId: post.actor_id || post.user_id || "",
+                spaceId: post.space_id || (post.actor_type === "space" ? post.actor_id : ""),
                 displayName: post.author_name || "Profile",
                 username: post.author_username || "",
                 avatarUrl: post.author_avatar_url || "",
-                accountType: "personal",
+                accountType: post.actor_type === "space" ? "space" : "personal",
               })
             }
           />

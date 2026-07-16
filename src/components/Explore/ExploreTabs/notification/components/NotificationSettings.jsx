@@ -13,9 +13,9 @@ const settings = [
   { key: "reactions", label: "Reactions", detail: "Likes, saves, shares, and reactions", icon: HiOutlineHandThumbUp },
   { key: "comments", label: "Comments & replies", detail: "Comments, replies, and thread activity", icon: HiOutlineChatBubbleOvalLeft },
   { key: "mentions", label: "Mentions & tags", detail: "Posts or comments that include your @username", icon: HiOutlineAtSymbol },
-  { key: "follows", label: "Follows & connections", detail: "New followers and connection activity", icon: HiOutlineUserPlus },
+  { key: "follows", label: "Connections", detail: "New connection activity", icon: HiOutlineUserPlus },
   { key: "messages", label: "Messages", detail: "New private messages and requests", icon: MessageCircle },
-  { key: "followedPosts", label: "New posts", detail: "Posts from accounts you follow", icon: HiOutlineRectangleStack },
+  { key: "followedPosts", label: "New posts", detail: "Posts from accounts you connect with", icon: HiOutlineRectangleStack },
   { key: "milestones", label: "Milestones", detail: "Trending posts, views, and profile growth", icon: HiOutlineFire },
   { key: "safetyAlerts", label: "Safety & account", detail: "Security, verification, reports, and moderation", icon: HiOutlineBellAlert },
 ];
