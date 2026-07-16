@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchPromotedMarketplaceProducts } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import {
+  fetchPromotedMarketplaceProducts,
+  recordMarketplacePromotionImpression,
+} from "../../../Backend/services/marketplace/buyerMarketplaceService";
 
 const SLIDE_INTERVAL_MS = 4500;
 
-// Advert slider for businesses that published with "Publish & promote".
+// Advert slider for products with an active visibility-credit promotion.
 // Shows only the listing cover image; renders nothing when no seller has an
 // active promoted listing.
 export default function PromotedAdsCarousel({ onProductSelect }) {
   const [ads, setAds] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const recordedPromotionIdsRef = useRef(new Set());
   const touchStartXRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -38,6 +42,14 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
     }, SLIDE_INTERVAL_MS);
     return () => window.clearInterval(timerRef.current);
   }, [ads.length]);
+
+  useEffect(() => {
+    const activeAd = ads[activeIndex];
+    const promotionId = activeAd?.promotionId;
+    if (!promotionId || recordedPromotionIdsRef.current.has(promotionId)) return;
+    recordedPromotionIdsRef.current.add(promotionId);
+    recordMarketplacePromotionImpression(activeAd).catch(() => false);
+  }, [activeIndex, ads]);
 
   if (!ads.length) return null;
 

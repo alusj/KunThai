@@ -530,13 +530,55 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
   };
 }
 
-// Promoted listings power the advert slider: only products the seller
-// published with "Publish & promote" (promoted = true) appear. Publish-only
-// products never show here.
+function mapPromotedProduct(row = {}) {
+  const productRow = normalizeNestedBusiness(row.marketplace_products);
+  if (!productRow?.id) return null;
+  const product = mapBuyerProduct(productRow);
+  return {
+    ...product,
+    promotionId: row.id,
+    promotionEndsAt: row.ends_at || null,
+    promotionReachScope: row.reach_scope || "nearby",
+    promotionAudienceType: row.audience_type || "general",
+    promotionViewLimit: row.view_limit ? Number(row.view_limit) : null,
+  };
+}
+
+// Promoted listings power the promoted cards. Products appear here only while a
+// promotion campaign is active, inside its selected days, and below any view
+// cap. Publish-only products never show here.
 export async function fetchPromotedMarketplaceProducts(limit = 12) {
   let lastError = null;
+  const now = new Date().toISOString();
 
   for (const selectClause of PRODUCT_LIST_SELECTS) {
+    const promotionSelect = `
+      id,product_id,reach_scope,audience_type,starts_at,ends_at,view_limit,views,
+      marketplace_products (${selectClause})
+    `;
+    const promotionResult = await supabase
+      .from("marketplace_promotions")
+      .select(promotionSelect)
+      .eq("status", "active")
+      .lte("starts_at", now)
+      .gt("ends_at", now)
+      .order("created_at", { ascending: false })
+      .limit(limit * 2);
+
+    if (!promotionResult.error) {
+      const scoped = filterCountryScopedItems(
+        (promotionResult.data || [])
+          .filter((row) => !row.view_limit || Number(row.views || 0) < Number(row.view_limit || 0))
+          .map(mapPromotedProduct)
+          .filter(Boolean),
+        (product) => [product.seller?.country, product.location],
+      );
+      return scoped.items.slice(0, limit);
+    }
+
+    if (!isRecoverableSelectError(promotionResult.error)) return [];
+    lastError = promotionResult.error;
+
     const { data, error } = await supabase
       .from("marketplace_products")
       .select(selectClause)
@@ -559,6 +601,14 @@ export async function fetchPromotedMarketplaceProducts(limit = 12) {
 
   if (lastError) return [];
   return [];
+}
+
+export async function recordMarketplacePromotionImpression(product) {
+  if (!product?.promotionId) return false;
+  const { error } = await supabase.rpc("record_marketplace_promotion_view", {
+    p_promotion_id: product.promotionId,
+  });
+  return !error;
 }
 
 export function subscribeBuyerMarketplaceProducts(onChange) {

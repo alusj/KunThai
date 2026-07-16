@@ -1,6 +1,7 @@
 import {
   HiOutlineArchiveBox,
   HiOutlineArrowTopRightOnSquare,
+  HiOutlineBuildingOffice2,
   HiOutlineCheckBadge,
   HiOutlineChatBubbleLeftRight,
   HiOutlineClipboardDocument,
@@ -39,6 +40,7 @@ export default function ProfileHeaderCard({
   onBlock,
   onCoverChange,
   onCoverPreset,
+  onCreateSpace,
   onEdit,
   onFollow,
   onMessage,
@@ -220,6 +222,16 @@ export default function ProfileHeaderCard({
                   >
                     <HiOutlineUserMinus className="text-lg" />
                     Remove connection
+                  </button>
+                ) : null}
+                {editable && !isSpace && typeof onCreateSpace === "function" ? (
+                  <button
+                    type="button"
+                    onClick={() => runMenuAction(onCreateSpace)}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                  >
+                    <HiOutlineBuildingOffice2 className="text-lg" />
+                    Create Space
                   </button>
                 ) : null}
                 <button

@@ -176,14 +176,20 @@ export async function syncExploreFollow(targetUserId, active) {
     if (error && !isMissingTable(error)) {
       throw error;
     }
-    await supabase.from("explore_identity_connections").upsert(
-      {
-        connector_user_id: userId,
-        target_type: PROFILE_IDENTITY_TYPE,
-        target_profile_user_id: target.id,
-      },
-      { onConflict: "connector_user_id,target_type,target_profile_user_id", ignoreDuplicates: true },
-    ).catch(() => {});
+    // Query builders are thenables without .catch(); await and ignore the
+    // result — identity connections are a best-effort mirror of explore_follows.
+    try {
+      await supabase.from("explore_identity_connections").upsert(
+        {
+          connector_user_id: userId,
+          target_type: PROFILE_IDENTITY_TYPE,
+          target_profile_user_id: target.id,
+        },
+        { onConflict: "connector_user_id,target_type,target_profile_user_id", ignoreDuplicates: true },
+      );
+    } catch {
+      // Network-level failures only; SQL errors come back in the result object.
+    }
     return;
   }
 
@@ -193,11 +199,14 @@ export async function syncExploreFollow(targetUserId, active) {
     throw error;
   }
 
-  await supabase
-    .from("explore_identity_connections")
-    .delete()
-    .eq("connector_user_id", userId)
-    .eq("target_type", PROFILE_IDENTITY_TYPE)
-    .eq("target_profile_user_id", target.id)
-    .catch(() => {});
+  try {
+    await supabase
+      .from("explore_identity_connections")
+      .delete()
+      .eq("connector_user_id", userId)
+      .eq("target_type", PROFILE_IDENTITY_TYPE)
+      .eq("target_profile_user_id", target.id);
+  } catch {
+    // Best-effort mirror cleanup; explore_follows is already updated above.
+  }
 }

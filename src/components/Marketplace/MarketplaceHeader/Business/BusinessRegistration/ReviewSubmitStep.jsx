@@ -48,12 +48,7 @@ export default function ReviewSubmitStep({ registration }) {
         <p>{form.operations.openTime} - {form.operations.closeTime}</p>
       </SummaryCard>
 
-      <SummaryCard title="Trust & Payout" onEdit={() => goToStep(3)}>
-        <p>
-          {form.trustPayout.connectKunThaiMoney
-            ? "KunThai Money connected"
-            : "Bank fallback selected"}
-        </p>
+      <SummaryCard title="Verification" onEdit={() => goToStep(3)}>
         <p className={uploadedDocumentCount ? "text-blue-700" : "text-amber-700"}>
           {uploadedDocumentCount
             ? "Verification documents will be sent for review."

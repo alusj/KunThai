@@ -66,7 +66,7 @@ export default function ProductDeliveryReviewStep({ productForm }) {
           <p>Price: {form.pricing.price || "Missing"}</p>
           <p>Stock: {form.pricing.stock || "Missing"}</p>
           <p>Cover image: {form.media.coverImageName || (form.media.coverImageUrl ? "Current cover image" : "Missing")}</p>
-          <p>Status: {form.pricing.publishStatus === "promoted" ? "Publish & promote" : form.pricing.publishStatus === "active" ? "Publish now" : "Save as draft"}</p>
+          <p>Status: {form.pricing.publishStatus === "promoted" ? "List and promote" : form.pricing.publishStatus === "active" ? "Publish now" : "Save as draft"}</p>
         </div>
       </section>
     </div>

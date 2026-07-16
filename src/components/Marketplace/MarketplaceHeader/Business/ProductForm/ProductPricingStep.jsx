@@ -72,7 +72,7 @@ export default function ProductPricingStep({ productForm }) {
         <div className="mt-2 grid gap-3 sm:grid-cols-3">
           {[
             { id: "active", label: "Publish now", description: "Product appears in UrMall listings." },
-            { id: "promoted", label: "Publish & promote", description: "Product also appears in the UrMall advert slider." },
+            { id: "promoted", label: "List and promote", description: "Publish now, then choose visibility credits, duration, reach, and invite task." },
             { id: "draft", label: "Save as draft", description: "Only you can see this product." },
           ].map((item) => (
             <button

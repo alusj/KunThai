@@ -1,4 +1,4 @@
-const STEPS = ["Identity", "Location", "Operations", "Trust & Payout", "Review"];
+const STEPS = ["Identity", "Location", "Operations", "Verification", "Review"];
 
 export default function RegistrationProgress({ step }) {
   return (

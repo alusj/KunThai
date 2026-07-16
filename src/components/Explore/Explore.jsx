@@ -1118,6 +1118,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           loading={profileLoading}
           loadError={profileError}
           profileFetched={profileFetched}
+          onCreateSpace={() => openMenuScreen("CreateSpace")}
           onEditProfile={() => openMenuScreen("EditProfile")}
           onOpenNotification={openNotificationTarget}
           onProfileUpdate={updateCurrentIdentityProfile}
@@ -1150,6 +1151,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           editable={viewedProfile?.userId === profile?.userId}
           loading={!viewedProfile}
           profileFetched={Boolean(viewedProfile)}
+          onCreateSpace={() => openMenuScreen("CreateSpace")}
           onOpenNotification={openNotificationTarget}
           onProfileUpdate={updateCurrentIdentityProfile}
           onSwitchIdentity={switchExploreIdentity}

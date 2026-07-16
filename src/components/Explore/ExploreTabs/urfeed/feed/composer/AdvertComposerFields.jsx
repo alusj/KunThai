@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  Banknote,
   CalendarClock,
   Check,
   Image,
@@ -15,13 +14,20 @@ import {
   Phone,
   PlaySquare,
   ShieldCheck,
+  Share2,
   Sparkles,
   Target,
+  UsersRound,
   Video,
 } from "lucide-react";
 
 import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import { useAddressAreaValidation } from "../../../../../shared/AddressAreaValidation";
+import {
+  VISIBILITY_PACKAGES,
+  getPackageCreditGoal,
+  getPackageInviteGoal,
+} from "../../../../../../Backend/services/visibilityCreditService";
 
 const ADVERT_TYPES = [
   { value: "offer", label: "Offer" },
@@ -81,7 +87,7 @@ const DURATIONS = [
   { value: "custom", label: "Custom" },
 ];
 
-const STEP_LABELS = ["Placement", "Objective", "Audience", "Duration", "Budget"];
+const STEP_LABELS = ["Placement", "Objective", "Audience", "Duration", "Visibility"];
 
 export default function AdvertComposerFields({
   advert,
@@ -140,7 +146,7 @@ export default function AdvertComposerFields({
     : step === 4
       ? customDatesValid
       : step === 5
-        ? Number(advert.budgetAmount) > 0
+        ? getPackageInviteGoal(advert.visibilityPackage, advert.customInviteGoal) >= 5
         : true;
 
   if (step <= 5) {
@@ -260,23 +266,50 @@ export default function AdvertComposerFields({
 
           {step === 5 ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                {[{ value: "daily", label: "Daily Budget" }, { value: "total", label: "Total Budget" }].map((budget) => (
-                  <button key={budget.value} type="button" onClick={() => onChange("budgetType", budget.value)} className={`h-12 rounded-2xl border text-sm font-black ${advert.budgetType === budget.value ? "border-sky-600 bg-sky-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}>
-                    {budget.label}
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {VISIBILITY_PACKAGES.map((item) => {
+                  const active = (advert.visibilityPackage || "starter") === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        onChange("visibilityPackage", item.id);
+                        onChange("inviteGoal", item.invites);
+                        onChange("visibilityCredits", item.credits);
+                      }}
+                      className={`flex items-start gap-3 rounded-[22px] border p-3 text-left transition ${active ? "border-sky-500 bg-sky-50 ring-2 ring-sky-100" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                    >
+                      <span className={`grid h-10 w-10 flex-none place-items-center rounded-2xl ${active ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}>
+                        <UsersRound size={18} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-black text-slate-950">{item.label}</span>
+                        <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{item.helper}</span>
+                      </span>
+                      {active ? <Check size={17} className="ml-auto flex-none text-sky-700" /> : null}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="grid grid-cols-[110px_1fr] gap-3">
-                <label className="block">
-                  <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Currency</span>
-                  <input value={advert.currency} readOnly className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-3 text-sm font-black text-slate-900 outline-none" />
-                </label>
-                <NumberField label={advert.budgetType === "daily" ? "Amount per day" : "Campaign total"} min="1" step="0.01" value={advert.budgetAmount} onChange={(value) => onChange("budgetAmount", value)} />
-              </div>
+              {(advert.visibilityPackage || "starter") === "custom" ? (
+                <NumberField
+                  label="Verified invite target"
+                  min="5"
+                  max="1000"
+                  value={advert.customInviteGoal}
+                  onChange={(value) => {
+                    onChange("customInviteGoal", value);
+                    onChange("inviteGoal", getPackageInviteGoal("custom", value));
+                    onChange("visibilityCredits", getPackageCreditGoal("custom", value));
+                  }}
+                />
+              ) : null}
               <div className="flex items-start gap-3 rounded-[22px] border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                <Banknote size={19} className="mt-0.5 flex-none" />
-                <p className="text-xs font-bold leading-5">Budget is saved for campaign planning. No payment is collected in this version; the campaign model is ready for a future payment activation step.</p>
+                <Share2 size={19} className="mt-0.5 flex-none" />
+                <p className="text-xs font-bold leading-5">
+                  No payment is collected. This advert posts normally, and stronger sponsored delivery unlocks after {getPackageInviteGoal(advert.visibilityPackage, advert.customInviteGoal)} verified people join through your invite link.
+                </p>
               </div>
             </div>
           ) : null}

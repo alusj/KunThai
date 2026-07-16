@@ -12,6 +12,7 @@ const SAFE_INTEREST_CATEGORIES = [
   "technology", "fashion", "beauty", "food", "sports", "music", "entertainment",
   "education", "business", "travel", "photography", "gaming", "news",
 ];
+const MINIMUM_ADVERT_INVITES = 5;
 
 function isAdvert(post = {}) {
   return post.post_type === "advert" || post.category === "advert" || Boolean(post.media_meta?.advert || post.mediaMeta?.advert);
@@ -127,7 +128,24 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
     throw error;
   }
 
-  return (Array.isArray(data) ? data[0] : data) || null;
+  const campaign = (Array.isArray(data) ? data[0] : data) || null;
+  if (!campaign?.id) return campaign;
+
+  const requiredInvites = Math.max(MINIMUM_ADVERT_INVITES, Number(advert.requiredInvites || advert.visibilityTask?.requiredInvites || 5));
+  const requiredCredits = Math.max(1, Number(advert.requiredCredits || advert.visibilityTask?.requiredCredits || requiredInvites));
+  const { data: taskData, error: taskError } = await supabase.rpc("apply_explore_ad_visibility_task", {
+    p_campaign_id: campaign.id,
+    p_visibility_package: advert.visibilityPackage || advert.visibilityTask?.package || "starter",
+    p_required_invites: requiredInvites,
+    p_required_credits: requiredCredits,
+  });
+
+  if (taskError) {
+    if (isUnavailableDatabaseFeature(taskError)) return campaign;
+    throw taskError;
+  }
+
+  return taskData?.campaign || campaign;
 }
 
 export async function fetchRecommendedExploreAds(surface = "urfeed", options = {}) {

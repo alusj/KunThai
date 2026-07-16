@@ -378,11 +378,14 @@ export async function createExploreNotification(input) {
   let error = null;
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
-    const result = await supabase.from("explore_notifications").insert(insertPayload).select().maybeSingle();
-    data = result.data;
+    // No RETURNING here: notification rows are only SELECT-visible to the
+    // recipient, so INSERT ... RETURNING for another user fails RLS (42501)
+    // and the notification would silently never be created.
+    const result = await supabase.from("explore_notifications").insert(insertPayload);
     error = result.error;
 
     if (!error) {
+      data = { id: `local-${Date.now()}`, created_at: draft.created_at || new Date().toISOString(), ...insertPayload };
       break;
     }
 
@@ -439,11 +442,12 @@ export async function createExploreNotification(input) {
       type: draft.type,
       read: draft.read,
     };
-    const { data: fallbackData, error: fallbackError } = await supabase
+    const { error: fallbackError } = await supabase
       .from("explore_notifications")
-      .insert(fallbackPayload)
-      .select()
-      .maybeSingle();
+      .insert(fallbackPayload);
+    const fallbackData = fallbackError
+      ? null
+      : { id: `local-${Date.now()}`, created_at: new Date().toISOString(), ...fallbackPayload };
 
     if (!fallbackError && fallbackData) {
       const fallbackCreated = normalizeNotification({

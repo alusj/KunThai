@@ -19,7 +19,7 @@ const STEP_TITLES = [
   "Business identity",
   "Location and contact",
   "Business operations",
-  "Trust and payouts",
+  "Verification documents",
   "Review and submit",
 ];
 
@@ -251,7 +251,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
             <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-gray-600">
               {editing
                 ? "Update the staged business details that power your dashboard, discovery, trust, and buyer actions."
-                : "Set up the store details that power your seller dashboard, discovery, trust, and payouts."}
+                : "Set up the store details that power your seller dashboard, discovery, trust, and buyer actions."}
             </p>
           </div>
         </div>

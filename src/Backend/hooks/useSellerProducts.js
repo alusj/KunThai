@@ -106,7 +106,7 @@ export function useSellerProducts() {
 
       if (action === "promote") {
         await promoteSellerProduct(product);
-        setActionMessage("Promotion draft created.");
+        setActionMessage("Promotion setup created.");
       }
 
       if (action === "publish") {

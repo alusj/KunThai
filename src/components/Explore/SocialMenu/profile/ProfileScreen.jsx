@@ -63,6 +63,7 @@ export default function ProfileScreen({
   loading = false,
   loadError = "",
   onEditProfile,
+  onCreateSpace,
   onOpenNotification,
   onProfileUpdate,
   onSpaceInviteResponse,
@@ -367,6 +368,7 @@ export default function ProfileScreen({
           onBlock={blockProfile}
           onCoverChange={handleCoverChange}
           onCoverPreset={(preset) => updateField("coverUrl", `preset:${preset}`)}
+          onCreateSpace={editable && !isSpace ? onCreateSpace : undefined}
           onEdit={() => {
             if (!editing && onEditProfile) {
               onEditProfile();

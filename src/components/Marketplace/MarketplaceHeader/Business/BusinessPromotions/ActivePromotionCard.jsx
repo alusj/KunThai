@@ -1,7 +1,7 @@
-import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
-
 export default function ActivePromotionCard({ promotion }) {
-  const spentPercent = Math.min(100, Math.round((promotion.budgetSpent / promotion.budgetLimit) * 100));
+  const viewPercent = promotion.viewLimit
+    ? Math.min(100, Math.round((promotion.views / promotion.viewLimit) * 100))
+    : 0;
 
   return (
     <article className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -18,20 +18,20 @@ export default function ActivePromotionCard({ promotion }) {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <MiniMetric label="Views" value={promotion.views} />
+        <MiniMetric label="Credits" value={promotion.creditCost} />
         <MiniMetric label="Orders" value={promotion.orders} />
-        <MiniMetric label="Revenue" value={formatCurrency(promotion.revenue)} />
       </div>
 
       <div className="mt-4">
         <div className="mb-2 flex items-center justify-between text-xs font-black text-gray-500">
-          <span>Budget</span>
-          <span>
-            {formatCurrency(promotion.budgetSpent)} / {formatCurrency(promotion.budgetLimit)}
-          </span>
+          <span>View cap</span>
+          <span>{promotion.viewLimit ? `${promotion.views} / ${promotion.viewLimit}` : "No fixed cap"}</span>
         </div>
-        <div className="h-2 rounded-full bg-gray-100">
-          <div className="h-2 rounded-full bg-blue-600" style={{ width: `${spentPercent}%` }} />
-        </div>
+        {promotion.viewLimit ? (
+          <div className="h-2 rounded-full bg-gray-100">
+            <div className="h-2 rounded-full bg-blue-600" style={{ width: `${viewPercent}%` }} />
+          </div>
+        ) : null}
       </div>
     </article>
   );

@@ -13,7 +13,7 @@ const SELLER_HEADER_STATE = {
     "Headphones",
     "Pending orders",
     "Low stock",
-    "Payouts",
+    "Promotion credits",
     "Store settings",
   ],
 };

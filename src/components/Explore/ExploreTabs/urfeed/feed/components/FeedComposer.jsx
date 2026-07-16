@@ -55,6 +55,10 @@ import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentMode
 import { getCountryCurrencyCode } from "../../../../../../data/globalCountryProfiles";
 import { getUnavailableFeatureMessage, isFeatureAvailable } from "../../../../../../data/globalFeatureAvailability";
 import { findExploreTopic } from "../../../../../../data/exploreTopics";
+import {
+  getPackageCreditGoal,
+  getPackageInviteGoal,
+} from "../../../../../../Backend/services/visibilityCreditService";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
@@ -81,8 +85,12 @@ const DEFAULT_ADVERT = {
   customStart: "",
   customEnd: "",
   budgetType: "total",
-  budgetAmount: "50",
+  budgetAmount: "0",
   currency: getCountryCurrencyCode(),
+  visibilityPackage: "starter",
+  customInviteGoal: "5",
+  inviteGoal: 5,
+  visibilityCredits: 5,
   type: "offer",
   title: "",
   ctaLabel: "Learn more",
@@ -191,6 +199,13 @@ function cleanAdvertForSubmit(advert = {}) {
     lng: hasCoordinates ? Number(normalized.lng) : null,
     coordinatesLabel: String(normalized.coordinatesLabel || "").trim(),
     source: String(normalized.source || "").trim(),
+    visibilityTask: {
+      package: String(normalized.visibilityPackage || DEFAULT_ADVERT.visibilityPackage),
+      requiredInvites: getPackageInviteGoal(normalized.visibilityPackage, normalized.customInviteGoal),
+      requiredCredits: getPackageCreditGoal(normalized.visibilityPackage, normalized.customInviteGoal),
+      verifiedInvites: 0,
+      status: "pending_task",
+    },
   };
 }
 
@@ -210,9 +225,12 @@ function cleanAdvertCampaignForSubmit(advert = {}) {
     durationDays: Math.max(1, Math.min(Number(normalized.durationDays) || 14, 365)),
     customStart: String(normalized.customStart || ""),
     customEnd: String(normalized.customEnd || ""),
-    budgetType: normalized.budgetType === "daily" ? "daily" : "total",
-    budgetAmount: Math.max(0, Number(normalized.budgetAmount) || 0),
+    budgetType: "total",
+    budgetAmount: 0,
     currency: String(normalized.currency || getCountryCurrencyCode()).toUpperCase().slice(0, 5),
+    visibilityPackage: String(normalized.visibilityPackage || DEFAULT_ADVERT.visibilityPackage),
+    requiredInvites: getPackageInviteGoal(normalized.visibilityPackage, normalized.customInviteGoal),
+    requiredCredits: getPackageCreditGoal(normalized.visibilityPackage, normalized.customInviteGoal),
   };
 }
 
@@ -1769,7 +1787,7 @@ if (!isMobileVideoDevice) {
           progress: 100,
           postId: publishedPostId,
           tab: publishedTab,
-          message: result.warning || (isAdvertMode ? "Your sponsored campaign is now live in Explore. Share KunThai to gain more visibility." : "Your post is now live on Explore. Share KunThai to gain more visibility."),
+          message: result.warning || (isAdvertMode ? "Your advert is posted. Sponsored delivery unlocks when the verified-invite task is completed." : "Your post is now live on Explore. Share KunThai to gain more visibility."),
         });
 
         closeComposer({ afterClose: resetComposer });

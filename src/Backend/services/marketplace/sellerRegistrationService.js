@@ -89,11 +89,11 @@ export const INITIAL_REGISTRATION = {
     idDocumentName: "",
     businessDocumentFile: null,
     businessDocumentName: "",
-    connectKunThaiMoney: true,
+    connectKunThaiMoney: false,
     bankName: "",
     accountNumber: "",
     accountName: "",
-    skipped: false,
+    skipped: true,
   },
 };
 
@@ -283,11 +283,11 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
     trustPayout: {
       idDocumentName: documents.find((item) => item.document_type === "id")?.file_name || "",
       businessDocumentName: documents.find((item) => item.document_type === "business")?.file_name || "",
-      connectKunThaiMoney: Boolean(payoutMethod?.kunthai_money_connected),
+      connectKunThaiMoney: false,
       bankName: payoutMethod?.bank_name || "",
       accountNumber: payoutMethod?.account_number_mask || "",
       accountName: payoutMethod?.account_name || "",
-      skipped: Boolean(payoutMethod?.skipped),
+      skipped: payoutMethod ? Boolean(payoutMethod.skipped) : true,
     },
     readinessScore: row.readiness_score,
     verificationStatus: row.verification_status,
@@ -735,7 +735,6 @@ export function getReadinessChecklist(registration = INITIAL_REGISTRATION) {
     readinessItem("open-time", "Opening time", operations.openTime),
     readinessItem("close-time", "Closing time", operations.closeTime),
     ...documentChecks,
-    readinessItem("payout", "KunThai Money or bank payout method", trustPayout.connectKunThaiMoney || trustPayout.bankName),
   ];
 }
 

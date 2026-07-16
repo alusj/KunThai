@@ -104,10 +104,12 @@ async function insertNotificationDraft(draft) {
   let nextPayload = payload;
 
   for (let attempt = 0; attempt < 9; attempt += 1) {
-    const { data, error } = await supabase.from("explore_notifications").insert(nextPayload).select().maybeSingle();
+    // No RETURNING: notification rows are only SELECT-visible to the
+    // recipient, so INSERT ... RETURNING for another user fails RLS (42501).
+    const { error } = await supabase.from("explore_notifications").insert(nextPayload);
 
     if (!error) {
-      return data;
+      return { id: `local-${Date.now()}`, created_at: new Date().toISOString(), ...nextPayload };
     }
 
     const optionalColumns = [

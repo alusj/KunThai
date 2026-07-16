@@ -28,19 +28,6 @@ export async function fetchSellerAttentionItems() {
     });
   }
 
-  if (registeredBusiness.trustPayout.skipped) {
-    items.push({
-      id: "payout-setup-needed",
-      type: "payout",
-      title: "Payout setup skipped",
-      description: "Add KunThai Money or bank details before your first withdrawal.",
-      count: 1,
-      priority: "medium",
-      actionLabel: "Add payout",
-      dueLabel: "Before first sale",
-    });
-  }
-
   if (!productCount) {
     items.push({
       id: "add-first-product",

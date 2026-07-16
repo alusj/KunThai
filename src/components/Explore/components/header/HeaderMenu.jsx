@@ -65,7 +65,7 @@ const MENU_GROUPS = [
   },
 ];
 
-export function SocialMenuContent({ compact = false, currentProfile = null, onClose, onCreateSpace, onNavigate, onSelectIdentity, spaces = [] }) {
+export function SocialMenuContent({ compact = false, currentProfile = null, onClose, onNavigate, onSelectIdentity, spaces = [] }) {
   const handleSelect = (target) => {
     onClose?.();
 
@@ -122,6 +122,7 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
             />
           </div>
 
+          {spaces.length ? (
           <div className="rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between gap-3 px-1">
               <div>
@@ -147,18 +148,9 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
                   />
                 );
               })}
-              <MenuActionButton
-                icon={HiOutlineBuildingOffice2}
-                label="Create Space"
-                description="Create a managed identity for a business, organization, community, or team."
-                tone="strong"
-                onClick={() => {
-                  onClose?.();
-                  onCreateSpace?.();
-                }}
-              />
             </div>
           </div>
+          ) : null}
 
           <div className={`grid gap-5 ${compact ? "grid-cols-1" : "lg:grid-cols-2 xl:grid-cols-3"}`}>
             {MENU_GROUPS.map((group) => (

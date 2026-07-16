@@ -260,8 +260,11 @@ async function createSpaceTeamNotification(input = {}) {
   let nextPayload = { ...payload };
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
-    const { data, error } = await supabase.from("explore_notifications").insert(nextPayload).select().maybeSingle();
-    if (!error) return data;
+    // No RETURNING: the recipient owns SELECT on this row, so INSERT ...
+    // RETURNING for another user fails RLS and the invite notification is
+    // silently dropped.
+    const { error } = await supabase.from("explore_notifications").insert(nextPayload);
+    if (!error) return { id: `local-${Date.now()}`, created_at: new Date().toISOString(), ...nextPayload };
     const missingColumn = [
       "actor_user_id",
       "actor_type",

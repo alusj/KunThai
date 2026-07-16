@@ -2,6 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
+import { createMarketplaceProductPromotion } from "./sellerPromotionService";
 import { normalizeTierPricing } from "./tierPricingUtils";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
@@ -397,8 +398,9 @@ export async function submitSellerProduct(form, onProgress) {
     }
   }
 
-  // "promoted" is a publish choice, not a product status: it publishes the
-  // product as active and flags it for the buyer-side advert slider.
+  // "promoted" is a publish choice, not a product status: the product goes
+  // live first, then a separate promotion setup decides whether it has enough
+  // credits or needs the verified-invite task.
   const wantsPromotion = form.pricing.publishStatus === "promoted";
   const status = wantsPromotion ? "active" : form.pricing.publishStatus;
   const countryProfile = getActiveCountryProfile(business.location.country);
@@ -431,8 +433,8 @@ export async function submitSellerProduct(form, onProgress) {
     main_image_url: coverUrl || null,
     image_urls: extraImageUrls,
     video_url: videoUrl || null,
-    promoted: wantsPromotion,
-    promoted_at: wantsPromotion ? new Date().toISOString() : null,
+    promoted: false,
+    promoted_at: null,
     published_at: status === "active" ? new Date().toISOString() : null,
   };
   const { data, error } = await withTimeout(
@@ -441,10 +443,6 @@ export async function submitSellerProduct(form, onProgress) {
   );
 
   if (error) throw new Error(error.message);
-
-  if (wantsPromotion) {
-    promoteSellerProduct({ name: form.basics.name.trim() }).catch(() => {});
-  }
 
   withTimeout(
     insertMarketplaceActivity({
@@ -462,7 +460,11 @@ export async function submitSellerProduct(form, onProgress) {
     8000,
   ).catch(() => {});
 
-  return { ...data, videoWarning };
+  return {
+    ...(normalizeSellerProduct(data) || {}),
+    videoWarning,
+    promotionRequested: wantsPromotion,
+  };
 }
 
 export async function updateSellerProductListing(product, form, onProgress) {
@@ -528,8 +530,8 @@ export async function updateSellerProductListing(product, form, onProgress) {
     main_image_url: coverUrl,
     image_urls: extraImageUrls,
     video_url: videoUrl,
-    promoted: wantsPromotion,
-    promoted_at: wantsPromotion ? product.promotedAt || new Date().toISOString() : null,
+    promoted: product.promoted && !wantsPromotion,
+    promoted_at: product.promoted && !wantsPromotion ? product.promotedAt || new Date().toISOString() : null,
     published_at: status === "active" ? product.publishedAt || new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   };
@@ -539,10 +541,6 @@ export async function updateSellerProductListing(product, form, onProgress) {
   );
 
   if (error) throw new Error(error.message);
-
-  if (wantsPromotion && !product.promoted) {
-    promoteSellerProduct({ name: form.basics.name.trim() }).catch(() => {});
-  }
 
   withTimeout(
     insertMarketplaceActivity({
@@ -560,7 +558,11 @@ export async function updateSellerProductListing(product, form, onProgress) {
     8000,
   ).catch(() => {});
 
-  return { ...data, videoWarning };
+  return {
+    ...(normalizeSellerProduct(data) || {}),
+    videoWarning,
+    promotionRequested: wantsPromotion,
+  };
 }
 
 export async function updateSellerProduct(productId, patch) {
@@ -603,20 +605,10 @@ export function createSellerProductShareLink(product) {
 }
 
 export async function promoteSellerProduct(product) {
-  const business = await readRegisteredBusiness();
-  if (!business) throw new Error("Register a business before promoting products.");
-
-  const { error } = await supabase.from("marketplace_promotions").insert({
-    business_id: business.id,
-    name: `${product.name} boost`,
-    product_name: product.name,
-    discount_label: "Visibility boost",
-    budget_spent: 0,
-    budget_limit: 0,
-    views: 0,
-    orders: 0,
-    revenue: 0,
+  return createMarketplaceProductPromotion(product, {
+    audienceType: "general",
+    durationDays: 3,
+    reachScope: "nearby",
+    viewGoal: 250,
   });
-
-  if (error) throw new Error(error.message);
 }
