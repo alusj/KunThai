@@ -1283,6 +1283,21 @@ async function saveInvitedOperatorDocumentRows(operatorId, documents = {}, invit
   return savedRows;
 }
 
+// Creates (or refreshes) the invited user's transport_operators row without any
+// documents, so accepting an invitation immediately links the operator and lets
+// the backend provision the company fleet. Documents stay a later, optional step.
+export async function ensureInvitedOperatorProfile(invite = {}) {
+  const user = await getCurrentUser("Sign in to accept this company request.");
+  const profile = await getOnboardingProfile(user).catch(() => null);
+
+  try {
+    return await ensureInvitedOperatorRecord(user, profile || {}, invite || {});
+  } catch (error) {
+    if (isMissingTable(error)) return null;
+    throw new Error(error.message || "Unable to prepare your operator profile for this company.");
+  }
+}
+
 export async function submitOperatorCompanyInviteDocuments(invite, documents = {}) {
   const user = await getCurrentUser("Sign in before submitting operator documents.");
   const profile = await getOnboardingProfile(user).catch(() => null);
@@ -1854,6 +1869,94 @@ export async function manageTransportCompanyOperator(companyAccount, operator, a
     else inviteQuery = inviteQuery.eq("operator_user_id", operator.userId || member.userId);
     const { error: inviteError } = await inviteQuery;
     if (inviteError) throw inviteError;
+  }
+
+  await recordCompanyManagementActivity(
+    company.id,
+    user.id,
+    activity.type,
+    activity.title,
+    activity.body,
+    activity.metadata,
+  ).catch(() => null);
+
+  return getTransportCompanyAccount();
+}
+
+export async function manageTransportCompanyFleet(companyAccount, fleet, action, options = {}) {
+  const user = await getCurrentUser("Sign in to manage company fleets.");
+  const company = companyAccount?.id ? companyAccount : await getTransportCompanyAccount();
+  if (!company?.id || !company?.access?.canManageFleets) {
+    throw new Error("Only the company creator or an authorized fleet manager can manage fleets.");
+  }
+
+  const companyFleetId = asUuid(fleet?.id);
+  if (!companyFleetId) {
+    throw new Error("This fleet record is not synced to Supabase yet. Refresh Fleet HQ and try again.");
+  }
+
+  const now = new Date().toISOString();
+  const fleetLabel = fleet.fleetName || fleet.fleetType || fleet.fleetCode || "Company fleet";
+
+  // Passenger-facing runtime fleet goes offline for both actions.
+  const { error: runtimeError } = await supabase
+    .from("transport_fleets")
+    .update({ active_status: "offline", is_visible_to_passengers: false, updated_at: now })
+    .eq("company_fleet_id", companyFleetId);
+  if (runtimeError && !isMissingColumn(runtimeError, "company_fleet_id")) throw new Error(runtimeError.message);
+
+  let activity = null;
+
+  if (action === "removeOperator") {
+    const { error: inviteError } = await supabase
+      .from("transport_company_operator_invites")
+      .update({ status: "revoked", updated_at: now })
+      .eq("company_fleet_id", companyFleetId)
+      .in("status", ["pending", "accepted"]);
+    if (inviteError && !isMissingTable(inviteError)) throw new Error(inviteError.message);
+
+    const revokedOperators = (normalizeFleet(fleet).operators || []).map((entry) => ({
+      ...entry,
+      status: ["pending", "accepted", "accepted_pending_documents"].includes(String(entry.status || "").toLowerCase())
+        ? "revoked"
+        : entry.status,
+      updatedAt: now,
+    }));
+
+    const { error: fleetError } = await supabase
+      .from("transport_company_fleets")
+      .update({
+        operator_id: null,
+        operators: revokedOperators,
+        is_visible_to_passengers: false,
+        updated_at: now,
+      })
+      .eq("id", companyFleetId)
+      .eq("company_id", company.id);
+    if (fleetError) throw new Error(fleetError.message);
+
+    activity = {
+      type: "fleet_operator_removed",
+      title: "Fleet operator removed",
+      body: `${options.operatorName || "The assigned operator"} was removed from ${fleetLabel}. The fleet is offline until a new operator is assigned.`,
+      metadata: { companyFleetId, fleetCode: fleet.fleetCode || "" },
+    };
+  } else if (action === "delete") {
+    const { error: deleteError } = await supabase
+      .from("transport_company_fleets")
+      .delete()
+      .eq("id", companyFleetId)
+      .eq("company_id", company.id);
+    if (deleteError) throw new Error(deleteError.message);
+
+    activity = {
+      type: "fleet_deleted",
+      title: "Fleet deleted",
+      body: `${fleetLabel} was deleted from Fleet HQ. Its operator invitations were withdrawn and the fleet no longer serves passengers.`,
+      metadata: { companyFleetId, fleetCode: fleet.fleetCode || "" },
+    };
+  } else {
+    throw new Error("Unsupported fleet action.");
   }
 
   await recordCompanyManagementActivity(

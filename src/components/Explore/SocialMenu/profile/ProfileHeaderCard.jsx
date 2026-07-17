@@ -371,7 +371,7 @@ export default function ProfileHeaderCard({
       </div>
 
       {publicIdHelpOpen && typeof document !== "undefined" ? createPortal(
-        <div className="fixed inset-0 z-[2147483000] flex items-end justify-center overflow-y-auto bg-slate-950/55 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-[2px] sm:items-center" role="presentation" onMouseDown={() => setPublicIdHelpOpen(false)}>
+        <div className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-[2px]" role="presentation" onMouseDown={() => setPublicIdHelpOpen(false)}>
           <section
             role="dialog"
             aria-modal="true"
@@ -400,7 +400,7 @@ export default function ProfileHeaderCard({
       ) : null}
 
       {creditHelpOpen && typeof document !== "undefined" ? createPortal(
-        <div className="fixed inset-0 z-[2147483000] flex items-end justify-center overflow-y-auto bg-slate-950/55 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-[2px] sm:items-center" role="presentation" onMouseDown={() => setCreditHelpOpen(false)}>
+        <div className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-[2px]" role="presentation" onMouseDown={() => setCreditHelpOpen(false)}>
           <section
             role="dialog"
             aria-modal="true"

@@ -1,6 +1,7 @@
 import supabase from "../lib/supabaseClient";
 
 const INVITE_STORAGE_KEY = "kunthai.visibilityInviteCode";
+const INVITE_RESOLVED_KEY_PREFIX = "kunthai.visibilityInviteResolved:";
 const CREDIT_SHARE_PARAM = "kt_ref";
 
 export const VERIFIED_INVITE_CREDIT_REWARD = 5;
@@ -123,11 +124,32 @@ export function captureVisibilityInviteFromLocation() {
   return code;
 }
 
-export async function finalizeStoredVisibilityInvite() {
+export function getStoredVisibilityInviteCode() {
+  if (typeof localStorage === "undefined") return "";
+
+  try {
+    return normalizeInviteCode(localStorage.getItem(INVITE_STORAGE_KEY) || readInviteCodeFromUrl());
+  } catch {
+    return normalizeInviteCode(readInviteCodeFromUrl());
+  }
+}
+
+export async function finalizeStoredVisibilityInvite(userId = "") {
   if (typeof localStorage === "undefined") return null;
 
-  const code = normalizeInviteCode(localStorage.getItem(INVITE_STORAGE_KEY) || readInviteCodeFromUrl());
-  if (!code) return null;
+  const code = getStoredVisibilityInviteCode();
+  const resolvedKey = userId ? `${INVITE_RESOLVED_KEY_PREFIX}${userId}` : "";
+
+  // Even without a local code the backend can credit from the signup metadata
+  // or an earlier pending invite event, so the check still runs — but only once
+  // per account on this device to avoid a wasted RPC on every app start.
+  if (!code && resolvedKey) {
+    try {
+      if (localStorage.getItem(resolvedKey)) return null;
+    } catch {
+      // If storage reads fail, fall through and let the backend decide.
+    }
+  }
 
   const { data, error } = await supabase.rpc("finalize_visibility_invite", {
     p_code: code,
@@ -140,7 +162,12 @@ export async function finalizeStoredVisibilityInvite() {
 
   const status = data?.status || "";
   if (["credited", "already_credited", "self_invite", "ineligible", "invalid"].includes(status)) {
-    localStorage.removeItem(INVITE_STORAGE_KEY);
+    try {
+      localStorage.removeItem(INVITE_STORAGE_KEY);
+      if (resolvedKey) localStorage.setItem(resolvedKey, status);
+    } catch {
+      // Storage cleanup is best-effort only.
+    }
   }
 
   return data || null;

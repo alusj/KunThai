@@ -1840,11 +1840,11 @@ if (!isMobileVideoDevice) {
       ) : null}
 
       {videoNotice ? (
-        <div className="fixed inset-x-0 bottom-0 z-[90] flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:justify-end sm:pb-0">
+        <div className="pointer-events-none fixed inset-0 z-[90] flex items-center justify-center px-4">
           <section
             role="alertdialog"
             aria-label="Video caution"
-            className="kt-route-transition w-full max-w-md rounded-[24px] border border-amber-200 bg-white p-4 shadow-2xl shadow-slate-950/20"
+            className="kt-route-transition pointer-events-auto w-full max-w-md rounded-[24px] border border-amber-200 bg-white p-4 shadow-2xl shadow-slate-950/20"
           >
             <div className="flex items-start gap-3">
               <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-amber-50 text-amber-600">

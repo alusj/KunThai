@@ -505,6 +505,39 @@ export function getLegacyOperatorAccount() {
   return stored?.userId ? stored : null;
 }
 
+async function selectCompanyFleetAssignment(operatorId, userId) {
+  try {
+    const { data: assigned } = await supabase
+      .from("transport_company_fleets")
+      .select("*")
+      .eq("operator_id", operatorId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (assigned?.[0]) return assigned[0];
+
+    // Older accepted invites never linked the operator onto the company fleet,
+    // so resolve the assignment through the invite instead.
+    const { data: invites } = await supabase
+      .from("transport_company_operator_invites")
+      .select("company_fleet_id")
+      .eq("status", "accepted")
+      .or(`operator_user_id.eq.${userId},operator_id.eq.${operatorId}`)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const companyFleetId = invites?.[0]?.company_fleet_id;
+    if (!companyFleetId) return null;
+
+    const { data: fleetRows } = await supabase
+      .from("transport_company_fleets")
+      .select("*")
+      .eq("id", companyFleetId)
+      .limit(1);
+    return fleetRows?.[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getOperatorAccount() {
   const userId = await getCurrentUserId();
   const { data: operator, error } = await supabase
@@ -519,14 +552,39 @@ export async function getOperatorAccount() {
     return null;
   }
 
-  const [{ data: fleets, error: fleetError }, dashboard] = await Promise.all([
-    selectLatestPersonalFleet(operator.id),
-    fetchOperatorDashboard(operator.id),
-  ]);
-
+  const { data: fleets, error: fleetError } = await selectLatestPersonalFleet(operator.id);
   if (fleetError) throw new Error(fleetError.message);
 
-  const account = mapOperatorAccount(operator, fleets?.[0], { dashboard });
+  let fleet = fleets?.[0] || null;
+  let companyAssignment = null;
+
+  if (!fleet) {
+    companyAssignment = await selectCompanyFleetAssignment(operator.id, userId);
+    if (companyAssignment?.transport_fleet_id) {
+      const { data: runtimeFleets } = await supabase
+        .from("transport_fleets")
+        .select("*")
+        .eq("id", companyAssignment.transport_fleet_id)
+        .limit(1);
+      fleet = runtimeFleets?.[0] || null;
+    }
+  }
+
+  const dashboard = await fetchOperatorDashboard(operator.id, fleet?.id || null, {
+    fleetScoped: Boolean(companyAssignment),
+  });
+
+  const account = mapOperatorAccount(operator, fleet, { dashboard });
+  if (companyAssignment) {
+    account.companyFleetId = companyAssignment.id;
+    account.companyId = companyAssignment.company_id || "";
+    if (!account.form.fleetName) {
+      account.form.fleetName = companyAssignment.fleet_name || companyAssignment.fleet_type || "Company fleet";
+    }
+    if (!account.form.plateNumber) account.form.plateNumber = companyAssignment.plate_number || "";
+    if (!account.form.operatingArea) account.form.operatingArea = companyAssignment.operating_area || "";
+    if (!account.form.homeBaseLocation) account.form.homeBaseLocation = companyAssignment.home_base_location || "";
+  }
   localStorage.setItem(LEGACY_ACCOUNT_KEY, JSON.stringify(account));
   return account;
 }

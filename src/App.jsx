@@ -269,7 +269,7 @@ export default function App() {
   useEffect(() => {
     if (!userId || guestSession) return;
 
-    finalizeStoredVisibilityInvite()
+    finalizeStoredVisibilityInvite(userId)
       .then((result) => {
         if (result?.status === "credited" && Number(result.creditsAwarded || 0) > 0) {
           showToast("Your inviter received Visibility Credits.", "success", {

@@ -32,7 +32,7 @@ export default function GuestGateCard() {
 
   return (
     <AppPortal>
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[1500] flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-8">
+      <div className="pointer-events-none fixed inset-0 z-[1500] flex items-center justify-center px-4">
         <section
           role="alertdialog"
           aria-label="Sign in to continue"

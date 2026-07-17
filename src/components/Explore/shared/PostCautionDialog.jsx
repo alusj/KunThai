@@ -22,7 +22,7 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[1450] flex items-end justify-center sm:items-center" role="presentation">
+    <div className="fixed inset-0 z-[1450] flex items-center justify-center" role="presentation">
       <button
         type="button"
         aria-label="Go back and edit this post"

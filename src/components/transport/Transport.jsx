@@ -19,6 +19,7 @@ import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import AppBackTab from "../shared/AppBackTab";
 import { fetchOperatorDashboard, getOperatorAccount } from "../services/transportOperatorAccountService";
 import {
+  ensureInvitedOperatorProfile,
   getOperatorCompanyInvites,
   getTransportCompanyBookingQueue,
   getTransportCompanyAccount,
@@ -412,18 +413,37 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     }
 
     try {
+      // Linking the operator record on accept lets the backend provision the
+      // company fleet right away; identity documents remain an optional later step.
+      const operatorRecord = await ensureInvitedOperatorProfile(invite).catch(() => null);
       const updatedInvite = await respondToOperatorInvite(invite, {
         status: "accepted",
+        operatorId: operatorRecord?.id || operatorAccount?.id || invite.operatorId,
+        userId: operatorRecord?.user_id || operatorAccount?.userId || invite.userId,
         documents: {
-          operatorDocumentsRequired: true,
+          operatorDocumentsRequired: false,
+          operatorDocumentsOptional: true,
           operatorDocumentsRequestedAt: new Date().toISOString(),
           registrationRequired: false,
         },
       });
+      const refreshedAccount = await getOperatorAccount().catch(() => null);
+      if (refreshedAccount) setOperatorAccount(refreshedAccount);
       setOperatorInviteDocumentsInvite(updatedInvite);
     } catch (error) {
       setOperatorInviteStatus(error.message || "Unable to accept this company request.");
     }
+  }
+
+  async function skipOperatorInviteDocuments(invite) {
+    setOperatorInviteDocumentsInvite(null);
+    await refreshOperatorCompanyInvites(operatorAccount).catch(() => {});
+    setOperatorInviteStatus(
+      `${invite?.companyName || "Company"} request accepted. You can add your operator documents any time from the Verification Center.`,
+    );
+    showToast("Request accepted. Documents can be added later.", "success", {
+      title: "Company invitation",
+    });
   }
 
   async function continueWithExistingOperatorDocuments() {
@@ -810,6 +830,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             setRouteDirection("backward");
             setOperatorInviteDocumentsInvite(null);
           }}
+          onSkip={skipOperatorInviteDocuments}
           onSubmit={submitOperatorInviteDocuments}
         />
       </div>
@@ -1318,7 +1339,7 @@ const operatorInviteDocumentFields = [
   },
 ];
 
-function OperatorInviteDocumentsScreen({ invite, onBack, onSubmit }) {
+function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
   const [documents, setDocuments] = useState({});
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1384,6 +1405,11 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSubmit }) {
           <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
             {invite?.companyName || "This company"} invited you to operate under {invite?.fleetName || invite?.fleetType || "their Fleet HQ"}. The company already provides company and fleet records. You only need to submit documents that prove your operator identity and license.
           </p>
+          {onSkip ? (
+            <p className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold leading-5 text-emerald-800">
+              Your acceptance is already saved. Documents are optional right now - you can skip this step and add them later from the Verification Center, but your account stays Not verified until KunThai reviews them.
+            </p>
+          ) : null}
         </section>
 
         <section className="mt-4 grid gap-3">
@@ -1423,7 +1449,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSubmit }) {
           </p>
         ) : null}
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-[auto_1fr]">
+        <div className="mt-5 grid gap-2 sm:grid-cols-[auto_auto_1fr]">
           <button
             type="button"
             onClick={onBack}
@@ -1431,6 +1457,16 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSubmit }) {
           >
             Back
           </button>
+          {onSkip ? (
+            <button
+              type="button"
+              onClick={() => onSkip(invite)}
+              disabled={submitting}
+              className="h-12 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 text-sm font-black text-emerald-800 disabled:opacity-60"
+            >
+              Skip for now
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={submitDocuments}

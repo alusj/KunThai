@@ -52,6 +52,7 @@ import {
   updateOperatorAvailability,
   updateTripControls,
 } from "../services/transportOperatorAccountService";
+import { updateTransportCompanyOperatorAvailability } from "../services/transportCompanyService";
 import {
   formatTripDistance,
   formatTripElapsed,
@@ -267,7 +268,9 @@ export default function OperatorDashboardScreen({
 
   const refreshDashboard = useCallback(async () => {
     if (account?.companyFleetId && !account?.fleetId) {
-      setDashboardError("This company fleet is not linked to passenger service yet.");
+      // The runtime fleet is provisioned automatically on the first "Go online",
+      // so an unlinked company fleet is a normal state, not an error.
+      setDashboardError("");
       return;
     }
 
@@ -308,7 +311,11 @@ export default function OperatorDashboardScreen({
     const nextActive = !isActive;
     setIsActive(nextActive);
     try {
-      const updatedFleet = await updateOperatorAvailability(account?.fleetId, nextActive);
+      const updatedFleet = account?.fleetId
+        ? await updateOperatorAvailability(account.fleetId, nextActive)
+        : account?.companyFleetId
+          ? await updateTransportCompanyOperatorAvailability({ companyFleetId: account.companyFleetId }, nextActive)
+          : await updateOperatorAvailability(account?.fleetId, nextActive);
       const updatedActive = updatedFleet?.active_status === "active";
       setIsActive(updatedActive);
       showToast(updatedActive ? "Fleet is live for passengers." : "Fleet is offline.", "success");
@@ -317,6 +324,7 @@ export default function OperatorDashboardScreen({
 
         return {
           ...current,
+          fleetId: current.fleetId || updatedFleet?.id || "",
           activeStatus: updatedFleet?.active_status || (updatedActive ? "active" : "offline"),
           isVisibleToPassengers: Boolean(updatedFleet?.is_visible_to_passengers ?? true),
           savedAt: updatedFleet?.updated_at || current.savedAt,
@@ -342,6 +350,13 @@ export default function OperatorDashboardScreen({
   async function handleTripControlsSave(nextControls) {
     if (dashboardReadOnly) {
       setDashboardError(dashboardReadOnlyReason);
+      return;
+    }
+
+    if (!account?.fleetId && account?.companyFleetId) {
+      const message = "Go online once to activate this company fleet, then adjust trip controls.";
+      setDashboardError(message);
+      showToast(message, "warning");
       return;
     }
 

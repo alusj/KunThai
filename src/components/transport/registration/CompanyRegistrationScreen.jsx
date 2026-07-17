@@ -454,7 +454,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     );
   }
 
-  function validateStep(targetStep = step, { final = false } = {}) {
+  function validateStep(targetStep = step) {
     if (targetStep === 0) {
       if (!form.companyName.trim()) return "Enter the company or organization name.";
       if (!form.ownerName.trim()) return "Enter the responsible owner or director name.";
@@ -482,16 +482,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         fleet.pricePerHour,
       ].some((value) => !String(value || "").trim()));
       if (incompleteFleet) return "Each fleet needs its name, plate, make, model, year, color, operating area, home base, starting price, per-kilometre price, and hourly price.";
-      if (final) {
-        const missingImageFleet = fleets.find((fleet) =>
-          getFleetImageRequirements(form).some((requirement) => !fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))])
-        );
-        if (missingImageFleet) return "Upload the front, back, left-side, and right-side image for every fleet.";
-        const missingDocumentFleet = fleets.find((fleet) =>
-          getFleetDocumentRequirements(form, fleet).some((requirement) => !fleet.documents?.[documentStorageKey(requirement)])
-        );
-        if (missingDocumentFleet) return "Upload all required vehicle documents for every fleet.";
-      }
+      // Fleet photos and vehicle documents are intentionally NOT required to
+      // submit: Fleet HQ follows "register first, upload later". The company
+      // stays unverified until KunThai reviews the documents.
       const incompleteSafetyFleet = fleets.find((fleet) => (fleetSafetyQuestions[fleet.fleetType] || []).some((question) => !String(fleet.safetyAnswers?.[question.key] || "").trim()));
       if (incompleteSafetyFleet) return "Answer every security and safety question for each fleet.";
       if (addOperatorMode && fleets.some((fleet) => !(fleet.operators || []).length)) {
@@ -605,7 +598,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const origin = buttonRect
       ? { x: `${buttonRect.left + buttonRect.width / 2}px`, y: `${buttonRect.top + buttonRect.height / 2}px` }
       : { x: "50%", y: "70%" };
-    const firstError = (addOperatorMode ? [2] : [0, 1, 2]).map((item) => validateStep(item, { final: true })).find(Boolean);
+    const firstError = (addOperatorMode ? [2] : [0, 1, 2]).map((item) => validateStep(item)).find(Boolean);
     if (firstError) {
       showStatus(firstError, "error");
       return;
@@ -1244,8 +1237,8 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
       </section>
       <FleetImagesSection fleet={fleet} form={form} onUploadDocument={onUploadDocument} />
       <section className="mt-5">
-        <h4 className="font-black text-slate-950">Required vehicle documents</h4>
-        <p className="mt-1 text-xs font-semibold text-slate-500">Use clear PDF or image files, matching the sole-operator document style.</p>
+        <h4 className="font-black text-slate-950">Vehicle documents</h4>
+        <p className="mt-1 text-xs font-semibold text-slate-500">Optional now, needed for verification. Use clear PDF or image files - you can also add them later from Fleet HQ.</p>
         <DocumentGrid
           documents={getFleetDocumentRequirements(form, fleet).map((requirement) => documentGridItem(requirement))}
           uploads={fleet.documents}
@@ -1311,8 +1304,8 @@ function FleetImagesSection({ fleet, form, onUploadDocument }) {
     <section className="mt-5 rounded-3xl border border-slate-100 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 className="font-black text-slate-950">Required fleet images</h4>
-          <p className="mt-1 text-xs font-semibold text-slate-500">Upload at least front, back, left side, and right side views.</p>
+          <h4 className="font-black text-slate-950">Fleet images</h4>
+          <p className="mt-1 text-xs font-semibold text-slate-500">Front, back, left side, and right side views. Optional now - passengers see them once uploaded, and verification needs them.</p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{imageCount}/{imageRequirements.length}</span>
       </div>

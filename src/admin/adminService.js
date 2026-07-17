@@ -229,6 +229,61 @@ export async function getCaseActivity(caseId) {
   };
 }
 
+export async function getCaseActionHistory(caseId, limit = 10) {
+  if (!caseId) return [];
+  if (isAdminPreview()) {
+    return previewDelay([
+      {
+        id: `preview-action-${caseId}`,
+        action_key: "case.status_changed",
+        reason: "Preview action",
+        created_at: new Date().toISOString(),
+        can_undo: true,
+        undo_status: "active",
+      },
+    ]);
+  }
+  return unwrap(
+    await supabase.rpc("admin_get_case_action_history", {
+      target_case_uuid: caseId,
+      result_limit: limit,
+    }),
+    "Unable to load case actions.",
+  ) || [];
+}
+
+export async function undoCaseAction(caseId, auditLogId, reason = "") {
+  if (isAdminPreview()) {
+    return runAdminMutation(
+      () => previewDelay(updatePreviewCase(caseId, { status: "in_review", resolution_code: null, resolution_note: null })),
+      { action: "case.action_undone", caseId, auditLogId },
+    );
+  }
+  return runAdminMutation(
+    async () => unwrap(
+      await supabase.rpc("admin_undo_case_action", {
+        target_case_uuid: caseId,
+        target_audit_log_uuid: auditLogId || null,
+        undo_reason: reason,
+      }),
+      "Unable to undo this case action.",
+    ),
+    { action: "case.action_undone", caseId, auditLogId },
+  );
+}
+
+export async function getAdminAccountControl(userId) {
+  if (!userId) return null;
+  if (isAdminPreview()) return previewDelay(null);
+  const { data, error } = await supabase
+    .from("platform_account_controls")
+    .select("user_id, status, reason, restricted_sectors, expires_at, updated_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message || "Unable to load account access.");
+  return data || null;
+}
+
 function collectCaseEvidence(value, path = [], collected = []) {
   if (!value) return collected;
 

@@ -55,6 +55,7 @@ import {
   COMPANY_OPERATOR_ROLES,
   getTransportCompanyBookingQueue,
   leaveTransportCompany,
+  manageTransportCompanyFleet,
   manageTransportCompanyOperator,
   resolveTransportCompanyOperatorAssignment,
   updateTransportCompanyOperatorAvailability,
@@ -79,6 +80,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const [operatorAction, setOperatorAction] = useState(null);
   const [responsibilityOperator, setResponsibilityOperator] = useState(null);
   const [removeOperator, setRemoveOperator] = useState(null);
+  const [fleetAction, setFleetAction] = useState(null);
+  const [fleetConfirm, setFleetConfirm] = useState(null);
   const [companyNotificationsOpen, setCompanyNotificationsOpen] = useState(false);
   const [companyNotificationSettingsOpen, setCompanyNotificationSettingsOpen] = useState(false);
   const [bookingQueueOpen, setBookingQueueOpen] = useState(false);
@@ -116,14 +119,14 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       fleetVisibleToPassengers: fleet.isVisibleToPassengers,
     })),
   );
+  // Documents are optional: an accepted operator counts as active even before
+  // any identity documents are submitted. Only outstanding registrations stay pending.
   const acceptedOperators = requests.filter((request) =>
-    request.status === "accepted" && !request.documents?.registrationRequired && !request.documents?.operatorDocumentsRequired
+    (request.status === "accepted" || request.status === "accepted_pending_documents") &&
+      !request.documents?.registrationRequired
   );
   const pendingRequests = requests.filter((request) =>
-    request.status === "pending" ||
-      request.status === "accepted_pending_documents" ||
-      request.documents?.registrationRequired ||
-      request.documents?.operatorDocumentsRequired
+    request.status === "pending" || request.documents?.registrationRequired
   );
   const access = company?.access || {};
   const notificationPreferenceUserId = access.userId || company?.userId || "";
@@ -131,6 +134,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     readCompanyNotificationPreferences(company?.id, notificationPreferenceUserId),
   );
   const canManageOperators = Boolean(access.canManageOperators);
+  const canManageFleets = Boolean(access.canManageFleets);
   const canAddOperators = Boolean(access.isOwner);
   const canViewOperatorDashboard = Boolean(access.isOwner || access.canManageOperators);
   const canViewAllBookings = Boolean(access.canViewAllBookings);
@@ -486,6 +490,25 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     }
   }
 
+  async function runFleetAction(fleet, action, options = {}) {
+    try {
+      setManagementBusy(true);
+      const updatedCompany = await manageTransportCompanyFleet(company, fleet, action, options);
+      const copy = action === "delete"
+        ? "Fleet deleted from Fleet HQ."
+        : "Operator removed from this fleet. The fleet stays offline until a new operator is assigned.";
+      setLocalStatus(copy);
+      onCompanyUpdate?.(updatedCompany);
+      setFleetAction(null);
+      setFleetConfirm(null);
+      showToast(copy, "success");
+    } catch (error) {
+      showToast(error.message || "Unable to update this fleet.", "danger");
+    } finally {
+      setManagementBusy(false);
+    }
+  }
+
   function runAfterDrawerClose(callback) {
     if (menuActionTimerRef.current) window.clearTimeout(menuActionTimerRef.current);
     setMenuOpen(false);
@@ -519,7 +542,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
 
   function renderDashboardTab(tab = activeTab) {
     if (tab === "Overview") return <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} />;
-    if (tab === "Fleets") return <FleetList fleets={fleets} />;
+    if (tab === "Fleets") {
+      return (
+        <FleetList
+          canManage={canManageFleets || access.isOwner}
+          fleets={fleets}
+          onManageFleet={setFleetAction}
+        />
+      );
+    }
     if (tab === "Operators") {
       return (
         <Colleagues
@@ -855,6 +886,39 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             onConfirm={() => runOperatorAction(removeOperator, "remove")}
             open={Boolean(removeOperator)}
             operator={removeOperator}
+          />
+          <FleetActionDrawer
+            busy={managementBusy}
+            canManage={canManageFleets || access.isOwner}
+            company={company}
+            fleet={fleetAction}
+            onAssignOperator={canAddOperators ? () => {
+              setFleetAction(null);
+              onRegisterCompany?.();
+            } : undefined}
+            onClose={() => setFleetAction(null)}
+            onDelete={(fleet) => {
+              setFleetAction(null);
+              setFleetConfirm({ fleet, action: "delete" });
+            }}
+            onEditFleet={access.isOwner ? () => {
+              setFleetAction(null);
+              (onEditCompany || onRegisterCompany)?.();
+            } : undefined}
+            onRemoveOperator={(fleet) => {
+              setFleetAction(null);
+              setFleetConfirm({ fleet, action: "removeOperator" });
+            }}
+            open={Boolean(fleetAction)}
+          />
+          <FleetConfirmDrawer
+            busy={managementBusy}
+            confirm={fleetConfirm}
+            onClose={() => setFleetConfirm(null)}
+            onConfirm={() => runFleetAction(fleetConfirm?.fleet, fleetConfirm?.action, {
+              operatorName: getFleetAssignedOperator(fleetConfirm?.fleet || {})?.name || "",
+            })}
+            open={Boolean(fleetConfirm)}
           />
         </>
       ) : null}
@@ -1567,26 +1631,50 @@ function ReadinessItem({ label, ready }) {
   );
 }
 
-function FleetList({ fleets }) {
+function getFleetAssignedOperator(fleet = {}) {
+  return (fleet.operators || []).find((operator) =>
+    ["accepted", "accepted_pending_documents"].includes(String(operator.status || "").toLowerCase()),
+  ) || null;
+}
+
+function FleetList({ canManage = false, fleets, onManageFleet }) {
   if (!fleets.length) return <EmptyPanel title="No fleets yet" body="Company fleets will appear here after registration." />;
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {fleets.map((fleet) => (
-        <section key={fleet.localId || fleet.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode || "Fleet code pending"}</p>
-            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.activeStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-              {fleet.activeStatus || "offline"}
-            </span>
-          </div>
-          <h3 className="mt-1 text-lg font-black text-slate-950">{fleet.fleetName || "Unnamed fleet"}</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.fleetType} · {fleet.plateNumber || "No plate"} · {fleet.serviceCategory}</p>
-          <div className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-500">
-            <FiMapPin />
-            {fleet.homeBase || fleet.operatingArea || "Home base not added"}
-          </div>
-        </section>
-      ))}
+      {fleets.map((fleet) => {
+        const assignedOperator = getFleetAssignedOperator(fleet);
+        return (
+          <section key={fleet.localId || fleet.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <p className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode || "Fleet code pending"}</p>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.activeStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                  {fleet.activeStatus || "offline"}
+                </span>
+                {canManage && onManageFleet ? (
+                  <button
+                    type="button"
+                    aria-label={`Fleet actions for ${fleet.fleetName || fleet.fleetCode || "fleet"}`}
+                    onClick={() => onManageFleet(fleet)}
+                    className="kt-touchable flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <h3 className="mt-1 text-lg font-black text-slate-950">{fleet.fleetName || "Unnamed fleet"}</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.fleetType} · {fleet.plateNumber || "No plate"} · {fleet.serviceCategory}</p>
+            <div className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-500">
+              <FiMapPin />
+              <span className="min-w-0 truncate">{fleet.homeBase || fleet.operatingArea || "Home base not added"}</span>
+            </div>
+            <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${assignedOperator ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}>
+              {assignedOperator ? `Operator: ${assignedOperator.name || assignedOperator.publicId || "Assigned"}` : "No operator assigned yet"}
+            </p>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -1680,7 +1768,7 @@ function Requests({ requests }) {
               <h3 className="mt-1 font-black text-slate-950">{request.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType}</p>
               {request.status === "accepted_pending_documents" || request.documents?.operatorDocumentsRequired || request.documents?.registrationRequired ? (
-                <p className="mt-2 text-xs font-bold text-blue-700">Operator accepted. Identity and license documents are still needed.</p>
+                <p className="mt-2 text-xs font-bold text-blue-700">Operator accepted. Identity and license documents are optional and can be added later for verification.</p>
               ) : null}
               {request.documents?.reuseNotice ? (
                 <p className="mt-2 text-xs font-bold text-emerald-700">Using the operator identity and license documents previously submitted.</p>
@@ -2221,6 +2309,100 @@ function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose
               />
             </>
           ) : null}
+        </div>
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, onClose, onDelete, onEditFleet, onRemoveOperator, open }) {
+  if (!fleet && !open) return null;
+  const assignedOperator = getFleetAssignedOperator(fleet || {});
+  return (
+    <FleetHqActionSheet label="Fleet actions" onClose={onClose} open={open}>
+      <ActionSheetHeader
+        eyebrow={company?.companyName || "Fleet HQ"}
+        icon={Truck}
+        onClose={onClose}
+        title={fleet?.fleetName || fleet?.fleetCode || "Fleet actions"}
+      />
+      <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
+        <div className="grid gap-3">
+          {onEditFleet ? (
+            <OperatorActionButton
+              detail="Open company registration to update fleet details, pricing, photos, and documents."
+              disabled={busy}
+              icon={Pencil}
+              label="Edit fleet"
+              onClick={onEditFleet}
+            />
+          ) : null}
+          {onAssignOperator ? (
+            <OperatorActionButton
+              detail={assignedOperator
+                ? "Invite another operator by KunThai ID from company registration."
+                : "Invite an operator by KunThai ID so this fleet can serve passengers."}
+              disabled={busy}
+              icon={UserRoundPlus}
+              label={assignedOperator ? "Add another operator" : "Assign an operator"}
+              onClick={onAssignOperator}
+            />
+          ) : null}
+          {canManage && assignedOperator ? (
+            <OperatorActionButton
+              detail={`Detach ${assignedOperator.name || "the assigned operator"} from this fleet and take it offline.`}
+              disabled={busy}
+              icon={UsersRound}
+              label="Remove operator from fleet"
+              onClick={() => onRemoveOperator?.(fleet)}
+            />
+          ) : null}
+          {canManage ? (
+            <OperatorActionButton
+              danger
+              detail="Withdraw this fleet's invitations and delete it from Fleet HQ. Operator KunThai accounts are not deleted."
+              disabled={busy}
+              icon={Trash2}
+              label="Delete fleet"
+              onClick={() => onDelete?.(fleet)}
+            />
+          ) : null}
+        </div>
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
+  const fleet = confirm?.fleet || {};
+  const isDelete = confirm?.action === "delete";
+  const fleetLabel = fleet.fleetName || fleet.fleetCode || "this fleet";
+  return (
+    <FleetHqActionSheet label={isDelete ? "Delete fleet" : "Remove fleet operator"} onClose={onClose} open={open}>
+      <ActionSheetHeader
+        eyebrow="Fleet management"
+        icon={isDelete ? Trash2 : UsersRound}
+        onClose={onClose}
+        title={isDelete ? `Delete ${fleetLabel}?` : `Remove the operator from ${fleetLabel}?`}
+      />
+      <div className="p-5">
+        <div className={`rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${isDelete ? "border-rose-100 bg-rose-50 text-rose-900" : "border-amber-100 bg-amber-50 text-amber-900"}`}>
+          {isDelete
+            ? "This deletes the fleet record, withdraws its operator invitations, and stops passenger service for this fleet. Operator KunThai accounts and trip history are not deleted."
+            : "The operator loses access to this company fleet and the fleet goes offline until you assign a new operator. Their personal KunThai account is not affected."}
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60">
+            Go back
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className={`h-12 rounded-2xl px-4 text-sm font-black text-white shadow-lg disabled:opacity-60 ${isDelete ? "bg-rose-600 shadow-rose-700/15" : "bg-amber-600 shadow-amber-700/15"}`}
+          >
+            {busy ? "Working..." : isDelete ? "Delete fleet" : "Remove operator"}
+          </button>
         </div>
       </div>
     </FleetHqActionSheet>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, ClipboardCheck, ExternalLink, FileAudio, FileText, FileVideo, Image as ImageIcon, LoaderCircle, MessageSquareText, UserRoundCheck, X } from "lucide-react";
-import { CASE_DECISIONS, CASE_STATUSES, formatCaseNumber, formatDateTime, titleCase } from "../adminConfig";
-import { addCaseNote, applyCaseDecision, claimCase, getAdminCaseContent, getAdminCaseEvidence, getCaseActivity, getCaseCountryLabel, getCaseTypeLabel, reviewCaseApproval, transitionCase } from "../adminService";
+import { CheckCircle2, ClipboardCheck, ExternalLink, FileAudio, FileText, FileVideo, Image as ImageIcon, LoaderCircle, MessageSquareText, RotateCcw, ShieldCheck, ShieldOff, SlidersHorizontal, UserRoundCheck, X } from "lucide-react";
+import { ADMIN_SECTORS, CASE_DECISIONS, CASE_STATUSES, formatCaseNumber, formatDateTime, formatRelativeTime, titleCase } from "../adminConfig";
+import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseTypeLabel, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
 import { showToast } from "../../Backend/services/toastService";
 
 export default function CaseDrawer({ item, access, onClose, onUpdated }) {
@@ -16,13 +16,42 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const [caseContent, setCaseContent] = useState([]);
   const [contentLoading, setContentLoading] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState(null);
+  const [caseActions, setCaseActions] = useState([]);
+  const [undoDraft, setUndoDraft] = useState(null);
+  const [accountControl, setAccountControl] = useState(null);
+  const [accountFormOpen, setAccountFormOpen] = useState(false);
+  const [accountForm, setAccountForm] = useState({ status: "active", reason: "", sectors: ["all"], expiresAt: "" });
 
   useEffect(() => {
     if (!item?.id) return;
     let active = true;
     getCaseActivity(item.id).then((value) => { if (active) setActivity(value); }).catch(() => null);
+    getCaseActionHistory(item.id).then((value) => { if (active) setCaseActions(value); }).catch(() => { if (active) setCaseActions([]); });
     return () => { active = false; };
   }, [item?.id]);
+
+  useEffect(() => {
+    if (!item?.subject_user_id) {
+      setAccountControl(null);
+      return undefined;
+    }
+    let active = true;
+    getAdminAccountControl(item.subject_user_id)
+      .then((value) => {
+        if (!active) return;
+        setAccountControl(value);
+        setAccountForm({
+          status: value?.status || "active",
+          reason: value?.reason || "",
+          sectors: value?.restricted_sectors?.length ? value.restricted_sectors : ["all"],
+          expiresAt: value?.expires_at ? value.expires_at.slice(0, 16) : "",
+        });
+      })
+      .catch(() => {
+        if (active) setAccountControl(null);
+      });
+    return () => { active = false; };
+  }, [item?.subject_user_id]);
 
   useEffect(() => {
     if (!item?.id) return;
@@ -71,8 +100,74 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
     });
   }
 
+  async function refreshCaseActions() {
+    if (!item?.id) return;
+    try {
+      const actions = await getCaseActionHistory(item.id);
+      setCaseActions(actions);
+    } catch {
+      setCaseActions([]);
+    }
+  }
+
+  async function submitUndoAction() {
+    if (!undoDraft?.action || !undoDraft.reason.trim()) return;
+    await run("undo-action", async () => {
+      const updated = await undoCaseAction(item.id, undoDraft.action.id, undoDraft.reason.trim());
+      await refreshCaseActions();
+      setUndoDraft(null);
+      setStatus(updated.status);
+      showToast("Case action undone.", "success", { title: "Admin case updated" });
+      return updated;
+    });
+  }
+
+  function toggleAccountSector(value) {
+    setAccountForm((current) => {
+      if (value === "all") return { ...current, sectors: ["all"] };
+      const withoutAll = current.sectors.filter((entry) => entry !== "all");
+      const sectors = withoutAll.includes(value) ? withoutAll.filter((entry) => entry !== value) : [...withoutAll, value];
+      return { ...current, sectors: sectors.length ? sectors : ["all"] };
+    });
+  }
+
+  async function saveAccountAccess(nextPatch = {}) {
+    const next = { ...accountForm, ...nextPatch };
+    if (!item.subject_user_id || !next.reason.trim()) return;
+    await run("account-access", async () => {
+      const updated = await setAdminUserStatus({
+        userId: item.subject_user_id,
+        status: next.status,
+        reason: next.reason.trim(),
+        sectors: next.status === "restricted" ? next.sectors : ["all"],
+        expiresAt: next.expiresAt || null,
+      });
+      setAccountControl(updated);
+      setAccountForm({
+        status: updated.status || "active",
+        reason: updated.reason || "",
+        sectors: updated.restricted_sectors?.length ? updated.restricted_sectors : ["all"],
+        expiresAt: updated.expires_at ? updated.expires_at.slice(0, 16) : "",
+      });
+      setAccountFormOpen(false);
+      showToast("Account access updated.", "success", { title: "Related account" });
+      return item;
+    });
+  }
+
+  async function restoreAccountAccess() {
+    const fallbackReason = `Account access restored from ${formatCaseNumber(item.case_number)}.`;
+    await saveAccountAccess({
+      status: "active",
+      reason: fallbackReason,
+      sectors: ["all"],
+      expiresAt: "",
+    });
+  }
+
   const source = item.metadata?.source || {};
   const canManage = access.permissions.includes("cases.manage");
+  const canManageUsers = access.permissions.includes("users.manage");
 
   return (
     <div className="fixed inset-0 z-[70]">
@@ -164,14 +259,112 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
                 <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 focus:border-emerald-600 focus:outline-none">
                   {CASE_STATUSES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
                 </select>
-                <button type="button" disabled={busy || status === item.status} onClick={() => run("status", () => transitionCase(item.id, status, reason))} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
+                <button type="button" disabled={busy || status === item.status} onClick={() => run("status", () => transitionCase(item.id, status, reason), (updated) => { setStatus(updated.status); refreshCaseActions(); })} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
                   {busy === "status" ? <LoaderCircle className="animate-spin" size={17} /> : <ClipboardCheck size={17} />} Update status
                 </button>
               </div>
               {!item.assignee_user_id ? (
-                <button type="button" disabled={busy} onClick={() => run("claim", () => claimCase(item.id))} className="mt-3 inline-flex h-11 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800 disabled:opacity-50">
+                <button type="button" disabled={busy} onClick={() => run("claim", () => claimCase(item.id), refreshCaseActions)} className="mt-3 inline-flex h-11 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800 disabled:opacity-50">
                   {busy === "claim" ? <LoaderCircle className="animate-spin" size={17} /> : <UserRoundCheck size={17} />} Claim case
                 </button>
+              ) : null}
+
+              {caseActions.length ? (
+                <div className="mt-6 border-t border-zinc-100 pt-5">
+                  <p className="text-xs font-black uppercase text-zinc-500">Recent actions</p>
+                  <div className="mt-3 space-y-3">
+                    {caseActions.slice(0, 3).map((action) => {
+                      const actionTitle = titleCase(action.action_key?.replaceAll(".", " ") || "Admin action");
+                      const undoOpen = undoDraft?.action?.id === action.id;
+                      return (
+                        <article key={action.id} className="rounded-lg border border-zinc-200 bg-white p-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-black text-zinc-950">{actionTitle}</p>
+                                {action.undo_status === "undone" ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-800">Undone</span> : null}
+                              </div>
+                              <p className="mt-1 text-xs font-semibold text-zinc-500">{action.reason || "No reason recorded"} - {formatRelativeTime(action.created_at)}</p>
+                            </div>
+                            {action.can_undo ? (
+                              <button type="button" disabled={busy} onClick={() => setUndoDraft({ action, reason: "" })} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-red-200 px-3 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-50">
+                                <RotateCcw size={15} /> Undo
+                              </button>
+                            ) : null}
+                          </div>
+                          {undoOpen ? (
+                            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                              <p className="text-xs font-bold leading-5 text-amber-900">Undo restores the case to its previous status, assignee, and decision state. If this action caused an account restriction, also check Related account access below.</p>
+                              <textarea value={undoDraft.reason} onChange={(event) => setUndoDraft((current) => current ? { ...current, reason: event.target.value } : current)} rows={2} placeholder="Required undo reason" className="mt-2 w-full resize-none rounded-lg border border-amber-200 bg-white p-2.5 text-sm font-medium text-zinc-900 focus:border-amber-500 focus:outline-none" />
+                              <div className="mt-2 flex justify-end gap-2">
+                                <button type="button" disabled={busy} onClick={() => setUndoDraft(null)} className="h-9 rounded-lg px-3 text-xs font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50">Cancel</button>
+                                <button type="button" disabled={busy || !undoDraft.reason.trim()} onClick={submitUndoAction} className="inline-flex h-9 items-center gap-2 rounded-lg bg-amber-700 px-3 text-xs font-black text-white hover:bg-amber-800 disabled:opacity-50">
+                                  {busy === "undo-action" ? <LoaderCircle className="animate-spin" size={15} /> : <RotateCcw size={15} />} Confirm undo
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {canManageUsers && item.subject_user_id ? (
+                <div className="mt-6 border-t border-zinc-100 pt-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase text-zinc-500">Related account access</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-black ${!accountControl || accountControl.status === "active" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+                          {!accountControl || accountControl.status === "active" ? <ShieldCheck size={13} /> : <ShieldOff size={13} />}
+                          {titleCase(accountControl?.status || "active")}
+                        </span>
+                        {accountControl?.restricted_sectors?.length ? <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-600">{accountControl.restricted_sectors.join(", ")}</span> : null}
+                      </div>
+                      {accountControl?.reason ? <p className="mt-2 text-xs font-semibold leading-5 text-zinc-500">{accountControl.reason}</p> : <p className="mt-2 text-xs font-semibold leading-5 text-zinc-500">No active restriction is recorded for this user.</p>}
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      {accountControl && accountControl.status !== "active" ? (
+                        <button type="button" disabled={busy} onClick={restoreAccountAccess} className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white hover:bg-emerald-800 disabled:opacity-50">
+                          {busy === "account-access" ? <LoaderCircle className="animate-spin" size={15} /> : <RotateCcw size={15} />} Restore
+                        </button>
+                      ) : null}
+                      <button type="button" disabled={busy} onClick={() => setAccountFormOpen((value) => !value)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-300 px-3 text-xs font-black text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
+                        <SlidersHorizontal size={15} /> Edit
+                      </button>
+                    </div>
+                  </div>
+                  {accountFormOpen ? (
+                    <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block"><span className="mb-1.5 block text-xs font-black text-zinc-600">Status</span><select value={accountForm.status} onChange={(event) => setAccountForm((current) => ({ ...current, status: event.target.value }))} className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold"><option value="active">Active</option><option value="warned">Warned</option><option value="restricted">Restricted</option><option value="suspended">Suspended</option><option value="banned">Banned</option></select></label>
+                        <label className="block"><span className="mb-1.5 block text-xs font-black text-zinc-600">Expires optional</span><input type="datetime-local" value={accountForm.expiresAt} onChange={(event) => setAccountForm((current) => ({ ...current, expiresAt: event.target.value }))} className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-semibold" /></label>
+                      </div>
+                      {accountForm.status === "restricted" ? (
+                        <fieldset className="mt-3">
+                          <legend className="text-xs font-black text-zinc-600">Restricted sectors</legend>
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            {ADMIN_SECTORS.map((sector) => (
+                              <label key={sector.value} className="flex h-10 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-semibold">
+                                <input type="checkbox" checked={accountForm.sectors.includes(sector.value)} onChange={() => toggleAccountSector(sector.value)} className="accent-emerald-700" />
+                                {sector.label}
+                              </label>
+                            ))}
+                          </div>
+                        </fieldset>
+                      ) : null}
+                      <textarea value={accountForm.reason} onChange={(event) => setAccountForm((current) => ({ ...current, reason: event.target.value }))} rows={2} placeholder="Required account access reason" className="mt-3 w-full resize-none rounded-lg border border-zinc-300 bg-white p-2.5 text-sm font-medium text-zinc-900 focus:border-emerald-600 focus:outline-none" />
+                      <div className="mt-2 flex justify-end gap-2">
+                        <button type="button" disabled={busy} onClick={() => setAccountFormOpen(false)} className="h-9 rounded-lg px-3 text-xs font-black text-zinc-600 hover:bg-white disabled:opacity-50">Cancel</button>
+                        <button type="button" disabled={busy || !accountForm.reason.trim()} onClick={() => saveAccountAccess()} className="inline-flex h-9 items-center gap-2 rounded-lg bg-zinc-950 px-3 text-xs font-black text-white hover:bg-zinc-800 disabled:opacity-50">
+                          {busy === "account-access" ? <LoaderCircle className="animate-spin" size={15} /> : <ShieldCheck size={15} />} Save access
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
 
               <div className="mt-6 border-t border-zinc-100 pt-5">

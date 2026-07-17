@@ -6,6 +6,7 @@ import {
   checkKunThaiIdentityAvailability,
   normalizeEmailForIdentity,
 } from "./accountIdentityService";
+import { getStoredVisibilityInviteCode } from "./visibilityCreditService";
 
 const DEFAULT_ONBOARDING_METADATA = {
   primary_surface: "explore",
@@ -42,6 +43,9 @@ export const signUpWithPhone = async (phone, password, country = "") => {
           country_code: typeof country === "object" ? country.iso2 : "",
           account_type: "personal",
           registration_method: "phone",
+          // Carried in auth metadata so the backend can credit the inviter on
+          // verification even when this browser's storage is gone by then.
+          visibility_invite_code: getStoredVisibilityInviteCode() || undefined,
         },
       },
     });
@@ -113,6 +117,7 @@ export const signUpWithEmailAccount = async (email, phone, password, redirectTo,
           country_code: typeof country === "object" ? country.iso2 : "",
           account_type: "email",
           registration_method: "email",
+          visibility_invite_code: getStoredVisibilityInviteCode() || undefined,
         },
       },
     });

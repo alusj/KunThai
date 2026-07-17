@@ -80,7 +80,7 @@ export default function ToastProvider({ children }) {
   return (
     <>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1200] flex flex-col items-center gap-2 px-3 sm:top-5">
+      <div className="pointer-events-none fixed inset-0 z-[1200] flex flex-col items-center justify-center gap-2 px-3">
         {items.map((item) => {
           const tone = tones[item.tone] || tones.info;
           const Icon = tone.icon;
