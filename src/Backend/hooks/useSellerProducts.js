@@ -106,7 +106,7 @@ export function useSellerProducts() {
 
       if (action === "promote") {
         await promoteSellerProduct(product);
-        setActionMessage("Promotion setup created.");
+        setActionMessage("Small Boost started with 5 Visibility Credits.");
       }
 
       if (action === "publish") {

@@ -1,21 +1,58 @@
 import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCustomerCare";
 import RecentConversations from "./RecentConversations";
-import { useEffect, useRef, useState } from "react";
-import { markSellerConversationRead, sendSellerMarketplaceMessage } from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ImagePlus, Send, X } from "lucide-react";
+import {
+  markSellerConversationRead,
+  sendSellerMarketplaceMessage,
+  subscribeSellerMarketplaceMessages,
+} from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
+import { formatMessageTime } from "../../../../../Backend/utils/formatMessageTime";
 import AppBackTab from "../../../../shared/AppBackTab";
 
 const CONVERSATION_TRANSITION_MS = 360;
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Unable to read selected file."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function CustomerCare({ onBack } = {}) {
   const { conversations, loading, reload } = useSellerCustomerCare();
-  const [activeConversation, setActiveConversation] = useState(null);
+  const [activeId, setActiveId] = useState("");
   const [closingConversation, setClosingConversation] = useState(null);
   const [conversationAction, setConversationAction] = useState("idle");
   const [reply, setReply] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [sendError, setSendError] = useState("");
+  const [sending, setSending] = useState(false);
+  // Optimistic copies of just-sent messages, keyed by conversation id, so a
+  // reply shows in the thread immediately without waiting for a reload.
+  const [echoes, setEchoes] = useState([]);
   const transitionTimerRef = useRef(null);
-  const visibleConversation = activeConversation || closingConversation;
+  const fileInputRef = useRef(null);
+  const threadEndRef = useRef(null);
   const standalone = Boolean(onBack);
+
+  const activeConversation = useMemo(
+    () => (activeId ? conversations.find((conversation) => conversation.id === activeId) || null : null),
+    [activeId, conversations],
+  );
+  const visibleConversation = activeConversation || closingConversation;
+
+  const threadMessages = useMemo(() => {
+    if (!visibleConversation) return [];
+    const serverMessages = visibleConversation.messages || [];
+    const serverIds = new Set(serverMessages.map((message) => message.id));
+    const pending = echoes
+      .filter((echo) => echo.conversationId === visibleConversation.id && !serverIds.has(echo.message.id))
+      .map((echo) => echo.message);
+    return [...serverMessages, ...pending].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  }, [echoes, visibleConversation]);
 
   useEffect(() => {
     return () => {
@@ -24,6 +61,32 @@ export default function CustomerCare({ onBack } = {}) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    let unsubscribe = null;
+    let active = true;
+
+    subscribeSellerMarketplaceMessages(() => reload?.())
+      .then((cleanup) => {
+        if (active) {
+          unsubscribe = cleanup;
+        } else {
+          cleanup?.();
+        }
+      })
+      .catch(() => {
+        // Realtime is an enhancement; window events still refresh the list.
+      });
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [reload]);
+
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ block: "end" });
+  }, [threadMessages.length, activeId]);
 
   function clearTransitionTimer() {
     if (transitionTimerRef.current) {
@@ -37,7 +100,7 @@ export default function CustomerCare({ onBack } = {}) {
 
     clearTransitionTimer();
     setClosingConversation(activeConversation);
-    setActiveConversation(null);
+    setActiveId("");
     setConversationAction("pop");
     transitionTimerRef.current = window.setTimeout(() => {
       setClosingConversation(null);
@@ -84,26 +147,73 @@ export default function CustomerCare({ onBack } = {}) {
     );
   }
 
-  async function sendReply(event) {
-    event.preventDefault();
-    if (!reply.trim() || !activeConversation) return;
+  async function handleImageSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type?.startsWith("image/")) {
+      setSendError("Please select an image file.");
+      return;
+    }
 
     try {
-      await sendSellerMarketplaceMessage(activeConversation, reply);
-      setReply("");
-      setFeedback("Reply sent to buyer.");
-      await reload?.();
+      const dataUrl = await readFileAsDataUrl(file);
+      setAttachment({ dataUrl, name: file.name || "Selected photo" });
+      setSendError("");
     } catch (err) {
-      setFeedback(err.message || "Unable to send reply.");
+      setSendError(err.message || "Unable to prepare this image.");
+    }
+  }
+
+  async function sendReply(event) {
+    event.preventDefault();
+    const text = reply.trim();
+    const conversation = activeConversation;
+    if ((!text && !attachment) || !conversation || sending) return;
+
+    const pendingAttachment = attachment;
+    const tempId = `pending-${Date.now()}`;
+    const optimisticMessage = {
+      id: tempId,
+      from: "seller",
+      text,
+      mediaUrl: pendingAttachment?.dataUrl || "",
+      mediaType: pendingAttachment ? "image" : "text",
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+
+    setEchoes((current) => [...current, { conversationId: conversation.id, message: optimisticMessage }]);
+    setReply("");
+    setAttachment(null);
+    setSendError("");
+    setSending(true);
+
+    try {
+      const savedMessage = await sendSellerMarketplaceMessage(conversation, text, {
+        mediaUrl: pendingAttachment?.dataUrl || "",
+      });
+      setEchoes((current) =>
+        current.map((echo) => (echo.message.id === tempId ? { ...echo, message: savedMessage } : echo)),
+      );
+      reload?.();
+    } catch (err) {
+      setEchoes((current) => current.filter((echo) => echo.message.id !== tempId));
+      setReply(text);
+      setAttachment(pendingAttachment);
+      setSendError(err.message || "Unable to send reply.");
+    } finally {
+      setSending(false);
     }
   }
 
   async function openConversation(conversation) {
     clearTransitionTimer();
-    setFeedback("");
+    setSendError("");
     setClosingConversation(null);
     setConversationAction("push");
-    setActiveConversation({ ...conversation, unread: false });
+    setActiveId(conversation.id);
     transitionTimerRef.current = window.setTimeout(() => {
       setConversationAction("idle");
       transitionTimerRef.current = null;
@@ -129,6 +239,7 @@ export default function CustomerCare({ onBack } = {}) {
       : conversationAction === "pop"
         ? "kt-explore-stack-leave-right"
         : "translate-x-0";
+    const canSend = Boolean(reply.trim() || attachment) && !sending;
 
     return (
       <section className={`absolute inset-0 z-10 flex flex-col bg-gray-50 ${panelClass}`}>
@@ -149,24 +260,58 @@ export default function CustomerCare({ onBack } = {}) {
         </header>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
-          {conversation.messages.map((message) => (
-            <div
-              key={message.id}
-              className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ${
-                message.from === "seller"
-                  ? "ml-auto bg-emerald-600 text-white"
-                  : "border border-gray-200 bg-white text-gray-700"
-              }`}
-            >
-              {message.text}
-            </div>
-          ))}
+          {threadMessages.map((message) => {
+            const fromSeller = message.from === "seller";
+
+            return (
+              <div
+                key={message.id}
+                className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ${
+                  fromSeller
+                    ? "ml-auto bg-emerald-600 text-white"
+                    : "border border-gray-200 bg-white text-gray-700"
+                }`}
+              >
+                {message.mediaType === "image" && message.mediaUrl ? (
+                  <img src={message.mediaUrl} alt="Message attachment" className="mb-2 max-h-72 w-full rounded-xl object-cover" />
+                ) : null}
+                {message.text ? <p>{message.text}</p> : null}
+                <span className={`mt-1 block text-[10px] font-bold ${fromSeller ? "text-white/70" : "text-gray-400"}`}>
+                  {message.pending ? "Sending..." : formatMessageTime(message.createdAt)}
+                </span>
+              </div>
+            );
+          })}
+          <div ref={threadEndRef} />
         </div>
 
-        {feedback && <p className="mx-4 shrink-0 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700 sm:mx-6 lg:mx-8">{feedback}</p>}
+        {sendError && <p className="mx-4 shrink-0 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700 sm:mx-6 lg:mx-8">{sendError}</p>}
 
         <form onSubmit={sendReply} className="shrink-0 border-t border-gray-200 bg-white p-3">
+          {attachment ? (
+            <div className="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
+              <img src={attachment.dataUrl} alt="Selected attachment" className="h-12 w-12 rounded-lg object-cover" />
+              <p className="min-w-0 flex-1 truncate text-sm font-black text-gray-950">Photo ready to send</p>
+              <button
+                type="button"
+                onClick={() => setAttachment(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-gray-500"
+                aria-label="Remove attachment"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : null}
           <div className="flex w-full gap-2">
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200"
+              aria-label="Attach image"
+            >
+              <ImagePlus size={18} />
+            </button>
             <input
               value={reply}
               onChange={(event) => setReply(event.target.value)}
@@ -175,9 +320,10 @@ export default function CustomerCare({ onBack } = {}) {
             />
             <button
               type="submit"
-              disabled={!reply.trim()}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!canSend}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
+              <Send size={16} />
               Reply
             </button>
           </div>

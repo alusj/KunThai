@@ -7,6 +7,10 @@ import {
   updateSellerProductListing,
 } from "../services/marketplace/sellerProductService";
 import { haptics, sounds } from "../services/feedbackService";
+import {
+  MINIMUM_VISIBILITY_CREDITS,
+  normalizeVisibilityCreditSpend,
+} from "../services/visibilityCreditService";
 
 function buildProductForm(product, options) {
   if (!product) {
@@ -57,6 +61,9 @@ function buildProductForm(product, options) {
       lowStockAlert: product.lowStockAlert === undefined ? "3" : String(product.lowStockAlert),
       allowNegotiation: Boolean(product.allowNegotiation),
       publishStatus: product.promoted ? "promoted" : product.status || "active",
+      promotionCreditPackage: product.promotionCreditPackage || "small",
+      promotionCredits: String(product.promotionCredits || MINIMUM_VISIBILITY_CREDITS),
+      promotionAudience: product.promotionAudience || "countrywide",
     },
     delivery: {
       deliveryAvailable: product.deliveryAvailable ?? options.deliveryAvailable,
@@ -131,6 +138,12 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
         nextErrors.discountPrice = "Discount price must be lower than price.";
       }
       if (form.pricing.stock === "" || Number(form.pricing.stock) < 0) nextErrors.stock = "Enter stock quantity.";
+      if (form.pricing.publishStatus === "promoted") {
+        const promotionCredits = normalizeVisibilityCreditSpend(form.pricing.promotionCredits, MINIMUM_VISIBILITY_CREDITS);
+        if (promotionCredits < MINIMUM_VISIBILITY_CREDITS) {
+          nextErrors.promotionCredits = `Choose at least ${MINIMUM_VISIBILITY_CREDITS} Visibility Credits.`;
+        }
+      }
     }
 
     if (nextStep === 4 && !form.delivery.deliveryAvailable && !form.delivery.pickupAvailable) {

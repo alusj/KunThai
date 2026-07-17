@@ -56,8 +56,8 @@ import { getCountryCurrencyCode } from "../../../../../../data/globalCountryProf
 import { getUnavailableFeatureMessage, isFeatureAvailable } from "../../../../../../data/globalFeatureAvailability";
 import { findExploreTopic } from "../../../../../../data/exploreTopics";
 import {
-  getPackageCreditGoal,
-  getPackageInviteGoal,
+  MINIMUM_VISIBILITY_CREDITS,
+  normalizeVisibilityCreditSpend,
 } from "../../../../../../Backend/services/visibilityCreditService";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
@@ -85,12 +85,10 @@ const DEFAULT_ADVERT = {
   customStart: "",
   customEnd: "",
   budgetType: "total",
-  budgetAmount: "0",
+  budgetAmount: "5",
+  creditPackage: "small",
+  creditSpend: "5",
   currency: getCountryCurrencyCode(),
-  visibilityPackage: "starter",
-  customInviteGoal: "5",
-  inviteGoal: 5,
-  visibilityCredits: 5,
   type: "offer",
   title: "",
   ctaLabel: "Learn more",
@@ -181,6 +179,10 @@ function persistComposerLocationReturn(mode, location) {
 function cleanAdvertForSubmit(advert = {}) {
   const normalized = normalizeAdvertDraft(advert);
   const hasCoordinates = hasAdvertCoordinates(normalized);
+  const creditSpend = normalizeVisibilityCreditSpend(
+    normalized.creditSpend || normalized.budgetAmount,
+    MINIMUM_VISIBILITY_CREDITS,
+  );
   return {
     // Placement remains with the creative as a routing hint for offline and
     // pre-migration clients. Targeting, budget, duration, and delivery state
@@ -199,18 +201,17 @@ function cleanAdvertForSubmit(advert = {}) {
     lng: hasCoordinates ? Number(normalized.lng) : null,
     coordinatesLabel: String(normalized.coordinatesLabel || "").trim(),
     source: String(normalized.source || "").trim(),
-    visibilityTask: {
-      package: String(normalized.visibilityPackage || DEFAULT_ADVERT.visibilityPackage),
-      requiredInvites: getPackageInviteGoal(normalized.visibilityPackage, normalized.customInviteGoal),
-      requiredCredits: getPackageCreditGoal(normalized.visibilityPackage, normalized.customInviteGoal),
-      verifiedInvites: 0,
-      status: "pending_task",
-    },
+    creditPackage: String(normalized.creditPackage || "small"),
+    creditSpend,
   };
 }
 
 function cleanAdvertCampaignForSubmit(advert = {}) {
   const normalized = normalizeAdvertDraft(advert);
+  const creditBudget = normalizeVisibilityCreditSpend(
+    normalized.creditSpend || normalized.budgetAmount,
+    MINIMUM_VISIBILITY_CREDITS,
+  );
   return {
     placement: ["urfeed", "swip", "both"].includes(normalized.placement) ? normalized.placement : DEFAULT_ADVERT.placement,
     objective: String(normalized.objective || DEFAULT_ADVERT.objective),
@@ -226,11 +227,11 @@ function cleanAdvertCampaignForSubmit(advert = {}) {
     customStart: String(normalized.customStart || ""),
     customEnd: String(normalized.customEnd || ""),
     budgetType: "total",
-    budgetAmount: 0,
+    budgetAmount: creditBudget,
+    creditPackage: String(normalized.creditPackage || "small"),
+    creditSpend: creditBudget,
+    creditBudget,
     currency: String(normalized.currency || getCountryCurrencyCode()).toUpperCase().slice(0, 5),
-    visibilityPackage: String(normalized.visibilityPackage || DEFAULT_ADVERT.visibilityPackage),
-    requiredInvites: getPackageInviteGoal(normalized.visibilityPackage, normalized.customInviteGoal),
-    requiredCredits: getPackageCreditGoal(normalized.visibilityPackage, normalized.customInviteGoal),
   };
 }
 
@@ -1787,7 +1788,7 @@ if (!isMobileVideoDevice) {
           progress: 100,
           postId: publishedPostId,
           tab: publishedTab,
-          message: result.warning || (isAdvertMode ? "Your advert is posted. Sponsored delivery unlocks when the verified-invite task is completed." : "Your post is now live on Explore. Share KunThai to gain more visibility."),
+          message: result.warning || (isAdvertMode ? "Your sponsored campaign is now live in Explore. Share KunThai to gain more visibility." : "Your post is now live on Explore. Share KunThai to gain more visibility."),
         });
 
         closeComposer({ afterClose: resetComposer });

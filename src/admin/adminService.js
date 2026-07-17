@@ -707,12 +707,18 @@ export async function getAdminActivityNotifications(limit = 20) {
       priority: "normal",
       action_key: item.action_key,
       sector: item.sector,
+      actor_user_id: "preview-user",
+      audit_log_id: item.id,
+      case_id: item.case_id || null,
+      resource_type: item.resource_type,
+      resource_id: item.resource_id || null,
+      action_status: "active",
       read_at: null,
       created_at: item.created_at,
-      metadata: {},
+      metadata: { actorName: "Preview Admin", selfAction: true },
     })));
   }
-  return unwrap(
+  const rows = unwrap(
     await supabase
       .from("admin_activity_notifications")
       .select("*")
@@ -720,6 +726,7 @@ export async function getAdminActivityNotifications(limit = 20) {
       .limit(Math.max(1, Math.min(limit, 100))),
     "Unable to load admin activity notifications.",
   ) || [];
+  return rows.filter((item) => !item.archived_at);
 }
 
 export async function markAdminActivityNotificationsRead(ids = null) {
@@ -732,6 +739,50 @@ export async function markAdminActivityNotificationsRead(ids = null) {
   );
 }
 
+export async function updateAdminActivityNotification(notificationId, action) {
+  if (isAdminPreview()) {
+    const patch = { id: notificationId };
+    if (action === "read") patch.read_at = new Date().toISOString();
+    if (action === "unread") patch.read_at = null;
+    if (action === "archive") {
+      patch.archived_at = new Date().toISOString();
+      patch.action_status = "dismissed";
+    }
+    if (action === "restore") {
+      patch.archived_at = null;
+      patch.action_status = "active";
+    }
+    return previewDelay(patch);
+  }
+  return unwrap(
+    await supabase.rpc("admin_update_activity_notification", {
+      notification_uuid: notificationId,
+      next_action: action,
+    }),
+    "Unable to update this notification.",
+  );
+}
+
+export async function undoAdminActivityAction(notificationId, reason = "") {
+  if (isAdminPreview()) {
+    return previewDelay({
+      status: "undo_requested",
+      message: "Preview undo request recorded for review.",
+      notificationId,
+    });
+  }
+  return runAdminMutation(
+    async () => unwrap(
+      await supabase.rpc("admin_undo_activity_action", {
+        notification_uuid: notificationId,
+        undo_reason: reason,
+      }),
+      "Unable to undo this action.",
+    ),
+    { action: "admin_action.undo_requested", notificationId },
+  );
+}
+
 export function subscribeToAdminActivityNotifications(userId, onChange) {
   if (!userId || isAdminPreview()) return () => {};
   const channel = supabase
@@ -739,7 +790,12 @@ export function subscribeToAdminActivityNotifications(userId, onChange) {
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "admin_activity_notifications", filter: `recipient_user_id=eq.${userId}` },
-      (payload) => onChange?.(payload.new),
+      (payload) => onChange?.(payload.new, "INSERT"),
+    )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "admin_activity_notifications", filter: `recipient_user_id=eq.${userId}` },
+      (payload) => onChange?.(payload.new, "UPDATE"),
     )
     .subscribe();
   return () => { supabase.removeChannel(channel); };

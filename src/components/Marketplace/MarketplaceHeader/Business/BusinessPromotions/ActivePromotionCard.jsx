@@ -1,7 +1,9 @@
+import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+
 export default function ActivePromotionCard({ promotion }) {
-  const viewPercent = promotion.viewLimit
-    ? Math.min(100, Math.round((promotion.views / promotion.viewLimit) * 100))
-    : 0;
+  const creditBudget = Number(promotion.creditBudget || promotion.budgetLimit || 0);
+  const creditsSpent = Number(promotion.creditsSpent || promotion.budgetSpent || 0);
+  const spentPercent = creditBudget > 0 ? Math.min(100, Math.round((creditsSpent / creditBudget) * 100)) : 0;
 
   return (
     <article className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -10,6 +12,9 @@ export default function ActivePromotionCard({ promotion }) {
           <p className="text-sm font-black text-blue-700">{promotion.discountLabel}</p>
           <h4 className="mt-1 font-black text-gray-950">{promotion.name}</h4>
           <p className="mt-1 text-sm font-medium text-gray-500">{promotion.productName}</p>
+          <p className="mt-2 text-xs font-black uppercase text-gray-400">
+            {formatAudience(promotion.audienceType)} {promotion.durationDays ? `- ${promotion.durationDays} days` : ""}
+          </p>
         </div>
         <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
           Ends {promotion.endsIn}
@@ -18,23 +23,32 @@ export default function ActivePromotionCard({ promotion }) {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <MiniMetric label="Views" value={promotion.views} />
-        <MiniMetric label="Credits" value={promotion.creditCost} />
         <MiniMetric label="Orders" value={promotion.orders} />
+        <MiniMetric label="Revenue" value={formatCurrency(promotion.revenue)} />
       </div>
 
       <div className="mt-4">
         <div className="mb-2 flex items-center justify-between text-xs font-black text-gray-500">
-          <span>View cap</span>
-          <span>{promotion.viewLimit ? `${promotion.views} / ${promotion.viewLimit}` : "No fixed cap"}</span>
+          <span>Visibility Credits</span>
+          <span>
+            {creditsSpent} / {creditBudget}
+          </span>
         </div>
-        {promotion.viewLimit ? (
-          <div className="h-2 rounded-full bg-gray-100">
-            <div className="h-2 rounded-full bg-blue-600" style={{ width: `${viewPercent}%` }} />
-          </div>
-        ) : null}
+        <div className="h-2 rounded-full bg-gray-100">
+          <div className="h-2 rounded-full bg-blue-600" style={{ width: `${spentPercent}%` }} />
+        </div>
       </div>
     </article>
   );
+}
+
+function formatAudience(value = "") {
+  const labels = {
+    countrywide: "Country-wide",
+    nearby: "Nearby",
+    recommended: "Recommended",
+  };
+  return labels[value] || "Country-wide";
 }
 
 function MiniMetric({ label, value }) {

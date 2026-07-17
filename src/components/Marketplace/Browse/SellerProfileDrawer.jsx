@@ -276,29 +276,6 @@ function SkeletonBlock({ className = "" }) {
   return <div className={`animate-pulse rounded-lg bg-gray-100 ${className}`} />;
 }
 
-function SellerProfileSkeleton() {
-  return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <div className="flex gap-4">
-          <SkeletonBlock className="h-20 w-20 shrink-0" />
-          <div className="flex-1 space-y-3">
-            <SkeletonBlock className="h-5 w-48" />
-            <SkeletonBlock className="h-4 w-64" />
-            <SkeletonBlock className="h-4 w-40" />
-          </div>
-        </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <SkeletonBlock className="h-12" />
-          <SkeletonBlock className="h-12" />
-          <SkeletonBlock className="h-12" />
-        </div>
-      </div>
-      <SkeletonBlock className="h-40" />
-    </div>
-  );
-}
-
 function InfoRow({ icon, label, value }) {
   const IconComponent = icon;
   return (
@@ -891,8 +868,6 @@ export default function SellerProfileDrawer({
 
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-5 lg:px-8">
           <div className="mx-auto w-full max-w-5xl space-y-4 overflow-x-hidden">
-            {loadingProfile ? <SellerProfileSkeleton /> : null}
-
             <section className="w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <button
                 type="button"

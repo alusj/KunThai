@@ -1,3 +1,5 @@
+import { formatMessageTime } from "../../../../../Backend/utils/formatMessageTime";
+
 function conversationTitle(conversation) {
   if (conversation.productName) {
     return `${conversation.buyerName} sent you a message about ${conversation.productName}`;
@@ -26,7 +28,7 @@ export default function ConversationItem({ conversation, onOpen, active }) {
           </div>
           <p className="mt-1 text-xs font-bold uppercase text-gray-400">{conversation.productName ? "Product message" : "UrMall message"}</p>
         </div>
-        <span className="text-xs font-bold text-gray-400">{conversation.time}</span>
+        <span className="shrink-0 text-xs font-bold text-gray-400">{formatMessageTime(conversation.time)}</span>
       </div>
 
       <p className="mt-3 text-sm font-medium leading-5 text-gray-600">

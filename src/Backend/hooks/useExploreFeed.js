@@ -793,32 +793,36 @@ export function useExploreFeed(scope = "feed") {
             createdPost,
             postInput?.advert_campaign || getDraftMediaMeta(createdPost).advert,
           );
-          if (campaign) {
-            created = {
-              ...createdPost,
-              ad_campaign_id: campaign.id,
-              media_meta: {
-                ...getDraftMediaMeta(createdPost),
-                advert: {
-                  ...(getDraftMediaMeta(createdPost).advert || {}),
-                  campaign: {
-                    id: campaign.id,
-                    placement: campaign.placement,
-                    objective: campaign.objective,
-                    audienceType: campaign.audience_type,
-                    startsAt: campaign.starts_at,
-                    endsAt: campaign.ends_at,
-                    reason: "Your Explore advertisement campaign",
-                  },
+          if (!campaign) {
+            throw new Error("Unable to start this advert boost. Check your Visibility Credits and try again.");
+          }
+          created = {
+            ...createdPost,
+            ad_campaign_id: campaign.id,
+            media_meta: {
+              ...getDraftMediaMeta(createdPost),
+              advert: {
+                ...(getDraftMediaMeta(createdPost).advert || {}),
+                campaign: {
+                  id: campaign.id,
+                  placement: campaign.placement,
+                  objective: campaign.objective,
+                  audienceType: campaign.audience_type,
+                  startsAt: campaign.starts_at,
+                  endsAt: campaign.ends_at,
+                  creditBudget: Number(campaign.credit_budget || campaign.budget_amount || 0),
+                  creditsSpent: Number(campaign.credits_spent || 0),
+                  reason: "Your Explore advertisement campaign",
                 },
               },
-            };
-          }
+            },
+          };
         } catch (campaignError) {
           logExploreFeed("advert campaign setup deferred", {
             post_id: createdPost.id,
             message: campaignError?.message || "Campaign setup unavailable",
           });
+          throw campaignError;
         }
       }
       const createdScopes = getPostTargetScopes(created, scope);
@@ -888,10 +892,11 @@ export function useExploreFeed(scope = "feed") {
     } catch (err) {
       const message = err.message || "Unable to sync post to backend right now.";
       const hasMediaUpload = Boolean(postInput?.image_url || postInput?.audio_url || postInput?.video_url);
+      const isAdvertInput = isAdvertDraft(postInput);
 
       setError(message);
 
-      if (hasMediaUpload) {
+      if (hasMediaUpload || isAdvertInput) {
         setPosts((current) => {
           const nextPosts = current.filter((post) => post.id !== localId);
           writeStoredPosts(scope, nextPosts);

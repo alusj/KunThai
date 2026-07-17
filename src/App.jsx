@@ -17,6 +17,8 @@ import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
+import { captureVisibilityInviteFromLocation, finalizeStoredVisibilityInvite } from "./Backend/services/visibilityCreditService";
+import { showToast } from "./Backend/services/toastService";
 import supabase from "./Backend/lib/supabaseClient";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
@@ -257,7 +259,26 @@ export default function App() {
   const appGestureRef = useRef(null);
   const pagePanelRef = useRef(null);
   const userId = user?.id || "";
+  const guestSession = Boolean(user?.is_anonymous);
   setNotificationSeenUser(userId);
+
+  useEffect(() => {
+    captureVisibilityInviteFromLocation();
+  }, []);
+
+  useEffect(() => {
+    if (!userId || guestSession) return;
+
+    finalizeStoredVisibilityInvite()
+      .then((result) => {
+        if (result?.status === "credited" && Number(result.creditsAwarded || 0) > 0) {
+          showToast("Your inviter received Visibility Credits.", "success", {
+            title: "Invite verified",
+          });
+        }
+      })
+      .catch(() => {});
+  }, [guestSession, userId]);
 
   // A guest visit lives for one tab session only. When the tab was closed and
   // the visitor returns with a leftover anonymous session, the visit ends
@@ -392,8 +413,6 @@ export default function App() {
       window.removeEventListener("kuntai-return-main-page", handleReturnMainPage);
     };
   }, [page]);
-
-  const guestSession = Boolean(user?.is_anonymous);
 
   if (loading || (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
     // Users heading into onboarding get the onboarding backdrop instead of an

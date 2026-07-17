@@ -13,7 +13,7 @@ const SELLER_HEADER_STATE = {
     "Headphones",
     "Pending orders",
     "Low stock",
-    "Promotion credits",
+    "Payouts",
     "Store settings",
   ],
 };
@@ -33,7 +33,7 @@ export async function fetchSellerHeaderState() {
         .limit(30),
       supabase
         .from("marketplace_customer_messages")
-        .select("id,conversation_key,created_at")
+        .select("id,conversation_key,buyer_id,created_at")
         .eq("business_id", business.id)
         .eq("unread", true)
         .or("sender_role.eq.buyer,sender_role.is.null")
@@ -49,7 +49,8 @@ export async function fetchSellerHeaderState() {
     }));
     const latestMessageByConversation = new Map();
     (messagesResult.data || []).forEach((message) => {
-      const conversationKey = message.conversation_key || message.id;
+      // Match the customer-care grouping: conversations are per buyer.
+      const conversationKey = message.buyer_id || `legacy:${message.conversation_key || message.id}`;
       if (!latestMessageByConversation.has(conversationKey)) latestMessageByConversation.set(conversationKey, message);
     });
     const messageItems = Array.from(latestMessageByConversation.entries()).map(([conversationKey, message]) => ({

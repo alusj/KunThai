@@ -14,7 +14,6 @@ import BusinessActivity from "./BusinessActivity/BusinessActivity";
 import BusinessCatalog from "./BusinessCatalog/BusinessCatalog";
 import SellerProductDetail from "./BusinessCatalog/SellerProductDetail";
 import BusinessPromotions from "./BusinessPromotions/BusinessPromotions";
-import PromotionSetupScreen from "./BusinessPromotions/PromotionSetupScreen";
 import CustomerCare from "./CustomerCare/CustomerCare";
 import MyBizDashboardHeader from "./MyBizDashboardHeader/MyBizDashboardHeader";
 import BusinessStats from "./BusinessStats/BusinessStats";
@@ -90,7 +89,6 @@ export default function Business({ onBack }) {
   const [menuInitialScreen, setMenuInitialScreen] = useState(null);
   const [profileInitialView, setProfileInitialView] = useState("menu");
   const [editingProduct, setEditingProduct] = useState(null);
-  const [promotionProduct, setPromotionProduct] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [visibleScreen, setVisibleScreen] = useState("dashboard");
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
@@ -186,17 +184,6 @@ export default function Business({ onBack }) {
     openSellerScreen("productDetail");
   }
 
-  function openPromotionSetup(product) {
-    if (!product) {
-      setToastMessage("Choose a product before creating a promotion.");
-      window.setTimeout(() => setToastMessage(""), 3500);
-      return;
-    }
-
-    setPromotionProduct(product);
-    openSellerScreen("promotionSetup");
-  }
-
   async function openProductFromActivity(activity) {
     const product = await resolveSellerActivityProduct(activity);
     openSellerProductDetail(product);
@@ -237,16 +224,8 @@ export default function Business({ onBack }) {
             mode={editingProduct ? "edit" : "create"}
             product={editingProduct}
             onCancel={goBackSellerScreen}
-            onComplete={(savedProduct) => {
+            onComplete={() => {
               const wasEditing = Boolean(editingProduct);
-              if (savedProduct?.promotionRequested) {
-                setPromotionProduct(savedProduct);
-                setEditingProduct(null);
-                openSellerScreen("promotionSetup");
-                setToastMessage("Product is live. Complete the promotion conditions.");
-                setTimeout(() => setToastMessage(""), 4500);
-                return;
-              }
               setDashboardReveal({ type: "bottom", origin: { x: "50%", y: "100%" } });
               setVisibleScreen("dashboard");
               setScreenPanelOpen(false);
@@ -276,31 +255,6 @@ export default function Business({ onBack }) {
             onEdit={(product) => {
               setEditingProduct(product);
               openSellerScreen("addProduct");
-            }}
-          />
-        </SellerFullScreen>
-      );
-    }
-
-    if (visibleScreen === "promotionSetup") {
-      return (
-        <SellerFullScreen
-          key="promotionSetup"
-          eyebrow="Visibility credits"
-          title="Promotion Conditions"
-          subtitle="Choose duration, reach, audience, and verified invite requirements."
-          onBack={goBackSellerScreen}
-          open={screenPanelOpen}
-        >
-          <PromotionSetupScreen
-            product={promotionProduct}
-            onBack={goBackSellerScreen}
-            onDone={() => {
-              setPromotionProduct(null);
-              replaceSellerScreen("dashboard");
-              setActiveTab("overview");
-              setToastMessage("Promotion setup saved");
-              window.setTimeout(() => setToastMessage(""), 3500);
             }}
           />
         </SellerFullScreen>
@@ -511,7 +465,6 @@ export default function Business({ onBack }) {
                     setEditingProduct(product);
                     openSellerScreen("addProduct");
                 }}
-                  onPromoteProduct={openPromotionSetup}
               />
             ) : null}
             {businessKind === "retail" && activeTab === "catalog" ? (
@@ -522,7 +475,6 @@ export default function Business({ onBack }) {
                     setEditingProduct(product);
                     openSellerScreen("addProduct");
                 }}
-                  onPromoteProduct={openPromotionSetup}
               />
             ) : null}
             {businessKind === "retail" && activeTab === "drafts" ? (

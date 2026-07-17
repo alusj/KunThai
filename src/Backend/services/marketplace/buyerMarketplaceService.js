@@ -7,6 +7,7 @@ import {
   normalizeCountryIso,
 } from "../../../data/globalCountryProfiles";
 import { getTierUnitPrice, normalizeTierPricing } from "./tierPricingUtils";
+import { uploadMediaDataUrl } from "../explore/mediaService";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -530,55 +531,51 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
   };
 }
 
-function mapPromotedProduct(row = {}) {
-  const productRow = normalizeNestedBusiness(row.marketplace_products);
-  if (!productRow?.id) return null;
-  const product = mapBuyerProduct(productRow);
-  return {
-    ...product,
-    promotionId: row.id,
-    promotionEndsAt: row.ends_at || null,
-    promotionReachScope: row.reach_scope || "nearby",
-    promotionAudienceType: row.audience_type || "general",
-    promotionViewLimit: row.view_limit ? Number(row.view_limit) : null,
-  };
-}
-
-// Promoted listings power the promoted cards. Products appear here only while a
-// promotion campaign is active, inside its selected days, and below any view
-// cap. Publish-only products never show here.
+// Active promotion rows power the advert slider. When a boost ends, the product
+// leaves this surface even if an older product flag is still true.
 export async function fetchPromotedMarketplaceProducts(limit = 12) {
-  let lastError = null;
-  const now = new Date().toISOString();
+  const nowIso = new Date().toISOString();
+  const { data: promotionRows, error: promotionError } = await supabase
+    .from("marketplace_promotions")
+    .select("product_id,created_at,ends_at,status")
+    .eq("status", "active")
+    .not("product_id", "is", null)
+    .gt("ends_at", nowIso)
+    .order("created_at", { ascending: false })
+    .limit(Math.max(limit, 1) * 3);
 
-  for (const selectClause of PRODUCT_LIST_SELECTS) {
-    const promotionSelect = `
-      id,product_id,reach_scope,audience_type,starts_at,ends_at,view_limit,views,
-      marketplace_products (${selectClause})
-    `;
-    const promotionResult = await supabase
-      .from("marketplace_promotions")
-      .select(promotionSelect)
-      .eq("status", "active")
-      .lte("starts_at", now)
-      .gt("ends_at", now)
-      .order("created_at", { ascending: false })
-      .limit(limit * 2);
+  if (!promotionError) {
+    const productIds = Array.from(new Set((promotionRows || []).map((row) => row.product_id).filter(Boolean))).slice(0, limit);
+    if (!productIds.length) return [];
 
-    if (!promotionResult.error) {
-      const scoped = filterCountryScopedItems(
-        (promotionResult.data || [])
-          .filter((row) => !row.view_limit || Number(row.views || 0) < Number(row.view_limit || 0))
-          .map(mapPromotedProduct)
-          .filter(Boolean),
-        (product) => [product.seller?.country, product.location],
-      );
-      return scoped.items.slice(0, limit);
+    for (const selectClause of PRODUCT_LIST_SELECTS) {
+      const { data, error } = await supabase
+        .from("marketplace_products")
+        .select(selectClause)
+        .in("id", productIds)
+        .eq("status", "active")
+        .gt("stock", 0);
+
+      if (!error) {
+        const productsById = new Map((data || []).map((product) => [product.id, product]));
+        const orderedProducts = productIds.map((id) => productsById.get(id)).filter(Boolean);
+        const scoped = filterCountryScopedItems(
+          orderedProducts.map(mapBuyerProduct),
+          (product) => [product.seller?.country, product.location],
+        );
+        return scoped.items;
+      }
+      if (!isRecoverableSelectError(error)) return [];
     }
 
-    if (!isRecoverableSelectError(promotionResult.error)) return [];
-    lastError = promotionResult.error;
+    return [];
+  }
 
+  if (!isRecoverableSelectError(promotionError)) return [];
+
+  let lastError = null;
+
+  for (const selectClause of PRODUCT_LIST_SELECTS) {
     const { data, error } = await supabase
       .from("marketplace_products")
       .select(selectClause)
@@ -601,14 +598,6 @@ export async function fetchPromotedMarketplaceProducts(limit = 12) {
 
   if (lastError) return [];
   return [];
-}
-
-export async function recordMarketplacePromotionImpression(product) {
-  if (!product?.promotionId) return false;
-  const { error } = await supabase.rpc("record_marketplace_promotion_view", {
-    p_promotion_id: product.promotionId,
-  });
-  return !error;
 }
 
 export function subscribeBuyerMarketplaceProducts(onChange) {
@@ -1030,7 +1019,7 @@ export async function fetchBuyerMessages() {
     .select(
       `
         id,business_id,product_id,buyer_name,topic,preview,product_name,message_type,unread,support_dispute,created_at,
-        conversation_key,sender_role,
+        conversation_key,sender_role,media_url,media_type,
         marketplace_businesses (id,business_name,city,country,logo_url)
       `,
     )
@@ -1070,6 +1059,8 @@ export async function fetchBuyerMessages() {
       text: message.preview || "",
       topic: message.topic || message.product_name || "UrMall message",
       productName: message.product_name || "",
+      mediaUrl: message.media_url || "",
+      mediaType: message.media_type || "text",
       createdAt: message.created_at,
     });
     acc[key].unread = acc[key].unread || Boolean(message.unread && message.sender_role === "seller");
@@ -1112,7 +1103,7 @@ export async function markBuyerMarketplaceConversationRead(conversation) {
   window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
 }
 
-export async function sendBuyerMarketplaceMessage({ seller, product, topic, message, messageType = "message" }) {
+export async function sendBuyerMarketplaceMessage({ seller, product, topic, message, messageType = "message", mediaUrl = "", mediaType = "text" }) {
   const buyer = await getCurrentBuyer("Sign in to message this seller.");
   const businessId = seller?.id || product?.businessId;
   if (!businessId) throw new Error("Choose a seller to message.");
@@ -1120,25 +1111,60 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
   const productId = product?.isVertical ? null : product?.id || null;
   const conversationContext = product?.isVertical ? `${product.verticalType || "listing"}:${product.id}` : productId;
   const conversationKey = buildConversationKey(businessId, conversationContext, conversationTopic);
+  const uploadedMediaUrl = mediaUrl ? await uploadMediaDataUrl(mediaUrl, "image", buyer.id) : "";
 
-  const { error } = await supabase.from("marketplace_customer_messages").insert({
-    buyer_id: buyer.id,
-    business_id: businessId,
-    product_id: productId,
-    product_name: product?.name || "",
-    buyer_name: buyer.name,
-    topic: conversationTopic,
-    preview: message.trim(),
-    message_type: messageType,
-    conversation_key: conversationKey,
-    sender_role: "buyer",
-    unread: true,
-  });
+  const { data, error } = await supabase
+    .from("marketplace_customer_messages")
+    .insert({
+      buyer_id: buyer.id,
+      business_id: businessId,
+      product_id: productId,
+      product_name: product?.name || "",
+      buyer_name: buyer.name,
+      topic: conversationTopic,
+      preview: message.trim(),
+      message_type: messageType,
+      conversation_key: conversationKey,
+      sender_role: "buyer",
+      unread: true,
+      media_url: uploadedMediaUrl,
+      media_type: uploadedMediaUrl ? mediaType || "image" : "text",
+    })
+    .select()
+    .single();
 
   if (error) throw new Error(error.message);
   window.dispatchEvent(new CustomEvent("marketplace-message-sent"));
   window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
   window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId } }));
+
+  return {
+    id: data.id,
+    from: "buyer",
+    text: data.preview || "",
+    topic: data.topic || data.product_name || "UrMall message",
+    productName: data.product_name || "",
+    mediaUrl: data.media_url || "",
+    mediaType: data.media_type || "text",
+    createdAt: data.created_at,
+  };
+}
+
+// Live INSERT feed for this buyer's marketplace messages; returns an unsubscribe function.
+export async function subscribeBuyerMarketplaceMessages(onMessage) {
+  const buyerId = await getCurrentUserId("Sign in to view your messages.");
+  const channel = supabase
+    .channel(`buyer-marketplace-messages-${buyerId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "marketplace_customer_messages", filter: `buyer_id=eq.${buyerId}` },
+      (payload) => onMessage?.(payload.new),
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export async function fetchSellerCatalog(businessId) {

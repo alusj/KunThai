@@ -1,5 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
+import { MINIMUM_VISIBILITY_CREDITS, normalizeVisibilityCreditSpend } from "../visibilityCreditService";
 
 const AD_SESSION_KEY = "kunthai_explore_ad_session_v1";
 const AD_SEEN_SESSION_KEY = "kunthai_explore_seen_ads_v1";
@@ -12,7 +13,6 @@ const SAFE_INTEREST_CATEGORIES = [
   "technology", "fashion", "beauty", "food", "sports", "music", "entertainment",
   "education", "business", "travel", "photography", "gaming", "news",
 ];
-const MINIMUM_ADVERT_INVITES = 5;
 
 function isAdvert(post = {}) {
   return post.post_type === "advert" || post.category === "advert" || Boolean(post.media_meta?.advert || post.mediaMeta?.advert);
@@ -96,6 +96,10 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
 
   const advert = { ...normalizeAdvert(post), ...advertInput };
   const { durationDays, startsAt, endsAt } = getCampaignDates(advert);
+  const creditBudget = normalizeVisibilityCreditSpend(
+    advert.creditBudget || advert.creditSpend || advert.budgetAmount,
+    MINIMUM_VISIBILITY_CREDITS,
+  );
   const minimumAge = advert.ageRange === "18+"
     ? 18
     : advert.ageRange === "custom"
@@ -118,9 +122,10 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
     p_duration_days: durationDays,
     p_starts_at: startsAt,
     p_ends_at: endsAt,
-    p_budget_type: advert.budgetType || "total",
-    p_budget_amount: Math.max(0, Number(advert.budgetAmount) || 0),
+    p_budget_type: "total",
+    p_budget_amount: creditBudget,
     p_currency: advert.currency || getCountryCurrencyCode(),
+    p_credit_budget: creditBudget,
   });
 
   if (error) {
@@ -128,24 +133,7 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
     throw error;
   }
 
-  const campaign = (Array.isArray(data) ? data[0] : data) || null;
-  if (!campaign?.id) return campaign;
-
-  const requiredInvites = Math.max(MINIMUM_ADVERT_INVITES, Number(advert.requiredInvites || advert.visibilityTask?.requiredInvites || 5));
-  const requiredCredits = Math.max(1, Number(advert.requiredCredits || advert.visibilityTask?.requiredCredits || requiredInvites));
-  const { data: taskData, error: taskError } = await supabase.rpc("apply_explore_ad_visibility_task", {
-    p_campaign_id: campaign.id,
-    p_visibility_package: advert.visibilityPackage || advert.visibilityTask?.package || "starter",
-    p_required_invites: requiredInvites,
-    p_required_credits: requiredCredits,
-  });
-
-  if (taskError) {
-    if (isUnavailableDatabaseFeature(taskError)) return campaign;
-    throw taskError;
-  }
-
-  return taskData?.campaign || campaign;
+  return (Array.isArray(data) ? data[0] : data) || null;
 }
 
 export async function fetchRecommendedExploreAds(surface = "urfeed", options = {}) {
@@ -265,6 +253,8 @@ export async function hydrateOwnedExploreAdverts(posts = [], userId = "") {
             audienceType: campaign.audience_type,
             startsAt: campaign.starts_at,
             endsAt: campaign.ends_at,
+            creditBudget: Number(campaign.credit_budget || campaign.budget_amount || 0),
+            creditsSpent: Number(campaign.credits_spent || 0),
             reason: "Your Explore advertisement campaign",
           },
         },

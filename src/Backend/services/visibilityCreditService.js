@@ -1,162 +1,197 @@
 import supabase from "../lib/supabaseClient";
-import { isMissingTable } from "./explore/errors";
 
-export const STARTER_VISIBILITY_CREDITS = 5;
-export const MINIMUM_VERIFIED_INVITES = 5;
+const INVITE_STORAGE_KEY = "kunthai.visibilityInviteCode";
+const CREDIT_SHARE_PARAM = "kt_ref";
 
-export const VISIBILITY_PACKAGES = [
+export const VERIFIED_INVITE_CREDIT_REWARD = 5;
+export const MINIMUM_VISIBILITY_CREDITS = 5;
+
+export const VISIBILITY_BOOST_PACKAGES = [
   {
-    id: "starter",
-    label: "5 verified invites",
-    shortLabel: "5 invites",
+    id: "small",
+    label: "Small Boost",
     credits: 5,
-    invites: 5,
-    helper: "Basic visibility for a small local push.",
+    helper: "Good for a starter advert or product push.",
   },
   {
-    id: "growth",
-    label: "10 verified invites",
-    shortLabel: "10 invites",
+    id: "medium",
+    label: "Medium Boost",
     credits: 10,
-    invites: 10,
-    helper: "More visibility for a stronger launch.",
+    helper: "More delivery strength for the same campaign.",
   },
   {
-    id: "market",
-    label: "20 verified invites",
-    shortLabel: "20 invites",
+    id: "strong",
+    label: "Strong Boost",
     credits: 20,
-    invites: 20,
-    helper: "Best for countrywide or targeted promotion.",
+    helper: "Best for important offers and launches.",
   },
   {
     id: "custom",
-    label: "Custom invite target",
-    shortLabel: "Custom",
+    label: "Custom",
     credits: 5,
-    invites: 5,
-    helper: "Choose your own verified invite target.",
+    helper: "Choose how many credits to spend now.",
   },
 ];
 
-export const PROMOTION_DAY_OPTIONS = [
-  { value: 1, label: "1 day" },
-  { value: 3, label: "3 days" },
-  { value: 7, label: "7 days" },
-  { value: 14, label: "14 days" },
-];
+const DEFAULT_WALLET = {
+  balance: 0,
+  lifetimeEarned: 0,
+  lifetimeSpent: 0,
+  inviteCode: "",
+  inviteUrl: "",
+  rewardPerVerifiedInvite: VERIFIED_INVITE_CREDIT_REWARD,
+};
 
-export const PROMOTION_VIEW_GOALS = [
-  { value: 250, label: "250 views" },
-  { value: 500, label: "500 views" },
-  { value: 1000, label: "1,000 views" },
-  { value: 0, label: "No fixed cap" },
-];
-
-export function getVisibilityPackage(packageId) {
-  return VISIBILITY_PACKAGES.find((item) => item.id === packageId) || VISIBILITY_PACKAGES[0];
+function isUnavailableVisibilityFeature(error) {
+  const message = String(error?.message || error?.details || error?.hint || "").toLowerCase();
+  return (
+    error?.code === "PGRST202" ||
+    error?.code === "42P01" ||
+    message.includes("could not find the function") ||
+    message.includes("could not find the table") ||
+    message.includes("does not exist")
+  );
 }
 
-export function normalizeInviteGoal(value) {
-  const goal = Math.round(Number(value) || MINIMUM_VERIFIED_INVITES);
-  return Math.max(MINIMUM_VERIFIED_INVITES, Math.min(goal, 1000));
+function normalizeWallet(row = {}, invite = {}) {
+  const inviteCode = invite.code || "";
+  return {
+    balance: Number(row.balance || 0),
+    lifetimeEarned: Number(row.lifetime_earned || row.lifetimeEarned || 0),
+    lifetimeSpent: Number(row.lifetime_spent || row.lifetimeSpent || 0),
+    inviteCode,
+    inviteUrl: buildVisibilityInviteUrl(inviteCode),
+    rewardPerVerifiedInvite: Number(invite.reward_credits || VERIFIED_INVITE_CREDIT_REWARD),
+  };
 }
 
-export function getPackageInviteGoal(packageId, customInvites) {
-  if (packageId === "custom") return normalizeInviteGoal(customInvites);
-  return getVisibilityPackage(packageId).invites;
+function readInviteCodeFromUrl() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    const url = new URL(window.location.href);
+    const queryCode = url.searchParams.get(CREDIT_SHARE_PARAM) || url.searchParams.get("invite") || "";
+    if (queryCode) return queryCode;
+
+    const hash = String(url.hash || "");
+    const hashMatch = hash.match(/(?:kt_ref|invite|visibility-invite)[=/:-]([a-z0-9-]+)/i);
+    return hashMatch?.[1] || "";
+  } catch {
+    return "";
+  }
 }
 
-export function getPackageCreditGoal(packageId, customInvites) {
-  if (packageId === "custom") return normalizeInviteGoal(customInvites);
-  return getVisibilityPackage(packageId).credits;
+function normalizeInviteCode(code = "") {
+  return String(code || "").trim().replace(/[^a-z0-9-]/gi, "").slice(0, 48);
 }
 
-export function calculateMarketplacePromotionCost({
-  audienceType = "general",
-  durationDays = 3,
-  reachScope = "nearby",
-  viewGoal = 250,
-} = {}) {
-  const days = Math.max(1, Math.min(Number(durationDays) || 3, 90));
-  const views = Math.max(0, Number(viewGoal) || 0);
-  const reachMultiplier = reachScope === "countrywide" ? 3 : 1;
-  const audienceMultiplier = audienceType === "targeted" ? 2 : 1;
-  const durationCredits = days * 2 * reachMultiplier;
-  const viewCredits = views > 0 ? Math.ceil(views / 250) * reachMultiplier : reachMultiplier;
-  return Math.max(MINIMUM_VERIFIED_INVITES, durationCredits + viewCredits + (audienceMultiplier - 1) * 5);
+export function normalizeVisibilityCreditSpend(value, fallback = MINIMUM_VISIBILITY_CREDITS) {
+  const amount = Math.floor(Number(value || fallback));
+  return Number.isFinite(amount) ? Math.max(0, amount) : fallback;
 }
 
-export function buildInviteUrl(code) {
-  const origin = typeof window === "undefined" ? "https://kunthai.com" : window.location.origin;
-  return `${origin}/#invite/${encodeURIComponent(code || "")}`;
+export function getVisibilityPackageByCredits(credits) {
+  const amount = normalizeVisibilityCreditSpend(credits);
+  return VISIBILITY_BOOST_PACKAGES.find((item) => item.id !== "custom" && item.credits === amount) || VISIBILITY_BOOST_PACKAGES[0];
 }
 
-export function buildShareMessage({ inviteUrl, inviteGoal, surface = "KunThai" } = {}) {
+export function buildVisibilityInviteUrl(code = "") {
+  if (!code || typeof window === "undefined") return "";
+  const url = new URL(window.location.origin);
+  url.searchParams.set(CREDIT_SHARE_PARAM, code);
+  return url.toString();
+}
+
+export function buildVisibilityShareMessage(inviteUrl = "") {
   return [
-    `Join me on ${surface}.`,
-    `My visibility task needs ${normalizeInviteGoal(inviteGoal)} verified people to join through this link.`,
+    "Join me on KunThai.",
+    `Each verified invite helps me earn ${VERIFIED_INVITE_CREDIT_REWARD} Visibility Credits for adverts and UrMall boosts.`,
     inviteUrl,
   ].filter(Boolean).join("\n");
 }
 
-function mapWallet(row) {
-  return {
-    balance: Number(row?.balance || 0),
-    lifetimeEarned: Number(row?.lifetime_earned || 0),
-    lifetimeSpent: Number(row?.lifetime_spent || 0),
-    starterAwardedAt: row?.starter_awarded_at || null,
-  };
-}
+export function captureVisibilityInviteFromLocation() {
+  const code = normalizeInviteCode(readInviteCodeFromUrl());
+  if (!code || typeof localStorage === "undefined") return "";
 
-function mapReferralLink(row) {
-  if (!row) return null;
-  const inviteUrl = buildInviteUrl(row.code);
-  return {
-    id: row.id,
-    code: row.code,
-    surface: row.surface,
-    resourceId: row.resource_id,
-    requiredInvites: Number(row.required_invites || MINIMUM_VERIFIED_INVITES),
-    verifiedInvites: Number(row.verified_invites || 0),
-    status: row.status || "active",
-    inviteUrl,
-    shareMessage: buildShareMessage({
-      inviteUrl,
-      inviteGoal: row.required_invites,
-      surface: row.surface === "urmall_promotion" ? "KunThai UrMall" : "KunThai",
-    }),
-  };
-}
-
-export async function ensureVisibilityWallet(surface = "platform") {
-  const { data, error } = await supabase.rpc("ensure_visibility_wallet", { p_surface: surface });
-  if (error) {
-    if (isMissingTable(error)) {
-      return {
-        balance: STARTER_VISIBILITY_CREDITS,
-        lifetimeEarned: STARTER_VISIBILITY_CREDITS,
-        lifetimeSpent: 0,
-        starterAwardedAt: new Date().toISOString(),
-        unavailable: true,
-      };
-    }
-    throw new Error(error.message);
+  try {
+    localStorage.setItem(INVITE_STORAGE_KEY, code);
+  } catch {
+    // Referral capture is helpful, but app navigation must not depend on storage.
   }
-  return mapWallet(data);
+
+  return code;
 }
 
-export async function createReferralInviteTask({ requiredInvites = MINIMUM_VERIFIED_INVITES, resourceId = null, surface = "platform" } = {}) {
-  const { data, error } = await supabase.rpc("create_referral_invite_link", {
-    p_surface: surface,
-    p_resource_id: resourceId,
-    p_required_invites: normalizeInviteGoal(requiredInvites),
+export async function finalizeStoredVisibilityInvite() {
+  if (typeof localStorage === "undefined") return null;
+
+  const code = normalizeInviteCode(localStorage.getItem(INVITE_STORAGE_KEY) || readInviteCodeFromUrl());
+  if (!code) return null;
+
+  const { data, error } = await supabase.rpc("finalize_visibility_invite", {
+    p_code: code,
   });
 
-  if (error) throw new Error(error.message);
-  return mapReferralLink(data);
+  if (error) {
+    if (isUnavailableVisibilityFeature(error)) return null;
+    throw new Error(error.message || "Unable to apply invite credit.");
+  }
+
+  const status = data?.status || "";
+  if (["credited", "already_credited", "self_invite", "ineligible", "invalid"].includes(status)) {
+    localStorage.removeItem(INVITE_STORAGE_KEY);
+  }
+
+  return data || null;
 }
 
-export function mapPromotionTask(row) {
-  return mapReferralLink(row);
+export async function fetchVisibilityCreditWallet() {
+  const [{ data: wallet, error: walletError }, { data: invite, error: inviteError }] = await Promise.all([
+    supabase.rpc("ensure_visibility_credit_wallet"),
+    supabase.rpc("create_visibility_invite_link"),
+  ]);
+
+  if (walletError || inviteError) {
+    const error = walletError || inviteError;
+    if (isUnavailableVisibilityFeature(error)) return DEFAULT_WALLET;
+    throw new Error(error.message || "Unable to load Visibility Credits.");
+  }
+
+  return normalizeWallet(Array.isArray(wallet) ? wallet[0] : wallet, Array.isArray(invite) ? invite[0] : invite);
+}
+
+export async function assertVisibilityCreditsAvailable(amount) {
+  const requiredCredits = normalizeVisibilityCreditSpend(amount);
+  if (requiredCredits < MINIMUM_VISIBILITY_CREDITS) {
+    throw new Error(`Choose at least ${MINIMUM_VISIBILITY_CREDITS} Visibility Credits for a boost.`);
+  }
+
+  const wallet = await fetchVisibilityCreditWallet();
+  if (wallet.balance < requiredCredits) {
+    throw new Error(`You have ${wallet.balance} Visibility Credits. Earn more credits or choose a smaller boost.`);
+  }
+
+  return wallet;
+}
+
+export async function shareVisibilityInviteLink() {
+  const wallet = await fetchVisibilityCreditWallet();
+  if (!wallet.inviteUrl) throw new Error("Unable to create your invite link.");
+
+  const shareData = {
+    title: "Join KunThai",
+    text: buildVisibilityShareMessage(wallet.inviteUrl),
+    url: wallet.inviteUrl,
+  };
+
+  if (typeof navigator !== "undefined" && navigator.share) {
+    await navigator.share(shareData);
+  } else if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(wallet.inviteUrl);
+  } else if (typeof window !== "undefined") {
+    window.prompt("Copy your KunThai invite link", wallet.inviteUrl);
+  }
+
+  return wallet;
 }

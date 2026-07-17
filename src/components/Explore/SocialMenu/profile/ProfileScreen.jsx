@@ -4,6 +4,7 @@ import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
 import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
 import { useTrustSafety } from "../../../../Backend/hooks/useTrustSafety";
+import { useVisibilityCredits } from "../../../../Backend/hooks/useVisibilityCredits";
 import {
   SPACE_IDENTITY_TYPE,
   getProfileIdentity,
@@ -90,6 +91,7 @@ export default function ProfileScreen({
   const safety = useTrustSafety();
   const profileFeedPosts = feed.posts.filter((post) => postMatchesIdentity(post, profileIdentity));
   const profileSwipPosts = swipFeed.posts.filter((post) => postMatchesIdentity(post, profileIdentity) && post.video_url);
+  const credits = useVisibilityCredits({ enabled: editable && !isSpace && Boolean(currentUserId) });
   const displayedStats = {
     ...(followStats.stats || {}),
     feed: profileFeedPosts.length,
@@ -183,6 +185,18 @@ export default function ProfileScreen({
       showToast("Profile link ready.", "success");
     } catch {
       setFeedback("Unable to share profile.");
+    }
+  }
+
+  async function handleShareCredits() {
+    try {
+      await credits.shareInvite();
+      setFeedback("Invite link ready.");
+      showToast("Invite link ready.", "success", { title: "Visibility Credits" });
+    } catch (error) {
+      const message = error.message || "Unable to share invite link.";
+      setFeedback(message);
+      showToast(message, "danger");
     }
   }
 
@@ -381,7 +395,10 @@ export default function ProfileScreen({
           onMessage={() => onStartChat?.(values)}
           onReport={reportProfile}
           onShare={handleShare}
+          onShareCredits={handleShareCredits}
           saving={saving}
+          creditLoading={credits.loading}
+          creditWallet={editable && !isSpace ? credits.wallet : null}
           loadingStats={followStats.loading && !followStats.stats}
           stats={displayedStats}
           values={values}

@@ -17,17 +17,17 @@ import {
   Share2,
   Sparkles,
   Target,
-  UsersRound,
   Video,
 } from "lucide-react";
 
+import { useVisibilityCredits } from "../../../../../../Backend/hooks/useVisibilityCredits";
+import {
+  MINIMUM_VISIBILITY_CREDITS,
+  normalizeVisibilityCreditSpend,
+  VISIBILITY_BOOST_PACKAGES,
+} from "../../../../../../Backend/services/visibilityCreditService";
 import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import { useAddressAreaValidation } from "../../../../../shared/AddressAreaValidation";
-import {
-  VISIBILITY_PACKAGES,
-  getPackageCreditGoal,
-  getPackageInviteGoal,
-} from "../../../../../../Backend/services/visibilityCreditService";
 
 const ADVERT_TYPES = [
   { value: "offer", label: "Offer" },
@@ -87,7 +87,7 @@ const DURATIONS = [
   { value: "custom", label: "Custom" },
 ];
 
-const STEP_LABELS = ["Placement", "Objective", "Audience", "Duration", "Visibility"];
+const STEP_LABELS = ["Placement", "Objective", "Audience", "Duration", "Credits"];
 
 export default function AdvertComposerFields({
   advert,
@@ -102,6 +102,15 @@ export default function AdvertComposerFields({
   const rootRef = useRef(null);
   const hasVideo = Boolean(videoPreview || pendingVideoFile);
   const hasImage = Boolean(imagePreview);
+  const credits = useVisibilityCredits();
+  const [creditFeedback, setCreditFeedback] = useState("");
+  const selectedCredits = normalizeVisibilityCreditSpend(
+    advert.creditSpend || advert.budgetAmount,
+    MINIMUM_VISIBILITY_CREDITS,
+  );
+  const availableCredits = Number(credits.balance || 0);
+  const hasEnoughCredits = availableCredits >= selectedCredits;
+  const balanceAfterSpend = Math.max(0, availableCredits - selectedCredits);
 
   useLayoutEffect(() => {
     rootRef.current?.closest("[data-explore-composer-scroll]")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -143,11 +152,21 @@ export default function AdvertComposerFields({
     || (advert.customStart && advert.customEnd && advert.customEnd >= advert.customStart);
   const canContinue = step === 3 && advert.audienceType === "nearby"
     ? Boolean(String(advert.targetArea || "").trim())
-    : step === 4
+      : step === 4
       ? customDatesValid
       : step === 5
-        ? getPackageInviteGoal(advert.visibilityPackage, advert.customInviteGoal) >= 5
+        ? selectedCredits >= MINIMUM_VISIBILITY_CREDITS && hasEnoughCredits && !credits.loading
         : true;
+
+  async function handleShareCredits() {
+    setCreditFeedback("");
+    try {
+      await credits.shareInvite();
+      setCreditFeedback("Invite link ready.");
+    } catch (error) {
+      setCreditFeedback(error.message || "Unable to share invite link.");
+    }
+  }
 
   if (step <= 5) {
     return (
@@ -265,53 +284,17 @@ export default function AdvertComposerFields({
           ) : null}
 
           {step === 5 ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {VISIBILITY_PACKAGES.map((item) => {
-                  const active = (advert.visibilityPackage || "starter") === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        onChange("visibilityPackage", item.id);
-                        onChange("inviteGoal", item.invites);
-                        onChange("visibilityCredits", item.credits);
-                      }}
-                      className={`flex items-start gap-3 rounded-[22px] border p-3 text-left transition ${active ? "border-sky-500 bg-sky-50 ring-2 ring-sky-100" : "border-slate-200 bg-white hover:border-slate-300"}`}
-                    >
-                      <span className={`grid h-10 w-10 flex-none place-items-center rounded-2xl ${active ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}>
-                        <UsersRound size={18} />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-black text-slate-950">{item.label}</span>
-                        <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{item.helper}</span>
-                      </span>
-                      {active ? <Check size={17} className="ml-auto flex-none text-sky-700" /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-              {(advert.visibilityPackage || "starter") === "custom" ? (
-                <NumberField
-                  label="Verified invite target"
-                  min="5"
-                  max="1000"
-                  value={advert.customInviteGoal}
-                  onChange={(value) => {
-                    onChange("customInviteGoal", value);
-                    onChange("inviteGoal", getPackageInviteGoal("custom", value));
-                    onChange("visibilityCredits", getPackageCreditGoal("custom", value));
-                  }}
-                />
-              ) : null}
-              <div className="flex items-start gap-3 rounded-[22px] border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                <Share2 size={19} className="mt-0.5 flex-none" />
-                <p className="text-xs font-bold leading-5">
-                  No payment is collected. This advert posts normally, and stronger sponsored delivery unlocks after {getPackageInviteGoal(advert.visibilityPackage, advert.customInviteGoal)} verified people join through your invite link.
-                </p>
-              </div>
-            </div>
+            <VisibilityCreditSelector
+              advert={advert}
+              availableCredits={availableCredits}
+              balanceAfterSpend={balanceAfterSpend}
+              creditFeedback={creditFeedback || credits.error}
+              creditLoading={credits.loading}
+              hasEnoughCredits={hasEnoughCredits}
+              onChange={onChange}
+              onShare={handleShareCredits}
+              selectedCredits={selectedCredits}
+            />
           ) : null}
         </div>
 
@@ -373,7 +356,12 @@ function CreativeFields({ advert, hasImage, hasVideo, onChange, onEditCampaign, 
           <h3 className="mt-1 text-lg font-black text-slate-950">Make it easy to act</h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{formatPlacement(advert.placement)} · {formatObjective(advert.objective)} · {formatDuration(advert)}</p>
         </div>
-        <button type="button" onClick={onEditCampaign} className="rounded-full bg-white px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100">Edit setup</button>
+        <div className="flex flex-col items-end gap-2">
+          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
+            {normalizeVisibilityCreditSpend(advert.creditSpend || advert.budgetAmount, MINIMUM_VISIBILITY_CREDITS)} credits
+          </span>
+          <button type="button" onClick={onEditCampaign} className="rounded-full bg-white px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100">Edit setup</button>
+        </div>
       </div>
 
       <label className="block">
@@ -441,6 +429,127 @@ function CreativeFields({ advert, hasImage, hasVideo, onChange, onEditCampaign, 
         <p className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">{advert.address || advert.phone || advert.link || "Add a location, contact, link, or clear offer."}</p>
       </div>
     </section>
+  );
+}
+
+function VisibilityCreditSelector({
+  advert,
+  availableCredits,
+  balanceAfterSpend,
+  creditFeedback,
+  creditLoading,
+  hasEnoughCredits,
+  onChange,
+  onShare,
+  selectedCredits,
+}) {
+  const selectedPackage = advert.creditPackage || (
+    VISIBILITY_BOOST_PACKAGES.find((item) => item.id !== "custom" && item.credits === selectedCredits)?.id || "custom"
+  );
+  const canUseAll = availableCredits >= MINIMUM_VISIBILITY_CREDITS;
+
+  function setCreditSpend(value) {
+    const normalized = normalizeVisibilityCreditSpend(value, MINIMUM_VISIBILITY_CREDITS);
+    onChange("creditSpend", String(normalized));
+    onChange("budgetType", "total");
+    onChange("budgetAmount", String(normalized));
+  }
+
+  function selectPackage(item) {
+    onChange("creditPackage", item.id);
+    if (item.id !== "custom") setCreditSpend(item.credits);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[22px] border border-sky-100 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Visibility Credits</p>
+            <p className="mt-1 text-2xl font-black text-slate-950">{creditLoading ? "..." : availableCredits}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onShare}
+            className="kt-pressable inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+          >
+            <Share2 size={16} />
+            Share invite
+          </button>
+        </div>
+        <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
+          One verified invite earns 5 credits. A Small Boost starts from 5 credits.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {VISIBILITY_BOOST_PACKAGES.map((item) => {
+          const active = selectedPackage === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => selectPackage(item)}
+              className={`rounded-[22px] border p-3 text-left transition ${
+                active ? "border-sky-500 bg-sky-50 ring-2 ring-sky-100" : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-sm font-black text-slate-950">{item.label}</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700">
+                  {item.id === "custom" ? "Any" : item.credits}
+                </span>
+              </span>
+              <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{item.helper}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedPackage === "custom" ? (
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <NumberField
+            label="Credits to spend"
+            min={MINIMUM_VISIBILITY_CREDITS}
+            step="1"
+            value={String(selectedCredits)}
+            onChange={(value) => {
+              onChange("creditPackage", "custom");
+              setCreditSpend(value);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onChange("creditPackage", "custom");
+              setCreditSpend(availableCredits);
+            }}
+            disabled={!canUseAll}
+            className="kt-pressable h-12 self-end rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-40"
+          >
+            Use all
+          </button>
+        </div>
+      ) : null}
+
+      <div className={`rounded-[22px] border p-3 ${hasEnoughCredits ? "border-emerald-100 bg-emerald-50/70" : "border-amber-200 bg-amber-50"}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-black">
+          <span className={hasEnoughCredits ? "text-emerald-800" : "text-amber-900"}>
+            Selected boost: {selectedCredits} credits
+          </span>
+          <span className={hasEnoughCredits ? "text-emerald-800" : "text-amber-900"}>
+            After boost: {hasEnoughCredits ? balanceAfterSpend : availableCredits}
+          </span>
+        </div>
+        {!hasEnoughCredits ? (
+          <p className="mt-2 text-xs font-bold leading-5 text-amber-900">
+            You need at least {selectedCredits} credits for this boost. Share your invite link to earn more.
+          </p>
+        ) : null}
+      </div>
+
+      {creditFeedback ? <p className="text-xs font-black text-sky-700">{creditFeedback}</p> : null}
+    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   getUnseenNotificationCount,
@@ -59,7 +59,14 @@ export function useSellerHeader() {
       setRefreshing(false);
     }
 
-    const nextState = normalizeHeaderState(await fetchSellerHeaderState());
+    const fetchedState = normalizeHeaderState(await fetchSellerHeaderState());
+    // Keep the previous object identity when a poll returns identical data,
+    // so consumers depending on headerState (or callbacks built from it)
+    // don't churn every 20 seconds.
+    const nextState =
+      SELLER_HEADER_MEMORY.loaded && JSON.stringify(fetchedState) === JSON.stringify(SELLER_HEADER_MEMORY.headerState)
+        ? SELLER_HEADER_MEMORY.headerState
+        : fetchedState;
     SELLER_HEADER_MEMORY.loaded = true;
     SELLER_HEADER_MEMORY.headerState = nextState;
     SELLER_HEADER_MEMORY.savedAt = Date.now();
@@ -136,7 +143,11 @@ export function useSellerHeader() {
     };
   }, [query]);
 
-  function markSellerSectionSeen(section) {
+  // Stable identity matters: Marketplace runs this from an effect, and the
+  // seen-event it fires re-renders the owner. An unstable reference there
+  // re-triggers the effect on every render and loops until React throws
+  // "Maximum update depth exceeded".
+  const markSellerSectionSeen = useCallback((section) => {
     const scope = SELLER_SEEN_SCOPES[section];
     if (!scope) return;
 
@@ -150,7 +161,7 @@ export function useSellerHeader() {
     markNotificationsSeen(scope, items);
     markNotificationScopeVisited(scope);
     setSeenVersion((version) => version + 1);
-  }
+  }, [headerState]);
 
   return {
     ...headerState,

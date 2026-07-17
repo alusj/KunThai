@@ -10,6 +10,7 @@ import {
   HiOutlineNoSymbol,
   HiOutlinePencilSquare,
   HiOutlinePhoto,
+  HiOutlineShare,
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
@@ -31,6 +32,8 @@ const platformIcons = {
 
 export default function ProfileHeaderCard({
   coverInputRef,
+  creditLoading = false,
+  creditWallet = null,
   editable,
   editing,
   feedback,
@@ -46,6 +49,7 @@ export default function ProfileHeaderCard({
   onMessage,
   onReport,
   onShare,
+  onShareCredits,
   loadingStats = false,
   saving,
   stats,
@@ -53,12 +57,14 @@ export default function ProfileHeaderCard({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copiedPublicId, setCopiedPublicId] = useState(false);
+  const [creditHelpOpen, setCreditHelpOpen] = useState(false);
   const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
   const menuRef = useRef(null);
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
   const coverStyle = getCoverStyle(values.coverUrl);
   const publicUserId = getKunThaiPublicUserId(values);
   const isSpace = values.identityType === "space" || values.accountType === "space" || values.isSpace;
+  const showVisibilityCredits = editable && !isSpace && creditWallet;
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -74,13 +80,16 @@ export default function ProfileHeaderCard({
   }, [menuOpen]);
 
   useEffect(() => {
-    if (!publicIdHelpOpen) return undefined;
+    if (!publicIdHelpOpen && !creditHelpOpen) return undefined;
     function handleKeyDown(event) {
-      if (event.key === "Escape") setPublicIdHelpOpen(false);
+      if (event.key === "Escape") {
+        setPublicIdHelpOpen(false);
+        setCreditHelpOpen(false);
+      }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [publicIdHelpOpen]);
+  }, [creditHelpOpen, publicIdHelpOpen]);
 
   function runMenuAction(action) {
     setMenuOpen(false);
@@ -319,6 +328,35 @@ export default function ProfileHeaderCard({
             </button>
             {copiedPublicId ? <span className="text-xs font-black text-sky-700">Copied</span> : null}
           </div>
+
+          {showVisibilityCredits ? (
+            <div className="mt-3 flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50/85 px-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Visibility Credits</p>
+                <p className="mt-0.5 text-sm font-black text-slate-950">
+                  Available: {creditLoading ? "..." : Number(creditWallet.balance || 0)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreditHelpOpen(true)}
+                className="kt-pressable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-white text-sm font-black text-sky-700 shadow-sm"
+                aria-label="What are Visibility Credits?"
+                title="About Visibility Credits"
+              >
+                !
+              </button>
+              <button
+                type="button"
+                onClick={onShareCredits}
+                className="kt-pressable inline-flex h-9 shrink-0 items-center gap-2 rounded-full bg-slate-950 px-4 text-xs font-black text-white shadow-sm disabled:opacity-50"
+                disabled={creditLoading}
+              >
+                <HiOutlineShare />
+                Share
+              </button>
+            </div>
+          ) : null}
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
 
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
@@ -354,6 +392,35 @@ export default function ProfileHeaderCard({
               <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">It is safe to share as an account identifier. It is not a password, login code, or payment PIN.</p>
             </div>
             <button type="button" onClick={() => setPublicIdHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
+              Understood
+            </button>
+          </section>
+        </div>,
+        document.body,
+      ) : null}
+
+      {creditHelpOpen && typeof document !== "undefined" ? createPortal(
+        <div className="fixed inset-0 z-[2147483000] flex items-end justify-center overflow-y-auto bg-slate-950/55 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-[2px] sm:items-center" role="presentation" onMouseDown={() => setCreditHelpOpen(false)}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="visibility-credit-help-title"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-black text-sky-700">!</span>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility wallet</p>
+                <h2 id="visibility-credit-help-title" className="mt-1 text-xl font-black text-slate-950">How Visibility Credits work</h2>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
+              <p>Visibility Credits help you boost Explore adverts and UrMall products without a payment method.</p>
+              <p>Each verified person who joins KunThai through your invite link earns you 5 credits.</p>
+              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">Credits are not cash, cannot be withdrawn, and are only used for KunThai visibility boosts.</p>
+            </div>
+            <button type="button" onClick={() => setCreditHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
               Understood
             </button>
           </section>

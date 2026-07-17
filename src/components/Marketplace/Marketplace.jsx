@@ -157,12 +157,16 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
     return () => onActivityChange?.(false);
   }, [activeUtility, headerActivityOpen, nav.sub, onActivityChange, productMode, verticalDetailOpen]);
 
+  const { markSellerSectionSeen } = sellerHeader;
   useEffect(() => {
     if (nav.sub !== "business" || !sellerNotificationCount) return;
-    sellerHeader.markSellerSectionSeen("orders");
-    sellerHeader.markSellerSectionSeen("messages");
-    sellerHeader.markSellerSectionSeen("notifications");
-  }, [nav.sub, sellerHeader, sellerNotificationCount]);
+    // Depend on the stable callback, never on the sellerHeader object itself:
+    // the hook returns a fresh object each render, and marking sections seen
+    // triggers a re-render, so an object dep loops this effect infinitely.
+    markSellerSectionSeen("orders");
+    markSellerSectionSeen("messages");
+    markSellerSectionSeen("notifications");
+  }, [nav.sub, markSellerSectionSeen, sellerNotificationCount]);
 
   if (nav.sub === "business") {
     return (

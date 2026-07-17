@@ -1,8 +1,12 @@
 import supabase from "../../lib/supabaseClient";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
+import {
+  assertVisibilityCreditsAvailable,
+  MINIMUM_VISIBILITY_CREDITS,
+  normalizeVisibilityCreditSpend,
+} from "../visibilityCreditService";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
-import { createMarketplaceProductPromotion } from "./sellerPromotionService";
 import { normalizeTierPricing } from "./tierPricingUtils";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
@@ -108,6 +112,9 @@ export const INITIAL_PRODUCT_FORM = {
     lowStockAlert: "3",
     allowNegotiation: false,
     publishStatus: "active",
+    promotionCreditPackage: "small",
+    promotionCredits: String(MINIMUM_VISIBILITY_CREDITS),
+    promotionAudience: "countrywide",
   },
   delivery: {
     deliveryAvailable: true,
@@ -377,6 +384,15 @@ export async function submitSellerProduct(form, onProgress) {
   onProgress?.("prepare");
   const [business, userId] = await Promise.all([readRegisteredBusiness(), getCurrentUserId()]);
   if (!business) throw new Error("Register a business before adding products.");
+  const wantsPromotion = form.pricing.publishStatus === "promoted";
+  const promotionCredits = normalizeVisibilityCreditSpend(
+    form.pricing.promotionCredits,
+    MINIMUM_VISIBILITY_CREDITS,
+  );
+
+  if (wantsPromotion) {
+    await assertVisibilityCreditsAvailable(promotionCredits);
+  }
 
   onProgress?.("cover");
   const coverUrl = await uploadProductFile(userId, form.media.coverImageFile, "covers");
@@ -398,10 +414,6 @@ export async function submitSellerProduct(form, onProgress) {
     }
   }
 
-  // "promoted" is a publish choice, not a product status: the product goes
-  // live first, then a separate promotion setup decides whether it has enough
-  // credits or needs the verified-invite task.
-  const wantsPromotion = form.pricing.publishStatus === "promoted";
   const status = wantsPromotion ? "active" : form.pricing.publishStatus;
   const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("save");
@@ -444,6 +456,13 @@ export async function submitSellerProduct(form, onProgress) {
 
   if (error) throw new Error(error.message);
 
+  if (wantsPromotion) {
+    await promoteSellerProduct(
+      { id: data?.id, name: form.basics.name.trim() },
+      { credits: promotionCredits, audience: form.pricing.promotionAudience },
+    );
+  }
+
   withTimeout(
     insertMarketplaceActivity({
       business_id: business.id,
@@ -462,8 +481,8 @@ export async function submitSellerProduct(form, onProgress) {
 
   return {
     ...(normalizeSellerProduct(data) || {}),
+    promoted: wantsPromotion || Boolean(data?.promoted),
     videoWarning,
-    promotionRequested: wantsPromotion,
   };
 }
 
@@ -472,6 +491,15 @@ export async function updateSellerProductListing(product, form, onProgress) {
   const [business, userId] = await Promise.all([readRegisteredBusiness(), getCurrentUserId()]);
   if (!business) throw new Error("Register a business before editing products.");
   if (!product?.id) throw new Error("Choose a product listing to edit.");
+  const wantsPromotion = form.pricing.publishStatus === "promoted";
+  const promotionCredits = normalizeVisibilityCreditSpend(
+    form.pricing.promotionCredits,
+    MINIMUM_VISIBILITY_CREDITS,
+  );
+
+  if (wantsPromotion && !product.promoted) {
+    await assertVisibilityCreditsAvailable(promotionCredits);
+  }
 
   let coverUrl = product.mainImageUrl || null;
   let extraImageUrls = product.imageUrls || [];
@@ -499,8 +527,8 @@ export async function updateSellerProductListing(product, form, onProgress) {
     }
   }
 
-  const wantsPromotion = form.pricing.publishStatus === "promoted";
   const status = wantsPromotion ? "active" : form.pricing.publishStatus;
+  const keepExistingPromotion = Boolean(product.promoted && wantsPromotion);
   const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("save");
   const payload = {
@@ -530,8 +558,8 @@ export async function updateSellerProductListing(product, form, onProgress) {
     main_image_url: coverUrl,
     image_urls: extraImageUrls,
     video_url: videoUrl,
-    promoted: product.promoted && !wantsPromotion,
-    promoted_at: product.promoted && !wantsPromotion ? product.promotedAt || new Date().toISOString() : null,
+    promoted: keepExistingPromotion,
+    promoted_at: keepExistingPromotion ? product.promotedAt || new Date().toISOString() : null,
     published_at: status === "active" ? product.publishedAt || new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   };
@@ -541,6 +569,13 @@ export async function updateSellerProductListing(product, form, onProgress) {
   );
 
   if (error) throw new Error(error.message);
+
+  if (wantsPromotion && !product.promoted) {
+    await promoteSellerProduct(
+      { id: product.id, name: form.basics.name.trim() },
+      { credits: promotionCredits, audience: form.pricing.promotionAudience },
+    );
+  }
 
   withTimeout(
     insertMarketplaceActivity({
@@ -560,8 +595,8 @@ export async function updateSellerProductListing(product, form, onProgress) {
 
   return {
     ...(normalizeSellerProduct(data) || {}),
+    promoted: wantsPromotion || Boolean(data?.promoted),
     videoWarning,
-    promotionRequested: wantsPromotion,
   };
 }
 
@@ -604,11 +639,25 @@ export function createSellerProductShareLink(product) {
   return `${origin}/#urmall/product/${productId}`;
 }
 
-export async function promoteSellerProduct(product) {
-  return createMarketplaceProductPromotion(product, {
-    audienceType: "general",
-    durationDays: 3,
-    reachScope: "nearby",
-    viewGoal: 250,
+export async function promoteSellerProduct(product, options = {}) {
+  const business = await readRegisteredBusiness();
+  if (!business) throw new Error("Register a business before promoting products.");
+  if (!product?.id) throw new Error("Choose a saved product before promoting.");
+  const creditBudget = normalizeVisibilityCreditSpend(
+    options.credits || product.promotionCredits,
+    MINIMUM_VISIBILITY_CREDITS,
+  );
+  const audienceType = String(options.audience || product.promotionAudience || "countrywide").trim() || "countrywide";
+
+  const { data, error } = await supabase.rpc("create_marketplace_visibility_promotion", {
+    p_product_id: product.id,
+    p_credit_budget: creditBudget,
+    p_audience_type: audienceType,
   });
+
+  if (error) throw new Error(error.message);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("marketplace-products-updated"));
+  }
+  return data;
 }
