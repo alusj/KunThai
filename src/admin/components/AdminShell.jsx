@@ -12,6 +12,7 @@ import {
   Copy,
   ExternalLink,
   EyeOff,
+  History,
   Inbox,
   Landmark,
   LayoutDashboard,
@@ -48,6 +49,7 @@ const ICONS = {
   CarFront,
   ChartNoAxesCombined,
   Compass,
+  History,
   Inbox,
   Landmark,
   LayoutDashboard,
@@ -524,8 +526,9 @@ export default function AdminShell({ access, user, page, setPage, children, case
                 </div>
                 {activityNotice ? <p className="border-t border-emerald-100 bg-emerald-50 px-4 py-2 text-[11px] font-bold text-emerald-800">{activityNotice}</p> : null}
                 {activityError ? <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-[11px] font-bold text-red-700">{activityError}</p> : null}
-                <footer className="grid grid-cols-2 gap-2 border-t border-zinc-100 p-2">
-                  {canAccess(access, "audit.view") ? <button type="button" onClick={() => navigate("audit")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">Open audit log</button> : <span />}
+                <footer className="grid grid-cols-3 gap-2 border-t border-zinc-100 p-2">
+                  <button type="button" onClick={() => navigate("actions")} className="h-9 rounded-md text-xs font-black text-emerald-800 hover:bg-emerald-50">Action history</button>
+                  {canAccess(access, "audit.view") ? <button type="button" onClick={() => navigate("audit")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">Audit log</button> : <span />}
                   {canAccess(access, "notifications.view") ? <button type="button" onClick={() => navigate("notifications")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">Campaigns</button> : null}
                 </footer>
               </section>

@@ -29,7 +29,6 @@ import { useSellerOverview } from "../../../../Backend/hooks/useSellerOverview";
 import { useEffect, useRef, useState } from "react";
 import AppBackTab from "../../../shared/AppBackTab";
 import AppPortal from "../../../shared/AppPortal";
-import BusinessSkeleton from "./BusinessSkeleton";
 import VerticalSellerDashboard from "./VerticalSellerDashboard";
 import {
   MARKETPLACE_BUSINESS_CHANGED_EVENT,
@@ -356,9 +355,13 @@ export default function Business({ onBack }) {
   const businessKind = sellerOverview.business?.kind || activeRegisteredBusiness?.businessKind || "retail";
 
   if (loading || sellerDashboardInitialLoading) {
+    // The overview cache keeps stats persistent across visits, so this quiet
+    // state only appears on the very first dashboard open of a session.
     return (
-      <div className={`${dashboardRevealClass} min-h-screen`} style={dashboardRevealStyle}>
-        <BusinessSkeleton kind={businessKind} />
+      <div className={`${dashboardRevealClass} min-h-screen bg-slate-50`} style={dashboardRevealStyle}>
+        <div className="flex min-h-screen items-center justify-center px-6">
+          <p className="text-sm font-bold text-slate-400">Opening your seller dashboard...</p>
+        </div>
       </div>
     );
   }

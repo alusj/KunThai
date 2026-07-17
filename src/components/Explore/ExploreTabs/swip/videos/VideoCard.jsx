@@ -920,7 +920,7 @@ export default function VideoCard({
           profile={profile}
           sourcePost={post}
           onClose={() => setRepostOpen(false)}
-          onSuccess={() => setMessage("Repost published to UrFeed.")}
+          onSuccess={() => setMessage("Shared to Swip. It stays in the Swip feed with credit to the original creator.")}
         />
       ) : null}
       {analyticsOpen ? <PostAnalyticsPanel post={post} onClose={() => setAnalyticsOpen(false)} /> : null}

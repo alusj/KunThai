@@ -145,7 +145,6 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const profile = activeSpaceProfile || personalProfile;
   const currentUserId = user?.id || personalProfile?.userId || "";
   const profileExists = !authLoading && Boolean(user?.id && profile);
-  const showProfileSkeleton = false;
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
   useBrowserBack(Boolean(swipPreviewTarget && activeTab === "Swip"), returnFromRepostedSwip, "explore-reposted-swip");
@@ -1412,7 +1411,6 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           ACTIVE PAGE
       ========================= */}
       <div className={`w-full max-w-full overflow-x-clip ${isSwipTab ? "pt-0" : "pt-2"}`}>
-        {showProfileSkeleton ? <ExploreProfileSkeleton /> : null}
         {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
        {profileExists ? (
   <>
@@ -1512,23 +1510,6 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       </div>
     ) : null}
     </>
-  );
-}
-
-function ExploreProfileSkeleton() {
-  return (
-    <div className="space-y-4 px-4 py-4 sm:px-5 lg:px-8">
-      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 animate-pulse rounded-full bg-slate-200" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 w-40 animate-pulse rounded-full bg-slate-200" />
-            <div className="h-3 w-24 animate-pulse rounded-full bg-slate-100" />
-          </div>
-        </div>
-        <div className="mt-4 h-24 animate-pulse rounded-[20px] bg-slate-100" />
-      </div>
-    </div>
   );
 }
 

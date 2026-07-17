@@ -54,6 +54,11 @@ import {
 } from "../services/transportOperatorAccountService";
 import { updateTransportCompanyOperatorAvailability } from "../services/transportCompanyService";
 import {
+  startOperatorLiveLocation,
+  stopOperatorLiveLocation,
+  syncOperatorLiveBookedState,
+} from "../services/operatorLiveLocationService";
+import {
   formatTripDistance,
   formatTripElapsed,
   getElapsedTripSeconds,
@@ -177,6 +182,44 @@ export default function OperatorDashboardScreen({
     : "offline-not accepting trips";
   const waitingPassengers = useMemo(() => dashboard?.waitingPassengers || [], [dashboard?.waitingPassengers]);
   const hasWaitingPassengers = waitingPassengers.length > 0;
+  const hasActiveTrip = useMemo(
+    () => waitingPassengers.some((trip) =>
+      ["accepted", "arrived", "start_requested", "in_progress", "paused"].includes(trip.status)),
+    [waitingPassengers],
+  );
+  const activeTripRef = useRef(hasActiveTrip);
+  activeTripRef.current = hasActiveTrip;
+
+  // While the operator is online, their position streams into Area View so
+  // passengers can watch them move, marked AVAILABLE or BOOKED.
+  useEffect(() => {
+    if (!isActive || dashboardReadOnly) {
+      stopOperatorLiveLocation();
+      return undefined;
+    }
+
+    let stop = null;
+    let cancelled = false;
+    startOperatorLiveLocation({
+      displayName: form.name || "KunThai operator",
+      fleetType: form.fleetType,
+      isBooked: () => activeTripRef.current,
+    }).then((cleanup) => {
+      if (cancelled) cleanup?.();
+      else stop = cleanup;
+    });
+
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+    // form fields are stable per account; isActive is the real trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, dashboardReadOnly]);
+
+  useEffect(() => {
+    syncOperatorLiveBookedState();
+  }, [hasActiveTrip]);
   const today = dashboard?.today || {};
   const tripControls = dashboard?.tripControls || {};
   const earnings = dashboard?.earnings || {};

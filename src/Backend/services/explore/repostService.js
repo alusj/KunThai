@@ -32,17 +32,20 @@ export async function createExploreRepost(sourcePost, { commentary = "", privacy
   if (!sourcePost?.id) throw new Error("This post is not available for reposting.");
 
   const body = String(commentary || "").trim();
+  const snapshot = buildExploreRepostSnapshot(sourcePost);
+  // A shared Swip stays on the Swip surface; a shared feed post stays in UrFeed.
+  const isSwipShare = snapshot.sourceType === "swip";
   const created = await createExplorePost({
     body,
     post_privacy: privacy,
     post_type: "repost",
-    category: "urfeed",
+    category: isSwipShare ? "swip" : "urfeed",
     hashtags: parseTokens(body, "#"),
     mentions: parseTokens(body, "@"),
     media_meta: {
-      repost: buildExploreRepostSnapshot(sourcePost),
+      repost: snapshot,
     },
-  }, "feed");
+  }, isSwipShare ? "swip" : "feed");
 
   if (sourcePost.user_id && sourcePost.user_id !== created.user_id) {
     await createExploreNotification({

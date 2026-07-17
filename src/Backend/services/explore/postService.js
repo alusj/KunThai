@@ -55,12 +55,14 @@ function buildPostClassification(payload, scope) {
   }
 
   if (isRepostPayload(payload)) {
+    // A shared Swip stays on the Swip surface; other shares stay in UrFeed.
+    const isSwipShare = getPayloadMediaMeta(payload).repost?.sourceType === "swip";
     return {
-      feedScope: "feed",
+      feedScope: isSwipShare ? "swip" : "feed",
       // Repost identity lives in media_meta.repost. Keep the persisted type
       // compatible with the existing database constraint and feed trigger.
       postType: "post",
-      category: "urfeed",
+      category: isSwipShare ? "swip" : "urfeed",
     };
   }
 

@@ -8,6 +8,7 @@ import {
   getRouteBetweenPoints,
   getRouteThroughPoints,
 } from "../../../Backend/services/routeService";
+import { showToast } from "../../../Backend/services/toastService";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 
 const defaultCountryProfile = getActiveCountryProfile();
@@ -1791,6 +1792,9 @@ export default function NearbyAreaMap({
     } catch {
       if (alternativeRouteRequestRef.current !== requestId) return;
       setAlternativeError("Alternative route unavailable right now.");
+      showToast("No alternative route found right now. The current route stays active.", "warning", {
+        title: "Routing",
+      });
       clearAlternativeRouteLayer(mapRef.current);
     } finally {
       if (alternativeRouteRequestRef.current === requestId) {
@@ -2306,6 +2310,9 @@ export default function NearbyAreaMap({
       });
       setNavigationSnap("half");
       setRouteError(error.message || "Route unavailable. Check the route key or try another location.");
+      showToast("Route could not be drawn. Check your connection or pick a nearby destination.", "warning", {
+        title: "Routing paused",
+      });
     });
 
     return () => {

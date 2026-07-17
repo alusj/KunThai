@@ -61,6 +61,11 @@ import {
   updateTransportCompanyOperatorAvailability,
 } from "../services/transportCompanyService";
 import { fetchOperatorDashboard, subscribeOperatorTrips } from "../services/transportOperatorAccountService";
+import {
+  startOperatorLiveLocation,
+  stopOperatorLiveLocation,
+  syncOperatorLiveBookedState,
+} from "../services/operatorLiveLocationService";
 
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -342,6 +347,42 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       unsubscribe?.();
     };
   }, [basicOperator, company, companyOperatorAssignment?.operatorId, companyOperatorAssignment?.transportFleetId]);
+
+  const companyOperatorHasTrip = (operatorDashboardData?.waitingPassengers || []).some((trip) =>
+    ["accepted", "arrived", "start_requested", "in_progress", "paused"].includes(trip.status));
+  const companyTripRef = useRef(companyOperatorHasTrip);
+  companyTripRef.current = companyOperatorHasTrip;
+
+  // Company operators stream their live position into Area View while online,
+  // exactly like solo operators.
+  useEffect(() => {
+    if (!basicOperator || !operatorAvailable) {
+      if (basicOperator) stopOperatorLiveLocation();
+      return undefined;
+    }
+
+    let stop = null;
+    let cancelled = false;
+    startOperatorLiveLocation({
+      displayName: companyOperatorAssignment?.operatorName || "Company operator",
+      fleetType: companyOperatorAssignment?.fleetType,
+      isBooked: () => companyTripRef.current,
+    }).then((cleanup) => {
+      if (cancelled) cleanup?.();
+      else stop = cleanup;
+    });
+
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+    // Assignment identity fields are stable; availability is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basicOperator, operatorAvailable]);
+
+  useEffect(() => {
+    if (basicOperator) syncOperatorLiveBookedState();
+  }, [basicOperator, companyOperatorHasTrip]);
 
   async function toggleOperatorAvailability() {
     if (!companyOperatorAssignment?.companyFleetId || availabilitySaving) return;

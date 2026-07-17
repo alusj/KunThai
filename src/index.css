@@ -961,14 +961,14 @@
 
 .kt-toast-expand-in {
   animation: kt-toast-expand-in 320ms var(--kt-ease-emphasized) both;
-  transform-origin: top right;
+  transform-origin: top center;
 }
 
 .kt-toast-collapse-out,
 .kt-toast-collapse-notification {
   animation: kt-toast-collapse-out 280ms var(--kt-ease-emphasized) both;
   pointer-events: none;
-  transform-origin: top right;
+  transform-origin: top center;
 }
 
 .kt-toast-collapse-notification {
@@ -1223,12 +1223,12 @@
   from {
     opacity: 0;
     filter: blur(5px);
-    transform: translate3d(18px, -18px, 0) scale(0.88);
+    transform: translate3d(0, -16px, 0) scale(0.82);
   }
   70% {
     opacity: 1;
     filter: blur(0);
-    transform: translate3d(-2px, 2px, 0) scale(1.02);
+    transform: translate3d(0, 2px, 0) scale(1.02);
   }
   to {
     opacity: 1;
@@ -1269,7 +1269,7 @@
   to {
     opacity: 0;
     filter: blur(5px);
-    transform: translate3d(22px, -22px, 0) scale(0.76);
+    transform: translate3d(0, -18px, 0) scale(0.78);
   }
 }
 

@@ -5,6 +5,22 @@ import { TOAST_EVENT } from "../../../Backend/services/toastService";
 
 const TOAST_EXIT_MS = 280;
 
+// Position a small pointer on the toast aimed at the control that triggered it.
+// Origin is the last pointer press in viewport coordinates; the toast stack is
+// top-centered, so presses above the card get a top arrow, presses below a
+// bottom arrow, horizontally aligned with the source icon.
+function getToastArrow(origin) {
+  if (!origin || typeof window === "undefined") return null;
+  const viewportWidth = window.innerWidth || 0;
+  if (!viewportWidth) return null;
+
+  const cardWidth = Math.min(viewportWidth * 0.92, 420);
+  const cardLeft = (viewportWidth - cardWidth) / 2;
+  const x = Math.min(Math.max(origin.x - cardLeft, 22), cardWidth - 22);
+  const side = origin.y < 130 ? "top" : "bottom";
+  return { x, side };
+}
+
 const tones = {
   info: {
     icon: HiOutlineInformationCircle,
@@ -80,8 +96,8 @@ export default function ToastProvider({ children }) {
   return (
     <>
       {children}
-      <div className="pointer-events-none fixed inset-0 z-[1200] flex flex-col items-center justify-center gap-2 px-3">
-        {items.map((item) => {
+      <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1200] flex flex-col items-center gap-2 px-3 sm:top-5">
+        {items.map((item, index) => {
           const tone = tones[item.tone] || tones.info;
           const Icon = tone.icon;
           const motionClass = item.leaving
@@ -89,12 +105,23 @@ export default function ToastProvider({ children }) {
               ? "kt-toast-collapse-notification"
               : "kt-toast-collapse-out"
             : "kt-toast-expand-in";
+          const arrow = index === 0 ? getToastArrow(item.origin) : null;
           return (
             <div
               key={item.id}
               role="status"
-              className={`${motionClass} pointer-events-auto relative flex w-full max-w-[min(92vw,420px)] overflow-hidden rounded-[26px] border border-white/70 bg-white/95 p-1 text-slate-900 shadow-[0_24px_70px_rgba(15,23,42,0.20)] ring-1 ring-slate-950/5 backdrop-blur-xl`}
+              style={arrow ? { transformOrigin: `${arrow.x}px ${arrow.side === "top" ? "0%" : "100%"}` } : undefined}
+              className={`${motionClass} pointer-events-auto relative flex w-full max-w-[min(92vw,420px)] rounded-[26px] border border-white/70 bg-white/95 p-1 text-slate-900 shadow-[0_24px_70px_rgba(15,23,42,0.20)] ring-1 ring-slate-950/5 backdrop-blur-xl`}
             >
+              {arrow ? (
+                <span
+                  aria-hidden="true"
+                  style={{ left: `${arrow.x}px` }}
+                  className={`absolute h-3 w-3 -translate-x-1/2 rotate-45 border-white/70 bg-white/95 ring-slate-950/5 ${
+                    arrow.side === "top" ? "-top-1.5 border-l border-t" : "-bottom-1.5 border-b border-r"
+                  }`}
+                />
+              ) : null}
               <div className={`w-1.5 shrink-0 rounded-full bg-gradient-to-b ${tone.accentClass}`} />
               <div className="flex min-w-0 flex-1 items-start gap-3 px-3 py-3">
                 <span className={`mt-0.5 flex h-10 w-10 flex-none items-center justify-center rounded-2xl ring-1 ${tone.iconClass}`}>

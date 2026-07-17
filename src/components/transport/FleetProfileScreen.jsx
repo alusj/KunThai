@@ -152,14 +152,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
     return (
       <div className="min-h-screen bg-slate-50 p-4">
         <AppBackTab onBack={onBack} label="Back to fleet list" historyKey="transport-loading-fleet" />
-        <div className="mt-4 grid gap-4">
-          <div className="h-48 animate-pulse rounded-3xl border border-emerald-100 bg-white shadow-sm" />
-          <div className="grid gap-3 md:grid-cols-3">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="h-28 animate-pulse rounded-3xl border border-slate-100 bg-white shadow-sm" />
-            ))}
-          </div>
-        </div>
+        <p className="mt-8 text-center text-sm font-bold text-slate-400">Opening fleet profile...</p>
       </div>
     );
   }
@@ -672,13 +665,7 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviews, r
                 {reviewsError}
               </div>
             ) : null}
-            {loading ? (
-              <div className="grid gap-3">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-24 animate-pulse rounded-3xl bg-slate-100" />
-                ))}
-              </div>
-            ) : reviews.length ? (
+            {loading ? null : reviews.length ? (
               <div className="space-y-3">
                 {reviews.map((review) => (
                   <article key={review.id} className="rounded-3xl border border-slate-100 bg-slate-50 p-4">

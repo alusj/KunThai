@@ -8,6 +8,7 @@ import { ADMIN_NAV_GROUPS, canAccess } from "./adminConfig";
 import { enableAdminPreview, getAdminAccess, getAdminCases, getCaseSearchText, getCountryOptions, getDashboardSummary, isAdminPreview, matchesCaseCountry } from "./adminService";
 import AdminShell from "./components/AdminShell";
 import CaseDrawer from "./components/CaseDrawer";
+import ActionHistoryView from "./views/ActionHistoryView";
 import {
   AnalyticsView,
   AuditView,
@@ -167,6 +168,7 @@ function AdminWorkspace({ access, user, preview }) {
   else if (page === "finance") content = <FinanceView cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "analytics") content = <AnalyticsView summary={visibleSummary} cases={countryCases} />;
   else if (page === "team") content = <TeamView access={access} />;
+  else if (page === "actions") content = <ActionHistoryView user={user} />;
   else if (page === "audit") content = <AuditView />;
   else if (page === "settings") content = <SettingsView access={access} />;
 

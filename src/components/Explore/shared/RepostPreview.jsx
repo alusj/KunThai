@@ -32,7 +32,7 @@ export default function RepostPreview({ post, sourcePost = null, compact = false
     <section className={`overflow-hidden rounded-[22px] border-2 border-slate-200 bg-white shadow-sm ${compact ? "" : "mx-4 mb-4"}`}>
       <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-sky-700">
         <Repeat2 size={15} strokeWidth={2.5} />
-        Reposted from {source.sourceType === "swip" ? "Swip" : "UrFeed"}
+        Shared post · from {source.sourceType === "swip" ? "Swip" : "UrFeed"}
       </div>
       <button
         type="button"
@@ -42,10 +42,13 @@ export default function RepostPreview({ post, sourcePost = null, compact = false
         className={`flex w-full items-center gap-3 px-4 pt-4 text-left ${compact ? "" : "kt-pressable"}`}
       >
         <Avatar name={source.authorName} src={source.authorAvatarUrl} size="sm" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-black text-slate-950">{source.authorName || "Profile"}</p>
           <p className="truncate text-xs font-bold text-slate-500">@{source.authorUsername || "user"}</p>
         </div>
+        <span className="flex-none rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-sky-700">
+          Original creator
+        </span>
       </button>
       {source.body ? (
         <ExpandablePostText

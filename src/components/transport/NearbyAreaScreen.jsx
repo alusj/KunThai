@@ -1357,6 +1357,9 @@ export default function NearbyAreaScreen({
           setSearchQuery(searchText);
           setSearchResults([]);
           setSearchOverlayOpen(true);
+          showToast("The passenger route could not be resolved. Search the destination manually.", "warning", {
+            title: "Routing paused",
+          });
         })
         .finally(() => {
           if (!cancelled) setSearching(false);

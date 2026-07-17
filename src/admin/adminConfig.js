@@ -55,6 +55,7 @@ export const ADMIN_NAV_GROUPS = [
     label: "Governance",
     items: [
       { id: "team", label: "Admin team", icon: "UserCog", permission: "team.view" },
+      { id: "actions", label: "Action history", icon: "History", permission: "dashboard.view" },
       { id: "audit", label: "Audit log", icon: "ScrollText", permission: "audit.view" },
       { id: "settings", label: "Settings", icon: "Settings", permission: "settings.view" },
     ],

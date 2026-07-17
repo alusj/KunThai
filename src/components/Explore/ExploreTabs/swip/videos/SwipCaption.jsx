@@ -1,4 +1,5 @@
 import { HiOutlineCheckBadge } from "react-icons/hi2";
+import { Repeat2 } from "lucide-react";
 
 import { formatRelativeTime } from "../../../../../Backend/services/exploreService";
 import AdvertMetaActions from "../../../shared/AdvertMetaActions";
@@ -10,6 +11,7 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
   const advertPost = isAdvertPost(post);
   const advert = getAdvertMeta(post) || {};
   const postTitle = getPostTitle(post);
+  const sharedFrom = post.swipRepost || post.media_meta?.repost || null;
 
   function openProfile(event) {
     event.preventDefault();
@@ -20,6 +22,23 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent px-4 pb-11 pt-24 text-white sm:px-5">
       <div className="min-w-0 max-w-[calc(100%-72px)] space-y-3">
+        {sharedFrom ? (
+          <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-white/12 px-3 py-2 backdrop-blur">
+            <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-emerald-400/25 text-emerald-200">
+              <Repeat2 size={15} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Shared Swip</span>
+              <span className="flex min-w-0 items-center gap-1.5 text-xs font-black text-white/90">
+                <Avatar name={sharedFrom.authorName} src={sharedFrom.authorAvatarUrl} size="xs" />
+                <span className="truncate">
+                  Original by {sharedFrom.authorName || "creator"}
+                  {sharedFrom.authorUsername ? ` (@${sharedFrom.authorUsername})` : ""}
+                </span>
+              </span>
+            </span>
+          </div>
+        ) : null}
         <button type="button" onClick={openProfile} className="kt-pressable flex min-w-0 items-center gap-3 rounded-2xl text-left">
           <Avatar name={post.author_name} src={post.author_avatar_url} size="sm" />
           <span className="min-w-0">

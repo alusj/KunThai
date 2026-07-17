@@ -14,6 +14,42 @@ const SELLER_OVERVIEW_MEMORY = {
   overview: null,
   savedAt: 0,
 };
+const OVERVIEW_STORAGE_KEY = "kunthai.sellerOverview";
+
+// Rehydrate the last seller overview across reloads so the dashboard opens with
+// real numbers instead of a skeleton or zeroed stats; a silent refresh follows.
+if (typeof localStorage !== "undefined" && !SELLER_OVERVIEW_MEMORY.overview) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(OVERVIEW_STORAGE_KEY) || "null");
+    if (stored?.overview?.business) {
+      SELLER_OVERVIEW_MEMORY.overview = stored.overview;
+      SELLER_OVERVIEW_MEMORY.savedAt = Number(stored.savedAt || 0);
+    }
+  } catch {
+    // Stored overview is an optimization only.
+  }
+}
+
+function persistOverviewCache() {
+  try {
+    localStorage.setItem(
+      OVERVIEW_STORAGE_KEY,
+      JSON.stringify({ overview: SELLER_OVERVIEW_MEMORY.overview, savedAt: SELLER_OVERVIEW_MEMORY.savedAt }),
+    );
+  } catch {
+    // Storage may be unavailable; the in-memory cache still applies.
+  }
+}
+
+function clearOverviewCache() {
+  SELLER_OVERVIEW_MEMORY.overview = null;
+  SELLER_OVERVIEW_MEMORY.savedAt = 0;
+  try {
+    localStorage.removeItem(OVERVIEW_STORAGE_KEY);
+  } catch {
+    // Storage cleanup is best-effort.
+  }
+}
 
 function normalizeOverview(overview) {
   return { ...DEFAULT_OVERVIEW, ...overview };
@@ -61,6 +97,7 @@ export function useSellerOverview({ enabled = true } = {}) {
       const nextOverview = normalizeOverview(await fetchSellerOverview());
       SELLER_OVERVIEW_MEMORY.overview = nextOverview;
       SELLER_OVERVIEW_MEMORY.savedAt = Date.now();
+      persistOverviewCache();
       if (isActive()) {
         setOverview(nextOverview);
       }
@@ -105,8 +142,7 @@ export function useSellerOverview({ enabled = true } = {}) {
     }
 
     function handleBusinessChanged() {
-      SELLER_OVERVIEW_MEMORY.overview = null;
-      SELLER_OVERVIEW_MEMORY.savedAt = 0;
+      clearOverviewCache();
       setOverview(DEFAULT_OVERVIEW);
       loadOverview(() => true);
     }

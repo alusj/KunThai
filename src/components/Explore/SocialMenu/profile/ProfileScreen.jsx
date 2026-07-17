@@ -92,10 +92,12 @@ export default function ProfileScreen({
   const profileFeedPosts = feed.posts.filter((post) => postMatchesIdentity(post, profileIdentity));
   const profileSwipPosts = swipFeed.posts.filter((post) => postMatchesIdentity(post, profileIdentity) && post.video_url);
   const credits = useVisibilityCredits({ enabled: editable && !isSpace && Boolean(currentUserId) });
+  // Locally loaded posts win once present, but until the feed hooks resolve the
+  // remote stat keeps the tile from flashing 0.
   const displayedStats = {
     ...(followStats.stats || {}),
-    feed: profileFeedPosts.length,
-    swip: profileSwipPosts.length,
+    feed: profileFeedPosts.length || Number(followStats.stats?.feed || 0),
+    swip: profileSwipPosts.length || Number(followStats.stats?.swip || 0),
   };
   const followed = Boolean(profileIdentity.key && (followedUsers.has(profileIdentity.key) || followedUsers.has(profileIdentity.id)));
   const accountUnavailable = Boolean(values?.deactivatedAt) && !editable;
@@ -321,8 +323,8 @@ export default function ProfileScreen({
       ) : null}
 
       <div className="w-full space-y-4 px-4 py-4 sm:px-6 lg:px-8">
-        {loading ? (
-          <ProfileSkeleton />
+        {loading && !profile ? (
+          <p className="py-12 text-center text-sm font-bold text-slate-400">Opening profile...</p>
         ) : loadError ? (
           <EmptyState title="Profile could not load" message={loadError} />
         ) : accountUnavailable ? (
@@ -339,7 +341,7 @@ export default function ProfileScreen({
           />
         ) : null}
 
-        {!loading && !loadError && !accountUnavailable && (profile || editing) ? (
+        {!loadError && !accountUnavailable && (profile || editing) ? (
           <>
         {editable && !isSpace && spaces.length ? (
           <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
@@ -421,26 +423,6 @@ export default function ProfileScreen({
   );
 }
 
-function ProfileSkeleton() {
-  return (
-    <section className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className="h-28 animate-pulse rounded-t-[28px] bg-slate-100 sm:h-36" />
-      <div className="-mt-10 px-5 pb-5">
-        <div className="h-16 w-16 animate-pulse rounded-full bg-slate-200 ring-4 ring-white" />
-        <div className="mt-4 space-y-2">
-          <div className="h-6 w-48 animate-pulse rounded-full bg-slate-200" />
-          <div className="h-4 w-28 animate-pulse rounded-full bg-slate-100" />
-          <div className="h-4 w-full max-w-md animate-pulse rounded-full bg-slate-100" />
-        </div>
-        <div className="mt-4 grid grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-14 animate-pulse rounded-2xl bg-slate-50" />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 function CreateProfileState({ onCreate }) {
   return (

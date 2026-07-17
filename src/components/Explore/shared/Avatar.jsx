@@ -3,6 +3,7 @@ import { useState } from "react";
 export default function Avatar({ name = "KunThai", src = "", size = "md" }) {
   const [failed, setFailed] = useState(false);
   const sizes = {
+    xs: "h-6 w-6 text-[11px]",
     sm: "h-9 w-9 text-sm",
     md: "h-11 w-11 text-base",
     lg: "h-14 w-14 text-lg",

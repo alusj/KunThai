@@ -89,7 +89,7 @@ export default function Header({
         left={(
           <>
             {accountLoading ? (
-              <div className="h-11 w-28 animate-pulse rounded-2xl bg-gray-100" aria-label="Loading transport account" />
+              <div className="h-11 w-28" aria-hidden="true" />
             ) : (
               <OperatorButton
                 badge={operatorBadgeCount}

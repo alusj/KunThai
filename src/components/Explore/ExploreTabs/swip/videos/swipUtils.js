@@ -53,12 +53,21 @@ export function getSwipVideos(posts, onlyUserId = "") {
     });
 }
 
+export function getSwipRepostSnapshot(post) {
+  const snapshot = post?.media_meta?.repost || post?.mediaMeta?.repost || null;
+  return snapshot?.videoUrl ? snapshot : null;
+}
+
 export function normalizeSwipPost(post) {
   if (!post || typeof post !== "object") {
     return null;
   }
 
-  const videoUrl = typeof post.video_url === "string" ? post.video_url.trim() : "";
+  // A shared Swip carries the original video inside the repost snapshot so the
+  // shared entry plays in place while crediting the original creator.
+  const repost = getSwipRepostSnapshot(post);
+  const ownVideoUrl = typeof post.video_url === "string" ? post.video_url.trim() : "";
+  const videoUrl = ownVideoUrl || String(repost?.videoUrl || "").trim();
   if (!post.id || !videoUrl) {
     return null;
   }
@@ -71,6 +80,9 @@ export function normalizeSwipPost(post) {
     author_username: String(post.author_username || post.profile?.username || "user").replace(/^@/, ""),
     author_avatar_url: String(post.author_avatar_url || post.profile?.avatar_url || ""),
     video_url: videoUrl,
+    video_trim_start: post.video_trim_start ?? (ownVideoUrl ? null : repost?.videoTrimStart) ?? null,
+    video_trim_end: post.video_trim_end ?? (ownVideoUrl ? null : repost?.videoTrimEnd) ?? null,
+    swipRepost: ownVideoUrl ? null : repost,
     body: String(post.body || ""),
     created_at: post.created_at || new Date().toISOString(),
     likes_count: Number.isFinite(Number(post.likes_count)) ? Number(post.likes_count) : 0,
