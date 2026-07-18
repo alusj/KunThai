@@ -188,9 +188,35 @@ export const signInWithPhone = async (phone, password) => {
   return { data, error };
 };
 
-// Logout
+// Password recovery for phone accounts: verify ownership with an SMS OTP, then
+// set a new password on the recovered session.
+export const requestPhonePasswordRecoveryOtp = async (phone) => {
+  return await supabase.auth.signInWithOtp({
+    phone,
+    options: { shouldCreateUser: false },
+  });
+};
+
+export const verifyPhoneRecoveryOtp = async (phone, token) => {
+  return await supabase.auth.verifyOtp({
+    phone,
+    token,
+    type: "sms",
+  });
+};
+
+export const updateAccountPassword = async (password) => {
+  return await supabase.auth.updateUser({ password });
+};
+
+// Logout: ends only this device's session. Other signed-in devices stay active.
 export const signOutUser = async () => {
-  return await supabase.auth.signOut();
+  return await supabase.auth.signOut({ scope: "local" });
+};
+
+// Ends the session on every device where this account is signed in.
+export const signOutAllDevices = async () => {
+  return await supabase.auth.signOut({ scope: "global" });
 };
 
 // Get current logged in user

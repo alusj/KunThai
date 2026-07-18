@@ -13,6 +13,7 @@ import { setNotificationSeenUser } from "./Backend/services/notificationSeenStor
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
+import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
@@ -194,6 +195,13 @@ function AppLoading({ page = "explore" }) {
   );
 }
 
+function TwoFactorPassed({ onPassed }) {
+  useEffect(() => {
+    onPassed();
+  }, [onPassed]);
+  return null;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   const {
@@ -217,6 +225,7 @@ export default function App() {
   const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
   const [onboardingReveal, setOnboardingReveal] = useState(null);
   const [accountControl, setAccountControl] = useState(null);
+  const [twoFactorPending, setTwoFactorPending] = useState(null);
   const appGestureRef = useRef(null);
   const pagePanelRef = useRef(null);
   const userId = user?.id || "";
@@ -226,6 +235,11 @@ export default function App() {
   useEffect(() => {
     captureVisibilityInviteFromLocation();
   }, []);
+
+  // Each new sign-in re-checks whether the account needs its authenticator code.
+  useEffect(() => {
+    setTwoFactorPending(null);
+  }, [userId]);
 
   useEffect(() => {
     if (!userId || guestSession) return;
@@ -392,6 +406,14 @@ export default function App() {
     return <Login />;
   }
 
+  if (!guestSession && twoFactorPending !== false) {
+    return (
+      <TwoFactorGate key={userId} user={user}>
+        <TwoFactorPassed onPassed={() => setTwoFactorPending(false)} />
+      </TwoFactorGate>
+    );
+  }
+
   if (!guestSession && !onboardingComplete && !onboardingReveal) {
     return (
       <OnboardingFlow
@@ -420,7 +442,7 @@ export default function App() {
         control={accountControl}
         availablePage={availablePage}
         onOpenAvailablePage={() => availablePage && setPage(availablePage)}
-        onSignOut={() => supabase.auth.signOut()}
+        onSignOut={() => supabase.auth.signOut({ scope: "local" })}
       />
     );
   }

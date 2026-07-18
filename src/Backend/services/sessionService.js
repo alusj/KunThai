@@ -144,11 +144,13 @@ export function clearTransientSessionNavigation() {
   }
 }
 
-export async function signOutSocialSession() {
+export async function signOutSocialSession({ allDevices = false } = {}) {
   clearExploreMessageCache();
   clearSocialSessionCache();
   clearTransientSessionNavigation();
-  const { error } = await supabase.auth.signOut();
+  // Default sign-out only ends this device's session; other devices stay
+  // signed in unless the user explicitly signs out everywhere.
+  const { error } = await supabase.auth.signOut({ scope: allDevices ? "global" : "local" });
 
   if (error) {
     throw error;

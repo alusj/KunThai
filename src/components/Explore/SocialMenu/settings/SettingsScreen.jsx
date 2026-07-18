@@ -22,6 +22,7 @@ import { showToast } from "../../../../Backend/services/toastService";
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 import { useAppearanceMode } from "../../../../contexts/appearanceContext";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import TwoFactorSection from "./TwoFactorSection";
 
 function Toggle({ active, label, onChange }) {
   return (
@@ -88,6 +89,17 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   const { notifications, video, feed, messages, account, feedbackFx } = settings;
   const [pushStatus, setPushStatus] = useState("loading");
   const [pushBusy, setPushBusy] = useState(false);
+
+  async function handleSignOut(allDevices) {
+    try {
+      await signOutSocialSession({ allDevices });
+      if (allDevices) {
+        showToast("Signed out everywhere. All devices need to sign in again.", "success");
+      }
+    } catch (error) {
+      showToast(error.message || "Unable to sign out.", "danger");
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -283,6 +295,10 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
           </SettingsSection>
         </div>
 
+        <SettingsSection title="Security" subtitle="Extra protection for signing in to this account.">
+          <TwoFactorSection />
+        </SettingsSection>
+
         <SettingsSection title="Account" subtitle="Session and local device actions.">
           <div className="grid gap-3 lg:grid-cols-3">
             <button type="button" onClick={onSwitchAccount} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm">
@@ -295,11 +311,27 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
               <p className="mt-3 text-base font-black text-slate-950">Clear local cache</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Clear drafts, recent searches, and temporary state.</p>
             </button>
-            <button type="button" onClick={signOutSocialSession} className="rounded-[22px] border border-rose-100 bg-rose-50 p-5 text-left shadow-sm">
+            <div className="rounded-[22px] border border-rose-100 bg-rose-50 p-5 shadow-sm">
               <HiOutlineCog6Tooth className="text-2xl text-rose-700" />
               <p className="mt-3 text-base font-black text-rose-950">Sign out</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-rose-700">End this Explore account session.</p>
-            </button>
+              <p className="mt-1 text-sm font-semibold leading-6 text-rose-700">
+                Ends the session on this device only. Other devices stay signed in.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleSignOut(false)}
+                className="mt-4 h-11 w-full rounded-2xl bg-rose-600 px-4 text-sm font-black text-white transition hover:bg-rose-700"
+              >
+                Sign out
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSignOut(true)}
+                className="mt-2 h-11 w-full rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100"
+              >
+                Sign out of all devices
+              </button>
+            </div>
           </div>
           <SettingRow icon={HiOutlineRectangleStack} title="Compact menu" description="Use a denser menu layout on small screens later.">
             <Toggle active={account.compactMenu} onChange={(value) => updateSection("account", { compactMenu: value })} />

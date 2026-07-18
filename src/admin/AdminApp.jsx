@@ -49,7 +49,7 @@ function AccessDenied({ user }) {
         <p className="mt-3 text-sm font-medium leading-6 text-zinc-600">{user?.email || "This account"} is signed in, but it has no active KunThai admin assignment.</p>
         <div className="mt-6 grid gap-2">
           <a href="/" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800"><ArrowLeft size={17} /> Return to KunThai</a>
-          <button type="button" onClick={() => supabase.auth.signOut()} className="h-11 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-700 hover:bg-zinc-50">Sign in with another account</button>
+          <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })} className="h-11 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-700 hover:bg-zinc-50">Sign in with another account</button>
           {import.meta.env.DEV ? <button type="button" onClick={() => { enableAdminPreview(); window.location.reload(); }} className="h-11 rounded-lg border border-emerald-300 px-4 text-sm font-black text-emerald-800 hover:bg-emerald-50">Open Chief Admin preview</button> : null}
         </div>
       </section>

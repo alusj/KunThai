@@ -549,7 +549,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
                   <p className="truncate text-sm font-black text-zinc-900">{user?.email || "Chief Admin Preview"}</p>
                   <p className="mt-1 text-xs font-semibold text-zinc-500">{role?.name}</p>
                 </div>
-                <button type="button" onClick={() => supabase.auth.signOut()} className="mt-1 flex h-10 w-full items-center gap-2 rounded-md px-2 text-sm font-bold text-red-700 hover:bg-red-50">
+                <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })} className="mt-1 flex h-10 w-full items-center gap-2 rounded-md px-2 text-sm font-bold text-red-700 hover:bg-red-50">
                   <LogOut size={17} /> Sign out
                 </button>
               </div>

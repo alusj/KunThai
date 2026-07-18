@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { FaApple } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { Eye, ShieldAlert } from "lucide-react";
@@ -7,11 +7,21 @@ import supabase from "./Backend/lib/supabaseClient";
 import { consumeAuthIntent, enterGuestMode } from "./Backend/services/guestModeService";
 import FlagIcon from "./components/FlagIcon";
 import {
+  requestPhonePasswordRecoveryOtp,
+  resendPhoneOtp,
   signInWithPhone,
   signUpWithPhone,
-  resendPhoneOtp,
+  updateAccountPassword,
   verifyPhoneOtp,
+  verifyPhoneRecoveryOtp,
 } from "./Backend/services/authService";
+import {
+  clearOtpRequests,
+  formatOtpWaitTime,
+  getOtpBlockState,
+  registerOtpRequest,
+} from "./Backend/services/otpRequestGuardService";
+import LastOtpNoticeCard from "./components/auth/LastOtpNoticeCard";
 import {
   DEFAULT_GLOBAL_COUNTRY_CODE,
   GLOBAL_COUNTRY_CODES,
@@ -27,6 +37,7 @@ import {
   rememberOAuthFlow,
 } from "./Backend/services/sessionService";
 import {
+  checkKunThaiIdentityAvailability,
   isPhoneAlreadyLinkedError,
   PHONE_ALREADY_LINKED_MESSAGE,
 } from "./Backend/services/accountIdentityService";
@@ -46,7 +57,7 @@ function AuthMessage({ tone = "info", children }) {
   );
 }
 
-function AuthInput({ label, ...props }) {
+const AuthInput = forwardRef(function AuthInput({ label, ...props }, ref) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-slate-700">
@@ -54,11 +65,12 @@ function AuthInput({ label, ...props }) {
       </span>
       <input
         {...props}
+        ref={ref}
         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
       />
     </label>
   );
-}
+});
 
 function CountryPicker({ country, onCountryChange, compact = false }) {
   const [open, setOpen] = useState(false);
@@ -306,6 +318,16 @@ export default function Login() {
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [recoveryPhone, setRecoveryPhone] = useState("");
 
+  const [failedPhoneAttempts, setFailedPhoneAttempts] = useState({});
+  const [forgotAvailable, setForgotAvailable] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState("password");
+  const [recoveryActivePhone, setRecoveryActivePhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [recoveryOtp, setRecoveryOtp] = useState("");
+  const [lastOtpNoticeOpen, setLastOtpNoticeOpen] = useState(false);
+  const otpInputRef = useRef(null);
+
   const redirectTo = window.location.origin;
   const phoneDigits = useMemo(
     () => normalizePhoneDigits(phoneNumber, selectedCountry),
@@ -335,6 +357,11 @@ export default function Login() {
     setPendingPhone("");
     setRecoveryOpen(false);
     setRecoveryPhone("");
+    setRecoveryStep("password");
+    setRecoveryOtp("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setLastOtpNoticeOpen(false);
     resetMessages();
     scrollAuthToTop();
   }
@@ -387,23 +414,135 @@ export default function Login() {
   async function handleSignInWithPhone(event) {
     event.preventDefault();
 
+    const account = signInAccount.trim();
+    const authPhone = buildPhoneForAuth(account, selectedCountry);
+
     try {
       resetMessages();
       setLoading(true);
 
-      const account = signInAccount.trim();
       if (!validatePhoneDigits(normalizePhoneDigits(account, selectedCountry), selectedCountry)) {
         return;
       }
-      const response = await signInWithPhone(buildPhoneForAuth(account, selectedCountry), password);
+      const response = await signInWithPhone(authPhone, password);
 
       if (response.error) {
         throw response.error;
       }
 
+      setFailedPhoneAttempts((current) => ({ ...current, [authPhone]: 0 }));
+      setForgotAvailable(false);
       setMessage("Welcome back. You are signed in.");
     } catch (err) {
       setError(err.message || "Unable to sign in.");
+
+      // After more than one wrong password on a phone number that really has a
+      // KunThai account, offer OTP-verified password recovery. The signup
+      // preflight doubles as the existence check: a registered phone reports
+      // the phone_exists conflict.
+      const attempts = (failedPhoneAttempts[authPhone] || 0) + 1;
+      setFailedPhoneAttempts((current) => ({ ...current, [authPhone]: attempts }));
+      if (attempts >= 2 && !forgotAvailable) {
+        checkKunThaiIdentityAvailability({ phone: authPhone, country: selectedCountry })
+          .then(() => {
+            // Phone is free to register, so there is no account to recover.
+          })
+          .catch((lookupError) => {
+            if (isPhoneAlreadyLinkedError(lookupError)) setForgotAvailable(true);
+          });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function beginPasswordRecovery() {
+    const authPhone = buildPhoneForAuth(signInAccount.trim(), selectedCountry);
+    const blockState = getOtpBlockState(authPhone);
+    if (blockState.blocked) {
+      setError(`OTP limit reached for this number. You can request a new code in ${formatOtpWaitTime(blockState.blockedUntil)}.`);
+      return;
+    }
+
+    resetMessages();
+    setRecoveryActivePhone(authPhone);
+    setRecoveryStep("password");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setRecoveryOtp("");
+    setMode("recovery");
+    scrollAuthToTop();
+  }
+
+  async function handleRecoveryPasswordSubmit(event) {
+    event.preventDefault();
+
+    if (newPassword.length < 6) {
+      setError("Choose a new password with at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    try {
+      resetMessages();
+      setLoading(true);
+
+      const guard = registerOtpRequest(recoveryActivePhone);
+      const { error: otpError } = await requestPhonePasswordRecoveryOtp(recoveryActivePhone);
+      if (otpError) throw otpError;
+
+      setRecoveryStep("otp");
+      setMessage(`OTP sent to ${recoveryActivePhone}. Enter the code to confirm it is you.`);
+      if (guard.isSecond) setLastOtpNoticeOpen(true);
+      scrollAuthToTop();
+    } catch (err) {
+      setError(err.message || "Unable to send the recovery OTP.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRecoveryOtpVerify(event) {
+    event.preventDefault();
+
+    try {
+      resetMessages();
+      setLoading(true);
+
+      const { error: verifyError } = await verifyPhoneRecoveryOtp(recoveryActivePhone, recoveryOtp.trim());
+      if (verifyError) throw verifyError;
+
+      clearOtpRequests(recoveryActivePhone);
+      const { error: passwordError } = await updateAccountPassword(newPassword);
+      if (passwordError) {
+        setError("You are signed in, but the new password could not be saved. Set it again from account settings.");
+        return;
+      }
+
+      setMessage("Password updated. You are signed in.");
+    } catch (err) {
+      setError(err.message || "Unable to verify this OTP.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRecoveryResendOtp() {
+    try {
+      resetMessages();
+      setLoading(true);
+
+      const guard = registerOtpRequest(recoveryActivePhone);
+      const { error: otpError } = await requestPhonePasswordRecoveryOtp(recoveryActivePhone);
+      if (otpError) throw otpError;
+
+      setMessage("A new OTP has been sent.");
+      if (guard.isSecond) setLastOtpNoticeOpen(true);
+    } catch (err) {
+      setError(err.message || "Unable to resend OTP.");
     } finally {
       setLoading(false);
     }
@@ -426,6 +565,11 @@ export default function Login() {
       setLoading(true);
 
       const signupPhone = buildPhoneForAuth(phoneNumber, selectedCountry);
+      const blockState = getOtpBlockState(signupPhone);
+      if (blockState.blocked) {
+        setError(`OTP limit reached for this number. You can request a new code in ${formatOtpWaitTime(blockState.blockedUntil)}.`);
+        return;
+      }
 
       const { error: authError } = await signUpWithPhone(signupPhone, password, selectedCountry);
 
@@ -433,9 +577,11 @@ export default function Login() {
         throw authError;
       }
 
+      const guard = registerOtpRequest(signupPhone);
       setPendingPhone(signupPhone);
       setSignupStep("otp");
       setMessage("OTP sent. Please verify your phone number.");
+      if (guard.isSecond) setLastOtpNoticeOpen(true);
       scrollAuthToTop();
     } catch (err) {
       if (isPhoneAlreadyLinkedError(err)) {
@@ -464,6 +610,7 @@ export default function Login() {
         throw authError;
       }
 
+      clearOtpRequests(pendingPhone);
       setMessage("Phone verified. Your onboarding is ready.");
     } catch (err) {
       setError(err.message || "Unable to verify this OTP.");
@@ -477,6 +624,7 @@ export default function Login() {
       resetMessages();
       setLoading(true);
 
+      const guard = registerOtpRequest(pendingPhone);
       const { error: authError } = await resendPhoneOtp(pendingPhone);
 
       if (authError) {
@@ -484,6 +632,7 @@ export default function Login() {
       }
 
       setMessage("A new OTP has been sent.");
+      if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
       setError(err.message || "Unable to resend OTP.");
     } finally {
@@ -526,6 +675,17 @@ export default function Login() {
             >
               {loading ? "Logging In..." : "Log in with Phone"}
             </button>
+
+            {forgotAvailable ? (
+              <button
+                type="button"
+                onClick={beginPasswordRecovery}
+                disabled={isLoading}
+                className="min-h-12 w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+              >
+                Forgot password? Verify with OTP
+              </button>
+            ) : null}
 
             <AuthDivider />
 
@@ -612,6 +772,7 @@ export default function Login() {
               label="OTP Code"
               type="text"
               inputMode="numeric"
+              ref={otpInputRef}
               value={otpCode}
               onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 8))}
               placeholder="Enter OTP"
@@ -630,6 +791,100 @@ export default function Login() {
             <button
               type="button"
               onClick={handleResendPhoneOtp}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              Resend OTP
+            </button>
+          </form>
+        )}
+
+        {mode === "recovery" && recoveryStep === "password" && (
+          <form onSubmit={handleRecoveryPasswordSubmit} className="mt-6 space-y-4 sm:mt-8">
+            <button
+              type="button"
+              onClick={() => switchMode("signin")}
+              className="text-sm font-semibold text-slate-500"
+            >
+              Back to sign in
+            </button>
+
+            <h2 className="text-center text-xl font-bold text-slate-900">Reset your password</h2>
+            <p className="text-center text-sm text-slate-500">
+              Choose a new password for {recoveryActivePhone}. KunThai will then send an OTP to confirm this phone belongs to you.
+            </p>
+
+            <AuthInput
+              label="New password"
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              placeholder="Enter new password"
+              autoComplete="new-password"
+              required
+            />
+
+            <AuthInput
+              label="Confirm new password"
+              type="password"
+              value={confirmNewPassword}
+              onChange={(event) => setConfirmNewPassword(event.target.value)}
+              placeholder="Confirm new password"
+              autoComplete="new-password"
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+            >
+              {loading ? "Sending OTP..." : "Send verification OTP"}
+            </button>
+          </form>
+        )}
+
+        {mode === "recovery" && recoveryStep === "otp" && (
+          <form onSubmit={handleRecoveryOtpVerify} className="mt-8 space-y-4">
+            <button
+              type="button"
+              onClick={() => {
+                setRecoveryStep("password");
+                scrollAuthToTop();
+              }}
+              className="text-sm font-semibold text-slate-500"
+            >
+              Back
+            </button>
+
+            <h2 className="text-center text-xl font-bold text-slate-900">Confirm it is you</h2>
+            <p className="text-center text-sm text-slate-500">
+              Enter the OTP sent to {recoveryActivePhone}. Your new password is saved once the code is verified.
+            </p>
+
+            <AuthInput
+              label="OTP Code"
+              type="text"
+              inputMode="numeric"
+              ref={otpInputRef}
+              value={recoveryOtp}
+              onChange={(event) => setRecoveryOtp(event.target.value.replace(/\D/g, "").slice(0, 8))}
+              placeholder="Enter OTP"
+              autoComplete="one-time-code"
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+            >
+              {loading ? "Verifying..." : "Verify and update password"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRecoveryResendOtp}
               disabled={isLoading}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
@@ -678,6 +933,15 @@ export default function Login() {
           ) : null}
         </div>
       </div>
+
+      <LastOtpNoticeCard
+        open={lastOtpNoticeOpen}
+        onCancel={() => setLastOtpNoticeOpen(false)}
+        onVerify={() => {
+          setLastOtpNoticeOpen(false);
+          otpInputRef.current?.focus();
+        }}
+      />
 
       {recoveryOpen ? (
         <FindAccountModal
