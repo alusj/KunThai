@@ -7,7 +7,7 @@ async function getCurrentUserId() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return user?.id ?? null;
+  return user && !user.is_anonymous ? user.id : null;
 }
 
 export async function fetchExploreFollowing() {

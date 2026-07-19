@@ -4,8 +4,8 @@
 import { Menu as MenuIcon } from "lucide-react";
 import { PremiumHeaderButton } from "../../../shared/PremiumHeader";
 
-export default function MenuButton({ onClick }) {
+export default function MenuButton({ badge = 0, onClick }) {
   return (
-    <PremiumHeaderButton icon={MenuIcon} label="Open buyer menu" onClick={onClick} />
+    <PremiumHeaderButton badge={badge} icon={MenuIcon} label="Open buyer menu" onClick={onClick} />
   );
 }

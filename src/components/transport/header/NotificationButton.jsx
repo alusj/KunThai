@@ -1,7 +1,7 @@
 // NotificationButton.jsx
 // Displays operator or passenger transport notifications.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell, Truck } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
@@ -15,15 +15,12 @@ import {
 } from "../../../Backend/services/notificationSeenStore";
 import { fetchTransportNotifications } from "../../services/transportHeaderService";
 import { subscribePassengerTrips } from "../../services/passengerTransportService";
-import { showToast } from "../../../Backend/services/toastService";
 
-export default function NotificationButton({ active = false, companyAccount, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet }) {
+export default function NotificationButton({ companyAccount, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const previousActiveRef = useRef(false);
-  const previousUnreadIdsRef = useRef(new Set());
   const seenScope = "transport:passenger";
   const readScope = `${seenScope}:read`;
 
@@ -74,17 +71,6 @@ export default function NotificationButton({ active = false, companyAccount, ope
   useEffect(() => {
     onUnreadCountChange?.(unreadCount);
   }, [onUnreadCountChange, unreadCount]);
-
-  useEffect(() => {
-    const becameActive = active && !previousActiveRef.current;
-    const unreadNotifications = notifications.filter((notification) => notification.unread);
-    const newUnread = unreadNotifications.find((notification) => !previousUnreadIdsRef.current.has(notification.id));
-    previousActiveRef.current = active;
-    previousUnreadIdsRef.current = new Set(unreadNotifications.map((notification) => notification.id));
-    if (!active || !unreadCount || (!becameActive && !newUnread)) return;
-    const newest = newUnread || unreadNotifications[0];
-    if (newest) showToast(getTransportToastMessage(newest), "info", { title: "Transport update" });
-  }, [active, notifications, unreadCount]);
 
   useEffect(() => subscribeNotificationSeen(() => refreshNotifications({ quiet: true })), [refreshNotifications]);
 
@@ -160,7 +146,7 @@ export default function NotificationButton({ active = false, companyAccount, ope
             onClick={() => setOpen(true)}
             className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-40 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left text-xs font-black text-slate-700 shadow-xl shadow-slate-900/10"
           >
-            New transport alert
+            New notification
             <span className="absolute -top-1 right-5 h-3 w-3 rotate-45 border-l border-t border-emerald-100 bg-white" />
           </button>
         ) : null}
@@ -265,13 +251,6 @@ export default function NotificationButton({ active = false, companyAccount, ope
       </AppPortal>
     </>
   );
-}
-
-function getTransportToastMessage(notification) {
-  if (/operator arrived/i.test(`${notification?.title || ""} ${notification?.body || ""}`)) {
-    return "Your operator has arrived at the pickup point. Open Transport to review the trip.";
-  }
-  return "Your transport activity has a new update. Open Transport notifications to review it.";
 }
 
 function NotificationState({ title, body }) {

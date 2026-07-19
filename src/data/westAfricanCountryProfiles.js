@@ -1,3 +1,5 @@
+// Backward-compatible aliases. These exports now contain the complete global
+// country catalogue; new code should import the GLOBAL_* names directly.
 export * from "./globalCountryProfiles";
 
 export {

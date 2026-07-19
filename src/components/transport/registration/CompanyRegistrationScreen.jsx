@@ -30,6 +30,7 @@ import AppBackTab from "../../shared/AppBackTab";
 import { AddressAreaStatusIcon, useAddressAreaValidation } from "../../shared/AddressAreaValidation";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
+import { scrollToFirstBlockingFieldSoon } from "../../shared/formValidationNavigation";
 import NearbyAreaScreen from "../NearbyAreaScreen";
 import {
   constrainCountryPhoneInput,
@@ -249,6 +250,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const [areaText, setAreaText] = useState("");
   const [status, setStatus] = useState("");
   const [statusTone, setStatusTone] = useState("info");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -274,6 +276,15 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   function clearStatus() {
     setStatus("");
+  }
+
+  function clearFieldError(field) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -373,6 +384,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     } else {
       setForm((current) => ({ ...current, [field]: value }));
     }
+    clearFieldError(field);
     clearStatus();
   }
 
@@ -389,6 +401,24 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   function updateFleet(fleetId, patch) {
     setFleets((items) => items.map((fleet) => (fleet.localId === fleetId ? { ...fleet, ...patch } : fleet)));
+    setFieldErrors((current) => {
+      let next = current;
+      Object.keys(patch || {}).forEach((field) => {
+        if (next[`${fleetId}-${field}`]) {
+          next = { ...next };
+          delete next[`${fleetId}-${field}`];
+        }
+      });
+      if (patch?.safetyAnswers) {
+        Object.keys(next).forEach((key) => {
+          if (key.startsWith(`${fleetId}-safety-`)) {
+            if (next === current) next = { ...next };
+            delete next[key];
+          }
+        });
+      }
+      return next;
+    });
     clearStatus();
   }
 
@@ -452,56 +482,81 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           : fleet,
       ),
     );
+    clearFieldError(`${fleetId}-operators`);
   }
 
-  function validateStep(targetStep = step) {
+  function getStepErrors(targetStep = step) {
+    const nextErrors = {};
+
     if (targetStep === 0) {
-      if (!form.companyName.trim()) return "Enter the company or organization name.";
-      if (!form.ownerName.trim()) return "Enter the responsible owner or director name.";
+      if (!form.companyName.trim()) nextErrors.companyName = "Company or organization name required.";
+      if (!form.ownerName.trim()) nextErrors.ownerName = "Owner or director name required.";
       const phoneValidation = validateCountryPhone(form.phone, form.country);
-      if (!phoneValidation.valid) return phoneValidation.message;
+      if (!form.phone.trim()) nextErrors.phone = "Support phone required.";
+      else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
     }
 
     if (targetStep === 1) {
-      if (!form.city.trim() || !form.address.trim()) return "Add the company base address.";
+      if (!form.city.trim()) nextErrors.city = "City or district required.";
+      if (!form.address.trim()) nextErrors.address = "Company base address required.";
     }
 
     if (targetStep === 2) {
-      if (!fleets.length) return "Add at least one fleet.";
-      const incompleteFleet = fleets.find((fleet) => [
-        fleet.fleetName,
-        fleet.plateNumber,
-        fleet.make,
-        fleet.model,
-        fleet.year,
-        fleet.color,
-        fleet.operatingArea,
-        fleet.homeBase,
-        fleet.baseFare,
-        fleet.pricePerKm,
-        fleet.pricePerHour,
-      ].some((value) => !String(value || "").trim()));
-      if (incompleteFleet) return "Each fleet needs its name, plate, make, model, year, color, operating area, home base, starting price, per-kilometre price, and hourly price.";
+      if (!fleets.length) nextErrors.fleetList = "Add at least one fleet.";
+      fleets.forEach((fleet, index) => {
+        const labelPrefix = fleets.length > 1 ? `Fleet ${index + 1}: ` : "";
+        [
+          ["fleetName", "Fleet name required."],
+          ["plateNumber", "Plate number required."],
+          ["make", "Make / brand required."],
+          ["model", "Model required."],
+          ["year", "Year required."],
+          ["color", "Color required."],
+          ["operatingArea", "Operating area required."],
+          ["homeBase", "Home base required."],
+          ["baseFare", "Starting price required."],
+          ["pricePerKm", "Price per 1 km required."],
+          ["pricePerHour", "Price per 1 hour required."],
+        ].forEach(([field, message]) => {
+          if (!String(fleet[field] || "").trim()) {
+            nextErrors[`${fleet.localId}-${field}`] = `${labelPrefix}${message}`;
+          }
+        });
+        (fleetSafetyQuestions[fleet.fleetType] || []).forEach((question) => {
+          if (!String(fleet.safetyAnswers?.[question.key] || "").trim()) {
+            nextErrors[`${fleet.localId}-safety-${question.key}`] = `${labelPrefix}${question.label} required.`;
+          }
+        });
+        if (addOperatorMode && !(fleet.operators || []).length) {
+          nextErrors[`${fleet.localId}-operators`] = "Operator KunThai ID required.";
+        }
+      });
       // Fleet photos and vehicle documents are intentionally NOT required to
       // submit: Fleet HQ follows "register first, upload later". The company
       // stays unverified until KunThai reviews the documents.
-      const incompleteSafetyFleet = fleets.find((fleet) => (fleetSafetyQuestions[fleet.fleetType] || []).some((question) => !String(fleet.safetyAnswers?.[question.key] || "").trim()));
-      if (incompleteSafetyFleet) return "Answer every security and safety question for each fleet.";
-      if (addOperatorMode && fleets.some((fleet) => !(fleet.operators || []).length)) {
-        return "Add the operator's KunThai ID before sending the company request.";
-      }
     }
 
-    return "";
+    return nextErrors;
+  }
+
+  function summarizeErrors(nextErrors) {
+    const messages = Object.values(nextErrors);
+    if (!messages.length) return "";
+    const preview = messages.slice(0, 3).join(" ");
+    const extra = messages.length > 3 ? ` ${messages.length - 3} more field${messages.length - 3 === 1 ? "" : "s"} need attention.` : "";
+    return `${preview}${extra}`;
   }
 
   function nextStep() {
-    const error = validateStep();
-    if (error) {
-      showStatus(error, "error");
+    const nextErrors = getStepErrors();
+    if (Object.keys(nextErrors).length) {
+      setFieldErrors(nextErrors);
+      showStatus(summarizeErrors(nextErrors), "error");
+      scrollToFirstBlockingFieldSoon();
       return;
     }
 
+    setFieldErrors({});
     clearStatus();
     setStep((current) => {
       const next = Math.min(current + 1, steps.length - 1);
@@ -598,13 +653,19 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const origin = buttonRect
       ? { x: `${buttonRect.left + buttonRect.width / 2}px`, y: `${buttonRect.top + buttonRect.height / 2}px` }
       : { x: "50%", y: "70%" };
-    const firstError = (addOperatorMode ? [2] : [0, 1, 2]).map((item) => validateStep(item)).find(Boolean);
-    if (firstError) {
-      showStatus(firstError, "error");
-      return;
+    for (const stepIndex of addOperatorMode ? [2] : [0, 1, 2]) {
+      const nextErrors = getStepErrors(stepIndex);
+      if (Object.keys(nextErrors).length) {
+        setFieldErrors(nextErrors);
+        if (!addOperatorMode) setStep(stepIndex);
+        showStatus(summarizeErrors(nextErrors), "error");
+        scrollToFirstBlockingFieldSoon();
+        return;
+      }
     }
 
     try {
+      setFieldErrors({});
       setSubmitting(true);
       const account = await saveTransportCompanyAccount(buildPayload("submitted"));
       setTransitionOrigin(origin);
@@ -744,6 +805,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             {step === 0 ? (
               <CompanyIdentityStep
                 documentRequirements={companyDocumentRequirements}
+                errors={fieldErrors}
                 form={form}
                 onChange={updateForm}
                 onDocument={markCompanyDocument}
@@ -752,6 +814,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             {step === 1 ? (
               <LocationOperationsStep
                 areaText={areaText}
+                errors={fieldErrors}
                 form={form}
                 hasLocation={hasLocation}
                 onAreaText={setAreaText}
@@ -766,6 +829,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 allowMultiple={!addOperatorMode}
                 fleets={fleets}
                 form={form}
+                errors={fieldErrors}
                 onAddFleet={addFleet}
                 onInvite={addOperatorInvite}
                 onRemoveFleet={removeFleet}
@@ -918,7 +982,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   );
 }
 
-function CompanyIdentityStep({ documentRequirements = [], form, onChange, onDocument }) {
+function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onChange, onDocument }) {
   const countryProfile = getActiveCountryProfile(form.country);
   const phoneValidation = validateCountryPhone(form.phone, countryProfile);
   return (
@@ -928,11 +992,11 @@ function CompanyIdentityStep({ documentRequirements = [], form, onChange, onDocu
         <h2 className="mt-1 text-2xl font-black text-slate-950">Register the organization that owns or manages these fleets.</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <FormInput label="Company / organization name" value={form.companyName} onChange={(value) => onChange("companyName", value)} placeholder="Example: ABC Transport SL" />
+        <FormInput label="Company / organization name" value={form.companyName} onChange={(value) => onChange("companyName", value)} placeholder="Example: ABC Transport SL" error={errors.companyName} />
         <SelectField label="Company type" value={form.companyType} options={companyTypes} onChange={(value) => onChange("companyType", value)} />
         <FormInput label="Business registration number" value={form.registrationNumber} onChange={(value) => onChange("registrationNumber", value)} placeholder="Registration number" />
         <FormInput label="Tax or business ID optional" value={form.taxId} onChange={(value) => onChange("taxId", value)} placeholder="Tax ID" />
-        <FormInput label="Owner / director name" value={form.ownerName} onChange={(value) => onChange("ownerName", value)} placeholder="Responsible person" />
+        <FormInput label="Owner / director name" value={form.ownerName} onChange={(value) => onChange("ownerName", value)} placeholder="Responsible person" error={errors.ownerName} />
         <FormInput
           label="Support phone"
           type="tel"
@@ -940,6 +1004,7 @@ function CompanyIdentityStep({ documentRequirements = [], form, onChange, onDocu
           onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }))}
           placeholder={getCountryPhoneHint(countryProfile)}
           helper={phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
+          error={errors.phone}
         />
         <FormInput label="Business email optional" type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder="company@example.com" />
         <label className="block">
@@ -953,7 +1018,7 @@ function CompanyIdentityStep({ documentRequirements = [], form, onChange, onDocu
   );
 }
 
-function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onChange, onDropPin, onLocateMe }) {
+function LocationOperationsStep({ areaText, errors = {}, form, hasLocation, onAreaText, onChange, onDropPin, onLocateMe }) {
   const countryProfile = getActiveCountryProfile(form.country);
   const selectedPoint = hasLocation
     ? {
@@ -973,7 +1038,7 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <SelectField label="Country" value={countryProfile.name} options={GLOBAL_COUNTRY_PROFILES.map((country) => country.name)} onChange={(value) => onChange("country", value)} />
-        <FormInput label="City / district" value={form.city} onChange={(value) => onChange("city", value)} placeholder="City or district" />
+        <FormInput label="City / district" value={form.city} onChange={(value) => onChange("city", value)} placeholder="City or district" error={errors.city} />
         <div className="md:col-span-2">
           <FormInput
             label="Office, station, or dispatch address"
@@ -981,6 +1046,7 @@ function LocationOperationsStep({ areaText, form, hasLocation, onAreaText, onCha
             onChange={(value) => onChange("address", value)}
             placeholder="Office, station, or dispatch address"
             helper="Area View checks this address when you type, but an exact map point is optional."
+            error={errors.address}
           />
           <CompanyAreaViewStatus validation={areaValidation} />
         </div>
@@ -1052,7 +1118,7 @@ function CompanyAreaViewStatus({ validation }) {
   );
 }
 
-function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets, form, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
+function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
   const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
     <div className="space-y-5">
@@ -1070,6 +1136,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets
           <FleetCard
             key={fleet.localId}
             fleet={fleet}
+            errors={errors}
             acceptedPublicIds={acceptedPublicIds}
             form={form}
             index={index}
@@ -1086,7 +1153,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, fleets
   );
 }
 
-function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
+function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
@@ -1200,23 +1267,23 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
         </div>
         <SelectField label="Fleet type" value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value) })} />
         <SelectField label="Service category" value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />
-        <FormInput label="Fleet name" value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder="Fleet name" />
-        <FormInput label="Plate number" value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder="Plate number" />
-        <FormInput label="Make / brand" value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder="Make or brand" />
-        <FormInput label="Model" value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder="Model" />
-        <FormInput label="Year" type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder="Year" />
-        <FormInput label="Color" value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder="Color" />
-        <FormInput label="Operating area" value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder="Main service area" />
-        <FormInput label="Home base" value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder="Station, park, or yard" />
+        <FormInput label="Fleet name" value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder="Fleet name" error={errors[`${fleet.localId}-fleetName`]} />
+        <FormInput label="Plate number" value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder="Plate number" error={errors[`${fleet.localId}-plateNumber`]} />
+        <FormInput label="Make / brand" value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder="Make or brand" error={errors[`${fleet.localId}-make`]} />
+        <FormInput label="Model" value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder="Model" error={errors[`${fleet.localId}-model`]} />
+        <FormInput label="Year" type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder="Year" error={errors[`${fleet.localId}-year`]} />
+        <FormInput label="Color" value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder="Color" error={errors[`${fleet.localId}-color`]} />
+        <FormInput label="Operating area" value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder="Main service area" error={errors[`${fleet.localId}-operatingArea`]} />
+        <FormInput label="Home base" value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder="Station, park, or yard" error={errors[`${fleet.localId}-homeBase`]} />
       </div>
       <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Passenger pricing · company owner</p>
         <h4 className="mt-1 text-lg font-black text-slate-950">Set the prices passengers will see</h4>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">The company owner or CEO controls these prices. The assigned operator can manage availability and trips, but cannot replace company pricing.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FormInput label="Starting price" type="number" value={fleet.baseFare} onChange={(value) => onUpdate(fleet.localId, { baseFare: value })} placeholder="0" helper="The minimum fare shown when distance or time totals are lower than your starting price." />
+          <FormInput label="Starting price" type="number" value={fleet.baseFare} onChange={(value) => onUpdate(fleet.localId, { baseFare: value })} placeholder="0" helper="The minimum fare shown when distance or time totals are lower than your starting price." error={errors[`${fleet.localId}-baseFare`]} />
           <div>
-            <FormInput label="Price per 1 km" type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper="Distance bookings multiply this rate by the passenger route." />
+            <FormInput label="Price per 1 km" type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper="Distance bookings multiply this rate by the passenger route." error={errors[`${fleet.localId}-pricePerKm`]} />
             <PricingGuide
               type="km"
               open={activePricingGuide === "km"}
@@ -1225,7 +1292,7 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
             />
           </div>
           <div>
-            <FormInput label="Price per 1 hour" type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" helper="Time bookings use this rate for booked or waiting hours." />
+            <FormInput label="Price per 1 hour" type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" helper="Time bookings use this rate for booked or waiting hours." error={errors[`${fleet.localId}-pricePerHour`]} />
             <PricingGuide
               type="hour"
               open={activePricingGuide === "hour"}
@@ -1245,9 +1312,9 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
           onUpload={(document, file) => onUploadDocument(fleet.localId, document, file)}
         />
       </section>
-      <FleetSafetySection fleet={fleet} onUpdate={onUpdate} />
+      <FleetSafetySection errors={errors} fleet={fleet} onUpdate={onUpdate} />
 
-      <div className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
+      <div data-field-error={errors[`${fleet.localId}-operators`] ? "true" : undefined} className={`mt-5 rounded-3xl border bg-white p-4 ${errors[`${fleet.localId}-operators`] ? "border-rose-200" : "border-blue-100"}`}>
         <div className="flex items-start gap-3">
           <FiUserPlus className="mt-1 text-blue-700" />
           <div>
@@ -1268,6 +1335,7 @@ function FleetCard({ acceptedPublicIds = [], fleet, form, index, onInvite, onRem
             <span className="flex items-center justify-center gap-2"><FiSearch /> {lookingUp ? "Checking" : "Check"}</span>
           </button>
         </div>
+        {errors[`${fleet.localId}-operators`] ? <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{errors[`${fleet.localId}-operators`]}</p> : null}
         {lookupStatus ? (
           <p className={`mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupStatus.includes("not found") || lookupStatus.includes("Unable") ? "text-rose-700" : "text-slate-600"}`}>
             {lookupStatus}
@@ -1318,7 +1386,7 @@ function FleetImagesSection({ fleet, form, onUploadDocument }) {
   );
 }
 
-function FleetSafetySection({ fleet, onUpdate }) {
+function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
   const questions = fleetSafetyQuestions[fleet.fleetType] || [];
   const answers = fleet.safetyAnswers || {};
   function updateAnswer(key, value) {
@@ -1334,18 +1402,22 @@ function FleetSafetySection({ fleet, onUpdate }) {
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {questions.map((question) => (
-          <label key={question.key} className="rounded-2xl border border-amber-100 bg-white p-3">
+        {questions.map((question) => {
+          const error = errors[`${fleet.localId}-safety-${question.key}`];
+          return (
+          <label key={question.key} data-field-error={error ? "true" : undefined} className={`rounded-2xl border bg-white p-3 ${error ? "border-rose-200" : "border-amber-100"}`}>
             <span className="text-sm font-bold text-slate-800">{question.label}</span>
             {question.type === "number" ? (
-              <input type="number" min="0" value={answers[question.key] || ""} onChange={(event) => updateAnswer(question.key, event.target.value)} placeholder="0" className="mt-3 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
+              <input type="number" min="0" value={answers[question.key] || ""} onChange={(event) => updateAnswer(question.key, event.target.value)} placeholder="0" aria-invalid={error ? "true" : undefined} className={`mt-3 h-11 w-full rounded-xl border px-3 text-sm outline-none focus:border-blue-500 ${error ? "border-rose-300" : "border-slate-200"}`} />
             ) : (
               <select value={answers[question.key] || "Yes"} onChange={(event) => updateAnswer(question.key, event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500">
                 <option>Yes</option><option>No</option><option>Needs admin check</option>
               </select>
             )}
+            {error ? <span className="mt-2 block text-xs font-bold text-rose-700" role="alert">{error}</span> : null}
           </label>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -1530,33 +1602,37 @@ function PricingGuide({ type, open, onToggle, onViewOneKm }) {
   );
 }
 
-function FormInput({ helper = "", label, onChange, placeholder = "", type = "text", value }) {
+function FormInput({ error = "", helper = "", label, onChange, placeholder = "", type = "text", value }) {
   return (
-    <label className="block">
+    <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
       <input
         type={type}
         value={value || ""}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+        aria-invalid={error ? "true" : undefined}
+        className={`h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-semibold outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 ${error ? "border-rose-300" : "border-slate-200"}`}
       />
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-rose-700" role="alert">{error}</span> : null}
       {helper ? <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">{helper}</span> : null}
     </label>
   );
 }
 
-function SelectField({ label, onChange, options, value }) {
+function SelectField({ error = "", label, onChange, options, value }) {
   return (
-    <label className="block">
+    <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+        aria-invalid={error ? "true" : undefined}
+        className={`h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 ${error ? "border-rose-300" : "border-slate-200"}`}
       >
         {options.map((option) => <option key={option}>{option}</option>)}
       </select>
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-rose-700" role="alert">{error}</span> : null}
     </label>
   );
 }

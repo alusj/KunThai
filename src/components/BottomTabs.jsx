@@ -41,7 +41,7 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
         } relative`}
       >
         {createElement(icon, { size: 18, strokeWidth: 2.25, absoluteStrokeWidth: true })}
-        {id !== page && Number(badges[id] || 0) > 0 ? (
+        {Number(badges[id] || 0) > 0 ? (
           <span className="absolute -right-2 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-rose-600 px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
             {Number(badges[id]) > 9 ? "9+" : Number(badges[id])}
           </span>

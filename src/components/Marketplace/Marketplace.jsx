@@ -15,11 +15,10 @@ import {
   fetchMarketplaceParentAvailability,
   MARKETPLACE_PARENT_TAB_MIN_ITEMS,
 } from "../../Backend/services/marketplace/marketplaceVerticalService";
-import { showToast } from "../../Backend/services/toastService";
 
 const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 
-export default function Marketplace({ active = false, nav, setNav, onActivityChange, onNotificationCountChange }) {
+export default function Marketplace({ nav, setNav, onActivityChange, onNotificationCountChange }) {
   const [activeTab, setActiveTab] = useState("new");
   const [activeParent, setActiveParent] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -29,14 +28,16 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
   const [productMode, setProductMode] = useState(false);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
   const [businessClosing, setBusinessClosing] = useState(false);
-  const [buyerNotificationCount, setBuyerNotificationCount] = useState(0);
+  const [buyerNotificationState, setBuyerNotificationState] = useState({
+    orderCount: 0,
+    messageCount: 0,
+    totalCount: 0,
+  });
   const [parentAvailability, setParentAvailability] = useState(null);
   const sellerHeader = useSellerHeader();
   const sellerNotificationCount = sellerHeader.orderCount + sellerHeader.messageCount + sellerHeader.notificationCount;
-  const totalNotificationCount = buyerNotificationCount + sellerNotificationCount;
+  const totalNotificationCount = buyerNotificationState.totalCount + sellerNotificationCount;
   const businessCloseTimer = useRef(null);
-  const previousActiveRef = useRef(false);
-  const previousBuyerUnreadRef = useRef(0);
   // A vertical earns its own tab at MARKETPLACE_PARENT_TAB_MIN_ITEMS live items;
   // the whole row stays hidden (everything mixed under "All") until at least
   // two verticals qualify.
@@ -80,13 +81,7 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
 
   useEffect(() => {
     onNotificationCountChange?.(totalNotificationCount);
-    const becameActive = active && !previousActiveRef.current;
-    const receivedWhileActive = active && buyerNotificationCount > previousBuyerUnreadRef.current;
-    previousActiveRef.current = active;
-    previousBuyerUnreadRef.current = buyerNotificationCount;
-    if (!buyerNotificationCount || (!becameActive && !receivedWhileActive)) return;
-    showToast("Your UrMall activity has a new order or message update. Open the highlighted action to review it.", "info", { title: "UrMall update" });
-  }, [active, buyerNotificationCount, onNotificationCountChange, totalNotificationCount]);
+  }, [onNotificationCountChange, totalNotificationCount]);
 
   const setMarketplaceScreenMode = useCallback((enabled) => {
     setProductMode(enabled);
@@ -189,7 +184,7 @@ export default function Marketplace({ active = false, nav, setNav, onActivityCha
             searchOpen={searchOpen}
             onMessagesClick={() => setActiveUtility((current) => (current === "messages" ? null : "messages"))}
             onMyBizClick={openMyBiz}
-            onNotificationCountChange={setBuyerNotificationCount}
+            onNotificationStateChange={setBuyerNotificationState}
             sellerNotificationCount={sellerNotificationCount}
           />
           {parentNavVisible ? (

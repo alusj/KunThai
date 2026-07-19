@@ -179,7 +179,9 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       .map((item) => item.id),
   );
   const companyNotificationCount = getUnseenNotificationCount(notificationSeenScope, companyNotificationItems, { unreadOnly: true });
-  const bookingNotificationCount = getUnseenNotificationCount(notificationSeenScope, bookingNotificationItems, { unreadOnly: true });
+  // A booking is operational work, not a read receipt. Keep its badge until
+  // the booking leaves the actionable queue through a status action.
+  const bookingNotificationCount = bookingNotificationItems.length;
   const metrics = useMemo(
     () => [
       { label: "Fleets", value: fleets.length, icon: Truck, tone: "emerald" },
@@ -645,18 +647,10 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               ) : null}
             </button>
           ) : null}
-          {company && canViewBookingQueue && bookingQueue.length > 0 ? (
+          {company && canViewBookingQueue && bookingNotificationCount > 0 ? (
             <button
               type="button"
               onClick={() => {
-                markNotificationsSeen(notificationSeenScope, bookingNotificationItems);
-                if (access.operatorId && operatorTripRequests.length) {
-                  markNotificationsSeen(
-                    `transport:${access.operatorId}`,
-                    operatorTripRequests.map((passenger) => ({ id: `operator-waiting-${passenger.id}` })),
-                  );
-                }
-                setSeenVersion((version) => version + 1);
                 setBookingQueueOpen(true);
               }}
               aria-label="Company waiting bookings"

@@ -330,7 +330,7 @@ export default function ProfileHeaderCard({
           </div>
 
           {showVisibilityCredits ? (
-            <div className="mt-3 flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50/85 px-3 py-3">
+            <div className="kt-visibility-credit-card mt-3 flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50/80 px-3 py-3">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Visibility Credits</p>
                 <p className="mt-0.5 text-sm font-black text-slate-950">

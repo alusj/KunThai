@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchExploreConnections } from "../services/exploreService";
 import { getIdentityKey, normalizeIdentityTarget } from "../services/exploreService";
 import { blockExploreIdentity, fetchBlockedIdentityKeys, unblockExploreIdentity } from "../services/explore/safetyService";
+import { GUEST_MODE_CHANGED_EVENT, isGuestMode } from "../services/guestModeService";
 import { showToast } from "../services/toastService";
 import { EXPLORE_FOLLOW_CHANGED_EVENT, useExploreFollows } from "./useExploreFollows";
 
@@ -10,9 +11,10 @@ const BLOCK_STORAGE_KEY = "explore-blocked-users";
 const CONNECTIONS_MEMORY = new Map();
 const CONNECTIONS_MEMORY_TTL = 120_000;
 const CONNECTIONS_STORAGE_PREFIX = "kunthai.explore.connections.";
+const CONNECTIONS_CACHE_VERSION = "v2";
 
 function getConnectionsKey(kind, currentUserId) {
-  return `${kind || "discover"}:${currentUserId || "guest"}`;
+  return `${CONNECTIONS_CACHE_VERSION}:${kind || "discover"}:${currentUserId || "guest"}`;
 }
 
 function readConnectionsMemory(key) {
@@ -72,21 +74,39 @@ function getConnectionIdentity(item) {
 }
 
 export function useExploreConnections(kind, currentUserId = "") {
-  const cacheKey = getConnectionsKey(kind, currentUserId);
-  const cached = readConnectionsMemory(cacheKey);
+  const [guestMode, setGuestMode] = useState(isGuestMode);
+  const cacheKey = getConnectionsKey(kind, guestMode ? "guest" : currentUserId);
+  const cached = guestMode ? null : readConnectionsMemory(cacheKey);
   const initialItems = cached?.items || [];
   const [items, setItems] = useState(() => initialItems);
-  const [loading, setLoading] = useState(() => initialItems.length === 0);
+  const [loading, setLoading] = useState(() => !guestMode && initialItems.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [blockedUsers, setBlockedUsers] = useState(readBlockedUsers);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
 
   useEffect(() => {
+    function handleGuestModeChanged() {
+      setGuestMode(isGuestMode());
+    }
+
+    window.addEventListener(GUEST_MODE_CHANGED_EVENT, handleGuestModeChanged);
+    return () => window.removeEventListener(GUEST_MODE_CHANGED_EVENT, handleGuestModeChanged);
+  }, []);
+
+  useEffect(() => {
     writeConnectionsMemory(cacheKey, items);
   }, [cacheKey, items]);
 
   async function load(options = {}) {
+    if (guestMode) {
+      setItems([]);
+      setLoading(false);
+      setRefreshing(false);
+      setError("");
+      return;
+    }
+
     const force = Boolean(options.force);
     const currentCache = readConnectionsMemory(cacheKey);
     const hasCachedItems = Boolean(currentCache?.items?.length || items.length);
@@ -124,6 +144,14 @@ export function useExploreConnections(kind, currentUserId = "") {
     let active = true;
 
     async function loadActive() {
+      if (guestMode) {
+        setItems([]);
+        setLoading(false);
+        setRefreshing(false);
+        setError("");
+        return;
+      }
+
       const currentCache = readConnectionsMemory(cacheKey);
       const hasCachedItems = Boolean(currentCache?.items?.length);
       const fresh = hasCachedItems && Date.now() - currentCache.savedAt < CONNECTIONS_MEMORY_TTL;
@@ -165,16 +193,18 @@ export function useExploreConnections(kind, currentUserId = "") {
     }
 
     loadActive();
-    fetchBlockedIdentityKeys()
-      .then((blocked) => {
-        if (active) setBlockedUsers(new Set(blocked));
-      })
-      .catch(() => {});
+    if (!guestMode) {
+      fetchBlockedIdentityKeys()
+        .then((blocked) => {
+          if (active) setBlockedUsers(new Set(blocked));
+        })
+        .catch(() => {});
+    }
 
     return () => {
       active = false;
     };
-  }, [cacheKey, currentUserId, kind]);
+  }, [cacheKey, currentUserId, guestMode, kind]);
 
   useEffect(() => {
     function handleFollowChanged(event) {
@@ -281,7 +311,7 @@ export function useExploreConnections(kind, currentUserId = "") {
     });
   }
 
-  const visibleItems = items
+  const visibleItems = (guestMode ? [] : items)
     .filter((item) => !blockedUsers.has(getConnectionIdentity(item).key))
     .map((item) => {
       const identity = getConnectionIdentity(item);

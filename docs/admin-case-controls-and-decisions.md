@@ -1,23 +1,26 @@
-# KunThai admin case controls and decisions
+# KunThai Admin Case Controls and Decisions
 
-This guide explains the admin workspace, the case drawer, every important case-control button, the decision buttons, and the current path for verifying operators, sellers, companies, fleets, and Area View submissions.
+This guide is the operating file for KunThai admin case handling. It explains the admin workspace, the case drawer, the decision buttons, action undo, related account controls, activity notification actions, and the current account-deletion review flow.
 
-The most important rule is this: statuses manage the case workflow, while decisions change the actual source record when the backend supports that case type. A status update can move work along without approving or rejecting the underlying user, seller, operator, post, or location.
+The main rule is simple: **case statuses manage workflow, while decisions change the source record when the backend supports that case type**. A status update can move work forward without approving, rejecting, deleting, restricting, or verifying the underlying record.
 
-## Who can do what
+## Admin Access Model
 
-Admin access is controlled by role, sector scope, and authority level.
+Admin access is enforced by database RPCs, RLS policies, role scope, sector scope, and authority level. The UI should make the controls understandable, but the backend remains the source of truth.
 
-- `cases.view`: can see accessible cases.
-- `cases.manage`: can claim cases, update case status, add notes, and apply decisions.
-- `cases.approve`: can review sensitive decision approvals.
+- `cases.view`: can see cases inside the admin's allowed scope.
+- `cases.manage`: can claim cases, update case status, add notes, apply decisions, and use case-level undo when permitted.
+- `cases.approve`: can approve or reject sensitive action requests.
+- `users.view`: can view user/account records when the admin role includes that permission.
+- `users.manage`: can update related account access from the Users page or from an eligible case drawer.
 - Authority level 3: required for `Approve`, `Reject`, `Remove content`, `Restrict`, and `Suspend`.
 - Authority level 4: required to approve another admin's sensitive action request.
-- Super Admin: can apply `Remove content` and `Suspend` without the extra approval step.
+- Super Admin: can apply sensitive decisions without the second-admin approval step.
+- Chief Admin or Super Admin: can undo eligible case actions performed by another admin.
 
-For normal verification work, a Verification Officer or sector manager with the correct sector scope should handle the case. For high-risk actions, use a second administrator for approval.
+Use the narrowest suitable role and sector. Verification officers should handle normal verification; sector managers and risk roles should handle complex reviews; Chief/Super Admins should handle destructive, policy-sensitive, or disputed actions.
 
-## Main admin areas
+## Admin Workspace Map
 
 - Command center: summary cards, urgent work, queue load, and sector shortcuts.
 - My work: assigned and unassigned cases available to handle.
@@ -27,199 +30,247 @@ For normal verification work, a Verification Officer or sector manager with the 
 - Transport: operator, fleet, company, trip, incident, and Area View work.
 - Verification: seller, operator, company, fleet, document, and profile review queue.
 - Reports and safety: content reports, fraud, safety incidents, and Area View validation.
-- Support and disputes: My Voice, user, seller, order, trip, and operator support.
+- Support and disputes: My Voice, user, seller, order, trip, operator, and account-deletion support.
 - Notifications: platform notification campaigns.
-- Finance: finance cases. Live money movement is still disabled until the payment provider is connected.
+- Finance: finance cases. Live money movement is disabled until the payment provider is connected.
 - Analytics: workload and SLA overview.
 - Admin team: grant and revoke admin assignments.
-- Audit log: immutable record of admin decisions, access changes, approvals, and settings changes.
+- Action history: operational history for recent admin actions.
+- Audit log: immutable record of admin decisions, access changes, approvals, undo events, and settings changes.
 - Settings: high-impact feature flags.
 
-## Queue and case-table buttons
+## Queue and Case Table Controls
 
-- `Refresh`: reloads the dashboard summary and latest cases.
-- `Open queue`: moves from the command center into the work queue.
-- Sector cards, such as `Explore`, `UrMall`, and `Transport`: open that sector's case view.
+- `Refresh`: reloads dashboard summary and latest cases.
+- `Open queue`: opens the work queue from the command center.
+- Sector cards such as `Explore`, `UrMall`, and `Transport`: open that sector's case view.
 - Search field: searches case number, title, description, sector, queue, type, country, and source metadata.
-- Status filter: shows open work, new cases, in-review cases, waiting-information cases, resolved cases, or all cases.
-- Content-type filter: limits the queue to one case type, such as seller verification, operator verification, or reported post.
+- Status filter: shows open work, new, in-review, waiting-information, resolved, or all cases.
+- Content-type filter: limits the queue to one case type, such as seller verification, operator verification, reported post, or account deletion request.
 - Case row: opens the case drawer.
-- Arrow button on a case row: also opens the case drawer.
-- Global country scope: filters cases by country when the case source contains country information.
+- Arrow button: opens the same case drawer.
+- Global country scope: filters cases by country when country data exists on the case source.
 
-## Case drawer sections
+## Case Drawer Reference
 
-When you open a case, the drawer shows:
+When a case opens, the drawer can show these sections:
 
-- Case number, sector, queue, priority, title, description, status, type, country, opened time, and SLA due time.
-- Reported or attached content. For posts, comments, profiles, locations, and media, this is where you inspect the source.
-- Source information. This is raw metadata from the source record.
-- Attachments and evidence. This can include screenshots, recordings, documents, fleet photos, IDs, or registration evidence.
-- Sensitive action approvals, when another admin requested an action that needs a second person.
-- Case controls, if your role has `cases.manage`.
-- Internal notes.
+- Case summary: case number, sector, queue, priority, title, description, status, type, country, opened time, and SLA due time.
+- Reported or attached content: source content and direct media previews for posts, comments, profiles, map points, documents, images, video, and audio.
+- Source information: structured metadata from the source record.
+- Attachments and evidence: screenshots, recordings, documents, fleet photos, IDs, registration evidence, or support files.
+- Sensitive action approvals: second-admin review for actions that need approval.
+- Case controls: workflow status, claim button, recent actions, related account access, decision controls, and required reason boxes.
+- Internal notes: private admin context for the next reviewer.
 
-## Case drawer buttons
+## Case Drawer Buttons
 
 - `Close case` / `X`: closes the drawer without changing the case.
-- `Open map point`: opens a linked Area View/location point when the case has coordinates.
+- `Open map point`: opens a linked Area View or location point.
 - `Open file`: opens a document or evidence attachment in a new tab.
 - Image tile: opens an image preview.
-- Video or audio controls: lets the admin play submitted media evidence.
-- Media preview `X`: closes the media preview.
-- Approval `Approve`: approves a pending sensitive action request. Requires `cases.approve`, authority level 4, and a different admin from the requester.
-- Approval `Reject`: rejects a pending sensitive action request and returns the case to `in_review`.
-- Status dropdown: chooses the workflow state for the case.
-- `Update status`: saves the selected workflow status. This does not approve/reject the source record by itself.
+- Video or audio controls: plays submitted media evidence.
+- Media preview `X`: closes the preview.
+- Approval `Approve`: approves a pending sensitive action. Requires `cases.approve`, authority level 4, and a different admin from the requester.
+- Approval `Reject`: rejects a pending sensitive action and returns the case to `in_review`.
+- Status dropdown: chooses the workflow state.
+- `Update status`: saves the selected workflow status. This does not approve, reject, delete, verify, or restrict the source record by itself.
 - `Claim case`: assigns the case to you. If the case is `new`, `triaged`, or `reopened`, it becomes `assigned`.
+- Recent actions `Undo`: starts an undo for an eligible case action.
+- Undo `Confirm undo`: restores the case to the previous case state after a required undo reason is entered.
+- Related account access `Restore`: sets the related user's platform account control back to active.
+- Related account access `Edit`: opens the account-access form inside the case drawer.
+- Related account access `Save access`: saves status, sectors, expiry, and reason through the audited admin user-status RPC.
 - Decision dropdown: chooses the actual admin decision to apply.
-- `Apply decision`: applies the selected decision with the required reason. Some source records are updated immediately; `Remove content` and `Suspend` may create an approval request instead.
-- Required decision reason box: the explanation written to the case, case event, and audit log.
-- Internal note box: private admin context for the next reviewer.
+- `Apply decision`: applies the selected decision with the required reason. Some source records update immediately; sensitive actions may first create an approval request.
+- Internal note box: private admin context for future reviewers.
 - `Add note`: saves the internal note.
 
-## Case statuses
+## Case Statuses
 
 - `new`: the case was created and has not been triaged.
 - `triaged`: someone reviewed the case enough to know what queue or action it needs.
 - `assigned`: the case has an owner.
 - `in_review`: the owner is checking evidence, policy, history, or documents.
 - `waiting_information`: the admin needs more information from the user, seller, operator, or another source.
-- `action_proposed`: an admin has prepared an action but it has not fully completed.
+- `action_proposed`: an admin has prepared an action that is not fully completed.
 - `approval_required`: a sensitive action is waiting for a second admin.
 - `actioned`: an action was taken but the case is not fully resolved yet.
-- `appeal_window`: the user may still appeal or the admin is waiting through a dispute window.
+- `appeal_window`: the user may still appeal, or the admin is waiting through a dispute window.
 - `resolved`: the admin decision is complete.
-- `closed`: the case is fully closed after resolution and any appeal/retention period.
+- `closed`: the case is fully closed after resolution and any appeal or retention period.
 - `reopened`: a closed or resolved case came back because of an appeal, new information, or a repeated issue.
 
-Use statuses to describe work progress. Use decisions when you are ready to change the outcome.
+Use statuses to describe progress. Use decisions only when you are ready to record the outcome.
 
-## Decision buttons
+## Decision Buttons
 
 The current decision options are:
 
-- `Approve`: approves a verification or validates a source when the case type supports approval.
-- `Reject`: rejects a verification or declines a source when the case type supports rejection.
-- `Dismiss`: closes a report or concern because it is not actionable, is false, lacks evidence, or does not violate policy.
-- `Remove content`: for supported Explore post reports, marks the report reviewed and blocks the reported post. It needs authority level 3 and, unless the actor is a Super Admin, second-admin approval.
-- `Restrict`: for supported Explore post reports, blocks/restricts the reported post. It needs authority level 3.
-- `Suspend`: records a suspension decision. It needs authority level 3 and, unless the actor is a Super Admin, second-admin approval. Use the Users account control for platform account status.
+- `Approve`: approves a verification, validates a source, or accepts a user-requested action when the case type supports approval.
+- `Reject`: rejects a verification or declines a request when the case type supports rejection.
+- `Dismiss`: closes a report or concern because it is not actionable, is false, lacks evidence, is duplicated, or does not violate policy.
+- `Remove content`: removes or blocks supported content. It needs authority level 3 and, unless the actor is a Super Admin, second-admin approval.
+- `Restrict`: applies a restriction where the case type supports it. It needs authority level 3.
+- `Suspend`: records a suspension decision. It needs authority level 3 and, unless the actor is a Super Admin, second-admin approval. Use the Users account control for platform-wide account status.
 - `Resolve`: closes the case with a general resolution and no special source-record change.
 - `Request information`: moves the case to `waiting_information` and keeps it unresolved.
 
-Every decision requires a reason. If the reason field is empty, the button is disabled.
+Every decision requires a reason. If the reason field is empty, the decision button is disabled.
 
-## What decisions currently update
+## Decision Effects
 
-The backend function `admin_apply_case_decision` is the source of truth for decision effects.
+The backend function `admin_apply_case_decision` and the connected decision-sync triggers are the source of truth for source-record updates.
 
-- `explore_post_report`: `Dismiss` marks the report dismissed. Other decisions mark it reviewed. `Remove content` and `Restrict` block the reported Explore post.
-- `explore_comment_report`: marks the report dismissed or reviewed. It does not currently hide/delete the comment.
-- `explore_profile_report`: marks the report dismissed or reviewed. It does not currently suspend the profile by itself.
-- `marketplace_verification`: `Approve` sets the verification request to approved and the business to `verified`; `Reject` sets the request to rejected and the business to `rejected`.
-- `marketplace_business_registration`: `Approve` sets the business `verification_status` to `verified`; `Reject` sets it to `rejected`.
-- `marketplace_case`: `Request information` keeps it in review; other decisions resolve it.
-- `transport_support`: `Request information` keeps it in review; other decisions resolve it.
-- `transport_operator_verification`: `Approve` sets the operator to `verified` and account status to `approved`; `Reject` sets verification to `not_verified` and account status to `rejected`.
-- `transport_company_verification`: `Approve` sets the company to `verified` and account status to `approved`; `Reject` sets it to `rejected`.
-- `transport_fleet_verification`: `Approve` sets the company fleet to `verified`; `Reject` sets it to `rejected`.
-- `transport_solo_fleet_verification`: `Approve` sets the public fleet to `verified`; `Reject` sets it to `not_verified`.
-- `area_location_verification`: `Approve` makes the location `approved` and public; `Reject` makes it rejected/private.
-- `area_report`: `Approve` sets the report to `verified`; `Dismiss` sets it to `rejected`; other decisions clear it.
+| Case resource type | Current effect |
+| --- | --- |
+| `explore_post_report` | `Dismiss` marks the report dismissed. Other decisions mark it reviewed. `Remove content` and `Restrict` block the reported Explore post. |
+| `explore_comment_report` | Marks the report dismissed or reviewed. It does not currently hide or delete the comment. |
+| `explore_profile_report` | Marks the report dismissed or reviewed. It does not suspend the profile by itself. |
+| `marketplace_verification` | `Approve` approves the verification request and sets the business to `verified`; `Reject` sets the request to rejected and the business to `rejected`. |
+| `marketplace_business_registration` | Decision-sync trigger sets the business verification status to `verified` on `Approve` or `rejected` on `Reject`. |
+| `marketplace_property_listing` | Decision-sync trigger sets listing authorization to `verified` and publishes it on `Approve`; sets authorization to `rejected` on `Reject`. |
+| `marketplace_case` | `Request information` keeps it in review; other decisions resolve it. |
+| `transport_support` | `Request information` keeps it in review; other decisions resolve it. |
+| `transport_operator_verification` | `Approve` sets the operator to `verified` and account status to `approved`; `Reject` sets verification to `not_verified` and account status to `rejected`. |
+| `transport_company_verification` | `Approve` sets the company to `verified` and account status to `approved`; `Reject` sets it to `rejected`. |
+| `transport_fleet_verification` | `Approve` sets the company fleet to `verified`; `Reject` sets it to `rejected`. |
+| `transport_solo_fleet_verification` | Decision-sync trigger sets the public fleet to `verified` on `Approve` or `not_verified` on `Reject`. |
+| `area_location_verification` | Decision-sync trigger makes the location approved/public on `Approve` or rejected/private on `Reject`. |
+| `area_report` | `Approve` sets the report to `verified`; `Dismiss` sets it to `rejected`; other decisions clear it. |
+| `urmall_account_deletion_request` | `Approve` or `Remove content` deletes the matching UrMall business row when the requester owns it. `Reject`, `Dismiss`, and `Resolve` close the case without deleting the business. |
+| `urride_account_deletion_request` | `Approve` or `Restrict` applies a transport-sector restriction in `platform_account_controls`. It does not delete the auth user or the full KunThai identity. |
 
 After a non-information decision, the case becomes `resolved`. After `Request information`, the case becomes `waiting_information`.
 
-## Sensitive action approvals
+## Sensitive Action Approvals
 
-`Remove content` and `Suspend` create a pending approval request when the requester is not a Super Admin.
+The following decisions create a pending approval request when the requester is not a Super Admin:
+
+- `Remove content`
+- `Suspend`
+- `Approve` on `urmall_account_deletion_request`
+- `Approve` on `urride_account_deletion_request`
 
 The flow is:
 
-1. First admin opens the case, chooses `Remove content` or `Suspend`, enters a reason, and selects `Apply decision`.
+1. First admin opens the case, chooses the decision, enters a clear reason, and selects `Apply decision`.
 2. The case moves to `approval_required`.
 3. A second admin with `cases.approve` and authority level 4 opens the case.
 4. The second admin selects `Approve` or `Reject` in the Sensitive action approvals section.
-5. If approved, the original decision is applied. If rejected, the case goes back to `in_review`.
+5. If approved, the stored decision is applied through `admin_apply_case_decision`.
+6. If rejected, the case returns to `in_review`.
 
 The same admin cannot request and approve the sensitive action.
 
-## How to verify an operator today
+## Account Deletion Requests
 
-Use this when the operator should show the normal blue `Verified` badge.
+Account deletion requests are submitted by users but reviewed by admin before any destructive or access-changing action happens.
 
-1. Go to Admin > Verification or Admin > Transport.
-2. Open the relevant `Operator verification` or `Fleet verification` case.
-3. Review source information, registration documents, fleet photos, and any attached evidence.
-4. Select `Claim case` if nobody owns it.
-5. Set status to `in_review` if you are actively checking it, then select `Update status`.
-6. When the evidence is acceptable, choose decision `Approve`.
-7. Enter a clear reason, for example: `Identity, license, and fleet documents reviewed and accepted.`
-8. Select `Apply decision`.
+Current supported surfaces:
 
-For `transport_operator_verification`, the operator record becomes `verified` and `approved`. For `transport_solo_fleet_verification`, the public fleet becomes `verified`. The transport UI maps `verified` to the `Verified` badge.
+- `urmall_business`: creates a marketplace support case with resource type `urmall_account_deletion_request`.
+- `urride_account`: creates a transport support case with resource type `urride_account_deletion_request`.
 
-## How to show Verified Recommended
+Each request stores a compact source snapshot in the case metadata. For UrMall, the snapshot can include business ID, business name, business kind, owner user ID, country, city, and reason. For UrRide, the snapshot includes the requesting user, surface, account name when supplied, and reason.
 
-The display layer already understands a recommended status:
+### How To Review A Deletion Request
 
-- Transport maps `verified_recommended` or `recommended` to `Verified Recommended`.
-- UrMall maps `recommended`, `verified_recommended`, `verify-recommended`, or `verified recommended` to `Verified recommended`.
+1. Go to Admin > Support and disputes, or open the relevant sector queue.
+2. Filter or search for `Account deletion request`.
+3. Open the case and review Source information, evidence, previous support history, orders, trips, disputes, messages, and any legal or safety retention needs.
+4. Confirm that `subject_user_id` and `reporter_user_id` match the requester, and that the requested target belongs to that user.
+5. Select `Claim case`.
+6. If anything is unclear, choose `Request information`, enter the exact missing information, and apply the decision.
+7. If the request is invalid, unsafe, duplicated, or cannot be processed, choose `Reject` or `Dismiss` with a clear reason.
+8. If the request is valid and ready, choose `Approve`, enter a reason, and apply the decision.
+9. If second-admin approval is required, wait for the approval reviewer to approve the pending action.
+10. After completion, verify the Audit log and the source UI.
 
-The current admin case decision UI does not yet include a `Verify recommended` decision, and the current admin decision SQL writes normal `verified` for approved transport and UrMall verification cases. So, today, `Approve` gives `Verified`, not `Verified Recommended`.
+### How UrMall Business Deletion Works
 
-The clean implementation is to add a dedicated decision called `verify_recommended` and make the SQL sync it to the recommended status.
+Use `Approve` for a valid user-requested UrMall deletion. When the decision is finally applied, the database deletes the matching row from `marketplace_businesses` only if the business ID matches the case resource and the business owner matches the case subject user.
 
-Recommended implementation checklist:
+Important guardrails:
 
-1. Add this option in `web/src/admin/adminConfig.js`:
+- Do not use `Approve` until ownership, support risk, orders, disputes, and retention needs are checked.
+- Non-Super Admin approval requires a second administrator.
+- Case undo can restore the case status and decision state, but it does **not** recreate a deleted UrMall business row.
+- If a business was deleted by mistake, recovery requires a technical restore from backups or a manual reconstruction path. Treat approval as destructive.
 
-```js
-{ key: "verify_recommended", label: "Verify recommended" }
-```
+### How UrRide Account Deletion Works Today
 
-2. Update `admin_apply_case_decision` in the Supabase migration/function so `verify_recommended` is an accepted decision.
+The current UrRide deletion decision is conservative. `Approve` or `Restrict` writes a transport-sector restriction to `platform_account_controls`. It does not delete the Supabase auth user, the user's full KunThai identity, or all platform data.
 
-3. Treat `verify_recommended` like `approve` for authority checks.
+Use this when the user requested transport account removal but the platform must retain identity, support, trip, safety, legal, or audit records. If the product later needs full auth-user deletion from admin, add a separate audited backend function instead of overloading the existing case decision.
 
-4. For transport operator and solo-fleet cases, write `verified_recommended` instead of `verified`.
+If a user still sees a restricted screen after a mistaken decision is undone, open the same case and use `Related account access` > `Restore`.
 
-5. If `public.transport_verification_status` is an enum in the deployed database, add the enum value first:
+## Recent Actions And Undo
 
-```sql
-alter type public.transport_verification_status
-  add value if not exists 'verified_recommended';
-```
+The case drawer now shows recent undoable actions for:
 
-6. If a table uses a text check constraint, such as some company/fleet tables, update the constraint to allow `verified_recommended`.
+- `case.claimed`
+- `case.status_changed`
+- `case.decision_applied`
 
-7. Update registration decision sync triggers so `new.resolution_code = 'verify_recommended'` also updates source records.
+An `Undo` button appears when:
 
-8. Keep the reason requirement and audit logging exactly like other decisions.
+- the action has a previous case state,
+- the action has not already been undone,
+- the current admin performed the action, or the current admin is a Chief Admin or Super Admin,
+- the admin has permission to manage the case.
 
-Example SQL logic for the transport operator branch:
+Undo requires a reason. When confirmed, it restores the case status, assignee, assigned time, resolution code, resolution note, resolved time, and closed time from the audit log's previous state. It also writes a new case event and audit-log entry.
 
-```sql
-set verification_status = case
-      when normalized_decision = 'verify_recommended' then 'verified_recommended'::public.transport_verification_status
-      when normalized_decision = 'approve' then 'verified'::public.transport_verification_status
-      else 'not_verified'::public.transport_verification_status
-    end,
-    account_status = case
-      when normalized_decision in ('approve', 'verify_recommended') then 'approved'
-      else 'rejected'
-    end
-where id = target_case.resource_id
-  and normalized_decision in ('approve', 'verify_recommended', 'reject');
-```
+Undo is not a universal source-data rollback. It is a controlled case rollback. For source effects:
 
-For UrMall, store either `recommended` or `verified_recommended`; the frontend accepts both. Prefer one value consistently. `verified_recommended` is clearer because it says the seller is verified first and recommended second.
+- UrRide account-deletion restrictions can be restored to active by the undo helper when the current control is still restricted.
+- General account restrictions can be fixed through `Related account access` or the Users page.
+- Deleted UrMall business rows are not recreated by undo.
+- Removed or restricted content should be checked in the source UI after undo.
 
-Avoid direct manual SQL updates in production unless it is an emergency. Manual updates can bypass the admin case audit trail unless you also create the case decision, event, and audit record.
+## Related Account Access
 
-## User account controls
+When a case has `subject_user_id` and the admin has `users.manage`, the case drawer shows Related account access.
 
-The Users page is separate from case decisions.
+Controls:
+
+- Status badge: shows the current account control status, such as `Active`, `Warned`, `Restricted`, `Suspended`, or `Banned`.
+- Sector badge: shows restricted sectors when a sector restriction exists.
+- `Restore`: sets the related account back to `Active`, clears expiry, and sets sectors to `all`.
+- `Edit`: opens the account-access form.
+- Status field: chooses `Active`, `Warned`, `Restricted`, `Suspended`, or `Banned`.
+- Expires field: optional expiry for temporary account controls.
+- Restricted sectors: selects `All sectors`, `Explore`, `UrMall`, or `Transport` when status is `Restricted`.
+- Required account access reason: records why the account control is being changed.
+- `Save access`: applies the control through the audited admin user-status RPC.
+
+Use this panel when a case action created or exposed an account-access problem. For example, if an admin undoes a decision but the user still sees "This sector is restricted", restore or edit the related account access from the case drawer.
+
+## Activity Notification Actions
+
+The admin activity bell has a per-notification `...` menu. Available actions depend on the notification, actor, and role.
+
+Common actions:
+
+- `Open notification`: opens the most relevant admin view.
+- `Open related case`: opens the connected case when one exists.
+- `Mark read` / `Mark unread`: updates only the current admin's notification state.
+- `Copy details`: copies useful notification details.
+- `Dismiss`: archives the notification for the current admin.
+
+Admin action notifications can also expose undo:
+
+- The admin who performed the action can request or apply undo from their own notification when the notification is connected to an audit record.
+- The upgraded undo path routes through the central audit undo function, so eligible case actions and account-status actions follow the same authorization and audit rules.
+- Chief/Super Admin review remains the correct path for actions that are not safely auto-undoable.
+
+Notification RLS only allows admins to update their own notification read/archive state. It does not let one admin silently change another admin's notification inbox.
+
+## User Account Controls
+
+The Users page and Related account access panel both use audited account-control paths.
 
 - Search field: finds users by name, username, email, or phone.
 - Shield button: opens account control for that user.
@@ -229,14 +280,66 @@ The Users page is separate from case decisions.
   - `Restricted`: account has limited sector access.
   - `Suspended`: account is temporarily or indefinitely suspended.
   - `Banned`: account is banned.
-- Restricted sectors checkboxes: choose all sectors or specific sectors affected by a restriction.
-- Expires field: optional end time for the control.
+- Restricted sectors: choose all sectors or specific sectors affected by a restriction.
+- Expires field: optional end time.
 - Required reason: why the control is being applied.
-- `Apply account status`: saves the control through the admin RPC and audit path.
+- `Apply account status` or `Save access`: saves the control and audit record.
 
-Use this for account-level restrictions. Do not assume `Suspend` in a case decision will automatically suspend the user's whole platform account.
+Use account controls for account-level restrictions. Do not assume `Suspend` in a case decision will automatically suspend the user's whole platform account.
 
-## Notification campaign buttons
+## Verification Workflows
+
+### Verify An Operator
+
+Use this when the operator should show the normal `Verified` badge.
+
+1. Go to Admin > Verification or Admin > Transport.
+2. Open the relevant `Operator verification` or `Fleet verification` case.
+3. Review source information, registration documents, fleet photos, and attached evidence.
+4. Select `Claim case` if nobody owns it.
+5. Set status to `in_review` while actively checking it, then select `Update status`.
+6. When the evidence is acceptable, choose decision `Approve`.
+7. Enter a clear reason, for example: `Identity, license, and fleet documents reviewed and accepted.`
+8. Select `Apply decision`.
+
+For `transport_operator_verification`, the operator becomes `verified` and `approved`. For `transport_solo_fleet_verification`, the public fleet becomes `verified` through the decision-sync trigger.
+
+### Verified Recommended
+
+The display layer already understands a recommended status:
+
+- Transport maps `verified_recommended` or `recommended` to `Verified Recommended`.
+- UrMall maps `recommended`, `verified_recommended`, `verify-recommended`, or `verified recommended` to `Verified recommended`.
+
+The current admin case decision UI does not yet include a `Verify recommended` decision, and the current decision SQL writes normal `verified` for approved transport and UrMall verification cases. Today, `Approve` gives `Verified`, not `Verified Recommended`.
+
+The clean implementation is to add a dedicated decision called `verify_recommended` and sync it to the recommended status.
+
+Recommended implementation checklist:
+
+1. Add this option in `web/src/admin/adminConfig.js`:
+
+```js
+{ key: "verify_recommended", label: "Verify recommended" }
+```
+
+2. Update `admin_apply_case_decision` so `verify_recommended` is accepted.
+3. Treat `verify_recommended` like `approve` for authority checks.
+4. For transport operator and solo-fleet cases, write `verified_recommended` instead of `verified`.
+5. If `public.transport_verification_status` is an enum, add the enum value first:
+
+```sql
+alter type public.transport_verification_status
+  add value if not exists 'verified_recommended';
+```
+
+6. If a table uses a text check constraint, update the constraint to allow `verified_recommended`.
+7. Update registration decision-sync triggers so `new.resolution_code = 'verify_recommended'` also updates source records.
+8. Keep the reason requirement and audit logging exactly like other decisions.
+
+Avoid direct manual SQL updates in production unless it is an emergency. Manual updates can bypass the admin case audit trail unless you also create the case decision, event, and audit record.
+
+## Notification Campaign Buttons
 
 - `New campaign`: opens the notification composer.
 - Composer `X` or `Cancel`: closes the composer without saving.
@@ -246,7 +349,7 @@ Use this for account-level restrictions. Do not assume `Suspend` in a case decis
 
 Campaign forms include sector, audience, priority, optional schedule, and audience-specific targeting fields.
 
-## Admin team buttons
+## Admin Team Buttons
 
 - `Add administrator`: opens the assignment form.
 - Sector checkboxes: choose all sectors or a narrower admin scope.
@@ -257,31 +360,34 @@ Campaign forms include sector, audience, priority, optional schedule, and audien
 
 Admin assignments require an existing KunThai account email. They do not create a user account.
 
-## Settings buttons
+## Settings Buttons
 
 - Feature switch: enables or disables a feature flag after the admin enters a reason.
 
 Feature flag changes are high-impact and are written to the audit log.
 
-## Audit and activity
+## Audit Practice
 
-- Bell button: opens recent admin activity.
-- `Read all`: marks all activity notifications read.
-- Activity item: opens the most relevant admin area. Case intake goes to the right queue; admin action activity goes to the audit log.
-- `Open audit log`: opens immutable audit history.
-- `Campaigns`: opens notification campaigns.
+For every important action, verify the Audit log afterward. It should show the actor, action, sector, resource type, reason, before/after state when available, and time.
 
-For every important decision, verify the Audit log afterward. It should show the actor, action, sector, resource type, reason, and time.
+Use this standard for reasons:
 
-## Good admin practice
+- Be specific about what was reviewed.
+- Name the policy, evidence, or user request that justifies the action.
+- Avoid vague reasons such as `done`, `ok`, or `bad user`.
+- For undo, explain what was wrong and what state should be restored.
+- For account deletion, record ownership checks, retention checks, and the final action taken.
 
-- Claim the case before making a decision, unless it is urgent and unassigned handling is acceptable.
+## Good Admin Practice
+
+- Claim the case before making a decision unless the situation is urgent.
 - Put the case in `in_review` while you inspect evidence.
 - Use `Request information` when documents are unclear, incomplete, expired, mismatched, or unreadable.
 - Use `Approve` only when the required checks are complete.
-- Use `Reject` when the source cannot pass verification or policy requirements.
+- Use `Reject` when the source cannot pass verification, deletion checks, or policy requirements.
 - Use `Dismiss` when the report or request should not lead to action.
 - Use account controls for account-level warnings, restrictions, suspensions, and bans.
-- Use second-admin approval for sensitive or irreversible actions.
+- Use second-admin approval for sensitive or destructive actions.
 - Always write a reason that another admin can understand later.
-- Check the source UI after verification to confirm the public badge changed as expected.
+- Check the source UI after verification, restriction, deletion, or undo.
+- Treat UrMall deletion approval as destructive because case undo does not recreate the business row.

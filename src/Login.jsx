@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { FaApple } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
-import { Eye, ShieldAlert } from "lucide-react";
+import { Eye, Globe2, ShieldAlert } from "lucide-react";
 
 import supabase from "./Backend/lib/supabaseClient";
 import { consumeAuthIntent, enterGuestMode } from "./Backend/services/guestModeService";
@@ -22,13 +22,9 @@ import {
   registerOtpRequest,
 } from "./Backend/services/otpRequestGuardService";
 import LastOtpNoticeCard from "./components/auth/LastOtpNoticeCard";
-import {
-  DEFAULT_GLOBAL_COUNTRY_CODE,
-  GLOBAL_COUNTRY_CODES,
-} from "./data/globalCountryCodes";
+import { GLOBAL_COUNTRY_CODES } from "./data/globalCountryCodes";
 import {
   constrainCountryPhoneInput,
-  getActiveCountryProfile,
   storeCountryContext,
 } from "./data/globalCountryProfiles";
 import {
@@ -102,13 +98,17 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
         }`}
         aria-label="Choose country"
       >
-        <FlagIcon code={country.iso2} className="h-5 w-7 shrink-0 rounded-[4px]" />
+        {country ? (
+          <FlagIcon code={country.iso2} className="h-5 w-7 shrink-0 rounded-[4px]" />
+        ) : (
+          <Globe2 className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
+        )}
         <span className={compact ? "sr-only" : "min-w-0 flex-1 truncate"}>
-          {country.iso2} - {country.name}
+          {country ? `${country.iso2} - ${country.name}` : "Choose country"}
         </span>
         {compact ? (
           <span className="shrink-0 text-sm font-semibold text-slate-900">
-            {country.dialCode}
+            {country?.dialCode || "Country"}
           </span>
         ) : null}
         <svg
@@ -137,7 +137,7 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
                 setOpen(false);
               }}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
-                item.iso2 === country.iso2
+                item.iso2 === country?.iso2
                   ? "bg-blue-50 font-semibold text-blue-700"
                   : "text-slate-700 hover:bg-slate-50"
               }`}
@@ -171,10 +171,13 @@ function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "P
           type="tel"
           inputMode="tel"
           value={phone}
-          onChange={(event) => onPhoneChange(constrainCountryPhoneInput(event.target.value, country))}
-          placeholder={country.placeholder}
+          onChange={(event) => {
+            if (country) onPhoneChange(constrainCountryPhoneInput(event.target.value, country));
+          }}
+          placeholder={country?.placeholder || "Choose country first"}
           autoComplete="tel"
-          className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          disabled={!country}
+          className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-100"
           required
         />
       </div>
@@ -196,10 +199,13 @@ function PhoneAccountInput({ country, value, onCountryChange, onValueChange }) {
           type="tel"
           inputMode="tel"
           value={value}
-          onChange={(event) => onValueChange(constrainCountryPhoneInput(event.target.value, country))}
-          placeholder={country.placeholder}
+          onChange={(event) => {
+            if (country) onValueChange(constrainCountryPhoneInput(event.target.value, country));
+          }}
+          placeholder={country?.placeholder || "Choose country first"}
           autoComplete="tel"
-          className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          disabled={!country}
+          className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-100"
           required
         />
       </div>
@@ -208,6 +214,7 @@ function PhoneAccountInput({ country, value, onCountryChange, onValueChange }) {
 }
 
 const normalizePhoneDigits = (value, country) => {
+  if (!country) return "";
   const digits = value.replace(/\D/g, "");
 
   if (digits.length > country.maxLength && digits.startsWith("0")) {
@@ -218,6 +225,7 @@ const normalizePhoneDigits = (value, country) => {
 };
 
 const buildPhoneForAuth = (value, country) => {
+  if (!country) return "";
   const trimmed = value.trim();
 
   if (trimmed.startsWith("+")) {
@@ -300,10 +308,7 @@ export default function Login() {
   const [guestEntering, setGuestEntering] = useState(false);
 
   const [signInAccount, setSignInAccount] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState(() => {
-    const activeProfile = getActiveCountryProfile();
-    return GLOBAL_COUNTRY_CODES.find((country) => country.iso2 === activeProfile.iso2) || DEFAULT_GLOBAL_COUNTRY_CODE;
-  });
+  const [selectedCountry, setSelectedCountry] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pendingPhone, setPendingPhone] = useState("");
   const [otpCode, setOtpCode] = useState("");
@@ -347,6 +352,13 @@ export default function Login() {
     setError("");
     setMessage("");
     setPhoneConflict(false);
+  }
+
+  function handleCountryChange(country) {
+    setSelectedCountry(country);
+    setSignInAccount("");
+    setPhoneNumber("");
+    resetMessages();
   }
 
   function switchMode(nextMode) {
@@ -394,6 +406,11 @@ export default function Login() {
   }
 
   function validatePhoneDigits(digits, country) {
+    if (!country) {
+      setError("Choose your country before entering a phone number.");
+      return false;
+    }
+
     if (digits.length < country.minLength || digits.length > country.maxLength) {
       const expected =
         country.minLength === country.maxLength
@@ -457,6 +474,10 @@ export default function Login() {
   }
 
   function beginPasswordRecovery() {
+    if (!selectedCountry) {
+      setError("Choose your country before recovering a phone account.");
+      return;
+    }
     const authPhone = buildPhoneForAuth(signInAccount.trim(), selectedCountry);
     const blockState = getOtpBlockState(authPhone);
     if (blockState.blocked) {
@@ -654,7 +675,7 @@ export default function Login() {
             <PhoneAccountInput
               country={selectedCountry}
               value={signInAccount}
-              onCountryChange={setSelectedCountry}
+              onCountryChange={handleCountryChange}
               onValueChange={setSignInAccount}
             />
 
@@ -704,7 +725,7 @@ export default function Login() {
             <PhoneInput
               country={selectedCountry}
               phone={phoneNumber}
-              onCountryChange={setSelectedCountry}
+              onCountryChange={handleCountryChange}
               onPhoneChange={setPhoneNumber}
               label="Phone Account"
             />

@@ -42,6 +42,14 @@ function handleNotificationTarget(target = "", url = "") {
     requestExploreScreen("Notifications");
     return;
   }
+  if (kind === "urmall") {
+    window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace", source: id || "" } }));
+    return;
+  }
+  if (kind === "urride") {
+    window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", source: id || "" } }));
+    return;
+  }
   if (kind === "orders") {
     window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
     return;
@@ -125,4 +133,20 @@ export async function disablePushNotifications() {
     await subscription.unsubscribe();
   }
   return "disabled";
+}
+
+export async function showKunThaiSystemNotification({ body = "", tag = "kunthai-update", target = "", title = "KunThai" }) {
+  if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) return false;
+  if (Notification.permission !== "granted") return false;
+  if (document.visibilityState === "visible" && document.hasFocus()) return false;
+
+  const registration = await navigator.serviceWorker.ready;
+  await registration.showNotification(title, {
+    body,
+    icon: "/icons/kunthai-192.png",
+    badge: "/icons/kunthai-192.png",
+    tag,
+    data: { url: "/", target },
+  });
+  return true;
 }

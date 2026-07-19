@@ -129,7 +129,9 @@ export default function ToastProvider({ children }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{item.title || tone.title}</p>
-                  <p className="kuntai-break mt-1 text-sm font-black leading-5 text-slate-950">{item.message}</p>
+                  <p className={`kuntai-break mt-1 text-sm font-black leading-5 text-slate-950 ${item.allowLongMessage ? "" : "line-clamp-2"}`}>
+                    {item.message}
+                  </p>
                   {item.actionLabel && item.onAction ? (
                     <button
                       type="button"

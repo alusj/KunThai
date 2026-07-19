@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import MenuButton from "./MenuButton";
 import MenuDrawer from "./MenuDrawer";
 
-export default function Menu({ onOpenChange }) {
+export default function Menu({ badge = 0, onOpenChange }) {
   // =========================
   // Menu open/close state
   // =========================
@@ -19,7 +19,7 @@ export default function Menu({ onOpenChange }) {
   return (
     <>
       {/* Menu icon */}
-      <MenuButton onClick={() => setOpen(true)} />
+      <MenuButton badge={badge} onClick={() => setOpen(true)} />
 
       {/* Menu drawer */}
       <MenuDrawer

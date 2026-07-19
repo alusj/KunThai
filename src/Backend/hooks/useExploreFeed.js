@@ -262,22 +262,18 @@ function showFeedRefreshToast(error, showingSavedPosts) {
   lastFeedFailureToastAt = now;
 
   if (isNetworkUnavailable(error)) {
-    showToast(
-      showingSavedPosts
-        ? "You’re offline. KunThai is showing your most recent saved posts and will update automatically when your connection returns."
-        : "KunThai can’t reach the network right now. Your feed will appear automatically when your connection returns.",
-      "warning",
-      { title: "Network unavailable", duration: 5200 },
-    );
+    showToast("Network unavailable.", "warning", {
+      title: "Network update",
+      duration: 2800,
+      origin: false,
+    });
     return;
   }
 
   showToast(
-    showingSavedPosts
-      ? "Your saved feed is still available. KunThai will keep checking quietly for newer posts."
-      : "KunThai couldn’t refresh the latest posts. We’ll keep trying automatically in the background.",
+    showingSavedPosts ? "Showing your saved feed." : "Feed refresh delayed.",
     "warning",
-    { title: "Feed update delayed", duration: 4800 },
+    { title: "Feed update", duration: 3200 },
   );
 }
 

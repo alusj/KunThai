@@ -1,4 +1,4 @@
-import { getActiveCountryProfile, normalizeCountryIso } from "./globalCountryProfiles";
+import { getActiveCountryProfile } from "./globalCountryProfiles";
 
 export const GLOBAL_FEATURE_KEYS = Object.freeze([
   "explore",
@@ -18,15 +18,11 @@ export const GLOBAL_FEATURE_KEYS = Object.freeze([
   "emergency_assistance",
 ]);
 
-const EXISTING_MARKET_COUNTRIES = new Set([
-  "SL", "NG", "GH", "LR", "GN", "CI", "SN", "GM", "ML", "BF", "BJ", "TG", "NE", "GW", "CV", "MR",
-]);
-
 // Offline/first-paint fallback only. The database rows in
 // kunthai_country_feature_settings are the source of truth and are hydrated
 // onto each profile's `features` by countryConfigService, which overrides
 // these defaults per country.
-const GLOBAL_SOCIAL_FEATURES = Object.freeze({
+const GLOBAL_FEATURE_DEFAULTS = Object.freeze({
   explore: true,
   urfeed: true,
   swip: true,
@@ -34,18 +30,6 @@ const GLOBAL_SOCIAL_FEATURES = Object.freeze({
   voice_notes: true,
   media_uploads: true,
   your_say: true,
-  urmall: true,
-  seller_registration: true,
-  transport_booking: true,
-  driver_registration: true,
-  company_registration: true,
-  adverts: true,
-  phone_authentication: true,
-  emergency_assistance: true,
-});
-
-const EXISTING_MARKET_FEATURES = Object.freeze({
-  ...GLOBAL_SOCIAL_FEATURES,
   urmall: true,
   seller_registration: true,
   transport_booking: true,
@@ -68,15 +52,11 @@ function profileForContext(context = {}) {
 
 export function getCountryFeatureAvailability(context = {}) {
   const profile = profileForContext(context);
-  const iso2 = normalizeCountryIso(profile);
-  const baseFeatures = EXISTING_MARKET_COUNTRIES.has(iso2)
-    ? EXISTING_MARKET_FEATURES
-    : GLOBAL_SOCIAL_FEATURES;
 
   return {
     country: profile,
     features: {
-      ...baseFeatures,
+      ...GLOBAL_FEATURE_DEFAULTS,
       ...(profile.features || {}),
     },
   };
@@ -97,8 +77,8 @@ export function getUnavailableFeatureMessage(featureKey, context = {}) {
     transport_booking: `UrRide is available globally, but fleet types can vary by country.`,
     driver_registration: `UrRide driver registration is available globally, but accepted fleet types can vary by country.`,
     company_registration: `UrRide company registration is available globally, but accepted fleet types can vary by country.`,
-    adverts: `Advertising is not yet available in ${countryName}.`,
-    phone_authentication: `Phone verification is not currently supported for ${countryName}.`,
+    adverts: `Advertising is available globally, subject to local rules in ${countryName}.`,
+    phone_authentication: `Phone verification is available for supported carriers in ${countryName}.`,
     emergency_assistance: `Emergency assistance is available globally. Confirm local numbers before dispatching help in ${countryName}.`,
   };
 

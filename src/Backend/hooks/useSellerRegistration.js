@@ -17,6 +17,7 @@ import {
   storeCountryContext,
   validateCountryPhone,
 } from "../../data/globalCountryProfiles";
+import { scrollToFirstBlockingFieldSoon } from "../../components/shared/formValidationNavigation";
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
 
@@ -397,7 +398,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     setErrors((current) => ({ ...current, otherCategory: "", categories: "" }));
   }
 
-  function validateStep(nextStep = step) {
+  function validateStep(nextStep = step, { focus = false } = {}) {
     const nextErrors = {};
 
     if (nextStep === 0) {
@@ -420,11 +421,14 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     }
 
     setErrors(nextErrors);
+    if (Object.keys(nextErrors).length && focus) {
+      scrollToFirstBlockingFieldSoon();
+    }
     return Object.keys(nextErrors).length === 0;
   }
 
   function next() {
-    if (validateStep(step)) setStep((current) => Math.min(current + 1, 4));
+    if (validateStep(step, { focus: true })) setStep((current) => Math.min(current + 1, 4));
   }
 
   function back() {
@@ -636,8 +640,12 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   }
 
   async function submit() {
-    if (!validateStep(0) || !validateStep(1) || !validateStep(2) || !validateStep(3)) {
-      return;
+    for (const stepIndex of [0, 1, 2, 3]) {
+      if (!validateStep(stepIndex)) {
+        setStep(stepIndex);
+        scrollToFirstBlockingFieldSoon();
+        return;
+      }
     }
 
     setErrors((current) => ({ ...current, submit: "" }));

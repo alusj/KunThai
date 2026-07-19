@@ -14,6 +14,7 @@ import {
 import AppBackTab from "../../shared/AppBackTab";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
+import { scrollToFirstBlockingFieldSoon } from "../../shared/formValidationNavigation";
 import {
   getOperatorDraft,
   saveOperatorAccount,
@@ -153,6 +154,13 @@ function getAccountPhone(profile) {
   return String(profile?.phone || profile?.phoneNumber || profile?.phone_number || "").trim();
 }
 
+function clearFieldError(errors, field) {
+  if (!errors[field]) return errors;
+  const next = { ...errors };
+  delete next[field];
+  return next;
+}
+
 export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExit, onViewOneKmPreview }) {
   const [step, setStep] = useState(0);
   const [maxStepReached, setMaxStepReached] = useState(0);
@@ -167,6 +175,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   const [activePricingGuide, setActivePricingGuide] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
   const [stepError, setStepError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -283,6 +292,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 
   const update = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => clearFieldError(current, field));
     setStepError("");
   };
 
@@ -292,11 +302,13 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       const fleetType = nextFleetTypes.includes(current.fleetType) ? current.fleetType : nextFleetTypes[0] || "Car";
       return { ...current, category: value, fleetType };
     });
+    setFieldErrors((current) => clearFieldError(current, "category"));
     setStepError("");
   };
 
   const updateAnswer = (field, value) => {
     setAnswers((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => clearFieldError(current, `answer-${field}`));
     setStepError("");
   };
 
@@ -305,78 +317,88 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       ...current,
       [field]: file ? { file, fileName: file.name } : "",
     }));
+    setFieldErrors((current) => clearFieldError(current, field));
     setDocumentsSkipped(false);
     setStepError("");
   };
 
-  const validateStep = (targetStep = step) => {
+  const getStepErrors = (targetStep = step) => {
+    const nextErrors = {};
+
     if (targetStep === 0) {
-      const missing = [];
-      if (!form.name.trim()) missing.push("operator name");
-      if (!validateCountryPhone(form.phone, form.countryCode || form.country).valid) missing.push("a valid phone number for the selected country");
-      if (!form.city.trim()) missing.push("city or district");
-      if (!validateCountryPhone(form.emergencyContact, form.countryCode || form.country).valid) missing.push("a valid emergency contact for the selected country");
-      return missing;
+      if (!form.name.trim()) nextErrors.name = "Operator name required.";
+      const phoneValidation = validateCountryPhone(form.phone, form.countryCode || form.country);
+      if (!form.phone.trim()) nextErrors.phone = "Phone number required.";
+      else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
+      if (!form.city.trim()) nextErrors.city = "City or district required.";
+      const emergencyValidation = validateCountryPhone(form.emergencyContact, form.countryCode || form.country);
+      if (!form.emergencyContact.trim()) nextErrors.emergencyContact = "Emergency contact required.";
+      else if (!emergencyValidation.valid) nextErrors.emergencyContact = emergencyValidation.message;
+      return nextErrors;
     }
 
     if (targetStep === 1) {
-      const missing = [];
-      if (!form.category) missing.push("service category");
-      if (!form.fleetType) missing.push("fleet type");
-      return missing;
+      if (!form.category) nextErrors.category = "Service category required.";
+      if (!form.fleetType) nextErrors.fleetType = "Fleet type required.";
+      return nextErrors;
     }
 
     if (targetStep === 2) {
-      const missing = [];
-      if (!form.fleetName.trim()) missing.push("fleet name");
-      if (!form.plateNumber.trim()) missing.push("plate number");
-      if (!form.make.trim()) missing.push("make / brand");
-      if (!form.model.trim()) missing.push("model");
-      if (!form.year.trim()) missing.push("year");
-      if (!form.color.trim()) missing.push("color");
-      if (!form.operatingArea.trim()) missing.push("operating area");
-      if (!form.homeBaseLocation.trim()) missing.push("home base");
-      if (!form.baseFare.trim()) missing.push("starting price");
-      if (!form.pricePerKm.trim()) missing.push("price per 1 km");
-      if (!form.pricePerHour.trim()) missing.push("price per 1 hour");
-      return missing;
+      if (!form.fleetName.trim()) nextErrors.fleetName = "Fleet name required.";
+      if (!form.plateNumber.trim()) nextErrors.plateNumber = "Plate number required.";
+      if (!form.make.trim()) nextErrors.make = "Make / brand required.";
+      if (!form.model.trim()) nextErrors.model = "Model required.";
+      if (!form.year.trim()) nextErrors.year = "Year required.";
+      if (!form.color.trim()) nextErrors.color = "Color required.";
+      if (!form.operatingArea.trim()) nextErrors.operatingArea = "Operating area required.";
+      if (!form.homeBaseLocation.trim()) nextErrors.homeBaseLocation = "Home base required.";
+      if (!form.baseFare.trim()) nextErrors.baseFare = "Starting price required.";
+      if (!form.pricePerKm.trim()) nextErrors.pricePerKm = "Price per 1 km required.";
+      if (!form.pricePerHour.trim()) nextErrors.pricePerHour = "Price per 1 hour required.";
+      return nextErrors;
     }
 
     if (targetStep === 3) {
-      return questions
-        .filter((question) => question.type === "number" && !String(answers[question.key] || "").trim())
-        .map((question) => question.label.toLowerCase());
+      questions.forEach((question) => {
+        if (question.type === "number" && !String(answers[question.key] || "").trim()) {
+          nextErrors[`answer-${question.key}`] = `${question.label} required.`;
+        }
+      });
+      return nextErrors;
     }
 
     if (targetStep === 4) {
-      if (documentsSkipped) return [];
-      const missing = [];
+      if (documentsSkipped) return nextErrors;
       fleetImageRequirements.forEach((requirement) => {
         if (!getRequirementUpload(uploads, "fleet", requirement)) {
-          missing.push(formatDocumentRequirementLabel(requirement).toLowerCase());
+          nextErrors[requirementUploadKey("fleet", requirement)] = `${formatDocumentRequirementLabel(requirement)} required.`;
         }
       });
       documents.forEach((requirement) => {
         if (!getRequirementUpload(uploads, "doc", requirement)) {
-          missing.push(formatDocumentRequirementLabel(requirement).toLowerCase());
+          nextErrors[requirementUploadKey("doc", requirement)] = `${formatDocumentRequirementLabel(requirement)} required.`;
         }
       });
-      return missing;
+      return nextErrors;
     }
 
-    return [];
+    return nextErrors;
   };
 
   const requireCurrentStep = () => {
-    const missing = validateStep();
-    if (!missing.length) {
+    const nextErrors = getStepErrors();
+    const messages = Object.values(nextErrors);
+    if (!messages.length) {
       setStepError("");
+      setFieldErrors({});
       return true;
     }
 
-    const preview = missing.slice(0, 4).join(", ");
-    const extra = missing.length > 4 ? ` and ${missing.length - 4} more` : "";
+    const preview = messages.slice(0, 4).join(", ");
+    const extra = messages.length > 4 ? ` and ${messages.length - 4} more` : "";
+    setFieldErrors(nextErrors);
     setStepError(`Complete this stage first: ${preview}${extra}. Save keeps your progress, but Continue unlocks only after this stage is complete.`);
+    scrollToFirstBlockingFieldSoon();
     return false;
   };
 
@@ -464,6 +486,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 
   const handleSkipDocuments = () => {
     setDocumentsSkipped(true);
+    setFieldErrors({});
+    setStepError("");
     setShowSkipWarning(false);
     setMaxStepReached(5);
     setStep(5);
@@ -601,6 +625,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 placeholder="Operator name"
                 autoComplete="name"
                 helper="Use the real operator name that passengers or admins can verify."
+                error={fieldErrors.name}
               />
               <FormInput
                 label="Phone number"
@@ -610,12 +635,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
                 helper="This number is used for operator contact and account review."
+                error={fieldErrors.phone}
               />
               <LocationInput
                 label="City or district"
                 value={form.city}
                 onChange={(value) => update("city", value)}
                 placeholder="City or district"
+                error={fieldErrors.city}
               />
               <FormInput
                 label="Emergency contact"
@@ -625,6 +652,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
                 helper="A trusted contact for urgent transport safety follow-up."
+                error={fieldErrors.emergencyContact}
               />
             </div>
           )}
@@ -637,6 +665,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 value={form.category}
                 onChange={updateCategory}
                 helper="Choose what this fleet will offer to passengers."
+                error={fieldErrors.category}
               />
               <SelectField
                 label="Fleet type"
@@ -644,23 +673,24 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 value={form.fleetType}
                 onChange={(value) => update("fleetType", value)}
                 helper="This controls the safety questions and required review details."
+                error={fieldErrors.fleetType}
               />
             </div>
           )}
 
           {step === 2 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <FormInput label="Fleet name or label" value={form.fleetName} onChange={(value) => update("fleetName", value)} placeholder="Fleet name or label" helper="A short public name passengers can recognize." />
-              <FormInput label="Plate number" value={form.plateNumber} onChange={(value) => update("plateNumber", value.toUpperCase())} placeholder="Plate number" helper="Use the plate exactly as shown on the fleet." />
-              <FormInput label="Make / brand" value={form.make} onChange={(value) => update("make", value)} placeholder="Make or brand" />
-              <FormInput label="Model" value={form.model} onChange={(value) => update("model", value)} placeholder="Model" />
-              <FormInput label="Year" type="number" value={form.year} onChange={(value) => update("year", value)} placeholder="Year" min="1950" helper="Vehicle manufacture year." />
-              <FormInput label="Color" value={form.color} onChange={(value) => update("color", value)} placeholder="Color" />
-              <LocationInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder="Operating area" />
-              <LocationInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder="Home base or station" />
-              <FormInput label="Starting price" type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder="Starting price" min="0" helper="The minimum fare shown when a distance or time total is lower than your starting price." />
+              <FormInput label="Fleet name or label" value={form.fleetName} onChange={(value) => update("fleetName", value)} placeholder="Fleet name or label" helper="A short public name passengers can recognize." error={fieldErrors.fleetName} />
+              <FormInput label="Plate number" value={form.plateNumber} onChange={(value) => update("plateNumber", value.toUpperCase())} placeholder="Plate number" helper="Use the plate exactly as shown on the fleet." error={fieldErrors.plateNumber} />
+              <FormInput label="Make / brand" value={form.make} onChange={(value) => update("make", value)} placeholder="Make or brand" error={fieldErrors.make} />
+              <FormInput label="Model" value={form.model} onChange={(value) => update("model", value)} placeholder="Model" error={fieldErrors.model} />
+              <FormInput label="Year" type="number" value={form.year} onChange={(value) => update("year", value)} placeholder="Year" min="1950" helper="Vehicle manufacture year." error={fieldErrors.year} />
+              <FormInput label="Color" value={form.color} onChange={(value) => update("color", value)} placeholder="Color" error={fieldErrors.color} />
+              <LocationInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder="Operating area" error={fieldErrors.operatingArea} />
+              <LocationInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder="Home base or station" error={fieldErrors.homeBaseLocation} />
+              <FormInput label="Starting price" type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder="Starting price" min="0" helper="The minimum fare shown when a distance or time total is lower than your starting price." error={fieldErrors.baseFare} />
               <div>
-                <FormInput label="Price per 1 km or kilometer" type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder="Price for 1 km" min="0" helper="Distance bookings calculate this rate against the passenger route." />
+                <FormInput label="Price per 1 km or kilometer" type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder="Price for 1 km" min="0" helper="Distance bookings calculate this rate against the passenger route." error={fieldErrors.pricePerKm} />
                 <PricingGuide
                   type="km"
                   open={activePricingGuide === "km"}
@@ -670,7 +700,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 />
               </div>
               <div>
-                <FormInput label="Price per 1 hour" type="number" value={form.pricePerHour} onChange={(value) => update("pricePerHour", value)} placeholder="Price for 1 hour" min="0" helper="Time bookings calculate this rate against the passenger's requested hours." />
+                <FormInput label="Price per 1 hour" type="number" value={form.pricePerHour} onChange={(value) => update("pricePerHour", value)} placeholder="Price for 1 hour" min="0" helper="Time bookings calculate this rate against the passenger's requested hours." error={fieldErrors.pricePerHour} />
                 <PricingGuide
                   type="hour"
                   open={activePricingGuide === "hour"}
@@ -714,8 +744,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 </div>
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {questions.map((question) => (
-                  <label key={question.key} className="block rounded-2xl border border-gray-100 p-4">
+                {questions.map((question) => {
+                  const questionError = fieldErrors[`answer-${question.key}`];
+                  return (
+                  <label key={question.key} data-field-error={questionError ? "true" : undefined} className={`block rounded-2xl border p-4 ${questionError ? "border-red-200 bg-red-50" : "border-gray-100"}`}>
                     <span className="text-sm font-semibold text-gray-900">{question.label}</span>
                     {question.type === "number" ? (
                       <input
@@ -724,7 +756,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                         value={answers[question.key] || ""}
                         onChange={(event) => updateAnswer(question.key, event.target.value)}
                         placeholder="0"
-                        className="mt-3 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-green-500"
+                        aria-invalid={questionError ? "true" : undefined}
+                        className={`mt-3 h-11 w-full rounded-xl border px-3 text-sm outline-none focus:border-green-500 ${questionError ? "border-red-300" : "border-gray-200"}`}
                       />
                     ) : (
                       <select
@@ -737,8 +770,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                         <option>Needs admin check</option>
                       </select>
                     )}
+                    {questionError ? <span className="mt-2 block text-xs font-bold text-red-600" role="alert">{questionError}</span> : null}
                   </label>
-                ))}
+                );
+                })}
               </div>
             </div>
           )}
@@ -761,6 +796,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                       key={requirement.key}
                       label={formatDocumentRequirementLabel(requirement)}
                       value={getRequirementUpload(uploads, "fleet", requirement)}
+                      error={fieldErrors[requirementUploadKey("fleet", requirement)]}
                       onChange={(file) => markUpload(requirementUploadKey("fleet", requirement), file)}
                     />
                   ))}
@@ -792,6 +828,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                       key={requirement.key}
                       label={formatDocumentRequirementLabel(requirement)}
                       value={getRequirementUpload(uploads, "doc", requirement)}
+                      error={fieldErrors[requirementUploadKey("doc", requirement)]}
                       onChange={(file) => markUpload(requirementUploadKey("doc", requirement), file)}
                     />
                   ))}
@@ -1098,9 +1135,9 @@ function PricingGuide({ type, open, onToggle, onViewOneKm, disabled = false }) {
   );
 }
 
-function FormInput({ label, value, onChange, type = "text", placeholder = "", helper = "", ...props }) {
+function FormInput({ error = "", label, value, onChange, type = "text", placeholder = "", helper = "", ...props }) {
   return (
-    <label className="block">
+    <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
       <input
         {...props}
@@ -1108,36 +1145,41 @@ function FormInput({ label, value, onChange, type = "text", placeholder = "", he
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+        aria-invalid={error ? "true" : undefined}
+        className={`h-12 w-full rounded-2xl border bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 ${error ? "border-red-300" : "border-gray-200"}`}
       />
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}
       {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
     </label>
   );
 }
 
-function LocationInput({ label, value, onChange, placeholder = "", helper = "" }) {
+function LocationInput({ error = "", label, value, onChange, placeholder = "", helper = "" }) {
   return (
-    <label className="block">
+    <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
       <input
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+        aria-invalid={error ? "true" : undefined}
+        className={`h-12 w-full rounded-2xl border bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 ${error ? "border-red-300" : "border-gray-200"}`}
       />
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}
       {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
     </label>
   );
 }
 
-function SelectField({ label, options, value, onChange, helper = "" }) {
+function SelectField({ error = "", label, options, value, onChange, helper = "" }) {
   return (
-    <label className="block">
+    <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-semibold text-gray-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
+        aria-invalid={error ? "true" : undefined}
+        className={`h-12 w-full rounded-2xl border bg-gray-50 px-4 text-sm font-semibold text-gray-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 ${error ? "border-red-300" : "border-gray-200"}`}
       >
         {!value ? <option value="">Select {label.toLowerCase()}</option> : null}
         {options.map((option) => (
@@ -1146,19 +1188,21 @@ function SelectField({ label, options, value, onChange, helper = "" }) {
           </option>
         ))}
       </select>
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}
       {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
     </label>
   );
 }
 
-function UploadField({ label, value, onChange }) {
+function UploadField({ error = "", label, value, onChange }) {
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
   return (
-    <label className="block cursor-pointer rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 hover:border-green-300 hover:bg-green-50 transition">
+    <label data-field-error={error ? "true" : undefined} className={`block cursor-pointer rounded-2xl border border-dashed bg-gray-50 px-4 py-4 transition hover:border-green-300 hover:bg-green-50 ${error ? "border-red-300" : "border-gray-300"}`}>
       <input
         type="file"
         accept="image/*,.pdf"
         className="sr-only"
+        aria-invalid={error ? "true" : undefined}
         onChange={(event) => onChange(event.target.files?.[0])}
       />
       <span className="flex min-w-0 items-center gap-3">
@@ -1170,6 +1214,7 @@ function UploadField({ label, value, onChange }) {
           <span className="block truncate text-xs text-gray-500">{selectedName || "Upload or take photo"}</span>
         </span>
       </span>
+      {error ? <span className="mt-3 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}
     </label>
   );
 }

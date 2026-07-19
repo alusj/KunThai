@@ -47,7 +47,7 @@ export default function OperationsStep({ registration }) {
             : "Property listings, viewing information, photographs, and availability are managed from the dedicated Real Estate Agent dashboard after registration."}
         </div>
       )}
-      {errors.fulfillment ? <p className="text-xs font-bold text-red-600">{errors.fulfillment}</p> : null}
+      {errors.fulfillment ? <p data-field-error="true" className="text-xs font-bold text-red-600" role="alert">{errors.fulfillment}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <RegistrationField label="Opening time">

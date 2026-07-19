@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, CheckCircle2, Mail, MapPin, Phone, Search, ShieldCheck } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
@@ -14,6 +14,7 @@ import {
   GLOBAL_COUNTRY_PROFILES,
 } from "../../data/globalCountryProfiles";
 import OnboardingFrame from "./OnboardingFrame";
+import { scrollToFirstBlockingFieldSoon } from "../shared/formValidationNavigation";
 
 const accountTypes = [
   {
@@ -101,8 +102,24 @@ function SocialLinkInput({ index, onChange, value }) {
   );
 }
 
+function clearFieldError(setFieldErrors, field) {
+  setFieldErrors((current) => {
+    if (!current[field]) return current;
+    const next = { ...current };
+    delete next[field];
+    return next;
+  });
+}
+
+function InlineFieldError({ message }) {
+  if (!message) return null;
+  return <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">{message}</span>;
+}
+
 export default function ProfileStep({ values, saving = false, error, errorCode = "", onChange, onBack, onNext }) {
   const [findAccountOpen, setFindAccountOpen] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const formRef = useRef(null);
   const phoneConflict = errorCode === PHONE_ALREADY_LINKED_CODE;
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || "Your name";
@@ -110,15 +127,31 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
   const phoneValidation = validateCountryPhone(values.phone, countryProfile);
   const emailValue = values.email.trim();
   const emailValid = !emailValue || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
-  const canContinue =
-    values.firstName.trim().length >= 2 &&
-    values.lastName.trim().length >= 2 &&
-    values.username.trim().length >= 3 &&
-    emailValid &&
-    phoneValidation.valid &&
-    Boolean(values.dateOfBirth);
+
+  function validateProfileFields() {
+    const nextErrors = {};
+    if (values.firstName.trim().length < 2) nextErrors.firstName = "First name required.";
+    if (values.lastName.trim().length < 2) nextErrors.lastName = "Last name required.";
+    if (!values.dateOfBirth) nextErrors.dateOfBirth = "Date of birth required.";
+    if (!values.phone.trim()) nextErrors.phone = "Phone number required.";
+    else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
+    if (emailValue && !emailValid) nextErrors.email = "Enter a valid email address or leave this blank.";
+    if (values.username.trim().length < 3) nextErrors.username = "Username required.";
+    return nextErrors;
+  }
+
+  function handleContinue() {
+    const nextErrors = validateProfileFields();
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      scrollToFirstBlockingFieldSoon(formRef.current);
+      return;
+    }
+    onNext?.();
+  }
 
   const updateName = (field, value) => {
+    clearFieldError(setFieldErrors, field);
     const nextValues = { ...values, [field]: value };
     onChange({
       [field]: value,
@@ -149,7 +182,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
       subtitle="Create a trusted profile for discovery, marketplace conversations, payments, and transport."
     >
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div ref={formRef} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="grid gap-5 lg:grid-cols-[180px_1fr]">
             <div>
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Profile photo</span>
@@ -168,14 +201,16 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
+              <label className="block" data-field-error={fieldErrors.firstName ? "true" : undefined}>
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">First name</span>
                 <input
                   value={values.firstName}
                   onChange={(event) => updateName("firstName", event.target.value)}
                   placeholder="First name"
-                  className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
+                  aria-invalid={fieldErrors.firstName ? "true" : undefined}
+                  className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.firstName ? "border-rose-300" : "border-slate-200"}`}
                 />
+                <InlineFieldError message={fieldErrors.firstName} />
               </label>
 
               <label className="block">
@@ -188,63 +223,78 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 />
               </label>
 
-              <label className="block">
+              <label className="block" data-field-error={fieldErrors.lastName ? "true" : undefined}>
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Last name</span>
                 <input
                   value={values.lastName}
                   onChange={(event) => updateName("lastName", event.target.value)}
                   placeholder="Last name"
-                  className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
+                  aria-invalid={fieldErrors.lastName ? "true" : undefined}
+                  className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.lastName ? "border-rose-300" : "border-slate-200"}`}
                 />
+                <InlineFieldError message={fieldErrors.lastName} />
               </label>
 
-              <label className="block">
+              <label className="block" data-field-error={fieldErrors.dateOfBirth ? "true" : undefined}>
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Date of birth</span>
                 <input
                   type="date"
                   value={values.dateOfBirth}
-                  onChange={(event) => onChange("dateOfBirth", event.target.value)}
-                  className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
+                  onChange={(event) => {
+                    clearFieldError(setFieldErrors, "dateOfBirth");
+                    onChange("dateOfBirth", event.target.value);
+                  }}
+                  aria-invalid={fieldErrors.dateOfBirth ? "true" : undefined}
+                  className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.dateOfBirth ? "border-rose-300" : "border-slate-200"}`}
                 />
+                <InlineFieldError message={fieldErrors.dateOfBirth} />
               </label>
             </div>
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="block">
+            <label className="block" data-field-error={fieldErrors.email ? "true" : undefined}>
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Email</span>
               <input
                 type="email"
                 value={values.email}
-                onChange={(event) => onChange("email", event.target.value)}
+                onChange={(event) => {
+                  clearFieldError(setFieldErrors, "email");
+                  onChange("email", event.target.value);
+                }}
                 placeholder="name@example.com"
-                aria-invalid={!emailValid}
-                className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
+                aria-invalid={fieldErrors.email || !emailValid ? "true" : undefined}
+                className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.email ? "border-rose-300" : "border-slate-200"}`}
               />
-              {!emailValid ? (
+              {fieldErrors.email ? <InlineFieldError message={fieldErrors.email} /> : !emailValid ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600">
                   Enter a valid email address or leave this blank.
                 </span>
               ) : null}
             </label>
 
-            <label className="block">
+            <label className="block" data-field-error={fieldErrors.phone || phoneConflict ? "true" : undefined}>
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Phone number</span>
               <input
                 type="tel"
                 value={values.phone}
-                onChange={(event) => onChange("phone", constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }))}
+                onChange={(event) => {
+                  clearFieldError(setFieldErrors, "phone");
+                  onChange("phone", constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }));
+                }}
                 placeholder={getCountryPhoneHint(countryProfile)}
                 inputMode="tel"
-                aria-invalid={phoneConflict || (!phoneValidation.valid && Boolean(values.phone))}
+                aria-invalid={phoneConflict || fieldErrors.phone || (!phoneValidation.valid && Boolean(values.phone)) ? "true" : undefined}
                 className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${
-                  phoneConflict ? "border-rose-300" : "border-slate-200"
+                  phoneConflict || fieldErrors.phone ? "border-rose-300" : "border-slate-200"
                 }`}
               />
               {phoneConflict ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">
                   This number is already associated with another account.
                 </span>
+              ) : fieldErrors.phone ? (
+                <InlineFieldError message={fieldErrors.phone} />
               ) : (
                 <span className={`mt-2 block text-xs font-semibold ${phoneValidation.valid || !values.phone ? "text-slate-500" : "text-rose-600"}`}>
                   {phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
@@ -277,14 +327,19 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
           </label>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
-            <label className="block sm:col-span-1">
+            <label className="block sm:col-span-1" data-field-error={fieldErrors.username ? "true" : undefined}>
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Username</span>
               <input
                 value={values.username}
-                onChange={(event) => onChange("username", event.target.value.replace(/\s+/g, "").toLowerCase())}
+                onChange={(event) => {
+                  clearFieldError(setFieldErrors, "username");
+                  onChange("username", event.target.value.replace(/\s+/g, "").toLowerCase());
+                }}
                 placeholder="@username"
-                className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
+                aria-invalid={fieldErrors.username ? "true" : undefined}
+                className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.username ? "border-rose-300" : "border-slate-200"}`}
               />
+              <InlineFieldError message={fieldErrors.username} />
             </label>
 
             <label className="block">
@@ -441,8 +496,8 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
         </button>
         <button
           type="button"
-          disabled={!canContinue || saving}
-          onClick={onNext}
+          disabled={saving}
+          onClick={handleContinue}
           className="rounded-[20px] bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? "Saving..." : "Continue"}

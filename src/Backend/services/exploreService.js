@@ -7,6 +7,7 @@ import { formatRelativeTime } from "./explore/time";
 import { fetchRecommendedPeople } from "./explore/recommendationService";
 import { fetchExploreSpacesForDiscovery } from "./explore/spaceService";
 import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getIdentityKey } from "./explore/identityService";
+import { isGuestMode } from "./guestModeService";
 export {
   createExplorePost,
   deleteExplorePost,
@@ -614,7 +615,12 @@ export async function fetchExploreNotifications(options = {}) {
 }
 
 export async function fetchExploreConnections(kind = "discover", profileUserId = "") {
-  const currentUserId = profileUserId || (await getCurrentUserId());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || user.is_anonymous || isGuestMode()) return [];
+
+  const currentUserId = profileUserId || user.id;
   let recommendedItems = null;
 
   if (currentUserId) {

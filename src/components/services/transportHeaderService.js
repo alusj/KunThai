@@ -116,31 +116,89 @@ export async function fetchTransportNotifications(operatorAccount, companyAccoun
 }
 
 export async function fetchTransportOperationBadgeCount(operatorAccount, companyAccount) {
-  // Badge counts only items the user has not yet viewed. Scopes and item ids
-  // mirror the ones marked seen by OperatorDashboardScreen (operator-waiting-*)
-  // and CompanyWorkspaceScreen (company-booking-*) so viewing those panels
-  // clears the header and bottom-tab badges.
-  const counts = await Promise.all([
+  const state = await fetchTransportOperationBadgeState(operatorAccount, companyAccount);
+  return state.totalCount;
+}
+
+export async function fetchTransportOperationBadgeState(operatorAccount, companyAccount) {
+  // Notification ids and scopes mirror the operator/company workspaces. Booking
+  // counts stay tied to the live action queues and only clear after a status action.
+  const companyAccess = companyAccount?.access || {};
+  const canViewCompanyBookings = Boolean(
+    companyAccess.isOwner || companyAccess.canViewAllBookings || companyAccess.operatorId,
+  );
+  const canViewCompanyNotifications = Boolean(
+    companyAccess.isOwner || companyAccess.canViewCompanyActivity,
+  );
+  const [operatorState, companyState] = await Promise.all([
     operatorAccount?.id
       ? fetchOperatorDashboard(operatorAccount.id, operatorAccount.fleetId || null)
-        .then((dashboard) => dashboard?.waitingPassengers || [])
-        .catch(() => operatorAccount?.dashboard?.waitingPassengers || [])
-        .then((passengers) => getUnseenNotificationCount(
-          `transport:${operatorAccount.id}`,
-          passengers.map((passenger) => ({ ...passenger, id: `operator-waiting-${passenger.id}`, unread: true })),
-          { unreadOnly: true },
-        ))
-      : Promise.resolve(0),
-    companyAccount?.id
+        .catch(() => operatorAccount?.dashboard || {})
+        .then((dashboard) => {
+          const scope = `transport:${operatorAccount.id}`;
+          const bookingItems = (dashboard?.waitingPassengers || []).map((passenger) => ({
+            ...passenger,
+            id: `operator-waiting-${passenger.id}`,
+            activityScope: scope,
+            activitySource: "operator",
+            unread: true,
+          }));
+          const notificationItems = (dashboard?.alerts || []).map((alert) => ({
+            ...alert,
+            id: `operator-alert-${alert.id}`,
+            activityScope: scope,
+            activitySource: "operator",
+            unread: alert.status !== "read",
+          }));
+          return {
+            bookingCount: bookingItems.length,
+            notificationCount: getUnseenNotificationCount(scope, notificationItems, { unreadOnly: true }),
+            bookingItems,
+            notificationItems,
+          };
+        })
+      : Promise.resolve({ bookingCount: 0, notificationCount: 0, bookingItems: [], notificationItems: [] }),
+    companyAccount?.id && (canViewCompanyBookings || canViewCompanyNotifications)
       ? getTransportCompanyBookingQueue(companyAccount)
-        .then((bookings) => getUnseenNotificationCount(
-          `transport:${companyAccount.id}`,
-          bookings.map((booking) => ({ ...booking, id: `company-booking-${booking.id}`, unread: true })),
-          { unreadOnly: true },
-        ))
-        .catch(() => 0)
-      : Promise.resolve(0),
+        .catch(() => [])
+        .then((bookings) => {
+          const scope = `transport:${companyAccount.id}`;
+          const bookingItems = (canViewCompanyBookings ? bookings : []).map((booking) => ({
+            ...booking,
+            id: `company-booking-${booking.id}`,
+            activityScope: scope,
+            activitySource: "company",
+            unread: true,
+          }));
+          const notificationItems = (canViewCompanyNotifications ? companyAccount.activities || [] : [])
+            .filter((activity) => {
+              const type = String(activity.activity_type || activity.activityType || "");
+              return type.startsWith("operator_invite_") || type === "trip_status_updated";
+            })
+            .map((activity) => ({
+              ...activity,
+              id: `company-activity-${activity.id}`,
+              activityScope: scope,
+              activitySource: "company",
+              unread: true,
+            }));
+          return {
+            bookingCount: bookingItems.length,
+            notificationCount: getUnseenNotificationCount(scope, notificationItems, { unreadOnly: true }),
+            bookingItems,
+            notificationItems,
+          };
+        })
+      : Promise.resolve({ bookingCount: 0, notificationCount: 0, bookingItems: [], notificationItems: [] }),
   ]);
 
-  return counts.reduce((sum, count) => sum + Number(count || 0), 0);
+  const bookingCount = Number(operatorState.bookingCount || 0) + Number(companyState.bookingCount || 0);
+  const notificationCount = Number(operatorState.notificationCount || 0) + Number(companyState.notificationCount || 0);
+  return {
+    bookingCount,
+    notificationCount,
+    totalCount: bookingCount + notificationCount,
+    bookingItems: [...operatorState.bookingItems, ...companyState.bookingItems],
+    notificationItems: [...operatorState.notificationItems, ...companyState.notificationItems],
+  };
 }

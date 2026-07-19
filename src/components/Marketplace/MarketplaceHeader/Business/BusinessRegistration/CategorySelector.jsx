@@ -28,7 +28,7 @@ export default function CategorySelector({
   }, [open]);
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="relative" data-field-error={error || otherError ? "true" : undefined}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <p className="text-sm font-black text-gray-800">Business categories</p>
         <p className="text-sm font-bold text-gray-500">{selected.length}/5 selected</p>
@@ -36,8 +36,9 @@ export default function CategorySelector({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
+        aria-invalid={error ? "true" : undefined}
         className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3 text-left text-sm font-bold transition ${
-          open ? "border-blue-500 ring-4 ring-blue-500/10" : "border-gray-300 hover:border-gray-400"
+          error ? "border-red-300 ring-4 ring-red-500/10" : open ? "border-blue-500 ring-4 ring-blue-500/10" : "border-gray-300 hover:border-gray-400"
         }`}
       >
         <span className="min-w-0 flex-1">

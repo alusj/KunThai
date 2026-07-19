@@ -68,11 +68,11 @@ function defaultNumbersForCountry(countryCode) {
     return { police: "112", ambulance: "112", fire: "112", national: "112" };
   }
   return {
-    police: ["112", "911"],
-    ambulance: ["112", "911"],
-    fire: ["112", "911"],
-    national: ["112", "911"],
-    notes: "These are global fallback numbers. Confirm the local emergency number where possible.",
+    police: [],
+    ambulance: [],
+    fire: [],
+    national: [],
+    notes: "Emergency numbers for this country are awaiting verification from an official national source. Use the nearby emergency search for local help.",
   };
 }
 
@@ -107,11 +107,11 @@ export const EMERGENCY_CONTACTS = Object.freeze({
 export const DEFAULT_EMERGENCY = Object.freeze({
   country: "Unknown location",
   countryCode: "",
-  police: Object.freeze(["112", "911"]),
-  ambulance: Object.freeze(["112", "911"]),
-  fire: Object.freeze(["112", "911"]),
-  national: Object.freeze(["112", "911"]),
-  notes: "Country could not be confirmed. Try 112 or 911 only where supported by your mobile network, or use the emergency-place search below.",
+  police: Object.freeze([]),
+  ambulance: Object.freeze([]),
+  fire: Object.freeze([]),
+  national: Object.freeze([]),
+  notes: "Country could not be confirmed. Use the nearby emergency search or select a confirmed local emergency service.",
 });
 
 export function getEmergencyContacts(countryCode) {

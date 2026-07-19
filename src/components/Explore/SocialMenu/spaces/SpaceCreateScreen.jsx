@@ -7,6 +7,7 @@ import {
   normalizeSpaceSlug,
 } from "../../../../Backend/services/exploreService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { scrollToFirstBlockingFieldSoon } from "../../../shared/formValidationNavigation";
 import Avatar from "../../shared/Avatar";
 
 const INITIAL_FORM = {
@@ -33,15 +34,39 @@ function fileToDataUrl(file) {
 
 export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
   const [form, setForm] = useState(INITIAL_FORM);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const formRef = useRef(null);
   const avatarInputRef = useRef(null);
   const coverInputRef = useRef(null);
   const suggestedSlug = useMemo(() => normalizeSpaceSlug(form.slug || form.name), [form.name, form.slug]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
     setFeedback("");
+  }
+
+  function validateSpaceForm() {
+    const nextErrors = {};
+    if (!form.name.trim()) nextErrors.name = "Space name required.";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      nextErrors.email = "Enter a valid contact email.";
+    }
+    if (form.websiteUrl.trim()) {
+      try {
+        new URL(form.websiteUrl.trim());
+      } catch {
+        nextErrors.websiteUrl = "Enter a valid website link.";
+      }
+    }
+    return nextErrors;
   }
 
   async function pickImage(event, field) {
@@ -59,6 +84,13 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
   async function submitSpace(event) {
     event.preventDefault();
     if (saving) return;
+
+    const nextErrors = validateSpaceForm();
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      scrollToFirstBlockingFieldSoon(formRef.current);
+      return;
+    }
 
     try {
       setSaving(true);
@@ -85,7 +117,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
         </div>
       ) : null}
 
-      <form onSubmit={submitSpace} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <form ref={formRef} onSubmit={submitSpace} noValidate className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div
           className="relative mb-5 h-32 overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100"
           style={{
@@ -129,14 +161,14 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <Field label="Space name">
+          <Field label="Space name" error={fieldErrors.name}>
             <input
               value={form.name}
               onChange={(event) => updateField("name", event.target.value)}
-              required
               maxLength={80}
               placeholder="Sierra Universal Promoters"
-              className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+              aria-invalid={fieldErrors.name ? "true" : undefined}
+              className={`h-12 w-full rounded-2xl border bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200 ${fieldErrors.name ? "border-rose-300" : "border-transparent"}`}
             />
           </Field>
           <Field label="Handle">
@@ -171,14 +203,15 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
             />
           </Field>
-          <Field label="Contact email">
+          <Field label="Contact email" error={fieldErrors.email}>
             <input
               value={form.email}
               onChange={(event) => updateField("email", event.target.value)}
               type="email"
               maxLength={120}
               placeholder="team@example.com"
-              className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+              aria-invalid={fieldErrors.email ? "true" : undefined}
+              className={`h-12 w-full rounded-2xl border bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200 ${fieldErrors.email ? "border-rose-300" : "border-transparent"}`}
             />
           </Field>
           <Field label="Phone">
@@ -190,13 +223,14 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
             />
           </Field>
-          <Field label="Website">
+          <Field label="Website" error={fieldErrors.websiteUrl}>
             <input
               value={form.websiteUrl}
               onChange={(event) => updateField("websiteUrl", event.target.value)}
               maxLength={160}
               placeholder="https://example.com"
-              className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+              aria-invalid={fieldErrors.websiteUrl ? "true" : undefined}
+              className={`h-12 w-full rounded-2xl border bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200 ${fieldErrors.websiteUrl ? "border-rose-300" : "border-transparent"}`}
             />
           </Field>
         </div>
@@ -225,7 +259,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
 
         <button
           type="submit"
-          disabled={saving || !form.name.trim()}
+          disabled={saving}
           className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           {saving ? "Creating Space" : "Create Space"}
@@ -235,11 +269,12 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
   );
 }
 
-function Field({ children, className = "", label }) {
+function Field({ children, className = "", error, label }) {
   return (
-    <label className={`block ${className}`}>
+    <label className={`block ${className}`} data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</span>
       {children}
+      {error ? <span className="mt-2 block text-xs font-black text-rose-600" role="alert">{error}</span> : null}
     </label>
   );
 }

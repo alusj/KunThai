@@ -2,7 +2,6 @@ import { MessageCircle, Plus, Search, ShoppingBag, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSellerBusinessStatus } from "../../../Backend/hooks/useSellerBusinessStatus";
 import {
-  getUnseenNotificationCount,
   markNotificationScopeVisited,
   markNotificationsSeen,
   subscribeNotificationSeen,
@@ -13,7 +12,6 @@ import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
-const BUYER_ORDER_SCOPE = "urmall:buyer:orders";
 const BUYER_MESSAGE_SCOPE = "urmall:buyer:messages";
 
 function mapHeaderItem(prefix, item) {
@@ -35,6 +33,7 @@ export default function MarketplaceHeader({
   activeUtility,
   onActivityChange,
   onNotificationCountChange,
+  onNotificationStateChange,
   sellerNotificationCount = 0,
 }) {
   const { loading, hasBusiness } = useSellerBusinessStatus();
@@ -44,7 +43,9 @@ export default function MarketplaceHeader({
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const businessLabel = loading || hasBusiness ? "Open your business workspace" : "Register your business";
-  const orderCount = getUnseenNotificationCount(BUYER_ORDER_SCOPE, orderItems);
+  // Pending orders are actionable. Merely viewing them must not clear the
+  // badge; it disappears only after the order status changes.
+  const orderCount = orderItems.length;
   // The message badge tracks live unread seller messages: it only clears when
   // the buyer actually opens the conversation (which marks it read), not when
   // the header is merely glanced at.
@@ -54,7 +55,12 @@ export default function MarketplaceHeader({
 
   useEffect(() => {
     onNotificationCountChange?.(unreadCount);
-  }, [onNotificationCountChange, unreadCount]);
+    onNotificationStateChange?.({
+      orderCount,
+      messageCount,
+      totalCount: unreadCount,
+    });
+  }, [messageCount, onNotificationCountChange, onNotificationStateChange, orderCount, unreadCount]);
 
   useEffect(() => {
     onActivityChange?.(cartOpen || menuOpen);
@@ -67,7 +73,13 @@ export default function MarketplaceHeader({
     async function loadOrderCount() {
       try {
         const orders = await fetchBuyerOrders();
-        if (alive) setOrderItems(orders.map((order) => mapHeaderItem("buyer-order", order)));
+        if (alive) {
+          setOrderItems(
+            orders
+              .filter((order) => String(order.status || "").toLowerCase() === "pending")
+              .map((order) => mapHeaderItem("buyer-order", order)),
+          );
+        }
       } catch {
         if (alive) setOrderItems([]);
       }
@@ -114,9 +126,8 @@ export default function MarketplaceHeader({
   }, []);
 
   useEffect(() => {
-    if (activeUtility === "orders" && orderItems.length) markNotificationsSeen(BUYER_ORDER_SCOPE, orderItems);
     if (activeUtility === "messages" && messageItems.length) markNotificationsSeen(BUYER_MESSAGE_SCOPE, messageItems);
-  }, [activeUtility, messageItems, orderItems]);
+  }, [activeUtility, messageItems]);
 
   function openMessages() {
     markNotificationsSeen(BUYER_MESSAGE_SCOPE, messageItems);
@@ -168,7 +179,7 @@ export default function MarketplaceHeader({
             />
           </HeaderButtonWithHint>
           <Cart onOpenChange={setCartOpen} />
-          <Menu onOpenChange={setMenuOpen} />
+          <Menu badge={orderCount} onOpenChange={setMenuOpen} />
         </>
       )}
     />

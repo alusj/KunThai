@@ -21,7 +21,6 @@ import { fetchOperatorDashboard, getOperatorAccount } from "../services/transpor
 import {
   ensureInvitedOperatorProfile,
   getOperatorCompanyInvites,
-  getTransportCompanyBookingQueue,
   getTransportCompanyAccount,
   getTransportCompanyAccounts,
   setActiveTransportCompanyId,
@@ -29,8 +28,10 @@ import {
   submitOperatorCompanyInviteDocuments,
   updateOperatorCompanyInvite,
 } from "../services/transportCompanyService";
+import { fetchTransportOperationBadgeState } from "../services/transportHeaderService";
 import { submitTransportSupportTicket } from "../services/bookingService";
 import { guardGuestAction } from "../../Backend/services/guestModeService";
+import { subscribeNotificationSeen } from "../../Backend/services/notificationSeenStore";
 import { showToast } from "../../Backend/services/toastService";
 
 export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled }) {
@@ -711,8 +712,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       }
 
       try {
-        const queue = await getTransportCompanyBookingQueue(companyAccount);
-        if (alive) setCompanyOperationBadgeCount(queue.length);
+        const state = await fetchTransportOperationBadgeState(null, companyAccount);
+        if (alive) setCompanyOperationBadgeCount(state.totalCount);
       } catch {
         if (alive) setCompanyOperationBadgeCount(0);
       }
@@ -721,6 +722,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     refreshCompanyOperationBadge();
     intervalId = window.setInterval(refreshCompanyOperationBadge, 20000);
     const unsubscribe = subscribeTransportCompanyUpdates(refreshCompanyOperationBadge);
+    const unsubscribeSeen = subscribeNotificationSeen(refreshCompanyOperationBadge);
     window.addEventListener("transport-trip-updated", refreshCompanyOperationBadge);
     window.addEventListener("transport-booking-created", refreshCompanyOperationBadge);
 
@@ -728,6 +730,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       alive = false;
       if (intervalId) window.clearInterval(intervalId);
       unsubscribe?.();
+      unsubscribeSeen?.();
       window.removeEventListener("transport-trip-updated", refreshCompanyOperationBadge);
       window.removeEventListener("transport-booking-created", refreshCompanyOperationBadge);
     };

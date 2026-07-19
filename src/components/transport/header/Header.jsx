@@ -11,10 +11,9 @@ import PremiumHeader from "../../shared/PremiumHeader";
 import {
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
-import { fetchTransportOperationBadgeCount } from "../../services/transportHeaderService";
+import { fetchTransportOperationBadgeState } from "../../services/transportHeaderService";
 
 export default function Header({
-  active = false,
   companyAccount,
   companyLoading = false,
   operatorAccount,
@@ -30,7 +29,8 @@ export default function Header({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [radarOpen, setRadarOpen] = useState(false);
   const [passengerNotificationCount, setPassengerNotificationCount] = useState(0);
-  const [operatorBadgeCount, setOperatorBadgeCount] = useState(0);
+  const [operatorActivity, setOperatorActivity] = useState({ bookingCount: 0, notificationCount: 0, totalCount: 0 });
+  const operatorBadgeCount = operatorActivity.totalCount;
   const hasOperatorAccount = Boolean(operatorAccount);
   const hasCompanyAccount = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
   const accountLoading = operatorLoading || companyLoading;
@@ -48,15 +48,15 @@ export default function Header({
 
     async function refreshOperatorBadge() {
       if (!operatorAccount?.id && !companyAccount?.id) {
-        if (alive) setOperatorBadgeCount(0);
+        if (alive) setOperatorActivity({ bookingCount: 0, notificationCount: 0, totalCount: 0 });
         return;
       }
 
       try {
-        const count = await fetchTransportOperationBadgeCount(operatorAccount, companyAccount);
-        if (alive) setOperatorBadgeCount(count);
+        const state = await fetchTransportOperationBadgeState(operatorAccount, companyAccount);
+        if (alive) setOperatorActivity(state);
       } catch {
-        if (alive) setOperatorBadgeCount(0);
+        if (alive) setOperatorActivity({ bookingCount: 0, notificationCount: 0, totalCount: 0 });
       }
     }
 
@@ -105,7 +105,6 @@ export default function Header({
           <>
             <SearchButton onOpenChange={setSearchOpen} onViewFleet={onViewFleet} />
             <NotificationButton
-              active={active}
               companyAccount={companyAccount}
               operatorAccount={operatorAccount}
               onOpenChange={setNotificationsOpen}

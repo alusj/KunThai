@@ -16,6 +16,7 @@ import AccountRestrictionNotice from "./components/shared/AccountRestrictionNoti
 import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
+import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import { captureVisibilityInviteFromLocation, finalizeStoredVisibilityInvite } from "./Backend/services/visibilityCreditService";
@@ -117,6 +118,14 @@ function clearBrowserHash() {
   window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
 }
 
+function hasUnstableNetwork(connection) {
+  if (!connection) return false;
+  const effectiveType = String(connection.effectiveType || "").toLowerCase();
+  const downlink = Number(connection.downlink || 0);
+  const roundTripTime = Number(connection.rtt || 0);
+  return effectiveType === "slow-2g" || effectiveType === "2g" || (downlink > 0 && downlink < 0.75) || roundTripTime > 1200;
+}
+
 function readStoredMarketplaceNav() {
   try {
     const value = JSON.parse(sessionStorage.getItem(MARKETPLACE_NAV_KEY) || "null");
@@ -168,11 +177,9 @@ function AppLoading({ page = "explore" }) {
       <div className="space-y-4 px-4 py-4">
         {showPatienceNotice ? (
           <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
-            <p className="text-sm font-black text-slate-950">This is taking a little longer than usual</p>
+            <p className="text-sm font-black text-slate-950">{offline ? "Network unavailable" : "Network unstable"}</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-              {offline
-                ? "Your network appears offline. KunThai will continue automatically when the connection returns."
-                : "Your network connection may be unstable at the moment. KunThai will continue automatically as soon as everything is ready."}
+              KunThai will continue automatically when the connection improves.
             </p>
           </div>
         ) : null}
@@ -234,6 +241,50 @@ export default function App() {
 
   useEffect(() => {
     captureVisibilityInviteFromLocation();
+  }, []);
+
+  useEffect(() => {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    let previousOnline = navigator.onLine;
+    let previousUnstable = hasUnstableNetwork(connection);
+
+    function announceNetworkState({ initial = false } = {}) {
+      const online = navigator.onLine;
+      const unstable = online && hasUnstableNetwork(connection);
+
+      if (!online && (initial || previousOnline)) {
+        showToast("Network unavailable.", "warning", {
+          title: "Network update",
+          duration: 2800,
+          origin: false,
+        });
+      } else if (online && previousOnline === false) {
+        showToast("Network restored.", "success", {
+          title: "Network update",
+          duration: 2600,
+          origin: false,
+        });
+      } else if (unstable && (initial || !previousUnstable)) {
+        showToast("Network unstable.", "warning", {
+          title: "Network update",
+          duration: 2800,
+          origin: false,
+        });
+      }
+
+      previousOnline = online;
+      previousUnstable = unstable;
+    }
+
+    announceNetworkState({ initial: true });
+    window.addEventListener("online", announceNetworkState);
+    window.addEventListener("offline", announceNetworkState);
+    connection?.addEventListener?.("change", announceNetworkState);
+    return () => {
+      window.removeEventListener("online", announceNetworkState);
+      window.removeEventListener("offline", announceNetworkState);
+      connection?.removeEventListener?.("change", announceNetworkState);
+    };
   }, []);
 
   // Each new sign-in re-checks whether the account needs its authenticator code.
@@ -604,8 +655,6 @@ export default function App() {
                 nav={marketplaceNav}
                 setNav={setMarketplaceNav}
                 onActivityChange={setMarketplaceActivityOpen}
-                active
-                onNotificationCountChange={updateMarketplaceBadge}
               />
             </section>
           ) : null}
@@ -617,7 +666,6 @@ export default function App() {
                 areaViewRequest={transportAreaRequest}
                 onAreaViewRequestHandled={setTransportAreaRequest}
                 active
-                onNotificationCountChange={updateTransportBadge}
               />
             </section>
           ) : null}
@@ -627,6 +675,13 @@ export default function App() {
       {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
       <ScreenshotVoicePrompt page={page} />
       {guestSession ? <GuestGateCard /> : null}
+      {!guestSession ? (
+        <CrossServiceActivityHost
+          onMarketplaceCountChange={updateMarketplaceBadge}
+          onTransportCountChange={updateTransportBadge}
+          userId={userId}
+        />
+      ) : null}
       <NotificationBannerHost userId={userId} />
     </div>
   );

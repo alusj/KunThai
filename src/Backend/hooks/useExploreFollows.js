@@ -8,7 +8,7 @@ import {
   normalizeIdentityTarget,
   syncExploreFollow,
 } from "../services/exploreService";
-import { guardGuestAction } from "../services/guestModeService";
+import { guardGuestAction, isGuestMode } from "../services/guestModeService";
 import { haptics } from "../services/feedbackService";
 import { showToast } from "../services/toastService";
 
@@ -29,10 +29,17 @@ function writeStoredFollows(value) {
 }
 
 export function useExploreFollows(currentUserId) {
-  const [followedUsers, setFollowedUsers] = useState(readStoredFollows);
+  const [followedUsers, setFollowedUsers] = useState(() => (isGuestMode() ? new Set() : readStoredFollows()));
 
   useEffect(() => {
     let cancelled = false;
+
+    if (isGuestMode()) {
+      setFollowedUsers(new Set());
+      return () => {
+        cancelled = true;
+      };
+    }
 
     fetchExploreFollowing()
       .then((items) => {
