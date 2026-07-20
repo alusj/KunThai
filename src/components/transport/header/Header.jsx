@@ -15,7 +15,9 @@ import { fetchTransportOperationBadgeState } from "../../services/transportHeade
 
 export default function Header({
   companyAccount,
+  companyLoading = false,
   operatorAccount,
+  operatorLoading = false,
   onActivityChange,
   onNotificationCountChange,
   onRegisterFleet,
@@ -31,6 +33,7 @@ export default function Header({
   const operatorBadgeCount = operatorActivity.totalCount;
   const hasOperatorAccount = Boolean(operatorAccount);
   const hasCompanyAccount = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
+  const accountLoading = operatorLoading || companyLoading;
   const handleNotificationCountChange = useCallback((count) => {
     setPassengerNotificationCount(Number(count || 0));
   }, []);
@@ -85,12 +88,16 @@ export default function Header({
         title="UrRide"
         left={(
           <>
-            <OperatorButton
-              badge={operatorBadgeCount}
-              hasCompanyAccount={hasCompanyAccount}
-              hasOperatorAccount={hasOperatorAccount}
-              onClick={onRegisterFleet}
-            />
+            {accountLoading ? (
+              <div className="h-11 w-28" aria-hidden="true" />
+            ) : (
+              <OperatorButton
+                badge={operatorBadgeCount}
+                hasCompanyAccount={hasCompanyAccount}
+                hasOperatorAccount={hasOperatorAccount}
+                onClick={onRegisterFleet}
+              />
+            )}
             <Radar onOpenChange={setRadarOpen} onViewFleet={onViewFleet} />
           </>
         )}

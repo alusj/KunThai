@@ -10,7 +10,7 @@ Today's work strengthened four areas:
 
 1. UrMall reviews are now tied to real orders acknowledged by the seller.
 2. UrRide reviews are now tied to real bookings accepted by the operator.
-3. The UrRide operator/register control paints immediately instead of waiting behind a blank placeholder.
+3. The UrRide operator/register control waits for account resolution so registered users never see a false Register state.
 4. Profile explanation controls now use a circular question mark instead of an exclamation mark.
 
 ## Verified UrMall Reviews
@@ -42,12 +42,12 @@ Today's work strengthened four areas:
 - Passengers without an accepted booking retain read-only access to operator reviews.
 - Empty and populated review views explain that a booking must be accepted before a review can be added.
 
-## UrRide Header Performance
+## UrRide Header Account State
 
-- Removed the blank operator-control placeholder from the UrRide header.
-- The register/operator control now renders on the first paint, matching UrMall's immediate navigation affordance.
-- Existing operator accounts are hydrated synchronously from the scoped local account cache while Supabase refreshes the authoritative account in the background.
-- The live account refresh still replaces cached state when current server data arrives.
+- Preserved the compact operator-control skeleton while operator and company account checks are running.
+- The Register button is shown only after both account checks confirm that no operator or company account exists.
+- Existing operator accounts are still hydrated from the scoped local account cache while Supabase refreshes authoritative account data.
+- This avoids briefly showing Register to users who have already completed UrRide registration.
 
 ## Profile Help Controls
 
@@ -68,4 +68,3 @@ Today's work strengthened four areas:
 ## Deployment Note
 
 The review forms fail closed until `20260720090000_verified_transaction_reviews.sql` is applied. The linked project currently has this migration and earlier pending migrations waiting to be deployed, so they were not pushed automatically as part of this focused security change.
-
