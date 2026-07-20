@@ -163,17 +163,6 @@ function normalizePublicFleetPhotos(value) {
     .filter((photo) => photo.url);
 }
 
-async function getCurrentPassenger(message = "Sign in to review this operator.") {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user?.id) throw new Error(message);
-
-  const meta = data.user.user_metadata || {};
-  return {
-    id: data.user.id,
-    name: meta.full_name || meta.name || meta.username || data.user.email?.split("@")[0] || "Passenger",
-  };
-}
-
 function mapOperatorReview(row) {
   return {
     id: row.id,
@@ -429,25 +418,44 @@ export async function fetchTransportFleetReviews(fleet) {
   return (data || []).map(mapOperatorReview);
 }
 
+export async function fetchTransportFleetReviewEligibility(fleet, tripId = null) {
+  const operatorId = fleet?.operatorRecordId || fleet?.operator_id || fleet?.operatorId;
+  if (!operatorId) {
+    return {
+      eligible: false,
+      tripId: null,
+      reason: "Book this operator and wait for the booking to be accepted before adding a review.",
+    };
+  }
+
+  const { data, error } = await supabase.rpc("get_transport_review_eligibility", {
+    p_operator_id: operatorId,
+    p_trip_id: tripId || null,
+  });
+
+  if (error) throw new Error(error.message || "Unable to verify review access.");
+
+  const result = Array.isArray(data) ? data[0] : data;
+  return {
+    eligible: Boolean(result?.eligible),
+    tripId: result?.trip_id || null,
+    reason: result?.reason || "Book this operator and wait for acceptance before adding a review.",
+  };
+}
+
 export async function submitTransportFleetReview(fleet, { rating, reviewText }) {
-  const passenger = await getCurrentPassenger();
   const operatorId = fleet?.operatorRecordId || fleet?.operator_id || fleet?.operatorId;
   const score = Number(rating || 0);
 
   if (!operatorId) throw new Error("Operator review record is not available yet.");
   if (score < 1) throw new Error("Choose a rating before submitting your review.");
 
-  const { data, error } = await supabase
-    .from("transport_operator_reviews")
-    .insert({
-      operator_id: operatorId,
-      passenger_name: passenger.name,
-      rating: score,
-      review_text: String(reviewText || "").trim(),
-      created_at: new Date().toISOString(),
-    })
-    .select()
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("submit_verified_transport_review", {
+    p_operator_id: operatorId,
+    p_rating: score,
+    p_review_text: String(reviewText || "").trim(),
+    p_trip_id: null,
+  });
 
   if (error) {
     throw new Error(error.message || "Unable to submit this review.");

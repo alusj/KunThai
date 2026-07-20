@@ -18,6 +18,7 @@ import {
 
 import {
   fetchTransportFleetById,
+  fetchTransportFleetReviewEligibility,
   fetchTransportFleetReviews,
   submitTransportFleetReview,
 } from "../services/transportFleetService";
@@ -97,6 +98,11 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState("");
   const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [reviewEligibility, setReviewEligibility] = useState({
+    eligible: false,
+    tripId: null,
+    reason: "Book this operator and wait for the booking to be accepted before adding a review.",
+  });
 
   useEffect(() => {
     let alive = true;
@@ -128,10 +134,25 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
     let alive = true;
     setReviewsLoading(true);
     setReviewsError("");
+    setReviewEligibility({
+      eligible: false,
+      tripId: null,
+      reason: "Book this operator and wait for the booking to be accepted before adding a review.",
+    });
 
-    fetchTransportFleetReviews(fleet)
-      .then((items) => {
-        if (alive) setReviews(items);
+    Promise.all([
+      fetchTransportFleetReviews(fleet),
+      fetchTransportFleetReviewEligibility(fleet).catch(() => ({
+        eligible: false,
+        tripId: null,
+        reason: "Book this operator and wait for the booking to be accepted before adding a review.",
+      })),
+    ])
+      .then(([items, eligibility]) => {
+        if (alive) {
+          setReviews(items);
+          setReviewEligibility(eligibility);
+        }
       })
       .catch((err) => {
         if (alive) {
@@ -357,9 +378,19 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
         loading={reviewsLoading}
         onClose={() => setReviewsOpen(false)}
         onReviewAdded={(review) => {
-          if (review) setReviews((current) => [review, ...current]);
+          if (review) {
+            setReviews((current) => [review, ...current]);
+            fetchTransportFleetReviewEligibility(fleet)
+              .then(setReviewEligibility)
+              .catch(() => setReviewEligibility({
+                eligible: false,
+                tripId: null,
+                reason: "Book this operator and wait for another booking to be accepted before adding a review.",
+              }));
+          }
         }}
         open={reviewsOpen}
+        reviewEligibility={reviewEligibility}
         reviews={reviews}
         reviewsError={reviewsError}
       />
@@ -591,7 +622,7 @@ function InfoLine({ icon, text }) {
   );
 }
 
-function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviews, reviewsError }) {
+function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewEligibility, reviews, reviewsError }) {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -690,26 +721,32 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviews, r
                     ) : null}
                   </article>
                 ))}
+                {!reviewEligibility?.eligible ? (
+                  <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-900">
+                    {reviewEligibility?.reason}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
                 <FiAlertCircle className="mx-auto text-slate-400" size={34} />
                 <p className="mt-4 text-lg font-black text-slate-950">No reviews yet</p>
                 <p className="mx-auto mt-1 max-w-sm text-sm font-semibold leading-6 text-slate-500">
-                  Passenger reviews for this operator will appear here after real trips and service experiences.
+                  {reviewEligibility?.reason}
                 </p>
               </div>
             )}
-          </div>
-
-          <form onSubmit={submitReview} className="border-t border-slate-100 bg-white px-4 py-3">
             {status ? (
-              <p className={`mb-3 rounded-2xl px-3 py-2 text-xs font-black ${
+              <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${
                 /added/i.test(status) ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
               }`}>
                 {status}
               </p>
             ) : null}
+          </div>
+
+          {reviewEligibility?.eligible && !/added/i.test(status) ? (
+            <form onSubmit={submitReview} className="border-t border-slate-100 bg-white px-4 py-3">
             <div className="mb-3 flex items-center gap-2">
               {[1, 2, 3, 4, 5].map((score) => (
                 <button
@@ -744,7 +781,8 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviews, r
                 <FiSend size={18} />
               </button>
             </div>
-          </form>
+            </form>
+          ) : null}
         </section>
       </div>
     </AppPortal>

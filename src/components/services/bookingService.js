@@ -385,17 +385,16 @@ export async function submitTransportSupportTicket(input) {
 }
 
 export async function submitTransportTripReview({ trip, rating, comment }) {
-  const passenger = await getCurrentPassenger("Sign in to review this trip.");
+  await getCurrentPassenger("Sign in to review this trip.");
   const score = Number(rating || 0);
   if (!trip?.fleet?.operatorRecordId) throw new Error("Operator review record is not available yet.");
   if (score < 1) throw new Error("Choose a rating before submitting.");
 
-  const { error } = await supabase.from("transport_operator_reviews").insert({
-    operator_id: trip.fleet.operatorRecordId,
-    passenger_name: passenger.name,
-    rating: score,
-    review_text: String(comment || "").trim(),
-    created_at: new Date().toISOString(),
+  const { error } = await supabase.rpc("submit_verified_transport_review", {
+    p_operator_id: trip.fleet.operatorRecordId,
+    p_rating: score,
+    p_review_text: String(comment || "").trim(),
+    p_trip_id: trip.id,
   });
 
   if (error) throw new Error(error.message || "Unable to submit this review.");

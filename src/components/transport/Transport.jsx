@@ -17,7 +17,7 @@ import TransportRegistrationTypeScreen from "./registration/TransportRegistratio
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import AppBackTab from "../shared/AppBackTab";
-import { fetchOperatorDashboard, getOperatorAccount } from "../services/transportOperatorAccountService";
+import { fetchOperatorDashboard, getLegacyOperatorAccount, getOperatorAccount } from "../services/transportOperatorAccountService";
 import {
   ensureInvitedOperatorProfile,
   getOperatorCompanyInvites,
@@ -40,7 +40,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   const [companyRegistrationMode, setCompanyRegistrationMode] = useState("full");
   const [registrationSource, setRegistrationSource] = useState(null);
   const [registrationAreaPreviewOpen, setRegistrationAreaPreviewOpen] = useState(false);
-  const [operatorAccount, setOperatorAccount] = useState(null);
+  const [operatorAccount, setOperatorAccount] = useState(getLegacyOperatorAccount);
   const [operatorLoading, setOperatorLoading] = useState(true);
   const [operatorError, setOperatorError] = useState("");
   const [companyAccount, setCompanyAccount] = useState(null);

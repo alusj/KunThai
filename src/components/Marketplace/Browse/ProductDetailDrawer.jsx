@@ -33,7 +33,13 @@ import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { getProductTierPricing, getTierUnitPrice } from "../../../Backend/services/marketplace/tierPricingUtils";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
-import { fetchBuyerDeliveryAddresses, fetchBuyerReviews, submitMarketplaceReview, submitProductReview } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import {
+  fetchBuyerDeliveryAddresses,
+  fetchBuyerReviews,
+  fetchMarketplaceReviewEligibility,
+  submitMarketplaceReview,
+  submitProductReview,
+} from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
 
 const BUYER_ADDRESS_KEY = "marketplace-buyer-address";
@@ -380,6 +386,8 @@ function ProductReviewDrawer({
   reviewStatus,
   reviewSubmitting,
   reviewSummary,
+  reviewEligibility,
+  reviewEligibilityLoading,
   reviewHeading = "Product reviews",
   reviewLabel = "Product review",
 }) {
@@ -441,19 +449,27 @@ function ProductReviewDrawer({
                   </p>
                 </article>
               ))}
+              {!reviewEligibilityLoading && !reviewEligibility?.eligible ? (
+                <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-900">
+                  {reviewEligibility?.reason}
+                </p>
+              ) : null}
             </div>
           ) : (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
               <MessageCircle className="mx-auto text-slate-400" size={34} />
               <p className="mt-4 text-lg font-black text-slate-950">No reviews yet</p>
               <p className="mx-auto mt-1 max-w-sm text-sm font-semibold leading-6 text-slate-500">
-                Reviews from buyers will appear here so people can understand the experience, quality, and service.
+                {reviewEligibilityLoading
+                  ? "Checking whether your order is ready for a review..."
+                  : reviewEligibility?.reason}
               </p>
             </div>
           )}
         </div>
 
-        <form onSubmit={onSubmit} className="border-t border-slate-100 bg-white px-4 py-3">
+        {reviewEligibility?.eligible ? (
+          <form onSubmit={onSubmit} className="border-t border-slate-100 bg-white px-4 py-3">
           {reviewStatus ? (
             <p className={`mb-3 rounded-2xl px-3 py-2 text-xs font-black ${
               /added/i.test(reviewStatus) ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
@@ -483,7 +499,8 @@ function ProductReviewDrawer({
               <Send size={18} />
             </button>
           </div>
-        </form>
+          </form>
+        ) : null}
       </section>
     </div>
   );
@@ -572,6 +589,8 @@ export default function ProductDetailDrawer({
   const [messageText, setMessageText] = useState("");
   const [messageSending, setMessageSending] = useState(false);
   const [reviewSummary, setReviewSummary] = useState({ rating: 0, reviewCount: 0, reviews: [] });
+  const [reviewEligibility, setReviewEligibility] = useState({ eligible: false, orderId: null, reason: "" });
+  const [reviewEligibilityLoading, setReviewEligibilityLoading] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
 
   const requestClose = useCallback(() => {
@@ -628,12 +647,39 @@ export default function ProductDetailDrawer({
       if (!open || !product?.id) return;
 
       try {
-        const reviews = reviewType === "product"
-          ? await fetchBuyerReviews({ productId: product.id, reviewType: "product" })
-          : await fetchBuyerReviews({ businessId: product.businessId || product.seller?.id, reviewType: "marketplace" });
-        if (alive) setReviewSummary(reviews);
+        setReviewEligibility({
+          eligible: false,
+          orderId: null,
+          reason: reviewType === "product"
+            ? "Order this product and wait for the seller to respond before adding a review."
+            : "Order from this store and wait for the seller to respond before adding a review.",
+        });
+        setReviewEligibilityLoading(true);
+        const businessId = product.businessId || product.seller?.id;
+        const [reviews, eligibility] = await Promise.all([
+          reviewType === "product"
+            ? fetchBuyerReviews({ productId: product.id, reviewType: "product" })
+            : fetchBuyerReviews({ businessId, reviewType: "marketplace" }),
+          fetchMarketplaceReviewEligibility({
+            businessId,
+            productId: reviewType === "product" ? product.id : null,
+            reviewType,
+          }).catch(() => ({
+            eligible: false,
+            orderId: null,
+            reason: reviewType === "product"
+              ? "Order this product and wait for the seller to respond before adding a review."
+              : "Order from this store and wait for the seller to respond before adding a review.",
+          })),
+        ]);
+        if (alive) {
+          setReviewSummary(reviews);
+          setReviewEligibility(eligibility);
+        }
       } catch {
         if (alive) setReviewSummary({ rating: 0, reviewCount: 0, reviews: [] });
+      } finally {
+        if (alive) setReviewEligibilityLoading(false);
       }
     }
 
@@ -764,6 +810,12 @@ export default function ProductDetailDrawer({
         ? await fetchBuyerReviews({ productId: product.id, reviewType: "product" })
         : await fetchBuyerReviews({ businessId: product.businessId || product.seller?.id, reviewType: "marketplace" });
       setReviewSummary(reviews);
+      const nextEligibility = await fetchMarketplaceReviewEligibility({
+        businessId: product.businessId || product.seller?.id,
+        productId: reviewType === "product" ? product.id : null,
+        reviewType,
+      });
+      setReviewEligibility(nextEligibility);
     } catch (err) {
       setReviewStatus(err.message || "Unable to submit review.");
       onNotice?.(err.message || "Unable to submit review.", "danger");
@@ -1394,6 +1446,8 @@ export default function ProductDetailDrawer({
         reviewStatus={reviewStatus}
         reviewSubmitting={reviewSubmitting}
         reviewSummary={reviewSummary}
+        reviewEligibility={reviewEligibility}
+        reviewEligibilityLoading={reviewEligibilityLoading}
         reviewHeading={reviewHeading}
         reviewLabel={reviewLabel}
       />

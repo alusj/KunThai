@@ -1233,18 +1233,44 @@ export async function fetchBuyerReviews({ productId, businessId, reviewType }) {
   };
 }
 
+export async function fetchMarketplaceReviewEligibility({ businessId, productId = null, reviewType = "marketplace" }) {
+  if (!businessId) {
+    return {
+      eligible: false,
+      orderId: null,
+      reason: reviewType === "product"
+        ? "Order this product and wait for the seller to respond before adding a review."
+        : "Order from this store and wait for the seller to respond before adding a review.",
+    };
+  }
+
+  const { data, error } = await supabase.rpc("get_marketplace_review_eligibility", {
+    p_business_id: businessId,
+    p_product_id: productId || null,
+    p_review_type: reviewType,
+  });
+
+  if (error) throw new Error(error.message || "Unable to verify review access.");
+
+  const result = Array.isArray(data) ? data[0] : data;
+  return {
+    eligible: Boolean(result?.eligible),
+    orderId: result?.order_id || null,
+    reason: result?.reason || "Complete a verified order before adding a review.",
+  };
+}
+
 export async function submitProductReview(product, rating, comment) {
-  const buyerId = await getCurrentUserId("Sign in to review this product.");
+  await getCurrentUserId("Sign in to review this product.");
   if (!product?.id || !product?.businessId) throw new Error("Choose a valid product.");
 
-  const { error } = await supabase.from("marketplace_reviews").insert({
-    buyer_id: buyerId,
-    business_id: product.businessId,
-    product_id: product.id,
-    product_name: product.name,
-    review_type: "product",
-    rating: Number(rating || 0),
-    comment: comment.trim(),
+  const { error } = await supabase.rpc("submit_verified_marketplace_review", {
+    p_business_id: product.businessId,
+    p_rating: Number(rating || 0),
+    p_comment: String(comment || "").trim(),
+    p_product_id: product.id,
+    p_product_name: product.name || "",
+    p_review_type: "product",
   });
 
   if (error) throw new Error(error.message);
@@ -1252,16 +1278,16 @@ export async function submitProductReview(product, rating, comment) {
 }
 
 export async function submitMarketplaceReview(seller, rating, comment) {
-  const buyerId = await getCurrentUserId("Sign in to review this UrMall seller.");
+  await getCurrentUserId("Sign in to review this UrMall seller.");
   if (!seller?.id) throw new Error("Choose a valid seller.");
 
-  const { error } = await supabase.from("marketplace_reviews").insert({
-    buyer_id: buyerId,
-    business_id: seller.id,
-    product_name: seller.name || "UrMall",
-    review_type: "marketplace",
-    rating: Number(rating || 0),
-    comment: comment.trim(),
+  const { error } = await supabase.rpc("submit_verified_marketplace_review", {
+    p_business_id: seller.id,
+    p_rating: Number(rating || 0),
+    p_comment: String(comment || "").trim(),
+    p_product_id: null,
+    p_product_name: seller.name || "UrMall",
+    p_review_type: "marketplace",
   });
 
   if (error) throw new Error(error.message);

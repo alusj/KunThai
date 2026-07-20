@@ -29,6 +29,7 @@ import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerReviews,
+  fetchMarketplaceReviewEligibility,
   fetchSellerCatalog,
   fetchSellerLocations,
   sendBuyerMarketplaceMessage,
@@ -494,6 +495,11 @@ export default function SellerProfileDrawer({
   const [activeView, setActiveView] = useState("catalog");
   const [catalog, setCatalog] = useState([]);
   const [reviews, setReviews] = useState({ rating: 0, reviewCount: 0, reviews: [] });
+  const [reviewEligibility, setReviewEligibility] = useState({
+    eligible: false,
+    orderId: null,
+    reason: "Order from this store and wait for the seller to respond before adding a review.",
+  });
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -525,12 +531,22 @@ export default function SellerProfileDrawer({
       setLocationWarning("");
       setOpenActionProductId(null);
       setStoreLocationRows([]);
+      setReviewEligibility({
+        eligible: false,
+        orderId: null,
+        reason: "Order from this store and wait for the seller to respond before adding a review.",
+      });
 
       try {
-        const [catalogItems, marketplaceReviews, sellerLocations] = await Promise.all([
+        const [catalogItems, marketplaceReviews, sellerLocations, eligibility] = await Promise.all([
           fetchSellerCatalog(safeSeller.id),
           fetchBuyerReviews({ businessId: safeSeller.id, reviewType: "marketplace" }),
           fetchSellerLocations(safeSeller.id).catch(() => []),
+          fetchMarketplaceReviewEligibility({ businessId: safeSeller.id, reviewType: "marketplace" }).catch(() => ({
+            eligible: false,
+            orderId: null,
+            reason: "Order from this store and wait for the seller to respond before adding a review.",
+          })),
         ]);
         if (alive) {
           setCatalog(asArray(catalogItems));
@@ -540,6 +556,7 @@ export default function SellerProfileDrawer({
             reviewCount: toSafeNumber(marketplaceReviews?.reviewCount, 0),
             reviews: asArray(marketplaceReviews?.reviews),
           });
+          setReviewEligibility(eligibility);
         }
       } catch (err) {
         if (alive) onNotice?.(err.message || "Unable to load seller profile.", "danger");
@@ -701,6 +718,10 @@ export default function SellerProfileDrawer({
         reviewCount: toSafeNumber(nextReviews?.reviewCount, 0),
         reviews: asArray(nextReviews?.reviews),
       });
+      setReviewEligibility(await fetchMarketplaceReviewEligibility({
+        businessId: safeSeller.id,
+        reviewType: "marketplace",
+      }));
     } catch (err) {
       onNotice?.(err.message || "Unable to submit UrMall review.", "danger");
     }
@@ -1091,21 +1112,23 @@ export default function SellerProfileDrawer({
                       </div>
                     </div>
 
-                    <form onSubmit={submitReview} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                      <p className="text-sm font-black text-gray-950">Review this store</p>
-                      <div className="mt-3">
-                        <StarRatingInput value={rating} onChange={setRating} />
-                      </div>
-                      <textarea
-                        value={comment}
-                        onChange={(event) => setComment(event.target.value)}
-                        placeholder="Share your UrMall experience"
-                        className="mt-3 min-h-24 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
-                      />
-                      <button type="submit" className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700">
-                        Submit Review
-                      </button>
-                    </form>
+                    {reviewEligibility.eligible ? (
+                      <form onSubmit={submitReview} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                        <p className="text-sm font-black text-gray-950">Review this store</p>
+                        <div className="mt-3">
+                          <StarRatingInput value={rating} onChange={setRating} />
+                        </div>
+                        <textarea
+                          value={comment}
+                          onChange={(event) => setComment(event.target.value)}
+                          placeholder="Share your UrMall experience"
+                          className="mt-3 min-h-24 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
+                        />
+                        <button type="submit" className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700">
+                          Submit Review
+                        </button>
+                      </form>
+                    ) : null}
 
                     {safeReviews.reviews.length ? (
                       <div className="space-y-3">
@@ -1121,9 +1144,14 @@ export default function SellerProfileDrawer({
                             <p className="mt-2 text-sm font-medium text-gray-600">{review.comment || "No comment added."}</p>
                           </div>
                         ))}
+                        {!reviewEligibility.eligible ? (
+                          <p className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-900">
+                            {reviewEligibility.reason}
+                          </p>
+                        ) : null}
                       </div>
                     ) : (
-                      <EmptyState icon={Star} title="No reviews yet." text="Buyer reviews will appear here after marketplace orders and feedback." />
+                      <EmptyState icon={Star} title="No reviews yet." text={reviewEligibility.reason} />
                     )}
                   </section>
               ) : null}

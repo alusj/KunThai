@@ -4,6 +4,10 @@
 
 This document records the functional work completed during the 19 July 2026 development session. It focuses on behavior that remains in the project and excludes the forced referral gate that was deliberately rolled back.
 
+Last updated after the final guest-privacy, profile dark-mode, and UrRide badge pass.
+
+Security work continued on 20 July 2026 in [`2026-07-20-work-summary.md`](./2026-07-20-work-summary.md).
+
 ## Executive Summary
 
 Today's work strengthened six areas:
@@ -164,6 +168,17 @@ Today's work strengthened six areas:
 - Visibility-credit migrations keep earning and spending server-controlled.
 - Explore connection RLS now fails closed for anonymous or missing identities and prevents guest directory access.
 
+## Final Completion Update
+
+- Completed guest isolation in the Explore Connections interface, client services, caches, and database policies.
+- Guest visitors cannot load Connected, Connects You, Suggested, personal-profile, or Space identity results.
+- Registered users retain normal incoming and outgoing connection visibility while anonymous identities are excluded.
+- Added cleanup and prevention controls for guest profiles, guest-owned Spaces, follows, identity connections, and legacy connection rows.
+- Fixed the Visibility Credits card so its border, surface, labels, information control, and Share action remain readable in dark mode.
+- Completed UrRide source-badge routing for operator requests, operator notifications, company bookings, and company notifications.
+- The UrRide company badge now refreshes immediately when a source notification is marked viewed instead of waiting for the polling interval.
+- Updated this summary after the final production build and migration dry run.
+
 ## Verification Completed
 
 - `npm.cmd run build` completed successfully.
@@ -177,7 +192,7 @@ Today's work strengthened six areas:
 
 ## Deployment Notes
 
-The dry run reported these pending migrations before the new emergency migration:
+The dry run reported the following pending migrations:
 
 - `20260716170000_visibility_credit_wallet.sql`
 - `20260717093000_visibility_credit_hardening.sql`
@@ -201,6 +216,8 @@ Review and apply the pending migrations together in timestamp order. The dry run
 ## Remaining Operational Checks
 
 - Run authenticated multi-account QA for seller/buyer messages, orders, operator bookings, and company notifications.
+- After applying the migration, verify Connections with one guest session and at least two registered profiles.
+- Confirm the Visibility Credits card visually on an authenticated profile in both light and dark modes.
 - Test enabled Web Push on desktop, Android, and installed iOS PWA environments.
 - Verify emergency numbers against official national sources and populate `source_url` and `verified_at`.
 - Apply the pending Supabase migrations after the normal database review and backup process.

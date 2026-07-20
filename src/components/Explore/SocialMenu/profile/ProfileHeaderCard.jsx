@@ -324,7 +324,7 @@ export default function ProfileHeaderCard({
               aria-label="Why do I have a unique KunThai ID?"
               title="About your KunThai ID"
             >
-              !
+              ?
             </button>
             {copiedPublicId ? <span className="text-xs font-black text-sky-700">Copied</span> : null}
           </div>
@@ -344,7 +344,7 @@ export default function ProfileHeaderCard({
                 aria-label="What are Visibility Credits?"
                 title="About Visibility Credits"
               >
-                !
+                ?
               </button>
               <button
                 type="button"
@@ -380,7 +380,7 @@ export default function ProfileHeaderCard({
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-black text-sky-700">!</span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-black text-sky-700">?</span>
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Unique account code</p>
                 <h2 id="kunthai-id-help-title" className="mt-1 text-xl font-black text-slate-950">Why your KunThai ID matters</h2>
@@ -409,7 +409,7 @@ export default function ProfileHeaderCard({
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-black text-sky-700">!</span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-black text-sky-700">?</span>
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility wallet</p>
                 <h2 id="visibility-credit-help-title" className="mt-1 text-xl font-black text-slate-950">How Visibility Credits work</h2>
