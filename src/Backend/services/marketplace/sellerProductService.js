@@ -271,7 +271,7 @@ async function uploadProductFile(userId, file, folder) {
   const path = `${userId}/products/${folder}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const { error } = await withTimeout(
     supabase.storage.from("marketplace-business-media").upload(path, uploadFile, {
-      cacheControl: "3600",
+      cacheControl: "31536000",
       upsert: true,
     }),
     `Upload timed out for ${file.name}. Your connection may be slow, or the image may still be too large. Try again or choose a smaller image.`,

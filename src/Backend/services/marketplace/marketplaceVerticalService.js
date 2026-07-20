@@ -62,7 +62,7 @@ export async function uploadMarketplaceVerticalImage(file, businessId, folder = 
   if (userError || !userData?.user?.id) throw new Error("Sign in before uploading business images.");
   const extension = file.name?.split(".").pop() || "jpg";
   const path = `${userData.user.id}/${folder}/${businessId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabase.storage.from("marketplace-business-media").upload(path, file, { cacheControl: "3600", upsert: false });
+  const { error } = await supabase.storage.from("marketplace-business-media").upload(path, file, { cacheControl: "31536000", upsert: false });
   if (error) throw new Error(error.message || "Unable to upload this image.");
   return supabase.storage.from("marketplace-business-media").getPublicUrl(path).data.publicUrl;
 }
@@ -73,7 +73,7 @@ export async function uploadMarketplaceVerticalVideo(file, businessId, folder = 
   if (userError || !userData?.user?.id) throw new Error("Sign in before uploading a business video.");
   const extension = file.name?.split(".").pop() || "mp4";
   const path = `${userData.user.id}/${folder}/${businessId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabase.storage.from("marketplace-business-media").upload(path, file, { cacheControl: "3600", contentType: file.type || "video/mp4", upsert: false });
+  const { error } = await supabase.storage.from("marketplace-business-media").upload(path, file, { cacheControl: "31536000", contentType: file.type || "video/mp4", upsert: false });
   if (error) throw new Error(error.message || "Unable to upload this video.");
   return supabase.storage.from("marketplace-business-media").getPublicUrl(path).data.publicUrl;
 }

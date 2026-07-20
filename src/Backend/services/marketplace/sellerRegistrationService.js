@@ -111,7 +111,7 @@ async function uploadBusinessFile(userId, file, folder) {
   const extension = file.name.split(".").pop() || "bin";
   const path = `${userId}/${folder}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage.from("marketplace-business-media").upload(path, file, {
-    cacheControl: "3600",
+    cacheControl: "31536000",
     upsert: true,
   });
 

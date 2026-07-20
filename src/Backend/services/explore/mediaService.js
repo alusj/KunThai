@@ -81,7 +81,7 @@ async function uploadMediaFileResumable(file, filePath, options = {}) {
         bucketName: EXPLORE_MEDIA_BUCKET,
         objectName: filePath,
         contentType: file.type || "application/octet-stream",
-        cacheControl: "3600",
+        cacheControl: "31536000",
       },
       onError: (uploadError) => reject(normalizeUploadError(uploadError, file)),
       onProgress: (bytesUploaded, bytesTotal) => options.onProgress?.(bytesUploaded, bytesTotal),
@@ -137,7 +137,7 @@ export async function uploadMediaFile(file, mediaType, userId, options = {}) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const { error } = await supabase.storage.from(EXPLORE_MEDIA_BUCKET).upload(filePath, file, {
-        cacheControl: "3600",
+        cacheControl: "31536000",
         upsert: false,
         contentType: file.type || undefined,
       });

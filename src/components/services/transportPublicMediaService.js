@@ -40,7 +40,7 @@ export async function uploadTransportPublicImage({ file, ownerUserId, scope = "f
     `${Date.now()}-${safePathPart(label)}-${safePathPart(file.name)}`,
   ].join("/");
   const { error } = await supabase.storage.from(TRANSPORT_PUBLIC_MEDIA_BUCKET).upload(path, file, {
-    cacheControl: "3600",
+    cacheControl: "31536000",
     contentType: file.type,
     upsert: false,
   });
@@ -59,7 +59,7 @@ export async function uploadTransportVerificationDocument({ file, ownerUserId, s
     `${Date.now()}-${safePathPart(label)}-${safePathPart(file.name)}`,
   ].join("/");
   const { error } = await supabase.storage.from(TRANSPORT_VERIFICATION_DOCUMENTS_BUCKET).upload(path, file, {
-    cacheControl: "3600",
+    cacheControl: "31536000",
     contentType: file.type || "application/octet-stream",
     upsert: false,
   });
