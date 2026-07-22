@@ -20,6 +20,7 @@ import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } 
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
 import { getKunThaiPublicUserId } from "../../../../Backend/services/identityCodeService";
+import { t } from "../../../../i18n";
 import Avatar from "../../shared/Avatar";
 
 const platformIcons = {
@@ -49,7 +50,6 @@ export default function ProfileHeaderCard({
   onFollow,
   onMessage,
   onReport,
-  onInviteContacts,
   onShare,
   onShareCredits,
   loadingStats = false,
@@ -60,6 +60,7 @@ export default function ProfileHeaderCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [copiedPublicId, setCopiedPublicId] = useState(false);
   const [creditHelpOpen, setCreditHelpOpen] = useState(false);
+  const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
   const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
   const menuRef = useRef(null);
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
@@ -357,17 +358,15 @@ export default function ProfileHeaderCard({
                 <HiOutlineShare />
                 Share
               </button>
-              {onInviteContacts ? (
-                <button
-                  type="button"
-                  onClick={onInviteContacts}
-                  className="kt-pressable inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-sky-300 bg-white px-4 text-xs font-black text-sky-700 shadow-sm disabled:opacity-50"
-                  disabled={creditLoading}
-                >
-                  <HiOutlineUserPlus />
-                  Invite contacts
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => setBuyCreditsOpen(true)}
+                className="kt-pressable inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-sky-300 bg-white px-4 text-xs font-black text-sky-700 shadow-sm disabled:opacity-50"
+                disabled={creditLoading}
+              >
+                <HiOutlineUserPlus />
+                {t("buyCredits.button")}
+              </button>
             </div>
           ) : null}
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
@@ -406,6 +405,46 @@ export default function ProfileHeaderCard({
             </div>
             <button type="button" onClick={() => setPublicIdHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
               Understood
+            </button>
+          </section>
+        </div>,
+        document.body,
+      ) : null}
+
+      {buyCreditsOpen && typeof document !== "undefined" ? createPortal(
+        <div className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-[2px]" role="presentation" onMouseDown={() => setBuyCreditsOpen(false)}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="buy-credits-title"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
+                <HiOutlineUserPlus className="text-2xl" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility Credits</p>
+                <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
+              <p>{t("buyCredits.working")}</p>
+              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">{t("buyCredits.earnInstead")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setBuyCreditsOpen(false);
+                onShareCredits?.();
+              }}
+              className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+            >
+              {t("buyCredits.shareInstead")}
+            </button>
+            <button type="button" onClick={() => setBuyCreditsOpen(false)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
+              {t("common.close")}
             </button>
           </section>
         </div>,

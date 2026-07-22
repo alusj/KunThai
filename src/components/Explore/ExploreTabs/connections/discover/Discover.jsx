@@ -1,6 +1,7 @@
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import DiscoverList from "./DiscoverList";
+import ImportContactsPanel from "./ImportContactsPanel";
 
 export default function Discover({ connectionState, onViewProfile }) {
   const { items = [], loading = false, error = "", blockUser, followUser, removeUser, reload } = connectionState || {};
@@ -14,17 +15,25 @@ export default function Discover({ connectionState, onViewProfile }) {
   }
 
   if (!items.length) {
-    return <EmptyState title="No suggestions yet" message="Explore will suggest people and brands for you here." />;
+    return (
+      <>
+        <ImportContactsPanel />
+        <EmptyState title="No suggestions yet" message="Explore will suggest people and brands for you here." />
+      </>
+    );
   }
 
   return (
-    <DiscoverList
-      users={items}
-      onBlock={blockUser}
-      onFollow={followUser}
-      onRemove={removeUser}
-      onViewProfile={onViewProfile}
-    />
+    <>
+      <ImportContactsPanel />
+      <DiscoverList
+        users={items}
+        onBlock={blockUser}
+        onFollow={followUser}
+        onRemove={removeUser}
+        onViewProfile={onViewProfile}
+      />
+    </>
   );
 }
 

@@ -285,17 +285,17 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             </div>
             <h2 id="account-action-title" className="mt-4 text-2xl font-black text-slate-950">
               {confirmAction === "delete"
-                ? "Delete your account?"
+                ? t("privacy.confirmDeleteTitle")
                 : deactivatedAt
-                  ? "Reactivate your account?"
-                  : "Deactivate your account?"}
+                  ? t("privacy.confirmReactivateTitle")
+                  : t("privacy.confirmDeactivateTitle")}
             </h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
               {confirmAction === "delete"
-                ? "This permanently deletes your login, profile, posts, messages, and activity across Explore, UrMall, and Transport. There is no recovery once it completes."
+                ? t("privacy.confirmDeleteBody")
                 : deactivatedAt
-                  ? "Your profile becomes visible in search and to other users again immediately."
-                  : "Your profile is hidden from search and other users see “Account unavailable” instead. Nothing is deleted, and you can reactivate here at any time."}
+                  ? t("privacy.confirmReactivateBody")
+                  : t("privacy.confirmDeactivateBody")}
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
@@ -304,7 +304,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
                 disabled={accountActionBusy}
                 className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -313,12 +313,12 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
                 className={`rounded-xl px-4 py-3 text-sm font-black text-white transition disabled:opacity-60 ${confirmAction === "delete" ? "bg-rose-600 hover:bg-rose-700" : "bg-amber-600 hover:bg-amber-700"}`}
               >
                 {accountActionBusy
-                  ? "Working..."
+                  ? t("common.working")
                   : confirmAction === "delete"
-                    ? "Delete my account permanently"
+                    ? t("privacy.confirmDeleteAction")
                     : deactivatedAt
-                      ? "Reactivate account"
-                      : "Deactivate account"}
+                      ? t("privacy.reactivateTitle")
+                      : t("privacy.deactivateTitle")}
               </button>
             </div>
           </section>
