@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { FiChevronDown, FiChevronUp, FiMapPin, FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiPlus, FiTrash2 } from "react-icons/fi";
 
 import CenteredModal from "../../../../shared/CenteredModal";
 import RegistrationField from "./RegistrationField";
@@ -169,64 +169,16 @@ export default function LocationContactStep({ registration }) {
       </div>
 
       {branches.map((branch, index) => (
-        <div key={`branch-${index}`} className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-black uppercase tracking-wide text-gray-500">Address {index + 2} of {maxBusinessLocations}</p>
-            <button
-              type="button"
-              onClick={() => removeBranch(index)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-700 transition hover:bg-red-100"
-              aria-label={`Remove ${branch.label || `address ${index + 2}`}`}
-            >
-              <FiTrash2 />
-              Remove
-            </button>
-          </div>
-
-          <RegistrationField label="Store name">
-            <RegistrationInput
-              value={branch.label}
-              onChange={(event) => updateBranch(index, { label: event.target.value })}
-              placeholder="Second branch"
-            />
-          </RegistrationField>
-
-          <RegistrationField
-            label={(
-              <span className="inline-flex items-center gap-2">
-                Address
-                {branch.coordinates ? <FiMapPin className="text-emerald-600" aria-label="Location pinned" /> : null}
-              </span>
-            )}
-          >
-            <RegistrationInput
-              value={branch.address}
-              onChange={(event) => updateBranch(index, { address: event.target.value })}
-              placeholder="Branch address"
-              autoComplete="street-address"
-            />
-          </RegistrationField>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => locateBusiness(index)}
-              className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
-            >
-              Locate me
-            </button>
-            <button
-              type="button"
-              onClick={() => openDropPinPicker(index)}
-              className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
-            >
-              Drop a pin
-            </button>
-          </div>
-          {branch.coordinates ? (
-            <p className="text-xs font-bold text-emerald-700">Map location pinned for this branch.</p>
-          ) : null}
-        </div>
+        <BranchAddressCard
+          key={`branch-${index}`}
+          branch={branch}
+          index={index}
+          maxBusinessLocations={maxBusinessLocations}
+          updateBranch={updateBranch}
+          removeBranch={removeBranch}
+          locateBusiness={locateBusiness}
+          openDropPinPicker={openDropPinPicker}
+        />
       ))}
 
       <div className="space-y-2">
@@ -371,6 +323,102 @@ export default function LocationContactStep({ registration }) {
           </button>
         </div>
       </CenteredModal>
+    </div>
+  );
+}
+
+// Each additional branch gets the same Area View resolution the main address has:
+// a live found/searching/unknown status, the confirmation card, and the locate /
+// drop-a-pin actions — driven by its own address validation hook.
+function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, removeBranch, locateBusiness, openDropPinPicker }) {
+  const branchPoint = branch.coordinates
+    ? {
+        lat: branch.coordinates.latitude ?? branch.coordinates.lat,
+        lng: branch.coordinates.longitude ?? branch.coordinates.lng,
+        address: branch.address,
+      }
+    : null;
+  const validation = useAddressAreaValidation(branch.address, { selectedPoint: branchPoint });
+  const result = validation.result;
+
+  useEffect(() => {
+    if (validation.status !== "found" || !String(branch.address || "").trim()) return;
+    const latitude = toOptionalCoordinate(result?.lat ?? result?.latitude ?? result?.coordinates?.latitude);
+    const longitude = toOptionalCoordinate(result?.lng ?? result?.longitude ?? result?.coordinates?.longitude);
+    if (latitude === null || longitude === null) return;
+    const nextCoordinates = { latitude, longitude };
+    if (coordinatesMatch(branch.coordinates, nextCoordinates)) return;
+    updateBranch(index, { coordinates: nextCoordinates });
+  }, [validation.status, result, branch.address, branch.coordinates, index, updateBranch]);
+
+  return (
+    <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-wide text-gray-500">Address {index + 2} of {maxBusinessLocations}</p>
+        <button
+          type="button"
+          onClick={() => removeBranch(index)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-700 transition hover:bg-red-100"
+          aria-label={`Remove ${branch.label || `address ${index + 2}`}`}
+        >
+          <FiTrash2 />
+          Remove
+        </button>
+      </div>
+
+      <RegistrationField label="Store name">
+        <RegistrationInput
+          value={branch.label}
+          onChange={(event) => updateBranch(index, { label: event.target.value })}
+          placeholder="Second branch"
+        />
+      </RegistrationField>
+
+      <RegistrationField
+        label={(
+          <span className="inline-flex items-center gap-2">
+            Address
+            <AddressAreaStatusIcon status={validation.status} />
+          </span>
+        )}
+      >
+        <RegistrationInput
+          value={branch.address}
+          onChange={(event) => updateBranch(index, { address: event.target.value })}
+          placeholder="Branch address"
+          autoComplete="street-address"
+        />
+      </RegistrationField>
+
+      <AddressAreaResolutionCard
+        validation={validation}
+        onLocateMe={() => locateBusiness(index)}
+        onDropPin={() => openDropPinPicker(index)}
+        tone="blue"
+      />
+
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
+        <button
+          type="button"
+          onClick={() => locateBusiness(index)}
+          className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
+        >
+          Locate me
+        </button>
+        <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+          Recommended
+        </span>
+        <button
+          type="button"
+          onClick={() => openDropPinPicker(index)}
+          className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+        >
+          Drop a pin
+        </button>
+      </div>
+      {branch.coordinates ? (
+        <p className="text-xs font-bold text-emerald-700">Map location pinned for this branch.</p>
+      ) : null}
     </div>
   );
 }

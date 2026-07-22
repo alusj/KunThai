@@ -5,6 +5,7 @@ import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductVideoTrimmer from "./ProductVideoTrimmer";
 import { MAX_PRODUCT_VIDEO_MB, MAX_PRODUCT_VIDEO_SECONDS, formatVideoMb } from "./productVideoLimits";
+import { showToast } from "../../../../../Backend/services/toastService";
 
 function readVideoDuration(file) {
   return new Promise((resolve, reject) => {
@@ -87,15 +88,23 @@ export default function ProductMediaStep({ productForm }) {
           type="file"
           accept="image/*"
           multiple
-          disabled={extraImagesFull}
           onChange={(event) => {
             const incoming = Array.from(event.target.files || []);
             event.target.value = "";
             if (!incoming.length) return;
-            const room = MAX_EXTRA_IMAGES - extraImages.length;
-            const accepted = incoming.slice(0, Math.max(room, 0));
-            setExtraImagesNote(incoming.length > room ? `Only ${MAX_EXTRA_IMAGES} extra images are allowed. The first ${MAX_EXTRA_IMAGES} were kept.` : "");
-            updateSection("media", { extraImageFiles: [...extraImages, ...accepted] });
+            const room = Math.max(MAX_EXTRA_IMAGES - extraImages.length, 0);
+            const accepted = incoming.slice(0, room);
+            // Six is a hard stop: extra selections are dropped and the seller is
+            // told with a toast, whether they were already full or just went over.
+            if (incoming.length > room) {
+              setExtraImagesNote(`We can only accept ${MAX_EXTRA_IMAGES} images.`);
+              showToast(`We can only accept ${MAX_EXTRA_IMAGES} images.`, "danger", { title: "UrMall" });
+            } else {
+              setExtraImagesNote("");
+            }
+            if (accepted.length) {
+              updateSection("media", { extraImageFiles: [...extraImages, ...accepted] });
+            }
           }}
         />
         {extraImagesFull ? (
@@ -214,12 +223,12 @@ export default function ProductMediaStep({ productForm }) {
         />
       ) : null}
 
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm font-medium text-gray-600">
-        <p>Cover: {form.media.coverImageName || "Not selected"}</p>
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm font-medium text-gray-600 [overflow-wrap:anywhere]">
+        <p className="break-all">Cover: {form.media.coverImageName || "Not selected"}</p>
         <p className="mt-1">
           Extra images: {form.media.extraImageFiles.length || form.media.extraImageUrls?.length || 0}
         </p>
-        <p className="mt-1">Video: {form.media.videoName || "Not selected"}</p>
+        <p className="mt-1 break-all">Video: {form.media.videoName || "Not selected"}</p>
       </div>
     </div>
   );

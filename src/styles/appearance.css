@@ -47,7 +47,23 @@ html.dark input,
 html.dark textarea,
 html.dark select {
   color: #f8fafc;
+  -webkit-text-fill-color: #f8fafc;
   caret-color: #38bdf8;
+}
+
+/* Browser autofill (Safari/Chrome) forces its own dark text + light background
+ * via -webkit-text-fill-color and an inset shadow, which overrides the color
+ * rule above and leaves near-black text on the dark onboarding fields. Re-assert
+ * light text and paint the field's dark surface behind the autofilled value. */
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:hover,
+html.dark input:-webkit-autofill:focus,
+html.dark textarea:-webkit-autofill,
+html.dark select:-webkit-autofill {
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #38bdf8 !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--kt-app-surface-soft) inset !important;
+  box-shadow: 0 0 0 1000px var(--kt-app-surface-soft) inset !important;
 }
 
 html.dark input::placeholder,
