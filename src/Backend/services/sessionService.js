@@ -13,6 +13,7 @@ const EXPLORE_NAVIGATION_KEY = "exploreNavigation";
 const ACCOUNT_HISTORY_KEY = "kuntai.auth.accountHistory";
 const SWITCH_ACCOUNT_PREFILL_KEY = "kuntai.auth.switchAccountPrefill";
 const OAUTH_FLOW_KEY = "kuntai.auth.oauthFlow";
+const SESSION_VAULT_KEY = "kuntai.auth.sessionVault";
 const DEFAULT_EXPLORE_NAVIGATION = {
   activeTab: "UrFeed",
   menuStack: [],
@@ -56,6 +57,57 @@ function normalizeRememberedAccount(input = {}) {
     phone,
     provider,
   };
+}
+
+// --- Session vault -----------------------------------------------------------
+// Keeps the latest session tokens per signed-in account so Switch Account can
+// restore a previous account directly instead of forcing a fresh sign-in.
+// Tokens live in localStorage with the same exposure as the active Supabase
+// session itself; signing an account out purges its vault entry.
+
+function readSessionVault() {
+  if (typeof localStorage === "undefined") return {};
+  const vault = safeParse(localStorage.getItem(SESSION_VAULT_KEY), {});
+  return vault && typeof vault === "object" ? vault : {};
+}
+
+function writeSessionVault(vault) {
+  try {
+    localStorage.setItem(SESSION_VAULT_KEY, JSON.stringify(vault));
+  } catch {
+    // Storage can be blocked in private browsers; switching then falls back to sign-in.
+  }
+}
+
+export function vaultSessionSnapshot(session) {
+  const userId = session?.user?.id;
+  if (!userId || !session?.refresh_token) return;
+  const vault = readSessionVault();
+  vault[userId] = {
+    access_token: session.access_token || "",
+    refresh_token: session.refresh_token,
+    savedAt: Date.now(),
+  };
+  writeSessionVault(vault);
+}
+
+export function readVaultedSession(userId) {
+  if (!userId) return null;
+  const entry = readSessionVault()[userId];
+  return entry?.refresh_token ? entry : null;
+}
+
+export function hasVaultedSession(userId) {
+  return Boolean(readVaultedSession(userId));
+}
+
+export function purgeVaultedSession(userId) {
+  if (!userId) return;
+  const vault = readSessionVault();
+  if (vault[userId]) {
+    delete vault[userId];
+    writeSessionVault(vault);
+  }
 }
 
 export function getRememberedSocialAccounts() {
@@ -145,6 +197,19 @@ export function clearTransientSessionNavigation() {
 }
 
 export async function signOutSocialSession({ allDevices = false } = {}) {
+  // Signing out is an explicit end of this account's device access, so its
+  // vaulted switch tokens must go too.
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (allDevices) {
+      writeSessionVault({});
+    } else {
+      purgeVaultedSession(data?.session?.user?.id);
+    }
+  } catch {
+    // Vault cleanup is best-effort; sign-out must still proceed.
+  }
+
   clearExploreMessageCache();
   clearSocialSessionCache();
   clearTransientSessionNavigation();
@@ -164,6 +229,35 @@ export async function switchSocialAccount() {
 
 export async function switchToRememberedSocialAccount(account = {}) {
   const remembered = normalizeRememberedAccount(account);
+
+  // Instant path: this account previously signed in on this device and its
+  // session tokens are still vaulted, so restore them directly.
+  const stored = readVaultedSession(remembered.id);
+  if (stored) {
+    clearExploreMessageCache();
+    clearSocialSessionCache();
+    clearTransientSessionNavigation();
+
+    // Do NOT sign the current account out here: local sign-out revokes its
+    // refresh token server-side, which would break switching back to it.
+    // setSession simply replaces the active session on this device.
+    const { data, error } = await supabase.auth.setSession({
+      access_token: stored.access_token,
+      refresh_token: stored.refresh_token,
+    });
+
+    if (!error && data?.session?.user?.id === remembered.id) {
+      vaultSessionSnapshot(data.session);
+      // Full reload so every per-account cache, hook, and realtime channel
+      // boots cleanly for the restored account.
+      window.location.reload();
+      return { switched: true };
+    }
+
+    // Tokens were revoked or expired; forget them and fall back to sign-in.
+    purgeVaultedSession(remembered.id);
+  }
+
   if (typeof sessionStorage !== "undefined") {
     sessionStorage.setItem(SWITCH_ACCOUNT_PREFILL_KEY, JSON.stringify({
       displayName: remembered.displayName,
@@ -173,4 +267,5 @@ export async function switchToRememberedSocialAccount(account = {}) {
   }
 
   await signOutSocialSession();
+  return { switched: false };
 }

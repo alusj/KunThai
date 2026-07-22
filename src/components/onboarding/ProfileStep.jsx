@@ -13,6 +13,7 @@ import {
   validateCountryPhone,
   GLOBAL_COUNTRY_PROFILES,
 } from "../../data/globalCountryProfiles";
+import PhoneCountryField from "../shared/PhoneCountryField";
 import OnboardingFrame from "./OnboardingFrame";
 import { scrollToFirstBlockingFieldSoon } from "../shared/formValidationNavigation";
 
@@ -275,19 +276,27 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
 
             <label className="block" data-field-error={fieldErrors.phone || phoneConflict ? "true" : undefined}>
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Phone number</span>
-              <input
-                type="tel"
-                value={values.phone}
-                onChange={(event) => {
+              <PhoneCountryField
+                country={countryProfile}
+                phone={values.phone}
+                onCountryChange={(selected) => {
+                  const selectedCountry = getActiveCountryProfile(selected.iso2);
                   clearFieldError(setFieldErrors, "phone");
-                  onChange("phone", constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }));
+                  // Match phone sign-in behavior: changing the dial country clears
+                  // entered digits so a number is never submitted under the wrong code.
+                  onChange({
+                    country: selectedCountry.name,
+                    countryCode: selectedCountry.iso2,
+                    currency: selectedCountry.currency.code,
+                    phone: "",
+                  });
+                }}
+                onPhoneChange={(value) => {
+                  clearFieldError(setFieldErrors, "phone");
+                  onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }));
                 }}
                 placeholder={getCountryPhoneHint(countryProfile)}
-                inputMode="tel"
-                aria-invalid={phoneConflict || fieldErrors.phone || (!phoneValidation.valid && Boolean(values.phone)) ? "true" : undefined}
-                className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${
-                  phoneConflict || fieldErrors.phone ? "border-rose-300" : "border-slate-200"
-                }`}
+                invalid={Boolean(phoneConflict || fieldErrors.phone || (!phoneValidation.valid && Boolean(values.phone)))}
               />
               {phoneConflict ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">
@@ -363,6 +372,9 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                     country: selectedCountry.name,
                     countryCode: selectedCountry.iso2,
                     currency: selectedCountry.currency.code,
+                    // Re-prefix any digits already entered under the new dial code;
+                    // per-country length validation re-checks them on submit.
+                    phone: constrainCountryPhoneInput(values.phone, selectedCountry, { international: true }),
                   });
                 }}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"

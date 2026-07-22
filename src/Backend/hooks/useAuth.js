@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "../services/explore/messageService";
-import { clearTransientSessionNavigation, readSessionContinuity, rememberSocialAccount } from "../services/sessionService";
+import { clearTransientSessionNavigation, readSessionContinuity, rememberSocialAccount, vaultSessionSnapshot } from "../services/sessionService";
 
 const AUTH_BOOT_TIMEOUT_MS = 1500;
 
@@ -56,6 +56,7 @@ export const useAuth = () => {
         // the server-side validation below runs in the background and only
         // signs out when the stored session turns out to be broken.
         rememberSocialAccount(sessionUser);
+        vaultSessionSnapshot(sessionData.session);
         if (readSessionContinuity() !== (sessionUser.id || "")) {
           clearTransientSessionNavigation();
         }
@@ -119,6 +120,8 @@ export const useAuth = () => {
       }
 
       rememberSocialAccount(session.user);
+      // Synchronous localStorage write only — safe inside the auth lock.
+      vaultSessionSnapshot(session);
       if (event === "SIGNED_IN" && readSessionContinuity() !== nextUserId) {
         clearTransientSessionNavigation();
       }

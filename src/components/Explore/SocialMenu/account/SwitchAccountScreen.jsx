@@ -9,9 +9,11 @@ import {
 
 import {
   getRememberedSocialAccounts,
+  hasVaultedSession,
   signOutSocialSession,
   switchToRememberedSocialAccount,
 } from "../../../../Backend/services/sessionService";
+import { useI18n } from "../../../../i18n";
 
 function getIdentifier(account = {}) {
   return account.identifier || account.email || account.phone || "";
@@ -30,6 +32,7 @@ function AccountAvatar({ account, active }) {
 }
 
 export default function SwitchAccountScreen({ currentProfile = {}, user = null }) {
+  const { t } = useI18n();
   const [status, setStatus] = useState("");
   const currentUserId = currentProfile?.userId || user?.id || "";
   const accounts = useMemo(() => {
@@ -52,13 +55,18 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
 
   async function chooseAccount(account) {
     if (account.id === currentUserId) {
-      setStatus("This account is already active.");
+      setStatus(t("switchAccount.alreadyActive"));
       return;
     }
 
+    const instant = hasVaultedSession(account.id);
+
     try {
-      setStatus("Opening sign-in for the selected account...");
-      await switchToRememberedSocialAccount(account);
+      setStatus(instant ? t("switchAccount.switching") : t("switchAccount.openingSignIn"));
+      const result = await switchToRememberedSocialAccount(account);
+      if (result?.switched === false && instant) {
+        setStatus(t("switchAccount.sessionExpired"));
+      }
     } catch (error) {
       setStatus(error.message || "Unable to switch account right now.");
     }
@@ -77,9 +85,9 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
     <div className="w-full space-y-4 px-4 py-4 sm:px-6 lg:px-8">
       <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Device accounts</p>
-        <h3 className="mt-1 text-2xl font-black text-slate-950">Switch account</h3>
+        <h3 className="mt-1 text-2xl font-black text-slate-950">{t("switchAccount.title")}</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          Choose an account that has signed in on this device. KunThai will never save passwords here.
+          {t("switchAccount.subtitle")}
         </p>
         {status ? <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{status}</p> : null}
       </section>
@@ -88,6 +96,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
         {accounts.length ? (
           accounts.map((account) => {
             const active = account.id === currentUserId;
+            const instant = !active && hasVaultedSession(account.id);
             const identifier = getIdentifier(account);
             return (
               <article key={`${account.id}-${identifier}`} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
@@ -100,6 +109,10 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
                           <HiOutlineCheckCircle />
                           Active
+                        </span>
+                      ) : instant ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">
+                          {t("switchAccount.readyToSwitch")}
                         </span>
                       ) : null}
                     </div>
@@ -117,7 +130,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
                     active ? "bg-slate-100 text-slate-400" : "bg-slate-950 text-white"
                   }`}
                 >
-                  {active ? "Current account" : "Sign in as this account"}
+                  {active ? t("switchAccount.currentAccount") : instant ? t("switchAccount.switchTo") : t("switchAccount.signInAs")}
                 </button>
               </article>
             );
@@ -125,9 +138,9 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
         ) : (
           <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center">
             <HiOutlineUserCircle className="mx-auto text-4xl text-slate-400" />
-            <p className="mt-3 text-base font-black text-slate-950">No previous accounts on this device</p>
+            <p className="mt-3 text-base font-black text-slate-950">{t("switchAccount.noAccountsTitle")}</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              After another account signs in here, it will appear in this list.
+              {t("switchAccount.noAccountsSubtitle")}
             </p>
           </div>
         )}
@@ -139,7 +152,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
         className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 text-sm font-black text-rose-700"
       >
         <HiOutlineArrowRightOnRectangle />
-        Sign out current account
+        {t("switchAccount.signOutCurrent")}
       </button>
     </div>
   );

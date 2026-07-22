@@ -17,7 +17,9 @@ import {
   fetchAccountDeactivation,
   setAccountDeactivated,
 } from "../../../../Backend/services/accountLifecycleService";
+import { collectKunThaiDataExport, downloadDataExport } from "../../../../Backend/services/dataExportService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
@@ -51,12 +53,14 @@ function PrivacySection({ children, description, title }) {
 }
 
 export default function PrivacyScreen({ hideHeader = false, onOpenPermissions }) {
+  const { t } = useI18n();
   const safety = useTrustSafety();
   const settings = safety.privacySettings;
   const blockedUsers = Array.from(safety.blockedUsers);
   const [deactivatedAt, setDeactivatedAt] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [accountActionBusy, setAccountActionBusy] = useState(false);
+  const [exportState, setExportState] = useState({ busy: false, step: "" });
 
   useEffect(() => {
     let active = true;
@@ -90,6 +94,21 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
       showToast(error.message || "Unable to update your account status.", "danger");
     } finally {
       setAccountActionBusy(false);
+    }
+  }
+
+  async function handleDataExport() {
+    if (exportState.busy) return;
+    setExportState({ busy: true, step: "Starting your export..." });
+
+    try {
+      const payload = await collectKunThaiDataExport((step) => setExportState({ busy: true, step }));
+      downloadDataExport(payload);
+      setExportState({ busy: false, step: "" });
+      showToast(t("privacy.exportDone"), "success");
+    } catch (error) {
+      setExportState({ busy: false, step: "" });
+      showToast(error.message || t("privacy.exportFailed"), "danger");
     }
   }
 
@@ -205,10 +224,23 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
           </button>
         </PrivacySection>
 
-        <PrivacySection title="Your data and account" description="Pause your account temporarily, or delete it and its data permanently.">
-          <button type="button" disabled className="flex items-start gap-3 rounded-[24px] border border-slate-200 bg-white p-4 text-left opacity-75 shadow-sm">
+        <PrivacySection title={t("privacy.yourDataTitle")} description={t("privacy.yourDataSubtitle")}>
+          <button
+            type="button"
+            onClick={handleDataExport}
+            disabled={exportState.busy}
+            className="flex items-start gap-3 rounded-[24px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-300 disabled:opacity-75"
+          >
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineArrowDownTray className="text-2xl" /></span>
-            <span><span className="block text-base font-black text-slate-950">Download my data</span><span className="mt-1 block text-sm font-semibold leading-6 text-slate-500">A verified export request flow is being prepared.</span><span className="mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">Placeholder</span></span>
+            <span>
+              <span className="block text-base font-black text-slate-950">{t("privacy.downloadTitle")}</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-slate-500">
+                {t("privacy.downloadSubtitle")}
+              </span>
+              {exportState.busy ? (
+                <span className="mt-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">{exportState.step}</span>
+              ) : null}
+            </span>
           </button>
           <button
             type="button"
@@ -217,11 +249,9 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
           >
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-white text-amber-700"><HiOutlinePauseCircle className="text-2xl" /></span>
             <span>
-              <span className="block text-base font-black text-amber-950">{deactivatedAt ? "Reactivate account" : "Deactivate account"}</span>
+              <span className="block text-base font-black text-amber-950">{deactivatedAt ? t("privacy.reactivateTitle") : t("privacy.deactivateTitle")}</span>
               <span className="mt-1 block text-sm font-semibold leading-6 text-amber-700">
-                {deactivatedAt
-                  ? "Your account is currently hidden. Reactivate it to become visible to other users again."
-                  : "Hide your account from search and other users. Others will see it as unavailable until you reactivate it."}
+                {deactivatedAt ? t("privacy.reactivateSubtitle") : t("privacy.deactivateSubtitle")}
               </span>
               {deactivatedAt ? (
                 <span className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-amber-700">Deactivated</span>
@@ -235,8 +265,8 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
           >
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-white text-rose-700"><HiOutlineTrash className="text-2xl" /></span>
             <span>
-              <span className="block text-base font-black text-rose-950">Delete account</span>
-              <span className="mt-1 block text-sm font-semibold leading-6 text-rose-700">Permanently remove your account, profile, and content. This cannot be undone.</span>
+              <span className="block text-base font-black text-rose-950">{t("privacy.deleteTitle")}</span>
+              <span className="mt-1 block text-sm font-semibold leading-6 text-rose-700">{t("privacy.deleteSubtitle")}</span>
             </span>
           </button>
         </PrivacySection>

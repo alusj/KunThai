@@ -15,6 +15,8 @@ import {
 } from "../../../../Backend/services/exploreService";
 import { blockExploreIdentity, reportExploreProfile, reportExploreSpace } from "../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { inviteContactsFromDevice } from "../../../../Backend/services/visibilityCreditService";
+import { t } from "../../../../i18n";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
 import Avatar from "../../shared/Avatar";
@@ -199,6 +201,21 @@ export default function ProfileScreen({
       const message = error.message || "Unable to share invite link.";
       setFeedback(message);
       showToast(message, "danger");
+    }
+  }
+
+  async function handleInviteContacts() {
+    try {
+      const result = await inviteContactsFromDevice();
+      if (result.method === "copied" || result.method === "prompt") {
+        showToast(t("invite.copied"), "success", { title: "Visibility Credits" });
+      } else if (result.method !== "none") {
+        showToast(t("invite.subtitle"), "success", { title: "Visibility Credits" });
+      }
+    } catch (error) {
+      // Closing the picker or share sheet is a normal cancel, not an error.
+      if (error?.name === "AbortError") return;
+      showToast(error.message || t("invite.unavailable"), "danger");
     }
   }
 
@@ -397,6 +414,7 @@ export default function ProfileScreen({
           onMessage={() => onStartChat?.(values)}
           onReport={reportProfile}
           onShare={handleShare}
+          onInviteContacts={editable && !isSpace ? handleInviteContacts : undefined}
           onShareCredits={handleShareCredits}
           saving={saving}
           creditLoading={credits.loading}

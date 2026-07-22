@@ -21,6 +21,7 @@ import { disablePushNotifications, enablePushNotifications, getPushStatus } from
 import { showToast } from "../../../../Backend/services/toastService";
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 import { useAppearanceMode } from "../../../../contexts/appearanceContext";
+import { useI18n } from "../../../../i18n";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import TwoFactorSection from "./TwoFactorSection";
 
@@ -86,6 +87,7 @@ function SettingsSection({ children, subtitle, title }) {
 export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, onOpenInterests, onOpenPermissions, onOpenPrivacy, onOpenSecurity, onSwitchAccount }) {
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { mode: appearanceMode, resolvedMode, setMode: setAppearanceMode } = useAppearanceMode();
+  const i18n = useI18n();
   const { notifications, video, feed, messages, account, feedbackFx } = settings;
   const [pushStatus, setPushStatus] = useState("loading");
   const [pushBusy, setPushBusy] = useState(false);
@@ -165,6 +167,28 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
                   { value: "system", label: "System — match my device" },
                   { value: "on", label: "Dark mode" },
                   { value: "off", label: "Light mode" },
+                ]}
+              />
+            </div>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title={i18n.t("language.title")} subtitle={i18n.t("language.subtitle")}>
+          <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineLanguage className="text-2xl" /></span>
+              <div className="min-w-0">
+                <p className="text-base font-black text-slate-950">{i18n.t("language.title")}</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{i18n.t("language.subtitle")}</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <SelectControl
+                value={i18n.override || "auto"}
+                onChange={(value) => i18n.setLocaleOverride(value === "auto" ? "" : value)}
+                options={[
+                  { value: "auto", label: i18n.t("language.auto") },
+                  ...i18n.localeOptions.map((option) => ({ value: option.code, label: option.label })),
                 ]}
               />
             </div>

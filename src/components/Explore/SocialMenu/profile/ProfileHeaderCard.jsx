@@ -11,6 +11,7 @@ import {
   HiOutlinePencilSquare,
   HiOutlinePhoto,
   HiOutlineShare,
+  HiOutlineUserPlus,
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
@@ -48,6 +49,7 @@ export default function ProfileHeaderCard({
   onFollow,
   onMessage,
   onReport,
+  onInviteContacts,
   onShare,
   onShareCredits,
   loadingStats = false,
@@ -355,6 +357,17 @@ export default function ProfileHeaderCard({
                 <HiOutlineShare />
                 Share
               </button>
+              {onInviteContacts ? (
+                <button
+                  type="button"
+                  onClick={onInviteContacts}
+                  className="kt-pressable inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-sky-300 bg-white px-4 text-xs font-black text-sky-700 shadow-sm disabled:opacity-50"
+                  disabled={creditLoading}
+                >
+                  <HiOutlineUserPlus />
+                  Invite contacts
+                </button>
+              ) : null}
             </div>
           ) : null}
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}

@@ -224,4 +224,16 @@ web/
 
 ---
 
+## 🤖 Built with OpenAI Codex + GPT-5.6
+
+This project was built for **OpenAI Build Week** using **OpenAI Codex** together with **GPT-5.6** (and **GPT-5.5** prior to the GPT-5.6 release), and Codex was used in the development of the application's core functionality. The Codex `/feedback` Session ID covering that work is included with the Devpost submission.
+
+**Where Codex and GPT-5.6 accelerated the workflow:**
+- Building and iterating on features across the three sectors (Explore, UrMall, UrRide) directly in the codebase.
+- Debugging and refactoring during development, including the Supabase schema work in `supabase/migrations/`.
+
+Setup instructions for running the app locally are in [Getting Started](#-getting-started) above.
+
+---
+
 *Built with care for communities that deserve world-class software.*

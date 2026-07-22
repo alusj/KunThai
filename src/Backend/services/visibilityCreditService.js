@@ -202,6 +202,48 @@ export async function assertVisibilityCreditsAvailable(amount) {
   return wallet;
 }
 
+export function isContactPickerSupported() {
+  return typeof navigator !== "undefined" && "contacts" in navigator && typeof navigator.contacts?.select === "function";
+}
+
+// Invite people straight from the device address book where the Contact Picker
+// API exists (Android Chrome). Contacts are only read in the browser to prefill
+// an SMS; nothing from the address book is uploaded or stored. Elsewhere this
+// falls back to the system share sheet or the clipboard.
+export async function inviteContactsFromDevice() {
+  const wallet = await fetchVisibilityCreditWallet();
+  if (!wallet.inviteUrl) throw new Error("Unable to create your invite link.");
+  const message = buildVisibilityShareMessage(wallet.inviteUrl);
+
+  if (isContactPickerSupported()) {
+    const picked = await navigator.contacts.select(["tel"], { multiple: true });
+    const numbers = (picked || [])
+      .flatMap((contact) => contact.tel || [])
+      .map((value) => String(value).replace(/[^\d+]/g, ""))
+      .filter(Boolean);
+
+    if (!numbers.length) return { method: "none", count: 0 };
+
+    window.location.href = `sms:${numbers.join(",")}?body=${encodeURIComponent(message)}`;
+    return { method: "sms", count: numbers.length };
+  }
+
+  if (typeof navigator !== "undefined" && navigator.share) {
+    await navigator.share({ title: "Join KunThai", text: message, url: wallet.inviteUrl });
+    return { method: "share", count: 0 };
+  }
+
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(`${message} ${wallet.inviteUrl}`.trim());
+    return { method: "copied", count: 0 };
+  }
+
+  if (typeof window !== "undefined") {
+    window.prompt("Copy your KunThai invite link", wallet.inviteUrl);
+  }
+  return { method: "prompt", count: 0 };
+}
+
 export async function shareVisibilityInviteLink() {
   const wallet = await fetchVisibilityCreditWallet();
   if (!wallet.inviteUrl) throw new Error("Unable to create your invite link.");
