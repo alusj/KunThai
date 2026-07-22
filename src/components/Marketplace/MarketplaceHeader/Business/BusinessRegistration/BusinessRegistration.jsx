@@ -4,6 +4,7 @@ import BusinessSellerEntryAnimation from "./BusinessSellerEntryAnimation";
 import NearbyAreaScreen from "../../../../transport/NearbyAreaScreen";
 import { useSellerRegistration } from "../../../../../Backend/hooks/useSellerRegistration";
 import AppBackTab from "../../../../shared/AppBackTab";
+import CenteredModal from "../../../../shared/CenteredModal";
 import { ScreenSlideTransition, StepSlideTransition } from "../../../../shared/motion";
 import { useDirectionalStep } from "../../../../shared/motionHooks";
 import BusinessIdentityStep from "./BusinessIdentityStep";
@@ -339,38 +340,31 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
         </div>
       </div>
 
-      {saveCheckpointOpen ? (
-        <div
-          className="fixed inset-0 z-[1100] flex items-end justify-center bg-slate-950/25 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md sm:items-center"
-          onClick={() => setSaveCheckpointOpen(false)}
-        >
-          <section className="kt-modal-enter max-h-[78dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <p className="text-lg font-black text-gray-950">
-              Your information has been saved
-            </p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-              When you return to UrMall seller registration, you will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
-            </p>
+      <CenteredModal open={saveCheckpointOpen} onClose={() => setSaveCheckpointOpen(false)} maxWidth="max-w-lg" labelledBy="biz-save-title">
+        <p id="biz-save-title" className="text-lg font-black text-gray-950">
+          Your information has been saved
+        </p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
+          When you return to UrMall seller registration, you will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
+        </p>
 
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={handleSaveAndExit}
-                className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 hover:bg-blue-100"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => setSaveCheckpointOpen(false)}
-                className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
-              >
-                Continue
-              </button>
-            </div>
-          </section>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={handleSaveAndExit}
+            className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 hover:bg-blue-100"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => setSaveCheckpointOpen(false)}
+            className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
+          >
+            Continue
+          </button>
         </div>
-      ) : null}
+      </CenteredModal>
     </ScreenSlideTransition>
   );
 }

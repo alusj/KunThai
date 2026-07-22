@@ -12,6 +12,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 import AppBackTab from "../../shared/AppBackTab";
+import CenteredModal from "../../shared/CenteredModal";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
 import { scrollToFirstBlockingFieldSoon } from "../../shared/formValidationNavigation";
@@ -804,18 +805,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               </section>
 
               <section>
-                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="font-bold text-gray-950">Documents</h2>
-                    <p className="text-xs text-gray-500">Upload PDF or image files for review.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowSkipWarning(true)}
-                    className="h-10 rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-bold text-amber-800 hover:bg-amber-100"
-                  >
-                    Skip for now
-                  </button>
+                <div className="mb-3">
+                  <h2 className="font-bold text-gray-950">Documents</h2>
+                  <p className="text-xs text-gray-500">Upload PDF or image files for review.</p>
                 </div>
                 {documentsSkipped && (
                   <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
@@ -901,6 +893,15 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               </button>
 
               <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
+              {step === 4 ? (
+              <button
+                type="button"
+                onClick={() => setShowSkipWarning(true)}
+                className="h-11 w-full rounded-2xl border border-amber-200 bg-amber-50 px-5 text-sm font-semibold text-amber-800 hover:bg-amber-100 transition sm:w-auto"
+              >
+                Skip for now
+              </button>
+              ) : null}
               <button
                 type="button"
                 onClick={handleSave}
@@ -936,156 +937,137 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
         </section>
       </main>
 
-      {showSkipWarning && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 px-3 py-3 sm:items-center sm:justify-center">
-          <section className="w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-md">
-            <div className="flex items-start gap-3">
-              <FiAlertTriangle className="mt-1 shrink-0 text-amber-600" size={22} />
-              <div>
-                <h2 className="text-lg font-black text-gray-950">Skip documents?</h2>
-                <p className="mt-2 text-sm leading-6 text-gray-600">
-                  You can access the dashboard, but your account will be marked unverified until your documents are uploaded and approved.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setShowSkipWarning(false)}
-                className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
-              >
-                Go back
-              </button>
-              <button
-                type="button"
-                onClick={handleSkipDocuments}
-                className="h-11 rounded-2xl bg-amber-600 text-sm font-bold text-white"
-              >
-                Skip and continue
-              </button>
-            </div>
-          </section>
+      <CenteredModal open={showSkipWarning} onClose={() => setShowSkipWarning(false)} maxWidth="max-w-md" labelledBy="fleet-skip-title">
+        <div className="flex items-start gap-3">
+          <FiAlertTriangle className="mt-1 shrink-0 text-amber-600" size={22} />
+          <div>
+            <h2 id="fleet-skip-title" className="text-lg font-black text-gray-950">Skip documents?</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              You can access the dashboard, but your account will be marked unverified until your documents are uploaded and approved.
+            </p>
+          </div>
         </div>
-      )}
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setShowSkipWarning(false)}
+            className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
+          >
+            Go back
+          </button>
+          <button
+            type="button"
+            onClick={handleSkipDocuments}
+            className="h-11 rounded-2xl bg-amber-600 text-sm font-bold text-white"
+          >
+            Skip and continue
+          </button>
+        </div>
+      </CenteredModal>
 
-      {showSafetyWarning && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 px-3 py-3 sm:items-center sm:justify-center">
-          <section className="w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg">
-            <div className="flex items-start gap-3">
-              <FiShield className="mt-1 shrink-0 text-green-700" size={22} />
-              <div>
-                <h2 className="text-lg font-black text-gray-950">Confirm safety answers</h2>
-                <p className="mt-2 text-sm leading-6 text-gray-600">
-                  Be aware that the KunThai admin team will thoroughly check the safety answers you provided. Make sure each answer is honest and matches the actual condition of the fleet.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setShowSafetyWarning(false)}
-                className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
-              >
-                Edit safety questions
-              </button>
-              <button
-                type="button"
-                onClick={confirmSafetyAndContinue}
-                className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
-              >
-                Yes, continue
-              </button>
-            </div>
-          </section>
+      <CenteredModal open={showSafetyWarning} onClose={() => setShowSafetyWarning(false)} maxWidth="max-w-lg" labelledBy="fleet-safety-title">
+        <div className="flex items-start gap-3">
+          <FiShield className="mt-1 shrink-0 text-green-700" size={22} />
+          <div>
+            <h2 id="fleet-safety-title" className="text-lg font-black text-gray-950">Confirm safety answers</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Be aware that the KunThai admin team will thoroughly check the safety answers you provided. Make sure each answer is honest and matches the actual condition of the fleet.
+            </p>
+          </div>
         </div>
-      )}
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setShowSafetyWarning(false)}
+            className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
+          >
+            Edit safety questions
+          </button>
+          <button
+            type="button"
+            onClick={confirmSafetyAndContinue}
+            className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
+          >
+            Yes, continue
+          </button>
+        </div>
+      </CenteredModal>
 
-      {showSaveCheckpoint && (
-        <div
-          className="fixed inset-0 z-[1100] flex items-end justify-center bg-slate-950/25 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md sm:items-center"
-          onClick={() => setShowSaveCheckpoint(false)}
-        >
-          <section className="kt-modal-enter max-h-[78dvh] w-full overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-start gap-3">
-              <FiCheckCircle className="mt-1 shrink-0 text-green-700" size={23} />
-              <div>
-                <h2 className="text-lg font-black text-gray-950">Your information has been saved</h2>
-                <p className="mt-2 text-sm leading-6 text-gray-600">
-                  When you return to fleet registration, KunThai will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={saveAndExit}
-                className="h-11 rounded-2xl border border-green-200 bg-green-50 text-sm font-bold text-green-700 hover:bg-green-100"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={continueAfterSave}
-                className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white hover:bg-green-700"
-              >
-                Continue
-              </button>
-            </div>
-          </section>
+      <CenteredModal open={showSaveCheckpoint} onClose={() => setShowSaveCheckpoint(false)} maxWidth="max-w-lg" labelledBy="fleet-save-title">
+        <div className="flex items-start gap-3">
+          <FiCheckCircle className="mt-1 shrink-0 text-green-700" size={23} />
+          <div>
+            <h2 id="fleet-save-title" className="text-lg font-black text-gray-950">Your information has been saved</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              When you return to fleet registration, KunThai will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
+            </p>
+          </div>
         </div>
-      )}
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={saveAndExit}
+            className="h-11 rounded-2xl border border-green-200 bg-green-50 text-sm font-bold text-green-700 hover:bg-green-100"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={continueAfterSave}
+            className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white hover:bg-green-700"
+          >
+            Continue
+          </button>
+        </div>
+      </CenteredModal>
 
-      {showReviewSaveWarning && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 px-3 py-3 sm:items-center sm:justify-center">
-          <section className="w-full rounded-3xl bg-white p-5 shadow-2xl sm:max-w-lg">
-            <div className="flex items-start gap-3">
-              <FiAlertTriangle className="mt-1 shrink-0 text-amber-600" size={22} />
-              <div>
-                <h2 className="text-lg font-black text-gray-950">Before final review</h2>
-                <p className="mt-2 text-sm leading-6 text-gray-600">
-                  We are going to check every document you provided and run a thorough verification review. Please make sure most documents carry the same, or very similar, operator and fleet names so the KunThai admin team can confirm ownership faster.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => setShowReviewSaveWarning(false)}
-                className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
-              >
-                Go back
-              </button>
-              <button
-                type="button"
-                onClick={saveReviewDraft}
-                className="h-11 rounded-2xl border border-green-200 bg-green-50 text-sm font-bold text-green-700"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={async (event) => {
-                  const buttonRect = event.currentTarget.getBoundingClientRect();
-                  const origin = {
-                    x: `${buttonRect.left + buttonRect.width / 2}px`,
-                    y: `${buttonRect.top + buttonRect.height / 2}px`,
-                  };
-                  try {
-                    setShowReviewSaveWarning(false);
-                    await saveOperatorDraft(buildPayload("draft"));
-                    await handleSubmit(origin);
-                  } catch (error) {
-                    setSubmitError(error.message || "Unable to save this fleet draft.");
-                  }
-                }}
-                className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
-              >
-                Save and continue
-              </button>
-            </div>
-          </section>
+      <CenteredModal open={showReviewSaveWarning} onClose={() => setShowReviewSaveWarning(false)} maxWidth="max-w-lg" labelledBy="fleet-review-title">
+        <div className="flex items-start gap-3">
+          <FiAlertTriangle className="mt-1 shrink-0 text-amber-600" size={22} />
+          <div>
+            <h2 id="fleet-review-title" className="text-lg font-black text-gray-950">Before final review</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              We are going to check every document you provided and run a thorough verification review. Please make sure most documents carry the same, or very similar, operator and fleet names so the KunThai admin team can confirm ownership faster.
+            </p>
+          </div>
         </div>
-      )}
+        <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => setShowReviewSaveWarning(false)}
+            className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
+          >
+            Go back
+          </button>
+          <button
+            type="button"
+            onClick={saveReviewDraft}
+            className="h-11 rounded-2xl border border-green-200 bg-green-50 text-sm font-bold text-green-700"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={async (event) => {
+              const buttonRect = event.currentTarget.getBoundingClientRect();
+              const origin = {
+                x: `${buttonRect.left + buttonRect.width / 2}px`,
+                y: `${buttonRect.top + buttonRect.height / 2}px`,
+              };
+              try {
+                setShowReviewSaveWarning(false);
+                await saveOperatorDraft(buildPayload("draft"));
+                await handleSubmit(origin);
+              } catch (error) {
+                setSubmitError(error.message || "Unable to save this fleet draft.");
+              }
+            }}
+            className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
+          >
+            Save and continue
+          </button>
+        </div>
+      </CenteredModal>
     </ScreenSlideTransition>
   );
 }

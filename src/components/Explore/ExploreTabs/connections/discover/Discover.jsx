@@ -17,7 +17,7 @@ export default function Discover({ connectionState, onViewProfile }) {
   if (!items.length) {
     return (
       <>
-        <ImportContactsPanel />
+        <ImportContactsPanel onFollow={followUser} onViewProfile={onViewProfile} />
         <EmptyState title="No suggestions yet" message="Explore will suggest people and brands for you here." />
       </>
     );
@@ -25,7 +25,7 @@ export default function Discover({ connectionState, onViewProfile }) {
 
   return (
     <>
-      <ImportContactsPanel />
+      <ImportContactsPanel onFollow={followUser} onViewProfile={onViewProfile} />
       <DiscoverList
         users={items}
         onBlock={blockUser}

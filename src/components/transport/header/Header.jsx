@@ -8,6 +8,7 @@ import MenuButton from "./MenuButton";
 import Radar from "./Radar";
 import TransportMenuDrawer from "./TransportMenuDrawer";
 import PremiumHeader from "../../shared/PremiumHeader";
+import CenteredModal from "../../shared/CenteredModal";
 import {
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
@@ -29,8 +30,36 @@ export default function Header({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [radarOpen, setRadarOpen] = useState(false);
   const [passengerNotificationCount, setPassengerNotificationCount] = useState(0);
-  const [operatorActivity, setOperatorActivity] = useState({ bookingCount: 0, notificationCount: 0, totalCount: 0 });
+  const [operatorActivity, setOperatorActivity] = useState({ bookingCount: 0, notificationCount: 0, totalCount: 0, bookingItems: [] });
+  const [fleetPickerOpen, setFleetPickerOpen] = useState(false);
   const operatorBadgeCount = operatorActivity.totalCount;
+
+  // Booking-carrying fleets, deduped, so a booked operator can jump straight to
+  // the fleet that needs action even when they run fleets across companies.
+  const bookedFleets = (() => {
+    const seen = new Map();
+    for (const item of operatorActivity.bookingItems || []) {
+      if (!item?.fleetId) continue;
+      const existing = seen.get(item.fleetId);
+      if (existing) existing.count += 1;
+      else seen.set(item.fleetId, { fleetId: item.fleetId, fleetName: item.fleetName || "Fleet", count: 1 });
+    }
+    return Array.from(seen.values());
+  })();
+
+  function handleOperatorOpen() {
+    // Route a pending booking straight to its fleet. One booked fleet opens it;
+    // several show a picker; none falls back to the normal operator action.
+    if (bookedFleets.length === 1) {
+      onViewFleet?.(bookedFleets[0].fleetId);
+      return;
+    }
+    if (bookedFleets.length > 1) {
+      setFleetPickerOpen(true);
+      return;
+    }
+    onRegisterFleet?.();
+  }
   const hasOperatorAccount = Boolean(operatorAccount);
   const hasCompanyAccount = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
   const accountLoading = operatorLoading || companyLoading;
@@ -95,7 +124,7 @@ export default function Header({
                 badge={operatorBadgeCount}
                 hasCompanyAccount={hasCompanyAccount}
                 hasOperatorAccount={hasOperatorAccount}
-                onClick={onRegisterFleet}
+                onClick={handleOperatorOpen}
               />
             )}
             <Radar onOpenChange={setRadarOpen} onViewFleet={onViewFleet} />
@@ -122,6 +151,27 @@ export default function Header({
         onViewFleet={onViewFleet}
         onOpenEmergencyArea={onOpenEmergencyArea}
       />
+
+      <CenteredModal open={fleetPickerOpen} onClose={() => setFleetPickerOpen(false)} maxWidth="max-w-sm" labelledBy="fleet-picker-title">
+        <h2 id="fleet-picker-title" className="text-lg font-black text-slate-950">Open the fleet with a booking</h2>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">You have pending bookings across more than one fleet. Choose which to open.</p>
+        <div className="mt-4 space-y-2">
+          {bookedFleets.map((fleet) => (
+            <button
+              key={fleet.fleetId}
+              type="button"
+              onClick={() => {
+                setFleetPickerOpen(false);
+                onViewFleet?.(fleet.fleetId);
+              }}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left"
+            >
+              <span className="min-w-0 truncate text-sm font-black text-slate-950">{fleet.fleetName}</span>
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-xs font-black text-white">{fleet.count}</span>
+            </button>
+          ))}
+        </div>
+      </CenteredModal>
     </>
   );
 }

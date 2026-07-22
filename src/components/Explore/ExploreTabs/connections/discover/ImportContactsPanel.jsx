@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
-import { HiOutlineUserGroup, HiOutlineXMark } from "react-icons/hi2";
+import { AnimatePresence, motion } from "framer-motion";
+import { HiOutlineUserGroup, HiOutlineArrowPath } from "react-icons/hi2";
 
 import {
   isContactPickerSupported,
@@ -11,22 +11,32 @@ import {
 import Avatar from "../../../shared/Avatar";
 import { useI18n } from "../../../../../i18n";
 
-export default function ImportContactsPanel() {
+// Facebook-style "find your contacts" surface. Matched accounts render inline as
+// connect cards. Browsers cannot silently read the whole address book, so on
+// supported devices we open the OS contact picker (user selects), and on desktop
+// we accept pasted numbers — either way results appear right here, not a dialog.
+
+export default function ImportContactsPanel({ onFollow, onViewProfile }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState(null);
+  const [connected, setConnected] = useState(() => new Set());
 
   async function runMatch(numbers) {
-    if (!numbers.length) return;
+    if (!numbers.length) {
+      setError(t("importContacts.noMatches"));
+      return;
+    }
     setBusy(true);
     setError("");
 
     try {
       const matches = await matchContactsToKunThaiAccounts(numbers);
       setResults(matches);
+      setExpanded(true);
     } catch (matchError) {
       setError(matchError.message || t("importContacts.noMatches"));
     } finally {
@@ -34,139 +44,131 @@ export default function ImportContactsPanel() {
     }
   }
 
-  async function handleDevicePick() {
-    try {
-      const numbers = await pickDeviceContactNumbers();
-      await runMatch(numbers);
-    } catch (pickError) {
-      if (pickError?.name !== "AbortError") {
-        setError(pickError.message || t("importContacts.noMatches"));
+  async function handleScan() {
+    if (isContactPickerSupported()) {
+      try {
+        const numbers = await pickDeviceContactNumbers();
+        await runMatch(numbers);
+      } catch (pickError) {
+        if (pickError?.name !== "AbortError") {
+          setError(pickError.message || t("importContacts.noMatches"));
+        }
       }
+      return;
     }
+    // Desktop / unsupported: reveal the paste box.
+    setExpanded(true);
   }
 
-  function openMatchedProfile(match) {
-    setOpen(false);
-    window.dispatchEvent(new CustomEvent("kuntai-open-profile", {
-      detail: { userId: match.userId, displayName: match.displayName, avatarUrl: match.avatarUrl },
-    }));
+  function connect(match) {
+    setConnected((current) => new Set(current).add(match.userId));
+    onFollow?.({ user_id: match.userId, id: match.userId, identity_type: "profile", identity_id: match.userId });
   }
 
   return (
-    <>
-      <section className="mb-3 flex flex-wrap items-center gap-3 rounded-[24px] border border-sky-200 bg-sky-50/70 p-4">
-        <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-white text-sky-700">
+    <section className="mb-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-[24px] border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm">
+        <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-white text-sky-700 shadow-sm">
           <HiOutlineUserGroup className="text-2xl" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black text-slate-950">{t("importContacts.title")}</p>
           <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-600">{t("importContacts.subtitle")}</p>
         </div>
-        <button
+        <motion.button
           type="button"
-          onClick={() => {
-            setResults(null);
-            setError("");
-            setOpen(true);
-          }}
-          className="kt-pressable h-10 flex-none rounded-full bg-slate-950 px-4 text-xs font-black text-white"
+          onClick={handleScan}
+          disabled={busy}
+          whileTap={{ scale: 0.97 }}
+          className="kt-pressable inline-flex h-10 flex-none items-center gap-2 rounded-full bg-slate-950 px-4 text-xs font-black text-white disabled:opacity-60"
         >
-          {t("importContacts.button")}
-        </button>
-      </section>
+          {busy ? <HiOutlineArrowPath className="animate-spin text-base" /> : null}
+          {busy ? t("importContacts.searching") : t("importContacts.button")}
+        </motion.button>
+      </div>
 
-      {open && typeof document !== "undefined" ? createPortal(
-        <div className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-[2px]" role="presentation" onMouseDown={() => setOpen(false)}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="import-contacts-title"
-            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="overflow-hidden"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Connections</p>
-                <h2 id="import-contacts-title" className="mt-1 text-xl font-black text-slate-950">{t("importContacts.title")}</h2>
-              </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label={t("common.close")} className="grid h-10 w-10 flex-none place-items-center rounded-full bg-slate-100 text-slate-600">
-                <HiOutlineXMark className="text-xl" />
-              </button>
-            </div>
-
-            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{t("importContacts.subtitle")}</p>
-            <p className="mt-2 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-semibold leading-5 text-slate-600">{t("importContacts.privacy")}</p>
-
-            {results === null ? (
-              <div className="mt-4 space-y-3">
-                {isContactPickerSupported() ? (
+            <div className="mt-2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+              {!isContactPickerSupported() && results === null ? (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("importContacts.pasteLabel")}</span>
+                    <textarea
+                      value={pasted}
+                      onChange={(event) => setPasted(event.target.value)}
+                      rows={4}
+                      placeholder={"+232 76 000 000\n+234 803 000 0000"}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-sky-400"
+                    />
+                  </label>
                   <button
                     type="button"
-                    onClick={handleDevicePick}
-                    disabled={busy}
-                    className="h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60"
+                    onClick={() => runMatch(parsePastedNumbers(pasted))}
+                    disabled={busy || !parsePastedNumbers(pasted).length}
+                    className="h-11 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-60"
                   >
-                    {busy ? t("importContacts.searching") : t("importContacts.button")}
+                    {busy ? t("importContacts.searching") : t("importContacts.search")}
                   </button>
-                ) : null}
+                </div>
+              ) : null}
 
-                <label className="block">
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("importContacts.pasteLabel")}</span>
-                  <textarea
-                    value={pasted}
-                    onChange={(event) => setPasted(event.target.value)}
-                    rows={4}
-                    placeholder={"+232 76 000 000\n+234 803 000 0000"}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-sky-400"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => runMatch(parsePastedNumbers(pasted))}
-                  disabled={busy || !parsePastedNumbers(pasted).length}
-                  className="h-12 w-full rounded-2xl border border-sky-300 bg-sky-50 px-4 text-sm font-black text-sky-700 disabled:opacity-60"
-                >
-                  {busy ? t("importContacts.searching") : t("importContacts.search")}
-                </button>
-              </div>
-            ) : (
-              <div className="mt-4 space-y-3">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{t("importContacts.matchesTitle")}</p>
-                {results.length ? (
-                  results.map((match) => (
-                    <div key={match.userId} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
-                      <Avatar name={match.displayName} src={match.avatarUrl} size="md" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-black text-slate-950">{match.displayName}</p>
-                        <p className="truncate text-xs font-semibold text-slate-500">{match.username ? `@${match.username}` : match.publicUserId}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openMatchedProfile(match)}
-                        className="h-9 flex-none rounded-full bg-slate-950 px-3 text-xs font-black text-white"
+              {results !== null ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{t("importContacts.matchesTitle")}</p>
+                    <button type="button" onClick={() => { setResults(null); setExpanded(false); setPasted(""); }} className="text-xs font-black text-slate-500">
+                      {t("common.close")}
+                    </button>
+                  </div>
+                  {results.length ? (
+                    results.map((match, index) => (
+                      <motion.div
+                        key={match.userId}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.04 }}
+                        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3"
                       >
-                        {t("importContacts.openProfile")}
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-600">{t("importContacts.noMatches")}</p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setResults(null)}
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
-                >
-                  {t("common.back")}
-                </button>
-              </div>
-            )}
+                        <button type="button" onClick={() => onViewProfile?.({ userId: match.userId, displayName: match.displayName, avatarUrl: match.avatarUrl })} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                          <Avatar name={match.displayName} src={match.avatarUrl} size="md" />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-slate-950">{match.displayName}</p>
+                            <p className="truncate text-xs font-semibold text-slate-500">{match.username ? `@${match.username}` : match.publicUserId}</p>
+                          </div>
+                        </button>
+                        <motion.button
+                          type="button"
+                          onClick={() => connect(match)}
+                          disabled={connected.has(match.userId)}
+                          whileTap={{ scale: 0.95 }}
+                          className={`h-9 flex-none rounded-full px-4 text-xs font-black ${
+                            connected.has(match.userId) ? "bg-slate-100 text-slate-400" : "bg-slate-950 text-white"
+                          }`}
+                        >
+                          {connected.has(match.userId) ? t("switchAccount.active") : "Connect"}
+                        </motion.button>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-600">{t("importContacts.noMatches")}</p>
+                  )}
+                </div>
+              ) : null}
 
-            {error ? <p className="mt-3 text-xs font-bold text-rose-600" role="alert">{error}</p> : null}
-          </section>
-        </div>,
-        document.body,
-      ) : null}
-    </>
+              {error ? <p className="mt-3 text-xs font-bold text-rose-600" role="alert">{error}</p> : null}
+              <p className="mt-3 text-[11px] font-semibold leading-5 text-slate-500">{t("importContacts.privacy")}</p>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </section>
   );
 }

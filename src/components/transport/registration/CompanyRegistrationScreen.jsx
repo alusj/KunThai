@@ -27,6 +27,7 @@ import {
   saveTransportCompanyDraft,
 } from "../../services/transportCompanyService";
 import AppBackTab from "../../shared/AppBackTab";
+import CenteredModal from "../../shared/CenteredModal";
 import { AddressAreaStatusIcon, useAddressAreaValidation } from "../../shared/AddressAreaValidation";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
@@ -900,84 +901,73 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         </section>
       </main>
 
-      {locationCautionOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
-          <section className="kt-modal-enter relative w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl">
-            <button
-              type="button"
-              onClick={() => setLocationCautionOpen(false)}
-              className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
-              aria-label="Cancel location"
-            >
-              <FiX />
-            </button>
-            <div className="pl-12">
-              <p className="text-xs font-black uppercase tracking-wide text-blue-700">Confirm company base</p>
-              <h2 className="mt-1 text-xl font-black text-slate-950">Be at the exact company location</h2>
-            </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
-              Please stand at the office, station, dispatch yard, or main pickup point you want KunThai to verify for this company.
-            </p>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setLocationCautionOpen(false);
-                  setLocationPickerMode("current");
-                }}
-                className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white"
-              >
-                Yes, locate me
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLocationCautionOpen(false);
-                  setLocationPickerMode("dropPin");
-                }}
-                className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700"
-              >
-                Drop a pin
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {saveCheckpointOpen ? (
-        <div
-          className="fixed inset-0 z-[1100] flex items-end justify-center bg-slate-950/25 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md sm:items-center"
-          onClick={() => setSaveCheckpointOpen(false)}
+      <CenteredModal open={locationCautionOpen} onClose={() => setLocationCautionOpen(false)} maxWidth="max-w-lg" labelledBy="company-location-title">
+        <button
+          type="button"
+          onClick={() => setLocationCautionOpen(false)}
+          className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+          aria-label="Cancel location"
         >
-          <section className="kt-modal-enter max-h-[78dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-start gap-3">
-              <FiCheckCircle className="mt-1 shrink-0 text-blue-700" size={23} />
-              <div>
-                <h2 className="text-lg font-black text-slate-950">Your information has been saved</h2>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  When you return to company registration, KunThai will continue from this same step. Choose Save and exit if you want to leave the form now, or Keep editing if you want to keep completing it.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={saveAndExit}
-                className="h-11 rounded-2xl border border-blue-200 bg-blue-50 text-sm font-black text-blue-700 hover:bg-blue-100"
-              >
-                Save and exit
-              </button>
-              <button
-                type="button"
-                onClick={continueAfterSave}
-                className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700"
-              >
-                Keep editing
-              </button>
-            </div>
-          </section>
+          <FiX />
+        </button>
+        <div className="pl-12">
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">Confirm company base</p>
+          <h2 id="company-location-title" className="mt-1 text-xl font-black text-slate-950">Be at the exact company location</h2>
         </div>
-      ) : null}
+        <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+          Please stand at the office, station, dispatch yard, or main pickup point you want KunThai to verify for this company.
+        </p>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => {
+              setLocationCautionOpen(false);
+              setLocationPickerMode("current");
+            }}
+            className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white"
+          >
+            Yes, locate me
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLocationCautionOpen(false);
+              setLocationPickerMode("dropPin");
+            }}
+            className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700"
+          >
+            Drop a pin
+          </button>
+        </div>
+      </CenteredModal>
+
+      <CenteredModal open={saveCheckpointOpen} onClose={() => setSaveCheckpointOpen(false)} maxWidth="max-w-lg" labelledBy="company-save-title">
+        <div className="flex items-start gap-3">
+          <FiCheckCircle className="mt-1 shrink-0 text-blue-700" size={23} />
+          <div>
+            <h2 id="company-save-title" className="text-lg font-black text-slate-950">Your information has been saved</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              When you return to company registration, KunThai will continue from this same step. Choose Save and exit if you want to leave the form now, or Keep editing if you want to keep completing it.
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={saveAndExit}
+            className="h-11 rounded-2xl border border-blue-200 bg-blue-50 text-sm font-black text-blue-700 hover:bg-blue-100"
+          >
+            Save and exit
+          </button>
+          <button
+            type="button"
+            onClick={continueAfterSave}
+            className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700"
+          >
+            Keep editing
+          </button>
+        </div>
+      </CenteredModal>
     </ScreenSlideTransition>
   );
 }

@@ -15,12 +15,13 @@ import {
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
 import { getKunThaiPublicUserId } from "../../../../Backend/services/identityCodeService";
 import { t } from "../../../../i18n";
+import CenteredModal from "../../../shared/CenteredModal";
 import Avatar from "../../shared/Avatar";
 
 const platformIcons = {
@@ -306,68 +307,95 @@ export default function ProfileHeaderCard({
               </span>
             ) : null}
           </div>
-          <div className="mt-2 flex w-fit max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <span className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-slate-500">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="mt-3 flex w-fit max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5"
+          >
+            <span className="min-w-0 shrink-0 text-xs font-black uppercase tracking-wide text-slate-500">
               {isSpace ? "Space ID" : "KunThai ID"}
             </span>
-            <span className="min-w-0 truncate text-sm font-black text-slate-950">{publicUserId}</span>
-            <button
+            <span className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">{publicUserId}</span>
+            <motion.button
               type="button"
               onClick={copyPublicUserId}
-              className="kt-pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:text-sky-700"
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:text-sky-700"
               aria-label="Copy KunThai ID"
               title="Copy KunThai ID"
             >
               <HiOutlineClipboardDocument />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
               onClick={() => setPublicIdHelpOpen(true)}
-              className="kt-pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-sm font-black text-slate-700 shadow-sm hover:border-sky-300 hover:text-sky-700"
+              whileHover={{ scale: 1.12, rotate: 6 }}
+              whileTap={{ scale: 0.9 }}
+              transition={{ type: "spring", stiffness: 400, damping: 15 }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-sm font-black text-white shadow-md shadow-sky-500/30"
               aria-label="Why do I have a unique KunThai ID?"
               title="About your KunThai ID"
             >
               ?
-            </button>
-            {copiedPublicId ? <span className="text-xs font-black text-sky-700">Copied</span> : null}
-          </div>
+            </motion.button>
+            {copiedPublicId ? <span className="shrink-0 text-xs font-black text-sky-700">Copied</span> : null}
+          </motion.div>
 
           {showVisibilityCredits ? (
-            <div className="kt-visibility-credit-card mt-3 flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50/80 px-3 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Visibility Credits</p>
-                <p className="mt-0.5 text-sm font-black text-slate-950">
-                  Available: {creditLoading ? "..." : Number(creditWallet.balance || 0)}
-                </p>
+            <motion.div
+              initial={{ opacity: 0, y: 14, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.4, ease: "easeOut", delay: 0.05 }}
+              className="kt-visibility-credit-card mt-3 w-full max-w-2xl rounded-[22px] border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Visibility Credits</p>
+                  <p className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-3xl font-black leading-none text-slate-950">
+                      {creditLoading ? "…" : Number(creditWallet.balance || 0)}
+                    </span>
+                    <span className="text-xs font-bold text-slate-500">available</span>
+                  </p>
+                </div>
+                <motion.button
+                  type="button"
+                  onClick={() => setCreditHelpOpen(true)}
+                  whileHover={{ scale: 1.12, rotate: 6 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-sm font-black text-white shadow-md shadow-sky-500/30"
+                  aria-label="What are Visibility Credits?"
+                  title="About Visibility Credits"
+                >
+                  ?
+                </motion.button>
               </div>
-              <button
-                type="button"
-                onClick={() => setCreditHelpOpen(true)}
-                className="kt-pressable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-300 bg-white text-sm font-black text-sky-700 shadow-sm"
-                aria-label="What are Visibility Credits?"
-                title="About Visibility Credits"
-              >
-                ?
-              </button>
-              <button
-                type="button"
-                onClick={onShareCredits}
-                className="kt-pressable inline-flex h-9 shrink-0 items-center gap-2 rounded-full bg-slate-950 px-4 text-xs font-black text-white shadow-sm disabled:opacity-50"
-                disabled={creditLoading}
-              >
-                <HiOutlineShare />
-                Share
-              </button>
-              <button
-                type="button"
-                onClick={() => setBuyCreditsOpen(true)}
-                className="kt-pressable inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-sky-300 bg-white px-4 text-xs font-black text-sky-700 shadow-sm disabled:opacity-50"
-                disabled={creditLoading}
-              >
-                <HiOutlineUserPlus />
-                {t("buyCredits.button")}
-              </button>
-            </div>
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
+                <motion.button
+                  type="button"
+                  onClick={onShareCredits}
+                  whileTap={{ scale: 0.97 }}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-sm disabled:opacity-50"
+                  disabled={creditLoading}
+                >
+                  <HiOutlineShare className="text-base" />
+                  Share
+                </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={() => setBuyCreditsOpen(true)}
+                  whileTap={{ scale: 0.97 }}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-sky-300 bg-white px-4 text-sm font-black text-sky-700 shadow-sm disabled:opacity-50"
+                  disabled={creditLoading}
+                >
+                  <HiOutlineUserPlus className="text-base" />
+                  {t("buyCredits.button")}
+                </motion.button>
+              </div>
+            </motion.div>
           ) : null}
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
 
@@ -382,103 +410,70 @@ export default function ProfileHeaderCard({
         </div>
       </div>
 
-      {publicIdHelpOpen && typeof document !== "undefined" ? createPortal(
-        <div className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-[2px]" role="presentation" onMouseDown={() => setPublicIdHelpOpen(false)}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="kunthai-id-help-title"
-            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-black text-sky-700">?</span>
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Unique account code</p>
-                <h2 id="kunthai-id-help-title" className="mt-1 text-xl font-black text-slate-950">Why your KunThai ID matters</h2>
-              </div>
-            </div>
-            <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
-              <p>This code identifies your exact account even when other people have the same name or a similar username.</p>
-              <p>Use it when someone needs to find or invite you, or when KunThai support must confirm the correct account.</p>
-              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">It is safe to share as an account identifier. It is not a password, login code, or payment PIN.</p>
-            </div>
-            <button type="button" onClick={() => setPublicIdHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-              Understood
-            </button>
-          </section>
-        </div>,
-        document.body,
-      ) : null}
+      <CenteredModal open={publicIdHelpOpen} onClose={() => setPublicIdHelpOpen(false)} labelledBy="kunthai-id-help-title">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-lg font-black text-white shadow-md shadow-sky-500/30">?</span>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Unique account code</p>
+            <h2 id="kunthai-id-help-title" className="mt-1 text-xl font-black text-slate-950">Why your KunThai ID matters</h2>
+          </div>
+        </div>
+        <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
+          <p>This code identifies your exact account even when other people have the same name or a similar username.</p>
+          <p>Use it when someone needs to find or invite you, or when KunThai support must confirm the correct account.</p>
+          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">It is safe to share as an account identifier. It is not a password, login code, or payment PIN.</p>
+        </div>
+        <button type="button" onClick={() => setPublicIdHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
+          Understood
+        </button>
+      </CenteredModal>
 
-      {buyCreditsOpen && typeof document !== "undefined" ? createPortal(
-        <div className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-[2px]" role="presentation" onMouseDown={() => setBuyCreditsOpen(false)}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="buy-credits-title"
-            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
-                <HiOutlineUserPlus className="text-2xl" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility Credits</p>
-                <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
-              </div>
-            </div>
-            <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
-              <p>{t("buyCredits.working")}</p>
-              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">{t("buyCredits.earnInstead")}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setBuyCreditsOpen(false);
-                onShareCredits?.();
-              }}
-              className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
-            >
-              {t("buyCredits.shareInstead")}
-            </button>
-            <button type="button" onClick={() => setBuyCreditsOpen(false)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
-              {t("common.close")}
-            </button>
-          </section>
-        </div>,
-        document.body,
-      ) : null}
+      <CenteredModal open={buyCreditsOpen} onClose={() => setBuyCreditsOpen(false)} labelledBy="buy-credits-title">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-white shadow-md shadow-sky-500/30">
+            <HiOutlineUserPlus className="text-2xl" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility Credits</p>
+            <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
+          </div>
+        </div>
+        <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
+          <p>{t("buyCredits.working")}</p>
+          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">{t("buyCredits.earnInstead")}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setBuyCreditsOpen(false);
+            onShareCredits?.();
+          }}
+          className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+        >
+          {t("buyCredits.shareInstead")}
+        </button>
+        <button type="button" onClick={() => setBuyCreditsOpen(false)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
+          {t("common.close")}
+        </button>
+      </CenteredModal>
 
-      {creditHelpOpen && typeof document !== "undefined" ? createPortal(
-        <div className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-[2px]" role="presentation" onMouseDown={() => setCreditHelpOpen(false)}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="visibility-credit-help-title"
-            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-sky-100 bg-white p-5 shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-lg font-black text-sky-700">?</span>
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility wallet</p>
-                <h2 id="visibility-credit-help-title" className="mt-1 text-xl font-black text-slate-950">How Visibility Credits work</h2>
-              </div>
-            </div>
-            <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
-              <p>Visibility Credits help you boost Explore adverts and UrMall products without a payment method.</p>
-              <p>Each verified person who joins KunThai through your invite link earns you 5 credits.</p>
-              <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">Credits are not cash, cannot be withdrawn, and are only used for KunThai visibility boosts.</p>
-            </div>
-            <button type="button" onClick={() => setCreditHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-              Understood
-            </button>
-          </section>
-        </div>,
-        document.body,
-      ) : null}
+      <CenteredModal open={creditHelpOpen} onClose={() => setCreditHelpOpen(false)} labelledBy="visibility-credit-help-title">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-lg font-black text-white shadow-md shadow-sky-500/30">?</span>
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility wallet</p>
+            <h2 id="visibility-credit-help-title" className="mt-1 text-xl font-black text-slate-950">How Visibility Credits work</h2>
+          </div>
+        </div>
+        <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
+          <p>Visibility Credits help you boost Explore adverts and UrMall products without a payment method.</p>
+          <p>Every new account starts with 5 credits, and each verified person who joins KunThai through your invite link earns you 5 more.</p>
+          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">Credits are not cash, cannot be withdrawn, and are only used for KunThai visibility boosts.</p>
+        </div>
+        <button type="button" onClick={() => setCreditHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
+          Understood
+        </button>
+      </CenteredModal>
     </section>
   );
 }

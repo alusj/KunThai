@@ -136,11 +136,15 @@ export async function fetchTransportOperationBadgeState(operatorAccount, company
         .catch(() => operatorAccount?.dashboard || {})
         .then((dashboard) => {
           const scope = `transport:${operatorAccount.id}`;
+          const operatorFleetId = operatorAccount.fleetId || dashboard?.fleetId || null;
+          const operatorFleetName = operatorAccount.fleetName || dashboard?.fleetName || "My fleet";
           const bookingItems = (dashboard?.waitingPassengers || []).map((passenger) => ({
             ...passenger,
             id: `operator-waiting-${passenger.id}`,
             activityScope: scope,
             activitySource: "operator",
+            fleetId: passenger.fleetId || operatorFleetId,
+            fleetName: passenger.fleetName || operatorFleetName,
             unread: true,
           }));
           const notificationItems = (dashboard?.alerts || []).map((alert) => ({
@@ -168,6 +172,8 @@ export async function fetchTransportOperationBadgeState(operatorAccount, company
             id: `company-booking-${booking.id}`,
             activityScope: scope,
             activitySource: "company",
+            fleetId: booking.fleetId || null,
+            fleetName: booking.fleetName || "Company fleet",
             unread: true,
           }));
           const notificationItems = (canViewCompanyNotifications ? companyAccount.activities || [] : [])

@@ -2,7 +2,7 @@ import { Building2, Check, ChevronDown, Hotel, House, Plus, ShieldCheck, Store, 
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchBusinessAttentionCounts } from "../../../../../Backend/services/marketplace/sellerHeaderService";
-import AppPortal from "../../../../shared/AppPortal";
+import CenteredModal from "../../../../shared/CenteredModal";
 import useBodyScrollLock from "../../../../shared/useBodyScrollLock";
 
 const ICONS = { retail: Store, restaurant: UtensilsCrossed, hotel: Hotel, property_agent: House };
@@ -81,17 +81,11 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
           </span>
         )}
       </button>
-      {open ? (
-        <AppPortal>
-          <div
-            className="fixed inset-0 z-[1400] flex items-end bg-slate-950/30 p-3 backdrop-blur-sm sm:items-center sm:justify-center"
-            onClick={() => setOpen(false)}
-          >
-            <section className="w-full max-w-lg rounded-[28px] bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-start justify-between">
+      <CenteredModal open={open} onClose={() => setOpen(false)} maxWidth="max-w-lg" labelledBy="business-switcher-title">
+            <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Business workspaces</p>
-                  <h2 className="mt-1 text-2xl font-black text-gray-950">Choose a business</h2>
+                  <h2 id="business-switcher-title" className="mt-1 text-2xl font-black text-gray-950">Choose a business</h2>
                 </div>
                 <button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-gray-100" aria-label="Close business switcher">
                   <X size={18} />
@@ -162,10 +156,7 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
               >
                 <Plus size={18} /> Add another business
               </button>
-            </section>
-          </div>
-        </AppPortal>
-      ) : null}
+      </CenteredModal>
     </>
   );
 }

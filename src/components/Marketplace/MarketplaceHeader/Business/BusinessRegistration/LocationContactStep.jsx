@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { FiChevronDown, FiChevronUp, FiMapPin, FiPlus, FiTrash2 } from "react-icons/fi";
 
+import CenteredModal from "../../../../shared/CenteredModal";
 import RegistrationField from "./RegistrationField";
 import RegistrationInput from "./RegistrationInput";
 import ToggleRow from "./ToggleRow";
@@ -316,58 +317,60 @@ export default function LocationContactStep({ registration }) {
         </div>
       ) : null}
 
-      {locationPromptOpen && !locationPromptCollapse.collapsed ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 py-5 sm:items-center">
-          <section className="relative w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
-            <button
-              type="button"
-              onClick={closeLocationPrompt}
-              className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-lg font-black text-gray-700 hover:bg-gray-200"
-              aria-label="Cancel location confirmation"
-            >
-              X
-            </button>
-            <button
-              type="button"
-              onClick={locationPromptCollapse.collapse}
-              className="kt-pressable absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-lg font-black text-gray-950 shadow-sm"
-              aria-label="Minimize location confirmation"
-            >
-              <FiChevronDown strokeWidth={3.2} />
-            </button>
-            <div className="pl-12">
-              <p className="text-lg font-black text-gray-950">Confirm business location</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-                Be sure you are at the exact location where you want your business to be shown. You can use your current position or drop a pin manually if the address is hard to find.
-              </p>
-            </div>
-            {locationCandidate || locating ? (
-              <p className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
-                Preparing location tools...
-              </p>
-            ) : null}
-            <div className="mt-5 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
-              <button
-                type="button"
-                onClick={openCurrentLocationPicker}
-                className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
-              >
-                Yes, locate
-              </button>
-              <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
-                Recommended
-              </span>
-              <button
-                type="button"
-                onClick={openDropPinPicker}
-                className="rounded-xl border border-gray-200 px-4 py-3 text-sm font-black text-gray-700 hover:bg-gray-50"
-              >
-                No, drop a pin
-              </button>
-            </div>
-          </section>
+      <CenteredModal
+        open={locationPromptOpen && !locationPromptCollapse.collapsed}
+        onClose={closeLocationPrompt}
+        maxWidth="max-w-lg"
+        dismissOnBackdrop={false}
+        labelledBy="biz-location-title"
+      >
+        <button
+          type="button"
+          onClick={closeLocationPrompt}
+          className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-lg font-black text-gray-700 hover:bg-gray-200"
+          aria-label="Cancel location confirmation"
+        >
+          X
+        </button>
+        <button
+          type="button"
+          onClick={locationPromptCollapse.collapse}
+          className="kt-pressable absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-lg font-black text-gray-950 shadow-sm"
+          aria-label="Minimize location confirmation"
+        >
+          <FiChevronDown strokeWidth={3.2} />
+        </button>
+        <div className="pl-12">
+          <p id="biz-location-title" className="text-lg font-black text-gray-950">Confirm business location</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
+            Be sure you are at the exact location where you want your business to be shown. You can use your current position or drop a pin manually if the address is hard to find.
+          </p>
         </div>
-      ) : null}
+        {locationCandidate || locating ? (
+          <p className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
+            Preparing location tools...
+          </p>
+        ) : null}
+        <div className="mt-5 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
+          <button
+            type="button"
+            onClick={openCurrentLocationPicker}
+            className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
+          >
+            Yes, locate
+          </button>
+          <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+            Recommended
+          </span>
+          <button
+            type="button"
+            onClick={openDropPinPicker}
+            className="rounded-xl border border-gray-200 px-4 py-3 text-sm font-black text-gray-700 hover:bg-gray-50"
+          >
+            No, drop a pin
+          </button>
+        </div>
+      </CenteredModal>
     </div>
   );
 }
