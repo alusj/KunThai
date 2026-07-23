@@ -75,11 +75,7 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
           <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
             {attentionTotal > 9 ? "9+" : attentionTotal}
           </span>
-        ) : (
-          <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-emerald-700 px-1 text-[10px] font-black text-white">
-            {businesses.length}
-          </span>
-        )}
+        ) : null}
       </button>
       <CenteredModal open={open} onClose={() => setOpen(false)} maxWidth="max-w-lg" labelledBy="business-switcher-title">
             <div className="flex items-start justify-between">

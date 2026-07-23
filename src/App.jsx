@@ -231,6 +231,10 @@ export default function App() {
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
   const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
   const [onboardingReveal, setOnboardingReveal] = useState(null);
+  // The landing surface the user picked on the last onboarding step. Held in a
+  // ref so it survives the reveal effect re-running before the refreshed
+  // profile metadata arrives, which otherwise fell back to Explore.
+  const pendingLandingRef = useRef("");
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
   const appGestureRef = useRef(null);
@@ -363,8 +367,15 @@ export default function App() {
     setTransportActivityOpen(false);
     setTransportAreaRequest(null);
     const hashPage = getMainPageFromHash(window.location.hash);
-    const revealSurface = onboardingReveal ? normalizeMainPage(onboardingProfile?.primarySurface) : "";
-    const preferredPage = revealSurface || hashPage || readPreferredMainPage(onboardingProfile?.primarySurface, userId);
+    // The freshly chosen landing surface wins over everything, even if the
+    // refreshed profile metadata has not propagated yet.
+    const pendingLanding = pendingLandingRef.current;
+    // On a fresh sign-in honor the user's explicit "open first" choice
+    // (primarySurface) ahead of the most-frequented-page heuristic — the first
+    // app render records an Explore visit that would otherwise always win.
+    const chosenSurface = normalizeMainPage(onboardingProfile?.primarySurface);
+    const preferredPage = pendingLanding || hashPage || chosenSurface || readPreferredMainPage("", userId);
+    if (pendingLanding) pendingLandingRef.current = "";
     setPage(preferredPage);
     if (!hashPage) clearBrowserHash();
   }, [onboardingComplete, onboardingProfile?.primarySurface, onboardingReveal, userId]);
@@ -473,6 +484,7 @@ export default function App() {
           setOnboardingReveal(origin);
           const chosenSurface = normalizeMainPage(finishedProfile?.primarySurface);
           if (chosenSurface) {
+            pendingLandingRef.current = chosenSurface;
             setPage(chosenSurface);
             recordMainPageVisit(chosenSurface, userId);
           }

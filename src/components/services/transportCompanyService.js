@@ -1654,6 +1654,31 @@ export async function lookupTransportOperatorByKunThaiId(value) {
     }
   }
 
+  // Security-definer resolver: resolves a solo operator's UrRide ID (KT-...) even
+  // when RLS hides other users' transport_operators rows from a company owner.
+  try {
+    const { data, error } = await supabase.rpc("resolve_kunthai_code", { lookup: String(value || "") });
+    if (!error && data?.kind === "urride" && (data.operator_id || data.user_id)) {
+      const resolvedCode = data.code || requestedId;
+      return {
+        id: data.operator_id || "",
+        userId: data.user_id || "",
+        publicId: resolvedCode,
+        lookupValue: requestedId,
+        publicIdAliases: uniqueValues([resolvedCode, requestedId].flatMap(buildKunThaiIdCandidates)),
+        name: data.title || "Registered operator",
+        city: data.subtitle || "",
+        phone: "",
+        verificationStatus: "pending",
+        source: "transport_operator",
+      };
+    }
+  } catch (error) {
+    if (!isMissingRpc(error) && !isMissingTable(error)) {
+      // Fall through to the KunThai account lookup below.
+    }
+  }
+
   try {
     const { data, error } = await supabase.rpc("lookup_kunthai_account_by_public_id", {
       input_public_id: requestedId,

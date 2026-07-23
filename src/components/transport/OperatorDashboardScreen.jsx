@@ -33,6 +33,7 @@ import {
 } from "react-icons/fi";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 import TransportGroupSwitcher from "./TransportGroupSwitcher";
+import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
@@ -163,6 +164,30 @@ export default function OperatorDashboardScreen({
   const verificationStatus = account?.documentsSkipped
     ? "notVerified"
     : account?.verificationStatus || "pending";
+
+  // Fleet setup completion, mirroring UrMall's store-setup widget so operators
+  // can see and finish the details that improve trust and verification.
+  const operatorHealth = useMemo(() => {
+    const checklist = [
+      { label: "Operator name", complete: Boolean(form.name) },
+      { label: "Phone number", complete: Boolean(form.phone) },
+      { label: "City or base area", complete: Boolean(form.city || form.homeBaseLocation || form.operatingArea) },
+      { label: "Vehicle type", complete: Boolean(form.fleetType) },
+      { label: "Plate number", complete: Boolean(form.plateNumber) },
+      { label: "Vehicle make and model", complete: Boolean(form.make && form.model) },
+      { label: "Pricing set", complete: [form.baseFare, form.pricePerKm, form.pricePerHour].some((value) => Number(value || 0) > 0) },
+      { label: "Verification documents", complete: !account?.documentsSkipped },
+      { label: "KunThai verification", complete: verificationStatus === "verified" },
+    ];
+    const completeCount = checklist.filter((item) => item.complete).length;
+    const score = Math.round((completeCount / checklist.length) * 100);
+    return {
+      score,
+      label: "Fleet setup",
+      nextStep: score >= 100 ? "Your fleet setup is complete." : "Add the remaining fleet details to improve trust and verification.",
+      missingItems: checklist.filter((item) => !item.complete).map((item) => item.label),
+    };
+  }, [form, account?.documentsSkipped, verificationStatus]);
   const verification =
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
@@ -602,6 +627,12 @@ export default function OperatorDashboardScreen({
             fleetName={fleetName}
             onViewRoute={() => openPassengerTripRoute(liveTrip)}
           />
+        ) : null}
+
+        {!dashboardReadOnly && operatorHealth.score < 100 ? (
+          <div className="mb-4">
+            <HealthScoreCard health={operatorHealth} onEditProfile={onEditRegistration} />
+          </div>
         ) : null}
 
         <section className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">

@@ -9,6 +9,7 @@ import {
   updateAdminResponsibilities,
 } from "../../../../../../../../Backend/services/marketplace/businessAdminService";
 import { readRegisteredBusiness } from "../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { resolvePublicCode, detectPublicCodeKind } from "../../../../../../../../Backend/services/publicCodeService";
 import { haptics, sounds } from "../../../../../../../../Backend/services/feedbackService";
 import { showToast } from "../../../../../../../../Backend/services/toastService";
 import AppBackTab from "../../../../../../../shared/AppBackTab";
@@ -25,6 +26,7 @@ export default function BusinessAdmins({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [inviteCode, setInviteCode] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [lookup, setLookup] = useState({ status: "idle", name: "", message: "" });
   const [actionAdmin, setActionAdmin] = useState(null);
   const [responsibilityAdmin, setResponsibilityAdmin] = useState(null);
   const [responsibilityDraft, setResponsibilityDraft] = useState({});
@@ -56,6 +58,41 @@ export default function BusinessAdmins({ onBack }) {
     };
   }, []);
 
+  // Live verification: as the owner pastes a KunThai ID, resolve it and show
+  // whose account it is before the invitation is sent.
+  useEffect(() => {
+    const code = inviteCode.trim();
+    if (!code) {
+      setLookup({ status: "idle", name: "", message: "" });
+      return undefined;
+    }
+    if (detectPublicCodeKind(code) !== "kunthai") {
+      setLookup({ status: "invalid", name: "", message: "Enter a KunThai ID that starts with KTU." });
+      return undefined;
+    }
+
+    let alive = true;
+    setLookup({ status: "checking", name: "", message: "Checking this KunThai ID..." });
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await resolvePublicCode(code);
+        if (!alive) return;
+        if (result?.userId) {
+          setLookup({ status: "found", name: result.title || "KunThai member", message: "" });
+        } else {
+          setLookup({ status: "notFound", name: "", message: "No KunThai account matches this ID." });
+        }
+      } catch {
+        if (alive) setLookup({ status: "notFound", name: "", message: "Unable to check this ID right now." });
+      }
+    }, 450);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [inviteCode]);
+
   async function reloadAdmins() {
     if (!business?.id) return;
     try {
@@ -75,6 +112,7 @@ export default function BusinessAdmins({ onBack }) {
         inviteCode,
       );
       setInviteCode("");
+      setLookup({ status: "idle", name: "", message: "" });
       haptics.medium("marketplace");
       sounds.success("marketplace");
       showToast("Invitation sent. The person can accept it from their UrMall menu.", "success");
@@ -152,13 +190,23 @@ export default function BusinessAdmins({ onBack }) {
             />
             <button
               type="submit"
-              disabled={inviting || !inviteCode.trim()}
+              disabled={inviting || lookup.status !== "found"}
               className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white disabled:opacity-50"
             >
               {inviting ? <LoaderCircle size={16} className="animate-spin" /> : <UserPlus size={16} />}
               Invite
             </button>
           </form>
+          {lookup.status === "found" ? (
+            <div className="mt-3 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <Check size={16} className="shrink-0 text-emerald-600" />
+              <p className="min-w-0 truncate text-sm font-black text-emerald-800">{lookup.name}</p>
+            </div>
+          ) : lookup.status === "checking" ? (
+            <p className="mt-3 flex items-center gap-2 text-xs font-bold text-gray-500"><LoaderCircle size={14} className="animate-spin" /> {lookup.message}</p>
+          ) : lookup.message ? (
+            <p className="mt-3 text-xs font-bold text-rose-600">{lookup.message}</p>
+          ) : null}
         </section>
 
         <section>

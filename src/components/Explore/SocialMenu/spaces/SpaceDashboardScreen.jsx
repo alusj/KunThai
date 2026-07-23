@@ -30,6 +30,7 @@ import {
   updateExploreSpaceStatus,
 } from "../../../../Backend/services/exploreService";
 import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
+import { resolvePublicCode, detectPublicCodeKind } from "../../../../Backend/services/publicCodeService";
 import { showToast } from "../../../../Backend/services/toastService";
 import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
@@ -64,6 +65,7 @@ export default function SpaceDashboardScreen({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invite, setInvite] = useState(INVITE_INITIAL);
   const [savingInvite, setSavingInvite] = useState(false);
+  const [inviteLookup, setInviteLookup] = useState({ status: "idle", name: "", message: "" });
   const [busyAction, setBusyAction] = useState("");
   const menuRef = useRef(null);
   const manageTeam = canManageTeam(space);
@@ -218,6 +220,40 @@ export default function SpaceDashboardScreen({
     }));
   }
 
+  // Live KunThai ID detection before sending the Space invitation.
+  useEffect(() => {
+    const code = String(invite.kunthaiId || "").trim();
+    if (!code) {
+      setInviteLookup({ status: "idle", name: "", message: "" });
+      return undefined;
+    }
+    if (detectPublicCodeKind(code) !== "kunthai") {
+      setInviteLookup({ status: "invalid", name: "", message: "Enter a KunThai ID that starts with KTU." });
+      return undefined;
+    }
+
+    let alive = true;
+    setInviteLookup({ status: "checking", name: "", message: "Checking this KunThai ID..." });
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await resolvePublicCode(code);
+        if (!alive) return;
+        if (result?.userId) {
+          setInviteLookup({ status: "found", name: result.title || "KunThai member", message: "" });
+        } else {
+          setInviteLookup({ status: "notFound", name: "", message: "No KunThai account matches this ID." });
+        }
+      } catch {
+        if (alive) setInviteLookup({ status: "notFound", name: "", message: "Unable to check this ID right now." });
+      }
+    }, 450);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [invite.kunthaiId]);
+
   async function submitInvite(event) {
     event.preventDefault();
     if (!space?.spaceId || savingInvite) return;
@@ -367,6 +403,13 @@ export default function SpaceDashboardScreen({
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <Field label="KunThai ID">
               <input value={invite.kunthaiId} onChange={(event) => setInvite((current) => ({ ...current, kunthaiId: event.target.value }))} placeholder="KTU-..." className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200" />
+              {inviteLookup.status === "found" ? (
+                <p className="mt-1.5 text-xs font-black text-emerald-600">✓ {inviteLookup.name}</p>
+              ) : inviteLookup.status === "checking" ? (
+                <p className="mt-1.5 text-xs font-bold text-slate-500">{inviteLookup.message}</p>
+              ) : inviteLookup.message ? (
+                <p className="mt-1.5 text-xs font-bold text-rose-600">{inviteLookup.message}</p>
+              ) : null}
             </Field>
             <Field label="Role">
               <select value={invite.role} onChange={(event) => setInviteRole(event.target.value)} className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none">
@@ -384,7 +427,7 @@ export default function SpaceDashboardScreen({
           <ResponsibilityGrid values={invite.responsibilities} onToggle={toggleInviteResponsibility} />
 
           {feedback ? <p className="mt-3 text-sm font-bold text-rose-600">{feedback}</p> : null}
-          <button type="submit" disabled={savingInvite || !invite.kunthaiId.trim()} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 text-sm font-black text-white disabled:bg-slate-300">
+          <button type="submit" disabled={savingInvite || inviteLookup.status !== "found"} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 text-sm font-black text-white disabled:bg-slate-300">
             {savingInvite ? "Sending invitation" : "Send invitation"}
           </button>
         </form>

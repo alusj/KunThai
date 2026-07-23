@@ -177,7 +177,12 @@ export default function OnboardingFlow({ profile, onComplete }) {
       setTransitionOrigin(origin);
       setFinishing(true);
       await new Promise((resolve) => window.setTimeout(resolve, 600));
-      onComplete?.(origin, finishedProfile || safeValues);
+      // Always carry the user's chosen landing surface: the saved profile echo
+      // does not reliably include it, which previously defaulted them to Explore.
+      onComplete?.(origin, {
+        ...(finishedProfile || safeValues),
+        primarySurface: safeValues.primarySurface || finishedProfile?.primarySurface || "explore",
+      });
     } catch (error) {
       setSaving(false);
       setError(error.message || "We could not complete onboarding.");

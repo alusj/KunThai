@@ -60,6 +60,16 @@
     font-size: 16px;
   }
 
+  /* One consistent, muted placeholder tone everywhere. Fields without an
+   * explicit placeholder class previously fell back to the bright browser
+   * default; this keeps all placeholders readable-but-quiet in light mode,
+   * while appearance.css handles the dark-mode tone. */
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+  }
+
   img,
   video,
   canvas,

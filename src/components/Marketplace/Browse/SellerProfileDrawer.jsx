@@ -24,8 +24,10 @@ import {
   Store,
   Truck,
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import AppBackTab from "../../shared/AppBackTab";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
+import { buildWhatsAppUrl } from "../../../Backend/services/marketplace/whatsappLink";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import {
   fetchBuyerReviews,
@@ -277,8 +279,9 @@ function SkeletonBlock({ className = "" }) {
   return <div className={`animate-pulse rounded-lg bg-gray-100 ${className}`} />;
 }
 
-function InfoRow({ icon, label, value }) {
+function InfoRow({ icon, label, value, href = "" }) {
   const IconComponent = icon;
+  const external = /^https?:\/\//i.test(href);
   return (
     <div className="flex gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-700 shadow-sm">
@@ -286,7 +289,18 @@ function InfoRow({ icon, label, value }) {
       </span>
       <span className="min-w-0">
         <span className="block text-xs font-black uppercase text-gray-400">{label}</span>
-        <span className="mt-0.5 block break-words text-sm font-bold text-gray-800">{value || "Not added yet"}</span>
+        {href ? (
+          <a
+            href={href}
+            target={external ? "_blank" : undefined}
+            rel={external ? "noreferrer" : undefined}
+            className="mt-0.5 block break-words text-sm font-bold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-800"
+          >
+            {value}
+          </a>
+        ) : (
+          <span className="mt-0.5 block break-words text-sm font-bold text-gray-800">{value || "Not added yet"}</span>
+        )}
       </span>
     </div>
   );
@@ -319,14 +333,22 @@ function SellerActionIcon({ icon, label, active = false, disabled = false, href 
   }`;
   const content = (
     <>
-      <IconComponent size={22} fill={active && IconComponent === Heart ? "currentColor" : "none"} />
+      <IconComponent size={22} fill={active && IconComponent === Heart ? "currentColor" : undefined} />
       <span className="sr-only">{label}</span>
     </>
   );
 
   if (href && !disabled) {
+    const external = /^https?:\/\//i.test(href);
     return (
-      <a href={href} className={className} aria-label={label} title={label}>
+      <a
+        href={href}
+        className={className}
+        aria-label={label}
+        title={label}
+        target={external ? "_blank" : undefined}
+        rel={external ? "noreferrer" : undefined}
+      >
         {content}
       </a>
     );
@@ -512,6 +534,10 @@ export default function SellerProfileDrawer({
   const [messagePanelOpen, setMessagePanelOpen] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const safeSeller = useMemo(() => asObject(seller), [seller]);
+  const sellerWhatsAppUrl = useMemo(
+    () => buildWhatsAppUrl(safeSeller.whatsapp, `Hi ${safeSeller.name || "there"}, I found your store on KunThai.`),
+    [safeSeller.whatsapp, safeSeller.name],
+  );
   const safeCatalog = useMemo(() => asArray(catalog).filter((item) => item && typeof item === "object"), [catalog]);
   const safeReviews = useMemo(
     () => ({
@@ -909,6 +935,9 @@ export default function SellerProfileDrawer({
                   <SellerActionIcon icon={MessageCircle} label="Message seller" onClick={openMessagePanel} />
                   {showSaveStore ? <SellerActionIcon icon={Heart} label={sellerSaved ? "Saved store" : "Save store"} active={sellerSaved} onClick={handleSaveStore} /> : null}
                   <SellerActionIcon icon={Share2} label="Share store" onClick={shareSeller} />
+                  {safeSeller.whatsappEnabled && sellerWhatsAppUrl ? (
+                    <SellerActionIcon icon={FaWhatsapp} label="Chat on WhatsApp" href={sellerWhatsAppUrl} />
+                  ) : null}
                   <SellerActionIcon icon={Phone} label="Call seller" href={safeSeller.phone ? `tel:${safeSeller.phone}` : ""} disabled={!safeSeller.phone} />
                 </div>
               </div>
@@ -1169,6 +1198,9 @@ export default function SellerProfileDrawer({
                       <InfoRow icon={MapPin} label="Full Address" value={fullAddress} />
                       <InfoRow icon={Clock} label="Opening Hours" value={storeStatus.detail} />
                       <InfoRow icon={Phone} label="Phone Number" value={safeSeller.phone || "Phone number not added yet"} />
+                      {safeSeller.whatsappEnabled && sellerWhatsAppUrl ? (
+                        <InfoRow icon={FaWhatsapp} label="WhatsApp" value="Chat on WhatsApp" href={sellerWhatsAppUrl} />
+                      ) : null}
                       <InfoRow icon={CalendarDays} label="Joined" value={formatJoinedDate(safeSeller.joinedAt || safeSeller.created_at)} />
                       <InfoRow icon={Store} label="Business Category" value={sellerCategory} />
                       <InfoRow icon={Truck} label="Delivery Methods" value={getDeliveryMethods(safeSeller, safeCatalog)} />
