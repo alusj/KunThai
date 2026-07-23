@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Camera, CheckCircle2, Mail, MapPin, Phone, Search, ShieldCheck } from "lucide-react";
+import { Cake, Camera, CheckCircle2, Mail, MapPin, Phone, Search, ShieldCheck } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { PHONE_ALREADY_LINKED_CODE } from "../../Backend/services/accountIdentityService";
@@ -14,8 +14,25 @@ import {
   GLOBAL_COUNTRY_PROFILES,
 } from "../../data/globalCountryProfiles";
 import PhoneCountryField from "../shared/PhoneCountryField";
+import CenteredModal from "../shared/CenteredModal";
 import OnboardingFrame from "./OnboardingFrame";
 import { scrollToFirstBlockingFieldSoon } from "../shared/formValidationNavigation";
+
+// KunThai's minimum age to hold an account.
+const MINIMUM_AGE = 13;
+
+function computeAgeYears(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const birth = new Date(dateOfBirth);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const monthDelta = now.getMonth() - birth.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
 
 const accountTypes = [
   {
@@ -120,7 +137,10 @@ function InlineFieldError({ message }) {
 export default function ProfileStep({ values, saving = false, error, errorCode = "", onChange, onBack, onNext }) {
   const [findAccountOpen, setFindAccountOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [underageOpen, setUnderageOpen] = useState(false);
   const formRef = useRef(null);
+  const ageYears = computeAgeYears(values.dateOfBirth);
+  const isUnderage = ageYears !== null && ageYears < MINIMUM_AGE;
   const phoneConflict = errorCode === PHONE_ALREADY_LINKED_CODE;
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || "Your name";
@@ -134,6 +154,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
     if (values.firstName.trim().length < 2) nextErrors.firstName = "First name required.";
     if (values.lastName.trim().length < 2) nextErrors.lastName = "Last name required.";
     if (!values.dateOfBirth) nextErrors.dateOfBirth = "Date of birth required.";
+    else if (isUnderage) nextErrors.dateOfBirth = `You must be at least ${MINIMUM_AGE} years old to use KunThai.`;
     if (!values.phone.trim()) nextErrors.phone = "Phone number required.";
     else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
     if (emailValue && !emailValid) nextErrors.email = "Enter a valid email address or leave this blank.";
@@ -144,6 +165,12 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
   function handleContinue() {
     const nextErrors = validateProfileFields();
     setFieldErrors(nextErrors);
+    // Age is a hard eligibility gate: surface the caution card and stop here.
+    if (isUnderage) {
+      setUnderageOpen(true);
+      scrollToFirstBlockingFieldSoon(formRef.current);
+      return;
+    }
     if (Object.keys(nextErrors).length) {
       scrollToFirstBlockingFieldSoon(formRef.current);
       return;
@@ -497,6 +524,36 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
           }}
         />
       ) : null}
+
+      <CenteredModal open={underageOpen} onClose={() => setUnderageOpen(false)} maxWidth="max-w-md" labelledBy="underage-title">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 rounded-t-3xl bg-gradient-to-r from-amber-400 via-rose-500 to-red-600" />
+        <div className="flex items-start gap-3 pt-1.5">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-500 to-rose-600 text-white shadow-lg shadow-rose-500/30">
+            <Cake size={28} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-600">Age check</p>
+            <h2 id="underage-title" className="mt-1 text-2xl font-black leading-tight text-slate-950">
+              You are not eligible for KunThai yet
+            </h2>
+          </div>
+        </div>
+
+        <p className="mt-4 text-sm font-bold leading-6 text-slate-700">
+          KunThai is built for people aged <span className="text-rose-600">{MINIMUM_AGE} and older</span>. Based on the date of birth you entered, you do not meet the minimum age, so an account cannot be created right now.
+        </p>
+        <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+          This keeps younger users safe across Explore, UrMall, and UrRide. If you entered your date of birth by mistake, go back and correct it. Otherwise, we hope to welcome you when you are old enough.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setUnderageOpen(false)}
+          className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800"
+        >
+          Go back and check my date of birth
+        </button>
+      </CenteredModal>
 
       <div className="mt-6 flex flex-wrap gap-3">
         <button
