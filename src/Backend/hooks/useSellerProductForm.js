@@ -11,6 +11,12 @@ import {
   MINIMUM_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
 } from "../services/visibilityCreditService";
+import {
+  clearProductDraft,
+  productDraftHasContent,
+  readProductDraft,
+  writeProductDraft,
+} from "../services/marketplace/productDraftService";
 
 function buildProductForm(product, options) {
   if (!product) {
@@ -82,19 +88,59 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
   const [submitting, setSubmitting] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
   const [warnings, setWarnings] = useState({});
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     let active = true;
     fetchProductFormOptions().then((nextOptions) => {
       if (!active) return;
       setOptions(nextOptions);
-      setForm(buildProductForm(product, nextOptions));
+      const baseForm = buildProductForm(product, nextOptions);
+
+      // Create flow: if a saved draft exists (app killed / network dropped
+      // mid-listing), bring the seller back to their typed details.
+      if (mode !== "edit" && !product) {
+        const draft = readProductDraft();
+        if (productDraftHasContent(draft)) {
+          setForm({
+            ...baseForm,
+            basics: { ...baseForm.basics, ...(draft.basics || {}) },
+            details: { ...baseForm.details, ...(draft.details || {}) },
+            pricing: { ...baseForm.pricing, ...(draft.pricing || {}) },
+            delivery: { ...baseForm.delivery, ...(draft.delivery || {}) },
+            media: {
+              ...baseForm.media,
+              // File objects cannot be restored by the browser; keep names/urls
+              // so the seller sees what to re-attach.
+              coverImageName: draft.mediaMeta?.coverImageName || baseForm.media.coverImageName,
+              coverImageUrl: draft.mediaMeta?.coverImageUrl || baseForm.media.coverImageUrl,
+              extraImageUrls: draft.mediaMeta?.extraImageUrls?.length ? draft.mediaMeta.extraImageUrls : baseForm.media.extraImageUrls,
+              videoName: draft.mediaMeta?.videoName || baseForm.media.videoName,
+              videoUrl: draft.mediaMeta?.videoUrl || baseForm.media.videoUrl,
+            },
+          });
+          setStep(Math.min(Math.max(Number(draft.step || 0), 0), 5));
+          setDraftRestored(true);
+        } else {
+          setForm(baseForm);
+        }
+      } else {
+        setForm(baseForm);
+      }
+      setHydrated(true);
     });
 
     return () => {
       active = false;
     };
-  }, [product]);
+  }, [product, mode]);
+
+  // Auto-save the create-flow draft as the seller fills it in.
+  useEffect(() => {
+    if (!hydrated || mode === "edit" || product) return;
+    writeProductDraft(form, step);
+  }, [form, step, hydrated, mode, product]);
 
   const preview = useMemo(
     () => ({
@@ -177,6 +223,8 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
         setWarnings({ video: savedProduct.videoWarning });
       }
       setSaveStatus("");
+      clearProductDraft();
+      setDraftRestored(false);
       haptics.medium("marketplace");
       sounds.success("marketplace");
       onComplete?.(savedProduct);
@@ -191,6 +239,13 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
     }
   }
 
+  function discardDraft() {
+    clearProductDraft();
+    setDraftRestored(false);
+    setStep(0);
+    setForm(buildProductForm(null, options));
+  }
+
   return {
     step,
     form,
@@ -200,9 +255,11 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
     preview,
     submitting,
     saveStatus,
+    draftRestored,
     updateSection,
     next,
     back,
     submit,
+    discardDraft,
   };
 }

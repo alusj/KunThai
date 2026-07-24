@@ -72,6 +72,20 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <main className="space-y-4">
+            {productForm.draftRestored ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="min-w-0 text-sm font-bold text-emerald-800">
+                  We brought back your unfinished listing. Re-attach any photos or video, then continue.
+                </p>
+                <button
+                  type="button"
+                  onClick={productForm.discardDraft}
+                  className="shrink-0 rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-xs font-black text-emerald-700"
+                >
+                  Start fresh
+                </button>
+              </div>
+            ) : null}
             <ProductFormProgress step={productForm.step} />
 
             <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

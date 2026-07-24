@@ -88,6 +88,14 @@ export default function ProductMediaStep({ productForm }) {
           type="file"
           accept="image/*"
           multiple
+          disabled={extraImagesFull}
+          onClick={(event) => {
+            // Stop the picker from even opening once six are chosen.
+            if (extraImagesFull) {
+              event.preventDefault();
+              showToast(`You already have the maximum of ${MAX_EXTRA_IMAGES} images. Remove one to add another.`, "danger", { title: "UrMall" });
+            }
+          }}
           onChange={(event) => {
             const incoming = Array.from(event.target.files || []);
             event.target.value = "";

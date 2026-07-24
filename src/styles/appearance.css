@@ -69,7 +69,10 @@ html.dark select:-webkit-autofill {
 html.dark input::placeholder,
 html.dark textarea::placeholder {
   color: #64748b !important;
-  opacity: 1;
+  /* The input rule above sets -webkit-text-fill-color for autofill; without
+   * this it cascades into ::placeholder and paints placeholders bright white. */
+  -webkit-text-fill-color: #64748b !important;
+  opacity: 1 !important;
 }
 
 html.dark option {

@@ -12,6 +12,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 import AppBackTab from "../../shared/AppBackTab";
+import AccountSetupLoader from "../../shared/AccountSetupLoader";
 import CenteredModal from "../../shared/CenteredModal";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
@@ -550,6 +551,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-dvh bg-gray-50 [transform:translateZ(0)]`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
+      <AccountSetupLoader open={submitting || finishing} sector="urride" />
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 lg:px-8">
         <div className="flex w-full items-center gap-3 sm:gap-4">
           <AppBackTab

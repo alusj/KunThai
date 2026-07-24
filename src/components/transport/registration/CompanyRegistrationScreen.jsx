@@ -27,6 +27,7 @@ import {
   saveTransportCompanyDraft,
 } from "../../services/transportCompanyService";
 import AppBackTab from "../../shared/AppBackTab";
+import AccountSetupLoader from "../../shared/AccountSetupLoader";
 import CenteredModal from "../../shared/CenteredModal";
 import { AddressAreaStatusIcon, useAddressAreaValidation } from "../../shared/AddressAreaValidation";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
@@ -747,6 +748,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-dvh bg-slate-50 [transform:translateZ(0)]`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
+      <AccountSetupLoader open={submitting || finishing} sector="urride" />
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-8">
         <div className="flex w-full items-center gap-3">
           <AppBackTab

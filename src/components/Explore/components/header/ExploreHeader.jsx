@@ -2,7 +2,6 @@ import { useEffect,useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Bell,
-  Building2,
   Image,
   Menu,
   Megaphone,
@@ -248,19 +247,6 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                     </span>
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => selectCreateType("space")}
-                  className="kt-pressable mt-2 flex w-full items-center gap-3 rounded-[22px] border-2 border-sky-200 bg-sky-50/80 p-4 text-left shadow-sm shadow-sky-900/[0.05] hover:border-sky-300 hover:bg-sky-50"
-                >
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-sky-700 ring-1 ring-sky-100">
-                    <Building2 size={20} strokeWidth={2.3} absoluteStrokeWidth />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-base font-black text-slate-950">Space</span>
-                    <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Create a managed identity for a brand, organization, community, or team.</span>
-                  </span>
-                </button>
               </div>
             </div>,
             document.body,

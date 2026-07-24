@@ -4,6 +4,7 @@ import BusinessSellerEntryAnimation from "./BusinessSellerEntryAnimation";
 import NearbyAreaScreen from "../../../../transport/NearbyAreaScreen";
 import { useSellerRegistration } from "../../../../../Backend/hooks/useSellerRegistration";
 import AppBackTab from "../../../../shared/AppBackTab";
+import AccountSetupLoader from "../../../../shared/AccountSetupLoader";
 import CenteredModal from "../../../../shared/CenteredModal";
 import { ScreenSlideTransition, StepSlideTransition } from "../../../../shared/motion";
 import { useDirectionalStep } from "../../../../shared/motionHooks";
@@ -234,6 +235,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
       className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-dvh bg-gray-50`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
+      <AccountSetupLoader open={!editing && (registration.submitting || finishing)} sector="urmall" />
       <div className="w-full px-4 py-6 sm:px-6 lg:px-10 xl:px-14">
         <div className="mb-6 flex items-start gap-3">
           <AppBackTab
