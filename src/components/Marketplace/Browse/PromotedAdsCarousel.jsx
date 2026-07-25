@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchPromotedMarketplaceProducts } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { useI18n } from "../../../i18n";
 
 const SLIDE_INTERVAL_MS = 4500;
 
@@ -7,6 +8,7 @@ const SLIDE_INTERVAL_MS = 4500;
 // Shows only the listing cover image; renders nothing when no seller has an
 // active promoted listing.
 export default function PromotedAdsCarousel({ onProductSelect }) {
+  const { t } = useI18n();
   const [ads, setAds] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartXRef = useRef(null);
@@ -55,7 +57,7 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
 
   return (
     <section
-      aria-label="Promoted UrMall businesses"
+      aria-label={t("urmall.browse.promotedAria")}
       className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm"
       onTouchStart={(event) => {
         touchStartXRef.current = event.touches[0].clientX;
@@ -72,7 +74,7 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
             type="button"
             onClick={() => onProductSelect?.(product)}
             className="relative aspect-[21/9] w-full shrink-0 overflow-hidden bg-gray-950 sm:aspect-[3/1]"
-            aria-label={`Open promoted listing from ${product.seller?.name || "UrMall seller"}`}
+            aria-label={t("urmall.browse.openPromotedAria", { name: product.seller?.name || t("urmall.browse.sellerFallback") })}
           >
             <img
               src={product.imageUrl}
@@ -85,7 +87,7 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
       </div>
 
       <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur-sm">
-        Sponsored
+        {t("urmall.browse.sponsored")}
       </span>
 
       {ads.length > 1 ? (

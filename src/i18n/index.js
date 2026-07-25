@@ -10,7 +10,12 @@ import { LOCALE_OPTIONS, TRANSLATIONS } from "./translations";
 // left-to-right until the interface has been reviewed for RTL mirroring.
 
 const LOCALE_OVERRIDE_KEY = "kunthai.locale";
-const SUPPORTED = new Set(Object.keys(TRANSLATIONS));
+// A locale is selectable / auto-detectable only when it appears in
+// LOCALE_OPTIONS, i.e. its bundle is complete. Partial stub bundles still live
+// in TRANSLATIONS (so t() can fall back into them once promoted) but must not
+// be reachable via the picker or device detection, or users would see a
+// half-English interface.
+const SUPPORTED = new Set(LOCALE_OPTIONS.map((option) => option.code));
 // Locales whose script reads right-to-left. Adding one here flips the whole
 // interface direction (document + <html dir>) when that locale is active.
 const RTL_LOCALES = new Set(["ar"]);

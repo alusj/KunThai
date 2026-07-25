@@ -1,11 +1,14 @@
+import { useI18n } from "../../i18n";
+
 const MARKETPLACE_TABS = [
-  { id: "new", label: "New" },
-  { id: "discounted", label: "Discounted" },
-  { id: "high-demand", label: "High Demand" },
-  { id: "top-rated", label: "Top Rated" },
+  { id: "new", labelKey: "urmall.tabs.new" },
+  { id: "discounted", labelKey: "urmall.tabs.discounted" },
+  { id: "high-demand", labelKey: "urmall.tabs.highDemand" },
+  { id: "top-rated", labelKey: "urmall.tabs.topRated" },
 ];
 
 export default function ParentTabs({ activeTab, setActiveTab }) {
+  const { t } = useI18n();
   const activeIndex = Math.max(0, MARKETPLACE_TABS.findIndex((tab) => tab.id === activeTab));
   return (
     <div className="sticky top-16 z-10 border-y border-white/70 bg-white/50 px-2 py-2 shadow-sm backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40">
@@ -32,7 +35,7 @@ export default function ParentTabs({ activeTab, setActiveTab }) {
                   : "text-gray-600 hover:bg-white/70 hover:text-gray-950"
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           );
         })}

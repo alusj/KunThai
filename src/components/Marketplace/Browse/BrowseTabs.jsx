@@ -1,13 +1,16 @@
 // src/components/Marketplace/Browse/BrowseTabs.jsx
 
+import { useI18n } from "../../../i18n";
+
 const BROWSE_TABS = [
-  { id: "new", label: "New"},
-  { id: "discounted", label: "Discounted"},
-  { id: "high-demand", label: "High Demand"},
-  { id: "top-rated", label: "Top Rated"},
+  { id: "new", labelKey: "urmall.tabs.new" },
+  { id: "discounted", labelKey: "urmall.tabs.discounted" },
+  { id: "high-demand", labelKey: "urmall.tabs.highDemand" },
+  { id: "top-rated", labelKey: "urmall.tabs.topRated" },
 ];
 
 export default function BrowseTabs({ activeTab, setActiveTab }) {
+  const { t } = useI18n();
   return (
     <div className="sticky top-[104px] z-10 bg-white border-b">
 
@@ -30,8 +33,7 @@ export default function BrowseTabs({ activeTab, setActiveTab }) {
                     : "border-transparent text-gray-600 hover:text-gray-900"
                 }`}
             >
-              <span>{tab.emoji}</span>
-              <span>{tab.label}</span>
+              <span>{t(tab.labelKey)}</span>
             </button>
           );
         })}

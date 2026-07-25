@@ -3,6 +3,7 @@
    Highest rated products
 ========================= */
 
+import { useI18n } from "../../../../i18n";
 import BuyerProductGrid from "../BuyerProductGrid";
 
 export default function TopRated({
@@ -15,6 +16,7 @@ export default function TopRated({
   onToggleSaved,
   supplementalContent,
 }) {
+  const { t } = useI18n();
   return (
     <BuyerProductGrid
       products={products}
@@ -25,8 +27,8 @@ export default function TopRated({
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
       supplementalContent={supplementalContent}
-      emptyTitle="No top-rated products yet"
-      emptyBody="Active products will appear here while rating data is being built."
+      emptyTitle={t("urmall.browse.emptyTopRatedTitle")}
+      emptyBody={t("urmall.browse.emptyTopRatedBody")}
     />
   );
 }

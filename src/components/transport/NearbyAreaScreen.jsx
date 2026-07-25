@@ -49,6 +49,7 @@ import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
 import { haptics } from "../../Backend/services/feedbackService";
 import { showToast } from "../../Backend/services/toastService";
+import { getNetworkStatus, subscribeToNetworkStatus, suppressGlobalNetworkToasts } from "../../Backend/services/networkService";
 import {
   locationCategories,
   locationStatusStyles,
@@ -1173,6 +1174,59 @@ export default function NearbyAreaScreen({
       searchRequestRef.current += 1;
     };
   }, []);
+
+  // Area View leans heavily on the network (map tiles, search, routing), so it
+  // gives the traveller a clear heads-up when the connection is missing or
+  // weak, and confirms when it recovers. Only meaningful transitions toast, so
+  // the card is not spammed while the connection stays steady.
+  useEffect(() => {
+    if (isSpecialMode) return undefined;
+
+    // While Area View is mounted, its contextual toasts replace the global
+    // App-shell network toast so the traveller never sees both at once.
+    const releaseGlobalSuppression = suppressGlobalNetworkToasts();
+
+    let previousOnline = getNetworkStatus().online;
+    let previousUnstable = getNetworkStatus().unstable;
+
+    function announce({ online, unstable }, initial = false) {
+      if (!online) {
+        if (initial || previousOnline) {
+          showToast("You are offline. Area View needs a connection to load the map, search and routes.", "warning", {
+            title: "Area View",
+            duration: 4200,
+            origin: false,
+          });
+        }
+      } else if (previousOnline === false) {
+        showToast("Back online. Area View is refreshing.", "success", {
+          title: "Area View",
+          duration: 2600,
+          origin: false,
+        });
+      } else if (unstable && (initial || !previousUnstable)) {
+        showToast("Slow network detected. The map and routes may take longer to load.", "warning", {
+          title: "Area View",
+          duration: 4200,
+          origin: false,
+        });
+      }
+
+      previousOnline = online;
+      previousUnstable = unstable;
+    }
+
+    // Announce a bad starting state immediately so a traveller who opens Area
+    // View already offline is not left staring at a blank map.
+    const initialStatus = getNetworkStatus();
+    if (!initialStatus.online || initialStatus.unstable) announce(initialStatus, true);
+
+    const unsubscribe = subscribeToNetworkStatus(announce);
+    return () => {
+      unsubscribe();
+      releaseGlobalSuppression();
+    };
+  }, [isSpecialMode]);
 
   useEffect(() => {
     if (!isBusinessLocationPicker) return;

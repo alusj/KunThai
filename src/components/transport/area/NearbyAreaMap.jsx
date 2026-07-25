@@ -9,6 +9,7 @@ import {
   getRouteThroughPoints,
 } from "../../../Backend/services/routeService";
 import { showToast } from "../../../Backend/services/toastService";
+import { getNetworkStatus, subscribeToNetworkStatus } from "../../../Backend/services/networkService";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 
 const defaultCountryProfile = getActiveCountryProfile();
@@ -65,6 +66,55 @@ const TRAFFIC_AHEAD_SETTINGS = {
   affectedSegmentsBefore: 2,
   affectedSegmentsAfter: 8,
 };
+
+// Live ETA/distance tuning. The route ETA is not shown from the routing
+// engine's static guess; it only appears once the traveller actually starts
+// moving, then it (and the remaining distance) count down from live GPS.
+const NAV_MOVEMENT_SETTINGS = {
+  // ~2.2 km/h. Above this we treat the traveller as genuinely moving rather
+  // than GPS drift, which is what unlocks the ETA.
+  movingSpeedMps: 0.6,
+  // Speed floor used only for the ETA division so a brief slow crawl can't
+  // balloon the ETA to an unrealistic number.
+  minEtaSpeedMps: 0.9,
+  // Exponential smoothing weight for the live speed estimate.
+  speedSmoothing: 0.4,
+  // Throttle how often the live distance/ETA text is rewritten.
+  progressUiThrottleMs: 1400,
+  etaPlaceholder: "Move to start ETA",
+};
+
+// Remaining route distance from the traveller's live position to the
+// destination, following the drawn route rather than a straight line. This is
+// what makes the direction card count down as the user progresses.
+function getRemainingRouteMeters(position, coordinates = [], segmentIndex = 0) {
+  if (!position || coordinates.length < 2) return null;
+
+  const safeIndex = Math.max(0, Math.min(segmentIndex, coordinates.length - 2));
+  const segmentEnd = normalizeRoutePoint(coordinates[safeIndex + 1]);
+  let remaining = distanceInMeters(position, segmentEnd);
+
+  for (let index = safeIndex + 1; index < coordinates.length - 1; index += 1) {
+    const from = normalizeRoutePoint(coordinates[index]);
+    const to = normalizeRoutePoint(coordinates[index + 1]);
+    const segmentMeters = distanceInMeters(from, to);
+    if (Number.isFinite(segmentMeters)) remaining += segmentMeters;
+  }
+
+  return Number.isFinite(remaining) ? remaining : null;
+}
+
+function isTileNetworkError(event) {
+  const message = String(event?.error?.message || "").toLowerCase();
+  const status = Number(event?.error?.status || event?.error?.statusCode || 0);
+  const url = String(event?.error?.url || event?.sourceId || "");
+  if (/failed to fetch|networkerror|load failed|err_internet|err_network|err_timed_out/.test(message)) {
+    return true;
+  }
+  // 5xx or gateway errors from a tile host also mean the base map cannot draw.
+  if (status >= 500) return true;
+  return /tile|\/maps\/|openstreetmap|maptiler/i.test(url) && (status === 0 || status >= 400);
+}
 
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY;
 const MAPTILER_STYLE_ID = import.meta.env.VITE_MAPTILER_STYLE_ID || "streets-v2";
@@ -1451,6 +1501,13 @@ export default function NearbyAreaMap({
   const gpsUiRef = useRef({ status: `Showing ${DEFAULT_CENTER.label}`, accuracy: null, time: 0 });
   const headingUiRef = useRef({ heading: null, time: 0 });
   const navigationDragRef = useRef(null);
+  // Live-ETA state kept in refs so the GPS watcher can update the direction
+  // card without re-subscribing the watch on every render.
+  const liveSpeedRef = useRef(0);
+  const lastMovingSpeedRef = useRef(0);
+  const hasStartedMovingRef = useRef(false);
+  const lastProgressUiAtRef = useRef(0);
+  const mapEverLoadedRef = useRef(false);
 
   const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
   const [deviceLocationState, setDeviceLocationState] = useState("checking");
@@ -1471,6 +1528,13 @@ export default function NearbyAreaMap({
   const [alternativeLoading, setAlternativeLoading] = useState(false);
   const [alternativeError, setAlternativeError] = useState("");
   const [rerouteKey, setRerouteKey] = useState(0);
+  // Base-map render state. `mapTilesLoading` covers the normal "still fetching
+  // tiles" case; `mapBlocked` is set to "offline" | "slow" when the base map
+  // cannot draw because of the connection, so the overlay can explain it and
+  // offer a retry.
+  const [mapTilesLoading, setMapTilesLoading] = useState(true);
+  const [mapBlocked, setMapBlocked] = useState("");
+  const [mapReloadKey, setMapReloadKey] = useState(0);
 
   const routeStatus = ROUTE_STATUS[routeStatusKey];
   const showNavigationCard = Boolean(routeLoading || routeInfo || routeError);
@@ -1606,6 +1670,35 @@ export default function NearbyAreaMap({
     lastParentLocationRef.current = position;
     lastParentLocationAtRef.current = now;
     onLocationResolved?.(position);
+  }
+
+  // Rewrites the direction card's distance + ETA as the traveller moves. The
+  // ETA only appears once movement has been detected, and both values count
+  // down toward the destination. Throttled so the card is not rewritten on
+  // every GPS tick.
+  function publishLiveRouteProgress(remainingMeters) {
+    if (arrivalReachedRef.current || !Number.isFinite(remainingMeters)) return;
+
+    const now = performance.now();
+    if (now - lastProgressUiAtRef.current < NAV_MOVEMENT_SETTINGS.progressUiThrottleMs) return;
+    lastProgressUiAtRef.current = now;
+
+    const moving = liveSpeedRef.current >= NAV_MOVEMENT_SETTINGS.movingSpeedMps;
+    if (moving) hasStartedMovingRef.current = true;
+
+    // Once the trip is underway, use the last confident moving speed so the ETA
+    // stays steady through short stops (traffic lights, junctions) instead of
+    // jumping around.
+    const etaSpeed = Math.max(lastMovingSpeedRef.current, NAV_MOVEMENT_SETTINGS.minEtaSpeedMps);
+    const etaSeconds = hasStartedMovingRef.current ? remainingMeters / etaSpeed : null;
+    const nextDistance = formatDistance(Math.max(0, remainingMeters));
+    const nextDuration = etaSeconds != null ? formatDuration(etaSeconds) : NAV_MOVEMENT_SETTINGS.etaPlaceholder;
+
+    setRouteInfo((current) => {
+      if (!current || current.routePlan) return current;
+      if (current.distance === nextDistance && current.duration === nextDuration) return current;
+      return { ...current, distance: nextDistance, duration: nextDuration, remainingMeters };
+    });
   }
 
   function getCameraBearing(position, destination, routeSegmentIndex = lastRouteSegmentIndexRef.current) {
@@ -1878,11 +1971,47 @@ export default function NearbyAreaMap({
     map.on("rotateend", markUserInteractionEnd);
     map.on("pitchend", markUserInteractionEnd);
 
-    map.on("error", (event) => {
-      if (!MAPTILER_KEY || !isMapTilerRequestError(event) || map.getSource("osm-tiles")) return;
-      console.warn("MapTiler style could not load. Falling back to OpenStreetMap raster tiles.", event?.error);
-      map.setStyle(osmRasterStyle);
-    });
+    const handleMapLoad = () => {
+      mapEverLoadedRef.current = true;
+      if (map.areTilesLoaded?.()) {
+        setMapTilesLoading(false);
+        setMapBlocked("");
+      }
+    };
+
+    // `idle` fires once every visible tile for the current view has finished
+    // loading and no animations are running - the reliable "map is fully
+    // drawn" signal we use to clear the loading overlay.
+    const handleMapIdle = () => {
+      if (map.areTilesLoaded?.()) {
+        mapEverLoadedRef.current = true;
+        setMapTilesLoading(false);
+        setMapBlocked("");
+      }
+    };
+
+    const handleMapError = (event) => {
+      // First choice: silently fall back from a failed MapTiler style to the
+      // free OpenStreetMap raster tiles.
+      if (MAPTILER_KEY && isMapTilerRequestError(event) && !map.getSource("osm-tiles")) {
+        console.warn("MapTiler style could not load. Falling back to OpenStreetMap raster tiles.", event?.error);
+        map.setStyle(osmRasterStyle);
+        return;
+      }
+
+      // Otherwise, if tiles are failing because of the connection and the base
+      // map has never managed to draw, surface a recoverable overlay. A map
+      // that has already drawn keeps its partial view (MapLibre retries tiles
+      // on the next move) rather than being hidden behind a full overlay.
+      if (isTileNetworkError(event) && !mapEverLoadedRef.current) {
+        setMapTilesLoading(false);
+        setMapBlocked(getNetworkStatus().online ? "slow" : "offline");
+      }
+    };
+
+    map.on("load", handleMapLoad);
+    map.on("idle", handleMapIdle);
+    map.on("error", handleMapError);
 
     mapRef.current = map;
     onMapReady?.(map);
@@ -1910,6 +2039,9 @@ export default function NearbyAreaMap({
       map.off("zoomend", markUserInteractionEnd);
       map.off("rotateend", markUserInteractionEnd);
       map.off("pitchend", markUserInteractionEnd);
+      map.off("load", handleMapLoad);
+      map.off("idle", handleMapIdle);
+      map.off("error", handleMapError);
       if (userInteractionIdleTimerRef.current) window.clearTimeout(userInteractionIdleTimerRef.current);
       markerAnimationCancelRef.current?.();
       operatorAnimations.forEach((cancel) => cancel?.());
@@ -1952,6 +2084,51 @@ export default function NearbyAreaMap({
       markerRenderedPositionRef.current = null;
     };
   }, [onMapReady]);
+
+  // Manual/automatic base-map recovery: re-applies the map style so tiles are
+  // re-fetched. Runs when the user taps "Retry map" or when the connection is
+  // restored while the map was blocked.
+  useEffect(() => {
+    if (mapReloadKey === 0) return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    setMapBlocked("");
+    setMapTilesLoading(true);
+    try {
+      map.setStyle(getInitialMapStyle());
+    } catch (error) {
+      console.warn("Map reload failed", error);
+    }
+    // A safety net: if tiles still have not drawn shortly after a reload, keep
+    // the overlay honest about the connection instead of spinning forever.
+    const timer = window.setTimeout(() => {
+      if (!map.areTilesLoaded?.()) {
+        setMapTilesLoading(false);
+        setMapBlocked(getNetworkStatus().online ? "slow" : "offline");
+      }
+    }, 9000);
+    return () => window.clearTimeout(timer);
+  }, [mapReloadKey]);
+
+  // Keep the base-map overlay in step with the live connection: drop straight
+  // into the offline state when the device goes offline before tiles are
+  // ready, and auto-retry once it is back.
+  useEffect(() => {
+    return subscribeToNetworkStatus((status) => {
+      if (!status.online) {
+        if (!mapEverLoadedRef.current) {
+          setMapTilesLoading(false);
+          setMapBlocked("offline");
+        }
+        return;
+      }
+      setMapBlocked((current) => {
+        if (current) setMapReloadKey((value) => value + 1);
+        return current;
+      });
+    });
+  }, []);
 
   useEffect(() => {
     function handleOrientation(event) {
@@ -2204,6 +2381,12 @@ export default function NearbyAreaMap({
       clearAlternativeRouteLayer(map);
       lastRouteSegmentIndexRef.current = 0;
       arrivalReachedRef.current = false;
+      // A fresh route means a fresh trip: the ETA stays hidden until the
+      // traveller actually starts moving again.
+      hasStartedMovingRef.current = false;
+      lastMovingSpeedRef.current = 0;
+      liveSpeedRef.current = 0;
+      lastProgressUiAtRef.current = 0;
 
       pickupMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
@@ -2278,9 +2461,14 @@ export default function NearbyAreaMap({
         pickup: operatorPickup?.address || operatorPickup?.name,
         to: routeTarget.address || routeTarget.name,
         distance: formatDistance(route.distanceMeters),
-        duration: formatDuration(route.durationSeconds),
+        // The ETA is intentionally withheld until movement is detected: the
+        // routing engine's static duration is not trustworthy for a live
+        // traveller, so we compute it from real GPS speed instead.
+        duration: hasOperatorRoutePlan ? formatDuration(route.durationSeconds) : NAV_MOVEMENT_SETTINGS.etaPlaceholder,
         legs: route.legs || [],
         routePlan: hasOperatorRoutePlan,
+        totalMeters: route.distanceMeters,
+        remainingMeters: route.distanceMeters,
         raw: route,
       });
       setTrafficInsight(getLiveTrafficInsight(trafficSnapshotsRef.current, route, "correct"));
@@ -2373,6 +2561,21 @@ export default function NearbyAreaMap({
           }
         }
 
+        // Live speed estimate that powers the ETA. Prefer the device's own
+        // speed reading; fall back to distance-over-time between GPS fixes.
+        const speedSeconds = Math.max(elapsedMs / 1000, 0.5);
+        const reportedSpeed = Number(position.coords.speed);
+        const derivedSpeed = previousRawPosition
+          ? distanceInMeters(previousRawPosition, rawLivePosition) / speedSeconds
+          : 0;
+        const instantSpeed = Number.isFinite(reportedSpeed) && reportedSpeed >= 0 ? reportedSpeed : derivedSpeed;
+        liveSpeedRef.current = liveSpeedRef.current > 0
+          ? lerp(liveSpeedRef.current, instantSpeed, NAV_MOVEMENT_SETTINGS.speedSmoothing)
+          : instantSpeed;
+        if (liveSpeedRef.current >= NAV_MOVEMENT_SETTINGS.movingSpeedMps) {
+          lastMovingSpeedRef.current = liveSpeedRef.current;
+        }
+
         lastRawPositionRef.current = rawLivePosition;
         lastRawTimestampRef.current = now;
 
@@ -2441,6 +2644,15 @@ export default function NearbyAreaMap({
             );
             return;
           }
+
+          // Count the remaining distance and ETA down as the traveller
+          // progresses along the drawn route.
+          const remainingMeters = getRemainingRouteMeters(
+            livePosition,
+            routeCoordinatesRef.current,
+            nearestRouteInfo.segmentIndex,
+          );
+          publishLiveRouteProgress(remainingMeters);
 
           const isMovingBackward =
             nearestRouteInfo.segmentIndex + GPS_SETTINGS.progressBacktrackSegments <
@@ -2687,6 +2899,40 @@ export default function NearbyAreaMap({
         style={{ touchAction: "pan-x pan-y", willChange: "transform" }}
       />
       <div className="pointer-events-none absolute inset-0 bg-slate-950/10" />
+
+      {mapTilesLoading && !mapBlocked ? (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+          <div className="flex items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-xs font-black text-slate-700 shadow-xl">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
+            Loading map...
+          </div>
+        </div>
+      ) : null}
+
+      {mapBlocked ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/45 px-6">
+          <div className="w-full max-w-xs rounded-3xl bg-white p-5 text-center shadow-2xl">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+              {mapBlocked === "offline" ? "📴" : "🐢"}
+            </div>
+            <p className="text-base font-black text-slate-950">
+              {mapBlocked === "offline" ? "You are offline" : "Weak network"}
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+              {mapBlocked === "offline"
+                ? "The map cannot load without a connection. It will refresh automatically once you are back online."
+                : "The map is struggling to load on this connection. It will keep trying, or you can retry now."}
+            </p>
+            <button
+              type="button"
+              onClick={() => setMapReloadKey((value) => value + 1)}
+              className="kt-pressable mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white"
+            >
+              Retry map
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {!focusMode && (
         <div className="pointer-events-none absolute left-3 top-28 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow sm:left-5 sm:top-28">

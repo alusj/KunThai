@@ -1,7 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { PackageCheck, ShoppingBag, ShoppingCart } from "lucide-react";
 
+import { useI18n } from "../../i18n";
+
 export default function MallEntryAnimation({ show }) {
+  const { t } = useI18n();
   const items = [
     { id: "bag", Icon: ShoppingBag },
     { id: "package", Icon: PackageCheck },
@@ -57,7 +60,7 @@ export default function MallEntryAnimation({ show }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 80 }}
               >
-                Entering UrMall
+                {t("urmall.shell.entering")}
               </motion.h2>
 
               <motion.p
@@ -66,7 +69,7 @@ export default function MallEntryAnimation({ show }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 80 }}
               >
-                Preparing products, sellers and orders...
+                {t("urmall.shell.preparing")}
               </motion.p>
             </div>
           </motion.div>

@@ -3,6 +3,7 @@
    Shows newly added products
 ========================= */
 
+import { useI18n } from "../../../../i18n";
 import BuyerProductGrid from "../BuyerProductGrid";
 
 export default function New({
@@ -15,6 +16,7 @@ export default function New({
   onToggleSaved,
   supplementalContent,
 }) {
+  const { t } = useI18n();
   return (
     <BuyerProductGrid
       products={products}
@@ -25,8 +27,8 @@ export default function New({
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
       supplementalContent={supplementalContent}
-      emptyTitle="No products yet"
-      emptyBody="Active seller products with stock will appear here for buyers."
+      emptyTitle={t("urmall.browse.emptyNewTitle")}
+      emptyBody={t("urmall.browse.emptyNewBody")}
     />
   );
 }

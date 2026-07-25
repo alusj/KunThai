@@ -3,6 +3,7 @@
    Popular & fast-selling products
 ========================= */
 
+import { useI18n } from "../../../../i18n";
 import BuyerProductGrid from "../BuyerProductGrid";
 
 export default function HighDemand({
@@ -15,6 +16,7 @@ export default function HighDemand({
   onToggleSaved,
   supplementalContent,
 }) {
+  const { t } = useI18n();
   return (
     <BuyerProductGrid
       products={products}
@@ -25,8 +27,8 @@ export default function HighDemand({
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
       supplementalContent={supplementalContent}
-      emptyTitle="No high-demand products yet"
-      emptyBody="Products with buyer views or sales will be ranked here."
+      emptyTitle={t("urmall.browse.emptyHighDemandTitle")}
+      emptyBody={t("urmall.browse.emptyHighDemandBody")}
     />
   );
 }

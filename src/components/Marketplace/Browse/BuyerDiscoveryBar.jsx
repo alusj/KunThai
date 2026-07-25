@@ -4,49 +4,55 @@ import {
   LOCATION_SCOPE_COUNTRY,
   LOCATION_SCOPE_NEARBY,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { useI18n } from "../../../i18n";
 
 const SORT_OPTIONS = [
-  { value: "newest", label: "Newest" },
-  { value: "popular", label: "Popular" },
-  { value: "price-low", label: "Price: low to high" },
-  { value: "price-high", label: "Price: high to low" },
-  { value: "discount", label: "Biggest deals" },
+  { value: "newest", labelKey: "urmall.browse.sortNewest" },
+  { value: "popular", labelKey: "urmall.browse.sortPopular" },
+  { value: "price-low", labelKey: "urmall.browse.sortPriceLow" },
+  { value: "price-high", labelKey: "urmall.browse.sortPriceHigh" },
+  { value: "discount", labelKey: "urmall.browse.sortDiscount" },
 ];
 
 // Business verticals selectable from the category filter alongside the retail
 // product categories.
 const VERTICAL_CATEGORIES = [
-  { value: "vertical:restaurant", label: "Restaurant" },
-  { value: "vertical:property_agent", label: "Real Estate" },
-  { value: "vertical:retail", label: "Retail" },
-  { value: "vertical:hotel", label: "Hotel" },
+  { value: "vertical:restaurant", labelKey: "urmall.browse.filterRestaurant" },
+  { value: "vertical:property_agent", labelKey: "urmall.browse.filterRealEstate" },
+  { value: "vertical:retail", labelKey: "urmall.browse.filterRetail" },
+  { value: "vertical:hotel", labelKey: "urmall.browse.filterHotel" },
 ];
 
 const LOCATION_SCOPES = [
-  { value: "", label: "All locations" },
-  { value: LOCATION_SCOPE_NEARBY, label: "Nearby" },
-  { value: LOCATION_SCOPE_COUNTRY, label: "Country" },
+  { value: "", labelKey: "urmall.browse.scopeAll" },
+  { value: LOCATION_SCOPE_NEARBY, labelKey: "urmall.browse.scopeNearby" },
+  { value: LOCATION_SCOPE_COUNTRY, labelKey: "urmall.browse.scopeCountry" },
 ];
 
-function getCategoryLabel(category) {
-  return VERTICAL_CATEGORIES.find((option) => option.value === category)?.label || category;
-}
-
-function getLocationLabel(location) {
-  return LOCATION_SCOPES.find((option) => option.value === location)?.label || location;
-}
-
 export default function BuyerDiscoveryBar({ filters, setFilters, categories = [], locations = [], onClear }) {
+  const { t } = useI18n();
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  function getCategoryLabel(category) {
+    const match = VERTICAL_CATEGORIES.find((option) => option.value === category);
+    return match ? t(match.labelKey) : category;
+  }
+
+  function getLocationLabel(location) {
+    const match = LOCATION_SCOPES.find((option) => option.value === location);
+    return match ? t(match.labelKey) : location;
+  }
+
   const activeFilters = useMemo(
     () => [
       filters.category !== "all" ? getCategoryLabel(filters.category) : "",
       filters.location ? getLocationLabel(filters.location) : "",
-      filters.delivery !== "all" ? filters.delivery === "delivery" ? "Delivery" : "Pickup" : "",
-      filters.minPrice ? `Min ${filters.minPrice}` : "",
-      filters.maxPrice ? `Max ${filters.maxPrice}` : "",
-      filters.sort !== "newest" ? SORT_OPTIONS.find((option) => option.value === filters.sort)?.label : "",
+      filters.delivery !== "all" ? filters.delivery === "delivery" ? t("urmall.browse.deliveryChip") : t("urmall.browse.pickupChip") : "",
+      filters.minPrice ? t("urmall.browse.minLabel", { value: filters.minPrice }) : "",
+      filters.maxPrice ? t("urmall.browse.maxLabel", { value: filters.maxPrice }) : "",
+      filters.sort !== "newest" ? t(SORT_OPTIONS.find((option) => option.value === filters.sort)?.labelKey || "") : "",
     ].filter(Boolean),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [filters],
   );
 
@@ -64,16 +70,16 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           onChange={(event) => updateField("category", event.target.value)}
           className="min-w-0 flex-1 bg-transparent outline-none"
         >
-          <option value="all">All categories</option>
-          <optgroup label="Business types">
+          <option value="all">{t("urmall.browse.allCategories")}</option>
+          <optgroup label={t("urmall.browse.businessTypesGroup")}>
             {VERTICAL_CATEGORIES.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </optgroup>
           {categories.length ? (
-            <optgroup label="Retail categories">
+            <optgroup label={t("urmall.browse.retailCategoriesGroup")}>
               {categories.map((category) => (
                 <option key={category} value={category}>
                   {category}
@@ -93,11 +99,11 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
         >
           {LOCATION_SCOPES.map((option) => (
             <option key={option.value || "all"} value={option.value}>
-              {option.label}
+              {t(option.labelKey)}
             </option>
           ))}
           {locations.length ? (
-            <optgroup label="Seller locations">
+            <optgroup label={t("urmall.browse.sellerLocationsGroup")}>
               {locations.map((location) => (
                 <option key={location} value={location}>
                   {location}
@@ -115,9 +121,9 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           onChange={(event) => updateField("delivery", event.target.value)}
           className="min-w-0 flex-1 bg-transparent outline-none"
         >
-          <option value="all">Delivery or pickup</option>
-          <option value="delivery">Delivery available</option>
-          <option value="pickup">Pickup available</option>
+          <option value="all">{t("urmall.browse.deliveryOrPickup")}</option>
+          <option value="delivery">{t("urmall.browse.deliveryAvailable")}</option>
+          <option value="pickup">{t("urmall.browse.pickupAvailable")}</option>
         </select>
       </label>
 
@@ -130,7 +136,7 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {t(option.labelKey)}
             </option>
           ))}
         </select>
@@ -147,7 +153,7 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           <input
             value={filters.search}
             onChange={(event) => updateField("search", event.target.value)}
-            placeholder="Search products, categories, or locations"
+            placeholder={t("urmall.browse.searchPlaceholder")}
             className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-500"
           />
         </div>
@@ -158,7 +164,7 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gray-950 px-4 text-sm font-black text-white lg:hidden"
         >
           <SlidersHorizontal size={17} />
-          Filters
+          {t("urmall.browse.filtersBtn")}
         </button>
 
         <div className="hidden grid-cols-2 gap-2 sm:grid-cols-4 lg:grid lg:flex-none">
@@ -171,14 +177,14 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           value={filters.minPrice}
           onChange={(event) => updateField("minPrice", event.target.value)}
           inputMode="decimal"
-          placeholder="Min price"
+          placeholder={t("urmall.browse.minPrice")}
           className="h-10 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
         />
         <input
           value={filters.maxPrice}
           onChange={(event) => updateField("maxPrice", event.target.value)}
           inputMode="decimal"
-          placeholder="Max price"
+          placeholder={t("urmall.browse.maxPrice")}
           className="h-10 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
         />
         <button
@@ -187,7 +193,7 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-emerald-700 sm:col-span-1"
         >
           <X size={15} />
-          Clear
+          {t("urmall.browse.clear")}
         </button>
       </div>
 
@@ -203,18 +209,18 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
 
       {filtersOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button type="button" aria-label="Close filters" onClick={() => setFiltersOpen(false)} className="absolute inset-0 bg-gray-950/45" />
+          <button type="button" aria-label={t("urmall.browse.closeFilters")} onClick={() => setFiltersOpen(false)} className="absolute inset-0 bg-gray-950/45" />
           <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-black uppercase text-emerald-700">UrMall</p>
-                <h3 className="text-lg font-black text-gray-950">Filter products</h3>
+                <h3 className="text-lg font-black text-gray-950">{t("urmall.browse.filterProducts")}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
-                aria-label="Close filters"
+                aria-label={t("urmall.browse.closeFilters")}
               >
                 <X size={18} />
               </button>
@@ -225,23 +231,23 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
                 value={filters.minPrice}
                 onChange={(event) => updateField("minPrice", event.target.value)}
                 inputMode="decimal"
-                placeholder="Min price"
+                placeholder={t("urmall.browse.minPrice")}
                 className="h-11 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
               />
               <input
                 value={filters.maxPrice}
                 onChange={(event) => updateField("maxPrice", event.target.value)}
                 inputMode="decimal"
-                placeholder="Max price"
+                placeholder={t("urmall.browse.maxPrice")}
                 className="h-11 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
               />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" onClick={onClear} className="h-11 rounded-lg border border-gray-200 text-sm font-black text-gray-700">
-                Clear
+                {t("urmall.browse.clear")}
               </button>
               <button type="button" onClick={() => setFiltersOpen(false)} className="h-11 rounded-lg bg-emerald-600 text-sm font-black text-white">
-                Show products
+                {t("urmall.browse.showProducts")}
               </button>
             </div>
           </div>

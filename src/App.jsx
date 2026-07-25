@@ -21,6 +21,7 @@ import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import { captureVisibilityInviteFromLocation, finalizeStoredVisibilityInvite } from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
+import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed } from "./Backend/services/networkService";
 import supabase from "./Backend/lib/supabaseClient";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
@@ -116,14 +117,6 @@ function readPreferredMainPage(fallback = "", userId = "") {
 function clearBrowserHash() {
   if (!window.location.hash) return;
   window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
-}
-
-function hasUnstableNetwork(connection) {
-  if (!connection) return false;
-  const effectiveType = String(connection.effectiveType || "").toLowerCase();
-  const downlink = Number(connection.downlink || 0);
-  const roundTripTime = Number(connection.rtt || 0);
-  return effectiveType === "slow-2g" || effectiveType === "2g" || (downlink > 0 && downlink < 0.75) || roundTripTime > 1200;
 }
 
 function readStoredMarketplaceNav() {
@@ -255,6 +248,15 @@ export default function App() {
     function announceNetworkState({ initial = false } = {}) {
       const online = navigator.onLine;
       const unstable = online && hasUnstableNetwork(connection);
+
+      // A screen with its own contextual network toasts (Area View) suppresses
+      // the global one. Keep the trackers current so no stale transition fires
+      // once suppression lifts.
+      if (areGlobalNetworkToastsSuppressed()) {
+        previousOnline = online;
+        previousUnstable = unstable;
+        return;
+      }
 
       if (!online && (initial || previousOnline)) {
         showToast("Network unavailable.", "warning", {

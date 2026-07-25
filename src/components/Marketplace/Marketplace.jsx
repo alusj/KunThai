@@ -9,6 +9,7 @@ import VerticalMarketplace from "./VerticalMarketplace";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
+import { useI18n } from "../../i18n";
 import { useSellerHeader } from "../../Backend/hooks/useSellerHeader";
 import { peekSellerOrdersAreaViewReturn } from "../../Backend/services/marketplace/navigationHandoffService";
 import {
@@ -19,6 +20,7 @@ import {
 const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 
 export default function Marketplace({ nav, setNav, onActivityChange, onNotificationCountChange }) {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("new");
   const [activeParent, setActiveParent] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -232,8 +234,8 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
 
       <UtilityScreen
         open={activeUtility === "messages"}
-        title="Messages"
-        subtitle="Buyer conversations with UrMall sellers"
+        title={t("urmall.shell.messagesTitle")}
+        subtitle={t("urmall.shell.messagesSubtitle")}
         onClose={() => setActiveUtility(null)}
         hideHeader
       >
@@ -244,6 +246,7 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
 }
 
 function UtilityScreen({ children, hideHeader = false, open, onClose, subtitle, title }) {
+  const { t } = useI18n();
   useBodyScrollLock(open);
 
   useEffect(() => {
@@ -270,7 +273,7 @@ function UtilityScreen({ children, hideHeader = false, open, onClose, subtitle, 
       >
         {!hideHeader ? (
           <header className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
-            <AppBackTab onBack={onClose} label={`Back to UrMall`} historyKey={`urmall-${title}`} />
+            <AppBackTab onBack={onClose} label={t("urmall.shell.backToUrMall")} historyKey={`urmall-${title}`} />
             <div className="min-w-0">
               <p className="text-xs font-black uppercase text-emerald-700">UrMall</p>
               <h2 className="truncate text-lg font-black text-gray-950">{title}</h2>

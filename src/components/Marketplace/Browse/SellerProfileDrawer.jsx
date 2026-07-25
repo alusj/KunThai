@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import AppBackTab from "../../shared/AppBackTab";
+import { useI18n, t } from "../../../i18n";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { buildWhatsAppUrl } from "../../../Backend/services/marketplace/whatsappLink";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
@@ -49,7 +50,7 @@ function StarRatingInput({ value, onChange }) {
           type="button"
           onClick={() => onChange(rating)}
           className={rating <= value ? "text-amber-500" : "text-gray-300"}
-          aria-label={`Rate UrMall ${rating}`}
+          aria-label={t("urmall.seller.rateStore", { count: rating })}
         >
           <Star size={22} fill="currentColor" />
         </button>
@@ -89,18 +90,18 @@ function toOptionalCoordinate(value) {
 
 function getSellerName(seller) {
   const safeSeller = asObject(seller);
-  return safeSeller.businessName || safeSeller.business_name || safeSeller.name || safeSeller.full_name || "UrMall seller";
+  return safeSeller.businessName || safeSeller.business_name || safeSeller.name || safeSeller.full_name || t("urmall.browse.sellerFallback");
 }
 
 function getSellerCategory(seller, catalog) {
   const safeSeller = asObject(seller);
   const safeCatalog = asArray(catalog);
-  return safeSeller.category || safeSeller.businessCategory || safeSeller.business_type || safeCatalog[0]?.category || "General Seller";
+  return safeSeller.category || safeSeller.businessCategory || safeSeller.business_type || safeCatalog[0]?.category || t("urmall.seller.generalSeller");
 }
 
 function getFullAddress(seller) {
   const safeSeller = asObject(seller);
-  return [safeSeller.address, safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || "Address not added yet";
+  return [safeSeller.address, safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || t("urmall.seller.addressNotAdded");
 }
 
 function getLocationSearchText(location, fallback = "") {
@@ -115,34 +116,34 @@ function getVerificationStatus(seller) {
 
   if (["verified", "approved", "true"].includes(rawStatus)) {
     return {
-      label: "Verified Seller",
+      label: t("urmall.seller.verifiedSeller"),
       className: "border-emerald-100 bg-emerald-50 text-emerald-700",
     };
   }
 
   if (["rejected", "declined", "failed"].includes(rawStatus)) {
     return {
-      label: "Verification Needs Attention",
+      label: t("urmall.seller.verificationAttention"),
       className: "border-red-100 bg-red-50 text-red-700",
     };
   }
 
   if (["submitted", "review", "in_review", "under_review"].includes(rawStatus)) {
     return {
-      label: "Verification In Review",
+      label: t("urmall.seller.verificationInReview"),
       className: "border-sky-100 bg-sky-50 text-sky-700",
     };
   }
 
   if (["not_verified", "notverified", "false", "none"].includes(rawStatus)) {
     return {
-      label: "Not Verified",
+      label: t("urmall.seller.notVerified"),
       className: "border-red-100 bg-red-50 text-red-700",
     };
   }
 
   return {
-    label: "Verification Pending",
+    label: t("urmall.seller.verificationPending"),
     className: "border-amber-100 bg-amber-50 text-amber-700",
   };
 }
@@ -175,8 +176,8 @@ function getStoreStatus(seller) {
 
   if (openMinutes == null || closeMinutes == null) {
     return {
-      label: "Hours not added",
-      detail: "Business hours not added yet",
+      label: t("urmall.seller.hoursNotAdded"),
+      detail: t("urmall.seller.hoursNotAddedDetail"),
       open: false,
       neutral: true,
     };
@@ -200,7 +201,7 @@ function getStoreStatus(seller) {
   const open = worksToday && withinHours;
 
   return {
-    label: open ? "Open Now" : "Closed Now",
+    label: open ? t("urmall.seller.openNow") : t("urmall.seller.closedNow"),
     detail: `${formatClock(openTime)} - ${formatClock(closeTime)}`,
     open,
     neutral: false,
@@ -209,7 +210,7 @@ function getStoreStatus(seller) {
 
 function getResponseTime(seller) {
   const safeSeller = asObject(seller);
-  return safeSeller.responseTime || safeSeller.response_time || "Usually responds in 5 mins";
+  return safeSeller.responseTime || safeSeller.response_time || t("urmall.seller.respondsSoon");
 }
 
 function getDeliveryMethods(seller, catalog) {
@@ -217,10 +218,10 @@ function getDeliveryMethods(seller, catalog) {
   const safeCatalog = asArray(catalog);
   const methods = [];
   if (safeSeller.deliveryEnabled || safeSeller.delivery_enabled || safeSeller.delivery_available || safeCatalog.some((item) => item?.deliveryAvailable)) {
-    methods.push("Delivery");
+    methods.push(t("urmall.seller.deliveryMethod"));
   }
-  if (safeSeller.pickupEnabled || safeSeller.pickup_enabled || safeCatalog.some((item) => item?.pickupAvailable)) methods.push("Pickup");
-  return methods.length ? methods.join(", ") : "Delivery methods not added yet";
+  if (safeSeller.pickupEnabled || safeSeller.pickup_enabled || safeCatalog.some((item) => item?.pickupAvailable)) methods.push(t("urmall.seller.pickupMethod"));
+  return methods.length ? methods.join(", ") : t("urmall.seller.deliveryMethodsNotAdded");
 }
 
 function getPaymentOptions(seller) {
@@ -228,13 +229,13 @@ function getPaymentOptions(seller) {
   const options = safeSeller.paymentOptions || safeSeller.payment_options;
   if (Array.isArray(options) && options.length) return options.join(", ");
   if (typeof options === "string" && options.trim()) return options;
-  return "Payment options not added yet";
+  return t("urmall.seller.paymentNotAdded");
 }
 
 function formatJoinedDate(value) {
-  if (!value) return "Joined date not available";
+  if (!value) return t("urmall.seller.joinedNotAvailable");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Joined date not available";
+  if (Number.isNaN(date.getTime())) return t("urmall.seller.joinedNotAvailable");
   return new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(date);
 }
 
@@ -258,8 +259,8 @@ function distanceInKm(from, to) {
 
 function formatDistanceLabel(km) {
   if (km == null) return "";
-  if (km < 1) return `${Math.max(1, Math.round(km * 1000))} m away`;
-  return `${km < 10 ? km.toFixed(1) : Math.round(km)} km away`;
+  if (km < 1) return t("urmall.seller.metersAway", { value: Math.max(1, Math.round(km * 1000)) });
+  return t("urmall.seller.kmAway", { value: km < 10 ? km.toFixed(1) : Math.round(km) });
 }
 
 function EmptyState({ icon, title, text }) {
@@ -299,7 +300,7 @@ function InfoRow({ icon, label, value, href = "" }) {
             {value}
           </a>
         ) : (
-          <span className="mt-0.5 block break-words text-sm font-bold text-gray-800">{value || "Not added yet"}</span>
+          <span className="mt-0.5 block break-words text-sm font-bold text-gray-800">{value || t("urmall.seller.notAddedYet")}</span>
         )}
       </span>
     </div>
@@ -373,14 +374,14 @@ function ProductCard({
   onCopy,
   onShare,
 }) {
-  const productName = product?.name || "Unnamed product";
+  const productName = product?.name || t("urmall.seller.unnamedProduct");
   const productPrice = toSafeNumber(product?.price, 0);
   const productDiscountPrice = product?.discountPrice === null || product?.discountPrice === undefined ? null : toSafeNumber(product.discountPrice, 0);
   const hasDiscount = productDiscountPrice !== null && productDiscountPrice < productPrice;
   const displayPrice = hasDiscount ? productDiscountPrice : productPrice;
   const productMoneyScope = product?.currency || product?.countryCode || product?.country;
   const productStock = toSafeNumber(product?.stock, 0);
-  const stockLabel = productStock > 0 ? `${productStock} in stock` : "Out of stock";
+  const stockLabel = productStock > 0 ? t("urmall.detail.inStock", { count: productStock }) : t("urmall.seller.outOfStock");
 
   return (
     <article
@@ -400,13 +401,13 @@ function ProductCard({
           <img src={product.imageUrl} alt={productName} className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
         ) : (
           <div className="flex aspect-square w-full items-center justify-center text-xs font-black text-gray-400">
-            Product
+            {t("urmall.seller.productPlaceholder")}
           </div>
         )}
         {product.deliveryAvailable ? (
           <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[10px] font-black text-emerald-700 shadow">
             <Truck size={11} />
-            Delivery
+            {t("urmall.browse.deliveryChip")}
           </span>
         ) : null}
       </div>
@@ -415,7 +416,7 @@ function ProductCard({
         <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="line-clamp-2 text-sm font-black text-gray-950 sm:text-base">{productName}</h3>
-            <p className="mt-1 truncate text-xs font-bold text-gray-500">{product.category || "General"}</p>
+            <p className="mt-1 truncate text-xs font-bold text-gray-500">{product.category || t("urmall.seller.generalCategory")}</p>
           </div>
         </div>
 
@@ -453,7 +454,7 @@ function ProductCard({
           className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition ${
             saved ? "border-rose-100 bg-rose-50 text-rose-600" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
           }`}
-          aria-label={saved ? `Unsave ${productName}` : `Save ${productName}`}
+          aria-label={saved ? t("urmall.browse.unsave", { name: productName }) : t("urmall.browse.save", { name: productName })}
         >
           <Heart size={17} fill={saved ? "currentColor" : "none"} />
         </button>
@@ -465,17 +466,17 @@ function ProductCard({
               onOpenMenu();
             }}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
-            aria-label={`Open actions for ${productName}`}
+            aria-label={t("urmall.seller.openActions", { name: productName })}
           >
             <MoreHorizontal size={17} />
           </button>
           {openMenu ? (
             <div className="absolute right-0 top-11 z-20 w-52 rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl">
-              <MenuAction icon={Eye} label="View product" onClick={onView} />
-              <MenuAction icon={ShoppingCart} label="Add to cart" onClick={onAddToCart} />
-              <MenuAction icon={saved ? Check : Heart} label={saved ? "Unsave product" : "Save product"} onClick={onToggleSaved} />
-              <MenuAction icon={copied ? Check : Copy} label={copied ? "Link copied" : "Copy link"} onClick={onCopy} />
-              <MenuAction icon={Share2} label="Share product" onClick={onShare} />
+              <MenuAction icon={Eye} label={t("urmall.seller.menuView")} onClick={onView} />
+              <MenuAction icon={ShoppingCart} label={t("urmall.seller.menuAddToCart")} onClick={onAddToCart} />
+              <MenuAction icon={saved ? Check : Heart} label={saved ? t("urmall.seller.menuUnsave") : t("urmall.seller.menuSave")} onClick={onToggleSaved} />
+              <MenuAction icon={copied ? Check : Copy} label={copied ? t("urmall.seller.menuLinkCopied") : t("urmall.seller.menuCopyLink")} onClick={onCopy} />
+              <MenuAction icon={Share2} label={t("urmall.seller.menuShare")} onClick={onShare} />
             </div>
           ) : null}
         </div>
@@ -514,13 +515,14 @@ export default function SellerProfileDrawer({
   sellerSaved = false,
   showSaveStore = true,
 }) {
+  useI18n();
   const [activeView, setActiveView] = useState("catalog");
   const [catalog, setCatalog] = useState([]);
   const [reviews, setReviews] = useState({ rating: 0, reviewCount: 0, reviews: [] });
   const [reviewEligibility, setReviewEligibility] = useState({
     eligible: false,
     orderId: null,
-    reason: "Order from this store and wait for the seller to respond before adding a review.",
+    reason: t("urmall.detail.reasonStore"),
   });
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [rating, setRating] = useState(5);
@@ -535,7 +537,7 @@ export default function SellerProfileDrawer({
   const [verificationOpen, setVerificationOpen] = useState(false);
   const safeSeller = useMemo(() => asObject(seller), [seller]);
   const sellerWhatsAppUrl = useMemo(
-    () => buildWhatsAppUrl(safeSeller.whatsapp, `Hi ${safeSeller.name || "there"}, I found your store on KunThai.`),
+    () => buildWhatsAppUrl(safeSeller.whatsapp, t("urmall.seller.whatsappGreeting", { name: safeSeller.name || t("urmall.seller.thereFallback") })),
     [safeSeller.whatsapp, safeSeller.name],
   );
   const safeCatalog = useMemo(() => asArray(catalog).filter((item) => item && typeof item === "object"), [catalog]);
@@ -560,7 +562,7 @@ export default function SellerProfileDrawer({
       setReviewEligibility({
         eligible: false,
         orderId: null,
-        reason: "Order from this store and wait for the seller to respond before adding a review.",
+        reason: t("urmall.detail.reasonStore"),
       });
 
       try {
@@ -571,7 +573,7 @@ export default function SellerProfileDrawer({
           fetchMarketplaceReviewEligibility({ businessId: safeSeller.id, reviewType: "marketplace" }).catch(() => ({
             eligible: false,
             orderId: null,
-            reason: "Order from this store and wait for the seller to respond before adding a review.",
+            reason: t("urmall.detail.reasonStore"),
           })),
         ]);
         if (alive) {
@@ -585,7 +587,7 @@ export default function SellerProfileDrawer({
           setReviewEligibility(eligibility);
         }
       } catch (err) {
-        if (alive) onNotice?.(err.message || "Unable to load seller profile.", "danger");
+        if (alive) onNotice?.(err.message || t("urmall.seller.loadProfileFailed"), "danger");
       } finally {
         if (alive) setLoadingProfile(false);
       }
@@ -647,7 +649,7 @@ export default function SellerProfileDrawer({
   const sellerCategory = useMemo(() => getSellerCategory(safeSeller, safeCatalog), [safeCatalog, safeSeller]);
   const fullAddress = useMemo(() => getFullAddress(safeSeller), [safeSeller]);
   const cityCountry = useMemo(
-    () => [safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || "City and country not added yet",
+    () => [safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || t("urmall.seller.cityCountryNotAdded"),
     [safeSeller],
   );
   const hasFullAddress = Boolean(String(safeSeller.address || "").trim());
@@ -687,7 +689,7 @@ export default function SellerProfileDrawer({
     return [
       {
         id: "business-row",
-        label: "Main store",
+        label: t("urmall.seller.mainStore"),
         address: safeSeller.address || "",
         city: safeSeller.city || "",
         country: safeSeller.country || "",
@@ -734,10 +736,10 @@ export default function SellerProfileDrawer({
     event.preventDefault();
 
     try {
-      if (!safeSeller.id) throw new Error("Choose a valid seller.");
+      if (!safeSeller.id) throw new Error(t("urmall.seller.chooseValidSeller"));
       await submitMarketplaceReview({ ...safeSeller, name: sellerName }, rating, comment);
       setComment("");
-      onNotice?.("UrMall review submitted.");
+      onNotice?.(t("urmall.seller.reviewSubmitted"));
       const nextReviews = await fetchBuyerReviews({ businessId: safeSeller.id, reviewType: "marketplace" });
       setReviews({
         rating: toSafeNumber(nextReviews?.rating, 0),
@@ -749,7 +751,7 @@ export default function SellerProfileDrawer({
         reviewType: "marketplace",
       }));
     } catch (err) {
-      onNotice?.(err.message || "Unable to submit UrMall review.", "danger");
+      onNotice?.(err.message || t("urmall.seller.reviewSubmitFailed"), "danger");
     }
   }
 
@@ -760,14 +762,14 @@ export default function SellerProfileDrawer({
     try {
       await sendBuyerMarketplaceMessage({
         seller: { ...safeSeller, name: sellerName },
-        topic: `Message for ${sellerName}`,
+        topic: t("urmall.seller.messageTopic", { name: sellerName }),
         message: messageText,
       });
       setMessageText("");
       setMessagePanelOpen(false);
-      onNotice?.("Message sent to seller.");
+      onNotice?.(t("urmall.seller.messageSent"));
     } catch (err) {
-      onNotice?.(err.message || "Unable to message seller.", "danger");
+      onNotice?.(err.message || t("urmall.browse.messageFailed"), "danger");
     }
   }
 
@@ -778,7 +780,7 @@ export default function SellerProfileDrawer({
       await navigator.clipboard.writeText(link);
       setCopiedProductId(product.id);
       window.setTimeout(() => setCopiedProductId(null), 1500);
-      onNotice?.("Product link copied.");
+      onNotice?.(t("urmall.seller.productLinkCopied"));
     } catch {
       onNotice?.(link, "info");
     }
@@ -786,10 +788,10 @@ export default function SellerProfileDrawer({
 
   async function shareProduct(product) {
     const link = productLink(product);
-    const productName = product?.name || "this product";
+    const productName = product?.name || t("urmall.seller.thisProduct");
     const sharePayload = {
       title: productName,
-      text: `View ${productName} on KunThai UrMall`,
+      text: t("urmall.seller.shareProductText", { name: productName }),
       url: link,
     };
 
@@ -803,14 +805,14 @@ export default function SellerProfileDrawer({
     }
 
     await copyProduct(product);
-    onNotice?.("Sharing is not available here, so the product link was copied.", "info");
+    onNotice?.(t("urmall.seller.shareUnavailable"), "info");
   }
 
   async function shareSeller() {
     const link = sellerLink(safeSeller);
     const payload = {
       title: sellerName,
-      text: `View ${sellerName} on KunThai UrMall`,
+      text: t("urmall.seller.shareSellerText", { name: sellerName }),
       url: link,
     };
 
@@ -826,7 +828,7 @@ export default function SellerProfileDrawer({
     try {
       if (!navigator.clipboard) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(link);
-      onNotice?.("Store link copied.");
+      onNotice?.(t("urmall.seller.storeLinkCopied"));
     } catch {
       onNotice?.(link, "info");
     }
@@ -839,7 +841,7 @@ export default function SellerProfileDrawer({
     const lng = toOptionalCoordinate(location?.longitude);
     const locationAddress = getLocationSearchText(location, fullAddress);
     if ((lat === null || lng === null) && !locationAddress) {
-      const message = "Map location is not available for this store address yet.";
+      const message = t("urmall.seller.mapUnavailable");
       setLocationWarning(message);
       onNotice?.(message, "danger");
       return;
@@ -880,7 +882,7 @@ export default function SellerProfileDrawer({
   // which may not be the main store.
   function handleLocateStore() {
     if (!nearestStoreLocation) {
-      const message = "Location is not available for this seller.";
+      const message = t("urmall.seller.locationUnavailable");
       setLocationWarning(message);
       onNotice?.(message, "danger");
       return;
@@ -895,7 +897,7 @@ export default function SellerProfileDrawer({
 
   function handleSaveStore() {
     if (!safeSeller.id) {
-      onNotice?.("This store cannot be saved yet.", "danger");
+      onNotice?.(t("urmall.browse.storeCannotSave"), "danger");
       return;
     }
     onToggleSavedSeller?.({ ...safeSeller, name: sellerName });
@@ -906,9 +908,9 @@ export default function SellerProfileDrawer({
       <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
       <aside className="kt-page-fade-slide fixed inset-0 z-[999] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50">
         <header className="flex h-16 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 shadow-sm">
-          <AppBackTab onBack={onClose} label="Back to product" historyKey="marketplace-seller-profile" />
+          <AppBackTab onBack={onClose} label={t("urmall.detail.backToProduct")} historyKey="marketplace-seller-profile" />
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase text-emerald-700">Seller UrMall</p>
+            <p className="text-xs font-black uppercase text-emerald-700">{t("urmall.seller.sellerEyebrow")}</p>
             <h2 className="truncate text-lg font-black text-gray-950">{sellerName}</h2>
           </div>
         </header>
@@ -921,7 +923,7 @@ export default function SellerProfileDrawer({
                 onClick={() => setVerificationOpen(true)}
                 className="flex w-full items-center justify-between gap-3 border-b border-gray-100 bg-white px-3 py-2.5 text-left transition hover:bg-gray-50 sm:px-5"
               >
-                <span className="text-[11px] font-black uppercase tracking-wide text-gray-400">Verification Status</span>
+                <span className="text-[11px] font-black uppercase tracking-wide text-gray-400">{t("urmall.seller.verificationStatusLabel")}</span>
                 <span className={`inline-flex max-w-[70%] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${verificationStatus.className}`}>
                   <BadgeCheck size={14} />
                   <span className="truncate">{verificationStatus.label}</span>
@@ -932,13 +934,13 @@ export default function SellerProfileDrawer({
                 {safeSeller.bannerUrl ? <img src={safeSeller.bannerUrl} alt="" className="h-full w-full object-cover opacity-75" /> : null}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                 <div className="absolute bottom-3 right-3 flex max-w-[calc(100%-1.5rem)] items-center justify-end gap-2">
-                  <SellerActionIcon icon={MessageCircle} label="Message seller" onClick={openMessagePanel} />
-                  {showSaveStore ? <SellerActionIcon icon={Heart} label={sellerSaved ? "Saved store" : "Save store"} active={sellerSaved} onClick={handleSaveStore} /> : null}
-                  <SellerActionIcon icon={Share2} label="Share store" onClick={shareSeller} />
+                  <SellerActionIcon icon={MessageCircle} label={t("urmall.detail.messageSellerTitle")} onClick={openMessagePanel} />
+                  {showSaveStore ? <SellerActionIcon icon={Heart} label={sellerSaved ? t("urmall.seller.savedStore") : t("urmall.seller.saveStore")} active={sellerSaved} onClick={handleSaveStore} /> : null}
+                  <SellerActionIcon icon={Share2} label={t("urmall.seller.shareStore")} onClick={shareSeller} />
                   {safeSeller.whatsappEnabled && sellerWhatsAppUrl ? (
-                    <SellerActionIcon icon={FaWhatsapp} label="Chat on WhatsApp" href={sellerWhatsAppUrl} />
+                    <SellerActionIcon icon={FaWhatsapp} label={t("urmall.seller.chatWhatsApp")} href={sellerWhatsAppUrl} />
                   ) : null}
-                  <SellerActionIcon icon={Phone} label="Call seller" href={safeSeller.phone ? `tel:${safeSeller.phone}` : ""} disabled={!safeSeller.phone} />
+                  <SellerActionIcon icon={Phone} label={t("urmall.seller.callSeller")} href={safeSeller.phone ? `tel:${safeSeller.phone}` : ""} disabled={!safeSeller.phone} />
                 </div>
               </div>
 
@@ -955,7 +957,7 @@ export default function SellerProfileDrawer({
                       className="mb-1 inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
                     >
                       <Navigation size={18} />
-                      <span className="truncate">Locate</span>
+                      <span className="truncate">{t("urmall.seller.locate")}</span>
                     </button>
                   </div>
 
@@ -968,7 +970,7 @@ export default function SellerProfileDrawer({
                       <p className="break-words text-sm font-black text-gray-800">{sellerCategory}</p>
                       {safeSeller.publicBusinessId || safeSeller.public_business_id ? (
                         <p className="break-words text-xs font-black uppercase tracking-wide text-emerald-700">
-                          UrMall ID: {safeSeller.publicBusinessId || safeSeller.public_business_id}
+                          {t("urmall.seller.urmallId", { id: safeSeller.publicBusinessId || safeSeller.public_business_id })}
                         </p>
                       ) : null}
                       <p className="break-words text-sm font-semibold text-gray-500">{cityCountry}</p>
@@ -978,7 +980,7 @@ export default function SellerProfileDrawer({
                     <div className="mt-3 flex max-w-full flex-wrap gap-2">
                       <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">
                         <Star size={14} fill="currentColor" />
-                        <span className="truncate">{ratingValue ? ratingValue.toFixed(1) : "0.0"} from {reviewCount} review{reviewCount === 1 ? "" : "s"}</span>
+                        <span className="truncate">{t(reviewCount === 1 ? "urmall.detail.ratingFromReviewsOne" : "urmall.detail.ratingFromReviewsOther", { rating: ratingValue ? ratingValue.toFixed(1) : "0.0", count: reviewCount })}</span>
                       </span>
                       <span
                         className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black ${
@@ -995,7 +997,7 @@ export default function SellerProfileDrawer({
                       {deliveryAvailable ? (
                         <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
                           <Truck size={14} />
-                          <span className="truncate">Delivery Available</span>
+                          <span className="truncate">{t("urmall.seller.deliveryAvailableChip")}</span>
                         </span>
                       ) : null}
                       <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-700">
@@ -1015,7 +1017,7 @@ export default function SellerProfileDrawer({
                 {storeLocations.length > 1 ? (
                   <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3">
                     <p className="text-[11px] font-black uppercase tracking-wide text-gray-400">
-                      Store locations ({storeLocations.length})
+                      {t("urmall.seller.storeLocationsCount", { count: storeLocations.length })}
                     </p>
                     <div className="mt-2 space-y-2">
                       {storeLocations.map((location, index) => {
@@ -1030,15 +1032,15 @@ export default function SellerProfileDrawer({
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-black text-gray-950">{location.label || "Store"}</p>
+                                <p className="text-sm font-black text-gray-950">{location.label || t("urmall.seller.storeFallback")}</p>
                                 {isNearest ? (
                                   <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">
-                                    Nearest to you
+                                    {t("urmall.seller.nearestToYou")}
                                   </span>
                                 ) : null}
                               </div>
                               <p className="mt-0.5 break-words text-xs font-semibold text-gray-500">
-                                {[location.address, location.city, location.country].filter(Boolean).join(", ") || "Pinned on the map"}
+                                {[location.address, location.city, location.country].filter(Boolean).join(", ") || t("urmall.seller.pinnedOnMap")}
                               </p>
                               {rowDistance ? (
                                 <p className="mt-0.5 text-[11px] font-black text-sky-700">{rowDistance}</p>
@@ -1048,8 +1050,8 @@ export default function SellerProfileDrawer({
                               type="button"
                               onClick={() => locateStoreLocation(location)}
                               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
-                              aria-label={`Locate ${location.label || "store"}`}
-                              title={`Locate ${location.label || "store"}`}
+                              aria-label={t("urmall.seller.locateNamed", { label: location.label || t("urmall.seller.storeFallback") })}
+                              title={t("urmall.seller.locateNamed", { label: location.label || t("urmall.seller.storeFallback") })}
                             >
                               <Navigation size={17} />
                             </button>
@@ -1072,9 +1074,9 @@ export default function SellerProfileDrawer({
             <section className="w-full max-w-full space-y-4 overflow-x-hidden">
               <div className="sticky top-0 z-10 -mx-3 border-y border-gray-100 bg-gray-50/95 px-3 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
                 <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-                  <TabButton icon={PackageSearch} label="Catalog" active={activeView === "catalog"} onClick={() => setActiveView("catalog")} />
-                  <TabButton icon={Star} label="Reviews" active={activeView === "reviews"} onClick={() => setActiveView("reviews")} />
-                  <TabButton icon={Info} label="About" active={activeView === "about"} onClick={() => setActiveView("about")} />
+                  <TabButton icon={PackageSearch} label={t("urmall.seller.tabCatalog")} active={activeView === "catalog"} onClick={() => setActiveView("catalog")} />
+                  <TabButton icon={Star} label={t("urmall.seller.tabReviews")} active={activeView === "reviews"} onClick={() => setActiveView("reviews")} />
+                  <TabButton icon={Info} label={t("urmall.seller.tabAbout")} active={activeView === "about"} onClick={() => setActiveView("about")} />
                 </div>
               </div>
 
@@ -1117,7 +1119,7 @@ export default function SellerProfileDrawer({
                         ))}
                       </div>
                     ) : (
-                      <EmptyState icon={PackageSearch} title="No products listed yet." text={`${sellerName} has not published active catalog products yet.`} />
+                      <EmptyState icon={PackageSearch} title={t("urmall.seller.noProductsTitle")} text={t("urmall.seller.noProductsText", { name: sellerName })} />
                     )}
                   </section>
               ) : null}
@@ -1127,11 +1129,11 @@ export default function SellerProfileDrawer({
                     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h3 className="font-black text-gray-950">Seller Reviews</h3>
+                          <h3 className="font-black text-gray-950">{t("urmall.seller.sellerReviews")}</h3>
                           <p className="mt-1 text-sm font-bold text-gray-500">
                             {reviewCount
-                              ? `${ratingValue.toFixed(1)} from ${reviewCount} review${reviewCount === 1 ? "" : "s"}`
-                              : "No reviews yet."}
+                              ? t(reviewCount === 1 ? "urmall.detail.ratingFromReviewsOne" : "urmall.detail.ratingFromReviewsOther", { rating: ratingValue.toFixed(1), count: reviewCount })
+                              : t("urmall.seller.noReviews")}
                           </p>
                         </div>
                         <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-2 text-sm font-black text-amber-700">
@@ -1143,18 +1145,18 @@ export default function SellerProfileDrawer({
 
                     {reviewEligibility.eligible ? (
                       <form onSubmit={submitReview} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                        <p className="text-sm font-black text-gray-950">Review this store</p>
+                        <p className="text-sm font-black text-gray-950">{t("urmall.seller.reviewThisStore")}</p>
                         <div className="mt-3">
                           <StarRatingInput value={rating} onChange={setRating} />
                         </div>
                         <textarea
                           value={comment}
                           onChange={(event) => setComment(event.target.value)}
-                          placeholder="Share your UrMall experience"
+                          placeholder={t("urmall.seller.reviewPlaceholder")}
                           className="mt-3 min-h-24 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
                         />
                         <button type="submit" className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700">
-                          Submit Review
+                          {t("urmall.seller.submitReviewBtn")}
                         </button>
                       </form>
                     ) : null}
@@ -1170,7 +1172,7 @@ export default function SellerProfileDrawer({
                                 {review.rating}/5
                               </p>
                             </div>
-                            <p className="mt-2 text-sm font-medium text-gray-600">{review.comment || "No comment added."}</p>
+                            <p className="mt-2 text-sm font-medium text-gray-600">{review.comment || t("urmall.detail.noComment")}</p>
                           </div>
                         ))}
                         {!reviewEligibility.eligible ? (
@@ -1180,7 +1182,7 @@ export default function SellerProfileDrawer({
                         ) : null}
                       </div>
                     ) : (
-                      <EmptyState icon={Star} title="No reviews yet." text={reviewEligibility.reason} />
+                      <EmptyState icon={Star} title={t("urmall.seller.noReviews")} text={reviewEligibility.reason} />
                     )}
                   </section>
               ) : null}
@@ -1188,24 +1190,24 @@ export default function SellerProfileDrawer({
               {activeView === "about" ? (
                   <section className="space-y-4">
                     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                      <h3 className="font-black text-gray-950">About {sellerName}</h3>
+                      <h3 className="font-black text-gray-950">{t("urmall.seller.aboutName", { name: sellerName })}</h3>
                       <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-                        {safeSeller.description || "This seller has not added a business description yet."}
+                        {safeSeller.description || t("urmall.seller.noDescription")}
                       </p>
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
-                      <InfoRow icon={MapPin} label="Full Address" value={fullAddress} />
-                      <InfoRow icon={Clock} label="Opening Hours" value={storeStatus.detail} />
-                      <InfoRow icon={Phone} label="Phone Number" value={safeSeller.phone || "Phone number not added yet"} />
+                      <InfoRow icon={MapPin} label={t("urmall.seller.fullAddressLabel")} value={fullAddress} />
+                      <InfoRow icon={Clock} label={t("urmall.seller.openingHours")} value={storeStatus.detail} />
+                      <InfoRow icon={Phone} label={t("urmall.seller.phoneNumberLabel")} value={safeSeller.phone || t("urmall.seller.phoneNotAdded")} />
                       {safeSeller.whatsappEnabled && sellerWhatsAppUrl ? (
-                        <InfoRow icon={FaWhatsapp} label="WhatsApp" value="Chat on WhatsApp" href={sellerWhatsAppUrl} />
+                        <InfoRow icon={FaWhatsapp} label={t("urmall.seller.whatsapp")} value={t("urmall.seller.chatWhatsApp")} href={sellerWhatsAppUrl} />
                       ) : null}
-                      <InfoRow icon={CalendarDays} label="Joined" value={formatJoinedDate(safeSeller.joinedAt || safeSeller.created_at)} />
-                      <InfoRow icon={Store} label="Business Category" value={sellerCategory} />
-                      <InfoRow icon={Truck} label="Delivery Methods" value={getDeliveryMethods(safeSeller, safeCatalog)} />
-                      <InfoRow icon={CreditCard} label="Payment Options" value={getPaymentOptions(safeSeller)} />
-                      <InfoRow icon={Mail} label="Email" value={safeSeller.email || "Email not added yet"} />
+                      <InfoRow icon={CalendarDays} label={t("urmall.seller.joined")} value={formatJoinedDate(safeSeller.joinedAt || safeSeller.created_at)} />
+                      <InfoRow icon={Store} label={t("urmall.seller.businessCategory")} value={sellerCategory} />
+                      <InfoRow icon={Truck} label={t("urmall.seller.deliveryMethods")} value={getDeliveryMethods(safeSeller, safeCatalog)} />
+                      <InfoRow icon={CreditCard} label={t("urmall.seller.paymentOptions")} value={getPaymentOptions(safeSeller)} />
+                      <InfoRow icon={Mail} label={t("urmall.seller.email")} value={safeSeller.email || t("urmall.seller.emailNotAdded")} />
                     </div>
                   </section>
               ) : null}
@@ -1218,7 +1220,7 @@ export default function SellerProfileDrawer({
             <section className="w-full max-w-lg rounded-lg border border-gray-200 bg-white p-4 shadow-2xl">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase text-emerald-700">Message seller</p>
+                  <p className="text-xs font-black uppercase text-emerald-700">{t("urmall.detail.messageSellerTitle")}</p>
                   <h3 className="truncate text-lg font-black text-gray-950">{sellerName}</h3>
                   <p className="mt-1 text-sm font-semibold text-gray-500">{getResponseTime(safeSeller)}</p>
                 </div>
@@ -1226,7 +1228,7 @@ export default function SellerProfileDrawer({
                   type="button"
                   onClick={() => setMessagePanelOpen(false)}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
-                  aria-label="Close message composer"
+                  aria-label={t("urmall.seller.closeMessageComposer")}
                 >
                   x
                 </button>
@@ -1236,7 +1238,7 @@ export default function SellerProfileDrawer({
                 <textarea
                   value={messageText}
                   onChange={(event) => setMessageText(event.target.value)}
-                  placeholder="Ask about availability, pickup, delivery, or price"
+                  placeholder={t("urmall.seller.messagePlaceholder")}
                   className="min-h-32 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
                 />
                 <button
@@ -1244,7 +1246,7 @@ export default function SellerProfileDrawer({
                   className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
                 >
                   <Send size={17} />
-                  Send Message
+                  {t("urmall.detail.sendMessage")}
                 </button>
               </form>
             </section>

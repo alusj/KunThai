@@ -3,6 +3,7 @@
    Products with discounts
 ========================= */
 
+import { useI18n } from "../../../../i18n";
 import BuyerProductGrid from "../BuyerProductGrid";
 
 export default function Discounted({
@@ -15,6 +16,7 @@ export default function Discounted({
   onToggleSaved,
   supplementalContent,
 }) {
+  const { t } = useI18n();
   return (
     <BuyerProductGrid
       products={products}
@@ -25,8 +27,8 @@ export default function Discounted({
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
       supplementalContent={supplementalContent}
-      emptyTitle="No discounted products"
-      emptyBody="Products with a seller discount price will show up in this section."
+      emptyTitle={t("urmall.browse.emptyDiscountedTitle")}
+      emptyBody={t("urmall.browse.emptyDiscountedBody")}
     />
   );
 }

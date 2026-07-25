@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
+import { useI18n, t } from "../../../i18n";
 import {
   AddressAreaResolutionCard,
   AddressAreaStatusIcon,
@@ -93,16 +94,16 @@ function getAddressLabel(address) {
 function getProductSpecs(product = {}) {
   const details = product.details || {};
   return [
-    ["Brand", product.brand],
-    ["Model", product.model],
-    ["Size", details.size],
-    ["Color", details.color],
-    ["Material", details.material],
-    ["Weight", details.weight],
-    ["Dimensions", details.dimensions],
-    ["Warranty", details.warranty],
-    ["Variants", details.variants],
-    ["Specifications", details.specifications],
+    [t("urmall.detail.specBrand"), product.brand],
+    [t("urmall.detail.specModel"), product.model],
+    [t("urmall.detail.specSize"), details.size],
+    [t("urmall.detail.specColor"), details.color],
+    [t("urmall.detail.specMaterial"), details.material],
+    [t("urmall.detail.specWeight"), details.weight],
+    [t("urmall.detail.specDimensions"), details.dimensions],
+    [t("urmall.detail.specWarranty"), details.warranty],
+    [t("urmall.detail.specVariants"), details.variants],
+    [t("urmall.detail.specSpecifications"), details.specifications],
   ].filter(([, value]) => String(value || "").trim());
 }
 
@@ -172,22 +173,22 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
       className={`${closing ? "kt-media-zoom-exit" : "kt-media-zoom-enter"} fixed inset-0 z-[1500] flex h-dvh flex-col overflow-hidden bg-slate-950 text-white`}
       role="dialog"
       aria-modal="true"
-      aria-label="Full-screen product image viewer"
+      aria-label={t("urmall.detail.viewerAria")}
     >
       <header className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           type="button"
           onClick={requestClose}
           className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
-          aria-label="Back to product"
+          aria-label={t("urmall.detail.backToProduct")}
         >
           <ArrowLeft size={22} />
         </button>
         <div className="rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs font-black shadow-lg backdrop-blur-md">
-          Image {activeIndex + 1} of {images.length}
+          {t("urmall.detail.imageOf", { index: activeIndex + 1, total: images.length })}
         </div>
         <div className="ml-auto rounded-full border border-white/10 bg-black/30 px-3 py-2 text-[11px] font-bold text-white/80 shadow-lg backdrop-blur-md">
-          {viewerGestures.scale > 1 ? `${Math.round(viewerGestures.scale * 100)}% · Drag to move` : "Double-tap to zoom"}
+          {viewerGestures.scale > 1 ? t("urmall.detail.zoomDragHint", { pct: Math.round(viewerGestures.scale * 100) }) : t("urmall.detail.doubleTapZoom")}
         </div>
       </header>
 
@@ -241,7 +242,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
               onPointerDown={(event) => event.stopPropagation()}
               onPointerUp={(event) => event.stopPropagation()}
               className="absolute left-3 top-1/2 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/30 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
-              aria-label="Previous image"
+              aria-label={t("urmall.detail.prevImage")}
             >
               <ChevronLeft size={24} />
             </button>
@@ -251,7 +252,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
               onPointerDown={(event) => event.stopPropagation()}
               onPointerUp={(event) => event.stopPropagation()}
               className="absolute right-3 top-1/2 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/30 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
-              aria-label="Next image"
+              aria-label={t("urmall.detail.nextImage")}
             >
               <ChevronRight size={24} />
             </button>
@@ -270,7 +271,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
                 className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition ${
                   index === activeIndex ? "border-white shadow-lg" : "border-white/20 opacity-70"
                 }`}
-                aria-label={`Open image ${index + 1}`}
+                aria-label={t("urmall.detail.openImageN", { index: index + 1 })}
               >
                 <img src={image} alt="" className="h-full w-full object-cover" />
               </button>
@@ -291,7 +292,7 @@ function Gallery({ product, onOpenImage }) {
   if (!images.length) {
     return (
       <div className="flex aspect-square items-center justify-center rounded-lg bg-gray-100 text-sm font-black text-gray-400">
-        Product image
+        {t("urmall.detail.productImage")}
       </div>
     );
   }
@@ -324,7 +325,7 @@ function Gallery({ product, onOpenImage }) {
         onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
         onTouchEnd={handleTouchEnd}
         className="block w-full touch-pan-y overflow-hidden rounded-lg bg-gray-100 text-left"
-        aria-label={`View ${product.name} image full screen`}
+        aria-label={t("urmall.detail.viewImageFull", { name: product.name })}
       >
         <img src={activeImage} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
       </button>
@@ -338,7 +339,7 @@ function Gallery({ product, onOpenImage }) {
               className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-gray-100 ${
                 index === activeIndex ? "border-emerald-600" : "border-transparent"
               }`}
-              aria-label={`Show product image ${index + 1}`}
+              aria-label={t("urmall.detail.showImageN", { index: index + 1 })}
             >
               <img src={image} alt="" className="h-full w-full object-cover transition hover:scale-105" />
             </button>
@@ -358,7 +359,7 @@ function StarRatingInput({ value, onChange }) {
           type="button"
           onClick={() => onChange(rating)}
           className={rating <= value ? "text-amber-500" : "text-gray-300"}
-          aria-label={`Rate ${rating} star${rating === 1 ? "" : "s"}`}
+          aria-label={t(rating === 1 ? "urmall.detail.rateStarOne" : "urmall.detail.rateStarOther", { count: rating })}
         >
           <Star size={22} fill="currentColor" />
         </button>
@@ -388,8 +389,8 @@ function ProductReviewDrawer({
   reviewSummary,
   reviewEligibility,
   reviewEligibilityLoading,
-  reviewHeading = "Product reviews",
-  reviewLabel = "Product review",
+  reviewHeading = t("urmall.detail.productReviews"),
+  reviewLabel = t("urmall.detail.productReview"),
 }) {
   return (
     <div
@@ -399,7 +400,7 @@ function ProductReviewDrawer({
     >
       <button
         type="button"
-        aria-label={`Close ${reviewLabel.toLowerCase()}`}
+        aria-label={t("urmall.detail.closeX", { label: reviewLabel })}
         onClick={onClose}
         tabIndex={open ? 0 : -1}
         className={`absolute inset-0 border-0 bg-slate-950/35 p-0 backdrop-blur-sm transition-opacity duration-300 ${
@@ -415,7 +416,7 @@ function ProductReviewDrawer({
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">{reviewHeading}</p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
-              {reviewSummary.reviewCount || 0} response{reviewSummary.reviewCount === 1 ? "" : "s"}
+              {t(reviewSummary.reviewCount === 1 ? "urmall.detail.responsesOne" : "urmall.detail.responsesOther", { count: reviewSummary.reviewCount || 0 })}
             </h2>
             <p className="mt-1 truncate text-sm font-semibold text-slate-500">{product?.name}</p>
           </div>
@@ -423,7 +424,7 @@ function ProductReviewDrawer({
             type="button"
             onClick={onClose}
             className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
-              aria-label={`Close ${reviewLabel.toLowerCase()}`}
+              aria-label={t("urmall.detail.closeX", { label: reviewLabel })}
           >
             <X size={22} />
           </button>
@@ -445,7 +446,7 @@ function ProductReviewDrawer({
                     </span>
                   </div>
                   <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-                    {review.comment || "This buyer left a rating without a written note."}
+                    {review.comment || t("urmall.detail.ratingNoNote")}
                   </p>
                 </article>
               ))}
@@ -458,10 +459,10 @@ function ProductReviewDrawer({
           ) : (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
               <MessageCircle className="mx-auto text-slate-400" size={34} />
-              <p className="mt-4 text-lg font-black text-slate-950">No reviews yet</p>
+              <p className="mt-4 text-lg font-black text-slate-950">{t("urmall.detail.noReviews")}</p>
               <p className="mx-auto mt-1 max-w-sm text-sm font-semibold leading-6 text-slate-500">
                 {reviewEligibilityLoading
-                  ? "Checking whether your order is ready for a review..."
+                  ? t("urmall.detail.checkingReview")
                   : reviewEligibility?.reason}
               </p>
             </div>
@@ -472,7 +473,7 @@ function ProductReviewDrawer({
           <form onSubmit={onSubmit} className="border-t border-slate-100 bg-white px-4 py-3">
           {reviewStatus ? (
             <p className={`mb-3 rounded-2xl px-3 py-2 text-xs font-black ${
-              /added/i.test(reviewStatus) ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
+              reviewStatus === t("urmall.detail.reviewAdded") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
             }`}>
               {reviewStatus}
             </p>
@@ -485,7 +486,7 @@ function ProductReviewDrawer({
               value={comment}
               onChange={(event) => onCommentChange(event.target.value)}
               rows={2}
-              placeholder="Share what buyers should know about quality, condition, delivery, or value..."
+              placeholder={t("urmall.detail.reviewPlaceholder")}
               className="min-h-12 flex-1 resize-none rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-400 focus:bg-white"
             />
             <button
@@ -494,7 +495,7 @@ function ProductReviewDrawer({
               className={`kt-touchable flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
                 reviewSubmitting || rating < 1 ? "bg-slate-100 text-slate-400" : "bg-emerald-600 text-white hover:bg-emerald-700"
               }`}
-              aria-label={`Submit ${reviewLabel.toLowerCase()}`}
+              aria-label={t("urmall.detail.submitX", { label: reviewLabel })}
             >
               <Send size={18} />
             </button>
@@ -515,7 +516,7 @@ function ProductActionSheet({ children, labelledBy, maxWidth = "max-w-lg", onClo
     >
       <button
         type="button"
-        aria-label="Close product action"
+        aria-label={t("urmall.detail.closeAction")}
         onClick={onClose}
         tabIndex={open ? 0 : -1}
         className={`absolute inset-0 border-0 bg-slate-950/35 p-0 backdrop-blur-sm transition-opacity duration-300 ${
@@ -548,19 +549,19 @@ export default function ProductDetailDrawer({
   onOpenSeller,
   onNotice,
   saved,
-  detailsHeading = "Product Details",
+  detailsHeading = t("urmall.detail.productDetails"),
   historyKey = "marketplace-product-detail",
-  messageContextLabel = "Product inquiry",
-  messageLabel = "Message Seller",
-  reviewHeading = "Product Reviews",
-  reviewLabel = "Product Review",
+  messageContextLabel = t("urmall.detail.productInquiry"),
+  messageLabel = t("urmall.detail.messageSeller"),
+  reviewHeading = t("urmall.detail.productReviews"),
+  reviewLabel = t("urmall.detail.productReview"),
   reviewType = "product",
-  actionLabel = "Order",
+  actionLabel = t("urmall.detail.order"),
   actionMode = "order",
-  bookingStartLabel = "Start date",
-  bookingEndLabel = "End date",
+  bookingStartLabel = t("urmall.detail.startDate"),
+  bookingEndLabel = t("urmall.detail.endDate"),
   bookingUsesEndDate = true,
-  serviceLabel = "Delivery",
+  serviceLabel = t("urmall.detail.delivery"),
   serviceValue,
   showAddToCart = true,
   showInventory = true,
@@ -569,6 +570,7 @@ export default function ProductDetailDrawer({
   showReview = true,
   showSave = true,
 }) {
+  useI18n();
   const isBooking = actionMode === "booking";
   const [closing, setClosing] = useState(false);
   const closeTimerRef = useRef(null);
@@ -651,8 +653,8 @@ export default function ProductDetailDrawer({
           eligible: false,
           orderId: null,
           reason: reviewType === "product"
-            ? "Order this product and wait for the seller to respond before adding a review."
-            : "Order from this store and wait for the seller to respond before adding a review.",
+            ? t("urmall.detail.reasonProduct")
+            : t("urmall.detail.reasonStore"),
         });
         setReviewEligibilityLoading(true);
         const businessId = product.businessId || product.seller?.id;
@@ -668,8 +670,8 @@ export default function ProductDetailDrawer({
             eligible: false,
             orderId: null,
             reason: reviewType === "product"
-              ? "Order this product and wait for the seller to respond before adding a review."
-              : "Order from this store and wait for the seller to respond before adding a review.",
+              ? t("urmall.detail.reasonProduct")
+              : t("urmall.detail.reasonStore"),
           })),
         ]);
         if (alive) {
@@ -804,8 +806,8 @@ export default function ProductDetailDrawer({
       }
       setComment("");
       setRating(5);
-      setReviewStatus("Your review has been added.");
-      onNotice?.("Review submitted.");
+      setReviewStatus(t("urmall.detail.reviewAdded"));
+      onNotice?.(t("urmall.detail.reviewSubmittedToast"));
       const reviews = reviewType === "product"
         ? await fetchBuyerReviews({ productId: product.id, reviewType: "product" })
         : await fetchBuyerReviews({ businessId: product.businessId || product.seller?.id, reviewType: "marketplace" });
@@ -817,8 +819,8 @@ export default function ProductDetailDrawer({
       });
       setReviewEligibility(nextEligibility);
     } catch (err) {
-      setReviewStatus(err.message || "Unable to submit review.");
-      onNotice?.(err.message || "Unable to submit review.", "danger");
+      setReviewStatus(err.message || t("urmall.detail.reviewSubmitFailed"));
+      onNotice?.(err.message || t("urmall.detail.reviewSubmitFailed"), "danger");
     } finally {
       setReviewSubmitting(false);
     }
@@ -845,31 +847,31 @@ export default function ProductDetailDrawer({
     event.preventDefault();
     const quantity = Math.max(1, Number(orderForm.quantity || 1));
     if (!String(orderForm.buyerName || "").trim()) {
-      onNotice?.(`Add your name before ${isBooking ? "booking" : "ordering"}.`, "danger");
+      onNotice?.(t(isBooking ? "urmall.detail.addNameBooking" : "urmall.detail.addNameOrder"), "danger");
       return;
     }
     if (!String(orderForm.phone || "").trim()) {
-      onNotice?.(`Add a phone number before ${isBooking ? "booking" : "ordering"}.`, "danger");
+      onNotice?.(t(isBooking ? "urmall.detail.addPhoneBooking" : "urmall.detail.addPhoneOrder"), "danger");
       return;
     }
     if (isBooking && !orderForm.startDate) {
-      onNotice?.(`Add the ${bookingStartLabel.toLowerCase()} before booking.`, "danger");
+      onNotice?.(t("urmall.detail.addStartBeforeBooking", { label: bookingStartLabel }), "danger");
       return;
     }
     if (isBooking && bookingUsesEndDate && !orderForm.endDate) {
-      onNotice?.(`Add the ${bookingEndLabel.toLowerCase()} before booking.`, "danger");
+      onNotice?.(t("urmall.detail.addEndBeforeBooking", { label: bookingEndLabel }), "danger");
       return;
     }
     if (isBooking && bookingUsesEndDate && orderForm.endDate < orderForm.startDate) {
-      onNotice?.(`${bookingEndLabel} cannot be before ${bookingStartLabel.toLowerCase()}.`, "danger");
+      onNotice?.(t("urmall.detail.endBeforeStart", { end: bookingEndLabel, start: bookingStartLabel }), "danger");
       return;
     }
     if (!isBooking && quantity > Number(product.stock || 0)) {
-      onNotice?.(`Only ${product.stock} item${product.stock === 1 ? "" : "s"} available.`, "danger");
+      onNotice?.(t(product.stock === 1 ? "urmall.detail.onlyNAvailableOne" : "urmall.detail.onlyNAvailableOther", { count: product.stock }), "danger");
       return;
     }
     if (!isBooking && orderForm.fulfillment !== "pickup" && !orderForm.address.trim()) {
-      onNotice?.("Add a delivery address before ordering.", "danger");
+      onNotice?.(t("urmall.detail.addAddressBeforeOrder"), "danger");
       return;
     }
 
@@ -909,7 +911,7 @@ export default function ProductDetailDrawer({
         <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
           <AppBackTab
             onBack={requestClose}
-            label="Back to UrMall listings"
+            label={t("urmall.detail.backToListings")}
             historyKey={historyKey}
           />
           <div className="min-w-0">
@@ -940,21 +942,21 @@ export default function ProductDetailDrawer({
                 {showInventory ? <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs font-black">
                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-amber-700">
                     <Star size={13} fill="currentColor" />
-                    {product.sales > 0 ? `${product.sales} sold` : "New arrival"}
+                    {product.sales > 0 ? t("urmall.detail.soldN", { count: product.sales }) : t("urmall.detail.newArrival")}
                   </span>
-                  <span className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700">{product.stock} in stock</span>
+                  <span className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700">{t("urmall.detail.inStock", { count: product.stock })}</span>
                   <span className="rounded-md bg-gray-100 px-2.5 py-1 capitalize text-gray-700">{product.condition}</span>
                 </div> : null}
                 {tierPricing.length ? (
                   <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-emerald-800">Quantity pricing</p>
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-800">{t("urmall.detail.quantityPricing")}</p>
                     <div className="mt-2 grid gap-1.5">
                       {tierPricing.map((tier, index) => (
                         <div key={`tier-${index}`} className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-1.5">
                           <p className="text-sm font-black text-gray-950">
-                            {tier.minQty || 1}{tier.maxQty > 0 ? ` - ${tier.maxQty}` : "+"} items
+                            {t("urmall.detail.tierItems", { range: `${tier.minQty || 1}${tier.maxQty > 0 ? ` - ${tier.maxQty}` : "+"}` })}
                           </p>
-                          <p className="text-sm font-black text-emerald-700">{formatCurrency(tier.price, productMoneyScope)} each</p>
+                          <p className="text-sm font-black text-emerald-700">{t("urmall.detail.priceEach", { price: formatCurrency(tier.price, productMoneyScope) })}</p>
                         </div>
                       ))}
                     </div>
@@ -968,7 +970,7 @@ export default function ProductDetailDrawer({
                     type="button"
                     onClick={openSellerProfile}
                     className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-950 text-sm font-black text-white transition hover:scale-[1.02]"
-                    aria-label={`Open ${product.seller.name} profile`}
+                    aria-label={t("urmall.detail.openSellerProfile", { name: product.seller.name })}
                   >
                     {product.seller.logoUrl ? (
                       <img src={product.seller.logoUrl} alt="" className="h-full w-full rounded-lg object-cover" />
@@ -1013,19 +1015,19 @@ export default function ProductDetailDrawer({
                     {serviceLabel}
                   </p>
                   <p className="mt-0.5 text-sm font-black text-gray-950">
-                    {serviceValue || (product.deliveryAvailable ? product.deliveryTime || "Available" : "Pickup only")}
+                    {serviceValue || (product.deliveryAvailable ? product.deliveryTime || t("urmall.detail.available") : t("urmall.detail.pickupOnly"))}
                   </p>
                 </div>
                 <div className="rounded-lg bg-gray-100 p-2.5">
-                  <p className="text-xs font-black uppercase text-gray-500">Location</p>
+                  <p className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.location")}</p>
                   <p className="mt-0.5 truncate text-sm font-black text-gray-950">{product.location}</p>
                 </div>
               </div>
 
               <div>
-                <h3 className="font-black text-gray-950">Description</h3>
+                <h3 className="font-black text-gray-950">{t("urmall.detail.description")}</h3>
                 <p className="mt-1.5 text-sm font-medium leading-5 text-gray-600">
-                  {product.description || "No product description has been added yet."}
+                  {product.description || t("urmall.detail.noDescription")}
                 </p>
               </div>
 
@@ -1049,8 +1051,8 @@ export default function ProductDetailDrawer({
                     <h3 className="font-black text-gray-950">{reviewHeading}</h3>
                     <p className="mt-0.5 text-sm font-bold text-gray-500">
                       {reviewSummary.reviewCount
-                        ? `${reviewSummary.rating.toFixed(1)} from ${reviewSummary.reviewCount} review${reviewSummary.reviewCount === 1 ? "" : "s"}`
-                        : "No reviews yet"}
+                        ? t(reviewSummary.reviewCount === 1 ? "urmall.detail.ratingFromReviewsOne" : "urmall.detail.ratingFromReviewsOther", { rating: reviewSummary.rating.toFixed(1), count: reviewSummary.reviewCount })
+                        : t("urmall.detail.noReviews")}
                     </p>
                   </div>
                   <button
@@ -1058,7 +1060,7 @@ export default function ProductDetailDrawer({
                     onClick={() => setReviewOpen(true)}
                     className="rounded-lg bg-gray-950 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700"
                   >
-                    Open reviews
+                    {t("urmall.detail.openReviews")}
                   </button>
                 </div>
 
@@ -1070,7 +1072,7 @@ export default function ProductDetailDrawer({
                           <p className="font-black text-gray-950">{review.buyerName}</p>
                           <p className="text-xs font-black text-amber-600">{review.rating}/5</p>
                         </div>
-                        <p className="mt-1 text-sm font-medium text-gray-600">{review.comment || "No comment added."}</p>
+                        <p className="mt-1 text-sm font-medium text-gray-600">{review.comment || t("urmall.detail.noComment")}</p>
                       </div>
                     ))}
                   </div>
@@ -1088,7 +1090,7 @@ export default function ProductDetailDrawer({
             className={`kt-pressable inline-flex w-12 shrink-0 items-center justify-center rounded-2xl border ${showAddToCart || showOrder ? "row-span-2 h-full min-h-[6.5rem] sm:row-span-1 sm:min-h-12" : "h-12"} ${
               saved ? "border-red-600 bg-red-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             }`}
-            aria-label={saved ? `Unsave ${product.name}` : `Save ${product.name}`}
+            aria-label={saved ? t("urmall.browse.unsave", { name: product.name }) : t("urmall.browse.save", { name: product.name })}
           >
             <Heart size={18} fill={saved ? "currentColor" : "none"} />
           </button> : null}
@@ -1106,7 +1108,7 @@ export default function ProductDetailDrawer({
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 sm:text-sm"
           >
             <ShoppingCart size={17} />
-            <span className="truncate">Add to Cart</span>
+            <span className="truncate">{t("urmall.detail.addToCart")}</span>
           </button> : null}
           {showOrder ? <button
             type="button"
@@ -1140,15 +1142,15 @@ export default function ProductDetailDrawer({
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black uppercase text-emerald-700">{isBooking ? "Request booking" : "Create order"}</p>
+                  <p className="text-xs font-black uppercase text-emerald-700">{isBooking ? t("urmall.detail.requestBooking") : t("urmall.detail.createOrder")}</p>
                   <h3 id="product-order-title" className="mt-1 text-lg font-black text-gray-950">{product.name}</h3>
-                  <p className="mt-1 text-sm font-bold text-gray-500">{product.seller?.name || "UrMall seller"}</p>
+                  <p className="mt-1 text-sm font-bold text-gray-500">{product.seller?.name || t("urmall.browse.sellerFallback")}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setOrderOpen(false)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  aria-label="Close order form"
+                  aria-label={t("urmall.detail.closeOrderForm")}
                 >
                   <X size={18} />
                 </button>
@@ -1164,7 +1166,7 @@ export default function ProductDetailDrawer({
                       orderForm.fulfillment === "delivery" ? "bg-emerald-600 text-white" : "text-gray-600"
                     } disabled:cursor-not-allowed disabled:opacity-40`}
                   >
-                    Delivery
+                    {t("urmall.browse.deliveryChip")}
                   </button>
                   <button
                     type="button"
@@ -1174,7 +1176,7 @@ export default function ProductDetailDrawer({
                       orderForm.fulfillment === "pickup" ? "bg-emerald-600 text-white" : "text-gray-600"
                     } disabled:cursor-not-allowed disabled:opacity-40`}
                   >
-                    Pickup
+                    {t("urmall.browse.pickupChip")}
                   </button>
                 </div> : null}
                 {!isBooking ? (
@@ -1187,7 +1189,7 @@ export default function ProductDetailDrawer({
                     >
                       <BookmarkCheck size={16} className="shrink-0 text-emerald-700" />
                       <span className="min-w-0 flex-1 truncate text-xs font-black uppercase text-gray-600">
-                        Saved addresses{savedAddresses.length ? ` (${savedAddresses.length})` : ""}
+                        {t("urmall.detail.savedAddresses")}{savedAddresses.length ? ` (${savedAddresses.length})` : ""}
                       </span>
                       <ChevronDown
                         size={17}
@@ -1207,14 +1209,14 @@ export default function ProductDetailDrawer({
                               }}
                               className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
                             >
-                              <p className="text-xs font-black text-gray-950">{getAddressLabel(address)} address</p>
+                              <p className="text-xs font-black text-gray-950">{t("urmall.detail.addressLabel", { label: getAddressLabel(address) })}</p>
                               <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{address.street || address.detectedAddress}</p>
                             </button>
                           ))}
                         </div>
                       ) : (
                         <p className="mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-center text-xs font-bold text-gray-400">
-                          No saved addresses
+                          {t("urmall.detail.noSavedAddresses")}
                         </p>
                       )
                     ) : null}
@@ -1223,13 +1225,13 @@ export default function ProductDetailDrawer({
                 <input
                   value={orderForm.buyerName}
                   onChange={(event) => updateOrderForm({ buyerName: event.target.value })}
-                  placeholder="Full name"
+                  placeholder={t("urmall.detail.fullName")}
                   className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
                 <input
                   value={orderForm.phone}
                   onChange={(event) => updateOrderForm({ phone: event.target.value })}
-                  placeholder="Phone number"
+                  placeholder={t("urmall.detail.phoneNumber")}
                   className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
                 {isBooking ? (
@@ -1261,7 +1263,7 @@ export default function ProductDetailDrawer({
               {!isBooking ? <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_120px]">
                 <label className="min-w-0 space-y-1">
                   <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
-                    {orderForm.fulfillment === "pickup" ? "Pickup note" : "Delivery address"}
+                    {orderForm.fulfillment === "pickup" ? t("urmall.detail.pickupNote") : t("urmall.detail.deliveryAddress")}
                     {orderForm.fulfillment !== "pickup" ? <AddressAreaStatusIcon status={orderAddressValidation.status} /> : null}
                   </span>
                   <span className="grid gap-2 lg:grid-cols-[1fr_auto_auto]">
@@ -1269,7 +1271,7 @@ export default function ProductDetailDrawer({
                       <input
                         value={orderForm.address}
                         onChange={(event) => updateOrderForm({ address: event.target.value, coordinates: null })}
-                        placeholder={orderForm.fulfillment === "pickup" ? "Pickup note or preferred branch" : "Delivery address"}
+                        placeholder={orderForm.fulfillment === "pickup" ? t("urmall.detail.pickupNotePlaceholder") : t("urmall.detail.deliveryAddress")}
                         className="h-11 w-full min-w-0 rounded-lg border border-gray-200 px-3 pr-9 text-sm font-semibold outline-none focus:border-emerald-500"
                       />
                       {orderForm.fulfillment !== "pickup" ? (
@@ -1284,7 +1286,7 @@ export default function ProductDetailDrawer({
                           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gray-950 px-3 text-xs font-black text-white hover:bg-gray-800"
                         >
                           <LocateFixed size={15} />
-                          Locate me
+                          {t("urmall.detail.locateMe")}
                         </button>
                         <button
                           type="button"
@@ -1292,21 +1294,21 @@ export default function ProductDetailDrawer({
                           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
                         >
                           <MapPin size={15} />
-                          Drop a pin
+                          {t("urmall.detail.dropPin")}
                         </button>
                       </>
                     ) : null}
                   </span>
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Qty</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.qty")}</span>
                   <input
                     type="number"
                     min="1"
                     max={Math.max(1, product.stock || 1)}
                     value={orderForm.quantity}
                     onChange={(event) => updateOrderForm({ quantity: event.target.value })}
-                    placeholder="Qty"
+                    placeholder={t("urmall.detail.qty")}
                     className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                   />
                 </label>
@@ -1325,21 +1327,21 @@ export default function ProductDetailDrawer({
               <input
                 value={orderForm.note}
                 onChange={(event) => updateOrderForm({ note: event.target.value })}
-                placeholder={isBooking ? "Booking note, preferred time, or special request" : "Delivery note or pickup instruction"}
+                placeholder={isBooking ? t("urmall.detail.bookingNotePlaceholder") : t("urmall.detail.orderNotePlaceholder")}
                 className="mt-2 h-11 w-full rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
               />
 
               {!isBooking ? <div className="mt-4 rounded-lg bg-gray-50 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-gray-500">Order total</p>
+                  <p className="text-sm font-bold text-gray-500">{t("urmall.detail.orderTotal")}</p>
                   <p className="text-xl font-black text-gray-950">{formatCurrency(orderTotal, productMoneyScope)}</p>
                 </div>
                 <p className="mt-1 text-xs font-bold text-gray-500">
-                  {orderQuantity} item{orderQuantity === 1 ? "" : "s"} at {formatCurrency(orderUnitPrice, productMoneyScope)}
+                  {t(orderQuantity === 1 ? "urmall.detail.itemsAtPriceOne" : "urmall.detail.itemsAtPriceOther", { count: orderQuantity, price: formatCurrency(orderUnitPrice, productMoneyScope) })}
                 </p>
                 {tierPriceApplied ? (
                   <p className="mt-1 text-xs font-black text-emerald-700">
-                    Quantity price applied - single item price is {formatCurrency(displayPrice, productMoneyScope)}.
+                    {t("urmall.detail.tierApplied", { price: formatCurrency(displayPrice, productMoneyScope) })}
                   </p>
                 ) : null}
               </div> : null}
@@ -1350,14 +1352,14 @@ export default function ProductDetailDrawer({
                   onClick={() => setOrderOpen(false)}
                   className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-black text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={orderSubmitting || (isBooking ? !orderForm.startDate || (bookingUsesEndDate && !orderForm.endDate) : !orderForm.address.trim())}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {orderSubmitting ? (isBooking ? "Sending request..." : "Sending order...") : (isBooking ? "Send booking request" : "Complete Order")}
+                  {orderSubmitting ? (isBooking ? t("urmall.detail.sendingRequest") : t("urmall.detail.sendingOrder")) : (isBooking ? t("urmall.detail.sendBookingRequest") : t("urmall.detail.completeOrder"))}
                 </button>
               </div>
             </form>
@@ -1389,15 +1391,15 @@ export default function ProductDetailDrawer({
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black uppercase text-emerald-700">Message seller</p>
-                  <h3 id="product-message-title" className="mt-1 text-lg font-black text-gray-950">{product.seller?.name || "UrMall seller"}</h3>
+                  <p className="text-xs font-black uppercase text-emerald-700">{t("urmall.detail.messageSellerTitle")}</p>
+                  <h3 id="product-message-title" className="mt-1 text-lg font-black text-gray-950">{product.seller?.name || t("urmall.browse.sellerFallback")}</h3>
                   <p className="mt-1 text-sm font-bold text-gray-500">{messageContextLabel}: {product.name}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setMessageOpen(false)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  aria-label="Close message form"
+                  aria-label={t("urmall.detail.closeMessageForm")}
                 >
                   <X size={18} />
                 </button>
@@ -1406,7 +1408,7 @@ export default function ProductDetailDrawer({
                 ref={messageTextareaRef}
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
-                placeholder="Ask about availability, location, service details, or anything you need to confirm"
+                placeholder={t("urmall.detail.messagePlaceholder")}
                 className="mt-4 min-h-32 w-full rounded-lg border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
               />
               <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -1415,14 +1417,14 @@ export default function ProductDetailDrawer({
                   onClick={() => setMessageOpen(false)}
                   className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-black text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={!messageText.trim() || messageSending}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {messageSending ? "Sending..." : "Send Message"}
+                  {messageSending ? t("urmall.detail.sending") : t("urmall.detail.sendMessage")}
                 </button>
               </div>
             </form>
@@ -1458,20 +1460,20 @@ export default function ProductDetailDrawer({
             pickerStart={orderAreaPicker.start}
             pickerLabels={{
               historyKey: "urmall-product-order-address-picker",
-              backLabel: "Back to order form",
-              eyebrow: "UrMall delivery",
-              cardEyebrow: "Delivery address",
-              headerCurrentTitle: "Confirm delivery location",
-              headerDropTitle: "Drop delivery pin",
-              currentHeading: "Your current delivery location",
-              dropHeading: "Place the pin on the delivery point",
-              dropInstruction: "Move the map until the pin sits exactly on the delivery gate, door, stall, or pickup point, then add the location.",
-              currentStatus: "Confirming your current delivery location...",
-              dropStatus: "Move the map until the pin is exactly on the delivery location.",
-              currentName: "Current delivery location",
-              droppedName: "Pinned delivery location",
+              backLabel: t("urmall.detail.pickerBack"),
+              eyebrow: t("urmall.detail.pickerEyebrow"),
+              cardEyebrow: t("urmall.detail.deliveryAddress"),
+              headerCurrentTitle: t("urmall.detail.pickerConfirmTitle"),
+              headerDropTitle: t("urmall.detail.pickerDropTitle"),
+              currentHeading: t("urmall.detail.pickerCurrentHeading"),
+              dropHeading: t("urmall.detail.pickerDropHeading"),
+              dropInstruction: t("urmall.detail.pickerDropInstruction"),
+              currentStatus: t("urmall.detail.pickerCurrentStatus"),
+              dropStatus: t("urmall.detail.pickerDropStatus"),
+              currentName: t("urmall.detail.pickerCurrentName"),
+              droppedName: t("urmall.detail.pickerDroppedName"),
             }}
-            backLabel="Back to order form"
+            backLabel={t("urmall.detail.pickerBack")}
             onBack={() => setOrderAreaPicker(null)}
             onLocationPicked={acceptOrderAreaLocation}
           />

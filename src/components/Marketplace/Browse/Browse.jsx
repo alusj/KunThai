@@ -16,6 +16,7 @@ import {
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { showToast } from "../../../Backend/services/toastService";
+import { useI18n } from "../../../i18n";
 import { consumeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
 import { useSilentRefresh } from "../../../Backend/hooks/useSilentRefresh";
 import { openPublicCodeResult } from "../../../Backend/services/publicCodeService";
@@ -106,6 +107,7 @@ function rememberRecentProduct(product) {
 }
 
 export default function Browse({ activeTab = "new", onProductModeChange, searchOpen = false, supplementalContent = null }) {
+  const { t } = useI18n();
   const initialQueryFilters = cloneFilters(BROWSE_MEMORY.queryFilters);
   const initialCatalog = normalizeCatalog(
     BROWSE_CATALOG_MEMORY.get(buildCatalogKey(initialQueryFilters))?.catalog || BROWSE_MEMORY.catalog,
@@ -199,9 +201,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
       setSelectedProduct(detail);
       rememberRecentProduct(detail);
     } catch (err) {
-      showNotice(err.message || "Unable to open product details.", "danger");
+      showNotice(err.message || t("urmall.browse.openDetailFailed"), "danger");
     }
-  }, [showNotice]);
+  }, [showNotice, t]);
 
   useEffect(() => {
     onProductModeChange?.(detailOpen || sellerOpen);
@@ -251,7 +253,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
         BROWSE_CATALOG_MEMORY.set(cacheKey, { catalog: products, savedAt: Date.now() });
         if (alive) setCatalog(products);
       } catch (err) {
-        if (alive) setError(hasExistingCatalog ? "" : err.message || "Unable to load UrMall products.");
+        if (alive) setError(hasExistingCatalog ? "" : err.message || t("urmall.browse.loadProductsFailed"));
       } finally {
         if (alive) {
           setLoading(false);
@@ -277,6 +279,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
       window.removeEventListener("marketplace-products-updated", refreshSilently);
       window.removeEventListener("focus", refreshSilently);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryFilters]);
 
   useEffect(() => {
@@ -358,7 +361,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
         setDetailOpen(true);
         rememberRecentProduct(detail);
       } catch (err) {
-        showNotice(err.message || "Unable to open product details.", "danger");
+        showNotice(err.message || t("urmall.browse.openDetailFailed"), "danger");
       }
     }
 
@@ -368,15 +371,15 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
       alive = false;
       window.removeEventListener("hashchange", openProductFromHash);
     };
-  }, [showNotice]);
+  }, [showNotice, t]);
 
   async function addToCart(product) {
     if (guardGuestAction("add", "product to the cart")) return;
     try {
       const result = await addBuyerCartItem(product);
-      showNotice(result?.status === "alreadyInCart" ? "This product is already in your cart." : "Product added to cart.");
+      showNotice(result?.status === "alreadyInCart" ? t("urmall.browse.alreadyInCart") : t("urmall.browse.addedToCart"));
     } catch (err) {
-      showNotice(err.message || "Unable to add product to cart.", "danger");
+      showNotice(err.message || t("urmall.browse.addToCartFailed"), "danger");
     }
   }
 
@@ -384,9 +387,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
     if (guardGuestAction("order", "product")) return;
     try {
       await createBuyerProductOrder(product, orderInput);
-      showNotice("Order sent. You can view it in Ordered items.");
+      showNotice(t("urmall.browse.orderSent"));
     } catch (err) {
-      showNotice(err.message || "Unable to create order.", "danger");
+      showNotice(err.message || t("urmall.browse.orderFailed"), "danger");
       throw err;
     }
   }
@@ -403,7 +406,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
 
     try {
       await toggleSavedBuyerProduct(product.id, currentlySaved);
-      showNotice(currentlySaved ? "Product removed from saved" : "Product saved");
+      showNotice(currentlySaved ? t("urmall.browse.productUnsaved") : t("urmall.browse.productSaved"));
     } catch (err) {
       setSavedIds((current) => {
         const next = new Set(current);
@@ -411,14 +414,14 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
         else next.delete(product.id);
         return next;
       });
-      showNotice(err.message || "Unable to update saved product.", "danger");
+      showNotice(err.message || t("urmall.browse.updateSavedFailed"), "danger");
     }
   }
 
   async function toggleSavedSeller(seller) {
     if (guardGuestAction("save", "store")) return;
     if (!seller?.id) {
-      showNotice("This store cannot be saved yet.", "danger");
+      showNotice(t("urmall.browse.storeCannotSave"), "danger");
       return;
     }
     const currentlySaved = savedSellerIds.has(seller.id);
@@ -431,7 +434,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
 
     try {
       await toggleSavedBuyerSeller(seller.id, currentlySaved);
-      showNotice(currentlySaved ? "Store removed from favorites" : "Store saved to favorites");
+      showNotice(currentlySaved ? t("urmall.browse.storeUnfavorited") : t("urmall.browse.storeFavorited"));
     } catch (err) {
       setSavedSellerIds((current) => {
         const next = new Set(current);
@@ -439,7 +442,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
         else next.delete(seller.id);
         return next;
       });
-      showNotice(err.message || "Unable to update favorite store.", "danger");
+      showNotice(err.message || t("urmall.browse.updateFavoriteFailed"), "danger");
     }
   }
 
@@ -450,12 +453,12 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
         seller: product.seller,
         product,
         topic: product.name,
-        message: options.message || `Hello, I am interested in ${product.name}.`,
+        message: options.message || t("urmall.browse.messageGreeting", { name: product.name }),
         messageType: options.messageType || (product.allowNegotiation ? "negotiation" : "question"),
       });
-      showNotice("Message sent to seller. You can continue in Messages.");
+      showNotice(t("urmall.browse.messageSent"));
     } catch (err) {
-      showNotice(err.message || "Unable to message seller.", "danger");
+      showNotice(err.message || t("urmall.browse.messageFailed"), "danger");
       throw err;
     }
   }

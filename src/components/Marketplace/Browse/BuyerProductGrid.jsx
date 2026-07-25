@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { BadgeCheck, Heart, MapPin, PackageSearch, Share2, ShoppingCart, Star, Truck } from "lucide-react";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { shareUrMallLink } from "../../../Backend/services/shareCtaService";
+import { useI18n, t } from "../../../i18n";
 
 function ProductImage({ product }) {
   if (product.imageUrl) {
@@ -49,13 +50,13 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
       <div className="relative aspect-square overflow-hidden bg-gray-100">
         <ProductImage product={product} />
         <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
-          <span className="rounded-md bg-slate-950/95 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">Retail</span>
+          <span className="rounded-md bg-slate-950/95 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">{t("urmall.browse.retail")}</span>
           {hasDiscount ? <span className="rounded-md bg-red-600 px-2 py-1 text-[11px] font-black uppercase text-white">-{discountPercent}%</span> : null}
         </div>
         {verifiedSeller ? (
           <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md bg-emerald-600/95 px-2 py-1 text-[11px] font-black text-white">
             <BadgeCheck size={13} />
-            Verified
+            {t("urmall.browse.verified")}
           </span>
         ) : null}
         <button
@@ -67,7 +68,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
           className={`absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/70 shadow-sm backdrop-blur ${
             saved ? "bg-red-600 text-white" : "bg-white/90 text-gray-700 hover:text-red-600"
           }`}
-          aria-label={saved ? `Unsave ${product.name}` : `Save ${product.name}`}
+          aria-label={saved ? t("urmall.browse.unsave", { name: product.name }) : t("urmall.browse.save", { name: product.name })}
         >
           <Heart size={16} fill={saved ? "currentColor" : "none"} />
         </button>
@@ -79,7 +80,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
             {product.name}
           </h3>
           <p className="mt-0.5 truncate text-[11px] font-semibold text-gray-500">
-            Retail · {product.category} | {product.seller?.name || "UrMall seller"}
+            {t("urmall.browse.retailMeta", { category: product.category, seller: product.seller?.name || t("urmall.browse.sellerFallback") })}
           </p>
         </div>
 
@@ -98,7 +99,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
           <span className="flex min-w-0 items-center gap-1.5 leading-5">
             <Truck size={13} className="shrink-0 text-emerald-600" />
             <span className="truncate">
-              {product.deliveryAvailable ? product.deliveryTime || "Delivery available" : product.pickupAvailable ? "Pickup available" : "Ask seller"}
+              {product.deliveryAvailable ? product.deliveryTime || t("urmall.browse.deliveryAvailable") : product.pickupAvailable ? t("urmall.browse.pickupAvailable") : t("urmall.browse.askSeller")}
             </span>
           </span>
         </div>
@@ -107,9 +108,9 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
           <div className="min-w-0">
             <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-600">
               <Star size={12} fill="currentColor" />
-              {product.reviewCount ? `${product.rating.toFixed(1)} (${product.reviewCount})` : product.sales > 0 ? `${product.sales} sold` : "New"}
+              {product.reviewCount ? `${product.rating.toFixed(1)} (${product.reviewCount})` : product.sales > 0 ? t("urmall.browse.soldN", { count: product.sales }) : t("urmall.browse.ratingNew")}
             </span>
-            <p className="truncate text-[10px] font-bold text-gray-400">{product.stock} in stock</p>
+            <p className="truncate text-[10px] font-bold text-gray-400">{t("urmall.browse.inStock", { count: product.stock })}</p>
           </div>
           <button
             type="button"
@@ -118,7 +119,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
               onAddToCart?.(product);
             }}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-950 text-white transition hover:bg-emerald-700"
-            aria-label={`Add ${product.name} to cart`}
+            aria-label={t("urmall.browse.addToCartAria", { name: product.name })}
           >
             <ShoppingCart size={15} />
           </button>
@@ -159,6 +160,7 @@ export default function BuyerProductGrid({
   savedIds = new Set(),
   supplementalContent = null,
 }) {
+  useI18n();
   if (loading && !products.length) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -172,7 +174,7 @@ export default function BuyerProductGrid({
   if (error) {
     return (
       <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-center">
-        <p className="font-black text-red-700">Products could not load</p>
+        <p className="font-black text-red-700">{t("urmall.browse.productsLoadFailed")}</p>
         <p className="mt-1 text-sm font-medium text-red-600">{error}</p>
       </div>
     );
@@ -183,14 +185,14 @@ export default function BuyerProductGrid({
       <div className="rounded-lg border border-gray-200 bg-white p-5 text-center shadow-sm">
         <p className="font-black text-gray-950">{emptyTitle}</p>
         <p className="mt-1 text-sm font-medium text-gray-500">{emptyBody}</p>
-        <p className="mt-3 text-sm font-semibold leading-6 text-gray-500">Share UrMall with family and friends while more listings arrive.</p>
+        <p className="mt-3 text-sm font-semibold leading-6 text-gray-500">{t("urmall.browse.shareInvite")}</p>
         <button
           type="button"
           onClick={shareUrMallLink}
           className="mx-auto mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-gray-950 px-4 text-sm font-black text-white"
         >
           <Share2 size={16} />
-          Share UrMall
+          {t("urmall.browse.shareUrMall")}
         </button>
       </div>
     );
