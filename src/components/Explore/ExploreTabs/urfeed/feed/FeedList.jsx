@@ -7,6 +7,7 @@ import { readExploreSettings } from "../../../../../Backend/services/explore/pre
 import { shareKunThaiLink } from "../../../../../Backend/services/shareCtaService";
 import { isAdvertPost } from "../../../shared/advertUtils";
 import { getPostIdentity, recordExploreAdvertEvent, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
+import { useI18n } from "../../../../../i18n";
 import Avatar from "../../../shared/Avatar";
 import EmptyState from "../../../shared/EmptyState";
 import FeedPost from "./components/FeedPost";
@@ -30,13 +31,14 @@ export default function FeedList({
   currentUserId,
   actionsByScope,
   profile,
-  emptyTitle = "No posts yet",
-  emptyMessage = "The feed is empty right now. Be the first to share something.",
+  emptyTitle = null,
+  emptyMessage = null,
   showEmpty = false,
   onLoadMore,
   hasMore = false,
   loadingMore = false,
 }) {
+  const { t } = useI18n();
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
 
   async function handleFollow(post) {
@@ -44,7 +46,7 @@ export default function FeedList({
     const active = await toggleFollow(identity);
 
     if (active && identity.id) {
-      return "Connected";
+      return t("feed.connectedToast");
     }
 
     return active === false ? "Connection removed" : "";
@@ -61,7 +63,7 @@ export default function FeedList({
 
     return (
       <div className="mt-4 w-full overflow-x-clip px-4 sm:px-5 lg:px-8">
-        <EmptyState title={emptyTitle} message={emptyMessage} />
+        <EmptyState title={emptyTitle || t("feed.emptyTitle")} message={emptyMessage || t("feed.emptyMessage")} />
       </div>
     );
   }
@@ -128,19 +130,19 @@ export default function FeedList({
           disabled={loadingMore}
           className="mx-auto mt-5 block rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-sky-700 shadow-sm disabled:opacity-60"
         >
-          {loadingMore ? "Loading more..." : "Show more"}
+          {loadingMore ? t("feed.loadingMore") : t("feed.showMore")}
         </button>
       ) : (
         <div className="mx-auto mt-5 max-w-xl rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-center shadow-sm">
-          <p className="text-sm font-black text-slate-950">You are all caught up.</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Share KunThai to family and friends to keep the fun going.</p>
+          <p className="text-sm font-black text-slate-950">{t("feed.caughtUp")}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("feed.caughtUpShare")}</p>
           <button
             type="button"
             onClick={shareKunThaiLink}
             className="kt-pressable mx-auto mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
           >
             <Share2 size={16} />
-            Share KunThai
+            {t("feed.shareKunThai")}
           </button>
         </div>
       )}
@@ -165,6 +167,7 @@ function isRealSuggestionProfile(profile) {
 }
 
 function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, onViewProfile }) {
+  const { t } = useI18n();
   const [profiles, setProfiles] = useState([]);
   const [pendingIds, setPendingIds] = useState(() => new Set());
   const [pageIndex, setPageIndex] = useState(0);
@@ -276,7 +279,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
         <span className="grid h-9 w-9 place-items-center rounded-2xl bg-sky-50 text-sky-700">
           <UserRoundPlus size={17} />
         </span>
-        <h3 className="text-sm font-black text-slate-950">Suggested accounts</h3>
+        <h3 className="text-sm font-black text-slate-950">{t("feed.suggestedAccounts")}</h3>
       </div>
       <div
         key={safePageIndex}
@@ -299,7 +302,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
             >
               <Avatar name={profile.display_name || profile.username} src={profile.avatar_url} size="sm" />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-black text-slate-950">{profile.display_name || "Profile"}</span>
+                <span className="block truncate text-sm font-black text-slate-950">{profile.display_name || t("feed.profileFallback")}</span>
                 <span className="block truncate text-xs font-bold text-slate-500">@{profile.username || "user"}</span>
               </span>
             </button>
@@ -309,18 +312,18 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
               onClick={() => followSuggestion(profile.user_id)}
               className="kt-pressable h-9 flex-none rounded-2xl bg-sky-700 px-4 text-xs font-black text-white transition hover:bg-sky-800 disabled:opacity-60"
             >
-              Connect
+              {t("feed.connect")}
             </button>
           </div>
         ))}
       </div>
       {pages.length > 1 ? (
-        <div className="mt-3 flex items-center justify-center gap-1.5" aria-label="Suggested account pages">
+        <div className="mt-3 flex items-center justify-center gap-1.5" aria-label={t("feed.suggestedAccountPages")}>
           {pages.map((_, index) => (
             <button
               key={index}
               type="button"
-              aria-label={`Show suggestions page ${index + 1}`}
+              aria-label={t("feed.suggestionsPage", { page: index + 1 })}
               onClick={() => goToPage(index, index > safePageIndex ? "forward" : "backward")}
               className={`h-2 rounded-full transition-all duration-300 ${
                 index === safePageIndex ? "w-5 bg-sky-600" : "w-2 bg-slate-300 hover:bg-slate-400"

@@ -11,6 +11,7 @@ import {
 } from "react-icons/hi2";
 
 import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
+import { useI18n } from "../../../../i18n";
 
 function formatRecordingTime(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -28,6 +29,7 @@ function readFileAsDataUrl(file) {
 }
 
 export default function MessageComposer({ onAction, onActivity, onSend }) {
+  const { t } = useI18n();
   const messageSettings = readExploreSettings().messages;
   const showTypingStatus = messageSettings.showTypingStatus !== false;
   const allowVoiceNotes = messageSettings.allowVoiceNotes !== false;
@@ -239,17 +241,17 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
       {attachment ? (
         <div className="mb-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2">
           {attachment.type === "image" ? (
-            <img src={attachment.mediaUrl} alt="Selected message attachment" className="h-12 w-12 rounded-xl object-cover" />
+            <img src={attachment.mediaUrl} alt={t("messages.selectedAttachment")} className="h-12 w-12 rounded-xl object-cover" />
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
               <HiOutlineMicrophone />
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-black text-slate-950">{attachment.type === "image" ? "Photo ready to send" : attachment.label}</p>
-            <p className="text-xs font-bold text-slate-500">Tap send when you are ready.</p>
+            <p className="truncate text-sm font-black text-slate-950">{attachment.type === "image" ? t("messages.photoReady") : attachment.label}</p>
+            <p className="text-xs font-bold text-slate-500">{t("messages.tapSend")}</p>
           </div>
-          <button type="button" onClick={clearAttachment} className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500" aria-label="Remove attachment">
+          <button type="button" onClick={clearAttachment} className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500" aria-label={t("messages.removeAttachment")}>
             <HiOutlineXMark />
           </button>
         </div>
@@ -265,7 +267,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
             className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left hover:bg-sky-50 hover:text-sky-700"
           >
             <HiOutlineMapPin className="text-lg" />
-            Share location
+            {t("messages.shareLocation")}
           </button>
           <button
             type="button"
@@ -273,7 +275,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
             className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left hover:bg-emerald-50 hover:text-emerald-700"
           >
             <HiOutlineShieldCheck className="text-lg" />
-            Request location
+            {t("messages.requestLocation")}
           </button>
           <button
             type="button"
@@ -281,7 +283,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
             className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-rose-700 hover:bg-rose-50"
           >
             <HiOutlineNoSymbol className="text-lg" />
-            Block user
+            {t("messages.blockUser")}
           </button>
         </div>
       ) : null}
@@ -292,14 +294,14 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
         type="button"
         onClick={() => fileInputRef.current?.click()}
         className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-lg text-slate-500"
-        aria-label="Choose image message"
+        aria-label={t("messages.chooseImage")}
       >
         <HiOutlinePhoto />
       </button>
       <input
         value={value}
         onChange={(event) => updateValue(event.target.value)}
-        placeholder="Write a message..."
+        placeholder={t("messages.writeMessage")}
         className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none"
       />
       {allowVoiceNotes ? (
@@ -307,7 +309,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
           type="button"
           onClick={toggleRecording}
           className={`flex h-11 w-11 items-center justify-center rounded-2xl text-lg ${recording ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}`}
-          aria-label={recording ? "Stop recording voice note" : "Record voice note"}
+          aria-label={recording ? t("messages.stopRecording") : t("messages.recordVoice")}
         >
           <HiOutlineMicrophone />
         </button>
@@ -318,7 +320,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
         className={`flex h-11 w-11 items-center justify-center rounded-2xl text-xl ${
           actionsOpen ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-500"
         }`}
-        aria-label="Open message actions"
+        aria-label={t("messages.openActions")}
         aria-expanded={actionsOpen}
       >
         <HiOutlineEllipsisHorizontal />
@@ -327,7 +329,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
         type="submit"
         disabled={!canSend}
         className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white disabled:bg-slate-200 disabled:text-slate-400"
-        aria-label="Send message"
+        aria-label={t("messages.sendMessage")}
       >
         <HiOutlinePaperAirplane />
       </button>

@@ -7,13 +7,18 @@
 
 import { Sparkles, Users, Video } from "lucide-react";
 
+import { useI18n } from "../../../i18n";
+
+// UrFeed and Swip are brand names and stay identical in every language; only
+// "Connections" is a translatable word.
 const TABS = [
   { id: "UrFeed", label: "UrFeed", icon: Sparkles },
   { id: "Swip", label: "Swip", icon: Video },
-  { id: "Connections", label: "Connections", icon: Users },
+  { id: "Connections", labelKey: "nav.connections", icon: Users },
 ];
 
 export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = "forward" }) {
+  const { t } = useI18n();
   const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.id === activeTab));
 
   return (
@@ -51,7 +56,7 @@ export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = 
             `}
           >
             <Icon className="flex-none" size={15} strokeWidth={2.25} absoluteStrokeWidth />
-            <span className="whitespace-nowrap">{tab.label}</span>
+            <span className="whitespace-nowrap">{tab.labelKey ? t(tab.labelKey) : tab.label}</span>
           </button>
         );
       })}

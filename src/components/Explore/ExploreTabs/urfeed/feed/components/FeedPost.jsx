@@ -20,6 +20,7 @@ import AdvertMetaActions from "../../../../shared/AdvertMetaActions";
 import { openMentionContent } from "../../../../../../Backend/services/explore/linkTokenService";
 import ExpandablePostText from "../../../../shared/ExpandablePostText";
 import TextPostCanvas, { isTextCanvasPost } from "../../../../shared/TextPostCanvas";
+import { useI18n } from "../../../../../../i18n";
 import {
   formatAdvertType,
   getAdvertMeta,
@@ -34,16 +35,18 @@ import RepostPreview from "../../../../shared/RepostPreview";
 import { contentHasModerationFlags } from "../../../../../../Backend/services/explore/safetyService";
 import { readExploreSettings } from "../../../../../../Backend/services/explore/preferencesService";
 
+// `value` is the canonical English category stored/submitted to the safety
+// backend; `key` resolves the translated label shown to the reader.
 const REPORT_CATEGORIES = [
-  "Content violation",
-  "Spam or scam",
-  "Harassment or bullying",
-  "Hate speech",
-  "Violence or dangerous acts",
-  "Nudity or sexual content",
-  "False information",
-  "Intellectual property",
-  "Something else",
+  { value: "Content violation", key: "contentViolation" },
+  { value: "Spam or scam", key: "spamScam" },
+  { value: "Harassment or bullying", key: "harassment" },
+  { value: "Hate speech", key: "hate" },
+  { value: "Violence or dangerous acts", key: "violence" },
+  { value: "Nudity or sexual content", key: "nudity" },
+  { value: "False information", key: "falseInfo" },
+  { value: "Intellectual property", key: "ip" },
+  { value: "Something else", key: "other" },
 ];
 
 export default function FeedPost({
@@ -65,6 +68,7 @@ export default function FeedPost({
   onFollow,
   profile,
 }) {
+  const { t } = useI18n();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [optionsClosing, setOptionsClosing] = useState(false);
   const [repostOpen, setRepostOpen] = useState(false);
@@ -75,7 +79,7 @@ export default function FeedPost({
   const [editValue, setEditValue] = useState(post.body || "");
   const [menuMessage, setMenuMessage] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportCategory, setReportCategory] = useState(REPORT_CATEGORIES[0]);
+  const [reportCategory, setReportCategory] = useState(REPORT_CATEGORIES[0].value);
   const [reportReason, setReportReason] = useState("");
   const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
   const [sensitiveRevealed, setSensitiveRevealed] = useState(false);
@@ -157,7 +161,7 @@ export default function FeedPost({
     const composedReason = details ? `${reportCategory} — ${details}` : reportCategory;
     await runAction(() => onReport?.(composedReason));
     setReportReason("");
-    setReportCategory(REPORT_CATEGORIES[0]);
+    setReportCategory(REPORT_CATEGORIES[0].value);
     setReportOpen(false);
   }
 
@@ -278,17 +282,16 @@ export default function FeedPost({
       {sensitiveGateActive ? (
         <div className="px-4 pb-4">
           <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-black text-amber-900">This post may contain sensitive content</p>
+            <p className="text-sm font-black text-amber-900">{t("post.sensitiveContent")}</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-              KunThai flagged wording in this post. You can view it anyway or keep scrolling.
-              Warnings can be turned off in Settings.
+              {t("post.sensitiveDesc")}
             </p>
             <button
               type="button"
               onClick={() => setSensitiveRevealed(true)}
               className="kt-pressable mt-3 h-10 rounded-2xl bg-amber-600 px-4 text-xs font-black text-white transition hover:bg-amber-700"
             >
-              View post
+              {t("post.viewPost")}
             </button>
           </div>
         </div>
@@ -379,9 +382,9 @@ export default function FeedPost({
       />
 
       {menuMessage ? <p className="px-4 pb-3 text-xs font-bold text-sky-700">{menuMessage}</p> : null}
-      <PostActionOverlay open={editOpen} onClose={() => setEditOpen(false)} label="Edit post">
+      <PostActionOverlay open={editOpen} onClose={() => setEditOpen(false)} label={t("post.editPost")}>
           <form className="w-full" onSubmit={submitEdit}>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Edit post</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">{t("post.editPost")}</p>
             <textarea
               value={editValue}
               onChange={(event) => setEditValue(event.target.value)}
@@ -390,72 +393,72 @@ export default function FeedPost({
             />
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setEditOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">
-                Cancel
+                {t("post.cancel")}
               </button>
               <button type="submit" className="h-11 rounded-2xl bg-slate-950 text-sm font-black text-white">
-                Save
+                {t("post.save")}
               </button>
             </div>
           </form>
       </PostActionOverlay>
-      <PostActionOverlay open={reportOpen} onClose={() => setReportOpen(false)} label={advertPost ? "Report advertisement" : "Report post"}>
+      <PostActionOverlay open={reportOpen} onClose={() => setReportOpen(false)} label={advertPost ? t("post.reportAdvert") : t("post.reportPost")}>
           <form className="w-full" onSubmit={submitReport}>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">{advertPost ? "Report advertisement" : "Report post"}</p>
-            <h3 className="mt-1 text-lg font-black text-slate-950">Why are you reporting this?</h3>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">{advertPost ? t("post.reportAdvert") : t("post.reportPost")}</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">{t("post.reportReasonQuestion")}</h3>
             <label className="mt-3 block">
-              <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">Reason</span>
+              <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">{t("post.reason")}</span>
               <select
                 value={reportCategory}
                 onChange={(event) => setReportCategory(event.target.value)}
                 className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-800 outline-none"
               >
                 {REPORT_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>{category}</option>
+                  <option key={category.value} value={category.value}>{t(`post.reportCat.${category.key}`)}</option>
                 ))}
               </select>
             </label>
             <textarea
               value={reportReason}
               onChange={(event) => setReportReason(event.target.value)}
-              placeholder="Add details that help our safety team review this faster (optional)."
+              placeholder={t("post.reportPlaceholder")}
               rows={3}
               className="mt-3 w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold leading-6 text-slate-800 outline-none"
             />
             <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-              Your report is confidential and goes straight to the KunThai safety team for review.
+              {t("post.reportConfidential")}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setReportOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">
-                Cancel
+                {t("post.cancel")}
               </button>
               <button type="submit" className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-50">
-                Submit report
+                {t("post.submitReport")}
               </button>
             </div>
           </form>
       </PostActionOverlay>
-      <PostActionOverlay open={deleteOpen} onClose={() => setDeleteOpen(false)} label="Delete post">
+      <PostActionOverlay open={deleteOpen} onClose={() => setDeleteOpen(false)} label={t("post.deletePost")}>
           <div className="w-full">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">Delete post</p>
-            <h3 className="mt-1 text-lg font-black text-slate-950">Remove this post?</h3>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">This removes it from Explore and your profile.</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-600">{t("post.deletePost")}</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">{t("post.removePostTitle")}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{t("post.removePostBody")}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setDeleteOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">
-                Cancel
+                {t("post.cancel")}
               </button>
               <button type="button" onClick={confirmDelete} className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white">
-                Delete
+                {t("post.delete")}
               </button>
             </div>
           </div>
       </PostActionOverlay>
-      <PostActionOverlay open={whyAdvertOpen} onClose={() => setWhyAdvertOpen(false)} label="Why this sponsored item">
+      <PostActionOverlay open={whyAdvertOpen} onClose={() => setWhyAdvertOpen(false)} label={t("post.whySponsored")}>
           <section className="w-full">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Why this sponsored item?</p>
-            <h3 className="mt-1 text-lg font-black text-slate-950">Chosen for your Explore experience</h3>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">{t("post.whySponsored")}</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">{t("post.sponsoredReason")}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{getExploreAdvertReason(post)}</p>
-            <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">KunThai uses on-platform interests and activity. Contacts and precise location are not used. Nearby matching requires your permission.</p>
-            <button type="button" onClick={() => setWhyAdvertOpen(false)} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">Got it</button>
+            <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">{t("post.whyAdvertPrivacy")}</p>
+            <button type="button" onClick={() => setWhyAdvertOpen(false)} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">{t("post.gotIt")}</button>
           </section>
       </PostActionOverlay>
       {repostOpen ? (
@@ -463,7 +466,7 @@ export default function FeedPost({
           profile={profile}
           sourcePost={post}
           onClose={() => setRepostOpen(false)}
-          onSuccess={() => setMenuMessage("Repost published to UrFeed.")}
+          onSuccess={() => setMenuMessage(t("post.repostPublished"))}
         />
       ) : null}
       {analyticsOpen ? <PostAnalyticsPanel post={post} onClose={() => setAnalyticsOpen(false)} /> : null}
@@ -472,11 +475,12 @@ export default function FeedPost({
 }
 
 function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfile }) {
+  const { t } = useI18n();
   const url = normalizeAdvertUrl(advert.link);
   const phoneHref = getAdvertPhoneHref(advert.phone);
   const actionHref = advert.ctaLabel === "Call or message" && phoneHref ? phoneHref : url;
   const opensWebsite = Boolean(url && actionHref === url);
-  const title = advert.title || "Advertisement";
+  const title = advert.title || t("explore.advertisement");
   const profileAction = advert.ctaLabel === "View profile";
   const followAction = advert.ctaLabel === "Follow" || advert.ctaLabel === "Connect";
 
@@ -487,7 +491,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
           <span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-amber-700 shadow-sm ring-1 ring-amber-100">
             <Megaphone size={18} strokeWidth={2.4} absoluteStrokeWidth />
           </span>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-700">Sponsored</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-700">{t("post.sponsored")}</p>
         </div>
         <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 ring-1 ring-slate-100">
           {formatAdvertType(advert.type)}

@@ -25,6 +25,7 @@ import {
   subscribeNotificationSeen,
 } from "../../../../Backend/services/notificationSeenStore";
 import { isFeatureAvailable } from "../../../../data/globalFeatureAvailability";
+import { useI18n } from "../../../../i18n";
 import PremiumHeader, { PremiumHeaderButton } from "../../../shared/PremiumHeader";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import SearchOverlay from "./search/SearchOverlay";
@@ -32,6 +33,7 @@ import SearchOverlay from "./search/SearchOverlay";
 const CREATE_MENU_EXIT_MS = 280;
 
 export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult, onOverlayChange }) {
+  const { t } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -153,13 +155,13 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
           title="Explore"
           left={(
             <>
-              <PremiumHeaderButton icon={Menu} label="Open Explore menu" onClick={() => onNavigate?.("Menu")} />
+              <PremiumHeaderButton icon={Menu} label={t("explore.openMenu")} onClick={() => onNavigate?.("Menu")} />
               <PremiumHeaderButton
                 active={messageStatus.active}
                 accent="sky"
                 badge={messageStatus.unreadCount}
                 icon={MessageCircle}
-                label={messageStatus.activity ? "Messages active now" : "Messages"}
+                label={messageStatus.activity ? t("explore.messagesActiveNow") : t("explore.messages")}
                 onClick={openMessages}
               />
             </>
@@ -168,7 +170,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
             <>
               <PremiumHeaderButton
                 icon={Search}
-                label="Search Explore"
+                label={t("explore.search")}
                 onClick={() => {
                   setCreateOpen(false);
                   setSearchInitialQuery("");
@@ -179,15 +181,15 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                 active
                 accent="sky"
                 icon={createVisible ? X : Plus}
-                label={createVisible ? "Close create menu" : "Create"}
+                label={createVisible ? t("explore.closeCreateMenu") : t("explore.create")}
                 onClick={toggleCreateMenu}
               />
               <PremiumHeaderButton
                 badge={bellBadgeCount}
                 icon={Bell}
-                label="Notifications"
+                label={t("explore.notifications")}
                 onClick={openAlerts}
-                title={latestMessage || "Notifications"}
+                title={latestMessage || t("explore.notifications")}
               />
             </>
           )}
@@ -199,14 +201,14 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
             <div className="fixed inset-0 z-[90] flex items-start justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-[calc(env(safe-area-inset-top)+5.25rem)] sm:items-center sm:pt-4">
               <button
                 type="button"
-                aria-label="Close create menu"
+                aria-label={t("explore.closeCreateMenu")}
                 className={`${createClosing ? "kt-create-popup-backdrop-out" : "kt-create-popup-backdrop"} absolute inset-0 cursor-default`}
                 onClick={() => closeCreateMenu()}
               />
               <div
                 role="dialog"
                 aria-modal="true"
-                aria-label="Create"
+                aria-label={t("explore.create")}
                 className={`relative z-10 w-full max-w-sm rounded-[28px] border border-white/80 bg-white/95 p-3 text-left shadow-2xl shadow-slate-950/20 ${
                   createClosing ? "kt-toast-collapse-out" : "kt-toast-expand-in"
                 }`}
@@ -215,11 +217,11 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                 <div className="flex items-center justify-between px-2 pb-3 pt-1">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-700">KunThai</p>
-                    <h2 className="mt-1 text-xl font-black text-slate-950">Create</h2>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">{t("explore.create")}</h2>
                   </div>
                   <button
                     type="button"
-                    aria-label="Close create menu"
+                    aria-label={t("explore.closeCreateMenu")}
                     className="kt-pressable grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-slate-300 hover:text-slate-950"
                     onClick={() => closeCreateMenu()}
                   >
@@ -227,10 +229,10 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <CreateMenuItem accent="sky" icon={PenSquare} label="Text" onClick={() => selectCreateType("text")} />
-                  <CreateMenuItem accent="emerald" icon={Image} label="Photo" onClick={() => selectCreateType("image")} />
-                  <CreateMenuItem accent="violet" icon={Mic} label="Voice" onClick={() => selectCreateType("voice")} />
-                  <CreateMenuItem accent="rose" icon={Video} label="Video" onClick={() => selectCreateType("video")} />
+                  <CreateMenuItem accent="sky" icon={PenSquare} label={t("explore.typeText")} onClick={() => selectCreateType("text")} />
+                  <CreateMenuItem accent="emerald" icon={Image} label={t("explore.typePhoto")} onClick={() => selectCreateType("image")} />
+                  <CreateMenuItem accent="violet" icon={Mic} label={t("explore.typeVoice")} onClick={() => selectCreateType("voice")} />
+                  <CreateMenuItem accent="rose" icon={Video} label={t("explore.typeVideo")} onClick={() => selectCreateType("video")} />
                 </div>
                 {isFeatureAvailable("adverts", currentProfile?.countryCode || currentProfile?.country || {}) ? (
                   <button
@@ -242,8 +244,8 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
                       <Megaphone size={20} strokeWidth={2.3} absoluteStrokeWidth />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-base font-black text-slate-950">Advertisement</span>
-                      <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">Promote an offer, job vacancy, event, service, or location.</span>
+                      <span className="block text-base font-black text-slate-950">{t("explore.advertisement")}</span>
+                      <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">{t("explore.advertisementDesc")}</span>
                     </span>
                   </button>
                 ) : null}

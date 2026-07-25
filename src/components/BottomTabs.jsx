@@ -3,6 +3,8 @@
 import { createElement, useEffect, useRef, useState } from "react";
 import { Compass, ShoppingBag, Truck } from "lucide-react";
 
+import { useI18n } from "../i18n";
+
 const tabs = [
   { id: "explore", label: "Explore", icon: Compass },
   { id: "marketplace", label: "UrMall", icon: ShoppingBag },
@@ -10,6 +12,7 @@ const tabs = [
 ];
 
 export default function BottomTabs({ badges = {}, page, setPage }) {
+  const { t } = useI18n();
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
   const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === page));
@@ -57,7 +60,7 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
         hidden ? "translate-y-[calc(100%+1.25rem)]" : "translate-y-0"
       }`}
       style={{ zIndex: 50, bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-      aria-label="Main navigation"
+      aria-label={t("nav.mainNavigation")}
     >
       <div className="relative mx-auto grid max-w-md grid-cols-3 gap-1 rounded-[26px] border border-white/80 bg-white/65 p-1 shadow-2xl shadow-slate-950/15 ring-1 ring-slate-950/10 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55 dark:border-slate-700/60 dark:bg-slate-900/85 dark:shadow-black/40 dark:ring-white/10 dark:supports-[backdrop-filter]:bg-slate-900/75">
         <span

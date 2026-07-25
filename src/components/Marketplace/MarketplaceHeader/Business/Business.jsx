@@ -1,6 +1,8 @@
 /* =========================
    MyBiz Header
 ========================= */
+import { MessageSquare, ShieldCheck } from "lucide-react";
+
 import MyBizHeader from "./BusinessHeader/MyBizHeader";
 import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
 
@@ -36,6 +38,8 @@ import {
   setActiveRegisteredBusiness,
 } from "../../../../Backend/services/marketplace/sellerRegistrationService";
 import { consumeSellerOrdersAreaViewReturn } from "../../../../Backend/services/marketplace/navigationHandoffService";
+import { getBusinessPermissions, getAllowedWorkspaceTabs } from "../../../../Backend/services/marketplace/businessPermissions";
+import { showToast } from "../../../../Backend/services/toastService";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
@@ -353,6 +357,10 @@ export default function Business({ onBack }) {
   const activeBusinessId = sellerOverview.business?.id || businesses[0]?.id || "";
   const activeRegisteredBusiness = businesses.find((business) => business.id === activeBusinessId) || businesses[0];
   const businessKind = sellerOverview.business?.kind || activeRegisteredBusiness?.businessKind || "retail";
+  // Invited admins are limited to the responsibilities the owner turned on.
+  const permissions = getBusinessPermissions(activeRegisteredBusiness);
+  const allowedTabs = getAllowedWorkspaceTabs(permissions);
+  const effectiveTab = allowedTabs.includes(activeTab) ? activeTab : (allowedTabs[0] || "");
 
   if (loading || sellerDashboardInitialLoading) {
     // The overview cache keeps stats persistent across visits, so this quiet
@@ -389,6 +397,10 @@ export default function Business({ onBack }) {
           onAddBusiness={() => openSellerScreen("addBusiness")}
           onBack={onBack}
           onAddProduct={() => {
+            if (!permissions.canAddProducts) {
+              showToast("Your admin role does not include adding or editing listings.", "info");
+              return;
+            }
             if (businessKind !== "retail") {
               window.dispatchEvent(new CustomEvent("marketplace-open-vertical-editor"));
               return;
@@ -397,12 +409,21 @@ export default function Business({ onBack }) {
             openSellerScreen("addProduct");
           }}
           onOrders={() => {
+            if (!permissions.canAccessDashboard) {
+              showToast("Your admin role does not include order and dashboard access.", "info");
+              return;
+            }
             openSellerScreen("orders");
           }}
           onMessages={() => {
+            if (!permissions.canReplyMessages) {
+              showToast("Your admin role does not include replying to messages.", "info");
+              return;
+            }
             openSellerScreen("messages");
           }}
           onAlerts={() => {
+            if (!permissions.canAccessDashboard) return;
             openSellerScreen("notifications");
           }}
           onMenu={openSellerMenu}
@@ -413,7 +434,9 @@ export default function Business({ onBack }) {
             window.setTimeout(() => setToastMessage(""), 2500);
           }}
           primaryActionLabel={primaryActionLabel}
-          showOrders={["retail", "restaurant"].includes(businessKind)}
+          showAddProduct={permissions.canAddProducts}
+          showMessages={permissions.canReplyMessages}
+          showOrders={permissions.canAccessDashboard && ["retail", "restaurant"].includes(businessKind)}
         />
       ) : null}
 
@@ -424,6 +447,7 @@ export default function Business({ onBack }) {
           initialScreenKey={menuInitialScreen}
           profileInitialView={profileInitialView}
           onAddBusiness={() => openSellerScreen("addBusiness")}
+          permissions={permissions}
         />
       ) : null}
 
@@ -444,52 +468,71 @@ export default function Business({ onBack }) {
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         <div>
           <main className="space-y-6">
-            <MyBizDashboardHeader onEditProfile={openProfileEditor} overview={sellerOverview} />
-            {businessKind === "retail" ? <SellerWorkspaceTabs activeTab={activeTab} onTabChange={setActiveTab} /> : null}
-            {businessKind !== "retail" ? <VerticalSellerDashboard business={verticalBusiness} /> : null}
-            {businessKind === "retail" && activeTab === "overview" ? (
+            {permissions.canAccessDashboard ? (
+              <MyBizDashboardHeader onEditProfile={openProfileEditor} overview={sellerOverview} />
+            ) : null}
+
+            {permissions.isAdmin ? (
+              <AdminRoleBanner permissions={permissions} />
+            ) : null}
+
+            {!(permissions.canAccessDashboard || permissions.canAddProducts) ? (
+              <AdminLimitedCard
+                permissions={permissions}
+                onOpenMessages={() => openSellerScreen("messages")}
+              />
+            ) : businessKind === "retail" ? (
               <>
-                <BusinessAttention
-                  onAction={(item) => {
-                    if (item.id === "add-first-product") openSellerScreen("addProduct");
-                    if (item.type === "payout") setActiveTab("overview");
-                    if (item.type === "profile") setActiveTab("overview");
-                  }}
-                />
-                <BusinessPromotions />
+                {allowedTabs.length ? (
+                  <SellerWorkspaceTabs activeTab={effectiveTab} onTabChange={setActiveTab} allowedTabs={allowedTabs} />
+                ) : null}
+                {effectiveTab === "overview" ? (
+                  <>
+                    <BusinessAttention
+                      onAction={(item) => {
+                        if (item.id === "add-first-product") openSellerScreen("addProduct");
+                        if (item.type === "payout") setActiveTab("overview");
+                        if (item.type === "profile") setActiveTab("overview");
+                      }}
+                    />
+                    <BusinessPromotions />
+                  </>
+                ) : null}
+                {effectiveTab === "sales" ? <BusinessStats /> : null}
+                {effectiveTab === "store" ? (
+                    <BusinessCatalog
+                      mode="store"
+                      onViewProduct={openSellerProductDetail}
+                      onEditProduct={(product) => {
+                        setEditingProduct(product);
+                        openSellerScreen("addProduct");
+                    }}
+                  />
+                ) : null}
+                {effectiveTab === "catalog" ? (
+                    <BusinessCatalog
+                      mode="catalog"
+                      onViewProduct={openSellerProductDetail}
+                      onEditProduct={(product) => {
+                        setEditingProduct(product);
+                        openSellerScreen("addProduct");
+                    }}
+                  />
+                ) : null}
+                {effectiveTab === "drafts" ? (
+                    <BusinessCatalog
+                      mode="drafts"
+                      onViewProduct={openSellerProductDetail}
+                      onEditProduct={(product) => {
+                        setEditingProduct(product);
+                        openSellerScreen("addProduct");
+                    }}
+                  />
+                ) : null}
               </>
-            ) : null}
-            {businessKind === "retail" && activeTab === "sales" ? <BusinessStats /> : null}
-            {businessKind === "retail" && activeTab === "store" ? (
-                <BusinessCatalog
-                  mode="store"
-                  onViewProduct={openSellerProductDetail}
-                  onEditProduct={(product) => {
-                    setEditingProduct(product);
-                    openSellerScreen("addProduct");
-                }}
-              />
-            ) : null}
-            {businessKind === "retail" && activeTab === "catalog" ? (
-                <BusinessCatalog
-                  mode="catalog"
-                  onViewProduct={openSellerProductDetail}
-                  onEditProduct={(product) => {
-                    setEditingProduct(product);
-                    openSellerScreen("addProduct");
-                }}
-              />
-            ) : null}
-            {businessKind === "retail" && activeTab === "drafts" ? (
-                <BusinessCatalog
-                  mode="drafts"
-                  onViewProduct={openSellerProductDetail}
-                  onEditProduct={(product) => {
-                    setEditingProduct(product);
-                    openSellerScreen("addProduct");
-                }}
-              />
-            ) : null}
+            ) : (
+              <VerticalSellerDashboard business={verticalBusiness} canManage={permissions.canAddProducts} />
+            )}
           </main>
         </div>
       </div>
@@ -498,6 +541,64 @@ export default function Business({ onBack }) {
 
       {hasBusiness && visibleScreen !== "dashboard" ? renderSellerScreen() : null}
 
+    </div>
+  );
+}
+
+// Shows an admin exactly which responsibilities the owner granted, so the
+// limited workspace never looks broken.
+function AdminRoleBanner({ permissions }) {
+  const abilities = [
+    permissions.canAddProducts ? "add & edit listings" : null,
+    permissions.canReplyMessages ? "reply to messages" : null,
+    permissions.canAccessDashboard ? "view orders & dashboard" : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3">
+      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-violet-100 text-violet-700">
+        <ShieldCheck size={17} />
+      </span>
+      <p className="text-sm font-semibold leading-6 text-violet-900">
+        You are an admin of this business.{" "}
+        {abilities.length
+          ? <>Your role covers: <span className="font-black">{abilities.join(", ")}</span>.</>
+          : "The owner has not assigned you any responsibilities yet."}
+      </p>
+    </div>
+  );
+}
+
+// Landing card for admins whose only responsibility is replying to messages
+// (or who have nothing assigned yet) — the dashboard/catalog stay hidden.
+function AdminLimitedCard({ permissions, onOpenMessages }) {
+  return (
+    <div className="rounded-[24px] border border-dashed border-gray-300 bg-white p-8 text-center">
+      <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-gray-100 text-gray-500">
+        <ShieldCheck size={22} />
+      </span>
+      {permissions.canReplyMessages ? (
+        <>
+          <p className="mt-3 text-base font-black text-gray-950">You can reply to buyer messages</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
+            Your admin role is limited to answering messages for this store.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenMessages}
+            className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white"
+          >
+            <MessageSquare size={16} /> Open messages
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="mt-3 text-base font-black text-gray-950">No responsibilities assigned yet</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
+            The business owner has not given you any admin responsibilities. Ask them to assign what you should handle.
+          </p>
+        </>
+      )}
     </div>
   );
 }

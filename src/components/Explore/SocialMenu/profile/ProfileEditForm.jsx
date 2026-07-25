@@ -1,6 +1,7 @@
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { detectSocialPlatform, normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
+import { useI18n } from "../../../../i18n";
 
 const platformIcons = {
   facebook: FaFacebookF,
@@ -12,12 +13,13 @@ const platformIcons = {
 };
 
 function SocialLinkInput({ index, onChange, value }) {
+  const { t } = useI18n();
   const platform = detectSocialPlatform(value?.url);
   const Icon = platformIcons[platform?.id];
 
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500">Social link {index + 1}</span>
+      <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500">{t("profile.socialLink", { index: index + 1 })}</span>
       <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 focus-within:ring-2 focus-within:ring-sky-500/20">
         <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${platform ? "bg-sky-50 text-sky-700" : "bg-white text-slate-400"}`}>
           {Icon ? <Icon /> : index + 1}
@@ -26,7 +28,7 @@ function SocialLinkInput({ index, onChange, value }) {
           value={value?.url || ""}
           onChange={(event) => onChange(index, event.target.value)}
           className="h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none"
-          placeholder="Paste Facebook, TikTok, Instagram, X, WhatsApp, or YouTube link"
+          placeholder={t("profile.linkPlaceholder")}
         />
       </div>
     </label>
@@ -34,6 +36,7 @@ function SocialLinkInput({ index, onChange, value }) {
 }
 
 export default function ProfileEditForm({ onChange, values }) {
+  const { t } = useI18n();
   const socialLinks = normalizeSocialLinks(values.socialLinks);
 
   function updateSocialLink(index, url) {
@@ -48,37 +51,37 @@ export default function ProfileEditForm({ onChange, values }) {
         value={values.displayName || ""}
         onChange={(event) => onChange("displayName", event.target.value)}
         className="rounded-xl bg-slate-50 px-3 py-2 text-base font-semibold text-slate-950 outline-none focus:ring-2 focus:ring-sky-500/20"
-        placeholder="Display name"
+        placeholder={t("profile.displayName")}
       />
       <input
         value={values.username || ""}
         onChange={(event) => onChange("username", event.target.value)}
         className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-        placeholder="username"
+        placeholder={t("profile.username")}
       />
       <textarea
         value={values.bio || ""}
         onChange={(event) => onChange("bio", event.target.value)}
         className="min-h-24 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20 sm:col-span-2"
-        placeholder="Bio"
+        placeholder={t("profile.bio")}
       />
       <input
         value={values.email || ""}
         onChange={(event) => onChange("email", event.target.value)}
         className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-        placeholder="Email"
+        placeholder={t("profile.email")}
       />
       <input
         value={values.address || ""}
         onChange={(event) => onChange("address", event.target.value)}
         className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-        placeholder="Address"
+        placeholder={t("profile.address")}
       />
       <input
         value={values.phone || ""}
         onChange={(event) => onChange("phone", event.target.value)}
         className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20 sm:col-span-2"
-        placeholder="Phone"
+        placeholder={t("profile.phone")}
       />
       <div className="grid gap-3 sm:col-span-2 lg:grid-cols-3">
         {socialLinks.map((link, index) => (

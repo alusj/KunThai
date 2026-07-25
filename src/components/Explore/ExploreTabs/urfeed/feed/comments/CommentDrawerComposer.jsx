@@ -5,6 +5,7 @@ import { fileToDataUrl } from "../composer/composerUtils";
 import { MentionHashtagSuggestions } from "../../../../shared/MentionHashtagAutocomplete";
 import { useMentionHashtagAutocomplete } from "../../../../../../Backend/hooks/useMentionHashtagAutocomplete";
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { useI18n, t as translate } from "../../../../../../i18n";
 
 function getReplyName(comment) {
   const authorName = String(comment?.author_name || comment?.authorProfile?.displayName || "").trim();
@@ -12,10 +13,11 @@ function getReplyName(comment) {
 
   if (authorName && authorName.toLowerCase() !== "profile") return authorName;
   if (username && username.toLowerCase() !== "user") return username;
-  return "this comment";
+  return translate("post.thisComment");
 }
 
 export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyingTo, onCancelReply }) {
+  const { t } = useI18n();
   const [value, setValue] = useState("");
   const [audioPreview, setAudioPreview] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -83,8 +85,8 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
     <form onSubmit={handleSubmit} className="kt-comment-composer kuntai-safe-bottom border-t border-slate-200 bg-white p-3">
       {replyingTo ? (
         <div className="kt-comment-reply-chip mb-2 flex min-w-0 items-center justify-between gap-2 rounded-2xl bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
-          <span className="truncate">Replying to {getReplyName(replyingTo)}</span>
-          <button type="button" onClick={onCancelReply} className="kt-pressable flex-none rounded-lg" aria-label="Cancel reply">
+          <span className="truncate">{t("post.replyingTo", { name: getReplyName(replyingTo) })}</span>
+          <button type="button" onClick={onCancelReply} className="kt-pressable flex-none rounded-lg" aria-label={t("post.cancelReply")}>
             <HiOutlineXMark />
           </button>
         </div>
@@ -98,7 +100,7 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
             onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
             className="h-10 min-w-0 flex-1"
           />
-          <button type="button" onClick={() => setAudioPreview("")} className="text-slate-500" aria-label="Remove voice comment">
+          <button type="button" onClick={() => setAudioPreview("")} className="text-slate-500" aria-label={t("post.removeVoiceComment")}>
             <HiOutlineXMark />
           </button>
         </div>
@@ -116,7 +118,7 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
           value={value}
           onChange={autocomplete.handleInputChange}
           onBlur={() => window.setTimeout(autocomplete.closeSuggestions, 150)}
-          placeholder="Comment with text, @mention, or voice..."
+          placeholder={t("post.commentPlaceholder")}
           className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none transition-colors duration-150 focus:bg-slate-50 focus:ring-2 focus:ring-sky-100"
         />
         <button
@@ -131,7 +133,7 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
           type="submit"
           disabled={(!value.trim() && !audioPreview) || pendingSignature === [replyingTo?.id || "", value.trim(), audioPreview || ""].join("|")}
           className="kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm shadow-slate-950/10 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
-          aria-label="Send comment"
+          aria-label={t("post.sendComment")}
         >
           <HiOutlinePaperAirplane />
         </button>

@@ -11,6 +11,13 @@ import { LOCALE_OPTIONS, TRANSLATIONS } from "./translations";
 
 const LOCALE_OVERRIDE_KEY = "kunthai.locale";
 const SUPPORTED = new Set(Object.keys(TRANSLATIONS));
+// Locales whose script reads right-to-left. Adding one here flips the whole
+// interface direction (document + <html dir>) when that locale is active.
+const RTL_LOCALES = new Set(["ar"]);
+
+export function isRtlLocale(locale) {
+  return RTL_LOCALES.has(locale);
+}
 
 function readOverride() {
   try {
@@ -40,7 +47,12 @@ const listeners = new Set();
 function applyDocumentLocale() {
   if (typeof document !== "undefined") {
     document.documentElement.lang = activeLocale;
+    document.documentElement.dir = RTL_LOCALES.has(activeLocale) ? "rtl" : "ltr";
   }
+}
+
+export function getDir() {
+  return RTL_LOCALES.has(activeLocale) ? "rtl" : "ltr";
 }
 
 applyDocumentLocale();
@@ -97,7 +109,15 @@ function subscribe(listener) {
 
 export function useI18n() {
   const locale = useSyncExternalStore(subscribe, getLocale, () => "en");
-  return { locale, t, setLocaleOverride, localeOptions: LOCALE_OPTIONS, override: getLocaleOverride() };
+  return {
+    locale,
+    t,
+    setLocaleOverride,
+    localeOptions: LOCALE_OPTIONS,
+    override: getLocaleOverride(),
+    dir: getDir(),
+    isRtl: isRtlLocale(locale),
+  };
 }
 
 export { LOCALE_OPTIONS };

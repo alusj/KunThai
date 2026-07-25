@@ -15,6 +15,7 @@ import {
 } from "../../../../Backend/services/exploreService";
 import { blockExploreIdentity, reportExploreProfile, reportExploreSpace } from "../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { useI18n } from "../../../../i18n";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
 import Avatar from "../../shared/Avatar";
@@ -74,6 +75,7 @@ export default function ProfileScreen({
   profileFetched = true,
   spaces = [],
 }) {
+  const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [postTab, setPostTab] = useState("feed");
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
@@ -262,7 +264,7 @@ export default function ProfileScreen({
 
   function renderFeedPosts() {
     if (!profileFeedPosts.length) {
-      return <EmptyState title="No feed posts yet" message="Feed posts from this account will appear here." />;
+      return <EmptyState title={t("profile.noFeedTitle")} message={t("profile.noFeedMsg")} />;
     }
 
     return profileFeedPosts.map((post) => (
@@ -285,7 +287,7 @@ export default function ProfileScreen({
 
   function renderSwipPosts() {
     if (!profileSwipPosts.length) {
-      return <EmptyState title="No Swip videos yet" message="Videos from this account will appear here." />;
+      return <EmptyState title={t("profile.noSwipTitle")} message={t("profile.noSwipMsg")} />;
     }
 
     return profileSwipPosts.map((post) => (
@@ -318,20 +320,20 @@ export default function ProfileScreen({
     <div>
       {!hideHeader ? (
         <SocialScreenHeader
-          title="Profile"
-          subtitle="Public profile, posts, Swip videos, saved posts, and account activity."
+          title={t("profile.headerTitle")}
+          subtitle={t("profile.headerSubtitle")}
         />
       ) : null}
 
       <div className="w-full space-y-4 px-4 py-4 sm:px-6 lg:px-8">
         {loading && !profile ? (
-          <p className="py-12 text-center text-sm font-bold text-slate-400">Opening profile...</p>
+          <p className="py-12 text-center text-sm font-bold text-slate-400">{t("profile.opening")}</p>
         ) : loadError ? (
-          <EmptyState title="Profile could not load" message={loadError} />
+          <EmptyState title={t("profile.couldNotLoad")} message={loadError} />
         ) : accountUnavailable ? (
           <EmptyState
-            title="Account unavailable"
-            message="This account is currently unavailable. It will appear again if the owner reactivates it."
+            title={t("profile.accountUnavailable")}
+            message={t("profile.accountUnavailableMsg")}
           />
         ) : profileFetched && !profile ? (
           <CreateProfileState
@@ -346,7 +348,7 @@ export default function ProfileScreen({
           <>
         {editable && !isSpace && spaces.length ? (
           <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Your Spaces</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.yourSpaces")}</p>
             <div className="mt-3 flex gap-3 overflow-x-auto pb-1 kuntai-scrollbar-none">
               {spaces.map((space) => (
                 <div
@@ -360,14 +362,14 @@ export default function ProfileScreen({
                   {space.membershipStatus === "pending" ? (
                     <div className="grid w-full grid-cols-2 gap-1">
                       <button type="button" onClick={() => respondToSpaceInvite(space, true)} className="h-8 rounded-xl bg-sky-700 text-[11px] font-black text-white">
-                        Accept
+                        {t("profile.accept")}
                       </button>
                       <button type="button" onClick={() => respondToSpaceInvite(space, false)} className="h-8 rounded-xl bg-white text-[11px] font-black text-slate-600">
-                        Decline
+                        {t("profile.decline")}
                       </button>
                     </div>
                   ) : (
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-sky-700">{space.memberRole || "member"}</span>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-sky-700">{space.memberRole || t("profile.member")}</span>
                   )}
                 </div>
               ))}
@@ -426,18 +428,19 @@ export default function ProfileScreen({
 
 
 function CreateProfileState({ onCreate }) {
+  const { t } = useI18n();
   return (
     <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm">
-      <h3 className="text-base font-black text-slate-950">Create your profile</h3>
+      <h3 className="text-base font-black text-slate-950">{t("profile.createProfileTitle")}</h3>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600">
-        Your public Explore profile has not been created yet. Add real profile details before your posts and reactions go live.
+        {t("profile.createProfileMsg")}
       </p>
       <button
         type="button"
         onClick={onCreate}
         className="mt-4 h-11 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white"
       >
-        Create profile
+        {t("profile.createProfileBtn")}
       </button>
     </div>
   );

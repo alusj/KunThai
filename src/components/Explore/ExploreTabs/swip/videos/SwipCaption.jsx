@@ -2,12 +2,14 @@ import { HiOutlineCheckBadge } from "react-icons/hi2";
 import { Repeat2 } from "lucide-react";
 
 import { formatRelativeTime } from "../../../../../Backend/services/exploreService";
+import { useI18n } from "../../../../../i18n";
 import AdvertMetaActions from "../../../shared/AdvertMetaActions";
 import Avatar from "../../../shared/Avatar";
 import ExpandablePostText from "../../../shared/ExpandablePostText";
 import { getAdvertMeta, getPostTitle, isAdvertPost } from "../../../shared/advertUtils";
 
 export default function SwipCaption({ categoryLabel, contextLabel, post, onViewProfile }) {
+  const { t } = useI18n();
   const advertPost = isAdvertPost(post);
   const advert = getAdvertMeta(post) || {};
   const postTitle = getPostTitle(post);
@@ -28,11 +30,11 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
               <Repeat2 size={15} />
             </span>
             <span className="min-w-0">
-              <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">Shared Swip</span>
+              <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200">{t("swip.sharedSwip")}</span>
               <span className="flex min-w-0 items-center gap-1.5 text-xs font-black text-white/90">
                 <Avatar name={sharedFrom.authorName} src={sharedFrom.authorAvatarUrl} size="xs" />
                 <span className="truncate">
-                  Original by {sharedFrom.authorName || "creator"}
+                  {t("swip.originalBy", { name: sharedFrom.authorName || t("swip.creatorFallback") })}
                   {sharedFrom.authorUsername ? ` (@${sharedFrom.authorUsername})` : ""}
                 </span>
               </span>
@@ -43,7 +45,7 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
           <Avatar name={post.author_name} src={post.author_avatar_url} size="sm" />
           <span className="min-w-0">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate text-base font-black">{post.author_name || "Profile"}</span>
+              <span className="truncate text-base font-black">{post.author_name || t("feed.profileFallback")}</span>
               {post.verified ? <HiOutlineCheckBadge className="flex-none text-sky-300" /> : null}
             </span>
             <span className="block truncate text-[13px] font-black text-white/75">
@@ -54,9 +56,9 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
 
         {advertPost ? (
           <div className="space-y-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">Sponsored</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">{t("swip.sponsored")}</p>
             <h3 className="kuntai-break text-lg font-black leading-6 text-white">
-              {advert.title || "Advertisement"}
+              {advert.title || t("explore.advertisement")}
             </h3>
             {post.body ? (
               <ExpandablePostText

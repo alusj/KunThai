@@ -65,7 +65,12 @@ export default function MyBizMenu({
   initialScreenKey = null,
   profileInitialView = "menu",
   onAddBusiness,
+  permissions = null,
 }) {
+  // Owners have full menu access. Invited admins only see the sections their
+  // responsibilities cover; store administration stays owner-only.
+  const canManageBusiness = permissions ? permissions.canManageBusiness : true;
+  const canAccessDashboard = permissions ? permissions.canAccessDashboard : true;
   const [activeScreenKey, setActiveScreenKey] = useState(initialScreenKey);
   const [visibleScreenKey, setVisibleScreenKey] = useState(initialScreenKey);
   const [screenAction, setScreenAction] = useState("idle");
@@ -227,50 +232,62 @@ export default function MyBizMenu({
               />
 
               <div className="space-y-5 px-4 pt-5">
-                <SellerDrawerSection title="Manage Store">
-                  <SellerDrawerNavItem
-                    icon={Plus}
-                    title="Add another business"
-                    description="Create a separate retail, restaurant, hotel, or property workspace."
-                    onClick={() => {
-                      closeDrawer();
-                      onAddBusiness?.();
-                    }}
-                  />
-                  <SellerDrawerNavItem
-                    icon={LayoutDashboard}
-                    title="Seller Board"
-                    description="Orders, messages, products, delivery, verification, reports, and policies."
-                    onClick={() => openActiveScreen("board")}
-                  />
-                  <SellerDrawerNavItem
-                    icon={UserRound}
-                    title="Profile"
-                    description="Owner profile, public seller details, and business identity."
-                    onClick={() => openActiveScreen("profile")}
-                  />
-                  <SellerDrawerNavItem
-                    icon={BriefcaseBusiness}
-                    title="Store Settings"
-                    description="Store details, categories, pickup, delivery, and operating hours."
-                    onClick={() => openActiveScreen("business")}
-                  />
-                  <SellerDrawerNavItem
-                    icon={ShieldCheck}
-                    title="Business admins"
-                    description="Invite trusted people by KunThai ID and manage their responsibilities."
-                    onClick={() => openActiveScreen("admins")}
-                  />
-                </SellerDrawerSection>
+                {canManageBusiness || canAccessDashboard ? (
+                  <SellerDrawerSection title="Manage Store">
+                    {canManageBusiness ? (
+                      <SellerDrawerNavItem
+                        icon={Plus}
+                        title="Add another business"
+                        description="Create a separate retail, restaurant, hotel, or property workspace."
+                        onClick={() => {
+                          closeDrawer();
+                          onAddBusiness?.();
+                        }}
+                      />
+                    ) : null}
+                    {canAccessDashboard ? (
+                      <SellerDrawerNavItem
+                        icon={LayoutDashboard}
+                        title="Seller Board"
+                        description="Orders, messages, products, delivery, verification, reports, and policies."
+                        onClick={() => openActiveScreen("board")}
+                      />
+                    ) : null}
+                    {canManageBusiness ? (
+                      <>
+                        <SellerDrawerNavItem
+                          icon={UserRound}
+                          title="Profile"
+                          description="Owner profile, public seller details, and business identity."
+                          onClick={() => openActiveScreen("profile")}
+                        />
+                        <SellerDrawerNavItem
+                          icon={BriefcaseBusiness}
+                          title="Store Settings"
+                          description="Store details, categories, pickup, delivery, and operating hours."
+                          onClick={() => openActiveScreen("business")}
+                        />
+                        <SellerDrawerNavItem
+                          icon={ShieldCheck}
+                          title="Business admins"
+                          description="Invite trusted people by KunThai ID and manage their responsibilities."
+                          onClick={() => openActiveScreen("admins")}
+                        />
+                      </>
+                    ) : null}
+                  </SellerDrawerSection>
+                ) : null}
 
-                <SellerDrawerSection title="Money & Trust">
-                  <SellerDrawerNavItem
-                    icon={CreditCard}
-                    title="Payments & Payouts"
-                    description="Bank details, payout history, transactions, and withdrawals."
-                    onClick={() => openActiveScreen("payments")}
-                  />
-                </SellerDrawerSection>
+                {canManageBusiness ? (
+                  <SellerDrawerSection title="Money & Trust">
+                    <SellerDrawerNavItem
+                      icon={CreditCard}
+                      title="Payments & Payouts"
+                      description="Bank details, payout history, transactions, and withdrawals."
+                      onClick={() => openActiveScreen("payments")}
+                    />
+                  </SellerDrawerSection>
+                ) : null}
 
                 <SellerDrawerSection title="Support">
                   <SellerDrawerNavItem
@@ -287,6 +304,7 @@ export default function MyBizMenu({
                   />
                 </SellerDrawerSection>
 
+                {canManageBusiness ? (
                 <SellerDrawerSection title="Danger zone">
                   <SellerDrawerNavItem
                     icon={Trash2}
@@ -305,6 +323,7 @@ export default function MyBizMenu({
                     }}
                   />
                 </SellerDrawerSection>
+                ) : null}
               </div>
             </div>
       </aside>

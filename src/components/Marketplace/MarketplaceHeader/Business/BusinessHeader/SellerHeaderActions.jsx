@@ -13,17 +13,21 @@ export default function SellerHeaderActions({
   onMenu,
   primaryActionLabel = "Add Product",
   showOrders = true,
+  showAddProduct = true,
+  showMessages = true,
 }) {
   const hasNotifications = Number(notificationCount || 0) > 0;
 
   return (
     <div className="flex items-center gap-2">
-      <HeaderActionButton
-        icon={Plus}
-        label={primaryActionLabel}
-        primary
-        onClick={onAddProduct}
-      />
+      {showAddProduct ?
+        <HeaderActionButton
+          icon={Plus}
+          label={primaryActionLabel}
+          primary
+          onClick={onAddProduct}
+        />
+      : null}
       {showOrders ?
         <HeaderActionButton
           icon={PackageCheck}
@@ -32,12 +36,14 @@ export default function SellerHeaderActions({
           onClick={onOrders}
         />
       : null}
+      {showMessages ?
         <HeaderActionButton
           icon={MessageSquare}
           label="Messages"
           badge={messageCount}
           onClick={onMessages}
         />
+      : null}
       {hasNotifications ? (
           <HeaderActionButton
             icon={Bell}

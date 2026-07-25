@@ -1,10 +1,12 @@
 import { useExploreNotifications } from "../../../../Backend/hooks/useExploreNotifications";
+import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import NotificationsList from "../../ExploreTabs/notification/list/NotificationsList";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
 export default function ActivityScreen({ hideHeader = false, onOpenNotification }) {
+  const { t } = useI18n();
   const { notifications, error, markRead } = useExploreNotifications();
 
   async function openNotification(item) {
@@ -16,14 +18,14 @@ export default function ActivityScreen({ hideHeader = false, onOpenNotification 
   return (
     <div>
       {!hideHeader ? (
-        <SocialScreenHeader title="Activity" subtitle="Recent social reactions, comments, and account interactions." />
+        <SocialScreenHeader title={t("screens.ActivityTitle")} subtitle={t("screens.ActivitySubtitle")} />
       ) : null}
 
       <div className="w-full px-4 py-4 sm:px-5">
         {error ? <ErrorState message={error} /> : null}
 
         {!notifications.length ? (
-          <EmptyState title="No activity yet" message="When people interact with you, your activity will appear here." />
+          <EmptyState title={t("explore.noActivityYet")} message={t("explore.noActivityYetMsg")} />
         ) : (
           <NotificationsList data={notifications} onOpen={openNotification} />
         )}

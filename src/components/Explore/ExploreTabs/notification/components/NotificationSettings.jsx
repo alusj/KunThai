@@ -9,18 +9,21 @@ import {
 } from "react-icons/hi2";
 import { MessageCircle } from "lucide-react";
 
+import { useI18n } from "../../../../../i18n";
+
 const settings = [
-  { key: "reactions", label: "Reactions", detail: "Likes, saves, shares, and reactions", icon: HiOutlineHandThumbUp },
-  { key: "comments", label: "Comments & replies", detail: "Comments, replies, and thread activity", icon: HiOutlineChatBubbleOvalLeft },
-  { key: "mentions", label: "Mentions & tags", detail: "Posts or comments that include your @username", icon: HiOutlineAtSymbol },
-  { key: "follows", label: "Connections", detail: "New connection activity", icon: HiOutlineUserPlus },
-  { key: "messages", label: "Messages", detail: "New private messages and requests", icon: MessageCircle },
-  { key: "followedPosts", label: "New posts", detail: "Posts from accounts you connect with", icon: HiOutlineRectangleStack },
-  { key: "milestones", label: "Milestones", detail: "Trending posts, views, and profile growth", icon: HiOutlineFire },
-  { key: "safetyAlerts", label: "Safety & account", detail: "Security, verification, reports, and moderation", icon: HiOutlineBellAlert },
+  { key: "reactions", labelKey: "settingReactions", detailKey: "settingReactionsDetail", icon: HiOutlineHandThumbUp },
+  { key: "comments", labelKey: "settingComments", detailKey: "settingCommentsDetail", icon: HiOutlineChatBubbleOvalLeft },
+  { key: "mentions", labelKey: "settingMentions", detailKey: "settingMentionsDetail", icon: HiOutlineAtSymbol },
+  { key: "follows", labelKey: "settingFollows", detailKey: "settingFollowsDetail", icon: HiOutlineUserPlus },
+  { key: "messages", labelKey: "settingMessages", detailKey: "settingMessagesDetail", icon: MessageCircle },
+  { key: "followedPosts", labelKey: "settingFollowedPosts", detailKey: "settingFollowedPostsDetail", icon: HiOutlineRectangleStack },
+  { key: "milestones", labelKey: "settingMilestones", detailKey: "settingMilestonesDetail", icon: HiOutlineFire },
+  { key: "safetyAlerts", labelKey: "settingSafety", detailKey: "settingSafetyDetail", icon: HiOutlineBellAlert },
 ];
 
 export default function NotificationSettings({ values, onToggle }) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {settings.map((item) => {
@@ -42,10 +45,10 @@ export default function NotificationSettings({ values, onToggle }) {
                 <Icon />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-black">{item.label}</span>
-                <span className="block truncate text-[11px] font-semibold text-slate-500">{item.detail}</span>
+                <span className="block truncate text-sm font-black">{t(`notifications.${item.labelKey}`)}</span>
+                <span className="block truncate text-[11px] font-semibold text-slate-500">{t(`notifications.${item.detailKey}`)}</span>
                 <span className={`block text-[11px] font-black uppercase tracking-[0.14em] ${active ? "text-sky-600" : "text-slate-400"}`}>
-                  {active ? "On" : "Off"}
+                  {active ? t("notifications.on") : t("notifications.off")}
                 </span>
               </span>
             </span>

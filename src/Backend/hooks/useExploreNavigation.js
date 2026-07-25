@@ -4,6 +4,27 @@ import { readExploreSettings } from "../services/explore/preferencesService";
 import { readExploreNavigation, writeExploreNavigation } from "../services/explore/navigationService";
 
 const PARENT_TABS = new Set(["UrFeed", "Swip", "Connections"]);
+// A fresh browser session (app launched anew) should open on the user's
+// chosen "Default Explore tab". Within the same session we keep restoring the
+// tab the user last left, so switching tabs still feels sticky.
+const SESSION_STARTED_KEY = "exploreSessionStarted";
+
+function resolveInitialTab(savedNavigation, settings) {
+  const defaultTab = PARENT_TABS.has(settings.feed.defaultTab) ? settings.feed.defaultTab : "UrFeed";
+
+  let freshSession = true;
+  try {
+    freshSession = !sessionStorage.getItem(SESSION_STARTED_KEY);
+    sessionStorage.setItem(SESSION_STARTED_KEY, "1");
+  } catch {
+    freshSession = false;
+  }
+
+  // On a brand-new session honor the default tab; otherwise restore the last
+  // tab the user was on (falling back to the default if it is somehow invalid).
+  if (freshSession) return defaultTab;
+  return PARENT_TABS.has(savedNavigation.activeTab) ? savedNavigation.activeTab : defaultTab;
+}
 
 export function useExploreNavigation(menuScreens) {
   const savedScrollRef = useRef(Number(sessionStorage.getItem("exploreFeedScrollY") || 0));
@@ -12,7 +33,7 @@ export function useExploreNavigation(menuScreens) {
     const settings = readExploreSettings();
     return {
       ...savedNavigation,
-      activeTab: PARENT_TABS.has(savedNavigation.activeTab) ? savedNavigation.activeTab : settings.feed.defaultTab,
+      activeTab: resolveInitialTab(savedNavigation, settings),
     };
   });
   const activeMenuScreen = navigation.menuStack[navigation.menuStack.length - 1] || null;

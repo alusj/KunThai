@@ -1,12 +1,16 @@
+import { useI18n } from "../../../../../i18n";
+
+// Swip is a brand name and stays untranslated; the rest resolve from i18n.
 const FILTERS = [
-  { id: "all", label: "All" },
-  { id: "feed", label: "Feed" },
+  { id: "all", labelKey: "explore.filterAll" },
+  { id: "feed", labelKey: "explore.filterFeed" },
   { id: "swip", label: "Swip" },
-  { id: "people", label: "People" },
-  { id: "hashtag", label: "Hashtags" },
+  { id: "people", labelKey: "explore.filterPeople" },
+  { id: "hashtag", labelKey: "explore.filterHashtags" },
 ];
 
 export default function SearchFilters({ active, onChange }) {
+  const { t } = useI18n();
   return (
     <div className="flex gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {FILTERS.map((item) => (
@@ -18,7 +22,7 @@ export default function SearchFilters({ active, onChange }) {
             active === item.id ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
           }`}
         >
-          {item.label}
+          {item.labelKey ? t(item.labelKey) : item.label}
         </button>
       ))}
     </div>

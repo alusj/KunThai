@@ -1,9 +1,11 @@
 import { HiOutlineEllipsisHorizontal } from "react-icons/hi2";
 
 import { formatRelativeTime } from "../../../../../../Backend/services/exploreService";
+import { useI18n } from "../../../../../../i18n";
 import Avatar from "../../../../shared/Avatar";
 
 export default function PostHeader({ post, isOwner, followed, onFollow, onOptions, onViewProfile }) {
+  const { t } = useI18n();
   function openProfile(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -29,13 +31,13 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
           type="button"
           onClick={openProfile}
           className="kt-pressable flex min-w-0 items-center gap-3 rounded-2xl text-left"
-          aria-label={`View ${post.author_name || "Profile"}'s profile`}
+          aria-label={t("post.viewProfileAria", { name: post.author_name || t("feed.profileFallback") })}
         >
           <Avatar name={post.author_name} src={post.author_avatar_url} />
 
           <span className="min-w-0">
             <span className="block truncate text-[15px] font-black text-slate-950">
-              {post.author_name || "Profile"}
+              {post.author_name || t("feed.profileFallback")}
             </span>
             <span className="mt-0.5 block max-w-full truncate text-[13px] font-bold text-slate-500">
               @{post.author_username || "user"} - {formatRelativeTime(post.created_at)}
@@ -50,7 +52,7 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
               onClick={runFollow}
               className="kt-pressable h-7 flex-none rounded-full bg-slate-950 px-3 text-xs font-bold text-white hover:bg-slate-800"
             >
-              Connect
+              {t("feed.connect")}
             </button>
           ) : null}
           {post.contextLabel ? (
@@ -66,7 +68,7 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
         onClick={openOptions}
         data-post-options-toggle={post.id}
         className="kt-pressable flex h-9 w-9 flex-none items-center justify-center rounded-full text-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-        aria-label="Post options"
+        aria-label={t("post.postOptions")}
       >
         <HiOutlineEllipsisHorizontal />
       </button>

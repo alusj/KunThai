@@ -2,30 +2,28 @@ import { createPortal } from "react-dom";
 import { ExternalLink, ShieldAlert } from "lucide-react";
 
 import { haptics } from "../../../Backend/services/feedbackService";
+import { useI18n } from "../../../i18n";
 
 const POLICY_LINKS = [
-  { label: "Community standards", href: "/policy-center" },
-  { label: "Terms of use", href: "/terms" },
-  { label: "Privacy policy", href: "/privacy" },
+  { labelKey: "post.communityStandards", href: "/policy-center" },
+  { labelKey: "post.termsOfUse", href: "/terms" },
+  { labelKey: "post.privacyPolicy", href: "/privacy" },
 ];
 
-const CAUTION_RULES = [
-  "No threats, harassment, hate, scams, private information, or dangerous instructions.",
-  "Only publish media you own, created, or have clear permission to share.",
-  "If this post breaks KunThai rules, your account can receive a strike or lose publishing access.",
-];
+const CAUTION_RULE_KEYS = ["post.cautionRule1", "post.cautionRule2", "post.cautionRule3"];
 
 // Shown every time a member publishes to Explore. KunThai does not
 // pre-moderate posts, so the author confirms responsibility before the
 // content goes live.
 export default function PostCautionDialog({ open, onCancel, onConfirm, submitting = false }) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[1450] flex items-center justify-center" role="presentation">
       <button
         type="button"
-        aria-label="Go back and edit this post"
+        aria-label={t("post.goBackEditAria")}
         onClick={onCancel}
         className="kt-backdrop absolute inset-0 bg-slate-950/65 backdrop-blur-[2px]"
       />
@@ -43,22 +41,22 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
               <ShieldAlert size={24} />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-700">Strict posting check</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-700">{t("post.strictPostingCheck")}</p>
               <h2 id="post-caution-title" className="mt-1 text-xl font-black leading-tight text-slate-950">
-                This post goes live immediately
+                {t("post.goesLiveImmediately")}
               </h2>
             </div>
           </div>
 
           <p className="mt-3 text-sm font-bold leading-6 text-slate-700">
-            KunThai does not review posts before publishing. What you share can reach the community exactly as you post it, so confirm only after you are sure the content is safe, lawful, respectful, and yours to share.
+            {t("post.cautionIntro")}
           </p>
 
           <div className="mt-4 grid gap-2 rounded-2xl border border-orange-200 bg-orange-50 p-3">
-            {CAUTION_RULES.map((rule) => (
-              <div key={rule} className="flex gap-2 text-xs font-black leading-5 text-orange-950">
+            {CAUTION_RULE_KEYS.map((ruleKey) => (
+              <div key={ruleKey} className="flex gap-2 text-xs font-black leading-5 text-orange-950">
                 <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-orange-600" />
-                <span>{rule}</span>
+                <span>{t(ruleKey)}</span>
               </div>
             ))}
           </div>
@@ -72,7 +70,7 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-800"
               >
-                {link.label}
+                {t(link.labelKey)}
                 <ExternalLink size={12} />
               </a>
             ))}
@@ -84,7 +82,7 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
               onClick={onCancel}
               className="kt-pressable h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 transition hover:bg-slate-200"
             >
-              Go back and edit
+              {t("post.goBackEdit")}
             </button>
             <button
               type="button"
@@ -95,7 +93,7 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
               }}
               className="kt-pressable h-12 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-lg shadow-orange-900/25 transition hover:bg-orange-600 disabled:opacity-60"
             >
-              {submitting ? "Publishing..." : "I accept - Publish now"}
+              {submitting ? t("post.publishing") : t("post.acceptPublish")}
             </button>
           </div>
         </div>

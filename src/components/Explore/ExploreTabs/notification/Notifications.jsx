@@ -11,12 +11,14 @@ import {
 } from "../../../../Backend/services/notificationSeenStore";
 import { SPACE_IDENTITY_TYPE, getIdentityKey } from "../../../../Backend/services/exploreService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import NotificationSettings from "./components/NotificationSettings";
 import NotificationsList from "./list/NotificationsList";
 
 export default function Notifications({ currentUserId, onOpenNotification }) {
+  const { t } = useI18n();
   const { notifications, unreadCount, loading, loadingMore, hasMore, error, loadMore, markRead, markAllRead } = useExploreNotifications();
   const follows = useExploreFollows(currentUserId);
   const preferences = useExplorePreferences();
@@ -36,12 +38,12 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
 
   const tabs = useMemo(
     () => [
-      { id: "all", label: "All", count: notifications.length },
-      { id: "activity", label: "Activity", count: notifications.filter((item) => item.category === "activity").length },
-      { id: "mentions", label: "Mentions", count: notifications.filter((item) => item.category === "mentions").length },
-      { id: "connections", label: "Connections", count: notifications.filter((item) => item.category === "connections").length },
+      { id: "all", label: t("notifications.tabAll"), count: notifications.length },
+      { id: "activity", label: t("notifications.tabActivity"), count: notifications.filter((item) => item.category === "activity").length },
+      { id: "mentions", label: t("notifications.tabMentions"), count: notifications.filter((item) => item.category === "mentions").length },
+      { id: "connections", label: t("notifications.tabConnections"), count: notifications.filter((item) => item.category === "connections").length },
     ],
-    [notifications],
+    [notifications, t],
   );
 
   const visibleNotifications = useMemo(() => {
@@ -81,11 +83,11 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
     setMarkingAllRead(false);
 
     if (result?.ok === false) {
-      showToast(result.error || "Unable to mark notifications as read.", "danger");
+      showToast(result.error || t("notifications.toastMarkAllError"), "danger");
       return;
     }
 
-    showToast("All Explore notifications marked as read.", "success");
+    showToast(t("notifications.toastMarkedAll"), "success");
   }
 
   return (
@@ -93,8 +95,8 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
       <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Notifications</p>
-            <h3 className="mt-1 text-xl font-black text-slate-950">{unreadCount ? `${unreadCount} unread` : "You're caught up"}</h3>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("notifications.title")}</p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">{unreadCount ? t("notifications.unread", { count: unreadCount }) : t("notifications.caughtUp")}</h3>
             
           </div>
           <div className="flex gap-2">
@@ -103,8 +105,8 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
               onClick={handleMarkAllRead}
               disabled={markingAllRead || !notifications.length}
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-lg text-sky-700"
-              aria-label="Mark all as read"
-              title="Mark all as read"
+              aria-label={t("notifications.markAllRead")}
+              title={t("notifications.markAllRead")}
             >
               <HiOutlineCheckCircle />
             </button>
@@ -112,7 +114,7 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
               type="button"
               onClick={() => setSettingsOpen((current) => !current)}
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-lg text-slate-700"
-              aria-label="Notification settings"
+              aria-label={t("notifications.settings")}
             >
               <HiOutlineCog6Tooth />
             </button>
@@ -147,7 +149,7 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
       {loading ? (
         <NotificationSkeletons />
       ) : !visibleNotifications.length ? (
-        <EmptyState title="No notifications yet" message="When people interact with you, you'll see it here." />
+        <EmptyState title={t("notifications.emptyTitle")} message={t("notifications.emptyMessage")} />
       ) : (
         <>
           <NotificationsList data={visibleNotifications} followedUsers={follows.followedUsers} onFollowBack={followBack} onOpen={openNotification} />
@@ -158,7 +160,7 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
               disabled={loadingMore}
               className="h-12 w-full rounded-[18px] bg-white text-sm font-black text-sky-700 shadow-sm transition hover:bg-sky-50 disabled:text-slate-400"
             >
-              {loadingMore ? "Loading..." : "Load more"}
+              {loadingMore ? t("notifications.loading") : t("notifications.loadMore")}
             </button>
           ) : null}
         </>

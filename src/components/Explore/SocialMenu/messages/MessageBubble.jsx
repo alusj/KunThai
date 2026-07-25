@@ -7,6 +7,8 @@ import {
   HiOutlineTrash,
 } from "react-icons/hi2";
 
+import { useI18n } from "../../../../i18n";
+
 export default function MessageBubble({
   mine,
   message,
@@ -14,9 +16,11 @@ export default function MessageBubble({
   onBlockUser,
   onDeleteMessage,
   onOpenSharedLocation,
-  otherUserName = "This user",
+  otherUserName,
   seen = false,
 }) {
+  const { t } = useI18n();
+  const otherName = otherUserName || t("messages.thisUser");
   const [optionsOpen, setOptionsOpen] = useState(false);
   const mediaUrl = message.mediaUrl || message.media_url || "";
   const mediaType = message.type || message.media_type || "text";
@@ -31,8 +35,8 @@ export default function MessageBubble({
   const bubbleClass = `kuntai-break max-w-[82%] rounded-[22px] px-4 py-3 text-sm font-semibold leading-6 sm:max-w-[78%] ${
     mine ? "rounded-br-md bg-slate-950 text-white" : "rounded-bl-md bg-slate-100 text-slate-800"
   }`;
-  const timeOnly = message.pending ? "Sending..." : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const timeLabel = seen && !message.pending ? `${timeOnly} · Seen` : timeOnly;
+  const timeOnly = message.pending ? t("messages.sending") : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const timeLabel = seen && !message.pending ? `${timeOnly} · ${t("messages.seen")}` : timeOnly;
 
   function stop(event) {
     event.stopPropagation();
@@ -40,7 +44,7 @@ export default function MessageBubble({
 
   async function copyMessage(event) {
     stop(event);
-    const text = message.body || mediaUrl || (mediaType === "location_share" ? "Shared location" : "Message");
+    const text = message.body || mediaUrl || (mediaType === "location_share" ? t("messages.sharedLocation") : t("messages.messageWord"));
     try {
       await navigator.clipboard?.writeText?.(text);
     } catch {
@@ -66,17 +70,17 @@ export default function MessageBubble({
         onClick={stop}
       >
         {hasSharedMapPoint ? (
-          <MessageAction icon={HiOutlineMapPin} label="Open in Area View" onClick={(event) => runMessageAction(event, onOpenSharedLocation)} />
+          <MessageAction icon={HiOutlineMapPin} label={t("messages.openAreaView")} onClick={(event) => runMessageAction(event, onOpenSharedLocation)} />
         ) : null}
-        <MessageAction icon={HiOutlineClipboardDocument} label="Copy message" onClick={copyMessage} />
+        <MessageAction icon={HiOutlineClipboardDocument} label={t("messages.copyMessage")} onClick={copyMessage} />
         <MessageAction
           danger
           icon={HiOutlineTrash}
-          label={mine ? "Delete message" : "Hide message"}
+          label={mine ? t("messages.deleteMessage") : t("messages.hideMessage")}
           onClick={(event) => runMessageAction(event, onDeleteMessage)}
         />
         {!mine ? (
-          <MessageAction danger icon={HiOutlineNoSymbol} label="Block sender" onClick={(event) => runMessageAction(event, onBlockUser)} />
+          <MessageAction danger icon={HiOutlineNoSymbol} label={t("messages.blockSender")} onClick={(event) => runMessageAction(event, onBlockUser)} />
         ) : null}
       </div>
     );
@@ -91,9 +95,9 @@ export default function MessageBubble({
               <HiOutlineMapPin />
             </span>
             <div className="min-w-0">
-              <p className="font-black">{mine ? "Location request sent" : "Location requested"}</p>
+              <p className="font-black">{mine ? t("messages.locationRequestSent") : t("messages.locationRequested")}</p>
               <p className={mine ? "text-white/80" : "text-slate-600"}>
-                {message.body || `${otherUserName} is requesting your location.`}
+                {message.body || t("messages.requestingLocation", { name: otherName })}
               </p>
             </div>
           </div>
@@ -105,7 +109,7 @@ export default function MessageBubble({
                 className="flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-3 text-xs font-black text-white"
               >
                 <HiOutlineShieldCheck />
-                Approve
+                {t("messages.approve")}
               </button>
               <button
                 type="button"
@@ -113,7 +117,7 @@ export default function MessageBubble({
                 className="flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-white px-3 text-xs font-black text-rose-700"
               >
                 <HiOutlineNoSymbol />
-                Block
+                {t("messages.block")}
               </button>
             </div>
           ) : null}
@@ -135,8 +139,8 @@ export default function MessageBubble({
               <HiOutlineMapPin />
             </span>
             <div className="min-w-0">
-              <p className="font-black">{mine ? "Location sharing" : "Location update"}</p>
-              <p className={mine ? "text-white/80" : "text-slate-600"}>{message.body || "A location is being shared from Area View."}</p>
+              <p className="font-black">{mine ? t("messages.locationSharing") : t("messages.locationUpdate")}</p>
+              <p className={mine ? "text-white/80" : "text-slate-600"}>{message.body || t("messages.locationBeingShared")}</p>
             </div>
           </div>
           {hasSharedMapPoint ? (
@@ -148,7 +152,7 @@ export default function MessageBubble({
               }`}
             >
               <HiOutlineMapPin />
-              Open in Area View
+              {t("messages.openAreaView")}
             </button>
           ) : null}
           <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
@@ -171,10 +175,10 @@ export default function MessageBubble({
         ) : null}
         {mediaType === "audio" && mediaUrl ? (
           <div className={`mb-2 rounded-2xl p-2 ${mine ? "bg-white/10" : "bg-white"}`}>
-            <audio controls src={mediaUrl} className="w-full" aria-label="Voice message" />
+            <audio controls src={mediaUrl} className="w-full" aria-label={t("messages.voiceMessage")} />
           </div>
         ) : null}
-        {message.body ? <p>{message.body}</p> : mediaType === "audio" ? <p>Voice note</p> : mediaType === "image" ? <p>Photo</p> : null}
+        {message.body ? <p>{message.body}</p> : mediaType === "audio" ? <p>{t("messages.voiceNote")}</p> : mediaType === "image" ? <p>{t("messages.photo")}</p> : null}
         <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
           {timeLabel}
         </p>

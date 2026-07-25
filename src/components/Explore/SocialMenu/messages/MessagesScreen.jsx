@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { useExploreMessages } from "../../../../Backend/hooks/useExploreMessages";
+import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
@@ -9,6 +10,7 @@ import ConversationScreen from "./ConversationScreen";
 import MessageTabs from "./MessageTabs";
 
 export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange, onViewProfile }) {
+  const { t } = useI18n();
   const [tab, setTab] = useState("inbox");
   const messages = useExploreMessages(currentProfile, initialRecipient);
   const currentUserId = currentProfile?.userId || "";
@@ -42,7 +44,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
 
   return (
     <div>
-      {!hideHeader ? <SocialScreenHeader title="Messages" subtitle="Private Explore conversations and message requests." /> : null}
+      {!hideHeader ? <SocialScreenHeader title={t("messages.headerTitle")} subtitle={t("messages.headerSubtitle")} /> : null}
 
       <div className="w-full space-y-4 px-4 py-4 sm:px-5">
         <MessageTabs
@@ -57,8 +59,8 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
           <MessagesSkeleton />
         ) : !activeItems.length ? (
           <EmptyState
-            title={tab === "requests" ? "No message requests" : "No conversations yet"}
-            message={tab === "requests" ? "New people outside your circle can appear here later." : "Open a profile and tap Message to start a chat."}
+            title={tab === "requests" ? t("messages.noRequests") : t("messages.noConversations")}
+            message={tab === "requests" ? t("messages.noRequestsMsg") : t("messages.noConversationsMsg")}
           />
         ) : (
           <div className="space-y-3">

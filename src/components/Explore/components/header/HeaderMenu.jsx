@@ -24,48 +24,49 @@ import {
 } from "react-icons/hi2";
 
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
+import { useI18n } from "../../../../i18n";
 
 import MenuSection from "./menu/MenuSection";
 import MenuActionButton from "./menu/MenuActionButton";
 
+// Each item is [navigationTarget, i18nKey, icon]; label/description resolve from
+// the `menu.items.<i18nKey>Label / Description` translation keys at render time.
 const MENU_GROUPS = [
   {
-    title: "Social",
-    description: "Conversations, people, and the things you keep.",
+    groupKey: "social",
     items: [
-      ["messages", "Messages", "Open conversations and message requests.", HiOutlineChatBubbleLeftRight],
-      ["connections", "Connections", "Manage your circle and discover people.", HiOutlineUserGroup],
-      ["activity", "Activity", "Review reactions, comments, and social updates.", HiOutlineBolt],
-      ["saved-posts", "Saved Posts", "Return to posts you kept for later.", HiOutlineBookmark],
-      ["my-posts", "My Posts", "View the content you shared.", HiOutlineDocumentText],
+      ["messages", "messages", HiOutlineChatBubbleLeftRight],
+      ["connections", "connections", HiOutlineUserGroup],
+      ["activity", "activity", HiOutlineBolt],
+      ["saved-posts", "savedPosts", HiOutlineBookmark],
+      ["my-posts", "myPosts", HiOutlineDocumentText],
     ],
   },
   {
-    title: "Settings & Privacy",
-    description: "Shape how Explore works for you.",
+    groupKey: "settingsPrivacy",
     items: [
-      ["settings", "Settings", "Notifications, feed, video, and messaging.", HiOutlineCog6Tooth],
-      ["privacy", "Privacy Center", "Audience, messages, activity, and blocks.", HiOutlineShieldCheck],
-      ["security", "Security", "Sign-in protection and account sessions.", HiOutlineKey],
-      ["permissions", "Permissions", "Camera, microphone, location, and alerts.", HiOutlineDevicePhoneMobile],
-      ["data-mobile-use", "Data & Mobile Use", "Media quality, autoplay, and device storage.", HiOutlineCircleStack],
+      ["settings", "settings", HiOutlineCog6Tooth],
+      ["privacy", "privacy", HiOutlineShieldCheck],
+      ["security", "security", HiOutlineKey],
+      ["permissions", "permissions", HiOutlineDevicePhoneMobile],
+      ["data-mobile-use", "dataMobile", HiOutlineCircleStack],
     ],
   },
   {
-    title: "Support & About",
-    description: "Guidance, safety, policies, and product information.",
+    groupKey: "support",
     items: [
-      ["help-center", "Help Center", "Search guidance across KunThai services.", HiOutlineQuestionMarkCircle],
-      ["your-voice", "Your Voice", "Share private ideas and product feedback with KunThai.", HiOutlineLightBulb],
-      ["report-problem", "Report a Problem", "Tell support what went wrong.", HiOutlineExclamationTriangle],
-      ["safety-center", "Safety Center", "Reporting, blocking, and safer service use.", HiOutlineShieldCheck],
-      ["terms-policies", "Policy Center", "Rules, privacy, safety, and transparency.", HiOutlineScale],
-      ["about-kunthai", "About KunThai", "Our connected super-app and its services.", HiOutlineInformationCircle],
+      ["help-center", "helpCenter", HiOutlineQuestionMarkCircle],
+      ["your-voice", "yourVoice", HiOutlineLightBulb],
+      ["report-problem", "reportProblem", HiOutlineExclamationTriangle],
+      ["safety-center", "safetyCenter", HiOutlineShieldCheck],
+      ["terms-policies", "policyCenter", HiOutlineScale],
+      ["about-kunthai", "aboutKunThai", HiOutlineInformationCircle],
     ],
   },
 ];
 
 export function SocialMenuContent({ compact = false, currentProfile = null, onClose, onNavigate, onSelectIdentity, spaces = [] }) {
+  const { t } = useI18n();
   const handleSelect = (target) => {
     onClose?.();
 
@@ -112,8 +113,8 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
           <div className="rounded-[26px] border border-sky-100 bg-gradient-to-br from-white to-sky-50 p-2 shadow-sm">
             <MenuActionButton
               icon={HiOutlineUserCircle}
-              label="Your Explore profile"
-              description="View your public identity, bio, links, and profile activity."
+              label={t("menu.yourProfileLabel")}
+              description={t("menu.yourProfileDescription")}
               tone="strong"
               onClick={() => {
                 onSelectIdentity?.(null);
@@ -126,8 +127,8 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
           <div className="rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between gap-3 px-1">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Spaces</p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">Managed identities you can post from.</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("menu.spacesTitle")}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">{t("menu.spacesDescription")}</p>
               </div>
             </div>
             <div className="space-y-2">
@@ -154,32 +155,32 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
 
           <div className={`grid gap-5 ${compact ? "grid-cols-1" : "lg:grid-cols-2 xl:grid-cols-3"}`}>
             {MENU_GROUPS.map((group) => (
-              <MenuSection key={group.title} title={group.title} description={group.description}>
-                {group.items.map(([target, label, description, icon]) => (
-                  <MenuActionButton key={target} icon={icon} label={label} description={description} onClick={() => handleSelect(target)} />
+              <MenuSection key={group.groupKey} title={t(`menu.groups.${group.groupKey}Title`)} description={t(`menu.groups.${group.groupKey}Description`)}>
+                {group.items.map(([target, i18nKey, icon]) => (
+                  <MenuActionButton key={target} icon={icon} label={t(`menu.items.${i18nKey}Label`)} description={t(`menu.items.${i18nKey}Description`)} onClick={() => handleSelect(target)} />
                 ))}
               </MenuSection>
             ))}
 
-            <MenuSection title="Account" description="Session controls for this device.">
+            <MenuSection title={t("menu.groups.accountTitle")} description={t("menu.groups.accountDescription")}>
               <MenuActionButton
                 icon={HiOutlineArrowsRightLeft}
-                label="Switch Account"
-                description="Choose another account saved on this device."
+                label={t("menu.items.switchAccountLabel")}
+                description={t("menu.items.switchAccountDescription")}
                 tone="strong"
                 onClick={handleSwitchAccount}
               />
               <MenuActionButton
                 icon={HiOutlineArrowRightOnRectangle}
-                label="Sign Out"
-                description="Securely end this KunThai session."
+                label={t("menu.items.signOutLabel")}
+                description={t("menu.items.signOutDescription")}
                 tone="danger"
                 onClick={handleSignOut}
               />
               <MenuActionButton
                 icon={HiOutlineRocketLaunch}
-                label="Future Features"
-                description="Monetization, Go Live, creator tools, verification, events, and more."
+                label={t("menu.items.futureFeaturesLabel")}
+                description={t("menu.items.futureFeaturesDescription")}
                 tone="strong"
                 onClick={() => handleSelect("future-features")}
               />
@@ -192,6 +193,7 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
 }
 
 export default function HeaderMenu({ open, onClose, onNavigate }) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return createPortal(
@@ -202,13 +204,13 @@ export default function HeaderMenu({ open, onClose, onNavigate }) {
             type="button"
             onClick={onClose}
             className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-xl text-slate-800 shadow-sm"
-            aria-label="Back to Explore"
+            aria-label={t("nav.backToExplore")}
           >
             <HiOutlineArrowLeft />
           </button>
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">KunThai</p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">Social Menu</h2>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950">{t("nav.socialMenu")}</h2>
           </div>
         </div>
       </header>

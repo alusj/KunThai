@@ -137,11 +137,16 @@ export async function updateExploreSettings(patch) {
 }
 
 export function clearExploreLocalCache() {
+  // These MUST match the real storage keys used across the Explore services,
+  // otherwise the "Clear local cache" button silently clears nothing. It wipes
+  // drafts, recent searches, and temporary navigation/posting state — but not
+  // user settings, likes, or saves.
   [
-    "explore-navigation",
-    "explore-recent-searches",
-    "explore-post-draft",
-    "explore-message-activity",
-    "explore-posting-jobs",
+    "exploreNavigation", // navigationService
+    "explore-recent-searches", // searchService
+    "explore-composer-draft", // composerUtils DRAFT_KEY
+    "explore-message-activity", // messageService
+    "explore-posting-notice", // postingProgressService
+    "explore-video-review-jobs", // postingProgressService
   ].forEach((key) => localStorage.removeItem(key));
 }

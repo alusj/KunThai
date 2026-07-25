@@ -11,6 +11,7 @@ import {
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
 import { haptics } from "../../../../../Backend/services/feedbackService";
+import { useI18n } from "../../../../../i18n";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import ExploreActionDrawer from "../../../shared/ExploreActionDrawer";
@@ -76,6 +77,7 @@ export default function VideoCard({
   onViewProfile,
   profile,
 }) {
+  const { t } = useI18n();
   const [commentOpen, setCommentOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -369,14 +371,14 @@ export default function VideoCard({
   async function handleCopyCaption() {
     const caption = String(post.body || "").trim();
     if (!caption) {
-      setMessage("No caption to copy.");
+      setMessage(t("swip.noCaptionToCopy"));
       closeActionMenu();
       return;
     }
 
     try {
       await navigator.clipboard.writeText(caption);
-      setMessage("Caption copied.");
+      setMessage(t("swip.captionCopied"));
     } catch {
       setMessage(caption);
     }
@@ -386,7 +388,7 @@ export default function VideoCard({
 
   function handleDownload() {
     if (!post.video_url) {
-      setMessage("Video is not ready for saving.");
+      setMessage(t("swip.videoNotReady"));
       return;
     }
 
@@ -399,7 +401,7 @@ export default function VideoCard({
     link.remove();
     closeActionMenu();
     closeQuickDeck();
-    setMessage("Save started.");
+    setMessage(t("swip.saveStarted"));
   }
 
   function handleRepost() {
@@ -424,7 +426,7 @@ export default function VideoCard({
 
   async function handleReport() {
     if (isOwner) {
-      setMessage("This is your Swip.");
+      setMessage(t("swip.yourSwip"));
       closeActionMenu();
       closeQuickDeck();
       return;
@@ -433,7 +435,7 @@ export default function VideoCard({
     await onReport?.("Swip video report");
     closeActionMenu();
     closeQuickDeck();
-    setMessage("Report received.");
+    setMessage(t("swip.reportReceived"));
   }
 
   function toggleDisplayMinimal() {
@@ -475,7 +477,7 @@ export default function VideoCard({
       setDeleting(true);
       const deleted = await onDelete?.();
       if (deleted === false) {
-        setMessage("Unable to delete video.");
+        setMessage(t("swip.unableToDelete"));
         return;
       }
       setDeleteOpen(false);
@@ -819,32 +821,32 @@ export default function VideoCard({
       ) : null}
 
     {actionMenuOpen ? (
-  <ExploreActionDrawer closing={actionMenuClosing} onClose={() => closeActionMenu()} title="Manage this video">
+  <ExploreActionDrawer closing={actionMenuClosing} onClose={() => closeActionMenu()} title={t("swip.manageVideo")}>
     <div className="overflow-hidden rounded-[26px] border border-white/70 bg-white/90 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.28)] backdrop-blur-2xl">
-      <SwipActionItem icon={Send} title="Share Swip" onClick={handleShare} />
-      <SwipActionItem icon={Link} title="Copy link" onClick={handleCopyLink} />
-      <SwipActionItem icon={Download} title="Save video" onClick={handleDownload} />
-      <SwipActionItem icon={Copy} title="Copy caption" onClick={handleCopyCaption} />
+      <SwipActionItem icon={Send} title={t("swip.shareSwip")} onClick={handleShare} />
+      <SwipActionItem icon={Link} title={t("swip.copyLink")} onClick={handleCopyLink} />
+      <SwipActionItem icon={Download} title={t("swip.saveVideo")} onClick={handleDownload} />
+      <SwipActionItem icon={Copy} title={t("swip.copyCaption")} onClick={handleCopyCaption} />
       {isOwner ? (
         <SwipActionItem
           icon={BarChart3}
-          title="View insights"
+          title={t("swip.viewInsights")}
           onClick={() => closeActionMenu(() => setAnalyticsOpen(true))}
         />
       ) : null}
-      {!advertPost ? <SwipActionItem icon={Repeat2} title="Repost" onClick={handleRepost} /> : null}
-      <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? "Show display" : "Clear display"} onClick={toggleDisplayMinimal} />
+      {!advertPost ? <SwipActionItem icon={Repeat2} title={t("swip.repost")} onClick={handleRepost} /> : null}
+      <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? t("swip.showDisplay") : t("swip.clearDisplay")} onClick={toggleDisplayMinimal} />
 
-      {advertPost && !isOwner ? <SwipActionItem icon={CircleHelp} title="Why am I seeing this?" onClick={handleWhyAdvert} /> : null}
-      {advertPost && !isOwner ? <SwipActionItem icon={EyeOff} title="Hide advertisement" onClick={handleHideAdvert} /> : null}
-      {advertPost && !isOwner ? <SwipActionItem icon={VolumeX} title="Mute this advertiser" onClick={handleMuteAdvertiser} /> : null}
+      {advertPost && !isOwner ? <SwipActionItem icon={CircleHelp} title={t("swip.whySeeing")} onClick={handleWhyAdvert} /> : null}
+      {advertPost && !isOwner ? <SwipActionItem icon={EyeOff} title={t("swip.hideAdvert")} onClick={handleHideAdvert} /> : null}
+      {advertPost && !isOwner ? <SwipActionItem icon={VolumeX} title={t("swip.muteAdvertiser")} onClick={handleMuteAdvertiser} /> : null}
 
       {isOwner ? (
-        <SwipActionItem danger icon={Trash2} title="Delete Swip" onClick={openDeleteFromActions} />
+        <SwipActionItem danger icon={Trash2} title={t("swip.deleteSwip")} onClick={openDeleteFromActions} />
       ) : null}
 
       {!isOwner ? (
-        <SwipActionItem danger icon={Flag} title={advertPost ? "Report advertisement" : "Report Swip"} onClick={handleReport} />
+        <SwipActionItem danger icon={Flag} title={advertPost ? t("swip.reportAdvert") : t("swip.reportSwip")} onClick={handleReport} />
       ) : null}
     </div>
   </ExploreActionDrawer>
@@ -861,25 +863,25 @@ export default function VideoCard({
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/55">Hold tools</p>
-                <h3 className="mt-1 text-lg font-black">Quick Swip deck</h3>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/55">{t("swip.holdTools")}</p>
+                <h3 className="mt-1 text-lg font-black">{t("swip.quickDeck")}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => closeQuickDeck()}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white"
-                aria-label="Close quick Swip deck"
+                aria-label={t("swip.closeQuickDeck")}
               >
                 <X size={17} />
               </button>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2">
-              <SwipQuickAction icon={Download} label="Save" onClick={handleDownload} />
-              <SwipQuickAction icon={displayMinimal ? Eye : EyeOff} label={displayMinimal ? "Show" : "Focus"} onClick={toggleDisplayMinimal} />
-              {!advertPost ? <SwipQuickAction icon={Repeat2} label="Repost" onClick={handleRepost} /> : null}
-              <SwipQuickAction icon={Link} label="Copy link" onClick={handleCopyLink} />
-              <SwipQuickAction icon={Send} label="Share" onClick={handleShare} />
-              {!isOwner ? <SwipQuickAction danger icon={Flag} label="Report" onClick={handleReport} /> : <SwipQuickAction icon={Copy} label="Caption" onClick={handleCopyCaption} />}
+              <SwipQuickAction icon={Download} label={t("swip.save")} onClick={handleDownload} />
+              <SwipQuickAction icon={displayMinimal ? Eye : EyeOff} label={displayMinimal ? t("swip.show") : t("swip.focus")} onClick={toggleDisplayMinimal} />
+              {!advertPost ? <SwipQuickAction icon={Repeat2} label={t("swip.repost")} onClick={handleRepost} /> : null}
+              <SwipQuickAction icon={Link} label={t("swip.copyLink")} onClick={handleCopyLink} />
+              <SwipQuickAction icon={Send} label={t("swip.share")} onClick={handleShare} />
+              {!isOwner ? <SwipQuickAction danger icon={Flag} label={t("swip.report")} onClick={handleReport} /> : <SwipQuickAction icon={Copy} label={t("swip.caption")} onClick={handleCopyCaption} />}
             </div>
           </section>
         </div>
@@ -888,17 +890,17 @@ export default function VideoCard({
       {deleteOpen ? (
         <div className="absolute inset-0 z-30 flex items-end bg-slate-950/45 px-4 pb-5 backdrop-blur-sm" onClick={() => !deleting && setDeleteOpen(false)}>
           <div className="w-full rounded-[24px] border border-white/10 bg-white p-4 text-slate-950 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">Delete Swip</p>
-            <h3 className="mt-1 text-lg font-black">Remove this video?</h3>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-rose-600">{t("swip.deleteSwip")}</p>
+            <h3 className="mt-1 text-lg font-black">{t("swip.removeVideoTitle")}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              This will remove the video from Swip and your profile feed.
+              {t("swip.removeVideoBody")}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" disabled={deleting} onClick={() => setDeleteOpen(false)} className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 disabled:opacity-60">
-                Cancel
+                {t("swip.cancel")}
               </button>
               <button type="button" disabled={deleting} onClick={confirmDelete} className="h-11 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
-                {deleting ? "Deleting" : "Delete"}
+                {deleting ? t("swip.deleting") : t("swip.delete")}
               </button>
             </div>
           </div>
@@ -907,11 +909,11 @@ export default function VideoCard({
       {whyAdvertOpen ? (
         <div className="absolute inset-0 z-40 flex items-end bg-slate-950/45 px-4 pb-5 backdrop-blur-sm" onClick={() => setWhyAdvertOpen(false)}>
           <section className="w-full rounded-[24px] bg-white p-4 text-slate-950 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Why this sponsored Swip?</p>
-            <h3 className="mt-1 text-lg font-black">Chosen for your Explore experience</h3>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("swip.whySponsoredSwip")}</p>
+            <h3 className="mt-1 text-lg font-black">{t("swip.sponsoredReason")}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{getExploreAdvertReason(post)}</p>
-            <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">KunThai does not use your contacts or precise location for advertising.</p>
-            <button type="button" onClick={() => setWhyAdvertOpen(false)} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">Got it</button>
+            <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">{t("swip.whyAdvertPrivacy")}</p>
+            <button type="button" onClick={() => setWhyAdvertOpen(false)} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">{t("swip.gotIt")}</button>
           </section>
         </div>
       ) : null}
@@ -920,7 +922,7 @@ export default function VideoCard({
           profile={profile}
           sourcePost={post}
           onClose={() => setRepostOpen(false)}
-          onSuccess={() => setMessage("Shared to Swip. It stays in the Swip feed with credit to the original creator.")}
+          onSuccess={() => setMessage(t("swip.repostSuccess"))}
         />
       ) : null}
       {analyticsOpen ? <PostAnalyticsPanel post={post} onClose={() => setAnalyticsOpen(false)} /> : null}

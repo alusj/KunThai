@@ -6,10 +6,12 @@ import { useExploreSearch } from "../../../../../Backend/hooks/useExploreSearch"
 import { openPublicCodeResult } from "../../../../../Backend/services/publicCodeService";
 import PublicCodeResultCard from "../../../../shared/PublicCodeResultCard";
 import { usePublicCodeLookup } from "../../../../../Backend/hooks/usePublicCodeLookup";
+import { useI18n } from "../../../../../i18n";
 import SearchFilters from "./SearchFilters";
 import SearchResultItem from "./SearchResultItem";
 
 export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult, open }) {
+  const { t } = useI18n();
   const inputRef = useRef(null);
   const search = useExploreSearch();
   const codeLookup = usePublicCodeLookup(open ? search.query : "");
@@ -50,7 +52,7 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
 
   return createPortal(
     <>
-      <button type="button" aria-label="Close search" onClick={close} className="fixed inset-0 z-40 cursor-default bg-slate-950/10" />
+      <button type="button" aria-label={t("explore.closeSearch")} onClick={close} className="fixed inset-0 z-40 cursor-default bg-slate-950/10" />
 
       <div className="fixed inset-x-2 top-2 z-50 sm:inset-x-5">
         <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl">
@@ -66,7 +68,7 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
                   if (event.key === "Enter") submitSearch();
                   if (event.key === "Escape") close();
                 }}
-                placeholder="Search posts, videos, people, #topics..."
+                placeholder={t("explore.searchPlaceholder")}
                 className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
               />
             </div>
@@ -74,7 +76,7 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
               type="button"
               onClick={close}
               className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
-              aria-label="Minimize search"
+              aria-label={t("explore.minimizeSearch")}
             >
               <X size={19} strokeWidth={2.25} />
             </button>
@@ -88,9 +90,9 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
                 {search.recent.length ? (
                   <section>
                     <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Recent</p>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{t("explore.recent")}</p>
                       <button type="button" onClick={search.clearRecent} className="text-xs font-black text-sky-700">
-                        Clear
+                        {t("explore.clear")}
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -110,7 +112,7 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
                               search.removeRecent(item);
                             }}
                             className="kt-pressable flex h-9 w-9 shrink-0 items-center justify-center text-slate-400 hover:text-rose-600"
-                            aria-label={`Remove ${item} from recent searches`}
+                            aria-label={t("explore.removeRecent", { term: item })}
                           >
                             <X size={14} strokeWidth={2.5} />
                           </button>
@@ -121,7 +123,7 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
                 ) : null}
 
                 <section>
-                  <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-400">Suggested</p>
+                  <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-400">{t("explore.suggested")}</p>
                   <div className="flex flex-wrap gap-2">
                     {search.suggestions.map((item) => (
                       <button
@@ -154,10 +156,10 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
                     }}
                   />
                 ) : null}
-                {search.loading ? <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">Searching...</p> : null}
+                {search.loading ? <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">{t("explore.searching")}</p> : null}
                 {search.error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">{search.error}</p> : null}
                 {!search.loading && !search.results.length ? (
-                  <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">No results yet.</p>
+                  <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">{t("explore.noResultsYet")}</p>
                 ) : null}
                 {search.results.map((item) => (
                   <SearchResultItem key={`${item.type}-${item.id}`} item={item} onOpen={openResult} />

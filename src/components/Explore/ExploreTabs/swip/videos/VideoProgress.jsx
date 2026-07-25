@@ -1,3 +1,5 @@
+import { t } from "../../../../../i18n";
+
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
 
@@ -37,7 +39,7 @@ export default function VideoProgress({ currentTime = 0, duration = 15, onSeek }
         max={safeDuration}
         step="0.01"
         value={safeCurrent}
-        aria-label="Video position"
+        aria-label={t("swip.videoPosition")}
         onChange={(event) => onSeek?.(Number(event.target.value))}
         onInput={(event) => onSeek?.(Number(event.currentTarget.value))}
         onClick={stopVideoToggle}

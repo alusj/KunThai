@@ -25,6 +25,8 @@ import {
   writePostingNotice,
 } from "../../Backend/services/explore/postingProgressService";
 import { cancelPendingVideoReviewJob, resumePendingVideoReviewJobs } from "../../Backend/services/explore/videoReviewService";
+import { EXPLORE_SETTINGS_EVENT, readExploreSettings } from "../../Backend/services/explore/preferencesService";
+import { useI18n } from "../../i18n";
 
 // Pages (PARENT TAB CONTENT)
 import UrFeed from "./ExploreTabs/urfeed/UrFeed";
@@ -123,6 +125,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const authenticatedUserRef = useRef(user);
   authenticatedUserRef.current = user;
   const exploreNav = useExploreNavigation(MENU_SCREENS);
+  const { t } = useI18n();
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   switchExploreTabRef.current = switchExploreTab;
   const isSwipTab = activeTab === "Swip";
@@ -173,6 +176,23 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     window.addEventListener("explore-open-reposted-swip", openRepostedSwip);
     return () => window.removeEventListener("explore-open-reposted-swip", openRepostedSwip);
+  }, []);
+
+  // Changing the "Default Explore tab" in Settings should visibly respond:
+  // switch the underlying Explore tab right away so closing Settings lands on
+  // the newly chosen tab.
+  useEffect(() => {
+    let lastDefaultTab = readExploreSettings().feed.defaultTab;
+
+    function handleSettingsChange(event) {
+      const nextDefaultTab = event.detail?.feed?.defaultTab;
+      if (!nextDefaultTab || nextDefaultTab === lastDefaultTab) return;
+      lastDefaultTab = nextDefaultTab;
+      switchExploreTabRef.current?.(nextDefaultTab);
+    }
+
+    window.addEventListener(EXPLORE_SETTINGS_EVENT, handleSettingsChange);
+    return () => window.removeEventListener(EXPLORE_SETTINGS_EVENT, handleSettingsChange);
   }, []);
 
   useEffect(() => {
@@ -1350,8 +1370,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         >
           {hideScreenHeader ? null : (
             <SocialScreenHeader
-              title={screen.title}
-              subtitle={screen.subtitle}
+              title={t(`screens.${screenKey}Title`)}
+              subtitle={t(`screens.${screenKey}Subtitle`)}
               onBack={active || exiting ? (active ? goBackFullScreen : () => {}) : undefined}
             />
           )}

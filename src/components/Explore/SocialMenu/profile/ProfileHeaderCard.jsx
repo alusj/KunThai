@@ -191,7 +191,7 @@ export default function ProfileHeaderCard({
                   className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   <HiOutlinePencilSquare />
-                  {editing ? (saving ? "Saving" : "Save") : "Edit"}
+                  {editing ? (saving ? t("profile.saving") : t("profile.save")) : t("profile.edit")}
                 </button>
               ) : (
                 <>
@@ -201,14 +201,14 @@ export default function ProfileHeaderCard({
                       onClick={onFollow}
                     className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white"
                   >
-                      Connect
+                      {t("feed.connect")}
                     </button>
                   ) : null}
                   <button
                     type="button"
                     onClick={onMessage}
                     className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"
-                    aria-label="Message profile"
+                    aria-label={t("profile.messageProfile")}
                   >
                     <HiOutlineChatBubbleLeftRight />
                   </button>
@@ -218,7 +218,7 @@ export default function ProfileHeaderCard({
                 type="button"
                 onClick={() => setMenuOpen((current) => !current)}
                 className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
-                aria-label="Open profile actions"
+                aria-label={t("profile.openActions")}
                 aria-expanded={menuOpen}
               >
                 <HiOutlineEllipsisHorizontal />
@@ -234,7 +234,7 @@ export default function ProfileHeaderCard({
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineUserMinus className="text-lg" />
-                    Remove connection
+                    {t("post.removeConnection")}
                   </button>
                 ) : null}
                 {editable && !isSpace && typeof onCreateSpace === "function" ? (
@@ -244,7 +244,7 @@ export default function ProfileHeaderCard({
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineBuildingOffice2 className="text-lg" />
-                    Create Space
+                    {t("profile.createSpace")}
                   </button>
                 ) : null}
                 <button
@@ -253,7 +253,7 @@ export default function ProfileHeaderCard({
                   className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                 >
                   <HiOutlineArrowTopRightOnSquare className="text-lg" />
-                  {isSpace ? "Share Space" : "Share profile"}
+                  {isSpace ? t("profile.shareSpace") : t("profile.shareProfile")}
                 </button>
                 {!editable ? (
                   <>
@@ -263,7 +263,7 @@ export default function ProfileHeaderCard({
                       className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                     >
                     <HiOutlineFlag className="text-lg" />
-                      {isSpace ? "Report Space" : "Report profile"}
+                      {isSpace ? t("profile.reportSpace") : t("profile.reportProfile")}
                     </button>
                     <button
                       type="button"
@@ -271,7 +271,7 @@ export default function ProfileHeaderCard({
                       className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-rose-700 hover:bg-rose-50"
                     >
                     <HiOutlineNoSymbol className="text-lg" />
-                      {isSpace ? "Block Space" : "Block profile"}
+                      {isSpace ? t("profile.blockSpace") : t("profile.blockProfile")}
                     </button>
                   </>
                 ) : (
@@ -281,7 +281,7 @@ export default function ProfileHeaderCard({
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineArchiveBox className="text-lg" />
-                    {isSpace ? "Copy Space link" : "Copy public profile"}
+                    {isSpace ? t("profile.copySpaceLink") : t("profile.copyPublicProfile")}
                   </button>
                 )}
               </div>
@@ -291,14 +291,14 @@ export default function ProfileHeaderCard({
 
         <div className="mt-3 min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <h3 className="truncate text-2xl font-semibold text-slate-950">{values.displayName || "Profile"}</h3>
+            <h3 className="truncate text-2xl font-semibold text-slate-950">{values.displayName || t("feed.profileFallback")}</h3>
             {values.verified ? <HiOutlineCheckBadge className="flex-none text-xl text-sky-600" /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {values.username ? <p className="text-sm font-bold text-slate-500">@{values.username}</p> : null}
             {isSpace ? (
               <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-sky-700">
-                A Space
+                {t("profile.aSpace")}
               </span>
             ) : null}
             {isSpace && values.categoryLabel ? (
@@ -314,7 +314,7 @@ export default function ProfileHeaderCard({
             className="mt-3 flex w-fit max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5"
           >
             <span className="min-w-0 shrink-0 text-xs font-black uppercase tracking-wide text-slate-500">
-              {isSpace ? "Space ID" : "KunThai ID"}
+              {isSpace ? t("profile.spaceIdLabel") : t("profile.kunthaiIdLabel")}
             </span>
             <span className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">{publicUserId}</span>
             <motion.button
@@ -323,8 +323,8 @@ export default function ProfileHeaderCard({
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:text-sky-700"
-              aria-label="Copy KunThai ID"
-              title="Copy KunThai ID"
+              aria-label={t("profile.copyId")}
+              title={t("profile.copyId")}
             >
               <HiOutlineClipboardDocument />
             </motion.button>
@@ -335,12 +335,12 @@ export default function ProfileHeaderCard({
               whileTap={{ scale: 0.9 }}
               transition={{ type: "spring", stiffness: 400, damping: 15 }}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-sm font-black text-white shadow-md shadow-sky-500/30"
-              aria-label="Why do I have a unique KunThai ID?"
-              title="About your KunThai ID"
+              aria-label={t("profile.whyId")}
+              title={t("profile.aboutId")}
             >
               ?
             </motion.button>
-            {copiedPublicId ? <span className="shrink-0 text-xs font-black text-sky-700">Copied</span> : null}
+            {copiedPublicId ? <span className="shrink-0 text-xs font-black text-sky-700">{t("profile.copied")}</span> : null}
           </motion.div>
 
           {showVisibilityCredits ? (
@@ -357,7 +357,7 @@ export default function ProfileHeaderCard({
                     <span className="text-3xl font-black leading-none text-slate-950">
                       {creditLoading ? "…" : Number(creditWallet.balance || 0)}
                     </span>
-                    <span className="text-xs font-bold text-slate-500">available</span>
+                    <span className="text-xs font-bold text-slate-500">{t("profile.available")}</span>
                   </p>
                 </div>
                 <motion.button
@@ -367,8 +367,8 @@ export default function ProfileHeaderCard({
                   whileTap={{ scale: 0.9 }}
                   transition={{ type: "spring", stiffness: 400, damping: 15 }}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-sm font-black text-white shadow-md shadow-sky-500/30"
-                  aria-label="What are Visibility Credits?"
-                  title="About Visibility Credits"
+                  aria-label={t("profile.whatCredits")}
+                  title={t("profile.aboutCredits")}
                 >
                   ?
                 </motion.button>
@@ -402,8 +402,8 @@ export default function ProfileHeaderCard({
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
             <StatTile label="Feed" value={stats?.feed} loading={loadingStats} />
             <StatTile label="Swip" value={stats?.swip} loading={loadingStats} />
-            <StatTile label="Connections" value={stats?.followers} loading={loadingStats} />
-            <StatTile label={isSpace ? "Team" : "Connected"} value={isSpace ? stats?.team : stats?.following} loading={loadingStats} />
+            <StatTile label={t("profile.statConnections")} value={stats?.followers} loading={loadingStats} />
+            <StatTile label={isSpace ? t("profile.statTeam") : t("profile.statConnected")} value={isSpace ? stats?.team : stats?.following} loading={loadingStats} />
           </div>
 
           {feedback ? <p className="mt-3 text-xs font-bold text-sky-700">{feedback}</p> : null}
@@ -414,17 +414,17 @@ export default function ProfileHeaderCard({
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-lg font-black text-white shadow-md shadow-sky-500/30">?</span>
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Unique account code</p>
-            <h2 id="kunthai-id-help-title" className="mt-1 text-xl font-black text-slate-950">Why your KunThai ID matters</h2>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.uniqueCode")}</p>
+            <h2 id="kunthai-id-help-title" className="mt-1 text-xl font-black text-slate-950">{t("profile.whyIdMatters")}</h2>
           </div>
         </div>
         <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
-          <p>This code identifies your exact account even when other people have the same name or a similar username.</p>
-          <p>Use it when someone needs to find or invite you, or when KunThai support must confirm the correct account.</p>
-          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">It is safe to share as an account identifier. It is not a password, login code, or payment PIN.</p>
+          <p>{t("profile.idExplain1")}</p>
+          <p>{t("profile.idExplain2")}</p>
+          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">{t("profile.idExplain3")}</p>
         </div>
         <button type="button" onClick={() => setPublicIdHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-          Understood
+          {t("profile.understood")}
         </button>
       </CenteredModal>
 
@@ -461,17 +461,17 @@ export default function ProfileHeaderCard({
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-lg font-black text-white shadow-md shadow-sky-500/30">?</span>
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility wallet</p>
-            <h2 id="visibility-credit-help-title" className="mt-1 text-xl font-black text-slate-950">How Visibility Credits work</h2>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.visibilityWallet")}</p>
+            <h2 id="visibility-credit-help-title" className="mt-1 text-xl font-black text-slate-950">{t("profile.howCreditsWork")}</h2>
           </div>
         </div>
         <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
-          <p>Visibility Credits help you boost Explore adverts and UrMall products without a payment method.</p>
-          <p>Every new account starts with 5 credits, and each verified person who joins KunThai through your invite link earns you 5 more.</p>
-          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">Credits are not cash, cannot be withdrawn, and are only used for KunThai visibility boosts.</p>
+          <p>{t("profile.creditsExplain1")}</p>
+          <p>{t("profile.creditsExplainMid")}</p>
+          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">{t("profile.creditsExplain2")}</p>
         </div>
         <button type="button" onClick={() => setCreditHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-          Understood
+          {t("profile.understood")}
         </button>
       </CenteredModal>
     </section>

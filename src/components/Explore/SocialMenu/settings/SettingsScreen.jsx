@@ -96,10 +96,10 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
     try {
       await signOutSocialSession({ allDevices });
       if (allDevices) {
-        showToast("Signed out everywhere. All devices need to sign in again.", "success");
+        showToast(i18n.t("settings.toastSignedOutAll"), "success");
       }
     } catch (error) {
-      showToast(error.message || "Unable to sign out.", "danger");
+      showToast(error.message || i18n.t("settings.toastSignOutError"), "danger");
     }
   }
 
@@ -119,9 +119,9 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
     try {
       const next = pushStatus === "enabled" ? await disablePushNotifications() : await enablePushNotifications();
       setPushStatus(next);
-      showToast(next === "enabled" ? "Push notifications are on for this device." : "Push notifications are off for this device.", "success");
+      showToast(next === "enabled" ? i18n.t("settings.toastPushOn") : i18n.t("settings.toastPushOff"), "success");
     } catch (error) {
-      showToast(error.message || "Unable to update push notifications.", "danger");
+      showToast(error.message || i18n.t("settings.toastPushError"), "danger");
       setPushStatus(await getPushStatus());
     } finally {
       setPushBusy(false);
@@ -136,27 +136,27 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   return (
     <div>
       {!hideHeader ? (
-        <SocialScreenHeader title="Settings" subtitle="Tune notifications, videos, feed behavior, messages, and account actions." />
+        <SocialScreenHeader title={i18n.t("screens.SettingsTitle")} subtitle={i18n.t("screens.SettingsSubtitle")} />
       ) : null}
 
       <div className="w-full space-y-6 px-4 py-4 sm:px-6 lg:px-8">
         <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Explore Settings</p>
-          <h3 className="mt-1 text-2xl font-black text-slate-950">Make Explore behave your way</h3>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18n.t("settings.eyebrow")}</p>
+          <h3 className="mt-1 text-2xl font-black text-slate-950">{i18n.t("settings.heading")}</h3>
           <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-slate-600">
-            These preferences save instantly on this device and sync to your account when the backend table is available.
+            {i18n.t("settings.intro")}
           </p>
           {feedback ? <p className="mt-3 text-sm font-black text-sky-700">{feedback}</p> : null}
         </div>
 
-        <SettingsSection title="Appearance" subtitle="Choose how all KunThai services look on this device.">
+        <SettingsSection title={i18n.t("settings.appearanceTitle")} subtitle={i18n.t("settings.appearanceSubtitle")}>
           <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex items-start gap-3">
               <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineComputerDesktop className="text-2xl" /></span>
               <div className="min-w-0">
-                <p className="text-base font-black text-slate-950">KunThai appearance</p>
-                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">System follows your device automatically. On and Off keep your choice until you change it.</p>
-                <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-sky-700">Currently {resolvedMode}</p>
+                <p className="text-base font-black text-slate-950">{i18n.t("settings.appearanceName")}</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{i18n.t("settings.appearanceDesc")}</p>
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-sky-700">{i18n.t("settings.currently")} {resolvedMode}</p>
               </div>
             </div>
             <div className="mt-4">
@@ -164,9 +164,9 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
                 value={appearanceMode}
                 onChange={setAppearanceMode}
                 options={[
-                  { value: "system", label: "System — match my device" },
-                  { value: "on", label: "Dark mode" },
-                  { value: "off", label: "Light mode" },
+                  { value: "system", label: i18n.t("settings.modeSystem") },
+                  { value: "on", label: i18n.t("settings.modeDark") },
+                  { value: "off", label: i18n.t("settings.modeLight") },
                 ]}
               />
             </div>
@@ -195,169 +195,169 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
           </div>
         </SettingsSection>
 
-        <SettingsSection title="Control center" subtitle="Open focused account and device controls without losing your place in Settings.">
+        <SettingsSection title={i18n.t("settings.controlCenterTitle")} subtitle={i18n.t("settings.controlCenterSubtitle")}>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SettingsShortcut icon={HiOutlineSparkles} title="Interests" description="Choose private topics that lightly guide Explore discovery." onClick={onOpenInterests} />
-            <SettingsShortcut icon={HiOutlineShieldCheck} title="Privacy Center" description="Visibility, messages, blocks, and data choices." onClick={onOpenPrivacy} />
-            <SettingsShortcut icon={HiOutlineKey} title="Security" description="Sign-in protection and account sessions." onClick={onOpenSecurity} />
-            <SettingsShortcut icon={HiOutlineDevicePhoneMobile} title="Permissions" description="Optional camera, microphone, location, and alerts." onClick={onOpenPermissions} />
-            <SettingsShortcut icon={HiOutlineCircleStack} title="Data & Mobile Use" description="Media, bandwidth, autoplay, and device cache." onClick={onOpenDataMobile} />
+            <SettingsShortcut icon={HiOutlineSparkles} title={i18n.t("settings.shortcutInterests")} description={i18n.t("settings.shortcutInterestsDesc")} onClick={onOpenInterests} />
+            <SettingsShortcut icon={HiOutlineShieldCheck} title={i18n.t("settings.shortcutPrivacy")} description={i18n.t("settings.shortcutPrivacyDesc")} onClick={onOpenPrivacy} />
+            <SettingsShortcut icon={HiOutlineKey} title={i18n.t("settings.shortcutSecurity")} description={i18n.t("settings.shortcutSecurityDesc")} onClick={onOpenSecurity} />
+            <SettingsShortcut icon={HiOutlineDevicePhoneMobile} title={i18n.t("settings.shortcutPermissions")} description={i18n.t("settings.shortcutPermissionsDesc")} onClick={onOpenPermissions} />
+            <SettingsShortcut icon={HiOutlineCircleStack} title={i18n.t("settings.shortcutData")} description={i18n.t("settings.shortcutDataDesc")} onClick={onOpenDataMobile} />
           </div>
         </SettingsSection>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <SettingsSection title="Notifications" subtitle="Choose which actions should light up your bell and alert surfaces.">
+          <SettingsSection title={i18n.t("settings.notificationsTitle")} subtitle={i18n.t("settings.notificationsSubtitle")}>
             <SettingRow
               icon={HiOutlineDevicePhoneMobile}
-              title="Push notifications on this device"
+              title={i18n.t("settings.pushTitle")}
               description={
                 pushStatus === "unsupported"
-                  ? "This browser cannot receive push notifications. On iPhone, add KunThai to your home screen first, then enable it there."
+                  ? i18n.t("settings.pushUnsupported")
                   : pushStatus === "denied"
-                    ? "Notifications are blocked in your browser settings. Allow notifications for this site to turn them on."
-                    : "Get message, activity, and order alerts even when KunThai is closed."
+                    ? i18n.t("settings.pushDenied")
+                    : i18n.t("settings.pushDefault")
               }
             >
               <Toggle
                 active={pushStatus === "enabled"}
-                label={pushBusy || pushStatus === "loading" ? "..." : pushStatus === "enabled" ? "On" : "Off"}
+                label={pushBusy || pushStatus === "loading" ? "..." : pushStatus === "enabled" ? i18n.t("settings.on") : i18n.t("settings.off")}
                 onChange={togglePushNotifications}
               />
             </SettingRow>
-            <SettingRow icon={HiOutlineBellAlert} title="Reactions and comments" description="Get updates when people like, save, or comment on your posts.">
-              <Toggle active={notifications.reactions} label="Likes" onChange={(value) => updateSection("notifications", { reactions: value })} />
-              <Toggle active={notifications.comments} label="Comments" onChange={(value) => updateSection("notifications", { comments: value })} />
+            <SettingRow icon={HiOutlineBellAlert} title={i18n.t("settings.reactionsTitle")} description={i18n.t("settings.reactionsDesc")}>
+              <Toggle active={notifications.reactions} label={i18n.t("settings.likes")} onChange={(value) => updateSection("notifications", { reactions: value })} />
+              <Toggle active={notifications.comments} label={i18n.t("settings.comments")} onChange={(value) => updateSection("notifications", { comments: value })} />
             </SettingRow>
-            <SettingRow icon={HiOutlineSignal} title="Social and connected posts" description="Connection alerts and posts from people or Spaces you connect with.">
-              <Toggle active={notifications.follows} label="Connects" onChange={(value) => updateSection("notifications", { follows: value })} />
-              <Toggle active={notifications.followedPosts} label="Posts" onChange={(value) => updateSection("notifications", { followedPosts: value })} />
+            <SettingRow icon={HiOutlineSignal} title={i18n.t("settings.socialPostsTitle")} description={i18n.t("settings.socialPostsDesc")}>
+              <Toggle active={notifications.follows} label={i18n.t("settings.connects")} onChange={(value) => updateSection("notifications", { follows: value })} />
+              <Toggle active={notifications.followedPosts} label={i18n.t("settings.posts")} onChange={(value) => updateSection("notifications", { followedPosts: value })} />
             </SettingRow>
-            <SettingRow icon={HiOutlineChatBubbleLeftRight} title="Messages and safety alerts" description="Message badges, safety notices, reports, and account alerts.">
-              <Toggle active={notifications.messages} label="Messages" onChange={(value) => updateSection("notifications", { messages: value })} />
-              <Toggle active={notifications.safetyAlerts} label="Safety" onChange={(value) => updateSection("notifications", { safetyAlerts: value })} />
+            <SettingRow icon={HiOutlineChatBubbleLeftRight} title={i18n.t("settings.messagesSafetyTitle")} description={i18n.t("settings.messagesSafetyDesc")}>
+              <Toggle active={notifications.messages} label={i18n.t("settings.messages")} onChange={(value) => updateSection("notifications", { messages: value })} />
+              <Toggle active={notifications.safetyAlerts} label={i18n.t("settings.safety")} onChange={(value) => updateSection("notifications", { safetyAlerts: value })} />
             </SettingRow>
           </SettingsSection>
 
-          <SettingsSection title="Sounds & Vibration" subtitle="Feedback for actions like sending, ordering, publishing, and booking.">
-            <SettingRow icon={HiOutlineBellAlert} title="All feedback" description="Master switches for interaction sounds and vibration across KunThai. Vibration works on supported phones only.">
-              <Toggle active={feedbackFx.sounds} label={feedbackFx.sounds ? "Sounds on" : "Sounds off"} onChange={(value) => updateSection("feedbackFx", { sounds: value })} />
-              <Toggle active={feedbackFx.vibration} label={feedbackFx.vibration ? "Vibration on" : "Vibration off"} onChange={(value) => updateSection("feedbackFx", { vibration: value })} />
+          <SettingsSection title={i18n.t("settings.soundsTitle")} subtitle={i18n.t("settings.soundsSubtitle")}>
+            <SettingRow icon={HiOutlineBellAlert} title={i18n.t("settings.allFeedbackTitle")} description={i18n.t("settings.allFeedbackDesc")}>
+              <Toggle active={feedbackFx.sounds} label={feedbackFx.sounds ? i18n.t("settings.soundsOn") : i18n.t("settings.soundsOff")} onChange={(value) => updateSection("feedbackFx", { sounds: value })} />
+              <Toggle active={feedbackFx.vibration} label={feedbackFx.vibration ? i18n.t("settings.vibrationOn") : i18n.t("settings.vibrationOff")} onChange={(value) => updateSection("feedbackFx", { vibration: value })} />
               <button
                 type="button"
                 onClick={testFeedback}
                 className="flex h-11 min-w-24 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
               >
-                Try it
+                {i18n.t("settings.tryIt")}
               </button>
             </SettingRow>
-            <SettingRow icon={HiOutlineBellAlert} title="In-app banners" description="Show a small tappable banner at the top when a message or activity arrives while you are elsewhere in the app.">
-              <Toggle active={feedbackFx.banners} label={feedbackFx.banners ? "Banners on" : "Banners off"} onChange={(value) => updateSection("feedbackFx", { banners: value })} />
+            <SettingRow icon={HiOutlineBellAlert} title={i18n.t("settings.bannersTitle")} description={i18n.t("settings.bannersDesc")}>
+              <Toggle active={feedbackFx.banners} label={feedbackFx.banners ? i18n.t("settings.bannersOn") : i18n.t("settings.bannersOff")} onChange={(value) => updateSection("feedbackFx", { banners: value })} />
             </SettingRow>
-            <SettingRow icon={HiOutlineSparkles} title="Per-service feedback" description="Choose which parts of KunThai can play feedback sounds and vibration.">
+            <SettingRow icon={HiOutlineSparkles} title={i18n.t("settings.perServiceTitle")} description={i18n.t("settings.perServiceDesc")}>
               <Toggle active={feedbackFx.explore} label="Explore" onChange={(value) => updateSection("feedbackFx", { explore: value })} />
-              <Toggle active={feedbackFx.messages} label="Messages" onChange={(value) => updateSection("feedbackFx", { messages: value })} />
+              <Toggle active={feedbackFx.messages} label={i18n.t("settings.messages")} onChange={(value) => updateSection("feedbackFx", { messages: value })} />
               <Toggle active={feedbackFx.marketplace} label="UrMall" onChange={(value) => updateSection("feedbackFx", { marketplace: value })} />
               <Toggle active={feedbackFx.transport} label="UrRide" onChange={(value) => updateSection("feedbackFx", { transport: value })} />
             </SettingRow>
           </SettingsSection>
 
-          <SettingsSection title="Swip Videos" subtitle="Control sound, autoplay, and data-friendly playback.">
-            <SettingRow icon={HiOutlineFilm} title="Autoplay videos" description="Let videos start automatically when they become active on screen.">
+          <SettingsSection title={i18n.t("settings.videoTitle")} subtitle={i18n.t("settings.videoSubtitle")}>
+            <SettingRow icon={HiOutlineFilm} title={i18n.t("settings.autoplayTitle")} description={i18n.t("settings.autoplayDesc")}>
               <Toggle active={video.autoplay} onChange={(value) => updateSection("video", { autoplay: value })} />
             </SettingRow>
-            <SettingRow icon={HiOutlineFilm} title="Default sound" description="Choose whether Swip starts muted when Explore opens.">
+            <SettingRow icon={HiOutlineFilm} title={i18n.t("settings.defaultSoundTitle")} description={i18n.t("settings.defaultSoundDesc")}>
               <Toggle
                 active={!video.defaultMuted}
-                label={video.defaultMuted ? "Muted" : "Sound on"}
+                label={video.defaultMuted ? i18n.t("settings.muted") : i18n.t("settings.soundOn")}
                 onChange={(value) => updateSection("video", { defaultMuted: !value })}
               />
             </SettingRow>
-            <SettingRow icon={HiOutlineCircleStack} title="Use less data" description="Prefer lighter media behavior when network quality is poor.">
+            <SettingRow icon={HiOutlineCircleStack} title={i18n.t("settings.reduceDataTitle")} description={i18n.t("settings.reduceDataDesc")}>
               <Toggle active={video.reduceData} onChange={(value) => updateSection("video", { reduceData: value })} />
             </SettingRow>
           </SettingsSection>
 
-          <SettingsSection title="Feed" subtitle="Set the first tab, language, and discovery behavior.">
-            <SettingRow icon={HiOutlineRectangleStack} title="Default Explore tab" description="Choose where Explore should open first later.">
+          <SettingsSection title={i18n.t("settings.feedTitle")} subtitle={i18n.t("settings.feedSubtitle")}>
+            <SettingRow icon={HiOutlineRectangleStack} title={i18n.t("settings.defaultTabTitle")} description={i18n.t("settings.defaultTabDesc")}>
               <SelectControl
                 value={feed.defaultTab}
                 onChange={(value) => updateSection("feed", { defaultTab: value })}
                 options={[
                   { value: "UrFeed", label: "UrFeed" },
                   { value: "Swip", label: "Swip" },
-                  { value: "Connections", label: "Connections" },
+                  { value: "Connections", label: i18n.t("nav.connections") },
                 ]}
               />
             </SettingRow>
-            <SettingRow icon={HiOutlineLanguage} title="Content language" description="Use automatic language detection or prefer a specific language.">
+            <SettingRow icon={HiOutlineLanguage} title={i18n.t("settings.contentLanguageTitle")} description={i18n.t("settings.contentLanguageDesc")}>
               <SelectControl
                 value={feed.language}
                 onChange={(value) => updateSection("feed", { language: value })}
                 options={[
-                  { value: "auto", label: "Auto" },
-                  { value: "english", label: "English" },
-                  { value: "krio", label: "Krio" },
-                  { value: "french", label: "French" },
+                  { value: "auto", label: i18n.t("settings.langAuto") },
+                  { value: "english", label: i18n.t("settings.langEnglish") },
+                  { value: "krio", label: i18n.t("settings.langKrio") },
+                  { value: "french", label: i18n.t("settings.langFrench") },
                 ]}
               />
             </SettingRow>
-            <SettingRow icon={HiOutlineSignal} title="Discovery suggestions" description="Show suggested accounts and safety warnings in the feed.">
-              <Toggle active={feed.showSuggestedAccounts} label="Suggestions" onChange={(value) => updateSection("feed", { showSuggestedAccounts: value })} />
-              <Toggle active={feed.showSensitiveWarnings} label="Warnings" onChange={(value) => updateSection("feed", { showSensitiveWarnings: value })} />
+            <SettingRow icon={HiOutlineSignal} title={i18n.t("settings.discoveryTitle")} description={i18n.t("settings.discoveryDesc")}>
+              <Toggle active={feed.showSuggestedAccounts} label={i18n.t("settings.suggestions")} onChange={(value) => updateSection("feed", { showSuggestedAccounts: value })} />
+              <Toggle active={feed.showSensitiveWarnings} label={i18n.t("settings.warnings")} onChange={(value) => updateSection("feed", { showSensitiveWarnings: value })} />
             </SettingRow>
           </SettingsSection>
 
-          <SettingsSection title="Messages" subtitle="Presence, typing, voice note, and read receipt preferences.">
-            <SettingRow icon={HiOutlineChatBubbleLeftRight} title="Presence signals" description="Show when you are active and when you are typing.">
-              <Toggle active={messages.showActiveStatus} label="Active" onChange={(value) => updateSection("messages", { showActiveStatus: value })} />
-              <Toggle active={messages.showTypingStatus} label="Typing" onChange={(value) => updateSection("messages", { showTypingStatus: value })} />
+          <SettingsSection title={i18n.t("settings.messagesSectionTitle")} subtitle={i18n.t("settings.messagesSectionSubtitle")}>
+            <SettingRow icon={HiOutlineChatBubbleLeftRight} title={i18n.t("settings.presenceTitle")} description={i18n.t("settings.presenceDesc")}>
+              <Toggle active={messages.showActiveStatus} label={i18n.t("settings.active")} onChange={(value) => updateSection("messages", { showActiveStatus: value })} />
+              <Toggle active={messages.showTypingStatus} label={i18n.t("settings.typing")} onChange={(value) => updateSection("messages", { showTypingStatus: value })} />
             </SettingRow>
-            <SettingRow icon={HiOutlineChatBubbleLeftRight} title="Conversation tools" description="Voice notes and read receipts for richer conversations.">
-              <Toggle active={messages.allowVoiceNotes} label="Voice" onChange={(value) => updateSection("messages", { allowVoiceNotes: value })} />
-              <Toggle active={messages.readReceipts} label="Receipts" onChange={(value) => updateSection("messages", { readReceipts: value })} />
+            <SettingRow icon={HiOutlineChatBubbleLeftRight} title={i18n.t("settings.conversationToolsTitle")} description={i18n.t("settings.conversationToolsDesc")}>
+              <Toggle active={messages.allowVoiceNotes} label={i18n.t("settings.voice")} onChange={(value) => updateSection("messages", { allowVoiceNotes: value })} />
+              <Toggle active={messages.readReceipts} label={i18n.t("settings.receipts")} onChange={(value) => updateSection("messages", { readReceipts: value })} />
             </SettingRow>
           </SettingsSection>
         </div>
 
-        <SettingsSection title="Security" subtitle="Extra protection for signing in to this account.">
+        <SettingsSection title={i18n.t("settings.securityTitle")} subtitle={i18n.t("settings.securitySubtitle")}>
           <TwoFactorSection />
         </SettingsSection>
 
-        <SettingsSection title="Account" subtitle="Session and local device actions.">
+        <SettingsSection title={i18n.t("settings.accountTitle")} subtitle={i18n.t("settings.accountSubtitle")}>
           <div className="grid gap-3 lg:grid-cols-3">
             <button type="button" onClick={onSwitchAccount} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm">
               <HiOutlineCog6Tooth className="text-2xl text-sky-700" />
-              <p className="mt-3 text-base font-black text-slate-950">Switch account</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Change the active Explore session.</p>
+              <p className="mt-3 text-base font-black text-slate-950">{i18n.t("settings.switchAccountTitle")}</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{i18n.t("settings.switchAccountDesc")}</p>
             </button>
             <button type="button" onClick={clearCache} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm">
               <HiOutlineCircleStack className="text-2xl text-sky-700" />
-              <p className="mt-3 text-base font-black text-slate-950">Clear local cache</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Clear drafts, recent searches, and temporary state.</p>
+              <p className="mt-3 text-base font-black text-slate-950">{i18n.t("settings.clearCacheTitle")}</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{i18n.t("settings.clearCacheDesc")}</p>
             </button>
             <div className="rounded-[22px] border border-rose-100 bg-rose-50 p-5 shadow-sm">
               <HiOutlineCog6Tooth className="text-2xl text-rose-700" />
-              <p className="mt-3 text-base font-black text-rose-950">Sign out</p>
+              <p className="mt-3 text-base font-black text-rose-950">{i18n.t("settings.signOutTitle")}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-rose-700">
-                Ends the session on this device only. Other devices stay signed in.
+                {i18n.t("settings.signOutDesc")}
               </p>
               <button
                 type="button"
                 onClick={() => handleSignOut(false)}
                 className="mt-4 h-11 w-full rounded-2xl bg-rose-600 px-4 text-sm font-black text-white transition hover:bg-rose-700"
               >
-                Sign out
+                {i18n.t("settings.signOutBtn")}
               </button>
               <button
                 type="button"
                 onClick={() => handleSignOut(true)}
                 className="mt-2 h-11 w-full rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100"
               >
-                Sign out of all devices
+                {i18n.t("settings.signOutAll")}
               </button>
             </div>
           </div>
-          <SettingRow icon={HiOutlineRectangleStack} title="Compact menu" description="Use a denser menu layout on small screens later.">
+          <SettingRow icon={HiOutlineRectangleStack} title={i18n.t("settings.compactMenuTitle")} description={i18n.t("settings.compactMenuDesc")}>
             <Toggle active={account.compactMenu} onChange={(value) => updateSection("account", { compactMenu: value })} />
           </SettingRow>
         </SettingsSection>

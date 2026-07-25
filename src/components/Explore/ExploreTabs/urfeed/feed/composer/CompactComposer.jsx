@@ -2,9 +2,11 @@ import { Megaphone } from "lucide-react";
 import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlinePhoto } from "react-icons/hi2";
 
 import { isFeatureAvailable } from "../../../../../../data/globalFeatureAvailability";
+import { useI18n } from "../../../../../../i18n";
 import Avatar from "../../../../shared/Avatar";
 
 export default function CompactComposer({ profile, creating, onOpen, onQuickMedia, onQuickVoice }) {
+  const { t } = useI18n();
   const advertsAvailable = isFeatureAvailable("adverts", profile?.countryCode || profile?.country || {});
   return (
     <div className="mt-4 w-full min-w-0 px-3 sm:px-5 lg:px-8">
@@ -18,7 +20,7 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
           onClick={() => onOpen?.("text")}
           className="h-10 min-w-0 flex-1 truncate rounded-2xl bg-slate-50 px-3 text-left text-sm font-medium text-slate-400 transition hover:bg-slate-100 sm:h-11 sm:px-4"
         >
-          What's happening in your world?
+          {t("feed.composerPlaceholder")}
         </button>
 
         <div className="flex flex-none items-center gap-1.5 sm:gap-2">
@@ -26,7 +28,7 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
             type="button"
             onClick={() => onQuickMedia?.("image")}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg text-slate-500 transition hover:bg-slate-200 sm:h-10 sm:w-10"
-            aria-label="Add image"
+            aria-label={t("feed.addImage")}
           >
             <HiOutlinePhoto />
           </button>
@@ -34,7 +36,7 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
             type="button"
             onClick={onQuickVoice}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg text-slate-500 transition hover:bg-slate-200 sm:h-10 sm:w-10"
-            aria-label="Record voice note"
+            aria-label={t("feed.recordVoice")}
           >
             <HiOutlineMicrophone />
           </button>
@@ -43,7 +45,7 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
               type="button"
               onClick={() => onOpen?.("advert")}
               className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-lg text-amber-700 transition hover:border-amber-200 hover:bg-amber-100 sm:h-10 sm:w-10"
-              aria-label="Advertisement"
+              aria-label={t("feed.advertisement")}
             >
               <Megaphone size={18} strokeWidth={2.3} absoluteStrokeWidth />
             </button>
@@ -53,7 +55,7 @@ export default function CompactComposer({ profile, creating, onOpen, onQuickMedi
             onClick={() => onOpen?.("text")}
             disabled={creating}
             className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60 sm:h-10 sm:w-10"
-            aria-label={creating ? "Posting" : "Create text post"}
+            aria-label={creating ? t("feed.posting") : t("feed.createTextPost")}
           >
             <HiOutlinePaperAirplane />
           </button>

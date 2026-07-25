@@ -13,6 +13,7 @@ import {
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import ExploreActionDrawer from "../../../../shared/ExploreActionDrawer";
+import { useI18n } from "../../../../../../i18n";
 
 export default function PostOptionsMenu({
   closing,
@@ -34,35 +35,36 @@ export default function PostOptionsMenu({
   onWhyAdvert,
   saved,
 }) {
+  const { t } = useI18n();
   const ownerActions = [
-    { label: advertPost ? "Edit advert message" : "Edit post", icon: HiOutlinePencilSquare, action: onEdit },
-    { label: saved ? "Remove saved" : advertPost ? "Save advert" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
-    ...(!advertPost ? [{ label: "Repost", icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
-    { label: "Share", icon: HiOutlineShare, action: onShare },
-    { label: "Copy link", icon: HiOutlineLink, action: onCopy },
-    { label: advertPost ? "View advert activity" : "View activity", icon: HiOutlineChartBar, action: onViewActivity },
-    { label: advertPost ? "Delete advertisement" : "Delete post", icon: HiOutlineTrash, action: onDelete, danger: true },
+    { label: advertPost ? t("post.editAdvert") : t("post.editPost"), icon: HiOutlinePencilSquare, action: onEdit },
+    { label: saved ? t("post.removeSaved") : advertPost ? t("post.saveAdvert") : t("post.savePost"), icon: HiOutlineBookmark, action: onSave, active: saved },
+    ...(!advertPost ? [{ label: t("post.repost"), icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
+    { label: t("post.share"), icon: HiOutlineShare, action: onShare },
+    { label: t("post.copyLink"), icon: HiOutlineLink, action: onCopy },
+    { label: advertPost ? t("post.viewAdvertActivity") : t("post.viewActivity"), icon: HiOutlineChartBar, action: onViewActivity },
+    { label: advertPost ? t("post.deleteAdvert") : t("post.deletePost"), icon: HiOutlineTrash, action: onDelete, danger: true },
   ];
 
   const viewerActions = [
-    { label: saved ? "Remove saved" : advertPost ? "Save advert" : "Save post", icon: HiOutlineBookmark, action: onSave, active: saved },
-    ...(!advertPost ? [{ label: "Repost", icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
-    { label: "Share", icon: HiOutlineShare, action: onShare },
-    { label: "Copy link", icon: HiOutlineLink, action: onCopy },
-    ...(followed ? [{ label: "Remove connection", icon: HiOutlineUserMinus, action: onFollow }] : []),
+    { label: saved ? t("post.removeSaved") : advertPost ? t("post.saveAdvert") : t("post.savePost"), icon: HiOutlineBookmark, action: onSave, active: saved },
+    ...(!advertPost ? [{ label: t("post.repost"), icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
+    { label: t("post.share"), icon: HiOutlineShare, action: onShare },
+    { label: t("post.copyLink"), icon: HiOutlineLink, action: onCopy },
+    ...(followed ? [{ label: t("post.removeConnection"), icon: HiOutlineUserMinus, action: onFollow }] : []),
     ...(advertPost ? [
-      { label: "Why am I seeing this?", icon: HiOutlineInformationCircle, action: onWhyAdvert },
-      { label: "Hide advertisement", icon: HiOutlineEyeSlash, action: onHide },
-      { label: "Mute this advertiser", icon: HiOutlineSpeakerXMark, action: onMuteAdvertiser },
-      { label: "Report advertisement", icon: HiOutlineFlag, action: onReport, danger: true },
+      { label: t("post.whySeeing"), icon: HiOutlineInformationCircle, action: onWhyAdvert },
+      { label: t("post.hideAdvert"), icon: HiOutlineEyeSlash, action: onHide },
+      { label: t("post.muteAdvertiser"), icon: HiOutlineSpeakerXMark, action: onMuteAdvertiser },
+      { label: t("post.reportAdvert"), icon: HiOutlineFlag, action: onReport, danger: true },
     ] : [
-      { label: "Hide post", icon: HiOutlineEyeSlash, action: onHide },
-      { label: "Report post", icon: HiOutlineFlag, action: onReport, danger: true },
+      { label: t("post.hidePost"), icon: HiOutlineEyeSlash, action: onHide },
+      { label: t("post.reportPost"), icon: HiOutlineFlag, action: onReport, danger: true },
     ]),
   ];
 
   return (
-    <ExploreActionDrawer closing={closing} onClose={onClose} title={advertPost ? "Advertisement actions" : "Post actions"}>
+    <ExploreActionDrawer closing={closing} onClose={onClose} title={advertPost ? t("post.advertActions") : t("post.postActions")}>
       <div className="inline-flex flex-col overflow-hidden rounded-[26px] border border-white/70 bg-white/90 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.28)] backdrop-blur-2xl">
         {(isOwner ? ownerActions : viewerActions).map((item) => {
           const Icon = item.icon;

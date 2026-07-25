@@ -7,6 +7,7 @@ import { shareKunThaiLink } from "../../../../../Backend/services/shareCtaServic
 import { getPostIdentity } from "../../../../../Backend/services/exploreService";
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
+import { useI18n, t as translate } from "../../../../../i18n";
 import { stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import VideoCard from "../videos/VideoCard";
 import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipPost } from "../videos/swipUtils";
@@ -15,6 +16,7 @@ const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
 
 export default function All({ active = true, currentUserId = "", focusPostId = "", onlyUserId = "", onReturnToRepost, onViewProfile, profile }) {
+  const { t } = useI18n();
   const feed = useExploreFeed("swip");
   const videos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
   const focusedVideoIndex = focusPostId ? videos.findIndex((post) => post.id === focusPostId) : -1;
@@ -179,19 +181,19 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     return (
       <div className="p-4">
         <EmptyState
-          title="No Swip videos yet"
-          message="Videos you post from the composer will appear in Swip automatically."
+          title={t("swip.noVideosTitle")}
+          message={t("swip.noVideosMsg")}
         />
         <div className="mx-auto mt-4 max-w-md rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-center shadow-sm">
-          <p className="text-sm font-black text-slate-950">Keep the fun going</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Share KunThai with family and friends while Swip fills up.</p>
+          <p className="text-sm font-black text-slate-950">{t("swip.keepFunGoing")}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("swip.keepFunGoingMsg")}</p>
           <button
             type="button"
             onClick={shareKunThaiLink}
             className="kt-pressable mx-auto mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
           >
             <Share2 size={16} />
-            Share KunThai
+            {t("swip.shareKunThai")}
           </button>
         </div>
       </div>
@@ -204,11 +206,11 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
         <button
           type="button"
           onClick={onReturnToRepost}
-          aria-label="Back to repost"
+          aria-label={t("swip.backToRepost")}
           className="kt-pressable absolute left-3 top-3 z-40 flex h-11 items-center gap-2 rounded-full border border-white/15 bg-slate-950/55 px-4 text-sm font-black text-white shadow-2xl backdrop-blur-xl"
         >
           <ArrowLeft size={19} />
-          Back
+          {t("swip.back")}
         </button>
       ) : null}
       <div
@@ -321,8 +323,8 @@ class SwipPostBoundary extends Component {
       return (
         <div className="flex h-full w-full items-center justify-center bg-slate-950 p-6 text-center">
           <div className="max-w-xs rounded-2xl border border-white/10 bg-white/10 px-4 py-5 text-white shadow-xl backdrop-blur">
-            <p className="text-sm font-black">This Swip could not load.</p>
-            <p className="mt-2 text-xs font-semibold leading-5 text-white/70">Keep scrolling while the video is prepared.</p>
+            <p className="text-sm font-black">{translate("swip.couldNotLoad")}</p>
+            <p className="mt-2 text-xs font-semibold leading-5 text-white/70">{translate("swip.couldNotLoadMsg")}</p>
           </div>
         </div>
       );

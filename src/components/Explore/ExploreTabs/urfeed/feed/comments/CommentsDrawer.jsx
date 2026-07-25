@@ -4,6 +4,7 @@ import { HiOutlineChatBubbleLeftRight, HiOutlineXMark } from "react-icons/hi2";
 
 import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
 import { endGuestVisit, isGuestMode } from "../../../../../../Backend/services/guestModeService";
+import { useI18n } from "../../../../../../i18n";
 import ErrorState from "../../../../shared/ErrorState";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import CommentDrawerComposer from "./CommentDrawerComposer";
@@ -12,6 +13,7 @@ import CommentItem from "./CommentItem";
 const EXIT_MS = 260;
 
 export default function CommentsDrawer({ currentUserId, onClose, onCountChange, onViewProfile, open, post }) {
+  const { t } = useI18n();
   const [replyingTo, setReplyingTo] = useState(null);
   const [rendered, setRendered] = useState(open);
   const [closing, setClosing] = useState(false);
@@ -108,19 +110,19 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
         type="button"
         className={`absolute inset-0 cursor-default bg-slate-950/45 backdrop-blur-sm ${backdropClass}`}
         onClick={requestClose}
-        aria-label="Close comments"
+        aria-label={t("post.closeComments")}
       />
       <section className={`relative z-10 flex ${panelSizeClass} min-w-0 flex-col overflow-hidden bg-white shadow-2xl ${panelMotionClass}`}>
         <div className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{isSwip ? "Swip comments" : "Comments"}</p>
-            <h3 className="truncate text-lg font-black text-slate-950">{post?.comments_count || comments.comments.length || 0} responses</h3>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{isSwip ? t("post.swipComments") : t("post.comments")}</p>
+            <h3 className="truncate text-lg font-black text-slate-950">{t("post.responses", { count: post?.comments_count || comments.comments.length || 0 })}</h3>
           </div>
           <button
             type="button"
             onClick={requestClose}
             className="kt-pressable flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700 hover:bg-slate-200"
-            aria-label="Close comments"
+            aria-label={t("post.closeComments")}
           >
             <HiOutlineXMark />
           </button>
@@ -142,8 +144,8 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           {!comments.loading && !comments.thread.length ? (
             <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
               <HiOutlineChatBubbleLeftRight className="mx-auto text-3xl text-slate-400" />
-              <p className="mt-3 text-sm font-black text-slate-950">Start the conversation</p>
-              <p className="mt-1 text-sm text-slate-500">Text and voice comments will appear here.</p>
+              <p className="mt-3 text-sm font-black text-slate-950">{t("post.startConversation")}</p>
+              <p className="mt-1 text-sm text-slate-500">{t("post.commentsAppearHere")}</p>
             </div>
           ) : null}
 
@@ -168,16 +170,16 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
         {isGuestMode() ? (
           <div className="border-t border-slate-100 px-4 py-4">
             <div className="rounded-[22px] border border-sky-200 bg-sky-50 p-4 text-center">
-              <p className="text-sm font-black text-slate-950">You cannot add a comment as a guest</p>
+              <p className="text-sm font-black text-slate-950">{t("post.guestNoComment")}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                Create a real KunThai account to join the conversation.
+                {t("post.guestNoCommentDesc")}
               </p>
               <button
                 type="button"
                 onClick={() => endGuestVisit()}
                 className="mt-3 h-11 w-full rounded-2xl bg-sky-700 text-sm font-black text-white transition hover:bg-sky-800"
               >
-                Create an account
+                {t("post.createAccount")}
               </button>
             </div>
           </div>

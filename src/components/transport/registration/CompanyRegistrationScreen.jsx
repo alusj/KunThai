@@ -1320,7 +1320,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
           <input
             value={operatorId}
             onChange={(event) => setOperatorId(event.target.value)}
-            placeholder="KTU-XXXX-XXXX or KT-12345"
+            placeholder="KTU-XXXX-XXXX"
             className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
           />
           <button type="button" onClick={() => lookupOperator()} disabled={lookingUp} className="h-11 rounded-2xl border border-slate-950 bg-white px-5 text-sm font-black text-slate-950 disabled:opacity-60">

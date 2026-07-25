@@ -5,6 +5,8 @@ import {
   HiOutlineShare,
 } from "react-icons/hi2";
 
+import { useI18n } from "../../../../../../i18n";
+
 function ActionButton({ active, icon, label, meta, onClick }) {
   function handleClick(event) {
     event.preventDefault();
@@ -29,11 +31,12 @@ function ActionButton({ active, icon, label, meta, onClick }) {
 }
 
 export default function PostActions({ post, liked, onLike, onComment, onShare }) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-3 gap-1 border-t border-slate-100 px-2 py-2">
-      <ActionButton active={liked} icon={HiOutlineHandThumbUp} label="Like" meta={post.likes_count ?? 0} onClick={onLike} />
-      <ActionButton icon={HiOutlineChatBubbleOvalLeft} label="Comments" meta={post.comments_count ?? 0} onClick={onComment} />
-      <ActionButton icon={HiOutlineShare} label="Share" onClick={onShare} />
+      <ActionButton active={liked} icon={HiOutlineHandThumbUp} label={t("post.like")} meta={post.likes_count ?? 0} onClick={onLike} />
+      <ActionButton icon={HiOutlineChatBubbleOvalLeft} label={t("post.comments")} meta={post.comments_count ?? 0} onClick={onComment} />
+      <ActionButton icon={HiOutlineShare} label={t("post.share")} onClick={onShare} />
     </div>
   );
 }

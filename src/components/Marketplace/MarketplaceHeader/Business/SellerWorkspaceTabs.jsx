@@ -1,11 +1,13 @@
-export default function SellerWorkspaceTabs({ activeTab, onTabChange }) {
-  const tabs = [
+export default function SellerWorkspaceTabs({ activeTab, onTabChange, allowedTabs = null }) {
+  const allTabs = [
     { id: "overview", label: "Overview" },
     { id: "sales", label: "Sales & Orders" },
     { id: "store", label: "Store" },
     { id: "catalog", label: "Catalog" },
     { id: "drafts", label: "Draft" },
   ];
+  // When an admin only has some responsibilities, show just the tabs they can use.
+  const tabs = allowedTabs ? allTabs.filter((tab) => allowedTabs.includes(tab.id)) : allTabs;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">

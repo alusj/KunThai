@@ -7,6 +7,7 @@ import {
 } from "react-icons/hi2";
 
 import { formatRelativeTime } from "../../../../../../Backend/services/exploreService";
+import { useI18n, t as translate } from "../../../../../../i18n";
 import Avatar from "../../../../shared/Avatar";
 import LinkifiedText from "../../../../shared/LinkifiedText";
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
@@ -23,7 +24,7 @@ function getAuthorName(comment) {
 
   if (!isPlaceholderName(displayName)) return displayName;
   if (username && username.toLowerCase() !== "user") return username;
-  return comment.user_id ? `User ${String(comment.user_id).slice(0, 4)}` : "User";
+  return comment.user_id ? `${translate("post.userFallback")} ${String(comment.user_id).slice(0, 4)}` : translate("post.userFallback");
 }
 
 function getAuthorUsername(comment) {
@@ -44,6 +45,7 @@ export default function CommentItem({
   onReport,
   replies = [],
 }) {
+  const { t } = useI18n();
   const authorName = getAuthorName(comment);
   const authorUsername = getAuthorUsername(comment);
   const [deleting, setDeleting] = useState(false);
@@ -71,7 +73,7 @@ export default function CommentItem({
   return (
     <div className={`space-y-2 ${comment.pending ? "kt-comment-item-pending" : ""} ${deleting ? "kt-post-wipe-out" : ""}`}>
       <div className="flex min-w-0 gap-3">
-        <button type="button" onClick={viewCommentProfile} className="kt-pressable flex-none self-start rounded-full" aria-label={`View ${authorName} profile`}>
+        <button type="button" onClick={viewCommentProfile} className="kt-pressable flex-none self-start rounded-full" aria-label={t("post.viewProfileAria", { name: authorName })}>
           <Avatar name={authorName} src={comment.author_avatar_url} size="sm" />
         </button>
         <div className="min-w-0 flex-1 rounded-[20px] bg-slate-50 px-4 py-3">
@@ -81,7 +83,7 @@ export default function CommentItem({
                 {authorName}
               </button>
               <button type="button" onClick={viewCommentProfile} className="kt-pressable block max-w-full truncate rounded-lg text-left text-xs font-semibold text-slate-400 hover:text-sky-700">
-                @{authorUsername} - {comment.pending ? "Sending..." : formatRelativeTime(comment.created_at)}
+                @{authorUsername} - {comment.pending ? t("post.sending") : formatRelativeTime(comment.created_at)}
               </button>
             </div>
           </div>
@@ -107,19 +109,19 @@ export default function CommentItem({
             </button>
             <button type="button" disabled={comment.pending} onClick={() => onReply(comment)} className="kt-pressable inline-flex items-center gap-1 rounded-lg disabled:opacity-60">
               <HiOutlineChatBubbleLeftRight />
-              Reply
+              {t("post.reply")}
             </button>
             {comment.pending ? (
-              <span className="inline-flex items-center gap-1 text-sky-700">Posting</span>
+              <span className="inline-flex items-center gap-1 text-sky-700">{t("post.posting")}</span>
             ) : isOwner ? (
               <button type="button" onClick={deleteWithWipe} className="kt-pressable inline-flex items-center gap-1 rounded-lg text-rose-600">
                 <HiOutlineTrash />
-                Delete
+                {t("post.delete")}
               </button>
             ) : (
               <button type="button" onClick={() => onReport(comment.id)} className="kt-pressable inline-flex items-center gap-1 rounded-lg text-rose-600">
                 <HiOutlineFlag />
-                Report
+                {t("post.report")}
               </button>
             )}
           </div>

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { HiOutlineArrowLeft, HiOutlineArrowPath, HiOutlinePhoto } from "react-icons/hi2";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
+import { useI18n } from "../../../../../../i18n";
 import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { isAdvertPost } from "../../../../shared/advertUtils";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
@@ -42,6 +43,7 @@ function readElementRect(element) {
 }
 
 export default function PostMedia({ post, imageOnly = false }) {
+  const { t } = useI18n();
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [viewerPhase, setViewerPhase] = useState("closed");
   const [viewerOrigin, setViewerOrigin] = useState(null);
@@ -167,7 +169,7 @@ export default function PostMedia({ post, imageOnly = false }) {
               className={`kt-pressable relative block aspect-[4/3] w-full overflow-hidden rounded-[20px] bg-slate-100 text-left ${
                 imagePreviewOpen ? "opacity-0" : "opacity-100"
               }`}
-              aria-label="Preview image"
+              aria-label={t("post.previewImage")}
               aria-hidden={imagePreviewOpen}
             >
               {imageStatus !== "loaded" ? <MediaSkeleton /> : null}
@@ -228,7 +230,7 @@ export default function PostMedia({ post, imageOnly = false }) {
       {post.audio_url && !imageOnly ? (
         <div className="max-w-full overflow-hidden px-4 pb-4">
           <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-4">
-            <p className="mb-2 text-sm font-bold text-slate-900">Voice note</p>
+            <p className="mb-2 text-sm font-bold text-slate-900">{t("post.voiceNote")}</p>
             <audio
               ref={audioRef}
               controls
@@ -251,7 +253,7 @@ export default function PostMedia({ post, imageOnly = false }) {
               className="fixed inset-0 z-[1200] overflow-hidden"
               role="dialog"
               aria-modal="true"
-              aria-label="Full-screen image viewer"
+              aria-label={t("post.fullScreenViewer")}
               style={{ touchAction: "none" }}
               {...viewerGestures.stageHandlers}
             >
@@ -271,7 +273,7 @@ export default function PostMedia({ post, imageOnly = false }) {
                   onPointerDown={(event) => event.stopPropagation()}
                   onPointerUp={(event) => event.stopPropagation()}
                   className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-2xl text-white shadow-xl backdrop-blur-md"
-                  aria-label="Back to feed"
+                  aria-label={t("post.backToFeed")}
                 >
                   <HiOutlineArrowLeft />
                 </button>

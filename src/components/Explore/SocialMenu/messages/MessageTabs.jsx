@@ -1,7 +1,10 @@
+import { useI18n } from "../../../../i18n";
+
 export default function MessageTabs({ active, onChange, requestCount = 0 }) {
+  const { t } = useI18n();
   const tabs = [
-    { id: "inbox", label: "Inbox", count: 0 },
-    { id: "requests", label: "Requests", count: requestCount },
+    { id: "inbox", label: t("messages.inbox"), count: 0 },
+    { id: "requests", label: t("messages.requests"), count: requestCount },
   ];
 
   return (

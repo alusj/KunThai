@@ -84,7 +84,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
   return (
     <div className="w-full space-y-4 px-4 py-4 sm:px-6 lg:px-8">
       <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Device accounts</p>
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{t("explore.deviceAccounts")}</p>
         <h3 className="mt-1 text-2xl font-black text-slate-950">{t("switchAccount.title")}</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
           {t("switchAccount.subtitle")}
