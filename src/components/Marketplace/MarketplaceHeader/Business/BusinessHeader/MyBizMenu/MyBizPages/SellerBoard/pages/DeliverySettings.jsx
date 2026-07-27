@@ -5,6 +5,7 @@ import {
   readRegisteredBusiness,
   updateRegisteredBusinessProfile,
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 
 function buildForm(business) {
@@ -20,6 +21,7 @@ function buildForm(business) {
 }
 
 export default function DeliverySettings({ onBack }) {
+  useI18n();
   const [form, setForm] = useState(buildForm(null));
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
@@ -57,9 +59,9 @@ export default function DeliverySettings({ onBack }) {
           pickupEnabled: form.pickupEnabled,
         },
       });
-      setStatus("Delivery and pickup settings saved.");
+      setStatus(t("urmall.biz.board.delivery.saved"));
     } catch (error) {
-      setStatus(error.message || "Unable to save delivery settings.");
+      setStatus(error.message || t("urmall.biz.board.delivery.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -67,7 +69,7 @@ export default function DeliverySettings({ onBack }) {
 
   return (
     <>
-      <SellerMenuPageHeader title="Shipping & Delivery" eyebrow="Seller Board" onBack={onBack} />
+      <SellerMenuPageHeader title={t("urmall.biz.board.items.deliveryT")} eyebrow={t("urmall.biz.board.eyebrow")} onBack={onBack} />
       <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
         <form onSubmit={save} className="space-y-5">
           <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -76,28 +78,28 @@ export default function DeliverySettings({ onBack }) {
                 <Truck size={22} />
               </span>
               <div>
-                <h1 className="text-xl font-black text-gray-950">Fulfillment settings</h1>
+                <h1 className="text-xl font-black text-gray-950">{t("urmall.biz.board.delivery.heading")}</h1>
                 <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-                  Control how buyers receive items from your store. Clear delivery and pickup settings reduce confusion before money changes hands.
+                  {t("urmall.biz.board.delivery.hint")}
                 </p>
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label>
-                <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">Business type</span>
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">{t("urmall.biz.settings.businessType")}</span>
                 <select
                   value={form.businessType}
                   onChange={(event) => update("businessType", event.target.value)}
                   className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold outline-none focus:border-gray-950"
                 >
-                  <option value="both">Online and physical store</option>
-                  <option value="online">Online only</option>
-                  <option value="physical">Physical store only</option>
+                  <option value="both">{t("urmall.biz.settings.typeBoth")}</option>
+                  <option value="online">{t("urmall.biz.settings.typeOnline")}</option>
+                  <option value="physical">{t("urmall.biz.settings.typePhysical")}</option>
                 </select>
               </label>
               <label>
-                <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">City</span>
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">{t("urmall.biz.settings.city")}</span>
                 <input
                   value={form.city}
                   onChange={(event) => update("city", event.target.value)}
@@ -105,7 +107,7 @@ export default function DeliverySettings({ onBack }) {
                 />
               </label>
               <label>
-                <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">Country</span>
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">{t("urmall.biz.settings.country")}</span>
                 <input
                   value={form.country}
                   onChange={(event) => update("country", event.target.value)}
@@ -113,7 +115,7 @@ export default function DeliverySettings({ onBack }) {
                 />
               </label>
               <label className="md:col-span-2">
-                <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">Pickup / store address</span>
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">{t("urmall.biz.board.delivery.addressLabel")}</span>
                 <textarea
                   value={form.address}
                   onChange={(event) => update("address", event.target.value)}
@@ -125,9 +127,9 @@ export default function DeliverySettings({ onBack }) {
 
           <section className="grid gap-3 md:grid-cols-3">
             {[
-              ["deliveryEnabled", "Delivery available", "Buyers can request delivery from your store."],
-              ["pickupEnabled", "Pickup available", "Buyers can collect items from your pickup location."],
-              ["discoverableNearby", "Nearby discovery", "Your store can appear in location-based discovery."],
+              ["deliveryEnabled", t("urmall.biz.board.delivery.deliveryTitle"), t("urmall.biz.board.delivery.deliveryDesc")],
+              ["pickupEnabled", t("urmall.biz.board.delivery.pickupTitle"), t("urmall.biz.board.delivery.pickupDesc")],
+              ["discoverableNearby", t("urmall.biz.board.delivery.nearbyTitle"), t("urmall.biz.board.delivery.nearbyDesc")],
             ].map(([field, title, description]) => (
               <label key={field} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                 <span>
@@ -152,7 +154,7 @@ export default function DeliverySettings({ onBack }) {
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white transition hover:bg-gray-800 disabled:opacity-60 sm:w-auto"
           >
             <Save size={17} />
-            {saving ? "Saving..." : "Save delivery settings"}
+            {saving ? t("urmall.biz.saving") : t("urmall.biz.board.delivery.save")}
           </button>
         </form>
       </main>

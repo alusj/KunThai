@@ -1,6 +1,8 @@
 import AppBackTab from "../../../../../shared/AppBackTab";
+import { useI18n, t } from "../../../../../../i18n";
 
-export default function MenuHeader({ title, eyebrow = "UrMall", onBack, label = "Back to seller dashboard" }) {
+export default function MenuHeader({ title, eyebrow = "UrMall", onBack, label = t("urmall.biz.menu.backToDashboard") }) {
+  useI18n();
   return (
     <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
       <AppBackTab

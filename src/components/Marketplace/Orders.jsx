@@ -10,6 +10,7 @@ import {
   sendBuyerMarketplaceMessage,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { formatCurrency } from "../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../i18n";
 import { parseOrderDeliveryDetails, formatOrderFulfillment } from "../../Backend/utils/orderDeliveryDetails";
 import {
   markNotificationScopeVisited,
@@ -44,15 +45,16 @@ function statusTone(status) {
 
 function orderShareText(order) {
   return [
-    `Order: ${order.preview || "UrMall order"}`,
-    `Seller: ${order.sellerName}`,
-    `Status: ${order.status}`,
-    `Total: ${formatCurrency(order.totalAmount)}`,
-    order.deliveryLocation ? `Delivery: ${order.deliveryLocation}` : "",
+    t("urmall.orders.shareOrderLabel", { value: order.preview || t("urmall.orders.orderTitle") }),
+    t("urmall.orders.shareSellerLabel", { value: order.sellerName }),
+    t("urmall.orders.shareStatusLabel", { value: order.status }),
+    t("urmall.orders.shareTotalLabel", { value: formatCurrency(order.totalAmount) }),
+    order.deliveryLocation ? t("urmall.orders.shareDeliveryLabel", { value: order.deliveryLocation }) : "",
   ].filter(Boolean).join("\n");
 }
 
 export default function Orders({ compact = false, onBack, onProductOpen }) {
+  useI18n();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -74,7 +76,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
           markNotificationScopeVisited(BUYER_ORDER_SCOPE);
         }
       } catch (err) {
-        if (alive) setError(err.message || "Unable to load orders.");
+        if (alive) setError(err.message || t("urmall.orders.loadFailed"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -90,7 +92,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
   async function openProduct(order) {
     const product = await findBuyerOrderProduct(order);
     if (!product) {
-      setNotice("This order product could not be opened yet.");
+      setNotice(t("urmall.orders.productNotOpenable"));
       return;
     }
 
@@ -106,7 +108,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
     const text = orderShareText(order);
     try {
       await navigator.clipboard.writeText(text);
-      setNotice("Order details copied.");
+      setNotice(t("urmall.orders.detailsCopied"));
     } catch {
       setNotice(text);
     }
@@ -117,14 +119,14 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
     const text = orderShareText(order);
     try {
       if (navigator.share) {
-        await navigator.share({ title: "UrMall order", text });
-        setNotice("Order details shared.");
+        await navigator.share({ title: t("urmall.orders.orderTitle"), text });
+        setNotice(t("urmall.orders.detailsShared"));
       } else {
         await navigator.clipboard.writeText(text);
-        setNotice("Sharing is not available here, so the order details were copied.");
+        setNotice(t("urmall.orders.shareUnavailable"));
       }
     } catch {
-      setNotice("Share cancelled.");
+      setNotice(t("urmall.orders.shareCancelled"));
     }
     setOpenMenuId("");
   }
@@ -133,9 +135,9 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
     try {
       await hideBuyerOrder(order.id);
       setOrders((current) => current.filter((item) => item.id !== order.id));
-      setNotice("Order deleted from your list.");
+      setNotice(t("urmall.orders.deletedFromList"));
     } catch (err) {
-      setNotice(err.message || "Unable to delete order from your list.");
+      setNotice(err.message || t("urmall.orders.deleteFailed"));
     }
     setOpenMenuId("");
   }
@@ -144,9 +146,9 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
     try {
       await cancelBuyerOrder(order.id);
       setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: "cancelled" } : item)));
-      setNotice("Order cancelled.");
+      setNotice(t("urmall.orders.cancelled"));
     } catch (err) {
-      setNotice(err.message || "Unable to cancel this order.");
+      setNotice(err.message || t("urmall.orders.cancelFailed"));
     }
     setOpenMenuId("");
   }
@@ -155,13 +157,13 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
     try {
       const product = await findBuyerOrderProduct(order);
       if (!product) {
-        setNotice("This product could not be added again.");
+        setNotice(t("urmall.orders.reorderFailedAdd"));
         return;
       }
       const result = await addBuyerCartItem(product, Math.max(1, Number(order.itemCount || 1)));
-      setNotice(result?.status === "alreadyInCart" ? "This product is already in your cart." : "Product added back to cart.");
+      setNotice(result?.status === "alreadyInCart" ? t("urmall.browse.alreadyInCart") : t("urmall.orders.addedBackToCart"));
     } catch (err) {
-      setNotice(err.message || "Unable to reorder this product.");
+      setNotice(err.message || t("urmall.orders.reorderFailed"));
     }
     setOpenMenuId("");
   }
@@ -171,22 +173,22 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
       await sendBuyerMarketplaceMessage({
         seller: { id: order.businessId },
         product: order.product || (order.productId ? { id: order.productId, name: order.preview, businessId: order.businessId } : null),
-        topic: order.preview || "UrMall order",
-        message: `Hello, I need help with my order: ${order.preview || order.id}.`,
+        topic: order.preview || t("urmall.orders.orderTitle"),
+        message: t("urmall.orders.orderHelpGreeting", { order: order.preview || order.id }),
         messageType: "order",
       });
-      setNotice("Message sent to seller.");
+      setNotice(t("urmall.seller.messageSent"));
     } catch (err) {
-      setNotice(err.message || "Unable to message seller.");
+      setNotice(err.message || t("urmall.browse.messageFailed"));
     }
     setOpenMenuId("");
   }
 
   function timelineSteps(order) {
     return [
-      ["pending", "Order created"],
-      ["shipped", "Seller shipping"],
-      ["completed", "Completed"],
+      ["pending", t("urmall.orders.stepCreated")],
+      ["shipped", t("urmall.orders.stepShipping")],
+      ["completed", t("urmall.orders.stepCompleted")],
     ].map(([status, label]) => {
       const active = order.status === status || (order.status === "completed" && status !== "cancelled") || (order.status === "shipped" && status === "pending");
       return { status, label, active };
@@ -197,10 +199,10 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
     <main className={compact ? "bg-gray-50" : "min-h-screen bg-gray-50"}>
       {!compact ? (
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-white px-4">
-          <AppBackTab onBack={onBack} label="Back to UrMall" historyKey="marketplace-orders" />
+          <AppBackTab onBack={onBack} label={t("urmall.shell.backToUrMall")} historyKey="marketplace-orders" />
           <div>
-            <h1 className="text-lg font-black text-gray-950">Orders</h1>
-            <p className="text-xs font-bold text-gray-500">Your UrMall purchases and checkout requests</p>
+            <h1 className="text-lg font-black text-gray-950">{t("urmall.orders.title")}</h1>
+            <p className="text-xs font-bold text-gray-500">{t("urmall.orders.subtitle")}</p>
           </div>
         </header>
       ) : null}
@@ -212,8 +214,8 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
         {!loading && !error && !orders.length ? (
           <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
             <ReceiptText className="mx-auto text-gray-400" size={36} />
-            <p className="mt-3 font-black text-gray-950">No orders yet</p>
-            <p className="mt-1 text-sm font-medium text-gray-500">Checkout orders will appear here with seller, amount, and status.</p>
+            <p className="mt-3 font-black text-gray-950">{t("urmall.orders.noOrders")}</p>
+            <p className="mt-1 text-sm font-medium text-gray-500">{t("urmall.orders.noOrdersHint")}</p>
           </div>
         ) : null}
 
@@ -232,7 +234,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
                   <h2 className="truncate font-black text-gray-950">{order.product?.name || order.sellerName}</h2>
                   <p className="mt-1 flex items-center gap-1 text-xs font-bold text-gray-500">
                     <MapPin size={13} />
-                    {order.sellerLocation || order.deliveryLocation || "Location not added"}
+                    {order.sellerLocation || order.deliveryLocation || t("urmall.orders.locationNotAdded")}
                   </p>
                 </div>
               </button>
@@ -245,7 +247,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
                   type="button"
                   onClick={() => setOpenMenuId((current) => (current === order.id ? "" : order.id))}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  aria-label="Order actions"
+                  aria-label={t("urmall.orders.orderActionsAria")}
                 >
                   <MoreHorizontal size={18} />
                 </button>
@@ -253,10 +255,10 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
             </div>
 
             <button type="button" onClick={() => openProduct(order)} className="mt-4 w-full rounded-lg bg-gray-50 p-3 text-left transition hover:bg-emerald-50/50">
-              <p className="text-sm font-bold text-gray-700">{order.preview || "UrMall order"}</p>
+              <p className="text-sm font-bold text-gray-700">{order.preview || t("urmall.orders.orderTitle")}</p>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-bold text-gray-500">
-                  {order.itemCount} item{order.itemCount === 1 ? "" : "s"} | {formatDate(order.createdAt)}
+                  {t(order.itemCount === 1 ? "urmall.orders.itemsDateOne" : "urmall.orders.itemsDateOther", { count: order.itemCount, date: formatDate(order.createdAt) })}
                 </p>
                 <p className="text-lg font-black text-gray-950">{formatCurrency(order.totalAmount)}</p>
               </div>
@@ -269,7 +271,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
               return (
                 <div className="mt-3 space-y-1 rounded-lg border border-gray-100 bg-gray-50/60 p-3">
                   {fulfillment ? (
-                    <p className="text-[11px] font-black uppercase text-gray-500">{fulfillment}{details.addressLabel ? ` | ${details.addressLabel} address` : ""}</p>
+                    <p className="text-[11px] font-black uppercase text-gray-500">{fulfillment}{details.addressLabel ? ` | ${t("urmall.detail.addressLabel", { label: details.addressLabel })}` : ""}</p>
                   ) : null}
                   {address ? (
                     <p className="flex items-start gap-1.5 text-xs font-bold text-gray-700">
@@ -277,8 +279,8 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
                       <span className="break-words">{address}</span>
                     </p>
                   ) : null}
-                  {details.phone ? <p className="text-xs font-semibold text-gray-500">Phone: {details.phone}</p> : null}
-                  {details.note ? <p className="text-xs font-semibold text-gray-500">Note: {details.note}</p> : null}
+                  {details.phone ? <p className="text-xs font-semibold text-gray-500">{t("urmall.orders.phoneLabel", { phone: details.phone })}</p> : null}
+                  {details.note ? <p className="text-xs font-semibold text-gray-500">{t("urmall.orders.noteLabel", { note: details.note })}</p> : null}
                 </div>
               );
             })() : null}
@@ -295,33 +297,33 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
               <div className="absolute right-4 top-14 z-20 w-[min(14rem,calc(100vw-2rem))] rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
                 <button type="button" onClick={() => openProduct(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
                   <Eye size={16} />
-                  View product
+                  {t("urmall.seller.menuView")}
                 </button>
                 <button type="button" onClick={() => messageSeller(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
                   <MessageCircle size={16} />
-                  Message seller
+                  {t("urmall.detail.messageSellerTitle")}
                 </button>
                 <button type="button" onClick={() => reorder(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
                   <RotateCcw size={16} />
-                  Reorder
+                  {t("urmall.orders.reorderAction")}
                 </button>
                 <button type="button" onClick={() => copyOrder(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
                   <Copy size={16} />
-                  Copy details
+                  {t("urmall.orders.copyDetails")}
                 </button>
                 <button type="button" onClick={() => shareOrder(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
                   <Share2 size={16} />
-                  Share
+                  {t("urmall.orders.shareAction")}
                 </button>
                 {order.status === "pending" ? (
                   <button type="button" onClick={() => cancelOrder(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-amber-700 hover:bg-amber-50">
                     <XCircle size={16} />
-                    Cancel order
+                    {t("urmall.orders.cancelOrderAction")}
                   </button>
                 ) : null}
                 <button type="button" onClick={() => removeOrder(order)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-black text-red-600 hover:bg-red-50">
                   <Trash2 size={16} />
-                  Delete from my list
+                  {t("urmall.orders.deleteFromList")}
                 </button>
               </div>
             ) : null}

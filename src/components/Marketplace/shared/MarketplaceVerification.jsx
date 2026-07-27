@@ -1,45 +1,46 @@
 import { AlertTriangle, BadgeCheck, Clock, Info, ShieldCheck, X } from "lucide-react";
 
+import { useI18n, t } from "../../../i18n";
+
+// Text fields are i18n keys resolved via t() at render time; the icon and
+// colour classes stay literal. The status objects are consumed only through the
+// Badge/Inline/Modal components in this file, never the raw text externally.
 export const marketplaceVerificationStatuses = {
   notVerified: {
-    label: "Not verified",
-    shortText: "No trust checks completed",
+    labelKey: "urmall.verification.notVerifiedLabel",
+    shortTextKey: "urmall.verification.notVerifiedShort",
     icon: AlertTriangle,
     colorClass: "border-red-200 bg-red-50 text-red-700",
     panelClass: "border-red-200 bg-red-50 text-red-900",
-    buyerNote: "Caution: this seller has not completed marketplace verification. Confirm the seller, product, and payment details before sending money.",
-    sellerNote: "Your store is not verified yet. Add clear government-recognized documents and request review when you are ready.",
-    actions: ["Choose verified sellers", "Message seller first", "Report concern"],
+    buyerNoteKey: "urmall.verification.notVerifiedBuyer",
+    sellerNoteKey: "urmall.verification.notVerifiedSeller",
   },
   pending: {
-    label: "Pending",
-    shortText: "Documents under review",
+    labelKey: "urmall.verification.pendingLabel",
+    shortTextKey: "urmall.verification.pendingShort",
     icon: Clock,
     colorClass: "border-amber-200 bg-amber-50 text-amber-800",
     panelClass: "border-amber-200 bg-amber-50 text-amber-950",
-    buyerNote: "Caution: this seller has started verification, but KunThai has not finished review. Continue carefully before paying.",
-    sellerNote: "Your verification is pending. Keep documents accurate and wait for review before asking buyers to send money.",
-    actions: ["Continue carefully", "Message seller", "Use protected payment"],
+    buyerNoteKey: "urmall.verification.pendingBuyer",
+    sellerNoteKey: "urmall.verification.pendingSeller",
   },
   verified: {
-    label: "Verified",
-    shortText: "Basic checks passed",
+    labelKey: "urmall.verification.verifiedLabel",
+    shortTextKey: "urmall.verification.verifiedShort",
     icon: BadgeCheck,
     colorClass: "border-blue-200 bg-blue-50 text-blue-700",
     panelClass: "border-blue-200 bg-blue-50 text-blue-950",
-    buyerNote: "KunThai has checked the seller's required marketplace details. Still confirm the product and payment instructions before purchase.",
-    sellerNote: "Your store has passed basic marketplace checks. Keep product details and payment instructions clear for buyers.",
-    actions: ["Order product", "Message seller"],
+    buyerNoteKey: "urmall.verification.verifiedBuyer",
+    sellerNoteKey: "urmall.verification.verifiedSeller",
   },
   recommended: {
-    label: "Verified recommended",
-    shortText: "Trusted marketplace seller",
+    labelKey: "urmall.verification.recommendedLabel",
+    shortTextKey: "urmall.verification.recommendedShort",
     icon: ShieldCheck,
     colorClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
     panelClass: "border-emerald-200 bg-emerald-50 text-emerald-950",
-    buyerNote: "This seller has completed verification and is recommended by KunThai marketplace trust checks.",
-    sellerNote: "Your store is verified and recommended. Maintain strong fulfillment, clear pricing, and safe payment practices.",
-    actions: ["Order product", "Message seller"],
+    buyerNoteKey: "urmall.verification.recommendedBuyer",
+    sellerNoteKey: "urmall.verification.recommendedSeller",
   },
 };
 
@@ -54,6 +55,7 @@ export function normalizeMarketplaceVerificationStatus(status, verified) {
 }
 
 export function MarketplaceVerificationBadge({ status, verified, onClick }) {
+  useI18n();
   const key = normalizeMarketplaceVerificationStatus(status, verified);
   const config = marketplaceVerificationStatuses[key];
   const Icon = config.icon;
@@ -65,24 +67,25 @@ export function MarketplaceVerificationBadge({ status, verified, onClick }) {
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-black ${config.colorClass}`}
     >
       <Icon size={13} strokeWidth={2.4} />
-      {config.label}
+      {t(config.labelKey)}
       <Info size={12} strokeWidth={2.4} />
     </button>
   );
 }
 
 export function MarketplaceVerificationInline({ status, verified, audience = "buyer", onReadMore }) {
+  useI18n();
   const key = normalizeMarketplaceVerificationStatus(status, verified);
   const config = marketplaceVerificationStatuses[key];
   const note = audience === "seller"
-    ? `Your verification is ${config.label}`
-    : `This seller's verification is ${config.label}`;
+    ? t("urmall.verification.inlineSeller", { status: t(config.labelKey) })
+    : t("urmall.verification.inlineBuyer", { status: t(config.labelKey) });
 
   return (
     <div className={`flex min-w-0 flex-wrap items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${config.panelClass}`}>
       <span className="min-w-0 truncate">{note}</span>
       <button type="button" onClick={onReadMore} className="shrink-0 font-black underline">
-        Read more
+        {t("urmall.verification.readMore")}
       </button>
     </div>
   );
@@ -97,14 +100,15 @@ export function MarketplaceVerificationModal({
   onPrimaryAction,
   onSecondaryAction,
 }) {
+  useI18n();
   if (!onClose) return null;
 
   const key = normalizeMarketplaceVerificationStatus(status, verified);
   const config = marketplaceVerificationStatuses[key];
   const Icon = config.icon;
-  const note = audience === "seller" ? config.sellerNote : config.buyerNote;
-  const primaryLabel = audience === "seller" ? "Continue carefully" : "Continue carefully";
-  const secondaryLabel = audience === "seller" ? "Complete verification" : "Message seller";
+  const note = audience === "seller" ? t(config.sellerNoteKey) : t(config.buyerNoteKey);
+  const primaryLabel = t("urmall.verification.continueCarefully");
+  const secondaryLabel = audience === "seller" ? t("urmall.verification.completeVerification") : t("urmall.detail.messageSellerTitle");
   const anchored = Boolean(anchorRect && typeof window !== "undefined");
   const anchoredWidth = anchored ? Math.min(420, Math.max(280, window.innerWidth - 24)) : undefined;
   const anchorStyle = anchored
@@ -138,16 +142,16 @@ export function MarketplaceVerificationModal({
                 <Icon size={20} strokeWidth={2.4} />
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase">Verification status</p>
-                <h3 className="mt-1 text-xl font-black">{config.label}</h3>
-                <p className="mt-1 text-sm font-semibold">{config.shortText}</p>
+                <p className="text-xs font-black uppercase">{t("urmall.verification.statusEyebrow")}</p>
+                <h3 className="mt-1 text-xl font-black">{t(config.labelKey)}</h3>
+                <p className="mt-1 text-sm font-semibold">{t(config.shortTextKey)}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/80 text-gray-700 hover:bg-white"
-              aria-label="Close verification details"
+              aria-label={t("urmall.verification.closeDetails")}
             >
               <X size={18} />
             </button>

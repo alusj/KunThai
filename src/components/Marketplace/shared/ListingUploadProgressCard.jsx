@@ -1,14 +1,18 @@
 import { Check, LoaderCircle } from "lucide-react";
 
+import { useI18n, t } from "../../../i18n";
+
 const LISTING_UPLOAD_STAGES = [
-  { id: "prepare", label: "Preparing your post" },
-  { id: "cover", label: "Adding cover image" },
-  { id: "gallery", label: "Adding other images" },
-  { id: "video", label: "Adding video" },
-  { id: "save", label: "Publishing post" },
+  { id: "prepare", labelKey: "urmall.upload.prepare" },
+  { id: "cover", labelKey: "urmall.upload.cover" },
+  { id: "gallery", labelKey: "urmall.upload.gallery" },
+  { id: "video", labelKey: "urmall.upload.video" },
+  { id: "save", labelKey: "urmall.upload.save" },
 ];
 
-export default function ListingUploadProgressCard({ stage, title = "Adding your listing" }) {
+export default function ListingUploadProgressCard({ stage, title }) {
+  useI18n();
+  const cardTitle = title || t("urmall.upload.title");
   const activeIndex = LISTING_UPLOAD_STAGES.findIndex((step) => step.id === stage);
   if (activeIndex < 0) return null;
   const percent = Math.round(((activeIndex + 1) / LISTING_UPLOAD_STAGES.length) * 100);
@@ -16,7 +20,7 @@ export default function ListingUploadProgressCard({ stage, title = "Adding your 
   return (
     <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-xl" role="status" aria-live="polite">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-gray-950">{title}</p>
+        <p className="text-sm font-black text-gray-950">{cardTitle}</p>
         <span className="text-xs font-black text-emerald-700">{percent}%</span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
@@ -31,7 +35,7 @@ export default function ListingUploadProgressCard({ stage, title = "Adding your 
               <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full ${done ? "bg-emerald-100 text-emerald-700" : current ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-300"}`}>
                 {done ? <Check size={12} /> : current ? <LoaderCircle size={12} className="animate-spin" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
               </span>
-              {step.label}
+              {t(step.labelKey)}
               {current ? "..." : ""}
             </li>
           );

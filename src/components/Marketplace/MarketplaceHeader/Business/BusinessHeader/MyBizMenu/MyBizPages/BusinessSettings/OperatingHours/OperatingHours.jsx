@@ -5,16 +5,17 @@ import {
   readRegisteredBusiness,
   updateRegisteredBusinessProfile,
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 
 const DAYS = [
-  { key: "Mon", label: "Monday" },
-  { key: "Tue", label: "Tuesday" },
-  { key: "Wed", label: "Wednesday" },
-  { key: "Thu", label: "Thursday" },
-  { key: "Fri", label: "Friday" },
-  { key: "Sat", label: "Saturday" },
-  { key: "Sun", label: "Sunday" },
+  { key: "Mon", labelKey: "urmall.biz.settings.dayMon" },
+  { key: "Tue", labelKey: "urmall.biz.settings.dayTue" },
+  { key: "Wed", labelKey: "urmall.biz.settings.dayWed" },
+  { key: "Thu", labelKey: "urmall.biz.settings.dayThu" },
+  { key: "Fri", labelKey: "urmall.biz.settings.dayFri" },
+  { key: "Sat", labelKey: "urmall.biz.settings.daySat" },
+  { key: "Sun", labelKey: "urmall.biz.settings.daySun" },
 ];
 
 const inputClass =
@@ -42,6 +43,7 @@ function formatTime(value) {
 }
 
 export default function OperatingHours({ onBack }) {
+  useI18n();
   const [form, setForm] = useState(buildForm(null));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,7 +57,7 @@ export default function OperatingHours({ onBack }) {
         if (mounted) setForm(buildForm(business));
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || "Unable to load operating hours.");
+        if (mounted) setError(nextError.message || t("urmall.biz.settings.hoursLoadFailed"));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -98,12 +100,12 @@ export default function OperatingHours({ onBack }) {
     event.preventDefault();
 
     if (!form.operatingDays.length) {
-      setError("Choose at least one open day.");
+      setError(t("urmall.biz.settings.chooseOpenDay"));
       return;
     }
 
     if (!form.openTime || !form.closeTime) {
-      setError("Open and close time are required.");
+      setError(t("urmall.biz.settings.timeRequired"));
       return;
     }
 
@@ -121,9 +123,9 @@ export default function OperatingHours({ onBack }) {
         },
       });
       setForm(buildForm(updated));
-      setStatus("Operating hours updated successfully.");
+      setStatus(t("urmall.biz.settings.hoursUpdated"));
     } catch (nextError) {
-      setError(nextError.message || "Unable to update operating hours.");
+      setError(nextError.message || t("urmall.biz.settings.hoursUpdateFailed"));
     } finally {
       setSaving(false);
     }
@@ -131,11 +133,11 @@ export default function OperatingHours({ onBack }) {
 
   return (
     <>
-      <SellerMenuPageHeader title="Operating Hours" eyebrow="Store Settings" onBack={onBack} />
+      <SellerMenuPageHeader title={t("urmall.biz.settings.hoursTitle")} eyebrow={t("urmall.biz.menu.storeSettingsTitle")} onBack={onBack} />
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         {loading ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 text-sm font-bold text-gray-500">
-          Loading operating hours...
+          {t("urmall.biz.settings.loadingHours")}
         </div>
       ) : (
         <form onSubmit={saveHours} className="space-y-5">
@@ -143,23 +145,23 @@ export default function OperatingHours({ onBack }) {
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <Sun className="text-amber-600" size={22} />
               <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-gray-500">
-                Opens
+                {t("urmall.biz.settings.opens")}
               </p>
               <p className="mt-1 text-xl font-black text-gray-950">{formatTime(form.openTime)}</p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <Moon className="text-indigo-600" size={22} />
               <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-gray-500">
-                Closes
+                {t("urmall.biz.settings.closes")}
               </p>
               <p className="mt-1 text-xl font-black text-gray-950">{formatTime(form.closeTime)}</p>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <CalendarDays className="text-emerald-700" size={22} />
               <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-gray-500">
-                Open days
+                {t("urmall.biz.settings.openDays")}
               </p>
-              <p className="mt-1 text-xl font-black text-gray-950">{form.operatingDays.length} days</p>
+              <p className="mt-1 text-xl font-black text-gray-950">{t("urmall.biz.settings.nDays", { count: form.operatingDays.length })}</p>
             </div>
           </section>
 
@@ -170,9 +172,9 @@ export default function OperatingHours({ onBack }) {
                   <Clock3 size={19} />
                 </span>
                 <div>
-                  <h2 className="text-lg font-black text-gray-950">Opening schedule</h2>
+                  <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.settings.openingSchedule")}</h2>
                   <p className="mt-1 text-sm font-semibold text-gray-500">
-                    Set when buyers can reach your store for support, pickup, and delivery.
+                    {t("urmall.biz.settings.openingScheduleHint")}
                   </p>
                 </div>
               </div>
@@ -182,14 +184,14 @@ export default function OperatingHours({ onBack }) {
                   onClick={setWeekdays}
                   className="rounded-full border border-gray-200 px-3 py-2 text-xs font-black text-gray-700 transition hover:border-gray-950"
                 >
-                  Weekdays
+                  {t("urmall.biz.settings.weekdays")}
                 </button>
                 <button
                   type="button"
                   onClick={setEveryday}
                   className="rounded-full border border-gray-200 px-3 py-2 text-xs font-black text-gray-700 transition hover:border-gray-950"
                 >
-                  Every day
+                  {t("urmall.biz.settings.everyDay")}
                 </button>
               </div>
             </div>
@@ -208,9 +210,9 @@ export default function OperatingHours({ onBack }) {
                         : "border-gray-200 bg-white text-gray-700 hover:border-gray-950"
                     }`}
                   >
-                    <span className="block text-sm font-black">{day.label}</span>
+                    <span className="block text-sm font-black">{t(day.labelKey)}</span>
                     <span className={`text-xs font-semibold ${selected ? "text-white/70" : "text-gray-500"}`}>
-                      {selected ? "Open" : "Closed"}
+                      {selected ? t("urmall.biz.settings.open") : t("urmall.biz.settings.closed")}
                     </span>
                   </button>
                 );
@@ -219,7 +221,7 @@ export default function OperatingHours({ onBack }) {
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label>
-                <span className={labelClass}>Open time</span>
+                <span className={labelClass}>{t("urmall.biz.settings.openTime")}</span>
                 <input
                   type="time"
                   className={inputClass}
@@ -228,7 +230,7 @@ export default function OperatingHours({ onBack }) {
                 />
               </label>
               <label>
-                <span className={labelClass}>Close time</span>
+                <span className={labelClass}>{t("urmall.biz.settings.closeTime")}</span>
                 <input
                   type="time"
                   className={inputClass}
@@ -240,12 +242,12 @@ export default function OperatingHours({ onBack }) {
           </section>
 
           <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="text-lg font-black text-gray-950">Service availability</h2>
+            <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.settings.serviceAvailability")}</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                 <span>
-                  <span className="block text-sm font-black text-gray-950">Delivery during open hours</span>
-                  <span className="text-xs font-semibold text-gray-500">Buyers can request delivery when the store is open</span>
+                  <span className="block text-sm font-black text-gray-950">{t("urmall.biz.settings.deliveryDuringHours")}</span>
+                  <span className="text-xs font-semibold text-gray-500">{t("urmall.biz.settings.deliveryDuringHoursHint")}</span>
                 </span>
                 <input
                   type="checkbox"
@@ -256,8 +258,8 @@ export default function OperatingHours({ onBack }) {
               </label>
               <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                 <span>
-                  <span className="block text-sm font-black text-gray-950">Pickup during open hours</span>
-                  <span className="text-xs font-semibold text-gray-500">Buyers can arrange pickup when the store is open</span>
+                  <span className="block text-sm font-black text-gray-950">{t("urmall.biz.settings.pickupDuringHours")}</span>
+                  <span className="text-xs font-semibold text-gray-500">{t("urmall.biz.settings.pickupDuringHoursHint")}</span>
                 </span>
                 <input
                   type="checkbox"
@@ -287,7 +289,7 @@ export default function OperatingHours({ onBack }) {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-gray-950/15 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <Save size={18} />
-              {saving ? "Saving..." : "Save operating hours"}
+              {saving ? t("urmall.biz.saving") : t("urmall.biz.settings.saveHours")}
             </button>
           </div>
         </form>

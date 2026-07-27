@@ -1,7 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, PackageCheck, Store } from "lucide-react";
 
+import { useI18n, t } from "../../../../../i18n";
+
 export default function BusinessSellerEntryAnimation({ show }) {
+  useI18n();
   const items = [
     { id: "store", Icon: Store },
     { id: "package", Icon: PackageCheck },
@@ -76,7 +79,7 @@ export default function BusinessSellerEntryAnimation({ show }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 80 }}
               >
-                Entering MyBiz
+                {t("urmall.biz.reg.enteringMyBiz")}
               </motion.h2>
 
               <motion.p
@@ -85,7 +88,7 @@ export default function BusinessSellerEntryAnimation({ show }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 80 }}
               >
-                Preparing store, products and trust tools...
+                {t("urmall.biz.reg.preparingStore")}
               </motion.p>
             </div>
           </motion.div>

@@ -1,9 +1,11 @@
 // EditProfile.jsx
 // Full screen Edit Profile page
 
+import { useI18n, t } from "../../../../../../../../../i18n";
 import BackTab from "./BackTab";
 
 export default function TwoFactorAuth({ onBack }) {
+  useI18n();
   return (
     <div className="fixed inset-0 bg-white z-[999] flex flex-col">
 
@@ -15,7 +17,7 @@ export default function TwoFactorAuth({ onBack }) {
 
         {/* Centered Title */}
         <h1 className="absolute left-1/2 -translate-x-1/2 text-base font-semibold">
-          Two Factor Auth
+          {t("urmall.biz.security.twoFaHeading")}
         </h1>
 
       </div>
@@ -23,7 +25,7 @@ export default function TwoFactorAuth({ onBack }) {
       {/* PAGE CONTENT */}
       <div className="flex-1 overflow-y-auto p-4">
         <p className="text-sm text-gray-600">
-          Add an extra layer of account security.
+          {t("urmall.biz.security.twoFaHint")}
         </p>
 
         {/* Form fields go here */}

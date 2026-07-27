@@ -255,6 +255,15 @@ function uniquePlaces(places = []) {
   });
 }
 
+// A proximity boost that pulls nearby results toward the top without letting a
+// close-but-irrelevant place outrank a strong textual match. It decays with
+// distance: ~+3 within a few hundred metres, fading to ~0 by ~25 km.
+function getProximityBoost(place) {
+  const distanceMeters = Number(place.distanceMeters);
+  if (!Number.isFinite(distanceMeters)) return 0;
+  return 3 / (1 + distanceMeters / 2500);
+}
+
 function sortPlaces(places = [], searchText = "", distanceFirst = false) {
   const context = buildAddressContext(searchText);
   const query = normalizeSearchText(searchText);
@@ -275,9 +284,12 @@ function sortPlaces(places = [], searchText = "", distanceFirst = false) {
       const distanceDelta = Number(first.distanceMeters ?? Infinity) - Number(second.distanceMeters ?? Infinity);
       if (distanceDelta !== 0) return distanceDelta;
     }
-    const firstRelevance = relevance(first);
-    const secondRelevance = relevance(second);
-    if (firstRelevance !== secondRelevance) return secondRelevance - firstRelevance;
+    // Blend relevance with proximity so the nearest suggestion rises to the top
+    // among comparably-relevant matches, while an exact place-name match still
+    // wins even when it is farther away.
+    const firstScore = relevance(first) + getProximityBoost(first);
+    const secondScore = relevance(second) + getProximityBoost(second);
+    if (firstScore !== secondScore) return secondScore - firstScore;
     return Number(first.distanceMeters ?? Infinity) - Number(second.distanceMeters ?? Infinity);
   });
 }

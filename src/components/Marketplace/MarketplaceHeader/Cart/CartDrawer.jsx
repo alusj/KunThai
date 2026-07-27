@@ -8,6 +8,7 @@ import AppBackTab from "../../../shared/AppBackTab";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { fetchBuyerDeliveryAddresses } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
+import { useI18n, t } from "../../../../i18n";
 import CartItem from "./CartItem";
 
 const BUYER_ADDRESSES_KEY = "marketplace-buyer-addresses";
@@ -35,7 +36,7 @@ function getAddressText(address = {}) {
 }
 
 function getAddressLabel(address = {}) {
-  return address.category === "Other" ? address.customCategory || "Other" : address.category || address.type || "Address";
+  return address.category === "Other" ? address.customCategory || "Other" : address.category || address.type || t("urmall.cart.addressFallback");
 }
 
 export default function CartDrawer({
@@ -49,6 +50,7 @@ export default function CartDrawer({
   onViewProduct,
   onCheckout,
 }) {
+  useI18n();
   const [deliveryLocation, setDeliveryLocation] = useState("");
   const [checkoutStatus, setCheckoutStatus] = useState("");
   const [deliveryMode, setDeliveryMode] = useState("delivery");
@@ -96,7 +98,7 @@ export default function CartDrawer({
   async function handleCheckout() {
     setCheckoutStatus("");
     if (!checkoutReady) {
-      setCheckoutStatus("Choose a delivery address or switch to pickup.");
+      setCheckoutStatus(t("urmall.cart.chooseAddress"));
       return;
     }
 
@@ -111,10 +113,10 @@ export default function CartDrawer({
       ].filter(Boolean).join(" | ");
       const checkoutCoordinates = deliveryMode === "delivery" ? selectedAddress?.coordinates || null : null;
       const orders = await onCheckout?.(checkoutNote, { coordinates: checkoutCoordinates });
-      setCheckoutStatus(`${orders.length} order${orders.length === 1 ? "" : "s"} created.`);
+      setCheckoutStatus(t(orders.length === 1 ? "urmall.cart.ordersCreatedOne" : "urmall.cart.ordersCreatedOther", { count: orders.length }));
       setDeliveryLocation("");
     } catch (err) {
-      setCheckoutStatus(err.message || "Checkout failed.");
+      setCheckoutStatus(err.message || t("urmall.cart.checkoutFailed"));
     }
   }
 
@@ -128,11 +130,14 @@ export default function CartDrawer({
         }`}
       >
         <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
-          <AppBackTab onBack={onClose} label="Back to UrMall" historyKey="urmall-cart" useHistoryLayer={false} />
+          <AppBackTab onBack={onClose} label={t("urmall.shell.backToUrMall")} historyKey="urmall-cart" useHistoryLayer={false} />
           <div className="min-w-0">
-            <h3 className="text-lg font-black text-gray-950">Checkout Cart</h3>
+            <h3 className="text-lg font-black text-gray-950">{t("urmall.cart.checkoutCart")}</h3>
             <p className="text-xs font-bold text-gray-500">
-              {itemCount} item{itemCount === 1 ? "" : "s"} from {items.length} product{items.length === 1 ? "" : "s"}
+              {t("urmall.cart.itemsFromProducts", {
+                items: t(itemCount === 1 ? "urmall.cart.itemLabelOne" : "urmall.cart.itemLabelOther", { count: itemCount }),
+                products: t(items.length === 1 ? "urmall.cart.productLabelOne" : "urmall.cart.productLabelOther", { count: items.length }),
+              })}
             </p>
           </div>
         </div>
@@ -147,7 +152,7 @@ export default function CartDrawer({
               }`}
             >
               <Truck size={15} />
-              Delivery
+              {t("urmall.browse.deliveryChip")}
             </button>
             <button
               type="button"
@@ -157,13 +162,13 @@ export default function CartDrawer({
               }`}
             >
               <PackageCheck size={15} />
-              Pickup
+              {t("urmall.browse.pickupChip")}
             </button>
           </div>
 
           {deliveryMode === "delivery" && savedAddresses.length ? (
             <div className="space-y-2">
-              <p className="text-xs font-black uppercase text-gray-500">Saved addresses</p>
+              <p className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.savedAddresses")}</p>
               {savedAddresses.slice(0, 3).map((address) => {
                 const selected = String(selectedAddressId) === String(address.id);
                 return (
@@ -177,7 +182,7 @@ export default function CartDrawer({
                   >
                     {selected ? <CheckCircle2 className="mt-0.5 text-emerald-700" size={16} /> : <MapPin className="mt-0.5 text-gray-400" size={16} />}
                     <span className="min-w-0">
-                      <span className="block text-sm font-black text-gray-950">{getAddressLabel(address)} address</span>
+                      <span className="block text-sm font-black text-gray-950">{t("urmall.detail.addressLabel", { label: getAddressLabel(address) })}</span>
                       <span className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{getAddressText(address)}</span>
                     </span>
                   </button>
@@ -197,7 +202,7 @@ export default function CartDrawer({
               />
             ))
           ) : !loading ? (
-            <p className="mt-10 text-center font-bold text-gray-500">Your cart is empty</p>
+            <p className="mt-10 text-center font-bold text-gray-500">{t("urmall.cart.cartEmpty")}</p>
           ) : null}
 
           {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
@@ -207,25 +212,25 @@ export default function CartDrawer({
           <input
             value={deliveryLocation}
             onChange={(event) => setDeliveryLocation(event.target.value)}
-            placeholder={deliveryMode === "pickup" ? "Pickup note or preferred time" : "Delivery note or manual address"}
+            placeholder={deliveryMode === "pickup" ? t("urmall.cart.pickupNotePlaceholder") : t("urmall.cart.deliveryNotePlaceholder")}
             className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
           />
           <div className="rounded-lg bg-gray-50 p-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-bold text-gray-500">Items</span>
+              <span className="font-bold text-gray-500">{t("urmall.cart.itemsLabel")}</span>
               <span className="font-black text-gray-950">{itemCount}</span>
             </div>
             <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="font-bold text-gray-500">Payment</span>
-              <span className="max-w-[11rem] truncate font-black text-gray-950">{paymentPreference || "Confirm with seller"}</span>
+              <span className="font-bold text-gray-500">{t("urmall.cart.paymentLabel")}</span>
+              <span className="max-w-[11rem] truncate font-black text-gray-950">{paymentPreference || t("urmall.cart.confirmWithSeller")}</span>
             </div>
             <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="font-bold text-gray-500">Subtotal</span>
+              <span className="font-bold text-gray-500">{t("urmall.cart.subtotal")}</span>
               <span className="text-xl font-black text-gray-950">{formatCurrency(total, moneyScope)}</span>
             </div>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="font-bold text-gray-500">Total</span>
+            <span className="font-bold text-gray-500">{t("urmall.cart.total")}</span>
             <span className="text-xl font-black text-gray-950">{formatCurrency(total, moneyScope)}</span>
           </div>
           {checkoutStatus && (
@@ -237,7 +242,7 @@ export default function CartDrawer({
             disabled={!items.length || loading || !checkoutReady}
             className="kt-touchable w-full rounded-xl bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Review & Create Order
+            {t("urmall.cart.reviewCreateOrder")}
           </button>
         </div>
       </div>

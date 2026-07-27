@@ -1,12 +1,14 @@
 import AppBackTab from "../../../../../../shared/AppBackTab.jsx";
+import { useI18n } from "../../../../../../../i18n";
 
 export default function SellerMenuPageHeader({ title, eyebrow = "UrMall", onBack }) {
+  const { t } = useI18n();
   return (
     <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
       <div className="flex min-w-0 items-start gap-3">
         <AppBackTab
           onBack={onBack}
-          label="Back"
+          label={t("common.back")}
           historyKey="marketplace-business-menu-screen"
           className="mt-0.5 flex-none"
           useHistoryLayer={false}

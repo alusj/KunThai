@@ -11,10 +11,12 @@ import {
 import { showToast } from "../../../../Backend/services/toastService";
 import { urMallShareToastOptions } from "../../../../Backend/services/shareCtaService";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
+import { useI18n, t } from "../../../../i18n";
 import CartButton from "./CartButton";
 import CartDrawer from "./CartDrawer";
 
 export default function Cart({ onOpenChange }) {
+  useI18n();
   const [open, setOpen] = useState(false);
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,7 @@ export default function Cart({ onOpenChange }) {
       setCartItems(items);
     } catch (err) {
       setCartItems([]);
-      setError(err.message || "Unable to load cart.");
+      setError(err.message || t("urmall.cart.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -53,10 +55,10 @@ export default function Cart({ onOpenChange }) {
     try {
       await updateBuyerCartItem(item.id, quantity);
       await loadCart();
-      showToast(quantity <= 0 ? "Product removed from cart" : "Cart updated", "success");
+      showToast(quantity <= 0 ? t("urmall.cart.removedFromCart") : t("urmall.cart.cartUpdated"), "success");
     } catch (err) {
-      setError(err.message || "Unable to update cart.");
-      showToast(err.message || "Unable to update cart.", "danger");
+      setError(err.message || t("urmall.cart.updateFailed"));
+      showToast(err.message || t("urmall.cart.updateFailed"), "danger");
     }
   }
 
@@ -64,10 +66,10 @@ export default function Cart({ onOpenChange }) {
     try {
       await removeBuyerCartItem(item.id);
       await loadCart();
-      showToast("Product removed from cart", "success");
+      showToast(t("urmall.cart.removedFromCart"), "success");
     } catch (err) {
-      setError(err.message || "Unable to remove item.");
-      showToast(err.message || "Unable to remove item.", "danger");
+      setError(err.message || t("urmall.cart.removeFailed"));
+      showToast(err.message || t("urmall.cart.removeFailed"), "danger");
     }
   }
 
@@ -76,7 +78,7 @@ export default function Cart({ onOpenChange }) {
     await loadCart();
     haptics.medium("marketplace");
     sounds.success("marketplace");
-    showToast("Checkout created successfully. Share UrMall with family and friends.", "success", urMallShareToastOptions());
+    showToast(t("urmall.cart.checkoutSuccess"), "success", urMallShareToastOptions());
     return orders;
   }
 

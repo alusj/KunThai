@@ -38,6 +38,7 @@ import {
   useAddressAreaValidation,
 } from "../../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../../../transport/NearbyAreaScreen";
+import { useI18n, t } from "../../../../i18n";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { getOnboardingProfile } from "../../../../Backend/services/onboardingService";
 import {
@@ -57,16 +58,16 @@ const RECENT_PRODUCTS_KEY = "marketplace-recent-products";
 const addressTypes = ["Resident", "Office", "Market", "School", "Other"];
 
 const menuItems = [
-  { id: "caution", label: "Caution Card", icon: ShoppingBag },
-  { id: "orders", label: "Ordered items", icon: PackageCheck },
-  { id: "saved", label: "Saved products", icon: Heart },
-  { id: "recent", label: "Recently viewed", icon: History },
-  { id: "address", label: "Delivery address", icon: MapPin },
-  { id: "payments", label: "Payment methods", icon: CreditCard },
-  { id: "returns", label: "Returns & disputes", icon: RotateCcw },
-  { id: "adminRoles", label: "Admin roles", icon: ShieldCheck },
-  { id: "support", label: "Help & support", icon: LifeBuoy },
-  { id: "settings", label: "Buyer settings", icon: Settings },
+  { id: "caution", labelKey: "urmall.menu.itemCaution", icon: ShoppingBag },
+  { id: "orders", labelKey: "urmall.menu.itemOrders", icon: PackageCheck },
+  { id: "saved", labelKey: "urmall.menu.itemSaved", icon: Heart },
+  { id: "recent", labelKey: "urmall.menu.itemRecent", icon: History },
+  { id: "address", labelKey: "urmall.menu.itemAddress", icon: MapPin },
+  { id: "payments", labelKey: "urmall.menu.itemPayments", icon: CreditCard },
+  { id: "returns", labelKey: "urmall.menu.itemReturns", icon: RotateCcw },
+  { id: "adminRoles", labelKey: "urmall.menu.itemAdminRoles", icon: ShieldCheck },
+  { id: "support", labelKey: "urmall.menu.itemSupport", icon: LifeBuoy },
+  { id: "settings", labelKey: "urmall.menu.itemSettings", icon: Settings },
 ];
 
 function readLocalValue(key) {
@@ -145,10 +146,10 @@ function getAddressActionKey(address = {}) {
 
 function getAddressShareText(address) {
   const label = getAddressLabel(address);
-  const street = address.street || address.detectedAddress || "Address pending";
-  const phone = address.phone ? `\nPhone: ${address.phone}` : "";
-  const note = address.note ? `\nNote: ${address.note}` : "";
-  return `${label} delivery address\n${street}${phone}${note}`;
+  const street = address.street || address.detectedAddress || t("urmall.menu.addressPending");
+  const phone = address.phone ? `\n${t("urmall.orders.phoneLabel", { phone: address.phone })}` : "";
+  const note = address.note ? `\n${t("urmall.orders.noteLabel", { note: address.note })}` : "";
+  return `${t("urmall.menu.deliveryAddressHeading", { label })}\n${street}${phone}${note}`;
 }
 
 function writeBuyerAddress(address) {
@@ -217,7 +218,7 @@ function ProductMiniList({ products, emptyText, onProductSelect }) {
               <img src={product.imageUrl} alt="" className="h-12 w-12 rounded-lg bg-gray-100 object-cover" />
             ) : (
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-400">
-                Img
+                {t("urmall.cart.imgPlaceholder")}
               </div>
             )}
             <div className="min-w-0 flex-1">
@@ -233,15 +234,15 @@ function ProductMiniList({ products, emptyText, onProductSelect }) {
 
 function OrderedItemsList({ orders, loading }) {
   if (loading) {
-    return <p className="rounded-lg bg-gray-50 p-4 text-center text-sm font-bold text-gray-500">Loading ordered items...</p>;
+    return <p className="rounded-lg bg-gray-50 p-4 text-center text-sm font-bold text-gray-500">{t("urmall.menu.loadingOrdered")}</p>;
   }
 
   if (!orders.length) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
         <ReceiptText className="mx-auto text-gray-400" size={34} />
-        <p className="mt-3 font-black text-gray-950">No ordered items yet</p>
-        <p className="mt-1 text-sm font-medium text-gray-500">Checkout orders will appear here with seller, amount, and status.</p>
+        <p className="mt-3 font-black text-gray-950">{t("urmall.menu.noOrdered")}</p>
+        <p className="mt-1 text-sm font-medium text-gray-500">{t("urmall.orders.noOrdersHint")}</p>
       </div>
     );
   }
@@ -252,7 +253,7 @@ function OrderedItemsList({ orders, loading }) {
         <article key={order.id} className="rounded-lg border border-gray-200 bg-white p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-black text-gray-950">{order.preview || "UrMall order"}</p>
+              <p className="truncate text-sm font-black text-gray-950">{order.preview || t("urmall.orders.orderTitle")}</p>
               <p className="mt-1 text-xs font-bold text-gray-500">{order.sellerName}</p>
             </div>
             <span className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-black capitalize ${statusTone(order.status)}`}>
@@ -261,7 +262,7 @@ function OrderedItemsList({ orders, loading }) {
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-bold text-gray-500">
-              {order.itemCount} item{order.itemCount === 1 ? "" : "s"} | {formatDate(order.createdAt)}
+              {t(order.itemCount === 1 ? "urmall.orders.itemsDateOne" : "urmall.orders.itemsDateOther", { count: order.itemCount, date: formatDate(order.createdAt) })}
             </p>
             <p className="text-base font-black text-gray-950">{formatCurrency(order.totalAmount)}</p>
           </div>
@@ -317,6 +318,7 @@ function SavedAddressMenuAction({ danger = false, icon: Icon, label, onClick }) 
 }
 
 export default function MenuDrawer({ open, onClose }) {
+  const { locale } = useI18n();
   const [active, setActive] = useState(null);
   const { visibleKey: visibleActive, action: activeAction } = useSlidePanel(active);
   const [savedProducts, setSavedProducts] = useState([]);
@@ -346,20 +348,22 @@ export default function MenuDrawer({ open, onClose }) {
   const deliveryPickerLabels = useMemo(
     () => ({
       historyKey: "urmall-delivery-address-picker",
-      backLabel: "Back to delivery address",
-      eyebrow: "UrMall delivery",
-      cardEyebrow: "Delivery address",
-      headerCurrentTitle: "Confirm delivery location",
-      headerDropTitle: "Drop delivery pin",
-      currentHeading: "Your current delivery location",
-      dropHeading: "Place the pin on the delivery point",
-      dropInstruction: "Move the map until the pin sits exactly on the delivery gate, door, stall, or pickup point, then add the location.",
-      currentStatus: "Confirming your current delivery location...",
-      dropStatus: "Move the map until the pin is exactly on the delivery location.",
-      currentName: "Current delivery location",
-      droppedName: "Pinned delivery location",
+      backLabel: t("urmall.menu.pickerBack"),
+      eyebrow: t("urmall.detail.pickerEyebrow"),
+      cardEyebrow: t("urmall.detail.deliveryAddress"),
+      headerCurrentTitle: t("urmall.detail.pickerConfirmTitle"),
+      headerDropTitle: t("urmall.detail.pickerDropTitle"),
+      currentHeading: t("urmall.detail.pickerCurrentHeading"),
+      dropHeading: t("urmall.detail.pickerDropHeading"),
+      dropInstruction: t("urmall.detail.pickerDropInstruction"),
+      currentStatus: t("urmall.detail.pickerCurrentStatus"),
+      dropStatus: t("urmall.detail.pickerDropStatus"),
+      currentName: t("urmall.detail.pickerCurrentName"),
+      droppedName: t("urmall.detail.pickerDroppedName"),
     }),
-    [],
+    // locale drives re-translation of these labels on language change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [locale],
   );
 
   useEffect(() => {
@@ -389,7 +393,7 @@ export default function MenuDrawer({ open, onClose }) {
       .catch(() => null);
     fetchSavedBuyerProducts()
       .then(setSavedProducts)
-      .catch((err) => setMessage(err.message || "Unable to load saved products."));
+      .catch((err) => setMessage(err.message || t("urmall.menu.savedLoadFailed")));
   }, [open]);
 
   useEffect(() => {
@@ -417,7 +421,11 @@ export default function MenuDrawer({ open, onClose }) {
     };
   }, [active, onClose, open]);
 
-  const activeTitle = useMemo(() => menuItems.find((item) => item.id === visibleActive)?.label || "Buyer Menu", [visibleActive]);
+  const activeTitle = useMemo(() => {
+    const item = menuItems.find((entry) => entry.id === visibleActive);
+    return item ? t(item.labelKey) : t("urmall.menu.buyerMenu");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleActive, locale]);
 
   async function saveAddress() {
     const localId = address.id || `local-address-${Date.now()}`;
@@ -432,9 +440,9 @@ export default function MenuDrawer({ open, onClose }) {
       setSavedAddresses(syncedAddresses);
       writeBuyerAddress(savedAddress);
       writeBuyerAddresses(syncedAddresses);
-      setMessage("Delivery address saved.");
+      setMessage(t("urmall.menu.addressSaved"));
     } catch {
-      setMessage("Delivery address saved on this device. Apply the buyer address SQL table to sync it online.");
+      setMessage(t("urmall.menu.addressSavedLocal"));
     }
     setAddress(createEmptyAddress(accountContact));
     setLocationCandidate(null);
@@ -482,7 +490,7 @@ export default function MenuDrawer({ open, onClose }) {
     setSavedAddresses(orderedAddresses);
     writeBuyerAddress(nextAddress);
     writeBuyerAddresses(orderedAddresses);
-    setMessage(`${getAddressLabel(nextAddress)} address selected for your next UrMall order.`);
+    setMessage(t("urmall.menu.addressSelected", { label: getAddressLabel(nextAddress) }));
   }
 
   async function shareAddress(nextAddress) {
@@ -492,22 +500,22 @@ export default function MenuDrawer({ open, onClose }) {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: `${getAddressLabel(nextAddress)} delivery address`,
+          title: t("urmall.menu.deliveryAddressHeading", { label: getAddressLabel(nextAddress) }),
           text,
         });
-        setMessage("Delivery address ready to share.");
+        setMessage(t("urmall.menu.addressReadyShare"));
         return;
       }
 
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        setMessage("Delivery address details copied.");
+        setMessage(t("urmall.menu.addressCopied"));
         return;
       }
 
       setMessage(text);
     } catch {
-      setMessage("Unable to share this delivery address right now.");
+      setMessage(t("urmall.menu.addressShareFailed"));
     }
   }
 
@@ -536,9 +544,9 @@ export default function MenuDrawer({ open, onClose }) {
 
     try {
       await deleteBuyerDeliveryAddress(nextAddress.id);
-      setMessage("Delivery address removed.");
+      setMessage(t("urmall.menu.addressRemoved"));
     } catch {
-      setMessage("Delivery address removed on this device. Online sync will update when the buyer address table is available.");
+      setMessage(t("urmall.menu.addressRemovedLocal"));
     }
   }
 
@@ -566,7 +574,7 @@ export default function MenuDrawer({ open, onClose }) {
       street: nextLocation.address || address.street,
       coordinates: nextLocation.coordinates,
     });
-    setLocationStatus(`Location added: ${nextLocation.address}`);
+    setLocationStatus(t("urmall.menu.locationAdded", { address: nextLocation.address }));
     setAreaPicker(null);
   }
 
@@ -581,13 +589,13 @@ export default function MenuDrawer({ open, onClose }) {
         longitude: locationCandidate.longitude,
       },
     });
-    setLocationStatus("Location added. You can edit the street before saving.");
+    setLocationStatus(t("urmall.menu.locationAddedEdit"));
     setLocationCandidate(null);
   }
 
   function rejectDetectedLocation() {
     setLocationCandidate(null);
-    setLocationStatus("Enter the address manually.");
+    setLocationStatus(t("urmall.menu.enterManually"));
   }
 
   function handleFrontPictureChange(event) {
@@ -601,7 +609,7 @@ export default function MenuDrawer({ open, onClose }) {
 
   function savePayment() {
     localStorage.setItem(BUYER_PAYMENT_KEY, payment);
-    setMessage("Payment preference saved.");
+    setMessage(t("urmall.menu.paymentSaved"));
   }
 
   function openProduct(product) {
@@ -621,7 +629,7 @@ export default function MenuDrawer({ open, onClose }) {
         {screenKey === "saved" && (
           <ProductMiniList
             products={savedProducts}
-            emptyText="Saved products will appear here when you tap the heart on a listing."
+            emptyText={t("urmall.menu.savedEmpty")}
             onProductSelect={openProduct}
           />
         )}
@@ -629,7 +637,7 @@ export default function MenuDrawer({ open, onClose }) {
         {screenKey === "recent" && (
           <ProductMiniList
             products={recentProducts}
-            emptyText="Recently viewed products will appear here after opening product details."
+            emptyText={t("urmall.menu.recentEmpty")}
             onProductSelect={openProduct}
           />
         )}
@@ -638,7 +646,7 @@ export default function MenuDrawer({ open, onClose }) {
           <div className="space-y-4">
             {savedAddresses.length ? (
               <div className="space-y-2">
-                <p className="text-sm font-black text-gray-950">Saved addresses</p>
+                <p className="text-sm font-black text-gray-950">{t("urmall.detail.savedAddresses")}</p>
                 {savedAddresses.map((item) => {
                   const actionKey = getAddressActionKey(item);
                   const selected = actionKey === getAddressActionKey(address);
@@ -651,10 +659,10 @@ export default function MenuDrawer({ open, onClose }) {
                       <div className="flex items-start justify-between gap-3">
                         <button type="button" onClick={() => editAddress(item)} className="kt-touchable min-w-0 flex-1 text-left">
                           <span className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-black text-gray-950">{getAddressLabel(item)} address</span>
+                            <span className="text-sm font-black text-gray-950">{t("urmall.detail.addressLabel", { label: getAddressLabel(item) })}</span>
                             {selected ? (
                               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                                Selected
+                                {t("urmall.menu.selected")}
                               </span>
                             ) : null}
                           </span>
@@ -669,7 +677,7 @@ export default function MenuDrawer({ open, onClose }) {
                             setAddressActionMenuId((current) => (current === actionKey ? "" : actionKey));
                           }}
                           className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-950"
-                          aria-label={`${getAddressLabel(item)} address actions`}
+                          aria-label={t("urmall.menu.addressActionsAria", { label: getAddressLabel(item) })}
                           aria-expanded={addressActionMenuId === actionKey}
                           aria-haspopup="menu"
                         >
@@ -691,25 +699,25 @@ export default function MenuDrawer({ open, onClose }) {
                 <section
                   className="kt-modal-enter w-full max-w-sm overflow-hidden rounded-[1.75rem] border border-gray-200 bg-white p-2 shadow-2xl shadow-slate-950/20 sm:max-w-xs"
                   role="menu"
-                  aria-label={`${getAddressLabel(activeActionAddress)} delivery address actions`}
+                  aria-label={t("urmall.menu.addressActionsMenuAria", { label: getAddressLabel(activeActionAddress) })}
                   onClick={(event) => event.stopPropagation()}
                 >
                   <div className="border-b border-gray-100 px-3 py-3">
                     <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
-                      {getAddressLabel(activeActionAddress)} address
+                      {t("urmall.detail.addressLabel", { label: getAddressLabel(activeActionAddress) })}
                     </p>
                     <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-                      {activeActionAddress.street || activeActionAddress.detectedAddress || "Delivery location"}
+                      {activeActionAddress.street || activeActionAddress.detectedAddress || t("urmall.menu.deliveryLocationFallback")}
                     </p>
                   </div>
                   <div className="grid gap-1 p-1">
-                    <SavedAddressMenuAction icon={Navigation} label="Use for next order" onClick={() => selectAddress(activeActionAddress)} />
-                    <SavedAddressMenuAction icon={Pencil} label="Edit address" onClick={() => editAddress(activeActionAddress)} />
-                    <SavedAddressMenuAction icon={Share2} label="Share details" onClick={() => shareAddress(activeActionAddress)} />
+                    <SavedAddressMenuAction icon={Navigation} label={t("urmall.menu.useForNextOrder")} onClick={() => selectAddress(activeActionAddress)} />
+                    <SavedAddressMenuAction icon={Pencil} label={t("urmall.menu.editAddress")} onClick={() => editAddress(activeActionAddress)} />
+                    <SavedAddressMenuAction icon={Share2} label={t("urmall.menu.shareDetails")} onClick={() => shareAddress(activeActionAddress)} />
                     <SavedAddressMenuAction
                       danger
                       icon={Trash2}
-                      label="Delete address"
+                      label={t("urmall.menu.deleteAddress")}
                       onClick={() => removeAddress(addressActionMenuId, activeActionAddress)}
                     />
                   </div>
@@ -724,7 +732,7 @@ export default function MenuDrawer({ open, onClose }) {
                 className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
               >
                 <Plus size={17} />
-                {savedAddresses.length ? "Add Another Address" : "Add Address"}
+                {savedAddresses.length ? t("urmall.menu.addAnother") : t("urmall.menu.addAddress")}
               </button>
             ) : null}
 
@@ -733,24 +741,24 @@ export default function MenuDrawer({ open, onClose }) {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-black text-gray-950">
-                      {address.id ? "Edit delivery address" : "Add delivery address"}
+                      {address.id ? t("urmall.menu.editDeliveryAddress") : t("urmall.menu.addDeliveryAddress")}
                     </p>
                     <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
-                      Save receiver, phone, street, and delivery notes for faster UrMall checkout.
+                      {t("urmall.menu.formHint")}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={closeAddressForm}
                     className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50"
-                    aria-label="Close delivery address form"
+                    aria-label={t("urmall.menu.closeForm")}
                   >
                     <X size={16} />
                   </button>
                 </div>
 
               <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Location category</span>
+                <span className="text-xs font-black uppercase text-gray-500">{t("urmall.menu.locationCategory")}</span>
                 <select
                   value={address.category}
                   onChange={(event) => updateAddress({ category: event.target.value })}
@@ -764,11 +772,11 @@ export default function MenuDrawer({ open, onClose }) {
 
               {address.category === "Other" ? (
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Custom category</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urmall.menu.customCategory")}</span>
                   <input
                     value={address.customCategory}
                     onChange={(event) => updateAddress({ customCategory: event.target.value })}
-                    placeholder="Eg. Warehouse, clinic, church"
+                    placeholder={t("urmall.menu.customCategoryPlaceholder")}
                     className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                   />
                 </label>
@@ -776,20 +784,20 @@ export default function MenuDrawer({ open, onClose }) {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Full name</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.fullName")}</span>
                   <input
                     value={address.fullName}
                     onChange={(event) => updateAddress({ fullName: event.target.value })}
-                    placeholder="Receiver name"
+                    placeholder={t("urmall.menu.receiverName")}
                     className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Phone number</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.phoneNumber")}</span>
                   <input
                     value={address.phone}
                     onChange={(event) => updateAddress({ phone: event.target.value })}
-                    placeholder="Phone number"
+                    placeholder={t("urmall.detail.phoneNumber")}
                     className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                   />
                 </label>
@@ -797,14 +805,14 @@ export default function MenuDrawer({ open, onClose }) {
 
               <label className="space-y-1">
                 <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
-                  Street
+                  {t("urmall.menu.street")}
                   <AddressAreaStatusIcon status={addressValidation.status} />
                 </span>
                 <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
                   <input
                     value={address.street}
                     onChange={(event) => updateAddress({ street: event.target.value })}
-                    placeholder="Street, city, landmark"
+                    placeholder={t("urmall.menu.streetPlaceholder")}
                     className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                   />
                   <button
@@ -813,7 +821,7 @@ export default function MenuDrawer({ open, onClose }) {
                     className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
                   >
                     <LocateFixed size={16} />
-                    Locate me
+                    {t("urmall.detail.locateMe")}
                   </button>
                   <button
                     type="button"
@@ -821,7 +829,7 @@ export default function MenuDrawer({ open, onClose }) {
                     className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
                   >
                     <MapPin size={16} />
-                    Drop a pin
+                    {t("urmall.detail.dropPin")}
                   </button>
                 </div>
               </label>
@@ -835,7 +843,7 @@ export default function MenuDrawer({ open, onClose }) {
               {locationCandidate ? (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                   <p className="text-sm font-black text-emerald-950">
-                    Your current location is {locationCandidate.address}
+                    {t("urmall.menu.currentLocationIs", { address: locationCandidate.address })}
                   </p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <button
@@ -844,32 +852,32 @@ export default function MenuDrawer({ open, onClose }) {
                       className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
                     >
                       <CheckCircle2 size={15} />
-                      Correct, add location
+                      {t("urmall.menu.correctAddLocation")}
                     </button>
                     <button
                       type="button"
                       onClick={rejectDetectedLocation}
                       className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
                     >
-                      Wrong, enter manually
+                      {t("urmall.menu.wrongEnterManually")}
                     </button>
                   </div>
                 </div>
               ) : null}
 
               <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Apartment, stall no / delivery note</span>
+                <span className="text-xs font-black uppercase text-gray-500">{t("urmall.menu.noteLabel")}</span>
                 <textarea
                   value={address.note}
                   onChange={(event) => updateAddress({ note: event.target.value })}
-                  placeholder="Apartment, stall number, color of gate, nearby shop, or rider note"
+                  placeholder={t("urmall.menu.notePlaceholder")}
                   rows={3}
                   className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
               </label>
 
               <label className="space-y-2">
-                <span className="text-xs font-black uppercase text-gray-500">Address front picture</span>
+                <span className="text-xs font-black uppercase text-gray-500">{t("urmall.menu.frontPicture")}</span>
                 <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
                   <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
                     {address.frontPictureUrl ? (
@@ -886,7 +894,7 @@ export default function MenuDrawer({ open, onClose }) {
                       className="text-sm font-semibold text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white"
                     />
                     <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-                      Add a front-facing picture of the gate, stall, office entrance, or building.
+                      {t("urmall.menu.frontPictureHint")}
                     </p>
                   </div>
                 </div>
@@ -894,7 +902,7 @@ export default function MenuDrawer({ open, onClose }) {
 
               {address.detectedAddress ? (
                 <p className="rounded-xl bg-gray-50 p-3 text-xs font-bold leading-5 text-gray-600">
-                  Detected location: {address.detectedAddress}
+                  {t("urmall.menu.detectedLocation", { address: address.detectedAddress })}
                 </p>
               ) : null}
               {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
@@ -907,7 +915,7 @@ export default function MenuDrawer({ open, onClose }) {
                 onClick={saveAddress}
                 className="kt-touchable h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
               >
-                {address.id ? "Update Delivery Address" : "Save Delivery Address"}
+                {address.id ? t("urmall.menu.updateAddress") : t("urmall.menu.saveAddress")}
               </button>
             ) : null}
           </div>
@@ -918,35 +926,29 @@ export default function MenuDrawer({ open, onClose }) {
             <BuyerArticlePanel
               icon={CreditCard}
               tone="amber"
-              title="Payment methods are coming soon"
-              summary="UrMall payment methods are currently unavailable because we are preparing a safer payment service that will connect directly to products, orders, sellers, and buyer records."
+              title={t("urmall.menu.paymentsTitle")}
+              summary={t("urmall.menu.paymentsSummary")}
               sections={[
                 {
-                  title: "Why this is not active yet",
-                  paragraphs: [
-                    "A payment method page should not only collect a card, account, or wallet name. It should protect the buyer, identify the seller, connect the payment to a real item, and keep a clear order record. Until that full service is ready, UrMall will not pretend that built-in payments are available.",
-                    "This protects buyers from confusing payment instructions and protects serious sellers from disputes caused by incomplete payment tracking.",
-                  ],
+                  title: t("urmall.menu.paymentsS1Title"),
+                  paragraphs: [t("urmall.menu.paymentsS1P1"), t("urmall.menu.paymentsS1P2")],
                 },
                 {
-                  title: "How buyers should pay for now",
-                  paragraphs: [
-                    "Before sending money, confirm the product name, final price, delivery fee, seller identity, delivery address, and expected delivery or pickup arrangement. If anything feels unclear, message the seller and ask for confirmation before paying.",
-                    "Keep important conversations inside UrMall where possible. A clear message history helps both the buyer and seller remember what was agreed.",
-                  ],
+                  title: t("urmall.menu.paymentsS2Title"),
+                  paragraphs: [t("urmall.menu.paymentsS2P1"), t("urmall.menu.paymentsS2P2")],
                 },
               ]}
             />
             <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <label className="block text-sm font-black text-gray-950">Temporary payment note</label>
+              <label className="block text-sm font-black text-gray-950">{t("urmall.menu.tempPaymentNote")}</label>
               <textarea
                 value={payment}
                 onChange={(event) => setPayment(event.target.value)}
-                placeholder="KunThai Money, cash on pickup, bank transfer, or preferred method"
+                placeholder={t("urmall.menu.paymentPlaceholder")}
                 className="min-h-32 w-full rounded-xl border border-gray-200 p-3 text-sm font-medium outline-none focus:border-emerald-500"
               />
               <button type="button" onClick={savePayment} className="kt-touchable rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700">
-                Save Payment Preference
+                {t("urmall.menu.savePaymentPref")}
               </button>
             </div>
           </div>
@@ -958,22 +960,16 @@ export default function MenuDrawer({ open, onClose }) {
           <BuyerArticlePanel
             icon={ShieldAlert}
             tone="amber"
-            title="Returns & disputes"
-            summary="Returns and disputes should be handled through the order context so the seller, product, price, delivery address, and conversation history stay connected."
+            title={t("urmall.menu.itemReturns")}
+            summary={t("urmall.menu.returnsSummary")}
             sections={[
               {
-                title: "Start with the order",
-                paragraphs: [
-                  "If a product arrives damaged, different from the listing, late, missing, or not delivered, begin from the related order or buyer-seller message. That gives support and the seller the information needed to understand what happened.",
-                  "A strong dispute includes the product name, order date, seller name, agreed price, delivery details, photos where useful, and a clear explanation of what you expected versus what happened.",
-                ],
+                title: t("urmall.menu.returnsS1Title"),
+                paragraphs: [t("urmall.menu.returnsS1P1"), t("urmall.menu.returnsS1P2")],
               },
               {
-                title: "Be clear before escalating",
-                paragraphs: [
-                  "Many problems can be solved quickly when buyers explain the issue calmly and give the seller a fair chance to respond. If the seller does not respond or the issue involves fraud, unsafe behavior, or serious misrepresentation, the matter should be escalated with evidence.",
-                  "UrMall is being shaped as a trusted marketplace, so return and dispute tools should protect honest buyers without unfairly punishing honest sellers.",
-                ],
+                title: t("urmall.menu.returnsS2Title"),
+                paragraphs: [t("urmall.menu.returnsS2P1"), t("urmall.menu.returnsS2P2")],
               },
             ]}
           />
@@ -982,22 +978,16 @@ export default function MenuDrawer({ open, onClose }) {
         {screenKey === "support" && (
           <BuyerArticlePanel
             icon={HelpCircle}
-            title="Help & support"
-            summary="Buyer support exists to help you shop with confidence, understand sellers clearly, and resolve problems without losing the order history that proves what happened."
+            title={t("urmall.menu.itemSupport")}
+            summary={t("urmall.menu.supportSummary")}
             sections={[
               {
-                title: "Where to get help",
-                paragraphs: [
-                  "For product questions, delivery arrangements, availability, and price confirmation, message the seller from the product or order. Product-linked messages are better than random chats because they preserve the item context.",
-                  "For account, safety, suspicious seller behavior, fake payment requests, or repeated order problems, use UrMall support when the ticket system becomes active. Until then, keep evidence and use the most relevant seller message or order record.",
-                ],
+                title: t("urmall.menu.supportS1Title"),
+                paragraphs: [t("urmall.menu.supportS1P1"), t("urmall.menu.supportS1P2")],
               },
               {
-                title: "How to write a useful support request",
-                paragraphs: [
-                  "A professional support request should explain the product, seller, order date, payment expectation, delivery address, and the exact problem. Short messages like 'seller problem' or 'my order bad' make support slower because important facts are missing.",
-                  "Clear support communication protects you. It also helps UrMall identify fake marketplace behavior and protect serious sellers from false complaints.",
-                ],
+                title: t("urmall.menu.supportS2Title"),
+                paragraphs: [t("urmall.menu.supportS2P1"), t("urmall.menu.supportS2P2")],
               },
             ]}
           />
@@ -1007,22 +997,16 @@ export default function MenuDrawer({ open, onClose }) {
           <BuyerArticlePanel
             icon={Settings}
             tone="blue"
-            title="Buyer settings"
-            summary="Buyer settings help you keep your UrMall shopping activity organized, private, and ready for checkout."
+            title={t("urmall.menu.itemSettings")}
+            summary={t("urmall.menu.settingsSummary")}
             sections={[
               {
-                title: "What your buyer menu controls",
-                paragraphs: [
-                  "Your buyer menu keeps ordered items, saved products, recently viewed products, delivery addresses, temporary payment notes, support guidance, and dispute guidance in one place. This makes UrMall feel like a proper buying workspace instead of scattered screens.",
-                  "Saved addresses make ordering faster, especially when you use different delivery locations such as home, office, market, school, or another custom place.",
-                ],
+                title: t("urmall.menu.settingsS1Title"),
+                paragraphs: [t("urmall.menu.settingsS1P1"), t("urmall.menu.settingsS1P2")],
               },
               {
-                title: "Privacy and accuracy",
-                paragraphs: [
-                  "Keep your phone number, receiver name, and delivery notes accurate before placing an order. Wrong delivery information can delay the seller, confuse riders, and create disputes that could have been avoided.",
-                  "Location coordinates and address details should only support delivery and order handling. They should not be treated as public profile information.",
-                ],
+                title: t("urmall.menu.settingsS2Title"),
+                paragraphs: [t("urmall.menu.settingsS2P1"), t("urmall.menu.settingsS2P2")],
               },
             ]}
           />
@@ -1046,10 +1030,10 @@ export default function MenuDrawer({ open, onClose }) {
           className="flex min-h-0 flex-1 flex-col"
         >
             <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
-              <AppBackTab onBack={onClose} label="Back to UrMall" historyKey="urmall-buyer-menu" useHistoryLayer={false} />
+              <AppBackTab onBack={onClose} label={t("urmall.shell.backToUrMall")} historyKey="urmall-buyer-menu" useHistoryLayer={false} />
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">UrMall</p>
-                <h3 className="truncate text-lg font-black text-gray-950">Buyer Menu</h3>
+                <h3 className="truncate text-lg font-black text-gray-950">{t("urmall.menu.buyerMenu")}</h3>
               </div>
             </div>
 
@@ -1071,9 +1055,9 @@ export default function MenuDrawer({ open, onClose }) {
                         <Icon size={20} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-black text-gray-950">{item.label}</span>
+                        <span className="block truncate text-sm font-black text-gray-950">{t(item.labelKey)}</span>
                         <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-                          Manage your {item.label.toLowerCase()}.
+                          {t("urmall.menu.manageYour", { label: t(item.labelKey) })}
                         </span>
                       </span>
                     </button>
@@ -1086,9 +1070,9 @@ export default function MenuDrawer({ open, onClose }) {
         {visibleActive ? (
           <SlidePanel action={activeAction} className="bg-gray-50">
             <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
-              <AppBackTab onBack={() => setActive(null)} label="Back to buyer menu" historyKey="urmall-buyer-menu-item" useHistoryLayer={false} />
+              <AppBackTab onBack={() => setActive(null)} label={t("urmall.menu.backToBuyerMenu")} historyKey="urmall-buyer-menu-item" useHistoryLayer={false} />
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Buyer Menu</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{t("urmall.menu.buyerMenu")}</p>
                 <h3 className="truncate text-lg font-black text-gray-950">{activeTitle}</h3>
               </div>
             </div>
@@ -1104,7 +1088,7 @@ export default function MenuDrawer({ open, onClose }) {
             mode="businessLocationPicker"
             pickerStart={areaPicker.start}
             pickerLabels={deliveryPickerLabels}
-            backLabel="Back to delivery address"
+            backLabel={t("urmall.menu.pickerBack")}
             onBack={() => setAreaPicker(null)}
             onLocationPicked={acceptAreaLocation}
           />

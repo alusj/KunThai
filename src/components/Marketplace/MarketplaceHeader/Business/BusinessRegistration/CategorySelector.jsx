@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { HiOutlineChevronDown, HiOutlineXMark } from "react-icons/hi2";
 
+import { useI18n, t } from "../../../../../i18n";
+
 export default function CategorySelector({
   categories,
   selected,
@@ -11,6 +13,7 @@ export default function CategorySelector({
   onOtherChange,
   onOtherAdd,
 }) {
+  useI18n();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -30,8 +33,8 @@ export default function CategorySelector({
   return (
     <div ref={menuRef} className="relative" data-field-error={error || otherError ? "true" : undefined}>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-gray-800">Business categories</p>
-        <p className="text-sm font-bold text-gray-500">{selected.length}/5 selected</p>
+        <p className="text-sm font-black text-gray-800">{t("urmall.biz.reg.bizCategories")}</p>
+        <p className="text-sm font-bold text-gray-500">{t("urmall.biz.settings.nOf5", { count: selected.length })}</p>
       </div>
       <button
         type="button"
@@ -62,7 +65,7 @@ export default function CategorySelector({
                       }
                     }}
                     className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-blue-100"
-                    aria-label={`Remove ${category}`}
+                    aria-label={t("urmall.biz.reg.removeCategory", { category })}
                   >
                     <HiOutlineXMark />
                   </span>
@@ -71,7 +74,7 @@ export default function CategorySelector({
               {selected.length > 3 ? <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-600">+{selected.length - 3}</span> : null}
             </span>
           ) : (
-            <span className="text-gray-400">Select up to 5 business categories</span>
+            <span className="text-gray-400">{t("urmall.biz.reg.selectUpTo5")}</span>
           )}
         </span>
         <HiOutlineChevronDown className={`flex-none text-lg text-gray-500 transition ${open ? "rotate-180" : ""}`} />
@@ -92,7 +95,7 @@ export default function CategorySelector({
                   }`}
                 >
                   <span>{category}</span>
-                  {active ? <span className="text-xs uppercase tracking-[0.18em]">Selected</span> : null}
+                  {active ? <span className="text-xs uppercase tracking-[0.18em]">{t("urmall.biz.reg.selectedTag")}</span> : null}
                 </button>
               );
             })}
@@ -118,12 +121,12 @@ export default function CategorySelector({
 
       {selected.includes("Other") ? (
         <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <p className="text-sm font-black text-gray-800">Tell us what we missed</p>
+          <p className="text-sm font-black text-gray-800">{t("urmall.biz.reg.tellMissed")}</p>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
               value={otherValue}
               onChange={(event) => onOtherChange(event.target.value)}
-              placeholder="Type your business category"
+              placeholder={t("urmall.biz.reg.typeCategory")}
               className="h-11 flex-1 rounded-lg border border-gray-300 px-3 text-sm font-medium outline-none transition focus:border-blue-500"
             />
             <button
@@ -131,7 +134,7 @@ export default function CategorySelector({
               onClick={onOtherAdd}
               className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white hover:bg-gray-800"
             >
-              Add Category
+              {t("urmall.biz.reg.addCategory")}
             </button>
           </div>
           {otherError ? <p className="mt-2 text-xs font-bold text-red-600">{otherError}</p> : null}

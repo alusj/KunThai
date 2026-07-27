@@ -1,10 +1,12 @@
-const STATUS_LABELS = {
-  active: "Active",
-  draft: "Draft",
-  "low-stock": "Low stock",
-  "out-of-stock": "Out of stock",
-  "pending-review": "Pending review",
-  paused: "Paused",
+import { useI18n, t } from "../../../../../i18n";
+
+const STATUS_LABEL_KEYS = {
+  active: "statusActive",
+  draft: "statusDraft",
+  "low-stock": "statusLowStock",
+  "out-of-stock": "statusOutStock",
+  "pending-review": "statusPendingReview",
+  paused: "statusPaused",
 };
 
 const STATUS_STYLES = {
@@ -17,9 +19,10 @@ const STATUS_STYLES = {
 };
 
 export default function ProductStatusBadge({ status }) {
+  useI18n();
   return (
     <span className={`rounded-full px-2.5 py-1 text-xs font-black ${STATUS_STYLES[status]}`}>
-      {STATUS_LABELS[status]}
+      {STATUS_LABEL_KEYS[status] ? t(`urmall.biz.cat.${STATUS_LABEL_KEYS[status]}`) : status}
     </span>
   );
 }

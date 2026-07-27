@@ -6,12 +6,14 @@ import {
   readRegisteredBusiness,
   updateRegisteredBusinessProfile,
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
 
 export default function Categories({ onBack }) {
+  useI18n();
   const [categories, setCategories] = useState([]);
   const [customCategory, setCustomCategory] = useState("");
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export default function Categories({ onBack }) {
         if (mounted) setCategories(business?.identity?.categories || []);
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || "Unable to load categories.");
+        if (mounted) setError(nextError.message || t("urmall.biz.settings.catLoadFailed"));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -43,7 +45,7 @@ export default function Categories({ onBack }) {
     setCategories((current) => {
       const exists = current.includes(category);
       if (!exists && current.length >= 5) {
-        setError("Choose up to 5 categories.");
+        setError(t("urmall.biz.settings.max5"));
         return current;
       }
       return exists ? current.filter((item) => item !== category) : [...current, category];
@@ -60,11 +62,11 @@ export default function Categories({ onBack }) {
     const nextCategory = customCategory.trim();
     if (!nextCategory) return;
     if (categories.includes(nextCategory)) {
-      setError("This category is already selected.");
+      setError(t("urmall.biz.settings.catExists"));
       return;
     }
     if (categories.length >= 5) {
-      setError("Remove one category before adding another.");
+      setError(t("urmall.biz.settings.removeBeforeAdd"));
       return;
     }
 
@@ -78,7 +80,7 @@ export default function Categories({ onBack }) {
     event.preventDefault();
 
     if (!categories.length) {
-      setError("Choose at least one product category.");
+      setError(t("urmall.biz.settings.chooseCategory"));
       return;
     }
 
@@ -89,9 +91,9 @@ export default function Categories({ onBack }) {
       await updateRegisteredBusinessProfile({
         identity: { categories },
       });
-      setStatus("Product categories updated successfully.");
+      setStatus(t("urmall.biz.settings.catUpdated"));
     } catch (nextError) {
-      setError(nextError.message || "Unable to update categories.");
+      setError(nextError.message || t("urmall.biz.settings.catUpdateFailed"));
     } finally {
       setSaving(false);
     }
@@ -99,11 +101,11 @@ export default function Categories({ onBack }) {
 
   return (
     <>
-      <SellerMenuPageHeader title="Product Categories" eyebrow="Store Settings" onBack={onBack} />
+      <SellerMenuPageHeader title={t("urmall.biz.settings.categoriesTitle")} eyebrow={t("urmall.biz.menu.storeSettingsTitle")} onBack={onBack} />
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         {loading ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 text-sm font-bold text-gray-500">
-          Loading categories...
+          {t("urmall.biz.settings.loadingCat")}
         </div>
       ) : (
         <form onSubmit={saveCategories} className="space-y-5">
@@ -114,14 +116,14 @@ export default function Categories({ onBack }) {
                   <Layers3 size={19} />
                 </span>
                 <div>
-                  <h2 className="text-lg font-black text-gray-950">Selected categories</h2>
+                  <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.settings.selectedCategories")}</h2>
                   <p className="mt-1 text-sm font-semibold text-gray-500">
-                    These categories help buyers discover your store and products.
+                    {t("urmall.biz.settings.selectedCatHint")}
                   </p>
                 </div>
               </div>
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-700">
-                {categories.length}/5 selected
+                {t("urmall.biz.settings.nOf5", { count: categories.length })}
               </span>
             </div>
 
@@ -137,7 +139,7 @@ export default function Categories({ onBack }) {
                       type="button"
                       onClick={() => removeCategory(category)}
                       className="rounded-full bg-white/10 p-0.5 text-white/80 transition hover:bg-white/20 hover:text-white"
-                      aria-label={`Remove ${category}`}
+                      aria-label={t("urmall.biz.settings.removeCat", { category })}
                     >
                       <X size={14} />
                     </button>
@@ -145,14 +147,14 @@ export default function Categories({ onBack }) {
                 ))
               ) : (
                 <span className="self-center px-2 text-sm font-bold text-gray-500">
-                  No categories selected yet.
+                  {t("urmall.biz.settings.noCatYet")}
                 </span>
               )}
             </div>
           </section>
 
           <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="text-lg font-black text-gray-950">Choose from marketplace categories</h2>
+            <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.settings.chooseFromMarketplace")}</h2>
             <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {BUSINESS_CATEGORIES.map((category) => {
                 const selected = categories.includes(category);
@@ -178,7 +180,7 @@ export default function Categories({ onBack }) {
               <input
                 className={inputClass}
                 value={customCategory}
-                placeholder="Add a custom category"
+                placeholder={t("urmall.biz.settings.addCustomCat")}
                 onChange={(event) => {
                   setCustomCategory(event.target.value);
                   setStatus("");
@@ -191,7 +193,7 @@ export default function Categories({ onBack }) {
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-950 px-5 py-3 text-sm font-black text-gray-950 transition hover:bg-gray-950 hover:text-white"
               >
                 <Plus size={17} />
-                Add
+                {t("urmall.biz.settings.add")}
               </button>
             </div>
           </section>
@@ -214,7 +216,7 @@ export default function Categories({ onBack }) {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-gray-950/15 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <Save size={18} />
-              {saving ? "Saving..." : "Save categories"}
+              {saving ? t("urmall.biz.saving") : t("urmall.biz.settings.saveCat")}
             </button>
           </div>
         </form>

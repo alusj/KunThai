@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { requestUrMallAccountDeletion } from "../../../../../../Backend/services/accountDeletionRequestService";
 import { readRegisteredBusiness } from "../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { showToast } from "../../../../../../Backend/services/toastService";
+import { useI18n, t } from "../../../../../../i18n";
 import MenuHeader from "./MenuHeader";
 import SellerDrawerNavItem from "./SellerDrawerNavItem";
 import SellerDrawerProfile from "./SellerDrawerProfile";
@@ -69,6 +70,7 @@ export default function MyBizMenu({
 }) {
   // Owners have full menu access. Invited admins only see the sections their
   // responsibilities cover; store administration stays owner-only.
+  useI18n();
   const canManageBusiness = permissions ? permissions.canManageBusiness : true;
   const canAccessDashboard = permissions ? permissions.canAccessDashboard : true;
   const [activeScreenKey, setActiveScreenKey] = useState(initialScreenKey);
@@ -218,7 +220,7 @@ export default function MyBizMenu({
         }`}
       >
         <MenuHeader
-          title="Seller Menu"
+          title={t("urmall.biz.menu.sellerMenu")}
           onBack={closeDrawer}
         />
 
@@ -233,12 +235,12 @@ export default function MyBizMenu({
 
               <div className="space-y-5 px-4 pt-5">
                 {canManageBusiness || canAccessDashboard ? (
-                  <SellerDrawerSection title="Manage Store">
+                  <SellerDrawerSection title={t("urmall.biz.menu.sectionManageStore")}>
                     {canManageBusiness ? (
                       <SellerDrawerNavItem
                         icon={Plus}
-                        title="Add another business"
-                        description="Create a separate retail, restaurant, hotel, or property workspace."
+                        title={t("urmall.biz.menu.addBusinessTitle")}
+                        description={t("urmall.biz.menu.addBusinessDesc")}
                         onClick={() => {
                           closeDrawer();
                           onAddBusiness?.();
@@ -248,8 +250,8 @@ export default function MyBizMenu({
                     {canAccessDashboard ? (
                       <SellerDrawerNavItem
                         icon={LayoutDashboard}
-                        title="Seller Board"
-                        description="Orders, messages, products, delivery, verification, reports, and policies."
+                        title={t("urmall.biz.menu.boardTitle")}
+                        description={t("urmall.biz.menu.boardDesc")}
                         onClick={() => openActiveScreen("board")}
                       />
                     ) : null}
@@ -257,20 +259,20 @@ export default function MyBizMenu({
                       <>
                         <SellerDrawerNavItem
                           icon={UserRound}
-                          title="Profile"
-                          description="Owner profile, public seller details, and business identity."
+                          title={t("urmall.biz.menu.profileTitle")}
+                          description={t("urmall.biz.menu.profileDesc")}
                           onClick={() => openActiveScreen("profile")}
                         />
                         <SellerDrawerNavItem
                           icon={BriefcaseBusiness}
-                          title="Store Settings"
-                          description="Store details, categories, pickup, delivery, and operating hours."
+                          title={t("urmall.biz.menu.storeSettingsTitle")}
+                          description={t("urmall.biz.menu.storeSettingsDesc")}
                           onClick={() => openActiveScreen("business")}
                         />
                         <SellerDrawerNavItem
                           icon={ShieldCheck}
-                          title="Business admins"
-                          description="Invite trusted people by KunThai ID and manage their responsibilities."
+                          title={t("urmall.biz.menu.adminsTitle")}
+                          description={t("urmall.biz.menu.adminsDesc")}
                           onClick={() => openActiveScreen("admins")}
                         />
                       </>
@@ -279,47 +281,47 @@ export default function MyBizMenu({
                 ) : null}
 
                 {canManageBusiness ? (
-                  <SellerDrawerSection title="Money & Trust">
+                  <SellerDrawerSection title={t("urmall.biz.menu.sectionMoney")}>
                     <SellerDrawerNavItem
                       icon={CreditCard}
-                      title="Payments & Payouts"
-                      description="Bank details, payout history, transactions, and withdrawals."
+                      title={t("urmall.biz.menu.paymentsTitle")}
+                      description={t("urmall.biz.menu.paymentsDesc")}
                       onClick={() => openActiveScreen("payments")}
                     />
                   </SellerDrawerSection>
                 ) : null}
 
-                <SellerDrawerSection title="Support">
+                <SellerDrawerSection title={t("urmall.biz.menu.sectionSupport")}>
                   <SellerDrawerNavItem
                     icon={BadgeHelp}
-                    title="Help & Support"
-                    description="Contact support, help guides, and seller questions."
+                    title={t("urmall.biz.menu.supportTitle")}
+                    description={t("urmall.biz.menu.supportDesc")}
                     onClick={() => openActiveScreen("support")}
                   />
                   <SellerDrawerNavItem
                     icon={FileText}
-                    title="Privacy & Legal"
-                    description="Privacy policy, terms, data usage, and community guidelines."
+                    title={t("urmall.biz.menu.legalTitle")}
+                    description={t("urmall.biz.menu.legalDesc")}
                     onClick={() => openActiveScreen("legal")}
                   />
                 </SellerDrawerSection>
 
                 {canManageBusiness ? (
-                <SellerDrawerSection title="Danger zone">
+                <SellerDrawerSection title={t("urmall.biz.menu.sectionDanger")}>
                   <SellerDrawerNavItem
                     icon={Trash2}
-                    title="Request account deletion"
-                    description="Ask KunThai admin to review this UrMall business, orders, messages, listings, and deletion request before anything is removed."
+                    title={t("urmall.biz.menu.deleteTitle")}
+                    description={t("urmall.biz.menu.deleteDesc")}
                     onClick={() => {
                       readRegisteredBusiness()
                         .then((business) => {
                           if (!business) {
-                            showToast("No active business workspace was found.", "danger");
+                            showToast(t("urmall.biz.menu.noWorkspace"), "danger");
                             return;
                           }
                           setBusinessToDelete(business);
                         })
-                        .catch(() => showToast("Unable to load this business right now.", "danger"));
+                        .catch(() => showToast(t("urmall.biz.menu.loadBusinessFailed"), "danger"));
                     }}
                   />
                 </SellerDrawerSection>
@@ -341,26 +343,25 @@ export default function MyBizMenu({
           <section
             role="alertdialog"
             aria-modal="true"
-            aria-label="Request business deletion"
+            aria-label={t("urmall.biz.menu.deleteModalAria")}
             className="kt-toast-expand-in w-full max-w-md rounded-[28px] border border-rose-100 bg-white p-6 shadow-2xl"
           >
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-rose-600">
               <Trash2 size={22} />
             </span>
             <h2 className="mt-4 text-2xl font-black text-slate-950">
-              Request deletion for {businessToDelete.identity?.businessName || "this business"}?
+              {t("urmall.biz.menu.deleteConfirm", { name: businessToDelete.identity?.businessName || t("urmall.biz.menu.thisBusiness") })}
             </h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              This sends a review case to KunThai admin. Admins will see this {String(businessToDelete.businessKind || "business").replaceAll("_", " ")}
-              workspace, its messages, orders, bookings, products, listings, and account details before any deletion action is approved.
+              {t("urmall.biz.menu.deleteWarning", { kind: String(businessToDelete.businessKind || "business").replaceAll("_", " ") })}
             </p>
             <label className="mt-4 block">
-              <span className="text-xs font-black uppercase text-slate-500">Reason</span>
+              <span className="text-xs font-black uppercase text-slate-500">{t("urmall.biz.menu.reason")}</span>
               <textarea
                 value={deletionReason}
                 onChange={(event) => setDeletionReason(event.target.value)}
                 rows={4}
-                placeholder="Tell admin why you want this UrMall business deleted"
+                placeholder={t("urmall.biz.menu.reasonPlaceholder")}
                 className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-900 outline-none focus:border-rose-400"
               />
             </label>
@@ -374,7 +375,7 @@ export default function MyBizMenu({
                 }}
                 className="h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 disabled:opacity-50"
               >
-                Keep business
+                {t("urmall.biz.menu.keepBusiness")}
               </button>
               <button
                 type="button"
@@ -383,19 +384,19 @@ export default function MyBizMenu({
                   setRequestingDeletion(true);
                   try {
                     await requestUrMallAccountDeletion(businessToDelete.id, deletionReason);
-                    showToast("Deletion request sent to admin for review.", "success", { title: "Request submitted" });
+                    showToast(t("urmall.biz.menu.deletionSent"), "success", { title: t("urmall.biz.menu.deletionSentTitle") });
                     setBusinessToDelete(null);
                     setDeletionReason("");
                     closeDrawer();
                   } catch (error) {
-                    showToast(error.message || "Unable to request business deletion.", "danger");
+                    showToast(error.message || t("urmall.biz.menu.deletionFailed"), "danger");
                   } finally {
                     setRequestingDeletion(false);
                   }
                 }}
                 className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60"
               >
-                {requestingDeletion ? "Sending..." : "Send request"}
+                {requestingDeletion ? t("urmall.detail.sending") : t("urmall.biz.menu.sendRequest")}
               </button>
             </div>
           </section>

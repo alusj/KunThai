@@ -4,8 +4,10 @@ import {
   formatDocumentRequirementLabel,
   getUrMallDocumentRequirements,
 } from "../../../../../data/globalDocumentRequirements";
+import { useI18n, t } from "../../../../../i18n";
 
 export default function TrustPayoutStep({ registration }) {
+  useI18n();
   const { form, errors, updateSection } = registration;
   const documentRequirements = getUrMallDocumentRequirements({
     country: form.location.country,
@@ -17,9 +19,9 @@ export default function TrustPayoutStep({ registration }) {
       <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="font-black text-blue-950">Seller verification</p>
+            <p className="font-black text-blue-950">{t("urmall.biz.reg.sellerVerification")}</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-blue-800">
-              Upload clear identity or business documents when you have them. You can still submit this UrMall business without documents, but the seller profile will show Not verified until KunThai reviews and approves reliable documents.
+              {t("urmall.biz.reg.verificationHint")}
             </p>
           </div>
         </div>

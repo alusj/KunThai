@@ -18,6 +18,7 @@ import {
   validateCountryPhone,
   GLOBAL_COUNTRY_PROFILES,
 } from "../../../../../data/globalCountryProfiles";
+import { useI18n, t } from "../../../../../i18n";
 
 function toOptionalCoordinate(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -35,6 +36,7 @@ function coordinatesMatch(first, second) {
 }
 
 export default function LocationContactStep({ registration }) {
+  useI18n();
   const {
     form,
     errors,
@@ -91,7 +93,7 @@ export default function LocationContactStep({ registration }) {
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <RegistrationField label="Country" error={errors.country}>
+        <RegistrationField label={t("urmall.biz.settings.country")} error={errors.country}>
           <select
             value={form.location.country}
             onChange={(event) => updateSection("location", { country: event.target.value })}
@@ -103,31 +105,31 @@ export default function LocationContactStep({ registration }) {
             ))}
           </select>
         </RegistrationField>
-        <RegistrationField label="City" error={errors.city}>
+        <RegistrationField label={t("urmall.biz.settings.city")} error={errors.city}>
           <RegistrationInput
             value={form.location.city}
             onChange={(event) => updateSection("location", { city: event.target.value })}
-            placeholder="City"
+            placeholder={t("urmall.biz.settings.city")}
             autoComplete="address-level2"
           />
         </RegistrationField>
       </div>
 
       <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Address 1 of {maxBusinessLocations}</p>
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urmall.biz.reg.addressNofM", { n: 1, max: maxBusinessLocations })}</p>
 
-        <RegistrationField label="Store name">
+        <RegistrationField label={t("urmall.biz.settings.storeName")}>
           <RegistrationInput
-            value={form.location.mainLabel ?? "Main store"}
+            value={form.location.mainLabel ?? t("urmall.biz.reg.mainStore")}
             onChange={(event) => updateSection("location", { mainLabel: event.target.value })}
-            placeholder="Main store"
+            placeholder={t("urmall.biz.reg.mainStore")}
           />
         </RegistrationField>
 
         <RegistrationField
           label={(
             <span className="inline-flex items-center gap-2">
-              Address
+              {t("urmall.biz.reg.address")}
               <AddressAreaStatusIcon status={addressValidation.status} />
             </span>
           )}
@@ -135,7 +137,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.address}
             onChange={(event) => updateSection("location", { address: event.target.value })}
-            placeholder="Business address"
+            placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
             autoComplete="street-address"
           />
         </RegistrationField>
@@ -153,17 +155,17 @@ export default function LocationContactStep({ registration }) {
             onClick={() => locateBusiness("main")}
             className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
           >
-            Locate me
+            {t("urmall.biz.reg.locateMe")}
           </button>
           <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
-            Recommended
+            {t("urmall.biz.reg.recommended")}
           </span>
           <button
             type="button"
             onClick={() => openDropPinPicker("main")}
             className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
           >
-            Drop a pin
+            {t("urmall.biz.reg.dropPin")}
           </button>
         </div>
       </div>
@@ -189,19 +191,19 @@ export default function LocationContactStep({ registration }) {
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-blue-200 bg-white px-4 text-sm font-black text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FiPlus strokeWidth={3} />
-          Add another address
+          {t("urmall.biz.reg.addAddress")}
         </button>
         <p className="text-xs font-bold text-gray-500">
           {addressesFull
-            ? `All ${maxBusinessLocations} store addresses are added. Remove one to add a different location.`
-            : `Own shops in different locations? Add up to ${maxBusinessLocations} addresses so buyers always find your nearest store. ${totalAddresses} of ${maxBusinessLocations} added.`}
+            ? t("urmall.biz.reg.addressesFull", { max: maxBusinessLocations })
+            : t("urmall.biz.reg.addressesHint", { max: maxBusinessLocations, count: totalAddresses })}
         </p>
       </div>
 
       {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <RegistrationField label="Phone number" error={errors.phone}>
+        <RegistrationField label={t("urmall.detail.phoneNumber")} error={errors.phone}>
           <RegistrationInput
             value={form.location.phone}
             onChange={(event) => updateSection("location", { phone: constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }) })}
@@ -212,7 +214,7 @@ export default function LocationContactStep({ registration }) {
             {phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
           </span>
         </RegistrationField>
-        <RegistrationField label="Business email" error={errors.email}>
+        <RegistrationField label={t("urmall.biz.reg.bizEmail")} error={errors.email}>
           <RegistrationInput
             type="email"
             value={form.location.email}
@@ -223,7 +225,7 @@ export default function LocationContactStep({ registration }) {
         </RegistrationField>
       </div>
 
-      <RegistrationField label="Business website">
+      <RegistrationField label={t("urmall.biz.reg.bizWebsite")}>
         <RegistrationInput
           type="url"
           value={form.location.website}
@@ -234,13 +236,13 @@ export default function LocationContactStep({ registration }) {
       </RegistrationField>
 
       <ToggleRow
-        label="Use WhatsApp for buyers"
-        description="Let customers reach this business through WhatsApp."
+        label={t("urmall.biz.reg.useWhatsapp")}
+        description={t("urmall.biz.reg.useWhatsappDesc")}
         checked={form.location.whatsappEnabled}
         onChange={(checked) => updateSection("location", { whatsappEnabled: checked })}
       />
       {form.location.whatsappEnabled ? (
-        <RegistrationField label="WhatsApp number">
+        <RegistrationField label={t("urmall.biz.reg.whatsappNumber")}>
           <RegistrationInput
             value={form.location.whatsapp}
             onChange={(event) => updateSection("location", { whatsapp: constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }) })}
@@ -250,8 +252,8 @@ export default function LocationContactStep({ registration }) {
       ) : null}
 
       <ToggleRow
-        label="Allow my business to be discoverable nearby"
-        description="Show this store to nearby buyers in UrMall discovery."
+        label={t("urmall.biz.reg.discoverable")}
+        description={t("urmall.biz.reg.discoverableDesc")}
         checked={form.location.discoverableNearby}
         onChange={(checked) => updateSection("location", { discoverableNearby: checked })}
       />
@@ -262,7 +264,7 @@ export default function LocationContactStep({ registration }) {
             type="button"
             onClick={locationPromptCollapse.expand}
             className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full border-2 border-gray-300 bg-white/95 text-xl font-black text-gray-950 shadow-2xl backdrop-blur"
-            aria-label="Maximize location confirmation"
+            aria-label={t("urmall.biz.reg.maximizeLocation")}
           >
             <FiChevronUp strokeWidth={3.2} />
           </button>
@@ -280,7 +282,7 @@ export default function LocationContactStep({ registration }) {
           type="button"
           onClick={closeLocationPrompt}
           className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-lg font-black text-gray-700 hover:bg-gray-200"
-          aria-label="Cancel location confirmation"
+          aria-label={t("urmall.biz.reg.cancelLocation")}
         >
           X
         </button>
@@ -288,19 +290,19 @@ export default function LocationContactStep({ registration }) {
           type="button"
           onClick={locationPromptCollapse.collapse}
           className="kt-pressable absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border-2 border-gray-300 bg-white text-lg font-black text-gray-950 shadow-sm"
-          aria-label="Minimize location confirmation"
+          aria-label={t("urmall.biz.reg.minimizeLocation")}
         >
           <FiChevronDown strokeWidth={3.2} />
         </button>
         <div className="pl-12">
-          <p id="biz-location-title" className="text-lg font-black text-gray-950">Confirm business location</p>
+          <p id="biz-location-title" className="text-lg font-black text-gray-950">{t("urmall.biz.reg.confirmLocation")}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-            Be sure you are at the exact location where you want your business to be shown. You can use your current position or drop a pin manually if the address is hard to find.
+            {t("urmall.biz.reg.confirmLocationHint")}
           </p>
         </div>
         {locationCandidate || locating ? (
           <p className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
-            Preparing location tools...
+            {t("urmall.biz.reg.preparingTools")}
           </p>
         ) : null}
         <div className="mt-5 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
@@ -309,17 +311,17 @@ export default function LocationContactStep({ registration }) {
             onClick={openCurrentLocationPicker}
             className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
           >
-            Yes, locate
+            {t("urmall.biz.reg.yesLocate")}
           </button>
           <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
-            Recommended
+            {t("urmall.biz.reg.recommended")}
           </span>
           <button
             type="button"
             onClick={openDropPinPicker}
             className="rounded-xl border border-gray-200 px-4 py-3 text-sm font-black text-gray-700 hover:bg-gray-50"
           >
-            No, drop a pin
+            {t("urmall.biz.reg.noDropPin")}
           </button>
         </div>
       </CenteredModal>
@@ -354,30 +356,30 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
   return (
     <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-black uppercase tracking-wide text-gray-500">Address {index + 2} of {maxBusinessLocations}</p>
+        <p className="text-xs font-black uppercase tracking-wide text-gray-500">{t("urmall.biz.reg.addressNofM", { n: index + 2, max: maxBusinessLocations })}</p>
         <button
           type="button"
           onClick={() => removeBranch(index)}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-black text-red-700 transition hover:bg-red-100"
-          aria-label={`Remove ${branch.label || `address ${index + 2}`}`}
+          aria-label={t("urmall.biz.reg.removeAddressAria", { name: branch.label || t("urmall.biz.reg.addressN", { n: index + 2 }) })}
         >
           <FiTrash2 />
-          Remove
+          {t("urmall.biz.reg.remove")}
         </button>
       </div>
 
-      <RegistrationField label="Store name">
+      <RegistrationField label={t("urmall.biz.settings.storeName")}>
         <RegistrationInput
           value={branch.label}
           onChange={(event) => updateBranch(index, { label: event.target.value })}
-          placeholder="Second branch"
+          placeholder={t("urmall.biz.reg.secondBranch")}
         />
       </RegistrationField>
 
       <RegistrationField
         label={(
           <span className="inline-flex items-center gap-2">
-            Address
+            {t("urmall.biz.reg.address")}
             <AddressAreaStatusIcon status={validation.status} />
           </span>
         )}
@@ -385,7 +387,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         <RegistrationInput
           value={branch.address}
           onChange={(event) => updateBranch(index, { address: event.target.value })}
-          placeholder="Branch address"
+          placeholder={t("urmall.biz.reg.branchAddressPlaceholder")}
           autoComplete="street-address"
         />
       </RegistrationField>
@@ -403,21 +405,21 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
           onClick={() => locateBusiness(index)}
           className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
         >
-          Locate me
+          {t("urmall.biz.reg.locateMe")}
         </button>
         <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
-          Recommended
+          {t("urmall.biz.reg.recommended")}
         </span>
         <button
           type="button"
           onClick={() => openDropPinPicker(index)}
           className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
         >
-          Drop a pin
+          {t("urmall.biz.reg.dropPin")}
         </button>
       </div>
       {branch.coordinates ? (
-        <p className="text-xs font-bold text-emerald-700">Map location pinned for this branch.</p>
+        <p className="text-xs font-bold text-emerald-700">{t("urmall.biz.reg.branchPinned")}</p>
       ) : null}
     </div>
   );

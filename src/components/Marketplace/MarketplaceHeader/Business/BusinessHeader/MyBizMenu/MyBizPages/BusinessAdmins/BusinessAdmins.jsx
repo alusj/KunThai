@@ -12,6 +12,7 @@ import { readRegisteredBusiness } from "../../../../../../../../Backend/services
 import { resolvePublicCode, detectPublicCodeKind } from "../../../../../../../../Backend/services/publicCodeService";
 import { haptics, sounds } from "../../../../../../../../Backend/services/feedbackService";
 import { showToast } from "../../../../../../../../Backend/services/toastService";
+import { useI18n, t } from "../../../../../../../../i18n";
 import AppBackTab from "../../../../../../../shared/AppBackTab";
 
 const STATUS_STYLES = {
@@ -21,6 +22,7 @@ const STATUS_STYLES = {
 };
 
 export default function BusinessAdmins({ onBack }) {
+  useI18n();
   const [business, setBusiness] = useState(null);
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,7 @@ export default function BusinessAdmins({ onBack }) {
           if (alive) setAdmins(rows);
         }
       } catch (error) {
-        showToast(error.message || "Unable to load business admins.", "danger");
+        showToast(error.message || t("urmall.biz.admins.loadFailed"), "danger");
       } finally {
         if (alive) setLoading(false);
       }
@@ -67,23 +69,23 @@ export default function BusinessAdmins({ onBack }) {
       return undefined;
     }
     if (detectPublicCodeKind(code) !== "kunthai") {
-      setLookup({ status: "invalid", name: "", message: "Enter a KunThai ID that starts with KTU." });
+      setLookup({ status: "invalid", name: "", message: t("urmall.biz.admins.invalidId") });
       return undefined;
     }
 
     let alive = true;
-    setLookup({ status: "checking", name: "", message: "Checking this KunThai ID..." });
+    setLookup({ status: "checking", name: "", message: t("urmall.biz.admins.checking") });
     const timer = window.setTimeout(async () => {
       try {
         const result = await resolvePublicCode(code);
         if (!alive) return;
         if (result?.userId) {
-          setLookup({ status: "found", name: result.title || "KunThai member", message: "" });
+          setLookup({ status: "found", name: result.title || t("urmall.biz.admins.memberFallback"), message: "" });
         } else {
-          setLookup({ status: "notFound", name: "", message: "No KunThai account matches this ID." });
+          setLookup({ status: "notFound", name: "", message: t("urmall.biz.admins.notFound") });
         }
       } catch {
-        if (alive) setLookup({ status: "notFound", name: "", message: "Unable to check this ID right now." });
+        if (alive) setLookup({ status: "notFound", name: "", message: t("urmall.biz.admins.checkFailed") });
       }
     }, 450);
 
@@ -115,10 +117,10 @@ export default function BusinessAdmins({ onBack }) {
       setLookup({ status: "idle", name: "", message: "" });
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast("Invitation sent. The person can accept it from their UrMall menu.", "success");
+      showToast(t("urmall.biz.admins.inviteSent"), "success");
       await reloadAdmins();
     } catch (error) {
-      showToast(error.message || "Unable to send this invitation.", "danger");
+      showToast(error.message || t("urmall.biz.admins.inviteFailed"), "danger");
     } finally {
       setInviting(false);
     }
@@ -135,11 +137,11 @@ export default function BusinessAdmins({ onBack }) {
     setSavingResponsibilities(true);
     try {
       await updateAdminResponsibilities(responsibilityAdmin, responsibilityDraft);
-      showToast("Responsibilities updated.", "success");
+      showToast(t("urmall.biz.admins.respUpdated"), "success");
       setResponsibilityAdmin(null);
       await reloadAdmins();
     } catch (error) {
-      showToast(error.message || "Unable to update responsibilities.", "danger");
+      showToast(error.message || t("urmall.biz.admins.respUpdateFailed"), "danger");
     } finally {
       setSavingResponsibilities(false);
     }
@@ -150,10 +152,10 @@ export default function BusinessAdmins({ onBack }) {
     try {
       await removeBusinessAdmin(admin);
       haptics.medium("marketplace");
-      showToast(`${admin.adminName} was removed from this business.`, "success");
+      showToast(t("urmall.biz.admins.removed", { name: admin.adminName }), "success");
       await reloadAdmins();
     } catch (error) {
-      showToast(error.message || "Unable to remove this admin.", "danger");
+      showToast(error.message || t("urmall.biz.admins.removeFailed"), "danger");
     }
   }
 
@@ -161,10 +163,10 @@ export default function BusinessAdmins({ onBack }) {
     <div className="min-h-full bg-gray-50">
       <header className="sticky top-0 z-20 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex items-center gap-3">
-          <AppBackTab onBack={onBack} label="Back to seller menu" historyKey="business-admins" useHistoryLayer={false} />
+          <AppBackTab onBack={onBack} label={t("urmall.biz.admins.backLabel")} historyKey="business-admins" useHistoryLayer={false} />
           <div>
-            <p className="text-xs font-black uppercase text-emerald-700">Team</p>
-            <h1 className="text-lg font-black text-gray-950">Business admins</h1>
+            <p className="text-xs font-black uppercase text-emerald-700">{t("urmall.biz.admins.team")}</p>
+            <h1 className="text-lg font-black text-gray-950">{t("urmall.biz.menu.adminsTitle")}</h1>
           </div>
         </div>
       </header>
@@ -174,10 +176,9 @@ export default function BusinessAdmins({ onBack }) {
           <div className="flex items-start gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><UserPlus size={20} /></span>
             <div className="min-w-0">
-              <h2 className="text-base font-black text-gray-950">Invite an admin</h2>
+              <h2 className="text-base font-black text-gray-950">{t("urmall.biz.admins.inviteTitle")}</h2>
               <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
-                Enter the person's KunThai unique ID (starts with KTU). They find it on their Explore profile.
-                They must accept the invitation before getting any access.
+                {t("urmall.biz.admins.inviteHint")}
               </p>
             </div>
           </div>
@@ -194,7 +195,7 @@ export default function BusinessAdmins({ onBack }) {
               className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white disabled:opacity-50"
             >
               {inviting ? <LoaderCircle size={16} className="animate-spin" /> : <UserPlus size={16} />}
-              Invite
+              {t("urmall.biz.admins.invite")}
             </button>
           </form>
           {lookup.status === "found" ? (
@@ -210,14 +211,14 @@ export default function BusinessAdmins({ onBack }) {
         </section>
 
         <section>
-          <h2 className="px-1 text-xs font-black uppercase tracking-[0.16em] text-gray-500">Current team</h2>
+          <h2 className="px-1 text-xs font-black uppercase tracking-[0.16em] text-gray-500">{t("urmall.biz.admins.currentTeam")}</h2>
           <div className="mt-3 grid gap-3">
             {loading ? (
-              <p className="rounded-2xl border border-gray-200 bg-white p-5 text-sm font-bold text-gray-500">Loading admins...</p>
+              <p className="rounded-2xl border border-gray-200 bg-white p-5 text-sm font-bold text-gray-500">{t("urmall.biz.admins.loading")}</p>
             ) : !admins.length ? (
               <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-center">
                 <ShieldCheck className="mx-auto text-gray-400" />
-                <p className="mt-2 text-sm font-bold text-gray-500">No admins yet. Invite trusted people to help run this store.</p>
+                <p className="mt-2 text-sm font-bold text-gray-500">{t("urmall.biz.admins.empty")}</p>
               </div>
             ) : (
               admins.map((admin) => (
@@ -234,7 +235,7 @@ export default function BusinessAdmins({ onBack }) {
                       type="button"
                       onClick={() => setActionAdmin(admin)}
                       className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gray-100 text-gray-600"
-                      aria-label={`Actions for ${admin.adminName}`}
+                      aria-label={t("urmall.biz.admins.actionsFor", { name: admin.adminName })}
                     >
                       <MoreVertical size={18} />
                     </button>
@@ -247,7 +248,7 @@ export default function BusinessAdmins({ onBack }) {
                         </span>
                       ))}
                       {!ADMIN_RESPONSIBILITIES.some((item) => admin.responsibilities[item.key]) ? (
-                        <span className="text-xs font-bold text-gray-400">No responsibilities assigned yet.</span>
+                        <span className="text-xs font-bold text-gray-400">{t("urmall.biz.admins.noResp")}</span>
                       ) : null}
                     </div>
                   ) : null}
@@ -260,19 +261,19 @@ export default function BusinessAdmins({ onBack }) {
 
       {actionAdmin ? (
         <div className="fixed inset-0 z-[1400]" role="presentation">
-          <button type="button" aria-label="Close admin actions" onClick={() => setActionAdmin(null)} className="absolute inset-0 bg-slate-950/40" />
-          <section role="dialog" aria-modal="true" aria-label={`Actions for ${actionAdmin.adminName}`} className="kt-toast-expand-in absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] mx-auto max-w-sm rounded-[24px] bg-white p-3 shadow-2xl">
+          <button type="button" aria-label={t("urmall.biz.admins.closeActionsOverlay")} onClick={() => setActionAdmin(null)} className="absolute inset-0 bg-slate-950/40" />
+          <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.admins.actionsFor", { name: actionAdmin.adminName })} className="kt-toast-expand-in absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] mx-auto max-w-sm rounded-[24px] bg-white p-3 shadow-2xl">
             <div className="flex items-center justify-between gap-3 px-2 py-1">
               <p className="truncate text-sm font-black text-gray-950">{actionAdmin.adminName}</p>
-              <button type="button" onClick={() => setActionAdmin(null)} className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label="Close actions"><X size={16} /></button>
+              <button type="button" onClick={() => setActionAdmin(null)} className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.admins.closeActions")}><X size={16} /></button>
             </div>
             {actionAdmin.status === "accepted" ? (
               <button type="button" onClick={() => openResponsibilities(actionAdmin)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-black text-gray-700 hover:bg-gray-50">
-                <ShieldCheck size={17} /> Give responsibilities
+                <ShieldCheck size={17} /> {t("urmall.biz.admins.giveResp")}
               </button>
             ) : null}
             <button type="button" onClick={() => removeAdmin(actionAdmin)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-black text-rose-600 hover:bg-rose-50">
-              <Trash2 size={17} /> {actionAdmin.status === "pending" ? "Cancel invitation" : "Remove admin"}
+              <Trash2 size={17} /> {actionAdmin.status === "pending" ? t("urmall.biz.admins.cancelInvite") : t("urmall.biz.admins.removeAdmin")}
             </button>
           </section>
         </div>
@@ -280,10 +281,10 @@ export default function BusinessAdmins({ onBack }) {
 
       {responsibilityAdmin ? (
         <div className="fixed inset-0 z-[1400]" role="presentation">
-          <button type="button" aria-label="Close responsibilities" onClick={() => setResponsibilityAdmin(null)} className="absolute inset-0 bg-slate-950/40" />
-          <section role="dialog" aria-modal="true" aria-label={`Responsibilities for ${responsibilityAdmin.adminName}`} className="kt-toast-expand-in absolute inset-x-4 top-1/2 mx-auto max-w-md -translate-y-1/2 rounded-[26px] bg-white p-5 shadow-2xl">
-            <h2 className="text-lg font-black text-gray-950">Responsibilities</h2>
-            <p className="mt-1 text-sm font-semibold text-gray-500">Choose what {responsibilityAdmin.adminName} can do for this business.</p>
+          <button type="button" aria-label={t("urmall.biz.admins.closeResp")} onClick={() => setResponsibilityAdmin(null)} className="absolute inset-0 bg-slate-950/40" />
+          <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.admins.respFor", { name: responsibilityAdmin.adminName })} className="kt-toast-expand-in absolute inset-x-4 top-1/2 mx-auto max-w-md -translate-y-1/2 rounded-[26px] bg-white p-5 shadow-2xl">
+            <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.admins.respTitle")}</h2>
+            <p className="mt-1 text-sm font-semibold text-gray-500">{t("urmall.biz.admins.respHint", { name: responsibilityAdmin.adminName })}</p>
             <div className="mt-4 grid gap-2">
               {ADMIN_RESPONSIBILITIES.map((item) => {
                 const active = Boolean(responsibilityDraft[item.key]);
@@ -298,17 +299,17 @@ export default function BusinessAdmins({ onBack }) {
                       <Check size={14} />
                     </span>
                     <span>
-                      <span className="block text-sm font-black text-gray-950">{item.label}</span>
-                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">{item.description}</span>
+                      <span className="block text-sm font-black text-gray-950">{t(`urmall.biz.admins.resp.${item.key}Label`)}</span>
+                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">{t(`urmall.biz.admins.resp.${item.key}Desc`)}</span>
                     </span>
                   </button>
                 );
               })}
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setResponsibilityAdmin(null)} className="h-12 rounded-2xl bg-gray-100 text-sm font-black text-gray-700">Cancel</button>
+              <button type="button" onClick={() => setResponsibilityAdmin(null)} className="h-12 rounded-2xl bg-gray-100 text-sm font-black text-gray-700">{t("urmall.biz.admins.cancel")}</button>
               <button type="button" disabled={savingResponsibilities} onClick={saveResponsibilities} className="h-12 rounded-2xl bg-emerald-600 text-sm font-black text-white disabled:opacity-60">
-                {savingResponsibilities ? "Saving..." : "Save"}
+                {savingResponsibilities ? t("urmall.biz.saving") : t("urmall.biz.admins.save")}
               </button>
             </div>
           </section>

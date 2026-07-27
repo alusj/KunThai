@@ -1,10 +1,12 @@
 import { useSellerProducts } from "../../../../../Backend/hooks/useSellerProducts";
+import { useI18n, t } from "../../../../../i18n";
 import EmptyCatalogState from "./EmptyCatalogState";
 import ProductManagementList from "./ProductManagementList";
 import ProductSummaryGrid from "./ProductSummaryGrid";
 import TopSellingProducts from "./TopSellingProducts";
 
 export default function BusinessCatalog({ mode = "store", onEditProduct, onViewProduct }) {
+  useI18n();
   const {
     summary,
     products,
@@ -17,31 +19,31 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onViewP
     loading,
   } = useSellerProducts();
 
-  if (loading || !summary) return <SectionSkeleton title="Loading catalog" />;
+  if (loading || !summary) return <SectionSkeleton title={t("urmall.biz.cat.loadingCatalog")} />;
 
   const storeProducts = products.filter((product) => product.status !== "draft");
   const visibleProducts = mode === "catalog" ? availableProducts : mode === "drafts" ? draftProducts : storeProducts;
-  const title = mode === "catalog" ? "Catalog" : mode === "drafts" ? "Draft" : "Store";
+  const title = mode === "catalog" ? t("urmall.biz.cat.titleCatalog") : mode === "drafts" ? t("urmall.biz.cat.titleDraft") : t("urmall.biz.cat.titleStore");
   const description =
     mode === "catalog"
-      ? "Buyer-facing products that are available and in stock."
+      ? t("urmall.biz.cat.descCatalog")
       : mode === "drafts"
-        ? "Saved products waiting to be finished or published."
-      : "All live store products, including sold out, pending review, paused, and available items.";
+        ? t("urmall.biz.cat.descDrafts")
+      : t("urmall.biz.cat.descStore");
   const emptyState =
     mode === "catalog"
       ? {
-        title: "No catalog products",
-        description: "Publish active products with stock so buyers can see them here.",
+        title: t("urmall.biz.cat.emptyCatalogT"),
+        description: t("urmall.biz.cat.emptyCatalogD"),
       }
       : mode === "drafts"
         ? {
-          title: "No drafts",
-          description: "Draft listings you save for later will appear here.",
+          title: t("urmall.biz.cat.emptyDraftsT"),
+          description: t("urmall.biz.cat.emptyDraftsD"),
         }
         : {
-          title: "No store products",
-          description: "Add your first product to start selling.",
+          title: t("urmall.biz.cat.emptyStoreT"),
+          description: t("urmall.biz.cat.emptyStoreD"),
         };
 
   return (

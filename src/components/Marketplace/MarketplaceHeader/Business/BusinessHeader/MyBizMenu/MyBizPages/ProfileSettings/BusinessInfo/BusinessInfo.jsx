@@ -6,6 +6,7 @@ import {
   readRegisteredBusiness,
   updateRegisteredBusinessProfile,
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 
 const inputClass =
@@ -46,12 +47,13 @@ function SummaryCard({ icon: Icon, label, value }) {
       <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-gray-500">
         {label}
       </p>
-      <p className="mt-1 text-base font-black text-gray-950">{value || "Not added"}</p>
+      <p className="mt-1 text-base font-black text-gray-950">{value || t("urmall.biz.profile.notAdded")}</p>
     </div>
   );
 }
 
 export default function BusinessInfo({ onBack }) {
+  useI18n();
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState(buildForm(null));
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,7 @@ export default function BusinessInfo({ onBack }) {
         setForm(buildForm(nextBusiness));
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || "Unable to load business information.");
+        if (mounted) setError(nextError.message || t("urmall.biz.profile.bizInfoLoadFailed"));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -90,7 +92,7 @@ export default function BusinessInfo({ onBack }) {
     setForm((current) => {
       const exists = current.categories.includes(category);
       if (!exists && current.categories.length >= 5) {
-        setError("Choose up to 5 categories.");
+        setError(t("urmall.biz.settings.max5"));
         return current;
       }
 
@@ -108,11 +110,11 @@ export default function BusinessInfo({ onBack }) {
     const category = form.customCategory.trim();
     if (!category) return;
     if (form.categories.includes(category)) {
-      setError("This category is already selected.");
+      setError(t("urmall.biz.settings.catExists"));
       return;
     }
     if (form.categories.length >= 5) {
-      setError("Remove one category before adding another.");
+      setError(t("urmall.biz.settings.removeBeforeAdd"));
       return;
     }
 
@@ -128,17 +130,17 @@ export default function BusinessInfo({ onBack }) {
     event.preventDefault();
 
     if (!form.categories.length) {
-      setError("Choose at least one business category.");
+      setError(t("urmall.biz.profile.chooseBizCategory"));
       return;
     }
 
     if (!form.city.trim() || !form.country.trim()) {
-      setError("City and country are required.");
+      setError(t("urmall.biz.profile.cityCountryRequired"));
       return;
     }
 
     if (!form.deliveryEnabled && !form.pickupEnabled) {
-      setError("Enable delivery, pickup, or both.");
+      setError(t("urmall.biz.settings.enableDeliveryPickup"));
       return;
     }
 
@@ -166,9 +168,9 @@ export default function BusinessInfo({ onBack }) {
       });
       setBusiness(updated);
       setForm(buildForm(updated));
-      setStatus("Business information updated successfully.");
+      setStatus(t("urmall.biz.profile.bizInfoUpdated"));
     } catch (nextError) {
-      setError(nextError.message || "Unable to update business information.");
+      setError(nextError.message || t("urmall.biz.profile.bizInfoUpdateFailed"));
     } finally {
       setSaving(false);
     }
@@ -176,36 +178,36 @@ export default function BusinessInfo({ onBack }) {
 
   return (
     <>
-      <SellerMenuPageHeader title="Business Information" eyebrow="Store Identity" onBack={onBack} />
+      <SellerMenuPageHeader title={t("urmall.biz.profile.bizInfoTitle")} eyebrow={t("urmall.biz.profile.storeIdentity")} onBack={onBack} />
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         {loading ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 text-sm font-bold text-gray-500">
-          Loading business information...
+          {t("urmall.biz.profile.loadingBizInfo")}
         </div>
       ) : (
         <form onSubmit={saveBusinessInfo} className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <SummaryCard
               icon={Building2}
-              label="Business"
+              label={t("urmall.biz.profile.summaryBusiness")}
               value={business?.identity?.businessName}
             />
             <SummaryCard
               icon={MapPin}
-              label="Location"
+              label={t("urmall.biz.profile.summaryLocation")}
               value={[form.city, form.country].filter(Boolean).join(", ")}
             />
             <SummaryCard
               icon={PackageCheck}
-              label="Fulfillment"
+              label={t("urmall.biz.profile.summaryFulfillment")}
               value={[
-                form.deliveryEnabled ? "Delivery" : "",
-                form.pickupEnabled ? "Pickup" : "",
-              ].filter(Boolean).join(" and ")}
+                form.deliveryEnabled ? t("urmall.browse.deliveryChip") : "",
+                form.pickupEnabled ? t("urmall.browse.pickupChip") : "",
+              ].filter(Boolean).join(t("urmall.biz.profile.andJoin"))}
             />
             <SummaryCard
               icon={Clock3}
-              label="Hours"
+              label={t("urmall.biz.profile.summaryHours")}
               value={`${form.openTime || "--:--"} - ${form.closeTime || "--:--"}`}
             />
           </div>
@@ -213,13 +215,13 @@ export default function BusinessInfo({ onBack }) {
           <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-black text-gray-950">Business categories</h2>
+                <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.profile.bizCategories")}</h2>
                 <p className="mt-1 text-sm font-semibold text-gray-500">
-                  Pick up to 5 categories so buyers can find your store.
+                  {t("urmall.biz.profile.bizCategoriesHint")}
                 </p>
               </div>
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-700">
-                {form.categories.length}/5 selected
+                {t("urmall.biz.settings.nOf5", { count: form.categories.length })}
               </span>
             </div>
 
@@ -247,7 +249,7 @@ export default function BusinessInfo({ onBack }) {
               <input
                 className={inputClass}
                 value={form.customCategory}
-                placeholder="Add another category"
+                placeholder={t("urmall.biz.profile.addAnotherCat")}
                 onChange={(event) => updateField("customCategory", event.target.value)}
               />
               <button
@@ -255,27 +257,27 @@ export default function BusinessInfo({ onBack }) {
                 onClick={addCustomCategory}
                 className="mt-2 rounded-xl border border-gray-950 px-5 py-3 text-sm font-black text-gray-950 transition hover:bg-gray-950 hover:text-white"
               >
-                Add category
+                {t("urmall.biz.profile.addCategory")}
               </button>
             </div>
           </section>
 
           <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-              <h2 className="text-lg font-black text-gray-950">Store location</h2>
+              <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.profile.storeLocation")}</h2>
               <p className="mt-1 text-sm font-semibold text-gray-500">
-                Keep this accurate for nearby discovery, delivery, and pickup.
+                {t("urmall.biz.profile.storeLocationHint")}
               </p>
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <Field label="Country">
+                <Field label={t("urmall.biz.settings.country")}>
                   <input
                     className={inputClass}
                     value={form.country}
                     onChange={(event) => updateField("country", event.target.value)}
                   />
                 </Field>
-                <Field label="City">
+                <Field label={t("urmall.biz.settings.city")}>
                   <input
                     className={inputClass}
                     value={form.city}
@@ -283,7 +285,7 @@ export default function BusinessInfo({ onBack }) {
                   />
                 </Field>
                 <div className="md:col-span-2">
-                  <Field label="Store address">
+                  <Field label={t("urmall.biz.settings.storeAddress")}>
                     <textarea
                       className={`${inputClass} min-h-28 resize-y`}
                       value={form.address}
@@ -295,9 +297,9 @@ export default function BusinessInfo({ onBack }) {
 
               <label className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                 <span>
-                  <span className="block text-sm font-black text-gray-950">Nearby discovery</span>
+                  <span className="block text-sm font-black text-gray-950">{t("urmall.biz.settings.nearbyDiscovery")}</span>
                   <span className="text-xs font-semibold text-gray-500">
-                    Let buyers find this store around their location
+                    {t("urmall.biz.profile.nearbyHint")}
                   </span>
                 </span>
                 <input
@@ -310,27 +312,27 @@ export default function BusinessInfo({ onBack }) {
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-              <h2 className="text-lg font-black text-gray-950">Operations</h2>
+              <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.profile.operations")}</h2>
               <p className="mt-1 text-sm font-semibold text-gray-500">
-                Control how buyers can receive their orders.
+                {t("urmall.biz.profile.operationsHint")}
               </p>
 
               <div className="mt-5 space-y-4">
-                <Field label="Business type">
+                <Field label={t("urmall.biz.settings.businessType")}>
                   <select
                     className={inputClass}
                     value={form.businessType}
                     onChange={(event) => updateField("businessType", event.target.value)}
                   >
-                    <option value="both">Online and physical store</option>
-                    <option value="online">Online only</option>
-                    <option value="physical">Physical store only</option>
+                    <option value="both">{t("urmall.biz.settings.typeBoth")}</option>
+                    <option value="online">{t("urmall.biz.settings.typeOnline")}</option>
+                    <option value="physical">{t("urmall.biz.settings.typePhysical")}</option>
                   </select>
                 </Field>
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                   <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                    <span className="text-sm font-black text-gray-950">Delivery</span>
+                    <span className="text-sm font-black text-gray-950">{t("urmall.browse.deliveryChip")}</span>
                     <input
                       type="checkbox"
                       checked={form.deliveryEnabled}
@@ -339,7 +341,7 @@ export default function BusinessInfo({ onBack }) {
                     />
                   </label>
                   <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                    <span className="text-sm font-black text-gray-950">Pickup</span>
+                    <span className="text-sm font-black text-gray-950">{t("urmall.browse.pickupChip")}</span>
                     <input
                       type="checkbox"
                       checked={form.pickupEnabled}
@@ -350,7 +352,7 @@ export default function BusinessInfo({ onBack }) {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Open time">
+                  <Field label={t("urmall.biz.settings.openTime")}>
                     <input
                       type="time"
                       className={inputClass}
@@ -358,7 +360,7 @@ export default function BusinessInfo({ onBack }) {
                       onChange={(event) => updateField("openTime", event.target.value)}
                     />
                   </Field>
-                  <Field label="Close time">
+                  <Field label={t("urmall.biz.settings.closeTime")}>
                     <input
                       type="time"
                       className={inputClass}
@@ -389,7 +391,7 @@ export default function BusinessInfo({ onBack }) {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-gray-950/15 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <Save size={18} />
-              {saving ? "Saving..." : "Save business information"}
+              {saving ? t("urmall.biz.saving") : t("urmall.biz.profile.saveBizInfo")}
             </button>
           </div>
         </form>

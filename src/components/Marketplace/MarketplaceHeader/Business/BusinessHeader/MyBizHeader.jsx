@@ -1,10 +1,12 @@
 import { useSellerHeader } from "../../../../../Backend/hooks/useSellerHeader";
+import { useI18n, t } from "../../../../../i18n";
 import SellerHeaderActions from "./SellerHeaderActions";
 import SellerHeaderTitle from "./SellerHeaderTitle";
 import SellerSearch from "./SellerSearch";
 import BusinessSwitcher from "./BusinessSwitcher";
 
-export default function MyBizHeader({ activeBusinessId, businesses, onAddBusiness, onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu, onSwitchBusiness, primaryActionLabel = "Add Product", showOrders = true, showAddProduct = true, showMessages = true }) {
+export default function MyBizHeader({ activeBusinessId, businesses, onAddBusiness, onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu, onSwitchBusiness, primaryActionLabel = t("urmall.biz.header.addProduct"), showOrders = true, showAddProduct = true, showMessages = true }) {
+  useI18n();
   const sellerHeader = useSellerHeader();
 
   return (

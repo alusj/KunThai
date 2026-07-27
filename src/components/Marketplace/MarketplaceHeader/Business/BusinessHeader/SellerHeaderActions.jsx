@@ -1,5 +1,6 @@
 import { Bell, Menu, MessageSquare, PackageCheck, Plus } from "lucide-react";
 
+import { useI18n, t } from "../../../../../i18n";
 import HeaderActionButton from "./HeaderActionButton";
 
 export default function SellerHeaderActions({
@@ -11,11 +12,12 @@ export default function SellerHeaderActions({
   onMessages,
   onAlerts,
   onMenu,
-  primaryActionLabel = "Add Product",
+  primaryActionLabel = t("urmall.biz.header.addProduct"),
   showOrders = true,
   showAddProduct = true,
   showMessages = true,
 }) {
+  useI18n();
   const hasNotifications = Number(notificationCount || 0) > 0;
 
   return (
@@ -31,7 +33,7 @@ export default function SellerHeaderActions({
       {showOrders ?
         <HeaderActionButton
           icon={PackageCheck}
-          label="Orders"
+          label={t("urmall.biz.header.orders")}
           badge={orderCount}
           onClick={onOrders}
         />
@@ -39,7 +41,7 @@ export default function SellerHeaderActions({
       {showMessages ?
         <HeaderActionButton
           icon={MessageSquare}
-          label="Messages"
+          label={t("urmall.biz.header.messages")}
           badge={messageCount}
           onClick={onMessages}
         />
@@ -47,7 +49,7 @@ export default function SellerHeaderActions({
       {hasNotifications ? (
           <HeaderActionButton
             icon={Bell}
-            label="Alerts"
+            label={t("urmall.biz.header.alerts")}
             badge={notificationCount}
             onClick={onAlerts}
           />
@@ -56,8 +58,8 @@ export default function SellerHeaderActions({
         type="button"
         onClick={onMenu}
         className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
-        aria-label="Open menu"
-        title="Menu"
+        aria-label={t("urmall.biz.header.openMenu")}
+        title={t("urmall.biz.header.menu")}
       >
         <Menu size={20} strokeWidth={2.3} />
       </button>

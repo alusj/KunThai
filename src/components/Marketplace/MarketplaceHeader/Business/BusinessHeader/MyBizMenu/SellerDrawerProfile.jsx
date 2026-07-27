@@ -1,31 +1,33 @@
 import { AlertTriangle, BadgeCheck, ChevronRight, Clock, Store } from "lucide-react";
 
 import { useSellerOverview } from "../../../../../../Backend/hooks/useSellerOverview";
+import { useI18n, t } from "../../../../../../i18n";
 
 function getVerificationTone(status, verified) {
   const value = String(status || "").toLowerCase();
   if (verified || ["verified", "recommended"].includes(value)) {
     return {
       icon: BadgeCheck,
-      label: "Verified",
+      label: t("urmall.verification.verifiedLabel"),
       className: "border-emerald-300/30 bg-emerald-400/15 text-emerald-100",
     };
   }
   if (["pending", "submitted", "under_review", "pending_review", "in_review"].includes(value)) {
     return {
       icon: Clock,
-      label: "Verification pending",
+      label: t("urmall.biz.menu.verificationPending"),
       className: "border-amber-300/30 bg-amber-300/15 text-amber-100",
     };
   }
   return {
     icon: AlertTriangle,
-    label: "Not verified",
+    label: t("urmall.verification.notVerifiedLabel"),
     className: "border-red-300/30 bg-red-400/15 text-red-100",
   };
 }
 
 export default function SellerDrawerProfile({ onOpenProfile }) {
+  useI18n();
   const { business, health, storeStatus, loading } = useSellerOverview();
 
   if (loading) return null;
@@ -34,7 +36,7 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
     return null;
   }
 
-  const statusLabel = storeStatus?.open ? "Store open" : "Store closed";
+  const statusLabel = storeStatus?.open ? t("urmall.biz.menu.storeOpen") : t("urmall.biz.menu.storeClosed");
   const verification = getVerificationTone(business.verificationStatus, business.verified);
   const VerificationIcon = verification.icon;
 
@@ -65,7 +67,7 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
             ) : null}
           </div>
           <p className="mt-1 truncate text-sm font-semibold text-white/70">
-            {business.category || "Business profile"}
+            {business.category || t("urmall.biz.menu.businessProfile")}
           </p>
           <p className="mt-1 truncate text-xs font-semibold text-white/55">
             {business.location || statusLabel}
@@ -84,7 +86,7 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
           {statusLabel}
         </span>
         <span className="rounded-lg bg-white/10 px-3 py-2">
-          {health?.score ?? 0}% ready
+          {t("urmall.biz.menu.percentReady", { score: health?.score ?? 0 })}
         </span>
       </div>
     </button>

@@ -1,6 +1,7 @@
 import { Clock3, Layers3, Store } from "lucide-react";
 import { useState } from "react";
 
+import { useI18n, t } from "../../../../../../../../i18n";
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
 import SellerSubPagePanel from "../SellerSubPagePanel";
 import SettingsSubMenuItem from "../SettingsSubMenuItem";
@@ -9,28 +10,29 @@ import OperatingHours from "./OperatingHours/OperatingHours";
 import StoreDetails from "./StoreDetails/StoreDetails";
 
 export default function BusinessSettings({ onBack }) {
+  useI18n();
   const [currentView, setCurrentView] = useState("menu");
 
   return (
     <div className="relative min-h-full bg-white">
-      <SellerMenuPageHeader title="Store Settings" onBack={onBack} />
+      <SellerMenuPageHeader title={t("urmall.biz.menu.storeSettingsTitle")} onBack={onBack} />
       <div className="space-y-3 px-4 py-4 sm:px-6 lg:px-8">
         <SettingsSubMenuItem
           icon={Store}
-          title="Store Details"
-          description="Edit address, contacts, delivery, pickup, and public store info."
+          title={t("urmall.biz.settings.storeDetailsTitle")}
+          description={t("urmall.biz.settings.storeDetailsDesc")}
           onClick={() => setCurrentView("details")}
         />
         <SettingsSubMenuItem
           icon={Layers3}
-          title="Product Categories"
-          description="Manage the categories that define what your business sells."
+          title={t("urmall.biz.settings.categoriesTitle")}
+          description={t("urmall.biz.settings.categoriesDesc")}
           onClick={() => setCurrentView("categories")}
         />
         <SettingsSubMenuItem
           icon={Clock3}
-          title="Operating Hours"
-          description="Set business opening days and customer service hours."
+          title={t("urmall.biz.settings.hoursTitle")}
+          description={t("urmall.biz.settings.hoursDesc")}
           onClick={() => setCurrentView("hours")}
         />
       </div>

@@ -84,6 +84,60 @@ const NAV_MOVEMENT_SETTINGS = {
   etaPlaceholder: "Move to start ETA",
 };
 
+// Route-snapping keeps the moving icon riding the drawn route line instead of
+// jittering beside it. When the traveller is within this tolerance of the
+// route (after discounting GPS uncertainty), the marker is displayed on the
+// nearest point of the line.
+const NAV_SNAP_SETTINGS = {
+  snapMeters: 42,
+  accuracyDiscount: 0.5,
+  // How firmly the map bearing eases toward the travel direction each frame.
+  bearingSmoothing: 0.18,
+};
+
+// Nearest point ON a route segment to the traveller, plus the perpendicular
+// distance to it. Used both to snap the marker and to judge "on route".
+function projectPointOntoRouteSegment(position, startCoord, endCoord) {
+  const start = normalizeRoutePoint(startCoord);
+  const end = normalizeRoutePoint(endCoord);
+  const p = projectToMeters(position, position);
+  const a = projectToMeters(start, position);
+  const b = projectToMeters(end, position);
+
+  const segmentX = b.x - a.x;
+  const segmentY = b.y - a.y;
+  const lengthSquared = segmentX * segmentX + segmentY * segmentY;
+
+  if (!lengthSquared) return { point: start, distance: distanceInMeters(position, start) };
+
+  const rawProjection = ((p.x - a.x) * segmentX + (p.y - a.y) * segmentY) / lengthSquared;
+  const t = Math.max(0, Math.min(1, rawProjection));
+  const point = { lat: lerp(start.lat, end.lat, t), lng: lerp(start.lng, end.lng, t) };
+  return { point, distance: distanceInMeters(position, point) };
+}
+
+function getNearestPointOnRoute(position, coordinates = []) {
+  if (!position || coordinates.length < 2) return null;
+
+  let best = null;
+  for (let index = 0; index < coordinates.length - 1; index += 1) {
+    const projection = projectPointOntoRouteSegment(position, coordinates[index], coordinates[index + 1]);
+    if (!best || projection.distance < best.distance) {
+      best = { ...projection, segmentIndex: index };
+    }
+  }
+
+  return best;
+}
+
+// Shortest angular ease from one bearing to another, handling the 360/0 wrap.
+function smoothBearing(current, target, amount) {
+  if (!Number.isFinite(current)) return target;
+  if (!Number.isFinite(target)) return current;
+  let delta = ((target - current + 540) % 360) - 180;
+  return normalizeBearing(current + delta * amount);
+}
+
 // Remaining route distance from the traveller's live position to the
 // destination, following the drawn route rather than a straight line. This is
 // what makes the direction card count down as the user progresses.
@@ -699,27 +753,11 @@ function getNextRouteBearing(position, coordinates = [], segmentIndex = 0) {
   return bearingBetweenPoints(position, target);
 }
 
-function getRouteLookAheadPoint(coordinates = [], segmentIndex = 0, destination = null) {
-  if (coordinates.length >= 2) {
-    const safeIndex = Math.max(0, Math.min(segmentIndex, coordinates.length - 2));
-    const lookAheadIndex = Math.max(safeIndex + 1, Math.min(safeIndex + 7, coordinates.length - 1));
-    return normalizeRoutePoint(coordinates[lookAheadIndex]);
-  }
-
-  return destination?.lat && destination?.lng ? destination : null;
-}
-
-function getSmartCameraCenter(position, destination, coordinates = [], segmentIndex = 0, mode = "smart") {
-  if (!position) return null;
-  if (mode !== "smart") return position;
-
-  const lookAhead = getRouteLookAheadPoint(coordinates, segmentIndex, destination);
-  if (!lookAhead) return position;
-
-  return {
-    lat: lerp(position.lat, lookAhead.lat, 0.38),
-    lng: lerp(position.lng, lookAhead.lng, 0.38),
-  };
+function getSmartCameraCenter(position) {
+  // The traveller stays at the viewport centre; the map (and the road ahead)
+  // moves underneath. The look-ahead is still used for the camera *bearing*,
+  // just not to offset the centre away from the marker.
+  return position || null;
 }
 
 function getTrafficLevel(route, routeStatusKey) {
@@ -1508,6 +1546,10 @@ export default function NearbyAreaMap({
   const hasStartedMovingRef = useRef(false);
   const lastProgressUiAtRef = useRef(0);
   const mapEverLoadedRef = useRef(false);
+  // When true, the camera keeps the traveller pinned to the viewport centre and
+  // the map slides underneath. A manual pan releases the lock; the recenter
+  // button (recenterSignal) re-engages it.
+  const followLockRef = useRef(true);
 
   const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
   const [deviceLocationState, setDeviceLocationState] = useState("checking");
@@ -1743,6 +1785,25 @@ export default function NearbyAreaMap({
     });
   }
 
+  // Per-frame follow used during live movement: keeps the marker locked to the
+  // viewport centre (map pans underneath) and eases the map bearing toward the
+  // travel direction. Runs off the marker animation frames so the centring is
+  // as smooth as the marker itself, with no easeTo/setCenter tug-of-war.
+  function applyFollowFrame(renderedPosition, destination = selectedLocation) {
+    const map = mapRef.current;
+    if (!map || !renderedPosition || !smartCameraRef.current) return;
+    if (!followLockRef.current || isUserInteractingRef.current) return;
+    if (hasOperatorRoutePlan) return;
+
+    map.setCenter([renderedPosition.lng, renderedPosition.lat]);
+
+    if (canUseHeading) {
+      const targetBearing = getCameraBearing(renderedPosition, destination);
+      const nextBearing = smoothBearing(map.getBearing(), targetBearing, NAV_SNAP_SETTINGS.bearingSmoothing);
+      if (Number.isFinite(nextBearing)) map.setBearing(nextBearing);
+    }
+  }
+
   async function requestCompassPermissionIfNeeded() {
     try {
       const orientation = window.DeviceOrientationEvent;
@@ -1944,6 +2005,9 @@ export default function NearbyAreaMap({
       if (!event?.originalEvent) return;
       if (userInteractionIdleTimerRef.current) window.clearTimeout(userInteractionIdleTimerRef.current);
       isUserInteractingRef.current = true;
+      // A manual pan means the traveller wants to look around: release the
+      // centre-lock until they tap recenter. Zoom/rotate/pitch keep following.
+      if (event.type === "dragstart") followLockRef.current = false;
       onMapInteractionStartRef.current?.({ type: event.type });
     };
 
@@ -2237,6 +2301,8 @@ export default function NearbyAreaMap({
   useEffect(() => {
     const current = markerRenderedPositionRef.current || smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
 
+    // Tapping recenter re-locks the camera to the traveller.
+    followLockRef.current = true;
     applySmartCamera(current, selectedLocation, lastRouteSegmentIndexRef.current, { force: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recenter should run only when the user taps the recenter button.
   }, [recenterSignal]);
@@ -2382,11 +2448,13 @@ export default function NearbyAreaMap({
       lastRouteSegmentIndexRef.current = 0;
       arrivalReachedRef.current = false;
       // A fresh route means a fresh trip: the ETA stays hidden until the
-      // traveller actually starts moving again.
+      // traveller actually starts moving again, and the camera re-locks to
+      // keep them centred.
       hasStartedMovingRef.current = false;
       lastMovingSpeedRef.current = 0;
       liveSpeedRef.current = 0;
       lastProgressUiAtRef.current = 0;
+      followLockRef.current = true;
 
       pickupMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
@@ -2596,6 +2664,22 @@ export default function NearbyAreaMap({
         );
         userLocationRef.current = livePosition;
         publishLocationToParent(livePosition);
+
+        // Snap the DISPLAYED marker to the route line when the traveller is on
+        // it (within GPS error), so the icon rides the route instead of
+        // drifting beside it. The true position still drives logic below.
+        const routeCoordinates = routeCoordinatesRef.current;
+        const nearestOnRoute = routeCoordinates.length
+          ? getNearestPointOnRoute(livePosition, routeCoordinates)
+          : null;
+        const effectiveRouteDistance = nearestOnRoute
+          ? Math.max(0, nearestOnRoute.distance - accuracy * NAV_SNAP_SETTINGS.accuracyDiscount)
+          : Infinity;
+        const shouldSnapToRoute = nearestOnRoute != null && effectiveRouteDistance <= NAV_SNAP_SETTINGS.snapMeters;
+        const markerTarget = shouldSnapToRoute
+          ? { ...livePosition, lat: nearestOnRoute.point.lat, lng: nearestOnRoute.point.lng }
+          : livePosition;
+
         const markerStartPosition =
           markerRenderedPositionRef.current ||
           getMarkerPosition(userMarkerRef.current, previousSmoothedPosition) ||
@@ -2605,21 +2689,23 @@ export default function NearbyAreaMap({
         markerAnimationCancelRef.current = animateMarkerTo(
           userMarkerRef.current,
           markerStartPosition,
-          livePosition,
+          markerTarget,
           GPS_SETTINGS.animationMs,
           (renderedPosition) => {
             markerRenderedPositionRef.current = renderedPosition;
+            // Keep the traveller pinned to the viewport centre; the map slides
+            // underneath as the marker animates.
+            applyFollowFrame(renderedPosition, selectedLocation);
           },
         );
 
         smoothedPositionRef.current = livePosition;
 
-        if (!hasOperatorRoutePlan && (focusMode || headingMode !== "north") && !isUserInteractingRef.current) {
-          applySmartCamera(livePosition, selectedLocation);
-        }
-
-        if (routeCoordinatesRef.current.length) {
-          const nearestRouteInfo = getNearestRouteInfo(livePosition, routeCoordinatesRef.current);
+        if (routeCoordinates.length) {
+          const nearestRouteInfo = {
+            distance: nearestOnRoute?.distance ?? Infinity,
+            segmentIndex: nearestOnRoute?.segmentIndex ?? 0,
+          };
           const distanceToDestination = selectedLocation?.lat
             ? distanceInMeters(livePosition, selectedLocation)
             : Infinity;
@@ -2665,7 +2751,9 @@ export default function NearbyAreaMap({
             );
           }
 
-          const nextStatusKey = getRouteStatus(nearestRouteInfo.distance, isMovingBackward);
+          // Judge "off route" on the GPS-uncertainty-discounted distance so a
+          // noisy fix on the exact route is not wrongly flagged as off-route.
+          const nextStatusKey = getRouteStatus(effectiveRouteDistance, isMovingBackward);
 
           if (nextStatusKey !== routeStatusRef.current) {
             routeStatusRef.current = nextStatusKey;
@@ -2676,10 +2764,10 @@ export default function NearbyAreaMap({
             }
           }
 
-          if (nextStatusKey === "correct" || nearestRouteInfo.distance <= GPS_SETTINGS.warningRouteMeters) {
+          if (nextStatusKey === "correct" || effectiveRouteDistance <= GPS_SETTINGS.warningRouteMeters) {
             clearPendingReroute();
-          } else if (nearestRouteInfo.distance >= GPS_SETTINGS.rerouteRouteMeters) {
-            scheduleRerouteFrom(livePosition, nearestRouteInfo.distance);
+          } else if (effectiveRouteDistance >= GPS_SETTINGS.rerouteRouteMeters) {
+            scheduleRerouteFrom(livePosition, effectiveRouteDistance);
           }
 
           setRouteLineColor(mapRef.current, ROUTE_STATUS[nextStatusKey].color);
@@ -2697,9 +2785,8 @@ export default function NearbyAreaMap({
             return next.label === current?.label ? current : next;
           });
           evaluateTrafficAhead();
-          if (!hasOperatorRoutePlan) {
-            applySmartCamera(livePosition, selectedLocation, nearestRouteInfo.segmentIndex);
-          }
+          // Centring is handled continuously by applyFollowFrame off the
+          // marker animation, so no throttled camera nudge is needed here.
         }
       },
       () => {

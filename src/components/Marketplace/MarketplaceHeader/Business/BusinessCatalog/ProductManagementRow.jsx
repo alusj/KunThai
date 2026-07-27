@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../../i18n";
 import AppPortal from "../../../../shared/AppPortal";
 import ProductStatusBadge from "./ProductStatusBadge";
 
@@ -25,6 +26,7 @@ const PRODUCT_MENU_ROW_HEIGHT = 48;
 const PRODUCT_MENU_VERTICAL_PADDING = 12;
 
 export default function ProductManagementRow({ product, onAction, onViewProduct, mode = "store" }) {
+  useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ left: PRODUCT_MENU_MARGIN, top: PRODUCT_MENU_MARGIN, maxHeight: 320 });
@@ -37,9 +39,9 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
   const primaryImage = product.mainImageUrl || product.imageUrls?.[0] || "";
   const detailSummary = [
     product.category,
-    product.sku ? `SKU ${product.sku}` : "",
-    product.deliveryAvailable ? "Delivery" : "",
-    product.pickupAvailable ? "Pickup" : "",
+    product.sku ? t("urmall.biz.cat.skuLabel", { sku: product.sku }) : "",
+    product.deliveryAvailable ? t("urmall.browse.deliveryChip") : "",
+    product.pickupAvailable ? t("urmall.browse.pickupChip") : "",
   ].filter(Boolean).join(" - ");
   const menuActionCount = isDraft
     ? 4
@@ -187,9 +189,9 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
         ) : null}
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Metric label="Price" value={formatCurrency(product.price)} />
-          <Metric label="Stock" value={product.stock} />
-          <Metric label="Sales" value={product.sales} />
+          <Metric label={t("urmall.biz.cat.price")} value={formatCurrency(product.price)} />
+          <Metric label={t("urmall.biz.cat.stock")} value={product.stock} />
+          <Metric label={t("urmall.biz.cat.sales")} value={product.sales} />
         </div>
       </div>
 
@@ -199,7 +201,7 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
           type="button"
           aria-expanded={menuOpen}
           aria-haspopup="menu"
-          aria-label={`Open actions for ${product.name}`}
+          aria-label={t("urmall.biz.cat.openActions", { name: product.name })}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={toggleMenu}
           className="kt-touchable flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
@@ -211,7 +213,7 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
           <AppPortal>
             <button
               type="button"
-              aria-label="Close product actions"
+              aria-label={t("urmall.biz.cat.closeActions")}
               className="fixed inset-0 z-[1380] cursor-default bg-transparent"
               onPointerDown={(event) => {
                 event.preventDefault();
@@ -239,29 +241,29 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
             >
               {isDraft ? (
                 <>
-                  <MenuAction icon={Eye} label="View draft" onClick={() => runAction("view-product")} />
-                  <MenuAction icon={Pencil} label="Edit listing" onClick={() => runAction("edit-listing")} />
-                  <MenuAction icon={Upload} label="Publish" onClick={() => runAction("publish")} />
-                  <MenuAction icon={Trash2} label="Delete" tone="danger" onClick={() => runAction("delete")} />
+                  <MenuAction icon={Eye} label={t("urmall.biz.cat.viewDraft")} onClick={() => runAction("view-product")} />
+                  <MenuAction icon={Pencil} label={t("urmall.biz.cat.editListing")} onClick={() => runAction("edit-listing")} />
+                  <MenuAction icon={Upload} label={t("urmall.biz.cat.publish")} onClick={() => runAction("publish")} />
+                  <MenuAction icon={Trash2} label={t("urmall.biz.cat.delete")} tone="danger" onClick={() => runAction("delete")} />
                 </>
               ) : (
                 <>
-                  <MenuAction icon={Eye} label="View product" onClick={() => runAction("view-product")} />
+                  <MenuAction icon={Eye} label={t("urmall.biz.cat.viewProduct")} onClick={() => runAction("view-product")} />
                   {isCatalog ? (
-                    <MenuAction icon={Share2} label="Share product link" onClick={() => runAction("share")} />
+                    <MenuAction icon={Share2} label={t("urmall.biz.cat.shareLink")} onClick={() => runAction("share")} />
                   ) : null}
                   {needsRestock ? (
-                    <MenuAction icon={RotateCcw} label="Restock" onClick={() => runAction("restock")} />
+                    <MenuAction icon={RotateCcw} label={t("urmall.biz.cat.restock")} onClick={() => runAction("restock")} />
                   ) : null}
-                  <MenuAction icon={Pencil} label="Edit listing" onClick={() => runAction("edit-listing")} />
-                  <MenuAction icon={Megaphone} label="Promote" onClick={() => runAction("promote")} />
+                  <MenuAction icon={Pencil} label={t("urmall.biz.cat.editListing")} onClick={() => runAction("edit-listing")} />
+                  <MenuAction icon={Megaphone} label={t("urmall.biz.cat.promote")} onClick={() => runAction("promote")} />
                   <MenuAction
                     icon={product.status === "paused" ? PlayCircle : PauseCircle}
-                    label={product.status === "paused" ? "Resume" : "Pause"}
+                    label={product.status === "paused" ? t("urmall.biz.cat.resume") : t("urmall.biz.cat.pause")}
                     onClick={() => runAction("pause")}
                   />
                   {!isCatalog ? (
-                    <MenuAction icon={Trash2} label="Delete" tone="danger" onClick={() => runAction("delete")} />
+                    <MenuAction icon={Trash2} label={t("urmall.biz.cat.delete")} tone="danger" onClick={() => runAction("delete")} />
                   ) : null}
                 </>
               )}

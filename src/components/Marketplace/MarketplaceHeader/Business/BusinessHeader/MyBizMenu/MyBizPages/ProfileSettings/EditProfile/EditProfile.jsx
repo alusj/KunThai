@@ -5,6 +5,7 @@ import {
   readRegisteredBusiness,
   updateRegisteredBusinessProfile,
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 
 const inputClass =
@@ -35,6 +36,7 @@ function buildForm(business) {
 }
 
 export default function EditProfile({ onBack }) {
+  useI18n();
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState(buildForm(null));
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,7 @@ export default function EditProfile({ onBack }) {
         setForm(buildForm(nextBusiness));
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || "Unable to load seller profile.");
+        if (mounted) setError(nextError.message || t("urmall.seller.loadProfileFailed"));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -73,12 +75,12 @@ export default function EditProfile({ onBack }) {
     event.preventDefault();
 
     if (!form.businessName.trim()) {
-      setError("Business name is required.");
+      setError(t("urmall.biz.profile.nameRequired"));
       return;
     }
 
     if (!form.phone.trim() || !form.email.trim()) {
-      setError("Phone number and email are required.");
+      setError(t("urmall.biz.profile.phoneEmailRequired"));
       return;
     }
 
@@ -103,9 +105,9 @@ export default function EditProfile({ onBack }) {
       });
       setBusiness(updated);
       setForm(buildForm(updated));
-      setStatus("Profile updated successfully.");
+      setStatus(t("urmall.biz.profile.updated"));
     } catch (nextError) {
-      setError(nextError.message || "Unable to update profile.");
+      setError(nextError.message || t("urmall.biz.profile.updateFailed"));
     } finally {
       setSaving(false);
     }
@@ -113,11 +115,11 @@ export default function EditProfile({ onBack }) {
 
   return (
     <>
-      <SellerMenuPageHeader title="Edit Profile" eyebrow="Seller Profile" onBack={onBack} />
+      <SellerMenuPageHeader title={t("urmall.biz.profile.editTitle")} eyebrow={t("urmall.biz.profile.sellerProfile")} onBack={onBack} />
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         {loading ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 text-sm font-bold text-gray-500">
-          Loading seller profile...
+          {t("urmall.biz.profile.loading")}
         </div>
       ) : (
         <form onSubmit={saveProfile} className="space-y-5">
@@ -146,19 +148,19 @@ export default function EditProfile({ onBack }) {
                   )}
                 </div>
                 <p className="mt-3 text-sm font-black text-gray-950">
-                  {business?.identity?.businessName || "Seller profile"}
+                  {business?.identity?.businessName || t("urmall.biz.profile.sellerProfileFallback")}
                 </p>
                 <p className="text-xs font-semibold text-gray-500">
-                  {business?.verificationStatus || "pending"} verification
+                  {t("urmall.biz.profile.verificationSuffix", { status: business?.verificationStatus || "pending" })}
                 </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <ProfileField label="Logo">
+                <ProfileField label={t("urmall.biz.profile.logo")}>
                   <label className="mt-2 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-center transition hover:border-gray-950">
                     <Camera size={20} className="text-gray-700" />
                     <span className="mt-2 text-sm font-black text-gray-950">
-                      {form.logoFile?.name || "Upload new logo"}
+                      {form.logoFile?.name || t("urmall.biz.profile.uploadLogo")}
                     </span>
                     <input
                       type="file"
@@ -169,11 +171,11 @@ export default function EditProfile({ onBack }) {
                   </label>
                 </ProfileField>
 
-                <ProfileField label="Banner">
+                <ProfileField label={t("urmall.biz.profile.banner")}>
                   <label className="mt-2 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-center transition hover:border-gray-950">
                     <Upload size={20} className="text-gray-700" />
                     <span className="mt-2 text-sm font-black text-gray-950">
-                      {form.bannerFile?.name || "Upload new banner"}
+                      {form.bannerFile?.name || t("urmall.biz.profile.uploadBanner")}
                     </span>
                     <input
                       type="file"
@@ -193,15 +195,15 @@ export default function EditProfile({ onBack }) {
                 <UserRound size={19} />
               </span>
               <div>
-                <h2 className="text-lg font-black text-gray-950">Public seller details</h2>
+                <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.profile.publicSellerDetails")}</h2>
                 <p className="text-sm font-semibold text-gray-500">
-                  This is what buyers see on products and your seller page.
+                  {t("urmall.biz.profile.publicSellerHint")}
                 </p>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <ProfileField label="Business name">
+              <ProfileField label={t("urmall.biz.profile.businessName")}>
                 <input
                   className={inputClass}
                   value={form.businessName}
@@ -209,7 +211,7 @@ export default function EditProfile({ onBack }) {
                 />
               </ProfileField>
 
-              <ProfileField label="Email">
+              <ProfileField label={t("urmall.seller.email")}>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 mt-1 text-gray-400" size={18} />
                   <input
@@ -221,7 +223,7 @@ export default function EditProfile({ onBack }) {
                 </div>
               </ProfileField>
 
-              <ProfileField label="Phone number">
+              <ProfileField label={t("urmall.detail.phoneNumber")}>
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 mt-1 text-gray-400" size={18} />
                   <input
@@ -232,7 +234,7 @@ export default function EditProfile({ onBack }) {
                 </div>
               </ProfileField>
 
-              <ProfileField label="Website">
+              <ProfileField label={t("urmall.biz.settings.website")}>
                 <input
                   className={inputClass}
                   value={form.website}
@@ -241,7 +243,7 @@ export default function EditProfile({ onBack }) {
                 />
               </ProfileField>
 
-              <ProfileField label="WhatsApp">
+              <ProfileField label={t("urmall.seller.whatsapp")}>
                 <input
                   className={inputClass}
                   value={form.whatsapp}
@@ -251,8 +253,8 @@ export default function EditProfile({ onBack }) {
 
               <label className="mt-7 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                 <span>
-                  <span className="block text-sm font-black text-gray-950">Enable WhatsApp</span>
-                  <span className="text-xs font-semibold text-gray-500">Show WhatsApp contact to buyers</span>
+                  <span className="block text-sm font-black text-gray-950">{t("urmall.biz.profile.enableWhatsapp")}</span>
+                  <span className="text-xs font-semibold text-gray-500">{t("urmall.biz.profile.enableWhatsappHint")}</span>
                 </span>
                 <input
                   type="checkbox"
@@ -263,7 +265,7 @@ export default function EditProfile({ onBack }) {
               </label>
 
               <div className="md:col-span-2">
-                <ProfileField label="Seller description">
+                <ProfileField label={t("urmall.biz.profile.sellerDescription")}>
                   <textarea
                     className={`${inputClass} min-h-32 resize-y`}
                     value={form.description}
@@ -292,7 +294,7 @@ export default function EditProfile({ onBack }) {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-gray-950/15 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <Save size={18} />
-              {saving ? "Saving..." : "Save profile"}
+              {saving ? t("urmall.biz.saving") : t("urmall.biz.profile.saveProfile")}
             </button>
           </div>
         </form>

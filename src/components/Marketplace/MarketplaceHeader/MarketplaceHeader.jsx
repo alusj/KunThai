@@ -7,6 +7,7 @@ import {
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
+import { useI18n } from "../../../i18n";
 import { fetchBuyerMessages, fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import Cart from "./Cart/Cart";
@@ -36,13 +37,14 @@ export default function MarketplaceHeader({
   onNotificationStateChange,
   sellerNotificationCount = 0,
 }) {
+  const { t } = useI18n();
   const { loading, hasBusiness } = useSellerBusinessStatus();
   const [orderItems, setOrderItems] = useState([]);
   const [messageItems, setMessageItems] = useState([]);
   const [, setSeenVersion] = useState(0);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const businessLabel = loading || hasBusiness ? "Open your business workspace" : "Register your business";
+  const businessLabel = loading || hasBusiness ? t("urmall.header.openWorkspace") : t("urmall.header.registerBusiness");
   // Pending orders are actionable. Merely viewing them must not clear the
   // badge; it disappears only after the order status changes.
   const orderCount = orderItems.length;
@@ -161,11 +163,11 @@ export default function MarketplaceHeader({
             active={searchOpen}
             accent="emerald"
             icon={Search}
-            label={searchOpen ? "Close search" : "Search UrMall products"}
+            label={searchOpen ? t("urmall.header.closeSearch") : t("urmall.header.searchProducts")}
             onClick={() => onSearchClick?.()}
           />
           <HeaderButtonWithHint
-            hint="New seller message"
+            hint={t("urmall.header.newSellerMessage")}
             visible={activeHint === "messages"}
             onClick={openMessages}
           >
@@ -174,7 +176,7 @@ export default function MarketplaceHeader({
               accent="emerald"
               badge={messageCount}
               icon={MessageCircle}
-              label="Open messages"
+              label={t("urmall.header.openMessages")}
               onClick={openMessages}
             />
           </HeaderButtonWithHint>

@@ -2,11 +2,18 @@ import { Building2, Check, ChevronDown, Hotel, House, Plus, ShieldCheck, Store, 
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchBusinessAttentionCounts } from "../../../../../Backend/services/marketplace/sellerHeaderService";
+import { useI18n, t } from "../../../../../i18n";
 import CenteredModal from "../../../../shared/CenteredModal";
 import useBodyScrollLock from "../../../../shared/useBodyScrollLock";
 
 const ICONS = { retail: Store, restaurant: UtensilsCrossed, hotel: Hotel, property_agent: House };
-const labelBusinessKind = (kind = "retail") => kind === "property_agent" ? "Real Estate Agent" : kind.replaceAll("_", " ");
+const BUSINESS_KIND_KEYS = {
+  retail: "urmall.biz.header.bizKindRetail",
+  restaurant: "urmall.biz.header.bizKindRestaurant",
+  hotel: "urmall.biz.header.bizKindHotel",
+  property_agent: "urmall.biz.header.bizKindRealEstate",
+};
+const labelBusinessKind = (kind = "retail") => BUSINESS_KIND_KEYS[kind] ? t(BUSINESS_KIND_KEYS[kind]) : kind.replaceAll("_", " ");
 
 // Pending orders / unread messages in the workspaces the seller is NOT
 // currently viewing. Once the seller switches to that business ("views" it),
@@ -54,6 +61,7 @@ function useOtherBusinessAttention(businesses, activeBusinessId) {
 }
 
 export default function BusinessSwitcher({ activeBusinessId, businesses = [], onAddBusiness, onSwitch }) {
+  useI18n();
   const [open, setOpen] = useState(false);
   const attention = useOtherBusinessAttention(businesses, activeBusinessId);
   useBodyScrollLock(open);
@@ -67,7 +75,7 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
         type="button"
         onClick={() => setOpen(true)}
         className="relative flex h-10 items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 text-emerald-700"
-        aria-label={attentionTotal ? `Switch business — ${attentionTotal} update${attentionTotal === 1 ? "" : "s"} in other workspaces` : "Switch business"}
+        aria-label={attentionTotal ? t(attentionTotal === 1 ? "urmall.biz.header.switchBusinessAttentionOne" : "urmall.biz.header.switchBusinessAttentionOther", { count: attentionTotal }) : t("urmall.biz.header.switchBusiness")}
       >
         <Building2 size={19} />
         <ChevronDown size={14} />
@@ -80,10 +88,10 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
       <CenteredModal open={open} onClose={() => setOpen(false)} maxWidth="max-w-lg" labelledBy="business-switcher-title">
             <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Business workspaces</p>
-                  <h2 id="business-switcher-title" className="mt-1 text-2xl font-black text-gray-950">Choose a business</h2>
+                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urmall.biz.header.businessWorkspaces")}</p>
+                  <h2 id="business-switcher-title" className="mt-1 text-2xl font-black text-gray-950">{t("urmall.biz.header.chooseBusiness")}</h2>
                 </div>
-                <button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-gray-100" aria-label="Close business switcher">
+                <button type="button" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-gray-100" aria-label={t("urmall.biz.header.closeSwitcher")}>
                   <X size={18} />
                 </button>
               </div>
@@ -117,7 +125,7 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
                           <span className="min-w-0 truncate text-sm font-black text-gray-950">{business.identity.businessName}</span>
                           {isAdminRole ? (
                             <span className="inline-flex flex-none items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">
-                              <ShieldCheck size={11} /> Admin
+                              <ShieldCheck size={11} /> {t("urmall.biz.header.admin")}
                             </span>
                           ) : null}
                         </span>
@@ -126,9 +134,9 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
                         </span>
                         {!active && attentionCount ? (
                           <span className="mt-1 block text-xs font-black text-red-600">
-                            {businessAttention.orders ? `${businessAttention.orders} pending order${businessAttention.orders === 1 ? "" : "s"}` : ""}
+                            {businessAttention.orders ? t(businessAttention.orders === 1 ? "urmall.biz.header.pendingOrdersOne" : "urmall.biz.header.pendingOrdersOther", { count: businessAttention.orders }) : ""}
                             {businessAttention.orders && businessAttention.messages ? " · " : ""}
-                            {businessAttention.messages ? `${businessAttention.messages} unread message${businessAttention.messages === 1 ? "" : "s"}` : ""}
+                            {businessAttention.messages ? t(businessAttention.messages === 1 ? "urmall.biz.header.unreadMessagesOne" : "urmall.biz.header.unreadMessagesOther", { count: businessAttention.messages }) : ""}
                           </span>
                         ) : null}
                       </span>
@@ -150,7 +158,7 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
                 }}
                 className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gray-950 text-sm font-black text-white"
               >
-                <Plus size={18} /> Add another business
+                <Plus size={18} /> {t("urmall.biz.header.addAnotherBusiness")}
               </button>
       </CenteredModal>
     </>

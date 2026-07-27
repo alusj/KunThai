@@ -7,18 +7,20 @@ import {
   subscribeBuyerMarketplaceMessages,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { formatMessageTime } from "../../Backend/utils/formatMessageTime";
+import { useI18n, t } from "../../i18n";
 import AppBackTab from "../shared/AppBackTab";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Unable to read selected file."));
+    reader.onerror = () => reject(new Error(t("urmall.messages.fileReadFailed")));
     reader.readAsDataURL(file);
   });
 }
 
 export default function Messages({ compact = false, onBack, onProductOpen }) {
+  useI18n();
   const [messages, setMessages] = useState([]);
   const [activeId, setActiveId] = useState("");
   const [closingMessage, setClosingMessage] = useState(null);
@@ -61,7 +63,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
       setMessages(rows);
       setActiveId((current) => (rows.some((row) => row.id === current) ? current : current ? "" : current));
     } catch (err) {
-      if (!silent) setError(err.message || "Unable to load messages.");
+      if (!silent) setError(err.message || t("urmall.messages.loadFailed"));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -149,7 +151,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
     if (!file) return;
 
     if (!file.type?.startsWith("image/")) {
-      setSendError("Please select an image file.");
+      setSendError(t("urmall.messages.selectImageFile"));
       return;
     }
 
@@ -158,7 +160,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
       setAttachment({ dataUrl, name: file.name || "Selected photo" });
       setSendError("");
     } catch (err) {
-      setSendError(err.message || "Unable to prepare this image.");
+      setSendError(err.message || t("urmall.messages.imagePrepFailed"));
     }
   }
 
@@ -205,7 +207,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
       setEchoes((current) => current.filter((echo) => echo.message.id !== tempId));
       setDraft(text);
       setAttachment(pendingAttachment);
-      setSendError(err.message || "Unable to send message.");
+      setSendError(err.message || t("urmall.messages.sendFailed"));
     } finally {
       setSending(false);
     }
@@ -242,18 +244,18 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
         className="absolute inset-0 flex flex-col bg-gray-50"
       >
         <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
-          <AppBackTab onBack={onBack} label="Back to UrMall" historyKey="urmall-messages" useHistoryLayer={false} />
+          <AppBackTab onBack={onBack} label={t("urmall.shell.backToUrMall")} historyKey="urmall-messages" useHistoryLayer={false} />
           <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">UrMall</p>
-            <h1 className="truncate text-lg font-black text-gray-950">Messages</h1>
-            <p className="truncate text-xs font-bold text-gray-500">Buyer conversations with UrMall sellers</p>
+            <h1 className="truncate text-lg font-black text-gray-950">{t("urmall.shell.messagesTitle")}</h1>
+            <p className="truncate text-xs font-bold text-gray-500">{t("urmall.shell.messagesSubtitle")}</p>
           </div>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="w-full">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-black text-gray-950">Conversations</h2>
+              <h2 className="text-lg font-black text-gray-950">{t("urmall.messages.conversations")}</h2>
               {unreadCount ? <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-black text-white">{unreadCount}</span> : null}
             </div>
 
@@ -262,8 +264,8 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
             {!loading && !error && !messages.length ? (
               <div className="mt-8 rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
                 <MessageCircle className="mx-auto text-gray-400" size={36} />
-                <p className="mt-3 font-black text-gray-950">No messages yet</p>
-                <p className="mt-1 text-sm font-medium text-gray-500">Messages you send to sellers will appear here.</p>
+                <p className="mt-3 font-black text-gray-950">{t("urmall.messages.noMessages")}</p>
+                <p className="mt-1 text-sm font-medium text-gray-500">{t("urmall.messages.noMessagesHint")}</p>
               </div>
             ) : null}
 
@@ -311,12 +313,12 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
         <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
           <AppBackTab
             onBack={closeConversation}
-            label="Back to messages"
+            label={t("urmall.messages.backToMessages")}
             historyKey="urmall-message-conversation"
             useHistoryLayer={false}
           />
           <div className="min-w-0">
-            <p className="truncate text-xs font-black uppercase text-emerald-700">Messages</p>
+            <p className="truncate text-xs font-black uppercase text-emerald-700">{t("urmall.shell.messagesTitle")}</p>
             <h2 className="truncate text-lg font-black text-gray-950">{message.sellerName}</h2>
             <p className="truncate text-xs font-bold text-gray-500">
               {message.topic}
@@ -340,11 +342,11 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
                   }`}
                 >
                   {item.mediaType === "image" && item.mediaUrl ? (
-                    <img src={item.mediaUrl} alt="Message attachment" className="mb-2 max-h-72 w-full rounded-xl object-cover" />
+                    <img src={item.mediaUrl} alt={t("urmall.messages.attachmentAlt")} className="mb-2 max-h-72 w-full rounded-xl object-cover" />
                   ) : null}
                   {item.text ? <p>{item.text}</p> : null}
                   <span className={`mt-1 block text-[10px] font-bold ${fromBuyer ? "text-white/70" : "text-gray-400"}`}>
-                    {item.pending ? "Sending..." : formatMessageTime(item.createdAt)}
+                    {item.pending ? t("urmall.detail.sending") : formatMessageTime(item.createdAt)}
                   </span>
                 </div>
               );
@@ -358,13 +360,13 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
         <form onSubmit={sendReply} className="shrink-0 border-t border-gray-200 bg-white p-3">
           {attachment ? (
             <div className="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
-              <img src={attachment.dataUrl} alt="Selected attachment" className="h-12 w-12 rounded-lg object-cover" />
-              <p className="min-w-0 flex-1 truncate text-sm font-black text-gray-950">Photo ready to send</p>
+              <img src={attachment.dataUrl} alt={t("urmall.messages.selectedAttachmentAlt")} className="h-12 w-12 rounded-lg object-cover" />
+              <p className="min-w-0 flex-1 truncate text-sm font-black text-gray-950">{t("urmall.messages.photoReady")}</p>
               <button
                 type="button"
                 onClick={() => setAttachment(null)}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-gray-500"
-                aria-label="Remove attachment"
+                aria-label={t("urmall.messages.removeAttachment")}
               >
                 <X size={16} />
               </button>
@@ -376,14 +378,14 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200"
-              aria-label="Attach image"
+              aria-label={t("urmall.messages.attachImage")}
             >
               <ImagePlus size={18} />
             </button>
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Type your message..."
+              placeholder={t("urmall.messages.typeMessage")}
               className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500"
             />
             <button
@@ -392,7 +394,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
               className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Send size={16} />
-              Send
+              {t("urmall.messages.send")}
             </button>
           </div>
         </form>

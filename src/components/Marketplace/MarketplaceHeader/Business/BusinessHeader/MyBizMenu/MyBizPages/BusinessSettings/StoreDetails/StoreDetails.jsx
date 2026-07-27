@@ -5,6 +5,7 @@ import {
   readRegisteredBusiness,
   updateRegisteredBusinessProfile,
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 
 const inputClass =
@@ -40,6 +41,7 @@ function buildForm(business) {
 }
 
 export default function StoreDetails({ onBack }) {
+  useI18n();
   const [form, setForm] = useState(buildForm(null));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,7 +55,7 @@ export default function StoreDetails({ onBack }) {
         if (mounted) setForm(buildForm(business));
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || "Unable to load store details.");
+        if (mounted) setError(nextError.message || t("urmall.biz.settings.storeLoadFailed"));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -74,12 +76,12 @@ export default function StoreDetails({ onBack }) {
     event.preventDefault();
 
     if (!form.businessName.trim() || !form.phone.trim() || !form.email.trim()) {
-      setError("Business name, phone number, and email are required.");
+      setError(t("urmall.biz.settings.storeRequired"));
       return;
     }
 
     if (!form.deliveryEnabled && !form.pickupEnabled) {
-      setError("Enable delivery, pickup, or both.");
+      setError(t("urmall.biz.settings.enableDeliveryPickup"));
       return;
     }
 
@@ -110,9 +112,9 @@ export default function StoreDetails({ onBack }) {
         },
       });
       setForm(buildForm(updated));
-      setStatus("Store details updated successfully.");
+      setStatus(t("urmall.biz.settings.storeUpdated"));
     } catch (nextError) {
-      setError(nextError.message || "Unable to update store details.");
+      setError(nextError.message || t("urmall.biz.settings.storeUpdateFailed"));
     } finally {
       setSaving(false);
     }
@@ -120,11 +122,11 @@ export default function StoreDetails({ onBack }) {
 
   return (
     <>
-      <SellerMenuPageHeader title="Store Details" eyebrow="Store Settings" onBack={onBack} />
+      <SellerMenuPageHeader title={t("urmall.biz.settings.storeDetailsTitle")} eyebrow={t("urmall.biz.menu.storeSettingsTitle")} onBack={onBack} />
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         {loading ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 text-sm font-bold text-gray-500">
-          Loading store details...
+          {t("urmall.biz.settings.loadingStore")}
         </div>
       ) : (
         <form onSubmit={saveStoreDetails} className="space-y-5">
@@ -134,34 +136,34 @@ export default function StoreDetails({ onBack }) {
                 <Store size={19} />
               </span>
               <div>
-                <h2 className="text-lg font-black text-gray-950">Public store profile</h2>
+                <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.settings.publicProfile")}</h2>
                 <p className="text-sm font-semibold text-gray-500">
-                  Buyers see these details when they visit your products.
+                  {t("urmall.biz.settings.publicProfileHint")}
                 </p>
               </div>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <Field label="Store name">
+              <Field label={t("urmall.biz.settings.storeName")}>
                 <input
                   className={inputClass}
                   value={form.businessName}
                   onChange={(event) => updateField("businessName", event.target.value)}
                 />
               </Field>
-              <Field label="Business type">
+              <Field label={t("urmall.biz.settings.businessType")}>
                 <select
                   className={inputClass}
                   value={form.businessType}
                   onChange={(event) => updateField("businessType", event.target.value)}
                 >
-                  <option value="both">Online and physical store</option>
-                  <option value="online">Online only</option>
-                  <option value="physical">Physical store only</option>
+                  <option value="both">{t("urmall.biz.settings.typeBoth")}</option>
+                  <option value="online">{t("urmall.biz.settings.typeOnline")}</option>
+                  <option value="physical">{t("urmall.biz.settings.typePhysical")}</option>
                 </select>
               </Field>
               <div className="lg:col-span-2">
-                <Field label="Description">
+                <Field label={t("urmall.detail.description")}>
                   <textarea
                     className={`${inputClass} min-h-32 resize-y`}
                     value={form.description}
@@ -179,22 +181,22 @@ export default function StoreDetails({ onBack }) {
                   <MapPin size={19} />
                 </span>
                 <div>
-                  <h2 className="text-lg font-black text-gray-950">Address and contact</h2>
+                  <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.settings.addressContact")}</h2>
                   <p className="text-sm font-semibold text-gray-500">
-                    Keep contact information accurate for buyer trust.
+                    {t("urmall.biz.settings.addressHint")}
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Country">
+                <Field label={t("urmall.biz.settings.country")}>
                   <input
                     className={inputClass}
                     value={form.country}
                     onChange={(event) => updateField("country", event.target.value)}
                   />
                 </Field>
-                <Field label="City">
+                <Field label={t("urmall.biz.settings.city")}>
                   <input
                     className={inputClass}
                     value={form.city}
@@ -202,7 +204,7 @@ export default function StoreDetails({ onBack }) {
                   />
                 </Field>
                 <div className="md:col-span-2">
-                  <Field label="Store address">
+                  <Field label={t("urmall.biz.settings.storeAddress")}>
                     <textarea
                       className={`${inputClass} min-h-28 resize-y`}
                       value={form.address}
@@ -210,7 +212,7 @@ export default function StoreDetails({ onBack }) {
                     />
                   </Field>
                 </div>
-                <Field label="Phone">
+                <Field label={t("urmall.biz.settings.phone")}>
                   <div className="relative">
                     <Phone className="absolute left-4 top-1/2 mt-1 text-gray-400" size={18} />
                     <input
@@ -220,7 +222,7 @@ export default function StoreDetails({ onBack }) {
                     />
                   </div>
                 </Field>
-                <Field label="Email">
+                <Field label={t("urmall.seller.email")}>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 mt-1 text-gray-400" size={18} />
                     <input
@@ -231,7 +233,7 @@ export default function StoreDetails({ onBack }) {
                     />
                   </div>
                 </Field>
-                <Field label="Website">
+                <Field label={t("urmall.biz.settings.website")}>
                   <input
                     className={inputClass}
                     value={form.website}
@@ -239,7 +241,7 @@ export default function StoreDetails({ onBack }) {
                     onChange={(event) => updateField("website", event.target.value)}
                   />
                 </Field>
-                <Field label="WhatsApp">
+                <Field label={t("urmall.seller.whatsapp")}>
                   <input
                     className={inputClass}
                     value={form.whatsapp}
@@ -255,19 +257,19 @@ export default function StoreDetails({ onBack }) {
                   <Truck size={19} />
                 </span>
                 <div>
-                  <h2 className="text-lg font-black text-gray-950">Buyer access</h2>
+                  <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.settings.buyerAccess")}</h2>
                   <p className="text-sm font-semibold text-gray-500">
-                    Decide how buyers contact and receive orders.
+                    {t("urmall.biz.settings.buyerAccessHint")}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 {[
-                  ["deliveryEnabled", "Delivery available", "Buyers can request delivery from this store."],
-                  ["pickupEnabled", "Pickup available", "Buyers can arrange pickup from your location."],
-                  ["whatsappEnabled", "WhatsApp contact", "Show WhatsApp as a contact option."],
-                  ["discoverableNearby", "Nearby discovery", "Show this store in nearby marketplace discovery."],
+                  ["deliveryEnabled", t("urmall.biz.settings.deliveryAvailable"), t("urmall.biz.settings.deliveryAvailableHint")],
+                  ["pickupEnabled", t("urmall.biz.settings.pickupAvailable"), t("urmall.biz.settings.pickupAvailableHint")],
+                  ["whatsappEnabled", t("urmall.biz.settings.whatsappContact"), t("urmall.biz.settings.whatsappContactHint")],
+                  ["discoverableNearby", t("urmall.biz.settings.nearbyDiscovery"), t("urmall.biz.settings.nearbyDiscoveryHint")],
                 ].map(([field, title, description]) => (
                   <label
                     key={field}
@@ -307,7 +309,7 @@ export default function StoreDetails({ onBack }) {
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-gray-950/15 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               <Save size={18} />
-              {saving ? "Saving..." : "Save store details"}
+              {saving ? t("urmall.biz.saving") : t("urmall.biz.settings.saveStoreDetails")}
             </button>
           </div>
         </form>

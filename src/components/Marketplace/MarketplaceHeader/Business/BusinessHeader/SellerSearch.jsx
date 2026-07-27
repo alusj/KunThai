@@ -1,6 +1,9 @@
 import { Search } from "lucide-react";
 
+import { useI18n } from "../../../../../i18n";
+
 export default function SellerSearch({ query, onQueryChange, results }) {
+  const { t } = useI18n();
   return (
     <div className="relative hidden w-full max-w-md xl:block">
       <Search
@@ -12,7 +15,7 @@ export default function SellerSearch({ query, onQueryChange, results }) {
         type="search"
         value={query}
         onChange={(event) => onQueryChange(event.target.value)}
-        placeholder="Search products, orders, tools"
+        placeholder={t("urmall.biz.header.searchPlaceholder")}
         className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm font-medium text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-gray-300 focus:bg-white"
       />
 

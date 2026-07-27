@@ -16,16 +16,18 @@ import RegistrationProgress from "./RegistrationProgress";
 import ReviewSubmitStep from "./ReviewSubmitStep";
 import TrustPayoutStep from "./TrustPayoutStep";
 import UrMallCautionCard from "../../../shared/UrMallCautionCard";
+import { useI18n, t } from "../../../../../i18n";
 
-const STEP_TITLES = [
-  "Business identity",
-  "Location and contact",
-  "Business operations",
-  "Verification documents",
-  "Review and submit",
+const STEP_TITLE_KEYS = [
+  "stepIdentity",
+  "stepLocation",
+  "stepOperations",
+  "stepVerification",
+  "stepReview",
 ];
 
 export default function BusinessRegistration({ mode = "create", onComplete, onExit }) {
+  useI18n();
   const editing = mode === "edit";
   const [showIntro, setShowIntro] = useState(!editing);
   const [acceptedCaution, setAcceptedCaution] = useState(editing);
@@ -143,18 +145,18 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
                   <div className="mb-5">
                     <AppBackTab
                       onBack={onExit}
-                      label="Back to UrMall"
+                      label={t("urmall.biz.reg.backToUrmall")}
                       historyKey="seller-registration-caution"
                       className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
                     />
                   </div>
 
                   <p className="text-xs font-black uppercase tracking-wide text-blue-700">
-                    Before you continue
+                    {t("urmall.biz.reg.beforeContinue")}
                   </p>
 
                   <h1 className="mt-2 text-3xl font-black text-gray-950">
-                    Welcome to KunThai UrMall Registration
+                    {t("urmall.biz.reg.welcomeTitle")}
                   </h1>
 
                   <UrMallCautionCard />
@@ -168,8 +170,8 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
                     className="h-14 w-full rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:opacity-70"
                   >
                     {leavingCaution
-                      ? "Opening Registration..."
-                      : "I Have Learned and Accepted the Policy and Guidance"}
+                      ? t("urmall.biz.reg.opening")
+                      : t("urmall.biz.reg.acceptPolicy")}
                   </button>
                 </div>
               </section>
@@ -197,7 +199,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
         <NearbyAreaScreen
           mode="businessLocationPicker"
           pickerStart={locationPickerMode}
-          backLabel="Back to location form"
+          backLabel={t("urmall.biz.reg.backToLocationForm")}
           onBack={() => setLocationPickerMode(null)}
           onLocationPicked={(location) => {
             registration.acceptAreaViewLocation(location);
@@ -215,7 +217,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
           <div className="mb-5">
             <AppBackTab
               onBack={onExit}
-              label="Back to seller dashboard"
+              label={t("urmall.biz.reg.backToDashboard")}
               historyKey="seller-business-editor-loading"
               className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             />
@@ -240,21 +242,21 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
         <div className="mb-6 flex items-start gap-3">
           <AppBackTab
             onBack={handleRegistrationBack}
-            label={registration.step > 0 ? "Back to previous registration step" : editing ? "Back to previous screen" : "Back to seller guidance"}
+            label={registration.step > 0 ? t("urmall.biz.reg.backPrevStep") : editing ? t("urmall.biz.reg.backPrevScreen") : t("urmall.biz.reg.backToGuidance")}
             historyKey={editing ? "seller-business-editor" : "seller-registration-form"}
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           />
           <div className="min-w-0">
             <p className="text-sm font-black uppercase text-blue-700">
-              {editing ? "Business Dashboard Editor" : "Seller Registration"}
+              {editing ? t("urmall.biz.reg.editorEyebrow") : t("urmall.biz.reg.regEyebrow")}
             </p>
             <h1 className="mt-1 text-2xl font-black text-gray-950">
-              {editing ? "Edit your business profile" : "Create your business profile"}
+              {editing ? t("urmall.biz.reg.editTitle") : t("urmall.biz.reg.createTitle")}
             </h1>
             <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-gray-600">
               {editing
-                ? "Update the staged business details that power your dashboard, discovery, trust, and buyer actions."
-                : "Set up the store details that power your seller dashboard, discovery, trust, and buyer actions."}
+                ? t("urmall.biz.reg.editSubtitle")
+                : t("urmall.biz.reg.createSubtitle")}
             </p>
           </div>
         </div>
@@ -265,7 +267,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
 
             <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-xl font-black text-gray-950">
-                {STEP_TITLES[enhancedRegistration.step]}
+                {t(`urmall.biz.reg.${STEP_TITLE_KEYS[enhancedRegistration.step]}`)}
               </h2>
 
               <div className="mt-5">
@@ -285,7 +287,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
                 disabled={enhancedRegistration.step === 0}
                 className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Back
+                {t("common.back")}
               </button>
 
               <div className="flex flex-col gap-2 sm:items-end">
@@ -296,7 +298,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
                       onClick={handleSaveDraft}
                       className="rounded-lg border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
                     >
-                      Save Draft
+                      {t("urmall.biz.reg.saveDraft")}
                     </button>
                   ) : null}
 
@@ -306,7 +308,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
                       onClick={registration.next}
                       className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-700"
                     >
-                      Continue
+                      {t("urmall.biz.reg.continue")}
                     </button>
                   ) : (
                     <button
@@ -315,7 +317,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
                       disabled={registration.submitting}
                       className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
                     >
-                      {registration.submitting ? (editing ? "Saving..." : "Submitting...") : editing ? "Save Changes" : "Submit Business"}
+                      {registration.submitting ? (editing ? t("urmall.biz.reg.saving") : t("urmall.biz.reg.submitting")) : editing ? t("urmall.biz.reg.saveChanges") : t("urmall.biz.reg.submitBusiness")}
                     </button>
                   )}
                 </div>
@@ -344,10 +346,10 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
 
       <CenteredModal open={saveCheckpointOpen} onClose={() => setSaveCheckpointOpen(false)} maxWidth="max-w-lg" labelledBy="biz-save-title">
         <p id="biz-save-title" className="text-lg font-black text-gray-950">
-          Your information has been saved
+          {t("urmall.biz.reg.savedTitle")}
         </p>
         <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-          When you return to UrMall seller registration, you will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
+          {t("urmall.biz.reg.savedBody")}
         </p>
 
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -356,14 +358,14 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
             onClick={handleSaveAndExit}
             className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 hover:bg-blue-100"
           >
-            Save
+            {t("urmall.biz.reg.save")}
           </button>
           <button
             type="button"
             onClick={() => setSaveCheckpointOpen(false)}
             className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
           >
-            Continue
+            {t("urmall.biz.reg.continue")}
           </button>
         </div>
       </CenteredModal>

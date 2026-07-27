@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
 import ProductStatusBadge from "./ProductStatusBadge";
 
@@ -24,29 +25,30 @@ function uniqueImages(product = {}) {
 function getSpecRows(product = {}) {
   const details = product.details || {};
   return [
-    ["Brand", product.brand],
-    ["Model", product.model],
-    ["Condition", product.condition],
-    ["SKU", product.sku],
-    ["Size", details.size],
-    ["Color", details.color],
-    ["Material", details.material],
-    ["Weight", details.weight],
-    ["Dimensions", details.dimensions],
-    ["Warranty", details.warranty],
-    ["Variants", details.variants],
-    ["Specifications", details.specifications],
+    ["specBrand", product.brand],
+    ["specModel", product.model],
+    ["specCondition", product.condition],
+    ["specSku", product.sku],
+    ["specSize", details.size],
+    ["specColor", details.color],
+    ["specMaterial", details.material],
+    ["specWeight", details.weight],
+    ["specDimensions", details.dimensions],
+    ["specWarranty", details.warranty],
+    ["specVariants", details.variants],
+    ["specSpecifications", details.specifications],
   ].filter(([, value]) => String(value || "").trim());
 }
 
 function formatProductDate(value) {
-  if (!value) return "Not published";
+  if (!value) return t("urmall.biz.cat.notPublished");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not published";
+  if (Number.isNaN(date.getTime())) return t("urmall.biz.cat.notPublished");
   return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 }
 
 export default function SellerProductDetail({ product, onBack, onEdit }) {
+  useI18n();
   const images = useMemo(() => uniqueImages(product), [product]);
   const specs = useMemo(() => getSpecRows(product), [product]);
   const [activeImage, setActiveImage] = useState(0);
@@ -65,16 +67,16 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
       <div className="min-h-screen bg-gray-50">
         <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
           <div className="flex items-center gap-3">
-            <AppBackTab onBack={onBack} label="Back to seller dashboard" historyKey="seller-product-detail" useHistoryLayer={false} />
+            <AppBackTab onBack={onBack} label={t("urmall.biz.reg.backToDashboard")} historyKey="seller-product-detail" useHistoryLayer={false} />
             <div>
-              <p className="text-xs font-black uppercase text-emerald-700">Product</p>
-              <h1 className="text-lg font-black text-gray-950">Product unavailable</h1>
+              <p className="text-xs font-black uppercase text-emerald-700">{t("urmall.biz.cat.productKicker")}</p>
+              <h1 className="text-lg font-black text-gray-950">{t("urmall.biz.cat.productUnavailable")}</h1>
             </div>
           </div>
         </header>
         <main className="px-4 py-5">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm font-bold text-gray-500">
-            This product could not be loaded.
+            {t("urmall.biz.cat.productLoadFail")}
           </div>
         </main>
       </div>
@@ -87,15 +89,15 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
         <div className="flex w-full items-center gap-3">
           <AppBackTab
             onBack={onBack}
-            label="Back to seller dashboard"
+            label={t("urmall.biz.reg.backToDashboard")}
             historyKey="seller-product-detail"
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             useHistoryLayer={false}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase text-emerald-700">Product Detail</p>
+            <p className="text-xs font-black uppercase text-emerald-700">{t("urmall.biz.cat.productDetail")}</p>
             <h1 className="truncate text-lg font-black text-gray-950">{product.name}</h1>
-            <p className="truncate text-xs font-semibold text-gray-500">{product.category || "Catalog item"}</p>
+            <p className="truncate text-xs font-semibold text-gray-500">{product.category || t("urmall.biz.cat.catalogItem")}</p>
           </div>
           <button
             type="button"
@@ -103,7 +105,7 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
             className="kt-pressable hidden h-11 items-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white shadow-lg shadow-gray-950/15 transition hover:bg-gray-800 sm:flex"
           >
             <Pencil size={17} />
-            Edit
+            {t("urmall.biz.reg.edit")}
           </button>
         </div>
       </header>
@@ -131,7 +133,7 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
                     className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 bg-gray-100 transition ${
                       activeImage === index ? "border-emerald-600" : "border-transparent opacity-75"
                     }`}
-                    aria-label={`Show product image ${index + 1}`}
+                    aria-label={t("urmall.biz.cat.showImage", { n: index + 1 })}
                   >
                     <img src={image} alt="" className="h-full w-full object-cover" />
                   </button>
@@ -153,12 +155,12 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
                   <div className="flex flex-wrap items-center gap-2">
                     <ProductStatusBadge status={product.status} />
                     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-black capitalize text-gray-700">
-                      {product.condition || "Condition not set"}
+                      {product.condition || t("urmall.biz.cat.conditionNotSet")}
                     </span>
                   </div>
                   <h2 className="mt-3 text-2xl font-black leading-tight text-gray-950 sm:text-3xl">{product.name}</h2>
                   <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-                    {product.description || "No product description has been added yet."}
+                    {product.description || t("urmall.biz.cat.noDescription")}
                   </p>
                 </div>
               </div>
@@ -171,21 +173,21 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <DetailMetric icon={Boxes} label="Stock" value={product.stock ?? 0} />
-                <DetailMetric icon={ShoppingBag} label="Sales" value={product.sales ?? 0} />
-                <DetailMetric icon={Eye} label="Views" value={product.views ?? 0} />
-                <DetailMetric icon={DollarSign} label="Revenue" value={formatCurrency(product.revenue || 0)} />
+                <DetailMetric icon={Boxes} label={t("urmall.biz.cat.stock")} value={product.stock ?? 0} />
+                <DetailMetric icon={ShoppingBag} label={t("urmall.biz.cat.sales")} value={product.sales ?? 0} />
+                <DetailMetric icon={Eye} label={t("urmall.biz.cat.views")} value={product.views ?? 0} />
+                <DetailMetric icon={DollarSign} label={t("urmall.biz.cat.revenue")} value={formatCurrency(product.revenue || 0)} />
               </div>
             </div>
 
             {visibleTierPricing.length ? (
               <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-                <h3 className="text-lg font-black text-gray-950">Quantity pricing</h3>
+                <h3 className="text-lg font-black text-gray-950">{t("urmall.biz.cat.quantityPricing")}</h3>
                 <div className="mt-3 grid gap-2">
                   {visibleTierPricing.map((tier, index) => (
                     <div key={`tier-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2">
                       <p className="text-sm font-black text-gray-950">
-                        {tier.minQty || 1}-{tier.maxQty || "+"} items
+                        {t("urmall.biz.cat.tierItems", { min: tier.minQty || 1, max: tier.maxQty || "+" })}
                       </p>
                       <p className="text-sm font-black text-emerald-700">{formatCurrency(tier.price)}</p>
                     </div>
@@ -195,21 +197,21 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
             ) : null}
 
             <div className="grid gap-3 lg:grid-cols-2">
-              <InfoPanel icon={Tag} label="Category" value={product.category || "Not set"} />
-              <InfoPanel icon={Package} label="SKU" value={product.sku || "Not set"} />
-              <InfoPanel icon={Truck} label="Delivery" value={product.deliveryAvailable ? product.deliveryTime || "Available" : "Pickup only"} />
-              <InfoPanel icon={MapPin} label="Location" value={product.location || "Not set"} />
-              <InfoPanel icon={CalendarDays} label="Published" value={formatProductDate(product.publishedAt)} />
-              <InfoPanel icon={Boxes} label="Low stock alert" value={product.lowStockAlert ?? "Not set"} />
+              <InfoPanel icon={Tag} label={t("urmall.biz.cat.category")} value={product.category || t("urmall.biz.cat.notSet")} />
+              <InfoPanel icon={Package} label={t("urmall.biz.cat.sku")} value={product.sku || t("urmall.biz.cat.notSet")} />
+              <InfoPanel icon={Truck} label={t("urmall.biz.cat.delivery")} value={product.deliveryAvailable ? product.deliveryTime || t("urmall.biz.cat.available") : t("urmall.biz.cat.pickupOnly")} />
+              <InfoPanel icon={MapPin} label={t("urmall.biz.cat.location")} value={product.location || t("urmall.biz.cat.notSet")} />
+              <InfoPanel icon={CalendarDays} label={t("urmall.biz.cat.published")} value={formatProductDate(product.publishedAt)} />
+              <InfoPanel icon={Boxes} label={t("urmall.biz.cat.lowStockAlert")} value={product.lowStockAlert ?? t("urmall.biz.cat.notSet")} />
             </div>
 
             {specs.length ? (
               <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-                <h3 className="text-lg font-black text-gray-950">Product details</h3>
+                <h3 className="text-lg font-black text-gray-950">{t("urmall.biz.cat.productDetails")}</h3>
                 <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {specs.map(([label, value]) => (
-                    <div key={label} className="rounded-xl bg-gray-50 px-3 py-2">
-                      <dt className="text-[11px] font-black uppercase tracking-wide text-gray-400">{label}</dt>
+                  {specs.map(([labelKey, value]) => (
+                    <div key={labelKey} className="rounded-xl bg-gray-50 px-3 py-2">
+                      <dt className="text-[11px] font-black uppercase tracking-wide text-gray-400">{t(`urmall.biz.cat.${labelKey}`)}</dt>
                       <dd className="mt-1 break-words text-sm font-black text-gray-950">{value}</dd>
                     </div>
                   ))}
@@ -223,7 +225,7 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
               className="kt-pressable flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white shadow-lg shadow-gray-950/15 transition hover:bg-gray-800 sm:hidden"
             >
               <Pencil size={17} />
-              Edit listing
+              {t("urmall.biz.cat.editListing")}
             </button>
           </section>
         </div>

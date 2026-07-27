@@ -1,6 +1,8 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../../i18n";
 
 export default function ProductCard({ product }) {
+  useI18n();
   if (!product) return null; // safety guard
 
   return (
@@ -13,7 +15,7 @@ export default function ProductCard({ product }) {
           product.stock > 0 ? "text-green-600" : "text-red-500"
         }`}
       >
-        {product.stock > 0 ? "In stock" : "Out of stock"}
+        {product.stock > 0 ? t("urmall.biz.cat.inStock") : t("urmall.biz.cat.statusOutStock")}
       </span>
     </div>
   );

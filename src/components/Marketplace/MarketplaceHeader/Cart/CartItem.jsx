@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Check, Copy, Eye, Minus, MoreHorizontal, Plus, Share2, Trash2 } from "lucide-react";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { showToast } from "../../../../Backend/services/toastService";
+import { useI18n, t } from "../../../../i18n";
 
 function productLink(item) {
   const productId = item.productId || item.product?.id;
@@ -13,6 +14,7 @@ function productLink(item) {
 }
 
 export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduct }) {
+  useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const stock = Number(item.product?.stock || 0);
@@ -25,7 +27,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
       await navigator.clipboard.writeText(link);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1400);
-      showToast("Product link copied", "success");
+      showToast(t("urmall.seller.productLinkCopied"), "success");
     } catch {
       showToast(link, "info");
     }
@@ -35,7 +37,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
     const link = productLink(item);
     const sharePayload = {
       title: item.name,
-      text: `View ${item.name} on KunThai UrMall`,
+      text: t("urmall.seller.shareProductText", { name: item.name }),
       url: link,
     };
 
@@ -49,7 +51,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
     }
 
     await copyProduct();
-    showToast("Sharing is not available here, so the product link was copied.", "info");
+    showToast(t("urmall.seller.shareUnavailable"), "info");
   }
 
   function runAction(event, action) {
@@ -75,7 +77,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
         <img src={item.imageUrl} alt="" className="h-16 w-16 rounded-lg bg-slate-100 object-cover" />
       ) : (
         <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-gray-400">
-          Img
+          {t("urmall.cart.imgPlaceholder")}
         </div>
       )}
 
@@ -83,7 +85,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
         <p className="line-clamp-2 text-sm font-black text-gray-950">{item.name}</p>
         <p className="mt-1 text-xs font-bold text-gray-500">{formatCurrency(item.price, moneyScope)}</p>
         <p className="truncate text-xs font-semibold text-gray-400">{item.location}</p>
-        {stock ? <p className="mt-0.5 text-[11px] font-bold text-gray-400">{stock} in stock</p> : null}
+        {stock ? <p className="mt-0.5 text-[11px] font-bold text-gray-400">{t("urmall.detail.inStock", { count: stock })}</p> : null}
       </div>
 
       <div className="flex flex-col items-end justify-between">
@@ -95,7 +97,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
               setMenuOpen((current) => !current);
             }}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-            aria-label={`Open actions for ${item.name}`}
+            aria-label={t("urmall.seller.openActions", { name: item.name })}
           >
             <MoreHorizontal size={17} />
           </button>
@@ -107,7 +109,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
               >
                 <Eye size={15} />
-                View product
+                {t("urmall.seller.menuView")}
               </button>
               <button
                 type="button"
@@ -115,7 +117,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
               >
                 {copied ? <Check size={15} /> : <Copy size={15} />}
-                Copy link
+                {t("urmall.seller.menuCopyLink")}
               </button>
               <button
                 type="button"
@@ -123,7 +125,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
               >
                 <Share2 size={15} />
-                Share product
+                {t("urmall.seller.menuShare")}
               </button>
               <button
                 type="button"
@@ -131,7 +133,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50"
               >
                 <Trash2 size={15} />
-                Delete
+                {t("urmall.cart.delete")}
               </button>
             </div>
           )}
@@ -144,7 +146,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
               onUpdateQty?.(item, item.qty - 1);
             }}
             className="inline-flex h-8 w-8 items-center justify-center text-gray-700 hover:bg-gray-100"
-            aria-label={`Decrease ${item.name} quantity`}
+            aria-label={t("urmall.cart.decreaseQty", { name: item.name })}
           >
             <Minus size={14} />
           </button>
@@ -158,7 +160,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
             }}
             disabled={Boolean(stock && item.qty >= stock)}
             className="inline-flex h-8 w-8 items-center justify-center text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label={`Increase ${item.name} quantity`}
+            aria-label={t("urmall.cart.increaseQty", { name: item.name })}
           >
             <Plus size={14} />
           </button>
