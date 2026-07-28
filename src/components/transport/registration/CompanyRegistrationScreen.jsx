@@ -245,7 +245,7 @@ function compactPublicId(value = "") {
   return String(value).replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
-export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaveExit, onViewOneKmPreview }) {
+export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaved, onSaveExit, onViewOneKmPreview }) {
   const addOperatorMode = mode === "addOperator";
   // Editing an existing company shows a single-screen accordion of the
   // registration steps (each with the current details + Edit) instead of
@@ -272,6 +272,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const longitude = form.coordinates?.longitude ?? form.coordinates?.lng;
   const hasLocation = latitude != null && longitude != null;
   const formTopRef = useRef(null);
+  // In edit mode the form is loaded from the company once; a later parent
+  // update (e.g. after an in-place save) must not reset the seller's edits.
+  const editInitializedRef = useRef(false);
   const statusClassName = statusTone === "error"
     ? "border-rose-200 bg-rose-50 text-rose-800"
     : statusTone === "success"
@@ -310,6 +313,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }, [step]);
 
   useEffect(() => {
+    // Once the edit form is populated, ignore further existingCompany changes so
+    // saving in place (which refreshes the parent company) can't wipe edits.
+    if (editing && editInitializedRef.current) return undefined;
+    if (editing) editInitializedRef.current = true;
+
     let alive = true;
 
     async function loadContext() {
@@ -348,6 +356,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     return () => {
       alive = false;
     };
+    // `editing` is derived from addOperatorMode + existingCompany, which are the
+    // real triggers; the one-time guard above handles re-entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addOperatorMode, existingCompany]);
 
   const companyDocumentRequirements = useMemo(() => getUrRideCompanyDocumentRequirements({
@@ -657,6 +668,38 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     onBack?.();
   }
 
+  // Edit-mode save: persists the whole company from the shared form/fleets
+  // without leaving the accordion, so any section can be edited and saved in
+  // place (just like UrMall). Refreshes the parent company so the workspace is
+  // up to date when the seller finally goes back. Returns which step, if any,
+  // failed validation so the accordion can reopen it.
+  async function saveCompanyEdits() {
+    for (const stepIndex of [0, 1, 2]) {
+      const nextErrors = getStepErrors(stepIndex);
+      if (Object.keys(nextErrors).length) {
+        setFieldErrors(nextErrors);
+        setOpenSection(stepIndex);
+        showStatus(summarizeErrors(nextErrors), "error");
+        scrollToFirstBlockingFieldSoon();
+        return { ok: false, failedStep: stepIndex };
+      }
+    }
+
+    try {
+      setFieldErrors({});
+      setSubmitting(true);
+      const account = await saveTransportCompanyAccount(buildPayload("submitted"));
+      onSaved?.(account);
+      showStatus("Company changes saved.", "success");
+      return { ok: true };
+    } catch (error) {
+      showStatus(error.message || "Unable to save company changes.", "error");
+      return { ok: false };
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function submitCompany(event) {
     const buttonRect = event?.currentTarget?.getBoundingClientRect?.();
     const origin = buttonRect
@@ -818,7 +861,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             <CompanyEditSections
               openSection={openSection}
               onToggle={setOpenSection}
-              onSave={submitCompany}
+              onSave={saveCompanyEdits}
               saving={submitting}
               sections={[
                 {
@@ -1050,6 +1093,18 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 }
 
 function CompanyEditSections({ sections = [], openSection, onToggle, onSave, saving }) {
+  const [savedSection, setSavedSection] = useState(-1);
+
+  async function handleSave(index) {
+    const result = await onSave();
+    if (result?.ok) {
+      onToggle(-1);
+      setSavedSection(index);
+      window.setTimeout(() => setSavedSection((current) => (current === index ? -1 : current)), 2600);
+    }
+    // A failed section is reopened by the parent via setOpenSection.
+  }
+
   return (
     <div className="space-y-4">
       <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
@@ -1071,6 +1126,11 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
                 {open ? null : (
                   <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-600">{section.summary}</p>
                 )}
+                {savedSection === index ? (
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs font-black text-emerald-600">
+                    <FiCheckCircle /> Saved
+                  </p>
+                ) : null}
               </div>
               <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-black text-slate-700">
                 {open ? (
@@ -1098,7 +1158,7 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
                   </button>
                   <button
                     type="button"
-                    onClick={onSave}
+                    onClick={() => handleSave(index)}
                     disabled={saving}
                     className="h-11 rounded-2xl bg-emerald-600 px-6 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
                   >
@@ -1110,15 +1170,6 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
           </section>
         );
       })}
-
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={saving}
-        className="h-12 w-full rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
-      >
-        {saving ? "Saving..." : "Save changes"}
-      </button>
     </div>
   );
 }

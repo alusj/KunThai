@@ -34,19 +34,33 @@ import { guardGuestAction } from "../../Backend/services/guestModeService";
 import { subscribeNotificationSeen } from "../../Backend/services/notificationSeenStore";
 import { showToast } from "../../Backend/services/toastService";
 
+// Session-lived cache of the operator/company accounts, mirroring UrMall's
+// SELLER_HEADER_MEMORY. Re-entering UrRide then paints the header from this
+// immediately (no loading placeholder on the icon) and refreshes silently,
+// instead of showing a spinner every time.
+const TRANSPORT_ACCOUNT_MEMORY = {
+  operatorLoaded: false,
+  operatorAccount: null,
+  companyLoaded: false,
+  companyAccount: null,
+  companyAccounts: [],
+};
+
 export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled }) {
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
   const [companyRegistrationMode, setCompanyRegistrationMode] = useState("full");
   const [registrationSource, setRegistrationSource] = useState(null);
   const [registrationAreaPreviewOpen, setRegistrationAreaPreviewOpen] = useState(false);
-  const [operatorAccount, setOperatorAccount] = useState(getLegacyOperatorAccount);
-  const [operatorLoading, setOperatorLoading] = useState(true);
+  const [operatorAccount, setOperatorAccount] = useState(
+    () => (TRANSPORT_ACCOUNT_MEMORY.operatorLoaded ? TRANSPORT_ACCOUNT_MEMORY.operatorAccount : getLegacyOperatorAccount()),
+  );
+  const [operatorLoading, setOperatorLoading] = useState(() => !TRANSPORT_ACCOUNT_MEMORY.operatorLoaded);
   const [operatorError, setOperatorError] = useState("");
-  const [companyAccount, setCompanyAccount] = useState(null);
-  const [companyAccounts, setCompanyAccounts] = useState([]);
+  const [companyAccount, setCompanyAccount] = useState(() => TRANSPORT_ACCOUNT_MEMORY.companyAccount);
+  const [companyAccounts, setCompanyAccounts] = useState(() => TRANSPORT_ACCOUNT_MEMORY.companyAccounts);
   const [companyOperationBadgeCount, setCompanyOperationBadgeCount] = useState(0);
-  const [companyLoading, setCompanyLoading] = useState(true);
+  const [companyLoading, setCompanyLoading] = useState(() => !TRANSPORT_ACCOUNT_MEMORY.companyLoaded);
   const [companyWorkspaceOpen, setCompanyWorkspaceOpen] = useState(false);
   const [companyWorkspaceStatus, setCompanyWorkspaceStatus] = useState("");
   const [companyOperatorDashboardOpen, setCompanyOperatorDashboardOpen] = useState(false);
@@ -617,6 +631,19 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     };
   }, []);
 
+  // Mirror account state into the session cache so the next entry into UrRide
+  // paints the header immediately instead of showing a loading placeholder.
+  useEffect(() => {
+    TRANSPORT_ACCOUNT_MEMORY.operatorAccount = operatorAccount;
+    if (!operatorLoading) TRANSPORT_ACCOUNT_MEMORY.operatorLoaded = true;
+  }, [operatorAccount, operatorLoading]);
+
+  useEffect(() => {
+    TRANSPORT_ACCOUNT_MEMORY.companyAccount = companyAccount;
+    TRANSPORT_ACCOUNT_MEMORY.companyAccounts = companyAccounts;
+    if (!companyLoading) TRANSPORT_ACCOUNT_MEMORY.companyLoaded = true;
+  }, [companyAccount, companyAccounts, companyLoading]);
+
   useEffect(() => {
     refreshOperatorCompanyInvites();
   }, [refreshOperatorCompanyInvites]);
@@ -871,6 +898,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             existingCompany={companyAccount}
             mode={companyRegistrationMode}
             onBack={closeRegistrationFlow}
+            onSaved={setCompanyAccount}
             onSaveExit={exitRegistrationFlow}
             onViewOneKmPreview={openRegistrationOneKmPreview}
             onComplete={(account, origin) => {
