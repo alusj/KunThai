@@ -639,6 +639,36 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     setStep(4);
   }
 
+  // Edit-mode save: persists the whole (shared) form without leaving the
+  // editor, so the seller can edit any step's section and save in place. It
+  // returns which step, if any, failed validation so the accordion can open it.
+  async function saveEdits() {
+    for (const stepIndex of [0, 1, 2, 3]) {
+      if (!validateStep(stepIndex)) {
+        setStep(stepIndex);
+        scrollToFirstBlockingFieldSoon();
+        return { ok: false, failedStep: stepIndex };
+      }
+    }
+
+    setErrors((current) => ({ ...current, submit: "" }));
+    setSubmitting(true);
+    try {
+      const business = await updateRegisteredBusinessProfile(form);
+      setForm(formFromRegisteredBusiness(business));
+      setDraftStatus(`Saved ${new Date().toLocaleTimeString()}`);
+      return { ok: true };
+    } catch (error) {
+      setErrors((current) => ({
+        ...current,
+        submit: error.message || "Unable to save changes. Please try again.",
+      }));
+      return { ok: false };
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function submit() {
     for (const stepIndex of [0, 1, 2, 3]) {
       if (!validateStep(stepIndex)) {
@@ -702,6 +732,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     back,
     goToStep,
     submit,
+    saveEdits,
     draftStatus,
   };
 }

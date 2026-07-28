@@ -1,11 +1,13 @@
 import { useSellerPromotions } from "../../../../../Backend/hooks/useSellerPromotions";
 import { showToast } from "../../../../../Backend/services/toastService";
+import { useI18n, t } from "../../../../../i18n";
 import ActivePromotions from "./ActivePromotions";
 import CampaignOpportunities from "./CampaignOpportunities";
 import PromotionPerformance from "./PromotionPerformance";
 import SuggestedProducts from "./SuggestedProducts";
 
 export default function BusinessPromotions() {
+  useI18n();
   const {
     activePromotions,
     suggestedProducts,
@@ -30,21 +32,21 @@ export default function BusinessPromotions() {
 
   function handleCreatePromotion() {
     showToast(
-      "Choose Promote from a product row to start a 5-credit Small Boost.",
+      t("urmall.biz.promo.createHint"),
       "info",
-      { title: "Promotion setup" },
+      { title: t("urmall.biz.promo.setupTitle") },
     );
   }
 
   return (
     <section className="space-y-4">
       <div>
-        <p className="text-sm font-black uppercase text-emerald-700">Promotions</p>
+        <p className="text-sm font-black uppercase text-emerald-700">{t("urmall.biz.promo.kicker")}</p>
         <h3 className="mt-1 text-xl font-black text-gray-950">
-          Growth campaigns and discounts
+          {t("urmall.biz.promo.title")}
         </h3>
         <p className="mt-1 text-sm font-medium text-gray-500">
-          Track active promotions, credits, results, and products worth boosting.
+          {t("urmall.biz.promo.subtitle")}
         </p>
       </div>
 

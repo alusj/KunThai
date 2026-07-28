@@ -8,6 +8,7 @@ import {
   subscribeSellerMarketplaceMessages,
 } from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
 import { formatMessageTime } from "../../../../../Backend/utils/formatMessageTime";
+import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
 
 const CONVERSATION_TRANSITION_MS = 360;
@@ -16,12 +17,13 @@ function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Unable to read selected file."));
+    reader.onerror = () => reject(new Error(t("urmall.biz.care.readFileFail")));
     reader.readAsDataURL(file);
   });
 }
 
 export default function CustomerCare({ onBack } = {}) {
+  useI18n();
   const { conversations, loading, reload } = useSellerCustomerCare();
   const [activeId, setActiveId] = useState("");
   const [closingConversation, setClosingConversation] = useState(null);
@@ -116,14 +118,14 @@ export default function CustomerCare({ onBack } = {}) {
       <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
         <AppBackTab
           onBack={onBack}
-          label="Back to seller dashboard"
+          label={t("urmall.biz.reg.backToDashboard")}
           historyKey="marketplace-seller-messages"
           useHistoryLayer={false}
         />
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase text-emerald-700">Messages</p>
-          <h1 className="truncate text-lg font-black text-gray-950">Buyer Messages</h1>
-          <p className="truncate text-xs font-bold text-gray-500">Reply to product inquiries and customer messages.</p>
+          <p className="text-xs font-black uppercase text-emerald-700">{t("urmall.biz.dash.messages")}</p>
+          <h1 className="truncate text-lg font-black text-gray-950">{t("urmall.biz.care.buyerMessages")}</h1>
+          <p className="truncate text-xs font-bold text-gray-500">{t("urmall.biz.care.listSubtitle")}</p>
         </div>
       </header>
     );
@@ -153,16 +155,16 @@ export default function CustomerCare({ onBack } = {}) {
     if (!file) return;
 
     if (!file.type?.startsWith("image/")) {
-      setSendError("Please select an image file.");
+      setSendError(t("urmall.biz.care.selectImage"));
       return;
     }
 
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      setAttachment({ dataUrl, name: file.name || "Selected photo" });
+      setAttachment({ dataUrl, name: file.name || t("urmall.biz.care.selectedPhoto") });
       setSendError("");
     } catch (err) {
-      setSendError(err.message || "Unable to prepare this image.");
+      setSendError(err.message || t("urmall.biz.care.prepareFail"));
     }
   }
 
@@ -202,7 +204,7 @@ export default function CustomerCare({ onBack } = {}) {
       setEchoes((current) => current.filter((echo) => echo.message.id !== tempId));
       setReply(text);
       setAttachment(pendingAttachment);
-      setSendError(err.message || "Unable to send reply.");
+      setSendError(err.message || t("urmall.biz.care.sendFail"));
     } finally {
       setSending(false);
     }
@@ -246,15 +248,15 @@ export default function CustomerCare({ onBack } = {}) {
         <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
           <AppBackTab
             onBack={closeConversation}
-            label="Back to messages"
+            label={t("urmall.biz.care.backToMessages")}
             historyKey="marketplace-seller-message-conversation"
             useHistoryLayer={false}
           />
           <div className="min-w-0">
             <p className="text-xs font-black uppercase text-emerald-700">
-              {conversation.productName ? "Product message" : "UrMall message"}
+              {conversation.productName ? t("urmall.biz.care.productMessage") : t("urmall.biz.care.urmallMessage")}
             </p>
-            <h3 className="truncate text-lg font-black text-gray-950">{conversation.buyerName || "Buyer"}</h3>
+            <h3 className="truncate text-lg font-black text-gray-950">{conversation.buyerName || t("urmall.biz.stats.buyer")}</h3>
             <p className="truncate text-xs font-bold text-gray-500">{conversation.topic || conversation.preview}</p>
           </div>
         </header>
@@ -273,11 +275,11 @@ export default function CustomerCare({ onBack } = {}) {
                 }`}
               >
                 {message.mediaType === "image" && message.mediaUrl ? (
-                  <img src={message.mediaUrl} alt="Message attachment" className="mb-2 max-h-72 w-full rounded-xl object-cover" />
+                  <img src={message.mediaUrl} alt={t("urmall.biz.care.msgAttachment")} className="mb-2 max-h-72 w-full rounded-xl object-cover" />
                 ) : null}
                 {message.text ? <p>{message.text}</p> : null}
                 <span className={`mt-1 block text-[10px] font-bold ${fromSeller ? "text-white/70" : "text-gray-400"}`}>
-                  {message.pending ? "Sending..." : formatMessageTime(message.createdAt)}
+                  {message.pending ? t("urmall.biz.care.sendingMsg") : formatMessageTime(message.createdAt)}
                 </span>
               </div>
             );
@@ -290,13 +292,13 @@ export default function CustomerCare({ onBack } = {}) {
         <form onSubmit={sendReply} className="shrink-0 border-t border-gray-200 bg-white p-3">
           {attachment ? (
             <div className="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
-              <img src={attachment.dataUrl} alt="Selected attachment" className="h-12 w-12 rounded-lg object-cover" />
-              <p className="min-w-0 flex-1 truncate text-sm font-black text-gray-950">Photo ready to send</p>
+              <img src={attachment.dataUrl} alt={t("urmall.biz.care.selectedAttachment")} className="h-12 w-12 rounded-lg object-cover" />
+              <p className="min-w-0 flex-1 truncate text-sm font-black text-gray-950">{t("urmall.biz.care.photoReady")}</p>
               <button
                 type="button"
                 onClick={() => setAttachment(null)}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-gray-500"
-                aria-label="Remove attachment"
+                aria-label={t("urmall.biz.care.removeAttachment")}
               >
                 <X size={16} />
               </button>
@@ -308,14 +310,14 @@ export default function CustomerCare({ onBack } = {}) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200"
-              aria-label="Attach image"
+              aria-label={t("urmall.biz.care.attachImage")}
             >
               <ImagePlus size={18} />
             </button>
             <input
               value={reply}
               onChange={(event) => setReply(event.target.value)}
-              placeholder="Reply to buyer..."
+              placeholder={t("urmall.biz.care.replyPlaceholder")}
               className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500"
             />
             <button
@@ -324,7 +326,7 @@ export default function CustomerCare({ onBack } = {}) {
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Send size={16} />
-              Reply
+              {t("urmall.biz.care.reply")}
             </button>
           </div>
         </form>

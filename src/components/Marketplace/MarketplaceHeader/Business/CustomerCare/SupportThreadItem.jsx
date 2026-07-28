@@ -1,4 +1,7 @@
+import { useI18n, t } from "../../../../../i18n";
+
 export default function SupportThreadItem({ onRespond, thread }) {
+  useI18n();
   return (
     <article className="rounded-lg border border-red-100 bg-red-50 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -20,7 +23,7 @@ export default function SupportThreadItem({ onRespond, thread }) {
           className="rounded-lg bg-red-700 px-3 py-2 text-xs font-black text-white transition hover:bg-red-800"
           onClick={() => onRespond?.(thread)}
         >
-          Respond
+          {t("urmall.biz.care.respond")}
         </button>
       </div>
     </article>

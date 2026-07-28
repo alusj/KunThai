@@ -5,13 +5,14 @@ import {
   Star,
   Wallet,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCustomerCare";
 import { useSellerInsights } from "../../../../../Backend/hooks/useSellerInsights";
 import { useSellerPayouts } from "../../../../../Backend/hooks/useSellerPayouts";
 import { useSellerReputation } from "../../../../../Backend/hooks/useSellerReputation";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../../i18n";
 import SellerIntelligenceMetric from "./SellerIntelligenceMetric";
 import SellerIntelligencePanel from "./SellerIntelligencePanel";
 
@@ -20,11 +21,12 @@ function metricRows(metrics = {}) {
     id: key,
     label: metric.label || key,
     value: metric.value ?? "0",
-    detail: metric.detail || "No extra detail yet",
+    detail: metric.detail || t("urmall.biz.intel.noExtraDetail"),
   }));
 }
 
 export default function SellerIntelligence() {
+  useI18n();
   const insights = useSellerInsights();
   const payouts = useSellerPayouts();
   const care = useSellerCustomerCare();
@@ -34,7 +36,7 @@ export default function SellerIntelligence() {
   const loading =
     insights.loading || payouts.loading || care.loading || reputation.loading;
 
-  const items = useMemo(() => {
+  const items = (() => {
     const reputationMetrics = reputation.metrics || {};
     const careMetrics = care.metrics || {};
     const insightMetrics = insights.metrics || {};
@@ -44,175 +46,175 @@ export default function SellerIntelligence() {
       {
         key: "reviews",
         icon: Star,
-        label: "Reviews & Rating",
+        label: t("urmall.biz.intel.reviewsTab"),
         value: Number(reputationMetrics.rating || 0).toFixed(1),
-        title: "Reviews & rating",
-        description: "Recent buyer feedback and reviews that may need a response.",
+        title: t("urmall.biz.intel.reviewsTitle"),
+        description: t("urmall.biz.intel.reviewsDesc"),
         tone: "amber",
         rows: [
           {
             id: "review-count",
-            label: "Total reviews",
+            label: t("urmall.biz.intel.totalReviews"),
             value: reputationMetrics.reviewCount || 0,
-            detail: "All buyer reviews saved for this store.",
+            detail: t("urmall.biz.intel.totalReviewsDetail"),
           },
           {
             id: "response-needed",
-            label: "Need response",
+            label: t("urmall.biz.intel.needResponse"),
             value: reputation.reviewsNeedingResponse.length,
-            detail: "Reviews waiting for seller follow-up.",
+            detail: t("urmall.biz.intel.needResponseDetail"),
           },
           ...reputation.recentReviews.map((review) => ({
             id: review.id,
-            label: review.buyerName || "Buyer review",
-            value: `${review.rating || 0}/5`,
-            detail: review.comment || review.productName || "No review comment yet",
+            label: review.buyerName || t("urmall.biz.intel.buyerReview"),
+            value: t("urmall.biz.intel.ratingN", { n: review.rating || 0 }),
+            detail: review.comment || review.productName || t("urmall.biz.intel.noReviewComment"),
           })),
         ],
       },
       {
         key: "insights",
         icon: BarChart3,
-        label: "Insights",
+        label: t("urmall.biz.intel.insightsTab"),
         value: insightMetrics.productClicks?.value ?? 0,
-        title: "Business insights",
-        description: "Views, clicks, conversion, customer behavior, and product signals.",
+        title: t("urmall.biz.intel.insightsTitle"),
+        description: t("urmall.biz.intel.insightsDesc"),
         tone: "green",
         rows: [
           ...metricRows(insightMetrics),
           {
             id: "most-viewed",
-            label: "Most viewed product",
+            label: t("urmall.biz.ins.mostViewed"),
             value: productSignals.mostViewed?.views || 0,
-            detail: productSignals.mostViewed?.name || "No viewed product yet",
+            detail: productSignals.mostViewed?.name || t("urmall.biz.intel.noViewedProduct"),
           },
           {
             id: "most-abandoned",
-            label: "Most abandoned product",
+            label: t("urmall.biz.ins.mostAbandoned"),
             value: productSignals.mostAbandoned?.orders || 0,
-            detail: productSignals.mostAbandoned?.name || "No product signal yet",
+            detail: productSignals.mostAbandoned?.name || t("urmall.biz.intel.noProductSignal"),
           },
         ],
       },
       {
         key: "payouts",
         icon: Wallet,
-        label: "Payouts",
+        label: t("urmall.biz.intel.payoutsTab"),
         value: formatCurrency(payouts.availableBalance || 0),
-        title: "Payouts",
-        description: "Available balance, pending money, withdrawal method, and payout warnings.",
+        title: t("urmall.biz.intel.payoutsTitle"),
+        description: t("urmall.biz.intel.payoutsDesc"),
         tone: "blue",
         rows: [
           {
             id: "available",
-            label: "Available balance",
+            label: t("urmall.biz.intel.availableBalance"),
             value: formatCurrency(payouts.availableBalance || 0),
-            detail: "Money ready for withdrawal.",
+            detail: t("urmall.biz.intel.availableBalanceDetail"),
           },
           {
             id: "pending",
-            label: "Pending balance",
+            label: t("urmall.biz.intel.pendingBalance"),
             value: formatCurrency(payouts.pendingBalance || 0),
-            detail: "Money still clearing from orders or payouts.",
+            detail: t("urmall.biz.intel.pendingBalanceDetail"),
           },
           {
             id: "method",
-            label: "Withdrawal method",
-            value: payouts.withdrawalMethod ? "Added" : "Missing",
-            detail: payouts.withdrawalMethod?.label || "Add KunThai Money or bank details later.",
+            label: t("urmall.biz.intel.withdrawalMethod"),
+            value: payouts.withdrawalMethod ? t("urmall.biz.intel.added") : t("urmall.biz.intel.missing"),
+            detail: payouts.withdrawalMethod?.label || t("urmall.biz.intel.addMethodDetail"),
           },
           {
             id: "warning",
-            label: "Payout warning",
-            value: payouts.warning?.active ? "Action" : "None",
-            detail: payouts.warning?.description || "No payout warning right now.",
+            label: t("urmall.biz.intel.payoutWarning"),
+            value: payouts.warning?.active ? t("urmall.biz.intel.action") : t("urmall.biz.intel.none"),
+            detail: payouts.warning?.description || t("urmall.biz.intel.noPayoutWarning"),
           },
         ],
       },
       {
         key: "care",
         icon: Headphones,
-        label: "Customer Care",
+        label: t("urmall.biz.intel.careTab"),
         value: careMetrics.unreadMessages || 0,
-        title: "Customer care",
-        description: "Unread messages, buyer questions, negotiation requests, and support threads.",
+        title: t("urmall.biz.intel.careTitle"),
+        description: t("urmall.biz.intel.careDesc"),
         tone: "purple",
         rows: [
           {
             id: "unread",
-            label: "Unread messages",
+            label: t("urmall.biz.intel.unreadMessages"),
             value: careMetrics.unreadMessages || 0,
-            detail: "Buyer messages waiting for a reply.",
+            detail: t("urmall.biz.intel.unreadMessagesDetail"),
           },
           {
             id: "response-time",
-            label: "Average response time",
+            label: t("urmall.biz.intel.avgResponseTime"),
             value: careMetrics.averageResponseTime || "0",
-            detail: "How quickly the seller replies.",
+            detail: t("urmall.biz.intel.avgResponseTimeDetail"),
           },
           {
             id: "questions",
-            label: "Buyer questions",
+            label: t("urmall.biz.intel.buyerQuestions"),
             value: careMetrics.buyerQuestionsWaiting || 0,
-            detail: "Product or order questions waiting.",
+            detail: t("urmall.biz.intel.buyerQuestionsDetail"),
           },
           {
             id: "support",
-            label: "Support/disputes",
+            label: t("urmall.biz.intel.supportDisputes"),
             value: careMetrics.supportDisputes || 0,
-            detail: "Threads needing careful customer support.",
+            detail: t("urmall.biz.intel.supportDisputesDetail"),
           },
           ...care.conversations.map((conversation) => ({
             id: conversation.id,
-            label: conversation.buyerName || "Buyer",
-            value: conversation.unread ? "Unread" : "Read",
-            detail: conversation.preview || conversation.topic || "No message preview",
+            label: conversation.buyerName || t("urmall.biz.stats.buyer"),
+            value: conversation.unread ? t("urmall.biz.intel.unread") : t("urmall.biz.intel.read"),
+            detail: conversation.preview || conversation.topic || t("urmall.biz.intel.noPreview"),
           })),
         ],
       },
       {
         key: "trust",
         icon: ShieldCheck,
-        label: "Trust & Reputation",
+        label: t("urmall.biz.intel.trustTab"),
         value: `${reputationMetrics.profileCompleteness || 0}%`,
-        title: "Trust & reputation",
-        description: "Badges, reliability, complaint rate, cancellation rate, and profile completeness.",
+        title: t("urmall.biz.intel.trustTitle"),
+        description: t("urmall.biz.intel.trustDesc"),
         tone: "gray",
         rows: [
           {
             id: "profile",
-            label: "Profile completeness",
+            label: t("urmall.biz.intel.profileCompleteness"),
             value: `${reputationMetrics.profileCompleteness || 0}%`,
-            detail: "How complete the seller trust profile is.",
+            detail: t("urmall.biz.intel.profileCompletenessDetail"),
           },
           {
             id: "complaints",
-            label: "Complaint rate",
+            label: t("urmall.biz.intel.complaintRate"),
             value: `${reputationMetrics.complaintRate || 0}%`,
-            detail: "Buyer complaints compared with orders.",
+            detail: t("urmall.biz.intel.complaintRateDetail"),
           },
           {
             id: "cancellations",
-            label: "Cancellation rate",
+            label: t("urmall.biz.intel.cancellationRate"),
             value: `${reputationMetrics.cancellationRate || 0}%`,
-            detail: "Cancelled orders compared with all orders.",
+            detail: t("urmall.biz.intel.cancellationRateDetail"),
           },
           {
             id: "delivery",
-            label: "On-time delivery",
+            label: t("urmall.biz.intel.onTimeDelivery"),
             value: `${reputationMetrics.onTimeDeliveryRate || 0}%`,
-            detail: "Orders delivered within the promised window.",
+            detail: t("urmall.biz.intel.onTimeDeliveryDetail"),
           },
           ...reputation.badges.map((badge) => ({
             id: badge.id,
             label: badge.label,
-            value: badge.status === "active" ? "Active" : "Locked",
-            detail: badge.status === "active" ? "Badge is active." : "Keep improving to unlock this badge.",
+            value: badge.status === "active" ? t("urmall.biz.intel.active") : t("urmall.biz.intel.locked"),
+            detail: badge.status === "active" ? t("urmall.biz.intel.badgeActive") : t("urmall.biz.intel.badgeLocked"),
           })),
         ],
       },
     ];
-  }, [care, insights, payouts, reputation]);
+  })();
 
   const activeItem = items.find((item) => item.key === activeKey) || items[0];
 
@@ -221,9 +223,9 @@ export default function SellerIntelligence() {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4">
-        <h3 className="text-base font-black text-gray-950">Seller Intelligence</h3>
+        <h3 className="text-base font-black text-gray-950">{t("urmall.biz.intel.title")}</h3>
         <p className="text-sm font-medium text-gray-500">
-          Reviews, insights, payouts, customer care, and trust in one clean view.
+          {t("urmall.biz.intel.subtitle")}
         </p>
       </div>
 

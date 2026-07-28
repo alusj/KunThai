@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useSellerProductForm } from "../../../../../Backend/hooks/useSellerProductForm";
+import { useI18n, t } from "../../../../../i18n";
 import ProductBasicsStep from "./ProductBasicsStep";
 import ProductDeliveryReviewStep from "./ProductDeliveryReviewStep";
 import ProductDetailsStep from "./ProductDetailsStep";
@@ -14,14 +15,15 @@ import { StepScrollTransition } from "../../../../shared/motion";
 import { useDirectionalStep } from "../../../../shared/motionHooks";
 
 const STEPS = [
-  { title: "Product basics", component: ProductBasicsStep },
-  { title: "Optional details", component: ProductDetailsStep },
-  { title: "Media", component: ProductMediaStep },
-  { title: "Pricing & inventory", component: ProductPricingStep },
-  { title: "Delivery, review & publish", component: ProductDeliveryReviewStep },
+  { titleKey: "stepBasics", component: ProductBasicsStep },
+  { titleKey: "stepDetails", component: ProductDetailsStep },
+  { titleKey: "stepMedia", component: ProductMediaStep },
+  { titleKey: "stepPricing", component: ProductPricingStep },
+  { titleKey: "stepDelivery", component: ProductDeliveryReviewStep },
 ];
 
 export default function AddProductForm({ mode = "create", product = null, onCancel, onComplete }) {
+  useI18n();
   const [finishing, setFinishing] = useState(false);
   const formTopRef = useRef(null);
   const productForm = useSellerProductForm({
@@ -50,20 +52,20 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
         <div className="flex w-full items-center gap-3">
             <AppBackTab
               onBack={productForm.step > 0 ? productForm.back : onCancel}
-              label={productForm.step > 0 ? "Back to previous product step" : "Back to previous screen"}
+              label={productForm.step > 0 ? t("urmall.biz.pform.backPrevStep") : t("urmall.biz.reg.backPrevScreen")}
               historyKey="marketplace-product-form"
               className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
               useHistoryLayer={false}
             />
             <div className="min-w-0">
-            <p className="text-xs font-black uppercase text-emerald-700">{editing ? "Edit Listing" : "Add Product"}</p>
+            <p className="text-xs font-black uppercase text-emerald-700">{editing ? t("urmall.biz.pform.editListingEyebrow") : t("urmall.biz.header.addProduct")}</p>
             <h1 className="truncate text-lg font-black text-gray-950">
-              {editing ? "Edit product listing" : "Create a product listing"}
+              {editing ? t("urmall.biz.pform.editTitle") : t("urmall.biz.pform.createTitle")}
             </h1>
             <p className="truncate text-xs text-gray-500">
               {editing
-                ? "Update product details, media, pricing, inventory, delivery options, and publish status."
-                : "Add product details, media, pricing, inventory, delivery options, and publish status."}
+                ? t("urmall.biz.pform.editSubtitle")
+                : t("urmall.biz.pform.createSubtitle")}
             </p>
           </div>
         </div>
@@ -75,21 +77,21 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
             {productForm.draftRestored ? (
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                 <p className="min-w-0 text-sm font-bold text-emerald-800">
-                  We brought back your unfinished listing. Re-attach any photos or video, then continue.
+                  {t("urmall.biz.pform.draftRestored")}
                 </p>
                 <button
                   type="button"
                   onClick={productForm.discardDraft}
                   className="shrink-0 rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-xs font-black text-emerald-700"
                 >
-                  Start fresh
+                  {t("urmall.biz.pform.startFresh")}
                 </button>
               </div>
             ) : null}
             <ProductFormProgress step={productForm.step} />
 
             <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h2 className="text-xl font-black text-gray-950">{STEPS[productForm.step].title}</h2>
+              <h2 className="text-xl font-black text-gray-950">{t(`urmall.biz.pform.${STEPS[productForm.step].titleKey}`)}</h2>
               <div className="mt-5">
                 <StepScrollTransition stepKey={productForm.step} direction={stepSlideDirection}>
                   <StepComponent productForm={productForm} />
@@ -104,7 +106,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
                 disabled={productForm.step === 0}
                 className="rounded-lg border border-gray-200 px-4 py-3 text-sm font-black text-gray-700 disabled:opacity-40"
               >
-                Back
+                {t("common.back")}
               </button>
               {productForm.step < STEPS.length - 1 ? (
                 <button
@@ -112,7 +114,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
                   onClick={productForm.next}
                   className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700"
                 >
-                  Continue
+                  {t("urmall.biz.reg.continue")}
                 </button>
               ) : (
                 <button
@@ -122,14 +124,14 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
                   className="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
                   {productForm.submitting
-                    ? "Saving..."
+                    ? t("urmall.biz.pform.saving")
                     : editing
-                      ? "Update Listing"
+                      ? t("urmall.biz.pform.updateListing")
                       : productForm.form.pricing.publishStatus === "draft"
-                        ? "Save Draft"
+                        ? t("urmall.biz.reg.saveDraft")
                         : productForm.form.pricing.publishStatus === "promoted"
-                          ? "Publish & Promote"
-                          : "Publish Product"}
+                          ? t("urmall.biz.pform.publishPromote")
+                          : t("urmall.biz.pform.publishProduct")}
                 </button>
               )}
             </div>
@@ -146,7 +148,7 @@ export default function AddProductForm({ mode = "create", product = null, onCanc
             {productForm.submitting && productForm.saveStatus ? (
               <ListingUploadProgressCard
                 stage={productForm.saveStatus}
-                title={editing ? "Updating your product" : "Adding your product"}
+                title={editing ? t("urmall.biz.pform.updatingProduct") : t("urmall.biz.pform.addingProduct")}
               />
             ) : null}
           </main>

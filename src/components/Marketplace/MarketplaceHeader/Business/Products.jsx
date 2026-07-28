@@ -1,4 +1,5 @@
 import { useSellerProducts } from "../../../../Backend/hooks/useSellerProducts";
+import { useI18n, t } from "../../../../i18n";
 
 import ProductCard from "./ProductCard";
 
@@ -10,6 +11,7 @@ function toLegacyProductShape(product) {
 }
 
 export default function Products() {
+  useI18n();
   const { actionError, loading, products } = useSellerProducts();
 
   if (loading) {
@@ -33,14 +35,14 @@ export default function Products() {
   if (!products.length) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-500">
-        No seller products yet.
+        {t("urmall.biz.dash.noProducts")}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-800">My Products</h3>
+      <h3 className="text-lg font-semibold text-gray-800">{t("urmall.biz.dash.myProducts")}</h3>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {products.map((product) => (

@@ -1,10 +1,13 @@
+import { useI18n, t } from "../../../../i18n";
+
 export default function SellerWorkspaceTabs({ activeTab, onTabChange, allowedTabs = null }) {
+  useI18n();
   const allTabs = [
-    { id: "overview", label: "Overview" },
-    { id: "sales", label: "Sales & Orders" },
-    { id: "store", label: "Store" },
-    { id: "catalog", label: "Catalog" },
-    { id: "drafts", label: "Draft" },
+    { id: "overview", label: t("urmall.biz.dash.tabOverview") },
+    { id: "sales", label: t("urmall.biz.stats.salesOrders") },
+    { id: "store", label: t("urmall.biz.cat.titleStore") },
+    { id: "catalog", label: t("urmall.biz.cat.titleCatalog") },
+    { id: "drafts", label: t("urmall.biz.cat.titleDraft") },
   ];
   // When an admin only has some responsibilities, show just the tabs they can use.
   const tabs = allowedTabs ? allTabs.filter((tab) => allowedTabs.includes(tab.id)) : allTabs;

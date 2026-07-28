@@ -1,42 +1,44 @@
+import { useI18n, t } from "../../../../../i18n";
 import CareMetricCard from "./CareMetricCard";
 
 export default function CareMetricsGrid({ metrics }) {
+  useI18n();
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
       <CareMetricCard
-        label="Unread"
+        label={t("urmall.biz.care.unread")}
         value={metrics.unreadMessages}
-        helper="Buyer messages"
+        helper={t("urmall.biz.care.unreadHelper")}
         tone="red"
       />
       <CareMetricCard
-        label="Response time"
+        label={t("urmall.biz.care.responseTime")}
         value={metrics.averageResponseTime}
-        helper="Average reply speed"
+        helper={t("urmall.biz.care.responseTimeHelper")}
         tone="blue"
       />
       <CareMetricCard
-        label="Response rate"
+        label={t("urmall.biz.care.responseRate")}
         value={`${metrics.responseRate}%`}
-        helper="Messages answered"
+        helper={t("urmall.biz.care.responseRateHelper")}
         tone="green"
       />
       <CareMetricCard
-        label="Questions"
+        label={t("urmall.biz.care.questions")}
         value={metrics.buyerQuestionsWaiting}
-        helper="Waiting for answers"
+        helper={t("urmall.biz.care.questionsHelper")}
         tone="amber"
       />
       <CareMetricCard
-        label="Negotiations"
+        label={t("urmall.biz.care.negotiations")}
         value={metrics.negotiationRequests}
-        helper="Open offers"
+        helper={t("urmall.biz.care.negotiationsHelper")}
         tone="gray"
       />
       <CareMetricCard
-        label="Support"
+        label={t("urmall.biz.care.support")}
         value={metrics.supportDisputes}
-        helper="Disputes or cases"
+        helper={t("urmall.biz.care.supportHelper")}
         tone="red"
       />
     </div>

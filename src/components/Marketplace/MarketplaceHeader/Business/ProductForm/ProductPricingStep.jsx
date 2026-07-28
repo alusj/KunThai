@@ -10,14 +10,16 @@ import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductToggle from "./ProductToggle";
 import { getCountryCurrencyCode } from "../../../../../data/globalCountryProfiles";
+import { useI18n, t } from "../../../../../i18n";
 
 const PROMOTION_AUDIENCES = [
-  { id: "countrywide", label: "Country-wide", description: "Reach eligible shoppers across the current UrMall country." },
-  { id: "nearby", label: "Nearby", description: "Prioritize shoppers around your product location." },
-  { id: "recommended", label: "Recommended", description: "Let KunThai balance location, category, and marketplace activity." },
+  { id: "countrywide", labelKey: "audCountrywide", descKey: "audCountrywideDesc" },
+  { id: "nearby", labelKey: "audNearby", descKey: "audNearbyDesc" },
+  { id: "recommended", labelKey: "audRecommended", descKey: "audRecommendedDesc" },
 ];
 
 export default function ProductPricingStep({ productForm }) {
+  useI18n();
   const { form, errors, updateSection } = productForm;
   const currencyCode = getCountryCurrencyCode();
   const visibilityCredits = useVisibilityCredits({ enabled: form.pricing.publishStatus === "promoted" });
@@ -51,16 +53,16 @@ export default function ProductPricingStep({ productForm }) {
     setShareFeedback("");
     try {
       await visibilityCredits.shareInvite();
-      setShareFeedback("Invite link ready.");
+      setShareFeedback(t("urmall.biz.pform.inviteReady"));
     } catch (error) {
-      setShareFeedback(error.message || "Unable to share invite link.");
+      setShareFeedback(error.message || t("urmall.biz.pform.inviteFailed"));
     }
   }
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <ProductFormField label={`Price (${currencyCode})`} error={errors.price}>
+        <ProductFormField label={t("urmall.biz.pform.priceCode", { code: currencyCode })} error={errors.price}>
           <ProductFormInput
             type="number"
             min="0"
@@ -69,7 +71,7 @@ export default function ProductPricingStep({ productForm }) {
             placeholder="120"
           />
         </ProductFormField>
-        <ProductFormField label={`Discount price optional (${currencyCode})`} error={errors.discountPrice}>
+        <ProductFormField label={t("urmall.biz.pform.discountCode", { code: currencyCode })} error={errors.discountPrice}>
           <ProductFormInput
             type="number"
             min="0"
@@ -81,7 +83,7 @@ export default function ProductPricingStep({ productForm }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <ProductFormField label="Stock quantity" error={errors.stock}>
+        <ProductFormField label={t("urmall.biz.pform.stockQty")} error={errors.stock}>
           <ProductFormInput
             type="number"
             min="0"
@@ -90,7 +92,7 @@ export default function ProductPricingStep({ productForm }) {
             placeholder="20"
           />
         </ProductFormField>
-        <ProductFormField label="Low-stock alert">
+        <ProductFormField label={t("urmall.biz.pform.lowStockAlert")}>
           <ProductFormInput
             type="number"
             min="0"
@@ -98,32 +100,32 @@ export default function ProductPricingStep({ productForm }) {
             onChange={(event) => updateSection("pricing", { lowStockAlert: event.target.value })}
           />
         </ProductFormField>
-        <ProductFormField label="Product code optional">
+        <ProductFormField label={t("urmall.biz.pform.productCodeOpt")}>
           <ProductFormInput
             value={form.pricing.sku}
             onChange={(event) => updateSection("pricing", { sku: event.target.value })}
             placeholder="Example: JAY-HEADPHONE-001"
           />
           <p className="mt-2 text-xs font-bold leading-5 text-gray-500">
-            This is your own tracking code for stock or receipts. You can leave it empty if you do not use product codes.
+            {t("urmall.biz.pform.productCodeHelper")}
           </p>
         </ProductFormField>
       </div>
 
       <ProductToggle
-        label="Allow negotiation"
-        description="Let buyers send offers for this product."
+        label={t("urmall.biz.pform.allowNegotiation")}
+        description={t("urmall.biz.pform.allowNegotiationDesc")}
         checked={form.pricing.allowNegotiation}
         onChange={(checked) => updateSection("pricing", { allowNegotiation: checked })}
       />
 
       <div>
-        <p className="text-sm font-black text-gray-800">Publish option</p>
+        <p className="text-sm font-black text-gray-800">{t("urmall.biz.pform.publishOption")}</p>
         <div className="mt-2 grid gap-3 sm:grid-cols-3">
           {[
-            { id: "active", label: "Publish now", description: "Product appears in UrMall listings." },
-            { id: "promoted", label: "Publish & promote", description: "Product also appears in the UrMall advert slider." },
-            { id: "draft", label: "Save as draft", description: "Only you can see this product." },
+            { id: "active", label: t("urmall.biz.pform.pubNow"), description: t("urmall.biz.pform.pubNowDesc") },
+            { id: "promoted", label: t("urmall.biz.pform.pubPromote"), description: t("urmall.biz.pform.pubPromoteDesc") },
+            { id: "draft", label: t("urmall.biz.pform.pubDraft"), description: t("urmall.biz.pform.pubDraftDesc") },
           ].map((item) => (
             <button
               key={item.id}
@@ -163,7 +165,7 @@ export default function ProductPricingStep({ productForm }) {
               onClick={shareInvite}
               className="rounded-lg bg-gray-950 px-4 py-3 text-sm font-black text-white"
             >
-              Share invite
+              {t("urmall.biz.pform.shareInvite")}
             </button>
           </div>
 
@@ -182,7 +184,7 @@ export default function ProductPricingStep({ productForm }) {
                   <span className="flex items-center justify-between gap-2">
                     <span className="text-sm font-black">{item.label}</span>
                     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-black text-gray-700">
-                      {item.id === "custom" ? "Any" : item.credits}
+                      {item.id === "custom" ? t("urmall.biz.pform.any") : item.credits}
                     </span>
                   </span>
                   <span className="mt-1 block text-xs font-semibold leading-5 text-gray-500">{item.helper}</span>
@@ -193,7 +195,7 @@ export default function ProductPricingStep({ productForm }) {
 
           {selectedPromotionPackage === "custom" ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-              <ProductFormField label="Credits to spend" error={errors.promotionCredits}>
+              <ProductFormField label={t("urmall.biz.pform.creditsToSpend")} error={errors.promotionCredits}>
                 <ProductFormInput
                   type="number"
                   min={MINIMUM_VISIBILITY_CREDITS}
@@ -214,7 +216,7 @@ export default function ProductPricingStep({ productForm }) {
                 disabled={availableCredits < MINIMUM_VISIBILITY_CREDITS}
                 className="h-12 self-end rounded-lg border border-emerald-200 bg-white px-4 text-sm font-black text-emerald-800 disabled:opacity-40"
               >
-                Use all
+                {t("urmall.biz.pform.useAll")}
               </button>
             </div>
           ) : errors.promotionCredits ? (
@@ -222,7 +224,7 @@ export default function ProductPricingStep({ productForm }) {
           ) : null}
 
           <div className="mt-4">
-            <p className="text-sm font-black text-gray-800">Promotion audience</p>
+            <p className="text-sm font-black text-gray-800">{t("urmall.biz.pform.promotionAudience")}</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
               {PROMOTION_AUDIENCES.map((item) => {
                 const selected = (form.pricing.promotionAudience || "countrywide") === item.id;
@@ -235,8 +237,8 @@ export default function ProductPricingStep({ productForm }) {
                       selected ? "border-emerald-600 bg-white text-emerald-800 shadow-sm" : "border-emerald-100 bg-white/80 text-gray-700"
                     }`}
                   >
-                    <span className="block text-sm font-black">{item.label}</span>
-                    <span className="mt-1 block text-xs font-semibold leading-5 text-gray-500">{item.description}</span>
+                    <span className="block text-sm font-black">{t(`urmall.biz.pform.${item.labelKey}`)}</span>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-gray-500">{t(`urmall.biz.pform.${item.descKey}`)}</span>
                   </button>
                 );
               })}
@@ -245,15 +247,15 @@ export default function ProductPricingStep({ productForm }) {
 
           <div className={`mt-4 rounded-lg border p-3 text-sm font-black ${hasEnoughCredits ? "border-emerald-200 bg-white text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span>Selected boost: {promotionCredits} credits</span>
-              <span>After boost: {hasEnoughCredits ? availableCredits - promotionCredits : availableCredits}</span>
+              <span>{t("urmall.biz.pform.selectedBoost", { n: promotionCredits })}</span>
+              <span>{t("urmall.biz.pform.afterBoost", { n: hasEnoughCredits ? availableCredits - promotionCredits : availableCredits })}</span>
             </div>
             <p className="mt-2 text-xs font-bold leading-5">
-              Estimated promoted-card window: {estimatedPromotionDays} day{estimatedPromotionDays === 1 ? "" : "s"}.
+              {t(estimatedPromotionDays === 1 ? "urmall.biz.pform.estWindowOne" : "urmall.biz.pform.estWindowMany", { n: estimatedPromotionDays })}
             </p>
             {!hasEnoughCredits ? (
               <p className="mt-2 text-xs font-bold leading-5">
-                You need {promotionCredits} credits for this boost. Each verified invite adds 5 credits.
+                {t("urmall.biz.pform.needCredits", { n: promotionCredits })}
               </p>
             ) : null}
           </div>

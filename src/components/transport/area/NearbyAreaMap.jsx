@@ -89,10 +89,12 @@ const NAV_MOVEMENT_SETTINGS = {
 // route (after discounting GPS uncertainty), the marker is displayed on the
 // nearest point of the line.
 const NAV_SNAP_SETTINGS = {
+  // Engage the snap when this close to the route line...
   snapMeters: 42,
+  // ...and only release it once this far off, so a fix hovering near the
+  // boundary doesn't flip the marker back and forth.
+  snapReleaseMeters: 78,
   accuracyDiscount: 0.5,
-  // How firmly the map bearing eases toward the travel direction each frame.
-  bearingSmoothing: 0.18,
 };
 
 // Nearest point ON a route segment to the traveller, plus the perpendicular
@@ -128,14 +130,6 @@ function getNearestPointOnRoute(position, coordinates = []) {
   }
 
   return best;
-}
-
-// Shortest angular ease from one bearing to another, handling the 360/0 wrap.
-function smoothBearing(current, target, amount) {
-  if (!Number.isFinite(current)) return target;
-  if (!Number.isFinite(target)) return current;
-  let delta = ((target - current + 540) % 360) - 180;
-  return normalizeBearing(current + delta * amount);
 }
 
 // Remaining route distance from the traveller's live position to the
@@ -1550,6 +1544,9 @@ export default function NearbyAreaMap({
   // the map slides underneath. A manual pan releases the lock; the recenter
   // button (recenterSignal) re-engages it.
   const followLockRef = useRef(true);
+  // Tracks whether the marker is currently snapped to the route line, so the
+  // snap can be released with hysteresis rather than flickering.
+  const routeSnappedRef = useRef(false);
 
   const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
   const [deviceLocationState, setDeviceLocationState] = useState("checking");
@@ -1785,23 +1782,12 @@ export default function NearbyAreaMap({
     });
   }
 
-  // Per-frame follow used during live movement: keeps the marker locked to the
-  // viewport centre (map pans underneath) and eases the map bearing toward the
-  // travel direction. Runs off the marker animation frames so the centring is
-  // as smooth as the marker itself, with no easeTo/setCenter tug-of-war.
-  function applyFollowFrame(renderedPosition, destination = selectedLocation) {
-    const map = mapRef.current;
-    if (!map || !renderedPosition || !smartCameraRef.current) return;
-    if (!followLockRef.current || isUserInteractingRef.current) return;
-    if (hasOperatorRoutePlan) return;
-
-    map.setCenter([renderedPosition.lng, renderedPosition.lat]);
-
-    if (canUseHeading) {
-      const targetBearing = getCameraBearing(renderedPosition, destination);
-      const nextBearing = smoothBearing(map.getBearing(), targetBearing, NAV_SNAP_SETTINGS.bearingSmoothing);
-      if (Number.isFinite(nextBearing)) map.setBearing(nextBearing);
-    }
+  // Keeps the traveller centred while moving. A single throttled easeTo per GPS
+  // update slides the map centre (and eases bearing/zoom/pitch together) toward
+  // the marker's target - smooth, unlike a per-frame setCenter, which stutters.
+  function followTravellerCamera(target, routeSegmentIndex) {
+    if (!followLockRef.current || hasOperatorRoutePlan) return;
+    applySmartCamera(target, selectedLocation, routeSegmentIndex);
   }
 
   async function requestCompassPermissionIfNeeded() {
@@ -2455,6 +2441,7 @@ export default function NearbyAreaMap({
       liveSpeedRef.current = 0;
       lastProgressUiAtRef.current = 0;
       followLockRef.current = true;
+      routeSnappedRef.current = false;
 
       pickupMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
@@ -2675,7 +2662,14 @@ export default function NearbyAreaMap({
         const effectiveRouteDistance = nearestOnRoute
           ? Math.max(0, nearestOnRoute.distance - accuracy * NAV_SNAP_SETTINGS.accuracyDiscount)
           : Infinity;
-        const shouldSnapToRoute = nearestOnRoute != null && effectiveRouteDistance <= NAV_SNAP_SETTINGS.snapMeters;
+        // Hysteresis stops the marker wobbling between the route line and the
+        // raw GPS point when the fix hovers around the snap boundary: engage the
+        // snap at a tight threshold, release it only once clearly off-route.
+        const shouldSnapToRoute = nearestOnRoute != null && (
+          effectiveRouteDistance <= NAV_SNAP_SETTINGS.snapMeters ||
+          (routeSnappedRef.current && effectiveRouteDistance <= NAV_SNAP_SETTINGS.snapReleaseMeters)
+        );
+        routeSnappedRef.current = shouldSnapToRoute;
         const markerTarget = shouldSnapToRoute
           ? { ...livePosition, lat: nearestOnRoute.point.lat, lng: nearestOnRoute.point.lng }
           : livePosition;
@@ -2693,13 +2687,16 @@ export default function NearbyAreaMap({
           GPS_SETTINGS.animationMs,
           (renderedPosition) => {
             markerRenderedPositionRef.current = renderedPosition;
-            // Keep the traveller pinned to the viewport centre; the map slides
-            // underneath as the marker animates.
-            applyFollowFrame(renderedPosition, selectedLocation);
           },
         );
 
         smoothedPositionRef.current = livePosition;
+
+        // Smoothly re-centre the map on the marker's target (throttled easeTo),
+        // keeping the traveller centred while the map glides underneath.
+        if (!isUserInteractingRef.current) {
+          followTravellerCamera(markerTarget, nearestOnRoute?.segmentIndex);
+        }
 
         if (routeCoordinates.length) {
           const nearestRouteInfo = {
@@ -2785,8 +2782,8 @@ export default function NearbyAreaMap({
             return next.label === current?.label ? current : next;
           });
           evaluateTrafficAhead();
-          // Centring is handled continuously by applyFollowFrame off the
-          // marker animation, so no throttled camera nudge is needed here.
+          // Centring already ran above via followTravellerCamera using this
+          // frame's marker target, so no extra camera nudge is needed here.
         }
       },
       () => {

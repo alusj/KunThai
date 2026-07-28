@@ -9,6 +9,7 @@ import CenteredModal from "../../../../shared/CenteredModal";
 import { ScreenSlideTransition, StepSlideTransition } from "../../../../shared/motion";
 import { useDirectionalStep } from "../../../../shared/motionHooks";
 import BusinessIdentityStep from "./BusinessIdentityStep";
+import BusinessEditSections from "./BusinessEditSections";
 import LiveBusinessPreview from "./LiveBusinessPreview";
 import LocationContactStep from "./LocationContactStep";
 import OperationsStep from "./OperationsStep";
@@ -63,7 +64,9 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
   }
 
   function handleRegistrationBack() {
-    if (registration.step > 0) {
+    // Edit mode is a single accordion screen, so Back always leaves to the
+    // dashboard rather than walking wizard steps.
+    if (!editing && registration.step > 0) {
       registration.back();
       return;
     }
@@ -242,7 +245,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
         <div className="mb-6 flex items-start gap-3">
           <AppBackTab
             onBack={handleRegistrationBack}
-            label={registration.step > 0 ? t("urmall.biz.reg.backPrevStep") : editing ? t("urmall.biz.reg.backPrevScreen") : t("urmall.biz.reg.backToGuidance")}
+            label={editing ? t("urmall.biz.reg.backPrevScreen") : registration.step > 0 ? t("urmall.biz.reg.backPrevStep") : t("urmall.biz.reg.backToGuidance")}
             historyKey={editing ? "seller-business-editor" : "seller-registration-form"}
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           />
@@ -262,6 +265,9 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+          {editing ? (
+            <BusinessEditSections registration={enhancedRegistration} />
+          ) : (
           <main className="space-y-4">
             <RegistrationProgress step={enhancedRegistration.step} />
 
@@ -336,6 +342,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
               </div>
             ) : null}
           </main>
+          )}
 
           <LiveBusinessPreview
             form={registration.form}

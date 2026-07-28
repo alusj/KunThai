@@ -1,6 +1,8 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../../i18n";
 
 export default function TodaySummaryPanel({ item }) {
+  useI18n();
   const rows = item.rows || [];
 
   return (
@@ -36,7 +38,7 @@ export default function TodaySummaryPanel({ item }) {
         </div>
       ) : (
         <div className="mt-4 rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm font-semibold text-gray-500">
-          No data here yet. This will update automatically when buyers interact with your store.
+          {t("urmall.biz.dash.noData")}
         </div>
       )}
     </div>

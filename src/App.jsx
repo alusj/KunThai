@@ -453,10 +453,17 @@ export default function App() {
     };
   }, [page]);
 
-  if (loading || (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal)) {
-    // Users heading into onboarding get the onboarding backdrop instead of an
-    // app skeleton that never matches the screen that follows.
-    if (user && !guestSession && !user.user_metadata?.onboarding_complete) {
+  // While auth is still resolving we do not yet know whether this leads to the
+  // login screen, onboarding, or the app - so show a plain backdrop rather than
+  // the app skeleton, which never matches the login or onboarding screens.
+  if (loading) {
+    return <div className="min-h-screen bg-slate-100" aria-label="Loading KunThai" />;
+  }
+
+  if (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal) {
+    // Users heading into onboarding get the onboarding backdrop; only a
+    // returning, onboarded user waiting for their page keeps the app skeleton.
+    if (!user.user_metadata?.onboarding_complete) {
       return (
         <div
           className="min-h-screen bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)]"

@@ -1,9 +1,12 @@
+import { useI18n, t } from "../../../../../i18n";
+
 export default function SearchTermList({ terms }) {
+  useI18n();
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h3 className="text-base font-black text-gray-950">Search terms</h3>
+      <h3 className="text-base font-black text-gray-950">{t("urmall.biz.ins.searchTitle")}</h3>
       <p className="mt-1 text-sm font-medium text-gray-500">
-        What buyers typed before finding your products.
+        {t("urmall.biz.ins.searchSubtitle")}
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">

@@ -1,6 +1,8 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../../i18n";
 
 export default function ActivePromotionCard({ promotion }) {
+  useI18n();
   const creditBudget = Number(promotion.creditBudget || promotion.budgetLimit || 0);
   const creditsSpent = Number(promotion.creditsSpent || promotion.budgetSpent || 0);
   const spentPercent = creditBudget > 0 ? Math.min(100, Math.round((creditsSpent / creditBudget) * 100)) : 0;
@@ -13,18 +15,18 @@ export default function ActivePromotionCard({ promotion }) {
           <h4 className="mt-1 font-black text-gray-950">{promotion.name}</h4>
           <p className="mt-1 text-sm font-medium text-gray-500">{promotion.productName}</p>
           <p className="mt-2 text-xs font-black uppercase text-gray-400">
-            {formatAudience(promotion.audienceType)} {promotion.durationDays ? `- ${promotion.durationDays} days` : ""}
+            {formatAudience(promotion.audienceType)} {promotion.durationDays ? t("urmall.biz.promo.durationDays", { count: promotion.durationDays }) : ""}
           </p>
         </div>
         <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
-          Ends {promotion.endsIn}
+          {t("urmall.biz.promo.endsIn", { value: promotion.endsIn })}
         </span>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <MiniMetric label="Views" value={promotion.views} />
-        <MiniMetric label="Orders" value={promotion.orders} />
-        <MiniMetric label="Revenue" value={formatCurrency(promotion.revenue)} />
+        <MiniMetric label={t("urmall.biz.promo.views")} value={promotion.views} />
+        <MiniMetric label={t("urmall.biz.promo.orders")} value={promotion.orders} />
+        <MiniMetric label={t("urmall.biz.promo.revenue")} value={formatCurrency(promotion.revenue)} />
       </div>
 
       <div className="mt-4">
@@ -43,12 +45,12 @@ export default function ActivePromotionCard({ promotion }) {
 }
 
 function formatAudience(value = "") {
-  const labels = {
-    countrywide: "Country-wide",
-    nearby: "Nearby",
-    recommended: "Recommended",
+  const keys = {
+    countrywide: "audCountrywide",
+    nearby: "audNearby",
+    recommended: "audRecommended",
   };
-  return labels[value] || "Country-wide";
+  return t(`urmall.biz.pform.${keys[value] || "audCountrywide"}`);
 }
 
 function MiniMetric({ label, value }) {

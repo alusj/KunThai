@@ -1,5 +1,7 @@
 import { Bike, Clock, Store } from "lucide-react";
 
+import { useI18n, t } from "../../../../../i18n";
+
 function StatusPill({ icon: Icon, label, active }) {
   return (
     <span
@@ -15,21 +17,22 @@ function StatusPill({ icon: Icon, label, active }) {
 }
 
 export default function StoreStatusPills({ status }) {
+  useI18n();
   return (
     <div className="flex flex-wrap gap-2">
       <StatusPill
         icon={Clock}
-        label={status.open ? "Open now" : "Closed"}
+        label={status.open ? t("urmall.biz.dash.openNow") : t("urmall.biz.dash.closed")}
         active={status.open}
       />
       <StatusPill
         icon={Bike}
-        label="Delivery"
+        label={t("urmall.browse.deliveryChip")}
         active={status.deliveryEnabled}
       />
       <StatusPill
         icon={Store}
-        label="Pickup"
+        label={t("urmall.browse.pickupChip")}
         active={status.pickupEnabled}
       />
     </div>

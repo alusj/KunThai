@@ -1,6 +1,8 @@
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../i18n";
 
 export default function ProductCard({ product }) {
+  useI18n();
   return (
     <div className="border rounded-lg p-3 hover:shadow transition bg-white">
 
@@ -8,7 +10,7 @@ export default function ProductCard({ product }) {
           Product image placeholder
       ======================= */}
       <div className="h-32 bg-slate-100 rounded mb-2 flex items-center justify-center text-gray-400">
-        Image
+        {t("urmall.biz.dash.imagePlaceholder")}
       </div>
 
       {/* =======================
@@ -43,12 +45,12 @@ export default function ProductCard({ product }) {
 
         {/* Add to cart */}
         <button className="w-full bg-emerald-600 text-white py-1.5 rounded text-sm hover:bg-emerald-700">
-          Add to Cart
+          {t("urmall.biz.dash.addToCart")}
         </button>
 
         {/* Message seller (negotiation entry point) */}
         <button className="w-full border py-1.5 rounded text-sm hover:bg-slate-50">
-          Message Seller
+          {t("urmall.biz.dash.messageSeller")}
         </button>
 
       </div>

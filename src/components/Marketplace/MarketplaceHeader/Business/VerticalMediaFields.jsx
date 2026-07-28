@@ -8,8 +8,13 @@ import {
   REQUIRED_EXTRA_IMAGE_COUNT,
   validateVerticalVideo,
 } from "../../../../Backend/services/marketplace/verticalMediaValidation";
+import { useI18n, t } from "../../../../i18n";
+
+const NOUN_KEYS = { meal: "nounMeal", hotel: "nounHotel", property: "nounProperty", listing: "nounListing" };
 
 export default function VerticalMediaFields({ media, setMedia, accent = "emerald", noun = "listing" }) {
+  useI18n();
+  const nounLabel = t(`urmall.biz.vert.${NOUN_KEYS[noun] || "nounListing"}`);
   const [caution, setCaution] = useState("");
   const accentClass = accent === "orange" ? "border-orange-200 bg-orange-50" : accent === "blue" ? "border-blue-200 bg-blue-50" : "border-violet-200 bg-violet-50";
   const extraImages = Array.from(media.extraImageFiles || []);
@@ -19,7 +24,7 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
     if (!file) return;
     if (file.size >= MAX_VERTICAL_VIDEO_BYTES) {
       setMedia((current) => ({ ...current, videoFile: null, videoDuration: 0 }));
-      setCaution(`Your video is ${formatFileSize(file.size)}. We can only accept videos less than 50 MB. Please compress it and try again.`);
+      setCaution(t("urmall.biz.vert.videoCompress", { size: formatFileSize(file.size) }));
       return;
     }
     try {
@@ -41,9 +46,9 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
       const accepted = incoming.slice(0, Math.max(room, 0));
       const combined = [...existing, ...accepted];
       if (incoming.length > room) {
-        setCaution(`You can only add ${MAX_EXTRA_IMAGE_COUNT} extra images for this ${noun}. The first ${MAX_EXTRA_IMAGE_COUNT} were kept.`);
+        setCaution(t("urmall.biz.vert.onlyExtraImages", { max: MAX_EXTRA_IMAGE_COUNT, noun: nounLabel }));
       } else if (combined.length < REQUIRED_EXTRA_IMAGE_COUNT) {
-        setCaution(`Choose at least ${REQUIRED_EXTRA_IMAGE_COUNT} extra images for this ${noun}.`);
+        setCaution(t("urmall.biz.vert.chooseAtLeast", { min: REQUIRED_EXTRA_IMAGE_COUNT, noun: nounLabel }));
       } else {
         setCaution("");
       }
@@ -61,23 +66,23 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
   return (
     <>
       <div className={`grid gap-3 rounded-2xl border p-4 sm:col-span-2 sm:grid-cols-3 ${accentClass}`}>
-        <MediaInput label="1 cover image" detail={media.coverImageFile?.name || (media.image_url || media.image_urls?.length ? "Current cover kept" : "Required")} icon={ImagePlus} accept="image/*" onFiles={(files) => setMedia((current) => ({ ...current, coverImageFile: files[0] || null }))} />
+        <MediaInput label={t("urmall.biz.vert.coverImageOne")} detail={media.coverImageFile?.name || (media.image_url || media.image_urls?.length ? t("urmall.biz.vert.currentCoverKept") : t("urmall.biz.vert.required"))} icon={ImagePlus} accept="image/*" onFiles={(files) => setMedia((current) => ({ ...current, coverImageFile: files[0] || null }))} />
         <MediaInput
-          label={`${REQUIRED_EXTRA_IMAGE_COUNT} to ${MAX_EXTRA_IMAGE_COUNT} extra images`}
-          detail={extrasFull ? `All ${MAX_EXTRA_IMAGE_COUNT} images added` : extraImages.length ? `${extraImages.length} of ${MAX_EXTRA_IMAGE_COUNT} selected` : media.image_urls?.length ? "Current gallery kept" : "Five or six are required"}
+          label={t("urmall.biz.vert.extraImagesRange", { min: REQUIRED_EXTRA_IMAGE_COUNT, max: MAX_EXTRA_IMAGE_COUNT })}
+          detail={extrasFull ? t("urmall.biz.vert.allImagesAdded", { max: MAX_EXTRA_IMAGE_COUNT }) : extraImages.length ? t("urmall.biz.vert.mediaNOfMSelected", { count: extraImages.length, max: MAX_EXTRA_IMAGE_COUNT }) : media.image_urls?.length ? t("urmall.biz.vert.currentGalleryKept") : t("urmall.biz.vert.fiveOrSix")}
           icon={extrasFull ? CheckCircle2 : ImagePlus}
           accept="image/*"
           multiple
           disabled={extrasFull}
           onFiles={addExtraImages}
         />
-        <MediaInput label="1 video" detail={media.videoFile ? `${formatFileSize(media.videoFile.size)} · ${Math.ceil(media.videoDuration)} sec` : media.video_url ? "Current video kept" : "30 sec maximum · less than 50 MB"} icon={Film} accept="video/*" onFiles={(files) => chooseVideo(files[0])} />
+        <MediaInput label={t("urmall.biz.vert.videoOne")} detail={media.videoFile ? t("urmall.biz.vert.videoDetail", { size: formatFileSize(media.videoFile.size), sec: Math.ceil(media.videoDuration) }) : media.video_url ? t("urmall.biz.vert.currentVideoKept") : t("urmall.biz.vert.videoLimit")} icon={Film} accept="video/*" onFiles={(files) => chooseVideo(files[0])} />
         {extraImages.length ? (
           <div className="flex flex-wrap gap-2 sm:col-span-3">
             {extraImages.map((file, index) => (
               <span key={`${file.name}-${index}`} className="flex items-center gap-1.5 rounded-full border border-white/80 bg-white px-2.5 py-1 text-[11px] font-black text-gray-700 shadow-sm">
                 <span className="max-w-28 truncate">{file.name}</span>
-                <button type="button" onClick={() => removeExtraImage(index)} className="grid h-4 w-4 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={`Remove ${file.name}`}>
+                <button type="button" onClick={() => removeExtraImage(index)} className="grid h-4 w-4 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.pform.removeFile", { name: file.name })}>
                   <X size={11} />
                 </button>
               </span>
@@ -90,8 +95,8 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
         <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[1500] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-2xl" role="alert">
           <div className="flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200"><AlertTriangle size={20} /></span>
-            <div className="min-w-0 flex-1"><p className="text-sm font-black">Media caution</p><p className="mt-1 text-sm font-semibold leading-5">{caution}</p></div>
-            <button type="button" onClick={() => setCaution("")} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/80" aria-label="Close caution"><X size={16} /></button>
+            <div className="min-w-0 flex-1"><p className="text-sm font-black">{t("urmall.biz.vert.mediaCaution")}</p><p className="mt-1 text-sm font-semibold leading-5">{caution}</p></div>
+            <button type="button" onClick={() => setCaution("")} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/80" aria-label={t("urmall.biz.vert.closeCaution")}><X size={16} /></button>
           </div>
         </div>
       ) : null}

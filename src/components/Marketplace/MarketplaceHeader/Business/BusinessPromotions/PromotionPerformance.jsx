@@ -1,28 +1,30 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../../i18n";
 import PromotionMetricCard from "./PromotionMetricCard";
 
 export default function PromotionPerformance({ performance }) {
+  useI18n();
   return (
     <div className="grid gap-3 md:grid-cols-4">
       <PromotionMetricCard
-        label="Credits used"
+        label={t("urmall.biz.promo.creditsUsed")}
         value={performance.budgetSpent}
-        helper="Across active promos"
+        helper={t("urmall.biz.promo.creditsUsedHelper")}
       />
       <PromotionMetricCard
-        label="Promo views"
+        label={t("urmall.biz.promo.promoViews")}
         value={performance.viewsFromPromotions}
-        helper="Views from boosted listings"
+        helper={t("urmall.biz.promo.promoViewsHelper")}
       />
       <PromotionMetricCard
-        label="Promo orders"
+        label={t("urmall.biz.promo.promoOrders")}
         value={performance.ordersFromPromotions}
-        helper="Orders from campaigns"
+        helper={t("urmall.biz.promo.promoOrdersHelper")}
       />
       <PromotionMetricCard
-        label="Promo revenue"
+        label={t("urmall.biz.promo.promoRevenue")}
         value={formatCurrency(performance.discountRevenue)}
-        helper="Revenue influenced by promos"
+        helper={t("urmall.biz.promo.promoRevenueHelper")}
       />
     </div>
   );

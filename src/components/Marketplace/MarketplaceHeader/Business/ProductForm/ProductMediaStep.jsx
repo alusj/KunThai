@@ -6,6 +6,7 @@ import ProductFormInput from "./ProductFormInput";
 import ProductVideoTrimmer from "./ProductVideoTrimmer";
 import { MAX_PRODUCT_VIDEO_MB, MAX_PRODUCT_VIDEO_SECONDS, formatVideoMb } from "./productVideoLimits";
 import { showToast } from "../../../../../Backend/services/toastService";
+import { useI18n, t } from "../../../../../i18n";
 
 function readVideoDuration(file) {
   return new Promise((resolve, reject) => {
@@ -43,6 +44,7 @@ function readVideoDuration(file) {
 const MAX_EXTRA_IMAGES = 6;
 
 export default function ProductMediaStep({ productForm }) {
+  useI18n();
   const { form, errors, updateSection } = productForm;
   const [coverGuideOpen, setCoverGuideOpen] = useState(false);
   const [videoGuideOpen, setVideoGuideOpen] = useState(false);
@@ -55,16 +57,15 @@ export default function ProductMediaStep({ productForm }) {
 
   return (
     <div className="space-y-5">
-      <ProductFormField label="Cover image" error={errors.coverImage}>
+      <ProductFormField label={t("urmall.biz.pform.coverImage")} error={errors.coverImage}>
         <div className="mb-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
-          <p className="text-sm font-black text-blue-900">Use your best product image.</p>
+          <p className="text-sm font-black text-blue-900">{t("urmall.biz.pform.coverTip")}</p>
           <button type="button" onClick={() => setCoverGuideOpen((current) => !current)} className="mt-1 text-sm font-black text-blue-700">
-            {coverGuideOpen ? "Hide details" : "Read more"}
+            {coverGuideOpen ? t("urmall.biz.pform.hideDetails") : t("urmall.biz.pform.readMore")}
           </button>
           {coverGuideOpen ? (
             <p className="mt-2 text-sm font-semibold leading-6 text-blue-700">
-              The cover image is usually the first thing buyers see. A bright, clear photo from a good angle helps the product look trustworthy,
-              makes people stop scrolling, and can reduce repeated questions because customers understand what they are buying faster.
+              {t("urmall.biz.pform.coverGuide")}
             </p>
           ) : null}
         </div>
@@ -78,12 +79,12 @@ export default function ProductMediaStep({ productForm }) {
         />
         {form.media.coverImageUrl ? (
           <p className="mt-2 text-xs font-bold text-gray-500">
-            Current cover is saved. Upload a new image only if you want to replace it.
+            {t("urmall.biz.pform.currentCover")}
           </p>
         ) : null}
       </ProductFormField>
 
-      <ProductFormField label="Extra images up to 6" error={extraImagesNote}>
+      <ProductFormField label={t("urmall.biz.pform.extraImages")} error={extraImagesNote}>
         <ProductFormInput
           type="file"
           accept="image/*"
@@ -93,7 +94,7 @@ export default function ProductMediaStep({ productForm }) {
             // Stop the picker from even opening once six are chosen.
             if (extraImagesFull) {
               event.preventDefault();
-              showToast(`You already have the maximum of ${MAX_EXTRA_IMAGES} images. Remove one to add another.`, "danger", { title: "UrMall" });
+              showToast(t("urmall.biz.pform.maxImagesToast", { max: MAX_EXTRA_IMAGES }), "danger", { title: "UrMall" });
             }
           }}
           onChange={(event) => {
@@ -105,8 +106,8 @@ export default function ProductMediaStep({ productForm }) {
             // Six is a hard stop: extra selections are dropped and the seller is
             // told with a toast, whether they were already full or just went over.
             if (incoming.length > room) {
-              setExtraImagesNote(`We can only accept ${MAX_EXTRA_IMAGES} images.`);
-              showToast(`We can only accept ${MAX_EXTRA_IMAGES} images.`, "danger", { title: "UrMall" });
+              setExtraImagesNote(t("urmall.biz.pform.onlyNImages", { max: MAX_EXTRA_IMAGES }));
+              showToast(t("urmall.biz.pform.onlyNImages", { max: MAX_EXTRA_IMAGES }), "danger", { title: "UrMall" });
             } else {
               setExtraImagesNote("");
             }
@@ -117,11 +118,11 @@ export default function ProductMediaStep({ productForm }) {
         />
         {extraImagesFull ? (
           <p className="mt-2 text-xs font-bold text-emerald-700">
-            All {MAX_EXTRA_IMAGES} extra images are added. Remove one below to choose a different image.
+            {t("urmall.biz.pform.extraImagesFull", { max: MAX_EXTRA_IMAGES })}
           </p>
         ) : (
           <p className="mt-2 text-xs font-bold text-gray-500">
-            {extraImages.length} of {MAX_EXTRA_IMAGES} selected
+            {t("urmall.biz.pform.nOfMSelected", { count: extraImages.length, max: MAX_EXTRA_IMAGES })}
           </p>
         )}
         {extraImages.length ? (
@@ -137,7 +138,7 @@ export default function ProductMediaStep({ productForm }) {
                     updateSection("media", { extraImageFiles: extraImages.filter((_, itemIndex) => itemIndex !== index) });
                   }}
                   className="grid h-4 w-4 place-items-center rounded-full bg-gray-100 text-gray-600"
-                  aria-label={`Remove ${file.name}`}
+                  aria-label={t("urmall.biz.pform.removeFile", { name: file.name })}
                 >
                   ×
                 </button>
@@ -147,16 +148,15 @@ export default function ProductMediaStep({ productForm }) {
         ) : null}
       </ProductFormField>
 
-      <ProductFormField label="Short product video">
+      <ProductFormField label={t("urmall.biz.pform.shortVideo")}>
         <div className="mb-3 rounded-xl border border-amber-100 bg-amber-50 p-3">
-          <p className="text-sm font-black text-amber-900">Add your best 30 seconds product video.</p>
+          <p className="text-sm font-black text-amber-900">{t("urmall.biz.pform.videoTip")}</p>
           <button type="button" onClick={() => setVideoGuideOpen((current) => !current)} className="mt-1 text-sm font-black text-amber-700">
-            {videoGuideOpen ? "Hide details" : "Read more"}
+            {videoGuideOpen ? t("urmall.biz.pform.hideDetails") : t("urmall.biz.pform.readMore")}
           </button>
           {videoGuideOpen ? (
             <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">
-              A short video lets buyers see movement, scale, texture, packaging, and real condition. Keep it focused: show the product clearly,
-              demonstrate the main feature, and avoid long clips so it loads quickly for customers.
+              {t("urmall.biz.pform.videoGuide")}
             </p>
           ) : null}
         </div>
@@ -171,7 +171,7 @@ export default function ProductMediaStep({ productForm }) {
             if (file) {
               if (file.size > MAX_PRODUCT_VIDEO_MB * 1024 * 1024) {
                 setVideoError(
-                  `Your video is ${formatVideoMb(file.size)} MB and we are only accepting a video that is less than ${MAX_PRODUCT_VIDEO_MB} MB for now.`,
+                  t("urmall.biz.pform.videoTooBig", { mb: formatVideoMb(file.size), max: MAX_PRODUCT_VIDEO_MB }),
                 );
                 setVideoTrimCandidate(file);
                 event.target.value = "";
@@ -183,7 +183,7 @@ export default function ProductMediaStep({ productForm }) {
                 const duration = await readVideoDuration(file);
                 if (duration > MAX_PRODUCT_VIDEO_SECONDS + 0.5) {
                   setVideoError(
-                    `Your video is ${Math.round(duration)} seconds and we are only accepting a video that is ${MAX_PRODUCT_VIDEO_SECONDS} seconds or less for now.`,
+                    t("urmall.biz.pform.videoTooLong", { sec: Math.round(duration), max: MAX_PRODUCT_VIDEO_SECONDS }),
                   );
                   setVideoTrimCandidate(file);
                   event.target.value = "";
@@ -191,7 +191,7 @@ export default function ProductMediaStep({ productForm }) {
                   return;
                 }
               } catch {
-                setVideoError(`Unable to check this video. Please choose a ${MAX_PRODUCT_VIDEO_SECONDS} seconds or shorter video.`);
+                setVideoError(t("urmall.biz.pform.videoCheckFail", { max: MAX_PRODUCT_VIDEO_SECONDS }));
                 event.target.value = "";
                 updateSection("media", { videoFile: null, videoName: "" });
                 return;
@@ -211,7 +211,7 @@ export default function ProductMediaStep({ productForm }) {
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-black text-white transition hover:bg-gray-800"
               >
                 <Scissors size={15} />
-                Trim
+                {t("urmall.biz.pform.trim")}
               </button>
             ) : null}
           </div>
@@ -232,11 +232,11 @@ export default function ProductMediaStep({ productForm }) {
       ) : null}
 
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm font-medium text-gray-600 [overflow-wrap:anywhere]">
-        <p className="break-all">Cover: {form.media.coverImageName || "Not selected"}</p>
+        <p className="break-all">{t("urmall.biz.pform.coverSummary", { value: form.media.coverImageName || t("urmall.biz.pform.notSelected") })}</p>
         <p className="mt-1">
-          Extra images: {form.media.extraImageFiles.length || form.media.extraImageUrls?.length || 0}
+          {t("urmall.biz.pform.extraSummary", { count: form.media.extraImageFiles.length || form.media.extraImageUrls?.length || 0 })}
         </p>
-        <p className="mt-1 break-all">Video: {form.media.videoName || "Not selected"}</p>
+        <p className="mt-1 break-all">{t("urmall.biz.pform.videoSummary", { value: form.media.videoName || t("urmall.biz.pform.notSelected") })}</p>
       </div>
     </div>
   );

@@ -5,6 +5,8 @@ import {
   FiCheckCircle,
   FiChevronLeft,
   FiChevronRight,
+  FiChevronUp,
+  FiEdit2,
   FiFileText,
   FiMapPin,
   FiPlus,
@@ -245,6 +247,11 @@ function compactPublicId(value = "") {
 
 export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaveExit, onViewOneKmPreview }) {
   const addOperatorMode = mode === "addOperator";
+  // Editing an existing company shows a single-screen accordion of the
+  // registration steps (each with the current details + Edit) instead of
+  // walking the wizard from the top.
+  const editing = Boolean(existingCompany) && !addOperatorMode;
+  const [openSection, setOpenSection] = useState(-1);
   const [step, setStep] = useState(() => (addOperatorMode ? 2 : 0));
   const [maxStepReached, setMaxStepReached] = useState(() => (addOperatorMode ? 2 : 0));
   const [form, setForm] = useState(() => createCompanyForm());
@@ -660,6 +667,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       if (Object.keys(nextErrors).length) {
         setFieldErrors(nextErrors);
         if (!addOperatorMode) setStep(stepIndex);
+        if (editing) setOpenSection(stepIndex);
         showStatus(summarizeErrors(nextErrors), "error");
         scrollToFirstBlockingFieldSoon();
         return;
@@ -705,7 +713,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }
 
   function handleRegistrationBack() {
-    if (!addOperatorMode && step > 0) {
+    // The edit accordion is a single screen, so Back leaves to the workspace
+    // rather than stepping through wizard stages.
+    if (!addOperatorMode && !editing && step > 0) {
       prevStep();
       return;
     }
@@ -753,13 +763,13 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         <div className="flex w-full items-center gap-3">
           <AppBackTab
             onBack={handleRegistrationBack}
-            label={!addOperatorMode && step > 0 ? "Back to previous registration step" : "Back to previous screen"}
+            label={!addOperatorMode && !editing && step > 0 ? "Back to previous registration step" : "Back to previous screen"}
             historyKey="transport-company-registration"
             className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
-            <h1 className="truncate text-lg font-black text-slate-950">{addOperatorMode ? "Add company operator" : "Company / Organization Registration"}</h1>
+            <h1 className="truncate text-lg font-black text-slate-950">{addOperatorMode ? "Add company operator" : editing ? "Edit company profile" : "Company / Organization Registration"}</h1>
           </div>
           <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
             {addOperatorMode ? "Fleet stage" : `${completion}/4 ready`}
@@ -767,8 +777,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         </div>
       </header>
 
-      <main ref={formTopRef} className={`grid w-full gap-5 px-3 py-4 sm:px-5 lg:px-8 ${addOperatorMode ? "mx-auto max-w-6xl" : "lg:grid-cols-[280px_minmax(0,1fr)]"}`}>
-        {!addOperatorMode ? <aside className="lg:sticky lg:top-20 lg:h-fit">
+      <main ref={formTopRef} className={`grid w-full gap-5 px-3 py-4 sm:px-5 lg:px-8 ${addOperatorMode || editing ? "mx-auto max-w-4xl" : "lg:grid-cols-[280px_minmax(0,1fr)]"}`}>
+        {!addOperatorMode && !editing ? <aside className="lg:sticky lg:top-20 lg:h-fit">
           <div className="grid grid-cols-2 gap-2 rounded-3xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-4 lg:grid-cols-1">
             {steps.map((item, index) => {
               const Icon = item.icon;
@@ -804,6 +814,68 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             </div>
           ) : null}
 
+          {editing ? (
+            <CompanyEditSections
+              openSection={openSection}
+              onToggle={setOpenSection}
+              onSave={submitCompany}
+              saving={submitting}
+              sections={[
+                {
+                  title: "Company profile",
+                  summary: [form.companyName, form.companyType, form.phone].filter(Boolean).join("  •  ") || "Not set yet",
+                  node: (
+                    <CompanyIdentityStep
+                      documentRequirements={companyDocumentRequirements}
+                      errors={fieldErrors}
+                      form={form}
+                      onChange={updateForm}
+                      onDocument={markCompanyDocument}
+                    />
+                  ),
+                },
+                {
+                  title: "Company base",
+                  summary: [form.city, form.country, form.address].filter(Boolean).join("  •  ") || "Not set yet",
+                  node: (
+                    <LocationOperationsStep
+                      areaText={areaText}
+                      errors={fieldErrors}
+                      form={form}
+                      hasLocation={hasLocation}
+                      onAreaText={setAreaText}
+                      onChange={updateForm}
+                      onDropPin={() => setLocationPickerMode("dropPin")}
+                      onLocateMe={() => setLocationCautionOpen(true)}
+                    />
+                  ),
+                },
+                {
+                  title: "Fleets",
+                  summary: `${fleets.length} fleet${fleets.length === 1 ? "" : "s"}${
+                    [...new Set(fleets.map((fleet) => fleet.fleetType).filter(Boolean))].length
+                      ? `  •  ${[...new Set(fleets.map((fleet) => fleet.fleetType).filter(Boolean))].join(", ")}`
+                      : ""
+                  }`,
+                  node: (
+                    <FleetBuilderStep
+                      acceptedOperators={(existingCompany?.fleets || []).flatMap((fleet) => fleet.operators || []).filter((operator) => operator.status === "accepted")}
+                      allowMultiple
+                      fleets={fleets}
+                      form={form}
+                      errors={fieldErrors}
+                      onAddFleet={addFleet}
+                      onInvite={addOperatorInvite}
+                      onRemoveFleet={removeFleet}
+                      onUpdateFleet={updateFleet}
+                      onUploadFleetDocument={markFleetDocument}
+                      onViewOneKmPreview={handleViewOneKmPreview}
+                    />
+                  ),
+                },
+              ]}
+            />
+          ) : (
           <StepSlideTransition stepKey={step} direction={stepDirection}>
             {step === 0 ? (
               <CompanyIdentityStep
@@ -845,7 +917,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
               <CompanyReviewStep form={{ ...form, operatingAreas: splitAreas(areaText) }} fleets={fleets} />
             ) : null}
           </StepSlideTransition>
+          )}
 
+          {editing ? null : (
           <div className="mt-6 border-t border-slate-100 pt-4">
             {status && statusTone === "error" ? (
               <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${statusClassName}`}>
@@ -900,6 +974,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
               </div>
             </div>
           </div>
+          )}
         </section>
       </main>
 
@@ -971,6 +1046,80 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         </div>
       </CenteredModal>
     </ScreenSlideTransition>
+  );
+}
+
+function CompanyEditSections({ sections = [], openSection, onToggle, onSave, saving }) {
+  return (
+    <div className="space-y-4">
+      <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
+        Open any section to update its details, then save your changes.
+      </p>
+
+      {sections.map((section, index) => {
+        const open = openSection === index;
+        return (
+          <section key={section.title} className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+            <button
+              type="button"
+              onClick={() => onToggle(open ? -1 : index)}
+              className="flex w-full items-start justify-between gap-3 p-4 text-left sm:p-5"
+              aria-expanded={open}
+            >
+              <div className="min-w-0">
+                <h2 className="text-base font-black text-slate-950 sm:text-lg">{section.title}</h2>
+                {open ? null : (
+                  <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-600">{section.summary}</p>
+                )}
+              </div>
+              <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-black text-slate-700">
+                {open ? (
+                  <>
+                    <FiChevronUp /> Close
+                  </>
+                ) : (
+                  <>
+                    <FiEdit2 /> Edit
+                  </>
+                )}
+              </span>
+            </button>
+
+            {open ? (
+              <div className="border-t border-slate-100 p-4 sm:p-5">
+                {section.node}
+                <div className="mt-5 flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onToggle(-1)}
+                    className="h-11 rounded-2xl border border-slate-200 px-5 text-sm font-black text-slate-700"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onSave}
+                    disabled={saving}
+                    className="h-11 rounded-2xl bg-emerald-600 px-6 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {saving ? "Saving..." : "Save changes"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </section>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saving}
+        className="h-12 w-full rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+      >
+        {saving ? "Saving..." : "Save changes"}
+      </button>
+    </div>
   );
 }
 

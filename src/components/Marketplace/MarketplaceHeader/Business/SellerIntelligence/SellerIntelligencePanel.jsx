@@ -1,4 +1,7 @@
+import { useI18n, t } from "../../../../../i18n";
+
 export default function SellerIntelligencePanel({ item }) {
+  useI18n();
   const rows = item.rows || [];
 
   return (
@@ -36,7 +39,7 @@ export default function SellerIntelligencePanel({ item }) {
         </div>
       ) : (
         <div className="mt-4 rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm font-semibold text-gray-500">
-          No data here yet. This section will fill in automatically as sellers receive orders, messages, reviews, payouts, and buyer activity.
+          {t("urmall.biz.intel.emptyPanel")}
         </div>
       )}
     </div>

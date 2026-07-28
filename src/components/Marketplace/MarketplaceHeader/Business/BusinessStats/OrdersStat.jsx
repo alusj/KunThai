@@ -1,5 +1,6 @@
 // src/components/Marketplace/MarketplaceHeader/Business/BusinessStats/OrdersStat.jsx
 
+import { useI18n, t } from "../../../../../i18n";
 import StatCard from "./StatCard";
 
 /**
@@ -7,10 +8,11 @@ import StatCard from "./StatCard";
  */
 
 export default function OrdersStat() {
+  useI18n();
   return (
     <StatCard
       icon="🧾"
-      label="Orders"
+      label={t("urmall.biz.stats.orders")}
       value={112}
     />
   );

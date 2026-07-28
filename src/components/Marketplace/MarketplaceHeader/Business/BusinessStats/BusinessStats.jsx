@@ -18,6 +18,7 @@ import { deleteSellerOrder, updateSellerOrderStatus } from "../../../../../Backe
 import { storeSellerOrdersAreaViewReturn } from "../../../../../Backend/services/marketplace/navigationHandoffService";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { formatOrderFulfillment, parseOrderDeliveryDetails } from "../../../../../Backend/utils/orderDeliveryDetails";
+import { useI18n, t } from "../../../../../i18n";
 import BestSalesWindowCard from "./BestSalesWindowCard";
 import OrderStatusGrid from "./OrderStatusGrid";
 import RevenueMetrics from "./RevenueMetrics";
@@ -42,6 +43,7 @@ function getOrderAddress(order) {
 }
 
 export default function BusinessStats({ initialView = "revenue" }) {
+  useI18n();
   const { revenue, orders, averageOrderValue, bestSalesWindow, recentOrders, loading } = useSellerSales();
   const [activeView, setActiveView] = useState(initialView);
   // Optimistic overlay on the fetched orders: status patches by id plus
@@ -71,9 +73,9 @@ export default function BusinessStats({ initialView = "revenue" }) {
     try {
       await updateSellerOrderStatus(order.id, status);
       setOrderStatusPatches((current) => ({ ...current, [order.id]: status }));
-      setFeedback("Order status updated.");
+      setFeedback(t("urmall.biz.stats.orderUpdated"));
     } catch (err) {
-      setFeedback(err.message || "Unable to update order.");
+      setFeedback(err.message || t("urmall.biz.stats.orderUpdateFailed"));
     }
   }
 
@@ -85,9 +87,9 @@ export default function BusinessStats({ initialView = "revenue" }) {
         next.add(order.id);
         return next;
       });
-      setFeedback("Order deleted.");
+      setFeedback(t("urmall.biz.stats.orderDeleted"));
     } catch (err) {
-      setFeedback(err.message || "Unable to delete order.");
+      setFeedback(err.message || t("urmall.biz.stats.orderDeleteFailed"));
     }
   }
 
@@ -100,7 +102,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
       order.deliveryLongitude !== undefined;
 
     if (!hasCoordinates && !address) {
-      setFeedback("This order has no delivery address to locate yet.");
+      setFeedback(t("urmall.biz.stats.noAddress"));
       return;
     }
 
@@ -113,7 +115,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
           destination: {
             type: "order",
             id: order.id,
-            name: `${order.buyerName || "Buyer"} - ${order.preview || "UrMall order"}`,
+            name: `${order.buyerName || t("urmall.biz.stats.buyer")} - ${order.preview || t("urmall.biz.stats.urmallOrder")}`,
             address,
             searchQuery: address,
             ...(hasCoordinates ? { lat: Number(order.deliveryLatitude), lng: Number(order.deliveryLongitude) } : {}),
@@ -126,17 +128,17 @@ export default function BusinessStats({ initialView = "revenue" }) {
   return (
     <section className="space-y-4">
       <div>
-        <h3 className="text-xl font-black text-gray-950">Sales & Orders</h3>
+        <h3 className="text-xl font-black text-gray-950">{t("urmall.biz.stats.salesOrders")}</h3>
         <p className="mt-1 text-sm font-medium text-gray-500">
-          Revenue, order flow, and the selling times that matter most.
+          {t("urmall.biz.stats.salesOrdersDesc")}
         </p>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
         <div className="grid gap-2 sm:grid-cols-2">
           {[
-            { id: "revenue", label: "Revenue" },
-            { id: "orders", label: "Order Status" },
+            { id: "revenue", label: t("urmall.biz.stats.tabRevenue") },
+            { id: "orders", label: t("urmall.biz.stats.tabOrderStatus") },
           ].map((item) => (
             <button
               key={item.id}
@@ -161,9 +163,9 @@ export default function BusinessStats({ initialView = "revenue" }) {
           <div className="grid gap-3 lg:grid-cols-[320px_minmax(0,1fr)]">
             <SalesMetricCard
               icon={ShoppingBag}
-              label="Average order value"
+              label={t("urmall.biz.stats.avgOrderValue")}
               value={formatCurrency(averageOrderValue)}
-              helper="Average amount buyers spend per order"
+              helper={t("urmall.biz.stats.avgOrderValueHelper")}
             />
             <BestSalesWindowCard window={bestSalesWindow} />
           </div>
@@ -190,23 +192,23 @@ export default function BusinessStats({ initialView = "revenue" }) {
 function SellerOrderActionMenu({ order, onAction, onClose }) {
   const actions = [
     order.status !== "shipped" && order.status !== "completed" && order.status !== "cancelled"
-      ? { id: "shipped", label: "Mark shipped", icon: Truck, className: "text-blue-700 hover:bg-blue-50" }
+      ? { id: "shipped", label: t("urmall.biz.stats.markShipped"), icon: Truck, className: "text-blue-700 hover:bg-blue-50" }
       : null,
     order.status !== "completed" && order.status !== "cancelled"
-      ? { id: "completed", label: "Complete", icon: CheckCircle2, className: "text-emerald-700 hover:bg-emerald-50" }
+      ? { id: "completed", label: t("urmall.biz.stats.complete"), icon: CheckCircle2, className: "text-emerald-700 hover:bg-emerald-50" }
       : null,
     order.status !== "cancelled" && order.status !== "completed"
-      ? { id: "cancelled", label: "Cancel", icon: XCircle, className: "text-amber-700 hover:bg-amber-50" }
+      ? { id: "cancelled", label: t("urmall.biz.stats.cancel"), icon: XCircle, className: "text-amber-700 hover:bg-amber-50" }
       : null,
-    { id: "locate", label: "Locate address", icon: MapPin, className: "text-gray-700 hover:bg-gray-50" },
-    { id: "delete", label: "Delete", icon: Trash2, className: "text-red-600 hover:bg-red-50" },
+    { id: "locate", label: t("urmall.biz.stats.locateAddress"), icon: MapPin, className: "text-gray-700 hover:bg-gray-50" },
+    { id: "delete", label: t("urmall.biz.stats.delete"), icon: Trash2, className: "text-red-600 hover:bg-red-50" },
   ].filter(Boolean);
 
   return (
     <>
       <button
         type="button"
-        aria-label="Close order actions"
+        aria-label={t("urmall.biz.stats.closeOrderActions")}
         onClick={onClose}
         className="fixed inset-0 z-20 cursor-default bg-transparent"
       />
@@ -235,16 +237,16 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
   const fulfillment = formatOrderFulfillment(details);
   const address = details.address || details.raw;
   const rows = [
-    { icon: User, label: "Buyer", value: order.buyerName || "Buyer" },
-    { icon: Phone, label: "Phone", value: details.phone || details.contact || "Not provided" },
-    { icon: Truck, label: "Fulfillment", value: fulfillment || "Not specified" },
+    { icon: User, label: t("urmall.biz.stats.buyer"), value: order.buyerName || t("urmall.biz.stats.buyer") },
+    { icon: Phone, label: t("urmall.biz.stats.phone"), value: details.phone || details.contact || t("urmall.biz.stats.notProvided") },
+    { icon: Truck, label: t("urmall.biz.stats.fulfillment"), value: fulfillment || t("urmall.biz.stats.notSpecified") },
     {
       icon: MapPin,
-      label: details.addressLabel ? `${details.addressLabel} address` : "Delivery address",
-      value: address || "No address added",
+      label: details.addressLabel ? t("urmall.biz.stats.addressLabelSuffix", { label: details.addressLabel }) : t("urmall.biz.stats.deliveryAddress"),
+      value: address || t("urmall.biz.stats.noAddressAdded"),
     },
-    details.note ? { icon: StickyNote, label: "Note", value: details.note } : null,
-    details.paymentPreference ? { icon: StickyNote, label: "Payment preference", value: details.paymentPreference } : null,
+    details.note ? { icon: StickyNote, label: t("urmall.biz.stats.note"), value: details.note } : null,
+    details.paymentPreference ? { icon: StickyNote, label: t("urmall.biz.stats.paymentPreference"), value: details.paymentPreference } : null,
   ].filter(Boolean);
   const canUpdate = order.status === "pending" || order.status === "shipped";
 
@@ -252,29 +254,29 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
     <div className="fixed inset-0 z-[1250] flex items-end justify-center sm:items-center">
       <button
         type="button"
-        aria-label="Close order details"
+        aria-label={t("urmall.biz.stats.closeOrderDetails")}
         onClick={onClose}
         className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
       />
       <section
         role="dialog"
         aria-modal="true"
-        aria-label={`Order details for ${order.preview || "UrMall order"}`}
+        aria-label={t("urmall.biz.stats.orderDetailsFor", { preview: order.preview || t("urmall.biz.stats.urmallOrder") })}
         className="kt-modal-enter relative max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Order details</p>
-            <h4 className="mt-1 truncate text-lg font-black text-gray-950">{order.preview || "UrMall order"}</h4>
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urmall.biz.stats.orderDetails")}</p>
+            <h4 className="mt-1 truncate text-lg font-black text-gray-950">{order.preview || t("urmall.biz.stats.urmallOrder")}</h4>
             <p className="mt-1 text-xs font-bold text-gray-500">
-              {order.itemCount} item{order.itemCount === 1 ? "" : "s"} | {formatOrderDate(order.createdAt)}
+              {t(order.itemCount === 1 ? "urmall.biz.stats.itemsOne" : "urmall.biz.stats.itemsMany", { count: order.itemCount })} | {formatOrderDate(order.createdAt)}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-            aria-label="Close order details"
+            aria-label={t("urmall.biz.stats.closeOrderDetails")}
           >
             <X size={18} />
           </button>
@@ -311,7 +313,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
             className="col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gray-950 text-sm font-black text-white hover:bg-gray-800"
           >
             <MapPin size={16} />
-            Locate address
+            {t("urmall.biz.stats.locateAddress")}
           </button>
           {canUpdate && order.status !== "shipped" ? (
             <button
@@ -320,7 +322,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-50 text-sm font-black text-blue-700 hover:bg-blue-100"
             >
               <Truck size={16} />
-              Mark shipped
+              {t("urmall.biz.stats.markShipped")}
             </button>
           ) : null}
           {canUpdate ? (
@@ -330,7 +332,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-black text-white hover:bg-emerald-700"
             >
               <CheckCircle2 size={16} />
-              Complete
+              {t("urmall.biz.stats.complete")}
             </button>
           ) : null}
           {canUpdate ? (
@@ -340,7 +342,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-50 text-sm font-black text-amber-700 hover:bg-amber-100"
             >
               <XCircle size={16} />
-              Cancel
+              {t("urmall.biz.stats.cancel")}
             </button>
           ) : null}
           <button
@@ -349,7 +351,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
             className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-50 text-sm font-black text-red-600 hover:bg-red-100 ${canUpdate ? "" : "col-span-2"}`}
           >
             <Trash2 size={16} />
-            Delete
+            {t("urmall.biz.stats.delete")}
           </button>
         </div>
       </section>
@@ -372,8 +374,8 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
   if (!orders.length) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-5 text-center shadow-sm">
-        <p className="font-black text-gray-950">No seller orders yet</p>
-        <p className="mt-1 text-sm font-semibold text-gray-500">New buyer orders will appear here for review and fulfillment.</p>
+        <p className="font-black text-gray-950">{t("urmall.biz.stats.noOrders")}</p>
+        <p className="mt-1 text-sm font-semibold text-gray-500">{t("urmall.biz.stats.noOrdersDesc")}</p>
       </div>
     );
   }
@@ -395,8 +397,8 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
     <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 className="text-lg font-black text-gray-950">Seller order queue</h4>
-          <p className="mt-1 text-sm font-semibold text-gray-500">Review, pack, complete, or cancel buyer orders.</p>
+          <h4 className="text-lg font-black text-gray-950">{t("urmall.biz.stats.orderQueue")}</h4>
+          <p className="mt-1 text-sm font-semibold text-gray-500">{t("urmall.biz.stats.orderQueueDesc")}</p>
         </div>
       </div>
       <div className="mt-4 space-y-3">
@@ -415,7 +417,7 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
                 >
                   <p className="font-black text-gray-950">{order.preview}</p>
                   <p className="mt-1 text-xs font-bold text-gray-500">
-                    {order.buyerName} | {order.itemCount} item{order.itemCount === 1 ? "" : "s"}
+                    {order.buyerName} | {t(order.itemCount === 1 ? "urmall.biz.stats.itemsOne" : "urmall.biz.stats.itemsMany", { count: order.itemCount })}
                     {fulfillment ? ` | ${fulfillment}` : ""}
                   </p>
                   {address ? (
@@ -436,7 +438,7 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
                     type="button"
                     onClick={() => setOpenMenuId((current) => (current === order.id ? "" : order.id))}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50"
-                    aria-label={`Actions for order ${order.preview || order.id}`}
+                    aria-label={t("urmall.biz.stats.actionsForOrder", { name: order.preview || order.id })}
                     aria-expanded={openMenuId === order.id}
                     aria-haspopup="menu"
                   >

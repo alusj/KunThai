@@ -4,6 +4,7 @@ import { useState } from "react";
 import BusinessLogo from "./BusinessLogo";
 import VerificationBadge from "./VerificationBadge";
 import { MarketplaceVerificationInline, MarketplaceVerificationModal } from "../../../shared/MarketplaceVerification";
+import { useI18n, t } from "../../../../../i18n";
 
 function StatusPill({ icon: Icon, label, active }) {
   return (
@@ -20,6 +21,7 @@ function StatusPill({ icon: Icon, label, active }) {
 }
 
 export default function BusinessProfileCard({ business, status, onEditProfile }) {
+  useI18n();
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [verificationAnchor, setVerificationAnchor] = useState(null);
 
@@ -66,13 +68,13 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
             <p className="flex items-center gap-2">
               <Tags size={15} strokeWidth={2.3} />
               <span className="min-w-0 truncate">
-                {business.category || "No category yet"}
+                {business.category || t("urmall.biz.dash.noCategory")}
               </span>
             </p>
             <p className="flex items-center gap-2">
               <MapPin size={15} strokeWidth={2.3} />
               <span className="min-w-0 truncate">
-                {business.location || "No address yet"}
+                {business.location || t("urmall.biz.dash.noAddress")}
               </span>
             </p>
           </div>
@@ -81,9 +83,9 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
             <span className="font-bold text-gray-900">
               {business.rating.toFixed(1)}
             </span>
-            <span className="text-yellow-500">star</span>
+            <span className="text-yellow-500">{t("urmall.biz.dash.star")}</span>
             <span className="text-gray-500">
-              {business.reviewCount} reviews
+              {t("urmall.biz.dash.reviews", { count: business.reviewCount })}
             </span>
           </div>
 
@@ -91,17 +93,17 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <StatusPill
                 icon={Clock}
-                label={status.open ? "Open now" : "Closed"}
+                label={status.open ? t("urmall.biz.dash.openNow") : t("urmall.biz.dash.closed")}
                 active={status.open}
               />
               <StatusPill
                 icon={Bike}
-                label="Delivery"
+                label={t("urmall.browse.deliveryChip")}
                 active={status.deliveryEnabled}
               />
               <StatusPill
                 icon={Store}
-                label="Pickup"
+                label={t("urmall.browse.pickupChip")}
                 active={status.pickupEnabled}
               />
             </div>
@@ -113,7 +115,7 @@ export default function BusinessProfileCard({ business, status, onEditProfile })
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
           onClick={onEditProfile}
         >
-          Edit Business
+          {t("urmall.biz.dash.editBusiness")}
         </button>
       </div>
       {verificationOpen ? (

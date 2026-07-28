@@ -40,6 +40,7 @@ import {
 import { consumeSellerOrdersAreaViewReturn } from "../../../../Backend/services/marketplace/navigationHandoffService";
 import { getBusinessPermissions, getAllowedWorkspaceTabs } from "../../../../Backend/services/marketplace/businessPermissions";
 import { showToast } from "../../../../Backend/services/toastService";
+import { useI18n, t } from "../../../../i18n";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
@@ -61,7 +62,7 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
           <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
             <AppBackTab
               onBack={onBack}
-              label="Back to seller dashboard"
+              label={t("urmall.biz.reg.backToDashboard")}
               historyKey={`marketplace-seller-${title}`}
               useHistoryLayer={false}
             />
@@ -82,6 +83,7 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
 }
 
 export default function Business({ onBack }) {
+  useI18n();
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
   const sellerOverview = useSellerOverview({ enabled: hasBusiness });
   const [activeScreen, setActiveScreen] = useState("dashboard");
@@ -178,7 +180,7 @@ export default function Business({ onBack }) {
 
   function openSellerProductDetail(product) {
     if (!product) {
-      setToastMessage("Product could not be opened.");
+      setToastMessage(t("urmall.biz.dash.productOpenFail"));
       window.setTimeout(() => setToastMessage(""), 3500);
       return;
     }
@@ -212,7 +214,7 @@ export default function Business({ onBack }) {
               setVisibleScreen("dashboard");
               setScreenPanelOpen(false);
               replaceSellerScreen("dashboard");
-              setToastMessage("New business workspace created successfully");
+              setToastMessage(t("urmall.biz.dash.bizCreated"));
               window.setTimeout(() => setToastMessage(""), 4500);
             }}
           />
@@ -235,7 +237,7 @@ export default function Business({ onBack }) {
               replaceSellerScreen("dashboard");
               setActiveTab("store");
               setEditingProduct(null);
-              setToastMessage(wasEditing ? "Updated Successfully" : "Added Successfully");
+              setToastMessage(wasEditing ? t("urmall.biz.dash.updatedSuccess") : t("urmall.biz.dash.addedSuccess"));
               setTimeout(() => setToastMessage(""), 4500);
             }}
           />
@@ -285,7 +287,7 @@ export default function Business({ onBack }) {
             onExit={goBackSellerScreen}
             onComplete={() => {
               replaceSellerScreen("dashboard");
-              setToastMessage("Business profile updated successfully");
+              setToastMessage(t("urmall.biz.dash.bizUpdated"));
               window.setTimeout(() => setToastMessage(""), 4500);
             }}
           />
@@ -297,9 +299,9 @@ export default function Business({ onBack }) {
       return (
         <SellerFullScreen
           key="orders"
-          eyebrow="Orders"
-          title="Seller Orders"
-          subtitle="Track pending, completed, cancelled, and refunded UrMall orders."
+          eyebrow={t("urmall.biz.board.items.ordersT")}
+          title={t("urmall.biz.dash.sellerOrders")}
+          subtitle={t("urmall.biz.board.items.ordersD")}
           onBack={goBackSellerScreen}
           open={screenPanelOpen}
         >
@@ -312,9 +314,9 @@ export default function Business({ onBack }) {
       return (
         <SellerFullScreen
           key="notifications"
-          eyebrow="Notifications"
-          title="Seller Notifications"
-          subtitle="Review items that need attention and recent activity from your store."
+          eyebrow={t("urmall.biz.dash.notifications")}
+          title={t("urmall.biz.dash.sellerNotifications")}
+          subtitle={t("urmall.biz.dash.notificationsSubtitle")}
           onBack={goBackSellerScreen}
           open={screenPanelOpen}
         >
@@ -368,7 +370,7 @@ export default function Business({ onBack }) {
     return (
       <div className={`${dashboardRevealClass} min-h-screen bg-slate-50`} style={dashboardRevealStyle}>
         <div className="flex min-h-screen items-center justify-center px-6">
-          <p className="text-sm font-bold text-slate-400">Opening your seller dashboard...</p>
+          <p className="text-sm font-bold text-slate-400">{t("urmall.biz.dash.openingDashboard")}</p>
         </div>
       </div>
     );
@@ -376,12 +378,12 @@ export default function Business({ onBack }) {
   const verticalBusiness = {
     id: activeBusinessId,
     kind: businessKind,
-    name: sellerOverview.business?.name || activeRegisteredBusiness?.identity?.businessName || "UrMall business",
+    name: sellerOverview.business?.name || activeRegisteredBusiness?.identity?.businessName || t("urmall.biz.dash.urmallBusiness"),
     currency: sellerOverview.business?.currency || activeRegisteredBusiness?.location?.currency || "",
     countryIso: sellerOverview.business?.countryIso || activeRegisteredBusiness?.location?.countryIso || "",
     location: sellerOverview.business?.location || activeRegisteredBusiness?.location?.city || "",
   };
-  const primaryActionLabel = businessKind === "restaurant" ? "Add Meal" : businessKind === "hotel" ? "Add Hotel" : businessKind === "property_agent" ? "Add Property" : "Add Product";
+  const primaryActionLabel = businessKind === "restaurant" ? t("urmall.biz.dash.addMeal") : businessKind === "hotel" ? t("urmall.biz.dash.addHotel") : businessKind === "property_agent" ? t("urmall.biz.dash.addProperty") : t("urmall.biz.header.addProduct");
 
   return (
     <div className={`${dashboardRevealClass} min-h-screen bg-gray-50`} style={dashboardRevealStyle}>
@@ -398,7 +400,7 @@ export default function Business({ onBack }) {
           onBack={onBack}
           onAddProduct={() => {
             if (!permissions.canAddProducts) {
-              showToast("Your admin role does not include adding or editing listings.", "info");
+              showToast(t("urmall.biz.dash.noAddPerm"), "info");
               return;
             }
             if (businessKind !== "retail") {
@@ -410,14 +412,14 @@ export default function Business({ onBack }) {
           }}
           onOrders={() => {
             if (!permissions.canAccessDashboard) {
-              showToast("Your admin role does not include order and dashboard access.", "info");
+              showToast(t("urmall.biz.dash.noDashPerm"), "info");
               return;
             }
             openSellerScreen("orders");
           }}
           onMessages={() => {
             if (!permissions.canReplyMessages) {
-              showToast("Your admin role does not include replying to messages.", "info");
+              showToast(t("urmall.biz.dash.noMsgPerm"), "info");
               return;
             }
             openSellerScreen("messages");
@@ -430,7 +432,7 @@ export default function Business({ onBack }) {
           onSwitchBusiness={async (businessId) => {
             await setActiveRegisteredBusiness(businessId);
             setActiveTab("overview");
-            setToastMessage("Business workspace switched");
+            setToastMessage(t("urmall.biz.dash.bizSwitched"));
             window.setTimeout(() => setToastMessage(""), 2500);
           }}
           primaryActionLabel={primaryActionLabel}
@@ -549,9 +551,9 @@ export default function Business({ onBack }) {
 // limited workspace never looks broken.
 function AdminRoleBanner({ permissions }) {
   const abilities = [
-    permissions.canAddProducts ? "add & edit listings" : null,
-    permissions.canReplyMessages ? "reply to messages" : null,
-    permissions.canAccessDashboard ? "view orders & dashboard" : null,
+    permissions.canAddProducts ? t("urmall.biz.dash.abAddEdit") : null,
+    permissions.canReplyMessages ? t("urmall.biz.dash.abReply") : null,
+    permissions.canAccessDashboard ? t("urmall.biz.dash.abView") : null,
   ].filter(Boolean);
 
   return (
@@ -560,10 +562,10 @@ function AdminRoleBanner({ permissions }) {
         <ShieldCheck size={17} />
       </span>
       <p className="text-sm font-semibold leading-6 text-violet-900">
-        You are an admin of this business.{" "}
+        {t("urmall.biz.dash.adminBannerLead")}{" "}
         {abilities.length
-          ? <>Your role covers: <span className="font-black">{abilities.join(", ")}</span>.</>
-          : "The owner has not assigned you any responsibilities yet."}
+          ? <>{t("urmall.biz.dash.roleCoversPrefix")} <span className="font-black">{abilities.join(", ")}</span>.</>
+          : t("urmall.biz.dash.noResponsibilities")}
       </p>
     </div>
   );
@@ -579,23 +581,23 @@ function AdminLimitedCard({ permissions, onOpenMessages }) {
       </span>
       {permissions.canReplyMessages ? (
         <>
-          <p className="mt-3 text-base font-black text-gray-950">You can reply to buyer messages</p>
+          <p className="mt-3 text-base font-black text-gray-950">{t("urmall.biz.dash.canReplyTitle")}</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
-            Your admin role is limited to answering messages for this store.
+            {t("urmall.biz.dash.canReplyDesc")}
           </p>
           <button
             type="button"
             onClick={onOpenMessages}
             className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white"
           >
-            <MessageSquare size={16} /> Open messages
+            <MessageSquare size={16} /> {t("urmall.biz.dash.openMessages")}
           </button>
         </>
       ) : (
         <>
-          <p className="mt-3 text-base font-black text-gray-950">No responsibilities assigned yet</p>
+          <p className="mt-3 text-base font-black text-gray-950">{t("urmall.biz.dash.noRespTitle")}</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
-            The business owner has not given you any admin responsibilities. Ask them to assign what you should handle.
+            {t("urmall.biz.dash.noRespDesc")}
           </p>
         </>
       )}

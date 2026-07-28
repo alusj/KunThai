@@ -1,14 +1,16 @@
 import { formatMessageTime } from "../../../../../Backend/utils/formatMessageTime";
+import { useI18n, t } from "../../../../../i18n";
 
 function conversationTitle(conversation) {
   if (conversation.productName) {
-    return `${conversation.buyerName} sent you a message about ${conversation.productName}`;
+    return t("urmall.biz.care.msgAbout", { buyer: conversation.buyerName, product: conversation.productName });
   }
 
-  return `${conversation.buyerName} sent you a message`;
+  return t("urmall.biz.care.msgGeneral", { buyer: conversation.buyerName });
 }
 
 export default function ConversationItem({ conversation, onOpen, active }) {
+  useI18n();
   return (
     <button
       type="button"
@@ -26,7 +28,7 @@ export default function ConversationItem({ conversation, onOpen, active }) {
           <div className="flex items-center gap-2">
             <p className="line-clamp-2 font-black text-gray-950">{conversationTitle(conversation)}</p>
           </div>
-          <p className="mt-1 text-xs font-bold uppercase text-gray-400">{conversation.productName ? "Product message" : "UrMall message"}</p>
+          <p className="mt-1 text-xs font-bold uppercase text-gray-400">{conversation.productName ? t("urmall.biz.care.productMessage") : t("urmall.biz.care.urmallMessage")}</p>
         </div>
         <span className="shrink-0 text-xs font-bold text-gray-400">{formatMessageTime(conversation.time)}</span>
       </div>
@@ -35,7 +37,7 @@ export default function ConversationItem({ conversation, onOpen, active }) {
         {conversation.preview}
       </p>
 
-      <p className="mt-3 text-xs font-black text-emerald-700">Open conversation</p>
+      <p className="mt-3 text-xs font-black text-emerald-700">{t("urmall.biz.care.openConversation")}</p>
     </button>
   );
 }

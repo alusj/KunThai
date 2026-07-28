@@ -1,4 +1,7 @@
+import { useI18n, t } from "../../../../../i18n";
+
 export default function SuggestedProductCard({ onPromote, product }) {
+  useI18n();
   const promotable = typeof onPromote === "function";
 
   return (
@@ -15,7 +18,7 @@ export default function SuggestedProductCard({ onPromote, product }) {
           disabled={!promotable}
           onClick={() => onPromote?.(product)}
         >
-          Promote
+          {t("urmall.biz.cat.promote")}
         </button>
       </div>
     </article>
