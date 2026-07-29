@@ -1,9 +1,12 @@
 import { BadgeCheck, Lock } from "lucide-react";
 
+import { useI18n, t } from "../../../../../i18n";
+
 export default function VerifiedBadgeList({ badges }) {
+  useI18n();
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-4">
-      <h4 className="font-black text-gray-950">Verified badges</h4>
+      <h4 className="font-black text-gray-950">{t("urmall.biz.rep.verifiedBadges")}</h4>
       <div className="mt-3 flex flex-wrap gap-2">
         {badges.map((badge) => {
           const active = badge.status === "active";

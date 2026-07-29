@@ -84,7 +84,7 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
               <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${isError ? "text-rose-600" : isComplete ? "text-emerald-700" : "text-sky-700"}`}>
                 {title}
               </p>
-              <h3 className="mt-0.5 truncate text-sm font-black text-slate-950">{isError ? "Review stopped" : currentStage.label}</h3>
+              <h3 className="mt-0.5 truncate text-sm font-black text-slate-950">{isError ? "Posting stopped" : currentStage.label}</h3>
               {showMessage ? <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-slate-600">{message}</p> : null}
             </div>
           </div>

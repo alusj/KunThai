@@ -1,7 +1,9 @@
+import { useI18n, t } from "../../../../../i18n";
 import ActivityIcon from "./ActivityIcon";
 import ActivityStatusBadge from "./ActivityStatusBadge";
 
 export default function ActivityItem({ actionBusy = false, activity, dismissing = false, onAction, onDone }) {
+  useI18n();
   function handleDone(event) {
     event.stopPropagation();
     onDone?.(activity);
@@ -45,7 +47,7 @@ export default function ActivityItem({ actionBusy = false, activity, dismissing 
               disabled={actionBusy}
               onClick={handleAction}
             >
-              {actionBusy ? "Opening..." : activity.actionLabel}
+              {actionBusy ? t("urmall.biz.actv.opening") : activity.actionLabel}
             </button>
           ) : null}
         </div>

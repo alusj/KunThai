@@ -7,18 +7,21 @@
  * Easy to extend: open, closed, suspended, verified.
  */
 
+import { useI18n, t } from "../../../../../i18n";
+
 export default function BusinessStatus({ status = "open" }) {
+  useI18n();
   const statusMap = {
     open: {
-      label: "Open",
+      labelKey: "urmall.biz.id.open",
       color: "bg-green-100 text-green-700",
     },
     closed: {
-      label: "Closed",
+      labelKey: "urmall.biz.id.closed",
       color: "bg-red-100 text-red-700",
     },
     pending: {
-      label: "Pending",
+      labelKey: "urmall.biz.id.pending",
       color: "bg-yellow-100 text-yellow-700",
     },
   };
@@ -29,7 +32,7 @@ export default function BusinessStatus({ status = "open" }) {
     <span
       className={`px-3 py-1 rounded-full text-xs font-medium ${current.color}`}
     >
-      {current.label}
+      {t(current.labelKey)}
     </span>
   );
 }

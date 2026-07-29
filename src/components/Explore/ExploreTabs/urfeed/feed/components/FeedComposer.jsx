@@ -350,6 +350,21 @@ function MediaPickerCallout({ refNode, type, onPick }) {
   );
 }
 
+// A raw "Failed to fetch"/"Load failed" is a browser network error (the request
+// never completed) - not a moderation or quota result. Show the traveller a
+// clear, reassuring message instead of the raw string.
+function friendlyPublishError(rawMessage, fallback) {
+  const message = String(rawMessage || "").trim();
+  const looksLikeNetwork =
+    /failed to fetch|load failed|network request failed|networkerror|err_internet|err_network|err_timed_out|timed out|timeout/i.test(message) ||
+    (typeof navigator !== "undefined" && navigator.onLine === false);
+
+  if (looksLikeNetwork) {
+    return "KunThai couldn't reach the network to finish uploading. Check your connection and try again — your draft is still here.";
+  }
+  return message || fallback;
+}
+
 export default function FeedComposer({ profile, creating, onSubmit }) {
   const draft = readDraft();
   const privacySettings = readPrivacySettings();
@@ -1804,7 +1819,10 @@ if (!isMobileVideoDevice) {
       publishPostingUpdate({ status: "error", progress: 0, message });
     } catch (error) {
       await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
-      const message = error.message || (isAdvertMode ? "Unable to publish this advertisement. Your draft is still here." : "Unable to publish this post. Your draft is still here.");
+      const message = friendlyPublishError(
+        error.message,
+        isAdvertMode ? "Unable to publish this advertisement. Your draft is still here." : "Unable to publish this post. Your draft is still here.",
+      );
       setPostingStage("");
       setPostingProgress(0);
       showComposer();

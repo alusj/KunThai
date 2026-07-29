@@ -131,6 +131,16 @@ function isUsableAreaText(value) {
   return Boolean(text && !/not added|pending|unknown/i.test(text));
 }
 
+// Session-lived cache of the last-loaded dashboard per operator/fleet, keyed so
+// switching fleets/companies stays correct. Re-opening the dashboard then shows
+// the last-known fleet data instantly and refreshes silently, instead of
+// flashing empty "Not added" cards while the fetch runs (mirrors the header).
+const OPERATOR_DASHBOARD_MEMORY = new Map();
+
+function operatorDashboardCacheKey(account) {
+  return `${account?.id || ""}:${account?.fleetId || account?.companyFleetId || ""}`;
+}
+
 export default function OperatorDashboardScreen({
   account,
   companyAccount,
@@ -155,7 +165,9 @@ export default function OperatorDashboardScreen({
   const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
   const [operatorSafetyOpen, setOperatorSafetyOpen] = useState(false);
-  const [dashboard, setDashboard] = useState(account?.dashboard || null);
+  const [dashboard, setDashboard] = useState(
+    () => OPERATOR_DASHBOARD_MEMORY.get(operatorDashboardCacheKey(account)) || account?.dashboard || null,
+  );
   const [dashboardError, setDashboardError] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [controlsSaving, setControlsSaving] = useState(false);
@@ -342,8 +354,17 @@ export default function OperatorDashboardScreen({
       return;
     }
 
+    const cacheKey = operatorDashboardCacheKey(account);
+    const cachedDashboard = OPERATOR_DASHBOARD_MEMORY.get(cacheKey);
+
     try {
-      setDashboardLoading(true);
+      // Only show the loading state on a genuine first load; when cached fleet
+      // data exists, keep it on screen and refresh quietly underneath.
+      if (cachedDashboard) {
+        setDashboard(cachedDashboard);
+      } else {
+        setDashboardLoading(true);
+      }
       setDashboardError("");
       const nextDashboard = await fetchOperatorDashboard(
         account?.id,
@@ -351,6 +372,7 @@ export default function OperatorDashboardScreen({
         { fleetScoped: Boolean(account?.companyFleetId) },
       );
       setDashboard(nextDashboard);
+      OPERATOR_DASHBOARD_MEMORY.set(cacheKey, nextDashboard);
       if (nextDashboard?.fleet?.active_status) {
         setIsActive(nextDashboard.fleet.active_status === "active");
       }
@@ -359,6 +381,8 @@ export default function OperatorDashboardScreen({
     } finally {
       setDashboardLoading(false);
     }
+    // The cache key reads only these account fields, which are already listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.companyFleetId, account?.fleetId, account?.id]);
 
   useEffect(() => {

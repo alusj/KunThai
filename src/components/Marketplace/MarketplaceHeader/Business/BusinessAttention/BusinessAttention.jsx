@@ -5,10 +5,12 @@ import {
   markNotificationsSeen,
   subscribeNotificationSeen,
 } from "../../../../../Backend/services/notificationSeenStore";
+import { useI18n, t } from "../../../../../i18n";
 import AttentionEmptyState from "./AttentionEmptyState";
 import AttentionItem from "./AttentionItem";
 
 export default function BusinessAttention({ onAction }) {
+  useI18n();
   const { items, summary, loading } = useSellerAttention();
   const [, setSeenVersion] = useState(0);
   const readScope = "urmall:seller:notifications:read";
@@ -45,17 +47,17 @@ export default function BusinessAttention({ onAction }) {
     <section className="space-y-4">
       <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-sm font-black uppercase text-red-600">Urgent Attention</p>
+          <p className="text-sm font-black uppercase text-red-600">{t("urmall.biz.attn.kicker")}</p>
           <h3 className="mt-1 text-xl font-black text-gray-950">
-            {urgentItems.length} urgent task{urgentItems.length === 1 ? "" : "s"} need review
+            {t(urgentItems.length === 1 ? "urmall.biz.attn.urgentTasksOne" : "urmall.biz.attn.urgentTasksMany", { n: urgentItems.length })}
           </h3>
           <p className="mt-1 text-sm font-medium text-gray-500">
-            Only time-sensitive seller work appears here. Everything else lives in its source section.
+            {t("urmall.biz.attn.subtitle")}
           </p>
         </div>
 
         <div className="rounded-lg bg-red-50 px-4 py-3 text-red-700">
-          <p className="text-xs font-black uppercase">Urgent</p>
+          <p className="text-xs font-black uppercase">{t("urmall.biz.attn.urgent")}</p>
           <p className="text-2xl font-black">{summary.high}</p>
         </div>
       </div>

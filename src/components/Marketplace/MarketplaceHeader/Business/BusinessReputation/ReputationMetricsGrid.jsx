@@ -1,36 +1,38 @@
+import { useI18n, t } from "../../../../../i18n";
 import ReputationMetricCard from "./ReputationMetricCard";
 
 export default function ReputationMetricsGrid({ metrics }) {
+  useI18n();
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
       <ReputationMetricCard
-        label="Seller rating"
+        label={t("urmall.biz.rep.sellerRating")}
         value={metrics.rating.toFixed(1)}
-        helper={`${metrics.reviewCount} reviews`}
+        helper={t("urmall.biz.dash.reviews", { count: metrics.reviewCount })}
         tone="green"
       />
       <ReputationMetricCard
-        label="Complaint rate"
+        label={t("urmall.biz.intel.complaintRate")}
         value={`${metrics.complaintRate}%`}
-        helper="Lower is better"
+        helper={t("urmall.biz.rep.lowerBetter")}
         tone={metrics.complaintRate > 3 ? "red" : "green"}
       />
       <ReputationMetricCard
-        label="Cancellation rate"
+        label={t("urmall.biz.intel.cancellationRate")}
         value={`${metrics.cancellationRate}%`}
-        helper="Orders cancelled by store"
+        helper={t("urmall.biz.rep.cancelledByStore")}
         tone={metrics.cancellationRate > 5 ? "red" : "amber"}
       />
       <ReputationMetricCard
-        label="On-time delivery"
+        label={t("urmall.biz.intel.onTimeDelivery")}
         value={`${metrics.onTimeDeliveryRate}%`}
-        helper="Orders delivered on schedule"
+        helper={t("urmall.biz.rep.deliveredOnSchedule")}
         tone="blue"
       />
       <ReputationMetricCard
-        label="Profile complete"
+        label={t("urmall.biz.rep.profileComplete")}
         value={`${metrics.profileCompleteness}%`}
-        helper="Store trust setup"
+        helper={t("urmall.biz.rep.trustSetup")}
         tone="amber"
       />
     </div>

@@ -1,6 +1,8 @@
+import { useI18n, t } from "../../../../../i18n";
 import ReviewStars from "./ReviewStars";
 
 export default function ReviewItem({ onRespond, review, showRespond = false }) {
+  useI18n();
   return (
     <article className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
@@ -28,7 +30,7 @@ export default function ReviewItem({ onRespond, review, showRespond = false }) {
           disabled={typeof onRespond !== "function"}
           onClick={() => onRespond?.(review)}
         >
-          Respond
+          {t("urmall.biz.care.respond")}
         </button>
       ) : null}
     </article>

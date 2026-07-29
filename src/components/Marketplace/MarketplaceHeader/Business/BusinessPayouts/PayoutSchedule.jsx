@@ -1,19 +1,21 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { useI18n, t } from "../../../../../i18n";
 
 export default function PayoutSchedule({ lastPayout, nextPayout }) {
+  useI18n();
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
       <ScheduleItem
-        label="Last payout"
+        label={t("urmall.biz.pay.lastPayout")}
         amount={lastPayout.amount}
         date={lastPayout.date}
         status={lastPayout.status}
       />
       <ScheduleItem
-        label="Next payout"
+        label={t("urmall.biz.pay.nextPayout")}
         amount={nextPayout.amount}
         date={nextPayout.date}
-        status="Scheduled"
+        status={t("urmall.biz.pay.scheduled")}
       />
     </div>
   );

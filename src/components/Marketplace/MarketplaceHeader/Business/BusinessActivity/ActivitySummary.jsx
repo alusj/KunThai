@@ -1,9 +1,12 @@
+import { useI18n, t } from "../../../../../i18n";
+
 export default function ActivitySummary({ summary }) {
+  useI18n();
   return (
     <div className="grid grid-cols-3 gap-2">
-      <SummaryItem label="Total" value={summary.total} />
-      <SummaryItem label="Action" value={summary.needsAction} />
-      <SummaryItem label="Warnings" value={summary.warnings} />
+      <SummaryItem label={t("urmall.biz.actv.total")} value={summary.total} />
+      <SummaryItem label={t("urmall.biz.actv.action")} value={summary.needsAction} />
+      <SummaryItem label={t("urmall.biz.actv.warnings")} value={summary.warnings} />
     </div>
   );
 }

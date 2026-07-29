@@ -1,9 +1,11 @@
-const STATUS_LABELS = {
-  active: "Active",
-  completed: "Done",
-  "needs-reply": "Reply",
-  new: "New",
-  warning: "Warning",
+import { useI18n, t } from "../../../../../i18n";
+
+const STATUS_LABEL_KEYS = {
+  active: "stActive",
+  completed: "stDone",
+  "needs-reply": "stReply",
+  new: "stNew",
+  warning: "stWarning",
 };
 
 const STATUS_STYLES = {
@@ -15,6 +17,7 @@ const STATUS_STYLES = {
 };
 
 export default function ActivityStatusBadge({ status, onDone }) {
+  useI18n();
   if (status === "completed" && onDone) {
     return (
       <button
@@ -22,14 +25,14 @@ export default function ActivityStatusBadge({ status, onDone }) {
         onClick={onDone}
         className="kt-pressable rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
       >
-        Done
+        {t("urmall.biz.actv.done")}
       </button>
     );
   }
 
   return (
     <span className={`rounded-full px-2.5 py-1 text-xs font-black ${STATUS_STYLES[status]}`}>
-      {STATUS_LABELS[status]}
+      {STATUS_LABEL_KEYS[status] ? t(`urmall.biz.actv.${STATUS_LABEL_KEYS[status]}`) : status}
     </span>
   );
 }

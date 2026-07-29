@@ -1,4 +1,7 @@
+import { useI18n, t } from "../../../../../i18n";
+
 export default function EditBusinessButton({ onClick }) {
+  useI18n();
   return (
     <button
       type="button"
@@ -6,7 +9,7 @@ export default function EditBusinessButton({ onClick }) {
       disabled={typeof onClick !== "function"}
       onClick={onClick}
     >
-      Edit Business Profile
+      {t("urmall.biz.dash.editBusinessProfile")}
     </button>
   );
 }

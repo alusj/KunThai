@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useSellerActivities } from "../../../../../Backend/hooks/useSellerActivities";
+import { useI18n, t } from "../../../../../i18n";
 import ActivityItem from "./ActivityItem";
 import ActivitySummary from "./ActivitySummary";
 
 const ACTIVITY_WIPE_MS = 320;
 
 export default function BusinessActivity({ onViewProduct }) {
+  useI18n();
   const { activities, dismissActivity, summary, loading } = useSellerActivities();
   const [dismissingIds, setDismissingIds] = useState(() => new Set());
   const [actionBusyId, setActionBusyId] = useState("");
@@ -50,10 +52,10 @@ export default function BusinessActivity({ onViewProduct }) {
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div>
-        <p className="text-sm font-black uppercase text-gray-700">Recent Activity</p>
-        <h3 className="mt-1 text-xl font-black text-gray-950">Store timeline</h3>
+        <p className="text-sm font-black uppercase text-gray-700">{t("urmall.biz.actv.kicker")}</p>
+        <h3 className="mt-1 text-xl font-black text-gray-950">{t("urmall.biz.actv.title")}</h3>
         <p className="mt-1 text-sm font-medium text-gray-500">
-          Orders, messages, payments, stock changes, reviews, and campaign updates.
+          {t("urmall.biz.actv.subtitle")}
         </p>
       </div>
 

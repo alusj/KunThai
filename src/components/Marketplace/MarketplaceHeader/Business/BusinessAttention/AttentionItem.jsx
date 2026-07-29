@@ -1,7 +1,9 @@
+import { useI18n, t } from "../../../../../i18n";
 import AttentionIcon from "./AttentionIcon";
 import AttentionPriorityBadge from "./AttentionPriorityBadge";
 
 export default function AttentionItem({ item, onAction }) {
+  useI18n();
   return (
     <article className={`rounded-xl border p-4 shadow-sm transition ${item.read ? "border-gray-200 bg-white" : "border-emerald-200 bg-emerald-50/90"}`}>
       <div className="flex gap-3">
@@ -20,7 +22,7 @@ export default function AttentionItem({ item, onAction }) {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-bold text-gray-500">
-              <span>{item.count} item{item.count === 1 ? "" : "s"}</span>
+              <span>{t(item.count === 1 ? "urmall.biz.stats.itemsOne" : "urmall.biz.stats.itemsMany", { count: item.count })}</span>
               <span className="h-1 w-1 rounded-full bg-gray-300" />
               <span>{item.dueLabel}</span>
             </div>
