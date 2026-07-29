@@ -1842,6 +1842,10 @@ export const TRANSLATIONS = {
           openMessages: "Open messages",
           noRespTitle: "No responsibilities assigned yet",
           noRespDesc: "The business owner has not given you any admin responsibilities. Ask them to assign what you should handle.",
+          storeUpdated: "Your store and catalog have been updated.",
+          shareUrmallHint: "Share UrMall to help more buyers discover your products.",
+          shareUrmall: "Share UrMall",
+          close: "Close",
         },
         vert: {
           dayLong0: "Sunday", dayLong1: "Monday", dayLong2: "Tuesday", dayLong3: "Wednesday", dayLong4: "Thursday", dayLong5: "Friday", dayLong6: "Saturday",
@@ -4599,6 +4603,10 @@ export const TRANSLATIONS = {
           openMessages: "Ouvrir les messages",
           noRespTitle: "Aucune responsabilité attribuée pour l'instant",
           noRespDesc: "Le propriétaire de l'entreprise ne vous a attribué aucune responsabilité d'administrateur. Demandez-lui d'assigner ce que vous devez gérer.",
+          storeUpdated: "Votre boutique et votre catalogue ont été mis à jour.",
+          shareUrmallHint: "Partagez UrMall pour aider plus d'acheteurs à découvrir vos produits.",
+          shareUrmall: "Partager UrMall",
+          close: "Fermer",
         },
         vert: {
           dayLong0: "Dimanche", dayLong1: "Lundi", dayLong2: "Mardi", dayLong3: "Mercredi", dayLong4: "Jeudi", dayLong5: "Vendredi", dayLong6: "Samedi",
@@ -7516,6 +7524,10 @@ export const TRANSLATIONS = {
           openMessages: "فتح الرسائل",
           noRespTitle: "لم تُسنَد أي مسؤوليات بعد",
           noRespDesc: "لم يمنحك مالك النشاط التجاري أي مسؤوليات إدارية. اطلب منه إسناد ما ينبغي أن تتولّاه.",
+          storeUpdated: "تم تحديث متجرك والكتالوج.",
+          shareUrmallHint: "شارِك UrMall لمساعدة مزيد من المشترين على اكتشاف منتجاتك.",
+          shareUrmall: "مشاركة UrMall",
+          close: "إغلاق",
         },
         vert: {
           dayLong0: "الأحد", dayLong1: "الاثنين", dayLong2: "الثلاثاء", dayLong3: "الأربعاء", dayLong4: "الخميس", dayLong5: "الجمعة", dayLong6: "السبت",

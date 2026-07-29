@@ -13,6 +13,7 @@ import CompanyWorkspaceScreen from "./CompanyWorkspaceScreen";
 import Header from "./header/Header";
 import CompanyRegistrationScreen from "./registration/CompanyRegistrationScreen";
 import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
+import FleetEditDrawer from "./registration/FleetEditDrawer";
 import TransportRegistrationTypeScreen from "./registration/TransportRegistrationTypeScreen";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
@@ -68,6 +69,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
   const [operatorDashboardClosing, setOperatorDashboardClosing] = useState(false);
   const [operatorDashboardView, setOperatorDashboardView] = useState("dashboard");
+  const [fleetEditOpen, setFleetEditOpen] = useState(false);
   const [fleetSelection, setFleetSelection] = useState(null);
   const [activeFleetId, setActiveFleetId] = useState(null);
   const [activeTripsOpen, setActiveTripsOpen] = useState(false);
@@ -254,6 +256,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setCompanyOperatorAccount(null);
     setOperatorDashboardOpen(false);
     setOperatorDashboardClosing(false);
+    setFleetEditOpen(false);
     setFleetSelection(null);
     setActiveFleetId(null);
     setActiveTripsOpen(false);
@@ -788,6 +791,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setCompanyOperatorAccount(null);
     setOperatorDashboardOpen(false);
     setOperatorDashboardClosing(false);
+    setFleetEditOpen(false);
     setFleetSelection(null);
     setActiveFleetId(null);
     setActiveTripsOpen(false);
@@ -805,6 +809,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         companyWorkspaceOpen ||
         companyOperatorDashboardOpen ||
         operatorDashboardOpen ||
+        fleetEditOpen ||
         Boolean(fleetSelection) ||
         Boolean(activeFleetId) ||
         activeTripsOpen ||
@@ -826,6 +831,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     companyWorkspaceOpen,
     companyOperatorDashboardOpen,
     documentReuseInvite,
+    fleetEditOpen,
     fleetSelection,
     headerActivityOpen,
     nearbyAreaOpen,
@@ -1005,6 +1011,22 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     );
   }
 
+  if (fleetEditOpen && operatorAccount) {
+    return (
+      <div className={`${routePanelClass} min-h-dvh`}>
+        <FleetEditDrawer
+          account={operatorAccount}
+          onSaved={setOperatorAccount}
+          onBack={() => {
+            setRouteDirection("backward");
+            setFleetEditOpen(false);
+            setOperatorDashboardOpen(true);
+          }}
+        />
+      </div>
+    );
+  }
+
   if (operatorDashboardOpen && operatorAccount) {
     return (
       <div
@@ -1035,7 +1057,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           onEditRegistration={() => {
             setRouteDirection("forward");
             setOperatorDashboardOpen(false);
-            openSoloRegistration("operator-dashboard");
+            setFleetEditOpen(true);
           }}
         />
       </div>

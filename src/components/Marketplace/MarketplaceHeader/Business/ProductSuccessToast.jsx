@@ -1,8 +1,10 @@
 import { Share2 } from "lucide-react";
 
 import { shareUrMallLink } from "../../../../Backend/services/shareCtaService";
+import { useI18n, t } from "../../../../i18n";
 
 export default function ProductSuccessToast({ message, onClose }) {
+  useI18n();
   if (!message) return null;
 
   const showShareCta = /success|added|updated|created|switched|saved/i.test(message);
@@ -13,18 +15,18 @@ export default function ProductSuccessToast({ message, onClose }) {
         <div>
           <p className="font-black text-emerald-700">{message}</p>
           <p className="mt-1 text-sm font-medium text-gray-500">
-            Your store and catalog have been updated.
+            {t("urmall.biz.dash.storeUpdated")}
           </p>
           {showShareCta ? (
             <div className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2">
-              <p className="text-xs font-black leading-5 text-emerald-900">Share UrMall to help more buyers discover your products.</p>
+              <p className="text-xs font-black leading-5 text-emerald-900">{t("urmall.biz.dash.shareUrmallHint")}</p>
               <button
                 type="button"
                 onClick={shareUrMallLink}
                 className="mt-2 inline-flex h-9 items-center gap-2 rounded-2xl bg-gray-950 px-4 text-xs font-black text-white"
               >
                 <Share2 size={14} />
-                Share UrMall
+                {t("urmall.biz.dash.shareUrmall")}
               </button>
             </div>
           ) : null}
@@ -33,7 +35,7 @@ export default function ProductSuccessToast({ message, onClose }) {
           type="button"
           onClick={onClose}
           className="rounded-lg px-2 py-1 text-sm font-black text-gray-400 hover:bg-gray-50 hover:text-gray-700"
-          aria-label="Close"
+          aria-label={t("urmall.biz.dash.close")}
         >
           x
         </button>
