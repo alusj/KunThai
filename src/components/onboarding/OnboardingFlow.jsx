@@ -8,6 +8,7 @@ import ProfileStep from "./ProfileStep";
 import InterestsStep from "./InterestsStep";
 import ReadyStep from "./ReadyStep";
 import { StepSlideTransition } from "../shared/motion";
+import { useI18n, t } from "../../i18n";
 
 function normalizeProfile(profile) {
   const countryProfile = getActiveCountryProfile(profile?.country || profile?.countryCode);
@@ -42,6 +43,7 @@ function normalizeProfile(profile) {
 }
 
 export default function OnboardingFlow({ profile, onComplete }) {
+  useI18n();
   const [step, setStep] = useState(Math.min(Math.max(profile?.onboardingStep ?? 1, 1), 4));
   const [values, setValues] = useState(() => normalizeProfile(profile));
   const [saving, setSaving] = useState(false);
@@ -149,7 +151,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
       await persistStep(nextStep);
       setStep(nextStep);
     } catch (nextError) {
-      setError(nextError.message || "We could not securely save these details.");
+      setError(nextError.message || t("onboarding.saveFailed"));
       setErrorCode(nextError.code || "");
     } finally {
       setSaving(false);
@@ -185,7 +187,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
       });
     } catch (error) {
       setSaving(false);
-      setError(error.message || "We could not complete onboarding.");
+      setError(error.message || t("onboarding.completeFailed"));
       setErrorCode(error.code || "");
     }
   };

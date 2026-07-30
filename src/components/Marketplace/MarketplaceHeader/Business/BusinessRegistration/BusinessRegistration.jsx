@@ -213,27 +213,6 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
     );
   }
 
-  if (registration.loadingExisting) {
-    return (
-      <ScreenSlideTransition screenKey="seller-business-editor-loading" className="min-h-dvh bg-gray-50">
-        <div className="w-full px-4 py-5 sm:px-6 lg:px-10">
-          <div className="mb-5">
-            <AppBackTab
-              onBack={onExit}
-              label={t("urmall.biz.reg.backToDashboard")}
-              historyKey="seller-business-editor-loading"
-              className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-            />
-          </div>
-          <div className="grid gap-4">
-            <div className="h-20 animate-pulse rounded-2xl border border-gray-200 bg-white" />
-            <div className="h-80 animate-pulse rounded-2xl border border-gray-200 bg-white" />
-          </div>
-        </div>
-      </ScreenSlideTransition>
-    );
-  }
-
   return (
     <ScreenSlideTransition
       screenKey={editing ? "seller-business-editor" : "seller-registration-form"}

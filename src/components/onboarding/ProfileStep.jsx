@@ -17,6 +17,7 @@ import PhoneCountryField from "../shared/PhoneCountryField";
 import CenteredModal from "../shared/CenteredModal";
 import OnboardingFrame from "./OnboardingFrame";
 import { scrollToFirstBlockingFieldSoon } from "../shared/formValidationNavigation";
+import { useI18n, t } from "../../i18n";
 
 // KunThai's minimum age to hold an account.
 const MINIMUM_AGE = 13;
@@ -35,21 +36,9 @@ function computeAgeYears(dateOfBirth) {
 }
 
 const accountTypes = [
-  {
-    id: "personal",
-    title: "Personal",
-    body: "For discovery, shopping, transport bookings, and everyday activity.",
-  },
-  {
-    id: "business",
-    title: "Business",
-    body: "For selling, managing a store, receiving orders, and building a brand.",
-  },
-  {
-    id: "both",
-    title: "Both",
-    body: "Use one profile for personal activity and business tools when you need them.",
-  },
+  { id: "personal", titleKey: "acctPersonal", bodyKey: "acctPersonalBody" },
+  { id: "business", titleKey: "acctBusiness", bodyKey: "acctBusinessBody" },
+  { id: "both", titleKey: "acctBoth", bodyKey: "acctBothBody" },
 ];
 
 function buildFullName(values) {
@@ -103,7 +92,7 @@ function SocialLinkInput({ index, onChange, value }) {
   return (
     <label className="block">
       <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-        Social link {index + 1}
+        {t("onboarding.profile.socialLinkN", { n: index + 1 })}
       </span>
       <div className="flex items-center gap-2 rounded-[20px] border border-slate-200 bg-slate-50 px-3 focus-within:border-sky-400">
         <span className={`flex h-9 w-9 items-center justify-center rounded-2xl ${platform ? "bg-sky-50 text-sky-700" : "bg-white text-slate-400"}`}>
@@ -112,7 +101,7 @@ function SocialLinkInput({ index, onChange, value }) {
         <input
           value={value?.url || ""}
           onChange={(event) => onChange(index, event.target.value)}
-          placeholder="Paste Facebook, TikTok, Instagram, X, WhatsApp, or YouTube link"
+          placeholder={t("onboarding.profile.socialPlaceholder")}
           className="h-12 min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none"
         />
       </div>
@@ -135,6 +124,7 @@ function InlineFieldError({ message }) {
 }
 
 export default function ProfileStep({ values, saving = false, error, errorCode = "", onChange, onBack, onNext }) {
+  useI18n();
   const [findAccountOpen, setFindAccountOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [underageOpen, setUnderageOpen] = useState(false);
@@ -143,7 +133,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
   const isUnderage = ageYears !== null && ageYears < MINIMUM_AGE;
   const phoneConflict = errorCode === PHONE_ALREADY_LINKED_CODE;
   const fullName = buildFullName(values);
-  const previewName = fullName || values.displayName || "Your name";
+  const previewName = fullName || values.displayName || t("onboarding.profile.yourName");
   const countryProfile = getActiveCountryProfile(values.country);
   const phoneValidation = validateCountryPhone(values.phone, countryProfile);
   const emailValue = values.email.trim();
@@ -151,14 +141,14 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
 
   function validateProfileFields() {
     const nextErrors = {};
-    if (values.firstName.trim().length < 2) nextErrors.firstName = "First name required.";
-    if (values.lastName.trim().length < 2) nextErrors.lastName = "Last name required.";
-    if (!values.dateOfBirth) nextErrors.dateOfBirth = "Date of birth required.";
-    else if (isUnderage) nextErrors.dateOfBirth = `You must be at least ${MINIMUM_AGE} years old to use KunThai.`;
-    if (!values.phone.trim()) nextErrors.phone = "Phone number required.";
+    if (values.firstName.trim().length < 2) nextErrors.firstName = t("onboarding.profile.errFirstName");
+    if (values.lastName.trim().length < 2) nextErrors.lastName = t("onboarding.profile.errLastName");
+    if (!values.dateOfBirth) nextErrors.dateOfBirth = t("onboarding.profile.errDob");
+    else if (isUnderage) nextErrors.dateOfBirth = t("onboarding.profile.errUnderage", { age: MINIMUM_AGE });
+    if (!values.phone.trim()) nextErrors.phone = t("onboarding.profile.errPhone");
     else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
-    if (emailValue && !emailValid) nextErrors.email = "Enter a valid email address or leave this blank.";
-    if (values.username.trim().length < 3) nextErrors.username = "Username required.";
+    if (emailValue && !emailValid) nextErrors.email = t("onboarding.profile.errEmail");
+    if (values.username.trim().length < 3) nextErrors.username = t("onboarding.profile.errUsername");
     return nextErrors;
   }
 
@@ -206,35 +196,35 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
     <OnboardingFrame
       step={2}
       total={4}
-      title="Set up your identity"
-      subtitle="Create a trusted profile for discovery, marketplace conversations, payments, and transport."
+      title={t("onboarding.profile.title")}
+      subtitle={t("onboarding.profile.subtitle")}
     >
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div ref={formRef} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="grid gap-5 lg:grid-cols-[180px_1fr]">
             <div>
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Profile photo</span>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.profilePhoto")}</span>
               <label className="group flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-4 text-center transition hover:border-sky-400 hover:bg-sky-50">
                 {values.avatarUrl ? (
-                  <img src={values.avatarUrl} alt="Profile preview" className="h-24 w-24 rounded-3xl object-cover shadow-sm" />
+                  <img src={values.avatarUrl} alt={t("onboarding.profile.previewAlt")} className="h-24 w-24 rounded-3xl object-cover shadow-sm" />
                 ) : (
                   <span className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white text-slate-500 shadow-sm">
                     <Camera size={26} />
                   </span>
                 )}
-                <span className="mt-3 text-sm font-semibold text-slate-900">Upload photo</span>
-                <span className="mt-1 text-xs leading-5 text-slate-500">Square image, clear face or logo</span>
+                <span className="mt-3 text-sm font-semibold text-slate-900">{t("onboarding.profile.uploadPhoto")}</span>
+                <span className="mt-1 text-xs leading-5 text-slate-500">{t("onboarding.profile.photoHint")}</span>
                 <input type="file" accept="image/*" className="sr-only" onChange={handleAvatarChange} />
               </label>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block" data-field-error={fieldErrors.firstName ? "true" : undefined}>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">First name</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.firstName")}</span>
                 <input
                   value={values.firstName}
                   onChange={(event) => updateName("firstName", event.target.value)}
-                  placeholder="First name"
+                  placeholder={t("onboarding.profile.firstName")}
                   aria-invalid={fieldErrors.firstName ? "true" : undefined}
                   className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.firstName ? "border-rose-300" : "border-slate-200"}`}
                 />
@@ -242,21 +232,21 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Middle name</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.middleName")}</span>
                 <input
                   value={values.middleName}
                   onChange={(event) => updateName("middleName", event.target.value)}
-                  placeholder="Middle name (optional)"
+                  placeholder={t("onboarding.profile.middlePlaceholder")}
                   className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
                 />
               </label>
 
               <label className="block" data-field-error={fieldErrors.lastName ? "true" : undefined}>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Last name</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.lastName")}</span>
                 <input
                   value={values.lastName}
                   onChange={(event) => updateName("lastName", event.target.value)}
-                  placeholder="Last name"
+                  placeholder={t("onboarding.profile.lastName")}
                   aria-invalid={fieldErrors.lastName ? "true" : undefined}
                   className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.lastName ? "border-rose-300" : "border-slate-200"}`}
                 />
@@ -264,7 +254,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               </label>
 
               <label className="block" data-field-error={fieldErrors.dateOfBirth ? "true" : undefined}>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Date of birth</span>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.dob")}</span>
                 <input
                   type="date"
                   value={values.dateOfBirth}
@@ -282,7 +272,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="block" data-field-error={fieldErrors.email ? "true" : undefined}>
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Email</span>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.email")}</span>
               <input
                 type="email"
                 value={values.email}
@@ -290,19 +280,19 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                   clearFieldError(setFieldErrors, "email");
                   onChange("email", event.target.value);
                 }}
-                placeholder="name@example.com"
+                placeholder={t("onboarding.profile.emailPlaceholder")}
                 aria-invalid={fieldErrors.email || !emailValid ? "true" : undefined}
                 className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.email ? "border-rose-300" : "border-slate-200"}`}
               />
               {fieldErrors.email ? <InlineFieldError message={fieldErrors.email} /> : !emailValid ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600">
-                  Enter a valid email address or leave this blank.
+                  {t("onboarding.profile.errEmail")}
                 </span>
               ) : null}
             </label>
 
             <label className="block" data-field-error={fieldErrors.phone || phoneConflict ? "true" : undefined}>
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Phone number</span>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.phone")}</span>
               <PhoneCountryField
                 country={countryProfile}
                 phone={values.phone}
@@ -327,7 +317,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               />
               {phoneConflict ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">
-                  This number is already associated with another account.
+                  {t("onboarding.profile.phoneConflict")}
                 </span>
               ) : fieldErrors.phone ? (
                 <InlineFieldError message={fieldErrors.phone} />
@@ -346,32 +336,32 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                   className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
                 >
                   <Search size={13} aria-hidden="true" />
-                  Find my account
+                  {t("onboarding.profile.findAccount")}
                 </button>
               ) : null}
             </label>
           </div>
 
           <label className="mt-5 block">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Address</span>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.address")}</span>
             <input
               value={values.address || ""}
               onChange={(event) => onChange("address", event.target.value)}
-              placeholder="Address"
+              placeholder={t("onboarding.profile.address")}
               className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
             />
           </label>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <label className="block sm:col-span-1" data-field-error={fieldErrors.username ? "true" : undefined}>
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Username</span>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.username")}</span>
               <input
                 value={values.username}
                 onChange={(event) => {
                   clearFieldError(setFieldErrors, "username");
                   onChange("username", event.target.value.replace(/\s+/g, "").toLowerCase());
                 }}
-                placeholder="@username"
+                placeholder={t("onboarding.profile.usernamePlaceholder")}
                 aria-invalid={fieldErrors.username ? "true" : undefined}
                 className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.username ? "border-rose-300" : "border-slate-200"}`}
               />
@@ -379,17 +369,17 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">City</span>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.city")}</span>
               <input
                 value={values.city}
                 onChange={(event) => onChange("city", event.target.value)}
-                placeholder="City"
+                placeholder={t("onboarding.profile.city")}
                 className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Country</span>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.country")}</span>
               <select
                 value={countryProfile.name}
                 onChange={(event) => {
@@ -414,7 +404,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
           </div>
 
           <div className="mt-5">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Social profiles</span>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.socialProfiles")}</span>
             <div className="grid gap-4 lg:grid-cols-3">
               {normalizeSocialLinks(values.socialLinks).map((link, index) => (
                 <SocialLinkInput key={link.id} index={index} value={link} onChange={updateSocialLink} />
@@ -423,7 +413,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
           </div>
 
           <div className="mt-5">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">Account type</span>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.accountType")}</span>
             <div className="grid gap-3 lg:grid-cols-3">
               {accountTypes.map((type) => (
                 <button
@@ -436,8 +426,8 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                       : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
-                  <p className="text-sm font-semibold text-slate-900">{type.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">{type.body}</p>
+                  <p className="text-sm font-semibold text-slate-900">{t(`onboarding.profile.${type.titleKey}`)}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{t(`onboarding.profile.${type.bodyKey}`)}</p>
                 </button>
               ))}
             </div>
@@ -445,11 +435,11 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
         </div>
 
         <div className="rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#082f49,#0f172a)] p-5 text-white shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-sky-200">Profile preview</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-sky-200">{t("onboarding.profile.profilePreview")}</p>
           <div className="mt-4 rounded-[24px] bg-white/10 p-5">
             <div className="flex items-start justify-between gap-4">
               {values.avatarUrl ? (
-                <img src={values.avatarUrl} alt="Profile preview" className="h-16 w-16 rounded-3xl object-cover" />
+                <img src={values.avatarUrl} alt={t("onboarding.profile.previewAlt")} className="h-16 w-16 rounded-3xl object-cover" />
               ) : (
                 <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white/15 text-xl font-semibold">
                   {previewName.slice(0, 1).toUpperCase()}
@@ -457,28 +447,28 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               )}
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-semibold text-emerald-100">
                 <ShieldCheck size={14} />
-                Trusted
+                {t("onboarding.profile.trusted")}
               </span>
             </div>
 
             <p className="mt-5 text-xl font-semibold">{previewName}</p>
-            <p className="mt-1 text-sm text-slate-300">{values.username ? `@${values.username}` : "@username"}</p>
+            <p className="mt-1 text-sm text-slate-300">{values.username ? `@${values.username}` : t("onboarding.profile.usernamePlaceholder")}</p>
 
             <div className="mt-5 space-y-3 text-sm text-slate-300">
               <p className="flex items-center gap-2">
                 <Mail size={15} />
-                {values.email || "email@example.com"}
+                {values.email || t("onboarding.profile.emailFallback")}
               </p>
               <p className="flex items-center gap-2">
                 <Phone size={15} />
-                {values.phone || `${countryProfile.dialCode} phone number`}
+                {values.phone || t("onboarding.profile.phoneNumberFallback", { dial: countryProfile.dialCode })}
               </p>
               <p className="flex items-center gap-2">
                 <MapPin size={15} />
-                {values.address || "Address"}
+                {values.address || t("onboarding.profile.address")}
               </p>
               <p>
-                {values.city || "City"}, {values.country || "Country"}
+                {values.city || t("onboarding.profile.city")}, {values.country || t("onboarding.profile.country")}
               </p>
             </div>
 
@@ -491,14 +481,14 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 return (
                   <p key={link.id} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-sky-100">
                     {Icon ? <Icon /> : null}
-                    {link.label || "Social"}
+                    {link.label || t("onboarding.profile.socialFallback")}
                   </p>
                 );
               })}
               {values.dateOfBirth && (
                 <p className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-sky-100">
                   <CheckCircle2 size={13} />
-                  DOB added
+                  {t("onboarding.profile.dobAdded")}
                 </p>
               )}
             </div>
@@ -532,18 +522,18 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
             <Cake size={28} />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-600">Age check</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-600">{t("onboarding.profile.ageCheck")}</p>
             <h2 id="underage-title" className="mt-1 text-2xl font-black leading-tight text-slate-950">
-              You are not eligible for KunThai yet
+              {t("onboarding.profile.notEligible")}
             </h2>
           </div>
         </div>
 
         <p className="mt-4 text-sm font-bold leading-6 text-slate-700">
-          KunThai is built for people aged <span className="text-rose-600">{MINIMUM_AGE} and older</span>. Based on the date of birth you entered, you do not meet the minimum age, so an account cannot be created right now.
+          {t("onboarding.profile.underageBody", { age: MINIMUM_AGE })}
         </p>
         <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
-          This keeps younger users safe across Explore, UrMall, and UrRide. If you entered your date of birth by mistake, go back and correct it. Otherwise, we hope to welcome you when you are old enough.
+          {t("onboarding.profile.underageHint")}
         </p>
 
         <button
@@ -551,7 +541,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
           onClick={() => setUnderageOpen(false)}
           className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800"
         >
-          Go back and check my date of birth
+          {t("onboarding.profile.underageAction")}
         </button>
       </CenteredModal>
 
@@ -561,7 +551,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
           onClick={onBack}
           className="rounded-[20px] border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
-          Back
+          {t("onboarding.back")}
         </button>
         <button
           type="button"
@@ -569,7 +559,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
           onClick={handleContinue}
           className="rounded-[20px] bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? "Saving..." : "Continue"}
+          {saving ? t("onboarding.saving") : t("onboarding.continue")}
         </button>
       </div>
     </OnboardingFrame>

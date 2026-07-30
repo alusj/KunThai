@@ -2,24 +2,26 @@ import { useState } from "react";
 import { Compass, Store, CarFront, BellRing, MessageSquare, MapPinned, Sparkles } from "lucide-react";
 
 import { EXPLORE_TOPIC_CATALOG, STARTER_EXPLORE_TOPICS } from "../../data/exploreTopics";
+import { useI18n, t } from "../../i18n";
 import OnboardingFrame from "./OnboardingFrame";
 
 const options = [
-  { id: "nearby", label: "Nearby discovery", icon: MapPinned },
-  { id: "social", label: "Social content", icon: Compass },
-  { id: "shopping", label: "Marketplace shopping", icon: Store },
-  { id: "business", label: "Business growth", icon: BellRing },
-  { id: "rides", label: "Ride booking", icon: CarFront },
-  { id: "messages", label: "Messaging", icon: MessageSquare },
+  { id: "nearby", labelKey: "optNearby", icon: MapPinned },
+  { id: "social", labelKey: "optSocial", icon: Compass },
+  { id: "shopping", labelKey: "optShopping", icon: Store },
+  { id: "business", labelKey: "optBusiness", icon: BellRing },
+  { id: "rides", labelKey: "optRides", icon: CarFront },
+  { id: "messages", labelKey: "optMessages", icon: MessageSquare },
 ];
 
 const surfaceOptions = [
-  { id: "explore", label: "Open in Explore", body: "Best for discovery and social activity." },
-  { id: "marketplace", label: "Open in Marketplace", body: "Best for shopping and business management." },
-  { id: "transport", label: "Open in Transport", body: "Best for rides and delivery access." },
+  { id: "explore", labelKey: "openExplore", bodyKey: "openExploreBody" },
+  { id: "marketplace", labelKey: "openMarketplace", bodyKey: "openMarketplaceBody" },
+  { id: "transport", labelKey: "openTransport", bodyKey: "openTransportBody" },
 ];
 
 export default function InterestsStep({ values, saving = false, onToggleInterest, onToggleContentTopic, onChange, onBack, onNext }) {
+  useI18n();
   const [showAllTopics, setShowAllTopics] = useState(false);
   const visibleTopics = showAllTopics ? EXPLORE_TOPIC_CATALOG : STARTER_EXPLORE_TOPICS;
 
@@ -27,12 +29,12 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
     <OnboardingFrame
       step={3}
       total={4}
-      title="Choose your default experience"
-      subtitle="Pick the features you care about most so KunThai can feel tailored from your first session."
+      title={t("onboarding.interests.title")}
+      subtitle={t("onboarding.interests.subtitle")}
     >
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-slate-900">What do you care about most?</p>
+          <p className="text-sm font-semibold text-slate-900">{t("onboarding.interests.careAbout")}</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {options.map((option) => {
               const Icon = option.icon;
@@ -50,7 +52,7 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
                   <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${active ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-600"}`}>
                     <Icon size={18} />
                   </span>
-                  <span className="text-sm font-semibold text-slate-900">{option.label}</span>
+                  <span className="text-sm font-semibold text-slate-900">{t(`onboarding.interests.${option.labelKey}`)}</span>
                 </button>
               );
             })}
@@ -58,7 +60,7 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
         </div>
 
         <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-slate-900">Where should KunThai open first?</p>
+          <p className="text-sm font-semibold text-slate-900">{t("onboarding.interests.openFirst")}</p>
           <div className="mt-4 space-y-3">
             {surfaceOptions.map((surface) => (
               <button
@@ -71,8 +73,8 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
                     : "border-slate-200 hover:border-slate-300"
                 }`}
               >
-                <p className="text-sm font-semibold text-slate-900">{surface.label}</p>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{surface.body}</p>
+                <p className="text-sm font-semibold text-slate-900">{t(`onboarding.interests.${surface.labelKey}`)}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{t(`onboarding.interests.${surface.bodyKey}`)}</p>
               </button>
             ))}
           </div>
@@ -86,14 +88,14 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
               <Sparkles size={18} />
             </span>
             <div>
-              <p className="text-sm font-semibold text-slate-950">What would you enjoy seeing?</p>
+              <p className="text-sm font-semibold text-slate-950">{t("onboarding.interests.enjoySeeing")}</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Pick a few topics or skip for now. KunThai will still show fresh, nearby, and diverse content.
+                {t("onboarding.interests.topicsHint")}
               </p>
             </div>
           </div>
           <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-800 shadow-sm">
-            {values.contentTopics.length} selected
+            {t("onboarding.interests.nSelected", { count: values.contentTopics.length })}
           </span>
         </div>
 
@@ -123,7 +125,7 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
           onClick={() => setShowAllTopics((current) => !current)}
           className="mt-4 text-sm font-semibold text-sky-800"
         >
-          {showAllTopics ? "Show fewer topics" : "More topics"}
+          {showAllTopics ? t("onboarding.interests.showFewer") : t("onboarding.interests.showMore")}
         </button>
       </div>
 
@@ -133,7 +135,7 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
           onClick={onBack}
           className="rounded-[20px] border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
-          Back
+          {t("onboarding.back")}
         </button>
         <button
           type="button"
@@ -141,7 +143,7 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
           disabled={saving}
           className="rounded-[20px] bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
-          {saving ? "Saving..." : "Review setup"}
+          {saving ? t("onboarding.saving") : t("onboarding.interests.reviewSetup")}
         </button>
       </div>
     </OnboardingFrame>

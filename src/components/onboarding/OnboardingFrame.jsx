@@ -1,11 +1,14 @@
+import { useI18n, t } from "../../i18n";
+
 export default function OnboardingFrame({ step, total, title, subtitle, children }) {
+  useI18n();
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)] px-4 py-6 text-slate-900 sm:px-6">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-700">
-              Onboarding step {step} of {total}
+              {t("onboarding.stepXofY", { step, total })}
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-950">{title}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{subtitle}</p>
