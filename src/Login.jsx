@@ -664,8 +664,8 @@ export default function Login() {
   const isLoading = providerLoading !== "" || loading;
 
   return (
-    <div className="flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-slate-100 px-3 py-3 sm:items-center sm:px-4 sm:py-8">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
+    <div className="kt-auth-shell flex flex-col items-center overflow-y-auto bg-slate-100 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-[max(2rem,env(safe-area-inset-top))] sm:pb-[max(2rem,env(safe-area-inset-bottom))]">
+      <div className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
         <h1 className="text-center text-3xl font-bold leading-tight text-slate-900">
           Welcome to KunThai
         </h1>

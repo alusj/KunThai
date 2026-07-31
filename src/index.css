@@ -45,6 +45,14 @@
     touch-action: manipulation;
   }
 
+  /* Full-height auth/login shell. 100vh is declared first as a fallback for
+     browsers that do not support dynamic viewport units; 100dvh overrides it
+     where supported so mobile browser chrome does not clip the layout. */
+  .kt-auth-shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]) {
     cursor: pointer;

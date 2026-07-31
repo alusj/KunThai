@@ -41,3 +41,4 @@ supabase/migrations/*
 
 .vercel
 .env*
+.claude/

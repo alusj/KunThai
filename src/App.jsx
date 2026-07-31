@@ -21,7 +21,7 @@ import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import { captureVisibilityInviteFromLocation, finalizeStoredVisibilityInvite } from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
-import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed } from "./Backend/services/networkService";
+import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed, runConnectivityChecks } from "./Backend/services/networkService";
 import supabase from "./Backend/lib/supabaseClient";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
@@ -135,15 +135,41 @@ function AppLoading({ page = "explore" }) {
   const pageTitle = page === "marketplace" ? "UrMall" : page === "transport" ? "UrRide" : "Explore";
   const [showPatienceNotice, setShowPatienceNotice] = useState(false);
   const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
+  // Distinguishes a genuine connectivity fault from a page that is merely slow
+  // to render. Only a confirmed fault (browser offline, or multiple same-origin
+  // probes failing) turns the notice into a network warning; otherwise the copy
+  // stays neutral so a slow chunk load is never mislabelled "Network unstable".
+  const [connectivityFault, setConnectivityFault] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setShowPatienceNotice(true), 6000);
     return () => window.clearTimeout(timer);
   }, []);
 
+  // Once we have waited long enough to surface a notice, actually check the
+  // network rather than assuming a stalled render means it is down.
+  useEffect(() => {
+    if (!showPatienceNotice) return undefined;
+
+    let cancelled = false;
+    if (import.meta.env?.DEV) {
+      console.debug("[AppLoading] patience notice shown; verifying connectivity");
+    }
+    runConnectivityChecks().then((reachable) => {
+      if (!cancelled) setConnectivityFault(!reachable);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showPatienceNotice]);
+
   useEffect(() => {
     function syncNetworkState() {
-      setOffline(typeof navigator !== "undefined" && navigator.onLine === false);
+      const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+      setOffline(isOffline);
+      // A confirmed online transition clears any stale fault immediately.
+      if (!isOffline) setConnectivityFault(false);
     }
 
     window.addEventListener("online", syncNetworkState);
@@ -153,6 +179,8 @@ function AppLoading({ page = "explore" }) {
       window.removeEventListener("offline", syncNetworkState);
     };
   }, []);
+
+  const networkFault = offline || connectivityFault;
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -170,9 +198,13 @@ function AppLoading({ page = "explore" }) {
       <div className="space-y-4 px-4 py-4">
         {showPatienceNotice ? (
           <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
-            <p className="text-sm font-black text-slate-950">{offline ? "Network unavailable" : "Network unstable"}</p>
+            <p className="text-sm font-black text-slate-950">
+              {offline ? "Network unavailable" : networkFault ? "Network unstable" : "Still getting things ready"}
+            </p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-              KunThai will continue automatically when the connection improves.
+              {networkFault
+                ? "KunThai will continue automatically when the connection improves."
+                : "This is taking a little longer than usual — hang tight."}
             </p>
           </div>
         ) : null}
