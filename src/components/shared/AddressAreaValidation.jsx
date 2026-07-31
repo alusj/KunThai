@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, LocateFixed, Loader2, MapPin, XCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle2, LocateFixed, Loader2, MapPin, ShieldCheck, X, XCircle } from "lucide-react";
 import { searchLocations } from "../../Backend/services/locationSearchService";
 
 function coordinateValue(point, keys) {
@@ -184,6 +184,103 @@ export function useAddressAreaValidation(address, options = {}) {
   }, [address, center, centerKey, enabled, minLength, selectedLocation]);
 
   return state;
+}
+
+// Drives the "your location is findable, but for accuracy use Locate me or Drop
+// a pin" caution. It arms whenever a typed address resolves in Area View and
+// fires once the field loses focus (the user clicks outside), unless the same
+// address was already dismissed. Editing the address re-arms it.
+export function useAddressAccuracyCaution(status, address) {
+  const [open, setOpen] = useState(false);
+  const dismissedRef = useRef("");
+  const value = String(address || "").trim();
+
+  useEffect(() => {
+    // Editing the address hides any open caution and re-arms it for the new value.
+    setOpen(false);
+    if (dismissedRef.current && dismissedRef.current !== value) {
+      dismissedRef.current = "";
+    }
+  }, [value]);
+
+  function handleAddressBlur() {
+    if (status === "found" && value && dismissedRef.current !== value) {
+      setOpen(true);
+    }
+  }
+
+  function dismiss() {
+    dismissedRef.current = value;
+    setOpen(false);
+  }
+
+  // Run a precise-location action (Locate me / Drop a pin) and stop the caution
+  // from re-appearing for this address.
+  function act(action) {
+    dismissedRef.current = value;
+    setOpen(false);
+    action?.();
+  }
+
+  return { open, handleAddressBlur, dismiss, act };
+}
+
+export function AddressAccuracyCaution({
+  open,
+  onLocateMe,
+  onDropPin,
+  onCancel,
+  title = "Your location is findable",
+  message = "For accuracy, we highly recommend using Locate me or Drop a pin so buyers reach the exact spot.",
+  locateLabel = "Locate me",
+  dropPinLabel = "Drop a pin",
+  cancelLabel = "Dismiss",
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[1600] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-2xl"
+      role="alertdialog"
+      aria-label={title}
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200 text-amber-800">
+          <ShieldCheck size={20} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black">{title}</p>
+          <p className="mt-1 text-sm font-semibold leading-5">{message}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onLocateMe}
+              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
+            >
+              <LocateFixed size={15} />
+              {locateLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onDropPin}
+              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-xs font-black text-amber-800 hover:bg-amber-100"
+            >
+              <MapPin size={15} />
+              {dropPinLabel}
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label={cancelLabel}
+          className="kt-pressable grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-amber-300 bg-white text-amber-700 hover:bg-amber-100"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function AddressAreaStatusIcon({ status, className = "" }) {

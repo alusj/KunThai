@@ -65,6 +65,12 @@ export default function OnboardingFlow({ profile, onComplete }) {
     setErrorCode("");
   }, [finishing, profile]);
 
+  // Every step change lands the user at the top of the new screen instead of
+  // keeping the scroll position from the previous (often longer) step.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [step]);
+
   useEffect(() => {
     let active = true;
     fetchUserTopicFollows()

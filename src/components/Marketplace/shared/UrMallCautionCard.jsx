@@ -1,11 +1,13 @@
-import { BadgeCheck, Clock, FileText, Hotel, House, Landmark, ShieldAlert, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
+import { BadgeCheck, Clock, FileText, House, Landmark, ShieldAlert, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 
 import { useI18n, t } from "../../../i18n";
 
+// Three primary business types. Hotels now live inside Real Estate (a real
+// estate account adds a hotel as one of its property types), so there is no
+// standalone hotel guide.
 const BUSINESS_GUIDES = [
   { icon: Store, titleKey: "urmall.caution.shopTitle", purposeKey: "urmall.caution.shopPurpose", registrationKey: "urmall.caution.shopRegistration", operationKey: "urmall.caution.shopOperation" },
   { icon: UtensilsCrossed, titleKey: "urmall.caution.restaurantTitle", purposeKey: "urmall.caution.restaurantPurpose", registrationKey: "urmall.caution.restaurantRegistration", operationKey: "urmall.caution.restaurantOperation" },
-  { icon: Hotel, titleKey: "urmall.caution.hotelTitle", purposeKey: "urmall.caution.hotelPurpose", registrationKey: "urmall.caution.hotelRegistration", operationKey: "urmall.caution.hotelOperation" },
   { icon: House, titleKey: "urmall.caution.realEstateTitle", purposeKey: "urmall.caution.realEstatePurpose", registrationKey: "urmall.caution.realEstateRegistration", operationKey: "urmall.caution.realEstateOperation" },
 ];
 

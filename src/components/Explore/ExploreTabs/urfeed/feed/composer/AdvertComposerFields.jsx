@@ -9,6 +9,7 @@ import {
   Link,
   MapPin,
   Megaphone,
+  MessageCircle,
   MousePointerClick,
   Newspaper,
   Phone,
@@ -379,6 +380,12 @@ function CreativeFields({ advert, hasImage, hasVideo, onChange, onEditCampaign, 
         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><Phone size={14} /> Phone number</span>
         <input value={advert.phone} onChange={(event) => onChange("phone", event.target.value)} placeholder="Example: +232 76 123 456" inputMode="tel" autoComplete="tel" maxLength={32} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100" />
         <span className="mt-2 block text-xs font-bold leading-5 text-slate-500">Adding a number publishes it on this sponsored advert and adds a phone action icon.</span>
+      </label>
+
+      <label className="block">
+        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><MessageCircle size={14} /> WhatsApp number</span>
+        <input value={advert.whatsapp} onChange={(event) => onChange("whatsapp", event.target.value)} placeholder="Example: +232 76 123 456" inputMode="tel" autoComplete="tel" maxLength={40} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100" />
+        <span className="mt-2 block text-xs font-bold leading-5 text-slate-500">Adding a WhatsApp number adds a WhatsApp chat action that opens a conversation with a suggested message.</span>
       </label>
 
       <label className="block">

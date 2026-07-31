@@ -1,14 +1,17 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarClock, ExternalLink, MapPin, Navigation, Phone, X } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 
 import { recordExploreAdvertEvent } from "../../../Backend/services/exploreService";
 import {
   formatAdvertSchedule,
   getAdvertPhoneHref,
+  getAdvertWhatsAppUrl,
   hasAdvertCoordinates,
   normalizeAdvertPhone,
   normalizeAdvertUrl,
+  normalizeAdvertWhatsApp,
   openAdvertAreaView,
 } from "./advertUtils";
 
@@ -41,6 +44,11 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
   const url = normalizeAdvertUrl(advert.link);
   const phone = normalizeAdvertPhone(advert.phone);
   const phoneHref = getAdvertPhoneHref(advert.phone);
+  const whatsapp = normalizeAdvertWhatsApp(advert.whatsapp);
+  const whatsAppMessage = advert.title
+    ? `Hi, I saw your "${advert.title}" advert on KunThai and I'm interested.`
+    : "Hi, I saw your advert on KunThai and I'm interested.";
+  const whatsAppUrl = getAdvertWhatsAppUrl(advert.whatsapp, whatsAppMessage);
   const hasLocation = Boolean(String(advert.address || "").trim() && hasAdvertCoordinates(advert));
 
   const closeDetail = useCallback(() => {
@@ -103,7 +111,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
 
   useEffect(() => () => window.clearTimeout(closeTimerRef.current), []);
 
-  if (!hasLocation && !schedule && !phoneHref && !url) return null;
+  if (!hasLocation && !schedule && !phoneHref && !whatsAppUrl && !url) return null;
 
   const iconClass = dark
     ? "border-white/15 bg-white/12 text-white hover:bg-white/20"
@@ -144,6 +152,15 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
             onClick={(event) => toggleDetail("phone", event)}
           />
         ) : null}
+        {whatsAppUrl ? (
+          <MetaIconButton
+            active={activeDetail === "whatsapp"}
+            className={iconClass}
+            icon={FaWhatsapp}
+            label="Chat with advertiser on WhatsApp"
+            onClick={(event) => toggleDetail("whatsapp", event)}
+          />
+        ) : null}
         {url ? (
           <MetaIconButton
             active={activeDetail === "website"}
@@ -175,7 +192,9 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                         ? "Date and time"
                         : activeDetail === "phone"
                           ? "Phone number"
-                          : "Website"}
+                          : activeDetail === "whatsapp"
+                            ? "WhatsApp"
+                            : "Website"}
                   </p>
                   {activeDetail === "location" ? (
                     <p className="mt-1 kuntai-break text-sm font-bold leading-6 text-slate-700">
@@ -187,6 +206,9 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                   ) : null}
                   {activeDetail === "phone" ? (
                     <p className="mt-1 kuntai-break text-sm font-bold leading-6 text-slate-700">{phone}</p>
+                  ) : null}
+                  {activeDetail === "whatsapp" ? (
+                    <p className="mt-1 kuntai-break text-sm font-bold leading-6 text-slate-700">{whatsapp}</p>
                   ) : null}
                   {activeDetail === "website" ? (
                     <p className="mt-1 truncate text-sm font-bold text-slate-700">{url}</p>
@@ -237,6 +259,19 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                 >
                   <Phone size={16} strokeWidth={2.4} absoluteStrokeWidth />
                   Call advertiser
+                </a>
+              ) : null}
+
+              {activeDetail === "whatsapp" && whatsAppUrl ? (
+                <a
+                  href={whatsAppUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => recordExploreAdvertEvent(post, "click", { surface: dark ? "swip" : "urfeed" }).catch(() => false)}
+                  className="kt-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white"
+                >
+                  <FaWhatsapp size={17} />
+                  Chat on WhatsApp
                 </a>
               ) : null}
             </section>,

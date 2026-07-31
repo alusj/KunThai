@@ -78,6 +78,10 @@ export default function PostMedia({ post, imageOnly = false }) {
     enabled: imagePreviewOpen && viewerPhase === "open",
     onClose: closeImagePreview,
     resetKey: post.image_url,
+    // A plain tap should never close the viewer — the reader dismisses it by
+    // pulling the image down toward the feed (or with the back button).
+    tapToClose: false,
+    dismissible: true,
   });
 
   useBrowserBack(imagePreviewOpen, closeImagePreview, `image-preview-${post.id}`);
@@ -259,13 +263,19 @@ export default function PostMedia({ post, imageOnly = false }) {
             >
               <div
                 className="kt-image-viewer-backdrop absolute inset-0 h-full w-full bg-slate-950"
-                style={{ opacity: viewerPhase === "open" ? 0.96 : 0 }}
+                style={{
+                  opacity: viewerPhase === "open" ? 0.96 * (1 - viewerGestures.dismissProgress) : 0,
+                  transitionDuration: viewerGestures.isDragging ? "0ms" : undefined,
+                }}
                 aria-hidden="true"
               />
 
               <div
                 className="kt-image-viewer-controls pointer-events-none fixed inset-x-0 top-0 z-20 flex items-center px-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white"
-                style={{ opacity: viewerPhase === "open" ? 1 : 0 }}
+                style={{
+                  opacity: viewerPhase === "open" ? 1 - viewerGestures.dismissProgress : 0,
+                  transitionDuration: viewerGestures.isDragging ? "0ms" : undefined,
+                }}
               >
                 <button
                   type="button"
@@ -294,9 +304,9 @@ export default function PostMedia({ post, imageOnly = false }) {
                   top: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).top}px`,
                   width: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).width}px`,
                   height: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).height}px`,
-                  borderRadius: viewerPhase === "open" ? "0px" : "20px",
+                  borderRadius: viewerPhase === "open" ? `${viewerGestures.dismissProgress * 24}px` : "20px",
                   transform: viewerPhase === "open"
-                    ? `translate3d(${viewerGestures.pan.x}px, ${viewerGestures.pan.y}px, 0) scale(${viewerGestures.scale})`
+                    ? `translate3d(${viewerGestures.pan.x + viewerGestures.dragOffset.x}px, ${viewerGestures.pan.y + viewerGestures.dragOffset.y}px, 0) scale(${viewerGestures.scale * (1 - viewerGestures.dismissProgress * 0.12)})`
                     : "translate3d(0, 0, 0) scale(1)",
                   transformOrigin: "center",
                   cursor: viewerGestures.scale > 1

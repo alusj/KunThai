@@ -40,12 +40,25 @@ export const BUSINESS_CATEGORIES = [
   "Other",
 ];
 
+// Three primary business types. Hotels are no longer a standalone type — they
+// live under Real Estate, where "hotel" is one of the property types a real
+// estate account can add. The legacy "hotel" kind is intentionally kept out of
+// this list so it can't be picked for new businesses, while existing hotel
+// businesses still resolve their label through URMALL_BUSINESS_KIND_LABELS.
 export const URMALL_BUSINESS_KINDS = [
   { id: "retail", label: "Retail Store", description: "Products, stock, discounts, delivery, and pickup." },
   { id: "restaurant", label: "Restaurant", description: "Daily menus, meal availability, food orders, and preparation times." },
-  { id: "hotel", label: "Hotel", description: "Property galleries, rooms, nightly rates, and availability." },
-  { id: "property_agent", label: "Real Estate Agent", description: "Homes, apartments, land, and commercial property for rent or sale." },
+  { id: "property_agent", label: "Real Estate Agent", description: "Homes, apartments, land, hotels, and commercial property for rent or sale." },
 ];
+
+// Label lookup that still covers the retired "hotel" kind for any business that
+// registered before hotels moved under Real Estate.
+export const URMALL_BUSINESS_KIND_LABELS = {
+  retail: "Retail Store",
+  restaurant: "Restaurant",
+  hotel: "Hotel",
+  property_agent: "Real Estate Agent",
+};
 
 const ACTIVE_BUSINESS_PREFIX = "kunthai.marketplace.active-business.v1";
 export const MARKETPLACE_BUSINESS_CHANGED_EVENT = "kunthai-marketplace-business-changed";

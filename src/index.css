@@ -291,11 +291,11 @@
   }
 
   .kt-form-step-slide-forward {
-    animation: kt-form-step-slide-forward 260ms var(--kt-ease-standard) both;
+    animation: kt-form-step-slide-forward 420ms var(--kt-ease-emphasized) both;
   }
 
   .kt-form-step-slide-backward {
-    animation: kt-form-step-slide-backward 260ms var(--kt-ease-standard) both;
+    animation: kt-form-step-slide-backward 420ms var(--kt-ease-emphasized) both;
   }
 
   .kt-form-step-scroll-forward {
@@ -335,11 +335,11 @@
   }
 
   .kt-screen-slide-forward {
-    animation: kt-screen-slide-forward 300ms var(--kt-ease-emphasized) both;
+    animation: kt-screen-slide-forward 440ms var(--kt-ease-emphasized) both;
   }
 
   .kt-screen-slide-backward {
-    animation: kt-screen-slide-backward 300ms var(--kt-ease-emphasized) both;
+    animation: kt-screen-slide-backward 440ms var(--kt-ease-emphasized) both;
   }
 
   .kt-screen-slide-forward.kt-onboarding-collapse-out,
@@ -731,8 +731,8 @@
 
 @keyframes kt-form-step-slide-forward {
   from {
-    opacity: 0.96;
-    transform: translate3d(18px, 0, 0);
+    opacity: 0;
+    transform: translate3d(64px, 0, 0);
   }
   to {
     opacity: 1;
@@ -742,8 +742,8 @@
 
 @keyframes kt-form-step-slide-backward {
   from {
-    opacity: 0.96;
-    transform: translate3d(-18px, 0, 0);
+    opacity: 0;
+    transform: translate3d(-64px, 0, 0);
   }
   to {
     opacity: 1;
@@ -753,8 +753,8 @@
 
 @keyframes kt-screen-slide-forward {
   from {
-    opacity: 0.98;
-    transform: translate3d(34px, 0, 0);
+    opacity: 0;
+    transform: translate3d(72px, 0, 0);
   }
   to {
     opacity: 1;
@@ -764,8 +764,8 @@
 
 @keyframes kt-screen-slide-backward {
   from {
-    opacity: 0.98;
-    transform: translate3d(-34px, 0, 0);
+    opacity: 0;
+    transform: translate3d(-72px, 0, 0);
   }
   to {
     opacity: 1;
@@ -1233,9 +1233,11 @@
 
 .kt-image-viewer-shared {
   will-change: left, top, width, height, border-radius, transform;
-  transition-duration: 340ms;
+  transition-duration: 360ms;
   transition-property: left, top, width, height, border-radius, transform;
-  transition-timing-function: var(--kt-ease-emphasized);
+  /* Gentle ease-out so pinch/double-tap zoom and the swipe-down spring-back
+     glide instead of snapping. */
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 @keyframes kt-toast-expand-in {

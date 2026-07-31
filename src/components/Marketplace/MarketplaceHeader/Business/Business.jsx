@@ -31,6 +31,7 @@ import { useSellerOverview } from "../../../../Backend/hooks/useSellerOverview";
 import { useEffect, useRef, useState } from "react";
 import AppBackTab from "../../../shared/AppBackTab";
 import AppPortal from "../../../shared/AppPortal";
+import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import VerticalSellerDashboard from "./VerticalSellerDashboard";
 import {
   MARKETPLACE_BUSINESS_CHANGED_EVENT,
@@ -48,6 +49,11 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
   const animationClass = animation === "zoom"
     ? open ? "kt-route-zoom-open" : "kt-route-zoom-close"
     : open ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right";
+
+  // Lock the page behind this full-screen panel so scrolling stays inside the
+  // panel — otherwise the background body scrollbar bleeds through and the
+  // caution card feels blocked.
+  useBodyScrollLock(open);
 
   return (
     <AppPortal>
@@ -74,7 +80,7 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
           </header>
         ) : null}
 
-        <main className={`min-h-0 flex-1 overflow-y-auto ${hideHeader ? "" : "px-4 py-5 sm:px-6 lg:px-8"}`}>
+        <main className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${hideHeader ? "" : "px-4 py-5 sm:px-6 lg:px-8"}`}>
           {children}
         </main>
       </section>

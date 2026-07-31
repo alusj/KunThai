@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FiCheckCircle, FiChevronUp, FiEdit2 } from "react-icons/fi";
 
-import { URMALL_BUSINESS_KINDS } from "../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { URMALL_BUSINESS_KIND_LABELS } from "../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { t } from "../../../../../i18n";
 import BusinessIdentityStep from "./BusinessIdentityStep";
 import LocationContactStep from "./LocationContactStep";
@@ -9,7 +9,7 @@ import OperationsStep from "./OperationsStep";
 import TrustPayoutStep from "./TrustPayoutStep";
 
 function kindLabel(kindId) {
-  return URMALL_BUSINESS_KINDS.find((kind) => kind.id === kindId)?.label || kindId || "";
+  return URMALL_BUSINESS_KIND_LABELS[kindId] || kindId || "";
 }
 
 function joinParts(parts) {

@@ -32,6 +32,32 @@ export function getAdvertPhoneHref(value = "") {
   return `tel:${hasLeadingPlus ? "+" : ""}${digits}`;
 }
 
+export function normalizeAdvertWhatsApp(value = "") {
+  return String(value || "").trim().slice(0, 40);
+}
+
+// Build a wa.me chat link from an advert's WhatsApp field. The field may be a
+// raw phone number or a wa.me / whatsapp.com link; both resolve to a URL that
+// opens a WhatsApp conversation with an optional suggested message.
+export function getAdvertWhatsAppUrl(value = "", message = "") {
+  const raw = normalizeAdvertWhatsApp(value);
+  if (!raw) return "";
+
+  const query = message ? `?text=${encodeURIComponent(message)}` : "";
+
+  if (/^https?:\/\//i.test(raw) || /wa\.me|whatsapp\.com/i.test(raw)) {
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw.replace(/^\/+/, "")}`;
+    if (query && !/[?&]text=/i.test(url)) {
+      return url + (url.includes("?") ? `&text=${encodeURIComponent(message)}` : query);
+    }
+    return url;
+  }
+
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 6) return "";
+  return `https://wa.me/${digits}${query}`;
+}
+
 export function formatAdvertType(value = "") {
   const labels = {
     offer: "Offer",

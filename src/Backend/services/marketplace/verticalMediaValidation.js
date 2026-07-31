@@ -52,12 +52,13 @@ export async function validateVerticalVideo(file) {
 
 export async function validateVerticalMediaPackage(input = {}) {
   const extras = Array.from(input.extraImageFiles || []);
+  // Only the cover image is mandatory. Extra images and the video are optional;
+  // we still enforce the upper limit and validate a video whenever one is added.
   if (!input.coverImageFile && !input.coverImageUrl) throw new Error("Add one cover image.");
-  if (extras.length < REQUIRED_EXTRA_IMAGE_COUNT && !((input.extraImageUrls?.length || 0) >= REQUIRED_EXTRA_IMAGE_COUNT && extras.length === 0)) {
-    throw new Error(`Add at least ${REQUIRED_EXTRA_IMAGE_COUNT} extra images.`);
-  }
   if (extras.length > MAX_EXTRA_IMAGE_COUNT) {
     throw new Error(`You can add up to ${MAX_EXTRA_IMAGE_COUNT} extra images.`);
   }
-  await validateVerticalVideo(input.videoFile);
+  if (input.videoFile) {
+    await validateVerticalVideo(input.videoFile);
+  }
 }

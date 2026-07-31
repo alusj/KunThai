@@ -45,10 +45,9 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
       const room = MAX_EXTRA_IMAGE_COUNT - existing.length;
       const accepted = incoming.slice(0, Math.max(room, 0));
       const combined = [...existing, ...accepted];
+      // Extra images are optional now, so the only caution is the upper limit.
       if (incoming.length > room) {
         setCaution(t("urmall.biz.vert.onlyExtraImages", { max: MAX_EXTRA_IMAGE_COUNT, noun: nounLabel }));
-      } else if (combined.length < REQUIRED_EXTRA_IMAGE_COUNT) {
-        setCaution(t("urmall.biz.vert.chooseAtLeast", { min: REQUIRED_EXTRA_IMAGE_COUNT, noun: nounLabel }));
       } else {
         setCaution("");
       }
@@ -69,7 +68,7 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
         <MediaInput label={t("urmall.biz.vert.coverImageOne")} detail={media.coverImageFile?.name || (media.image_url || media.image_urls?.length ? t("urmall.biz.vert.currentCoverKept") : t("urmall.biz.vert.required"))} icon={ImagePlus} accept="image/*" onFiles={(files) => setMedia((current) => ({ ...current, coverImageFile: files[0] || null }))} />
         <MediaInput
           label={t("urmall.biz.vert.extraImagesRange", { min: REQUIRED_EXTRA_IMAGE_COUNT, max: MAX_EXTRA_IMAGE_COUNT })}
-          detail={extrasFull ? t("urmall.biz.vert.allImagesAdded", { max: MAX_EXTRA_IMAGE_COUNT }) : extraImages.length ? t("urmall.biz.vert.mediaNOfMSelected", { count: extraImages.length, max: MAX_EXTRA_IMAGE_COUNT }) : media.image_urls?.length ? t("urmall.biz.vert.currentGalleryKept") : t("urmall.biz.vert.fiveOrSix")}
+          detail={extrasFull ? t("urmall.biz.vert.allImagesAdded", { max: MAX_EXTRA_IMAGE_COUNT }) : extraImages.length ? t("urmall.biz.vert.mediaNOfMSelected", { count: extraImages.length, max: MAX_EXTRA_IMAGE_COUNT }) : media.image_urls?.length ? t("urmall.biz.vert.currentGalleryKept") : t("urmall.biz.vert.fiveOrSix", { max: MAX_EXTRA_IMAGE_COUNT })}
           icon={extrasFull ? CheckCircle2 : ImagePlus}
           accept="image/*"
           multiple

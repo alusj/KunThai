@@ -120,6 +120,13 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
     }
   }, [acceptedCaution]);
 
+  // Each wizard step should start at the top, not wherever the previous (longer)
+  // step was scrolled to.
+  useEffect(() => {
+    if (editing) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [registration.step, editing]);
+
   function acceptSellerCaution() {
     setLeavingCaution(true);
 
@@ -135,10 +142,10 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
         <BusinessSellerEntryAnimation show={showIntro} />
 
         {!showIntro ? (
-          <ScreenSlideTransition screenKey="seller-registration-caution" className="min-h-dvh bg-gray-50">
-            <div className="flex min-h-dvh px-4 py-4 sm:py-6">
+          <ScreenSlideTransition screenKey="seller-registration-caution" className="min-h-full bg-gray-50">
+            <div className="flex min-h-full px-4 py-4 sm:py-6">
               <section
-                className={`mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col rounded-[2rem] border border-blue-100 bg-white p-5 shadow-sm transition-all duration-300 sm:min-h-[calc(100dvh-3rem)] ${
+                className={`mx-auto flex min-h-full w-full max-w-3xl flex-col rounded-[2rem] border border-blue-100 bg-white p-5 shadow-sm transition-all duration-300 ${
                   leavingCaution
                     ? "-translate-x-10 opacity-0"
                     : "translate-x-0 opacity-100"
@@ -216,7 +223,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
   return (
     <ScreenSlideTransition
       screenKey={editing ? "seller-business-editor" : "seller-registration-form"}
-      className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-dvh bg-gray-50`}
+      className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-full bg-gray-50`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
       <AccountSetupLoader open={!editing && (registration.submitting || finishing)} sector="urmall" />

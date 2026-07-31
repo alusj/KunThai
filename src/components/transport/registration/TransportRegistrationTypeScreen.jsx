@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab";
+import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { ScreenSlideTransition } from "../../shared/motion";
 import TransportEntryAnimation from "./TransportEntryAnimation";
 import TransportCautionCard from "../shared/TransportCautionCard";
@@ -38,6 +39,10 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   const [cautionAccepted, setCautionAccepted] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
   const [leavingCaution, setLeavingCaution] = useState(false);
+
+  // While the caution card owns the viewport, lock the page behind it so the
+  // background scrollbar can't scroll and hide/block the card.
+  useBodyScrollLock(!cautionAccepted);
 
   useEffect(() => {
     scrollViewportTop();
@@ -77,8 +82,8 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
       <>
         <TransportEntryAnimation show={showIntro} />
 
-        <ScreenSlideTransition screenKey="transport-registration-policy" className="min-h-dvh bg-slate-50">
-          <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
+        <ScreenSlideTransition screenKey="transport-registration-policy" className="flex h-dvh flex-col overflow-hidden bg-slate-50">
+          <header className="z-30 shrink-0 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
             <div className="flex items-center gap-3">
               <AppBackTab
                 onBack={onBack}
@@ -98,7 +103,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
             </div>
           </header>
 
-          <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-4xl px-4 py-4 pb-6">
+          <main className="mx-auto flex w-full min-h-0 max-w-4xl flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-6">
             <section
               className={`mx-auto flex min-h-full w-full max-w-3xl flex-col rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm transition-all duration-300 ${
                 leavingCaution

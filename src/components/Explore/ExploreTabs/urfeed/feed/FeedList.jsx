@@ -171,9 +171,14 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
   const [profiles, setProfiles] = useState([]);
   const [pendingIds, setPendingIds] = useState(() => new Set());
   const [pageIndex, setPageIndex] = useState(0);
-  const [slideDirection, setSlideDirection] = useState("forward");
-  const touchRef = useRef(null);
-  const pausedRef = useRef(false);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const viewportRef = useRef(null);
+  const dragRef = useRef(null);
+  // Auto-advance ping-pongs between the first and last page so the loop point
+  // is always a single-page slide instead of a long rewind.
+  const autoDirRef = useRef(1);
+  const interactingRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -204,54 +209,88 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
     pages.push(candidates.slice(index, index + SUGGESTIONS_PER_PAGE));
   }
   const safePageIndex = Math.min(pageIndex, Math.max(0, pages.length - 1));
-  const currentPage = pages[safePageIndex] || [];
 
-  // Suggestion pages rotate on their own; swiping inside the card browses
-  // them manually without triggering the app-level page swipe.
   useEffect(() => {
     if (pages.length < 2) return undefined;
 
     const interval = window.setInterval(() => {
-      if (pausedRef.current) return;
-      setSlideDirection("forward");
-      setPageIndex((current) => (current + 1) % pages.length);
+      if (interactingRef.current) return;
+      setPageIndex((current) => {
+        let direction = autoDirRef.current;
+        let next = current + direction;
+        if (next > pages.length - 1) {
+          direction = -1;
+          next = current - 1;
+        } else if (next < 0) {
+          direction = 1;
+          next = current + 1;
+        }
+        autoDirRef.current = direction;
+        return Math.min(pages.length - 1, Math.max(0, next));
+      });
     }, SUGGESTIONS_AUTO_SLIDE_MS);
 
     return () => window.clearInterval(interval);
   }, [pages.length]);
 
-  if (!currentPage.length) return null;
+  if (!pages.length) return null;
 
-  function goToPage(nextIndex, direction) {
-    setSlideDirection(direction);
-    setPageIndex(((nextIndex % pages.length) + pages.length) % pages.length);
+  function goToPage(nextIndex) {
+    setPageIndex(Math.min(pages.length - 1, Math.max(0, nextIndex)));
   }
 
-  function handleTouchStart(event) {
-    event.stopPropagation();
-    pausedRef.current = true;
-    const touch = event.touches[0];
-    touchRef.current = { x: touch.clientX, y: touch.clientY };
+  function handlePointerDown(event) {
+    if (pages.length < 2) return;
+    interactingRef.current = true;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      width: viewportRef.current?.clientWidth || 1,
+      active: false,
+    };
   }
 
-  function handleTouchMove(event) {
+  function handlePointerMove(event) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+
+    if (!drag.active) {
+      if (Math.hypot(deltaX, deltaY) < 8) return;
+      // A mostly-vertical gesture is the feed scrolling — let it pass through.
+      if (Math.abs(deltaX) <= Math.abs(deltaY)) {
+        dragRef.current = null;
+        interactingRef.current = false;
+        return;
+      }
+      drag.active = true;
+      setDragging(true);
+      viewportRef.current?.setPointerCapture?.(event.pointerId);
+    }
+
+    event.preventDefault();
     event.stopPropagation();
+    const atStart = safePageIndex === 0 && deltaX > 0;
+    const atEnd = safePageIndex === pages.length - 1 && deltaX < 0;
+    setDragX(atStart || atEnd ? deltaX * 0.35 : deltaX);
   }
 
-  function handleTouchEnd(event) {
-    event.stopPropagation();
-    pausedRef.current = false;
-    const start = touchRef.current;
-    touchRef.current = null;
-    if (!start || pages.length < 2) return;
+  function handlePointerUp(event) {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    interactingRef.current = false;
+    if (!drag) return;
+    if (!drag.active) return;
 
-    const touch = event.changedTouches[0];
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
-
-    if (deltaX < 0) goToPage(safePageIndex + 1, "forward");
-    else goToPage(safePageIndex - 1, "backward");
+    viewportRef.current?.releasePointerCapture?.(event.pointerId);
+    setDragging(false);
+    const deltaX = event.clientX - drag.startX;
+    const threshold = Math.min(90, drag.width * 0.22);
+    if (deltaX <= -threshold) goToPage(safePageIndex + 1);
+    else if (deltaX >= threshold) goToPage(safePageIndex - 1);
+    setDragX(0);
   }
 
   async function followSuggestion(userId) {
@@ -268,13 +307,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
   }
 
   return (
-    <section
-      className="overflow-hidden rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
-    >
+    <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <span className="grid h-9 w-9 place-items-center rounded-2xl bg-sky-50 text-sky-700">
           <UserRoundPlus size={17} />
@@ -282,40 +315,57 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
         <h3 className="text-sm font-black text-slate-950">{t("feed.suggestedAccounts")}</h3>
       </div>
       <div
-        key={safePageIndex}
-        className={`mt-3 space-y-2 ${slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`}
+        ref={viewportRef}
+        className="mt-3 overflow-hidden"
+        style={{ touchAction: "pan-y" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
-        {currentPage.map((profile) => (
-          <div key={profile.user_id} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5">
-            <button
-              type="button"
-              onClick={() =>
-                onViewProfile?.({
-                  userId: profile.user_id,
-                  displayName: profile.display_name || "Profile",
-                  username: profile.username || "",
-                  avatarUrl: profile.avatar_url || "",
-                  accountType: profile.account_type || "personal",
-                })
-              }
-              className="kt-pressable flex min-w-0 flex-1 items-center gap-3 rounded-2xl text-left"
-            >
-              <Avatar name={profile.display_name || profile.username} src={profile.avatar_url} size="sm" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-black text-slate-950">{profile.display_name || t("feed.profileFallback")}</span>
-                <span className="block truncate text-xs font-bold text-slate-500">@{profile.username || "user"}</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              disabled={pendingIds.has(profile.user_id)}
-              onClick={() => followSuggestion(profile.user_id)}
-              className="kt-pressable h-9 flex-none rounded-2xl bg-sky-700 px-4 text-xs font-black text-white transition hover:bg-sky-800 disabled:opacity-60"
-            >
-              {t("feed.connect")}
-            </button>
-          </div>
-        ))}
+        <div
+          className="flex"
+          style={{
+            transform: `translate3d(calc(${-safePageIndex * 100}% + ${dragX}px), 0, 0)`,
+            transition: dragging ? "none" : "transform 460ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+          }}
+        >
+          {pages.map((page, index) => (
+            <ul key={index} className="w-full flex-none space-y-2" aria-hidden={index !== safePageIndex}>
+              {page.map((profile) => (
+                <li key={profile.user_id} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onViewProfile?.({
+                        userId: profile.user_id,
+                        displayName: profile.display_name || "Profile",
+                        username: profile.username || "",
+                        avatarUrl: profile.avatar_url || "",
+                        accountType: profile.account_type || "personal",
+                      })
+                    }
+                    className="kt-pressable flex min-w-0 flex-1 items-center gap-3 rounded-2xl text-left"
+                  >
+                    <Avatar name={profile.display_name || profile.username} src={profile.avatar_url} size="sm" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black text-slate-950">{profile.display_name || t("feed.profileFallback")}</span>
+                      <span className="block truncate text-xs font-bold text-slate-500">@{profile.username || "user"}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pendingIds.has(profile.user_id)}
+                    onClick={() => followSuggestion(profile.user_id)}
+                    className="kt-pressable h-9 flex-none rounded-2xl bg-sky-700 px-4 text-xs font-black text-white transition hover:bg-sky-800 disabled:opacity-60"
+                  >
+                    {t("feed.connect")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ))}
+        </div>
       </div>
       {pages.length > 1 ? (
         <div className="mt-3 flex items-center justify-center gap-1.5" aria-label={t("feed.suggestedAccountPages")}>
@@ -324,7 +374,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
               key={index}
               type="button"
               aria-label={t("feed.suggestionsPage", { page: index + 1 })}
-              onClick={() => goToPage(index, index > safePageIndex ? "forward" : "backward")}
+              onClick={() => goToPage(index)}
               className={`h-2 rounded-full transition-all duration-300 ${
                 index === safePageIndex ? "w-5 bg-sky-600" : "w-2 bg-slate-300 hover:bg-slate-400"
               }`}

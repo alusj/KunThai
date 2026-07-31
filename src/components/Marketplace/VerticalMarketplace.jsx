@@ -38,6 +38,8 @@ function mapVerticalProduct({ item, type }) {
     latitude: item.latitude ?? null,
     longitude: item.longitude ?? null,
     phone: item.phone || "",
+    whatsappEnabled: Boolean(item.whatsappEnabled),
+    whatsapp: item.whatsapp || "",
     bannerUrl: item.bannerUrl || "",
     description: item.description || "",
     businessKind: item.businessKind || (type === "restaurant" ? "restaurant" : type === "hotel" ? "hotel" : "property_agent"),

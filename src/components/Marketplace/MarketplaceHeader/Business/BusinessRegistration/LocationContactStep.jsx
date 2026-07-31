@@ -6,8 +6,10 @@ import RegistrationField from "./RegistrationField";
 import RegistrationInput from "./RegistrationInput";
 import ToggleRow from "./ToggleRow";
 import {
+  AddressAccuracyCaution,
   AddressAreaResolutionCard,
   AddressAreaStatusIcon,
+  useAddressAccuracyCaution,
   useAddressAreaValidation,
 } from "../../../../shared/AddressAreaValidation";
 import { useAutoCollapseCard } from "../../../../shared/motionHooks";
@@ -66,6 +68,7 @@ export default function LocationContactStep({ registration }) {
     : null;
   const addressValidation = useAddressAreaValidation(form.location.address, { selectedPoint: locationPoint });
   const addressValidationResult = addressValidation.result;
+  const accuracyCaution = useAddressAccuracyCaution(addressValidation.status, form.location.address);
   const locationPromptCollapse = useAutoCollapseCard({
     enabled: locationPromptOpen && !locating,
     resetKey: [locationPromptOpen ? "open" : "closed", locationStatus, locating ? "locating" : "ready"].join("|"),
@@ -137,6 +140,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.address}
             onChange={(event) => updateSection("location", { address: event.target.value })}
+            onBlur={accuracyCaution.handleAddressBlur}
             placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
             autoComplete="street-address"
           />
@@ -147,6 +151,18 @@ export default function LocationContactStep({ registration }) {
           onLocateMe={() => locateBusiness("main")}
           onDropPin={() => openDropPinPicker("main")}
           tone="blue"
+        />
+
+        <AddressAccuracyCaution
+          open={accuracyCaution.open}
+          onLocateMe={() => accuracyCaution.act(() => locateBusiness("main"))}
+          onDropPin={() => accuracyCaution.act(() => openDropPinPicker("main"))}
+          onCancel={accuracyCaution.dismiss}
+          title={t("urmall.biz.reg.accuracyTitle")}
+          message={t("urmall.biz.reg.accuracyMessage")}
+          locateLabel={t("urmall.biz.reg.locateMe")}
+          dropPinLabel={t("urmall.biz.reg.dropPin")}
+          cancelLabel={t("urmall.biz.reg.accuracyDismiss")}
         />
 
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
@@ -342,6 +358,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
     : null;
   const validation = useAddressAreaValidation(branch.address, { selectedPoint: branchPoint });
   const result = validation.result;
+  const accuracyCaution = useAddressAccuracyCaution(validation.status, branch.address);
 
   useEffect(() => {
     if (validation.status !== "found" || !String(branch.address || "").trim()) return;
@@ -387,6 +404,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         <RegistrationInput
           value={branch.address}
           onChange={(event) => updateBranch(index, { address: event.target.value })}
+          onBlur={accuracyCaution.handleAddressBlur}
           placeholder={t("urmall.biz.reg.branchAddressPlaceholder")}
           autoComplete="street-address"
         />
@@ -397,6 +415,18 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         onLocateMe={() => locateBusiness(index)}
         onDropPin={() => openDropPinPicker(index)}
         tone="blue"
+      />
+
+      <AddressAccuracyCaution
+        open={accuracyCaution.open}
+        onLocateMe={() => accuracyCaution.act(() => locateBusiness(index))}
+        onDropPin={() => accuracyCaution.act(() => openDropPinPicker(index))}
+        onCancel={accuracyCaution.dismiss}
+        title={t("urmall.biz.reg.accuracyTitle")}
+        message={t("urmall.biz.reg.accuracyMessage")}
+        locateLabel={t("urmall.biz.reg.locateMe")}
+        dropPinLabel={t("urmall.biz.reg.dropPin")}
+        cancelLabel={t("urmall.biz.reg.accuracyDismiss")}
       />
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">

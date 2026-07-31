@@ -661,8 +661,23 @@ export function useExploreFeed(scope = "feed") {
   // still syncing, otherwise the realtime snapshot rolls the number back
   // for a beat and rapid taps compound into a wrong total.
   const existing = current.find((post) => post.id === nextPost.id);
-  const incoming = existing && hasPendingReactionSync(nextPost.id)
-    ? { ...nextPost, likes_count: existing.likes_count, saves_count: existing.saves_count }
+  // Realtime rows are the raw table snapshot — they carry no computed
+  // recommendation score. Merging the row on its own drops the score for this
+  // post, so mergePosts re-sorts it to a different slot and the card the reader
+  // just tapped visibly jumps up/down or scrolls out of view. Preserve the
+  // existing ranking fields (and the optimistic counts of an in-flight toggle)
+  // so a like/save/comment update refreshes the card in place.
+  const incoming = existing
+    ? {
+        ...existing,
+        ...nextPost,
+        recommendation_score: existing.recommendation_score ?? nextPost.recommendation_score,
+        score: existing.score ?? nextPost.score,
+        recommendation_surface: existing.recommendation_surface ?? nextPost.recommendation_surface,
+        ...(hasPendingReactionSync(nextPost.id)
+          ? { likes_count: existing.likes_count, saves_count: existing.saves_count }
+          : {}),
+      }
     : nextPost;
   const withoutUpdatedPost = current.filter((post) => post.id !== nextPost.id);
   const nextPosts = belongsInScope && isExplorePostVisibleInFeed(incoming)

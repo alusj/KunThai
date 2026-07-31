@@ -2,7 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { isMissingTable } from "../explore/errors";
 import { validateVerticalMediaPackage } from "./verticalMediaValidation";
 
-const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,logo_url,banner_url,vertical_video_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
+const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,whatsapp_enabled,whatsapp,logo_url,banner_url,vertical_video_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
 const COUNTRY_TIMEZONES = {
   BJ: "Africa/Porto-Novo", BF: "Africa/Ouagadougou", CV: "Atlantic/Cape_Verde", CI: "Africa/Abidjan",
   GM: "Africa/Banjul", GH: "Africa/Accra", GN: "Africa/Conakry", GW: "Africa/Bissau",
@@ -38,6 +38,8 @@ function normalizeBusinessRow(row = {}) {
     currency: business.currency || "",
     address: row.address || business.address || "",
     phone: business.phone || "",
+    whatsappEnabled: Boolean(business.whatsapp_enabled),
+    whatsapp: business.whatsapp || "",
     description: business.description || "",
     logoUrl: business.logo_url || "",
     bannerUrl: business.banner_url || "",
