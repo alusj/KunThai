@@ -222,11 +222,12 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
           <Browse
             activeTab={activeTab}
             searchOpen={searchOpen}
+            onCloseSearch={() => setSearchOpen(false)}
             onProductModeChange={setMarketplaceScreenMode}
             supplementalContent={<VerticalMarketplace mode="mixed" onDetailChange={setVerticalDetailOpen} />}
           />
         ) : null}
-        {activeParent === "shop" ? <Browse activeTab={activeTab} searchOpen={searchOpen} onProductModeChange={setMarketplaceScreenMode} /> : null}
+        {activeParent === "shop" ? <Browse activeTab={activeTab} searchOpen={searchOpen} onCloseSearch={() => setSearchOpen(false)} onProductModeChange={setMarketplaceScreenMode} /> : null}
         {activeParent === "food" ? <VerticalMarketplace mode="food" onDetailChange={setVerticalDetailOpen} /> : null}
         {activeParent === "hotels" ? <VerticalMarketplace mode="hotels" onDetailChange={setVerticalDetailOpen} /> : null}
         {activeParent === "property" ? <VerticalMarketplace mode="property" onDetailChange={setVerticalDetailOpen} /> : null}

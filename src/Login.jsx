@@ -1,11 +1,12 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { FaApple } from "react-icons/fa";
+import { FaApple, FaFacebookF } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { Eye, Globe2, ShieldAlert } from "lucide-react";
 
 import supabase from "./Backend/lib/supabaseClient";
 import { consumeAuthIntent, enterGuestMode } from "./Backend/services/guestModeService";
 import FlagIcon from "./components/FlagIcon";
+import { useI18n } from "./i18n";
 import {
   requestPhonePasswordRecoveryOtp,
   resendPhoneOtp,
@@ -69,6 +70,7 @@ const AuthInput = forwardRef(function AuthInput({ label, ...props }, ref) {
 });
 
 function CountryPicker({ country, onCountryChange, compact = false }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const pickerRef = useRef(null);
 
@@ -96,7 +98,7 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
         className={`flex min-h-12 w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm font-semibold text-slate-900 outline-none transition hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 ${
           compact ? "justify-center" : ""
         }`}
-        aria-label="Choose country"
+        aria-label={t("auth.chooseCountryAria")}
       >
         {country ? (
           <FlagIcon code={country.iso2} className="h-5 w-7 shrink-0 rounded-[4px]" />
@@ -104,11 +106,11 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
           <Globe2 className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
         )}
         <span className={compact ? "sr-only" : "min-w-0 flex-1 truncate"}>
-          {country ? `${country.iso2} - ${country.name}` : "Choose country"}
+          {country ? `${country.iso2} - ${country.name}` : t("auth.chooseCountry")}
         </span>
         {compact ? (
           <span className="shrink-0 text-sm font-semibold text-slate-900">
-            {country?.dialCode || "Country"}
+            {country?.dialCode || t("auth.countryShort")}
           </span>
         ) : null}
         <svg
@@ -157,11 +159,12 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
   );
 }
 
-function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "Phone Number" }) {
+function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label }) {
+  const { t } = useI18n();
   return (
     <div className="block">
       <span className="mb-2 block text-sm font-semibold text-slate-700">
-        {label}
+        {label ?? t("auth.phoneNumber")}
       </span>
       <div className="flex gap-2">
         <div className="w-[7.75rem] shrink-0 sm:w-[8.5rem]">
@@ -174,7 +177,7 @@ function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "P
           onChange={(event) => {
             if (country) onPhoneChange(constrainCountryPhoneInput(event.target.value, country));
           }}
-          placeholder={country?.placeholder || "Choose country first"}
+          placeholder={country?.placeholder || t("auth.chooseCountryFirst")}
           autoComplete="tel"
           disabled={!country}
           className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -186,10 +189,11 @@ function PhoneInput({ country, phone, onCountryChange, onPhoneChange, label = "P
 }
 
 function PhoneAccountInput({ country, value, onCountryChange, onValueChange }) {
+  const { t } = useI18n();
   return (
     <div className="block">
       <span className="mb-2 block text-sm font-semibold text-slate-700">
-        Phone Account
+        {t("auth.phoneAccount")}
       </span>
       <div className="flex gap-2">
         <div className="w-[7.75rem] shrink-0 sm:w-[8.5rem]">
@@ -202,7 +206,7 @@ function PhoneAccountInput({ country, value, onCountryChange, onValueChange }) {
           onChange={(event) => {
             if (country) onValueChange(constrainCountryPhoneInput(event.target.value, country));
           }}
-          placeholder={country?.placeholder || "Choose country first"}
+          placeholder={country?.placeholder || t("auth.chooseCountryFirst")}
           autoComplete="tel"
           disabled={!country}
           className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -242,11 +246,12 @@ const scrollAuthToTop = () => {
 };
 
 function AuthDivider() {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-4 py-2">
       <div className="h-px flex-1 bg-slate-200" />
       <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
-        OR
+        {t("auth.or")}
       </span>
       <div className="h-px flex-1 bg-slate-200" />
     </div>
@@ -254,6 +259,7 @@ function AuthDivider() {
 }
 
 function SocialAuthButtons({ providerLoading, isLoading, onOAuth }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-3 pt-1">
       <button
@@ -265,8 +271,8 @@ function SocialAuthButtons({ providerLoading, isLoading, onOAuth }) {
         <FcGoogle className="h-6 w-6 shrink-0" aria-hidden="true" />
         <span>
           {providerLoading === "google"
-            ? "Connecting Google..."
-            : "Continue with Google"}
+            ? t("auth.connectingGoogle")
+            : t("auth.continueWithGoogle")}
         </span>
       </button>
 
@@ -279,8 +285,22 @@ function SocialAuthButtons({ providerLoading, isLoading, onOAuth }) {
         <FaApple className="h-7 w-7 shrink-0 text-black" aria-hidden="true" />
         <span>
           {providerLoading === "apple"
-            ? "Connecting Apple..."
-            : "Continue with Apple"}
+            ? t("auth.connectingApple")
+            : t("auth.continueWithApple")}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onOAuth("facebook")}
+        disabled={isLoading}
+        className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+      >
+        <FaFacebookF className="h-6 w-6 shrink-0 text-[#1877F2]" aria-hidden="true" />
+        <span>
+          {providerLoading === "facebook"
+            ? t("auth.connectingFacebook")
+            : t("auth.continueWithFacebook")}
         </span>
       </button>
     </div>
@@ -288,6 +308,7 @@ function SocialAuthButtons({ providerLoading, isLoading, onOAuth }) {
 }
 
 function GuestButton({ isLoading, onOpen }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -296,12 +317,13 @@ function GuestButton({ isLoading, onOpen }) {
       className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-slate-500 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-60"
     >
       <Eye className="h-5 w-5 shrink-0" aria-hidden="true" />
-      <span>Visit as guest</span>
+      <span>{t("auth.visitAsGuest")}</span>
     </button>
   );
 }
 
 export default function Login() {
+  const { t } = useI18n();
   const [mode, setMode] = useState(() => (consumeAuthIntent() === "signup" ? "signup" : "signin"));
   const [signupStep, setSignupStep] = useState("details");
   const [guestPromptOpen, setGuestPromptOpen] = useState(false);
@@ -345,7 +367,8 @@ export default function Login() {
 
     setMode("signin");
     setSignInAccount(prefill.identifier);
-    setMessage(`Sign in to continue as ${prefill.displayName || prefill.identifier}.`);
+    setMessage(t("auth.msgSignInToContinue", { name: prefill.displayName || prefill.identifier }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function resetMessages() {
@@ -399,7 +422,7 @@ export default function Login() {
       }
     } catch (err) {
       clearOAuthFlow();
-      setError(err.message || `Failed to continue with ${provider}.`);
+      setError(err.message || t("auth.errContinueProvider", { provider }));
     } finally {
       setProviderLoading("");
     }
@@ -407,17 +430,17 @@ export default function Login() {
 
   function validatePhoneDigits(digits, country) {
     if (!country) {
-      setError("Choose your country before entering a phone number.");
+      setError(t("auth.errChooseCountryPhone"));
       return false;
     }
 
     if (digits.length < country.minLength || digits.length > country.maxLength) {
       const expected =
         country.minLength === country.maxLength
-          ? `${country.minLength} digits`
-          : `${country.minLength}-${country.maxLength} digits`;
+          ? t("auth.expectedDigits", { n: country.minLength })
+          : t("auth.expectedDigitsRange", { min: country.minLength, max: country.maxLength });
 
-      setError(`${country.name} phone numbers should use ${expected}.`);
+      setError(t("auth.errPhoneDigits", { country: country.name, expected }));
       return false;
     }
 
@@ -449,9 +472,9 @@ export default function Login() {
 
       setFailedPhoneAttempts((current) => ({ ...current, [authPhone]: 0 }));
       setForgotAvailable(false);
-      setMessage("Welcome back. You are signed in.");
+      setMessage(t("auth.msgWelcomeBack"));
     } catch (err) {
-      setError(err.message || "Unable to sign in.");
+      setError(err.message || t("auth.errUnableSignIn"));
 
       // After more than one wrong password on a phone number that really has a
       // KunThai account, offer OTP-verified password recovery. The signup
@@ -475,13 +498,13 @@ export default function Login() {
 
   function beginPasswordRecovery() {
     if (!selectedCountry) {
-      setError("Choose your country before recovering a phone account.");
+      setError(t("auth.errChooseCountryRecover"));
       return;
     }
     const authPhone = buildPhoneForAuth(signInAccount.trim(), selectedCountry);
     const blockState = getOtpBlockState(authPhone);
     if (blockState.blocked) {
-      setError(`OTP limit reached for this number. You can request a new code in ${formatOtpWaitTime(blockState.blockedUntil)}.`);
+      setError(t("auth.errOtpLimit", { time: formatOtpWaitTime(blockState.blockedUntil) }));
       return;
     }
 
@@ -499,11 +522,11 @@ export default function Login() {
     event.preventDefault();
 
     if (newPassword.length < 6) {
-      setError("Choose a new password with at least 6 characters.");
+      setError(t("auth.errNewPasswordLength"));
       return;
     }
     if (newPassword !== confirmNewPassword) {
-      setError("Passwords do not match.");
+      setError(t("auth.errPasswordsNoMatch"));
       return;
     }
 
@@ -516,11 +539,11 @@ export default function Login() {
       if (otpError) throw otpError;
 
       setRecoveryStep("otp");
-      setMessage(`OTP sent to ${recoveryActivePhone}. Enter the code to confirm it is you.`);
+      setMessage(t("auth.msgOtpSentConfirm", { phone: recoveryActivePhone }));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
       scrollAuthToTop();
     } catch (err) {
-      setError(err.message || "Unable to send the recovery OTP.");
+      setError(err.message || t("auth.errUnableSendRecoveryOtp"));
     } finally {
       setLoading(false);
     }
@@ -539,13 +562,13 @@ export default function Login() {
       clearOtpRequests(recoveryActivePhone);
       const { error: passwordError } = await updateAccountPassword(newPassword);
       if (passwordError) {
-        setError("You are signed in, but the new password could not be saved. Set it again from account settings.");
+        setError(t("auth.errPasswordNotSaved"));
         return;
       }
 
-      setMessage("Password updated. You are signed in.");
+      setMessage(t("auth.msgPasswordUpdated"));
     } catch (err) {
-      setError(err.message || "Unable to verify this OTP.");
+      setError(err.message || t("auth.errUnableVerifyOtp"));
     } finally {
       setLoading(false);
     }
@@ -560,10 +583,10 @@ export default function Login() {
       const { error: otpError } = await requestPhonePasswordRecoveryOtp(recoveryActivePhone);
       if (otpError) throw otpError;
 
-      setMessage("A new OTP has been sent.");
+      setMessage(t("auth.msgOtpResent"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
-      setError(err.message || "Unable to resend OTP.");
+      setError(err.message || t("auth.errUnableResendOtp"));
     } finally {
       setLoading(false);
     }
@@ -573,7 +596,7 @@ export default function Login() {
     event.preventDefault();
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("auth.errPasswordsNoMatch"));
       return;
     }
 
@@ -588,7 +611,7 @@ export default function Login() {
       const signupPhone = buildPhoneForAuth(phoneNumber, selectedCountry);
       const blockState = getOtpBlockState(signupPhone);
       if (blockState.blocked) {
-        setError(`OTP limit reached for this number. You can request a new code in ${formatOtpWaitTime(blockState.blockedUntil)}.`);
+        setError(t("auth.errOtpLimit", { time: formatOtpWaitTime(blockState.blockedUntil) }));
         return;
       }
 
@@ -601,7 +624,7 @@ export default function Login() {
       const guard = registerOtpRequest(signupPhone);
       setPendingPhone(signupPhone);
       setSignupStep("otp");
-      setMessage("OTP sent. Please verify your phone number.");
+      setMessage(t("auth.msgOtpSentVerify"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
       scrollAuthToTop();
     } catch (err) {
@@ -612,7 +635,7 @@ export default function Login() {
         return;
       }
 
-      setError(err.message || "Unable to create your account.");
+      setError(err.message || t("auth.errUnableCreate"));
     } finally {
       setLoading(false);
     }
@@ -632,9 +655,9 @@ export default function Login() {
       }
 
       clearOtpRequests(pendingPhone);
-      setMessage("Phone verified. Your onboarding is ready.");
+      setMessage(t("auth.msgPhoneVerified"));
     } catch (err) {
-      setError(err.message || "Unable to verify this OTP.");
+      setError(err.message || t("auth.errUnableVerifyOtp"));
     } finally {
       setLoading(false);
     }
@@ -652,10 +675,10 @@ export default function Login() {
         throw authError;
       }
 
-      setMessage("A new OTP has been sent.");
+      setMessage(t("auth.msgOtpResent"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
-      setError(err.message || "Unable to resend OTP.");
+      setError(err.message || t("auth.errUnableResendOtp"));
     } finally {
       setLoading(false);
     }
@@ -667,7 +690,7 @@ export default function Login() {
     <div className="kt-auth-shell flex flex-col items-center overflow-y-auto bg-slate-100 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-[max(2rem,env(safe-area-inset-top))] sm:pb-[max(2rem,env(safe-area-inset-bottom))]">
       <div className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
         <h1 className="text-center text-3xl font-bold leading-tight text-slate-900">
-          Welcome to KunThai
+          {t("auth.welcomeTitle")}
         </h1>
 
         {mode === "signin" && (
@@ -680,11 +703,11 @@ export default function Login() {
             />
 
             <AuthInput
-              label="Password"
+              label={t("auth.password")}
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter password"
+              placeholder={t("auth.enterPassword")}
               autoComplete="current-password"
               required
             />
@@ -694,7 +717,7 @@ export default function Login() {
               disabled={isLoading}
               className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Logging In..." : "Log in with Phone"}
+              {loading ? t("auth.loggingIn") : t("auth.loginWithPhone")}
             </button>
 
             {forgotAvailable ? (
@@ -704,7 +727,7 @@ export default function Login() {
                 disabled={isLoading}
                 className="min-h-12 w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
               >
-                Forgot password? Verify with OTP
+                {t("auth.forgotVerifyOtp")}
               </button>
             ) : null}
 
@@ -727,25 +750,25 @@ export default function Login() {
               phone={phoneNumber}
               onCountryChange={handleCountryChange}
               onPhoneChange={setPhoneNumber}
-              label="Phone Account"
+              label={t("auth.phoneAccount")}
             />
 
             <AuthInput
-              label="Password"
+              label={t("auth.password")}
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter password"
+              placeholder={t("auth.enterPassword")}
               autoComplete="new-password"
               required
             />
 
             <AuthInput
-              label="Confirm Password"
+              label={t("auth.confirmPassword")}
               type="password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="Confirm password"
+              placeholder={t("auth.confirmPasswordPlaceholder")}
               autoComplete="new-password"
               required
             />
@@ -755,7 +778,7 @@ export default function Login() {
               disabled={isLoading}
               className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Creating Account..." : "Sign up with Phone"}
+              {loading ? t("auth.creatingAccount") : t("auth.signupWithPhone")}
             </button>
 
             <AuthDivider />
@@ -778,25 +801,25 @@ export default function Login() {
               }}
               className="text-sm font-semibold text-slate-500"
             >
-              Back
+              {t("auth.back")}
             </button>
 
             <h2 className="text-center text-xl font-bold text-slate-900">
-              Verify phone number
+              {t("auth.verifyPhoneTitle")}
             </h2>
 
             <p className="text-center text-sm text-slate-500">
-              Enter the OTP sent to {pendingPhone}.
+              {t("auth.otpSentTo", { phone: pendingPhone })}
             </p>
 
             <AuthInput
-              label="OTP Code"
+              label={t("auth.otpCode")}
               type="text"
               inputMode="numeric"
               ref={otpInputRef}
               value={otpCode}
               onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 8))}
-              placeholder="Enter OTP"
+              placeholder={t("auth.enterOtp")}
               autoComplete="one-time-code"
               required
             />
@@ -806,7 +829,7 @@ export default function Login() {
               disabled={isLoading}
               className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Verifying..." : "Verify Phone"}
+              {loading ? t("auth.verifying") : t("auth.verifyPhone")}
             </button>
 
             <button
@@ -815,7 +838,7 @@ export default function Login() {
               disabled={isLoading}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
-              Resend OTP
+              {t("auth.resendOtp")}
             </button>
           </form>
         )}
@@ -827,30 +850,30 @@ export default function Login() {
               onClick={() => switchMode("signin")}
               className="text-sm font-semibold text-slate-500"
             >
-              Back to sign in
+              {t("auth.backToSignIn")}
             </button>
 
-            <h2 className="text-center text-xl font-bold text-slate-900">Reset your password</h2>
+            <h2 className="text-center text-xl font-bold text-slate-900">{t("auth.resetPasswordTitle")}</h2>
             <p className="text-center text-sm text-slate-500">
-              Choose a new password for {recoveryActivePhone}. KunThai will then send an OTP to confirm this phone belongs to you.
+              {t("auth.resetPasswordSubtitle", { phone: recoveryActivePhone })}
             </p>
 
             <AuthInput
-              label="New password"
+              label={t("auth.newPassword")}
               type="password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
-              placeholder="Enter new password"
+              placeholder={t("auth.enterNewPassword")}
               autoComplete="new-password"
               required
             />
 
             <AuthInput
-              label="Confirm new password"
+              label={t("auth.confirmNewPassword")}
               type="password"
               value={confirmNewPassword}
               onChange={(event) => setConfirmNewPassword(event.target.value)}
-              placeholder="Confirm new password"
+              placeholder={t("auth.confirmNewPasswordPlaceholder")}
               autoComplete="new-password"
               required
             />
@@ -860,7 +883,7 @@ export default function Login() {
               disabled={isLoading}
               className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Sending OTP..." : "Send verification OTP"}
+              {loading ? t("auth.sendingOtp") : t("auth.sendVerificationOtp")}
             </button>
           </form>
         )}
@@ -875,22 +898,22 @@ export default function Login() {
               }}
               className="text-sm font-semibold text-slate-500"
             >
-              Back
+              {t("auth.back")}
             </button>
 
-            <h2 className="text-center text-xl font-bold text-slate-900">Confirm it is you</h2>
+            <h2 className="text-center text-xl font-bold text-slate-900">{t("auth.confirmItsYouTitle")}</h2>
             <p className="text-center text-sm text-slate-500">
-              Enter the OTP sent to {recoveryActivePhone}. Your new password is saved once the code is verified.
+              {t("auth.recoveryOtpSubtitle", { phone: recoveryActivePhone })}
             </p>
 
             <AuthInput
-              label="OTP Code"
+              label={t("auth.otpCode")}
               type="text"
               inputMode="numeric"
               ref={otpInputRef}
               value={recoveryOtp}
               onChange={(event) => setRecoveryOtp(event.target.value.replace(/\D/g, "").slice(0, 8))}
-              placeholder="Enter OTP"
+              placeholder={t("auth.enterOtp")}
               autoComplete="one-time-code"
               required
             />
@@ -900,7 +923,7 @@ export default function Login() {
               disabled={isLoading}
               className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Verifying..." : "Verify and update password"}
+              {loading ? t("auth.verifying") : t("auth.verifyUpdatePassword")}
             </button>
 
             <button
@@ -909,7 +932,7 @@ export default function Login() {
               disabled={isLoading}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
-              Resend OTP
+              {t("auth.resendOtp")}
             </button>
           </form>
         )}
@@ -924,7 +947,7 @@ export default function Login() {
                 : "text-slate-500"
             }`}
           >
-            Sign In
+            {t("auth.signIn")}
           </button>
 
           <button
@@ -936,7 +959,7 @@ export default function Login() {
                 : "text-slate-500"
             }`}
           >
-            Sign Up
+            {t("auth.signUp")}
           </button>
         </div>
 
@@ -949,7 +972,7 @@ export default function Login() {
               onClick={() => setRecoveryOpen(true)}
               className="w-full rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
             >
-              Find my account
+              {t("auth.findMyAccount")}
             </button>
           ) : null}
         </div>
@@ -984,17 +1007,15 @@ export default function Login() {
           <section
             role="alertdialog"
             aria-modal="true"
-            aria-label="Guest visit notice"
+            aria-label={t("auth.guestTitle")}
             className="kt-toast-expand-in w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
           >
             <span className="grid h-12 w-12 place-items-center rounded-xl bg-amber-50 text-amber-600">
               <ShieldAlert size={24} aria-hidden="true" />
             </span>
-            <h2 className="mt-4 text-2xl font-bold text-slate-950">Entering KunThai as a guest</h2>
+            <h2 className="mt-4 text-2xl font-bold text-slate-950">{t("auth.guestTitle")}</h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-              You can explore posts, UrMall, and UrRide freely, but as a guest you cannot react,
-              post, comment, message, shop, or book. No personal data is collected or saved during
-              your visit, and your guest session ends automatically when you leave.
+              {t("auth.guestBody")}
             </p>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
@@ -1003,7 +1024,7 @@ export default function Login() {
                 disabled={guestEntering}
                 className="rounded-xl border border-slate-300 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               >
-                Go back
+                {t("auth.guestGoBack")}
               </button>
               <button
                 type="button"
@@ -1013,7 +1034,7 @@ export default function Login() {
                   try {
                     await enterGuestMode();
                   } catch (guestError) {
-                    setError(guestError.message || "Unable to start a guest visit.");
+                    setError(guestError.message || t("auth.errUnableGuest"));
                     setGuestPromptOpen(false);
                   } finally {
                     setGuestEntering(false);
@@ -1021,7 +1042,7 @@ export default function Login() {
                 }}
                 className="rounded-xl bg-slate-950 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
               >
-                {guestEntering ? "Entering…" : "Enter as guest"}
+                {guestEntering ? t("auth.guestEntering") : t("auth.guestEnter")}
               </button>
             </div>
           </section>

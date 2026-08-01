@@ -1,7 +1,7 @@
 /* =========================
    MyBiz Header
 ========================= */
-import { MessageSquare, ShieldCheck } from "lucide-react";
+import { MessageSquare, ShieldCheck, Store } from "lucide-react";
 
 import MyBizHeader from "./BusinessHeader/MyBizHeader";
 import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
@@ -105,7 +105,19 @@ export default function Business({ onBack }) {
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
   const [dashboardReveal, setDashboardReveal] = useState(null);
   const [businesses, setBusinesses] = useState([]);
+  const [switchingBusiness, setSwitchingBusiness] = useState(false);
+  const switchTargetRef = useRef(null);
   const sellerScreenTimerRef = useRef(null);
+
+  // Keeps the switch animation up until the newly selected business has actually
+  // loaded (so the dashboard never flashes the previous business type), with a
+  // safety timeout in case the overview never resolves.
+  useEffect(() => {
+    if (!switchingBusiness) return undefined;
+    const arrived = switchTargetRef.current && sellerOverview.business?.id === switchTargetRef.current;
+    const timer = window.setTimeout(() => setSwitchingBusiness(false), arrived ? 520 : 4000);
+    return () => window.clearTimeout(timer);
+  }, [switchingBusiness, sellerOverview.business?.id]);
 
   // Returning from an order-address Area View lands directly on the orders
   // screen the seller left from.
@@ -436,6 +448,10 @@ export default function Business({ onBack }) {
           }}
           onMenu={openSellerMenu}
           onSwitchBusiness={async (businessId) => {
+            if (businessId && businessId !== activeBusinessId) {
+              switchTargetRef.current = businessId;
+              setSwitchingBusiness(true);
+            }
             await setActiveRegisteredBusiness(businessId);
             setActiveTab("overview");
             setToastMessage(t("urmall.biz.dash.bizSwitched"));
@@ -446,6 +462,10 @@ export default function Business({ onBack }) {
           showMessages={permissions.canReplyMessages}
           showOrders={permissions.canAccessDashboard && ["retail", "restaurant"].includes(businessKind)}
         />
+      ) : null}
+
+      {switchingBusiness ? (
+        <BusinessSwitchOverlay name={businesses.find((business) => business.id === switchTargetRef.current)?.identity?.businessName || ""} />
       ) : null}
 
       {hasBusiness ? (
@@ -549,6 +569,33 @@ export default function Business({ onBack }) {
 
       {hasBusiness && visibleScreen !== "dashboard" ? renderSellerScreen() : null}
 
+    </div>
+  );
+}
+
+// Covers the dashboard while a business switch is in flight so the seller never
+// sees the previous business type linger. Its ping ring, popping card, and
+// bouncing dots give the wait a deliberate, branded feel.
+function BusinessSwitchOverlay({ name }) {
+  return (
+    <div className="kt-detail-backdrop-enter fixed inset-0 z-[900] flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-sm">
+      <div className="kt-detail-zoom-enter flex w-full max-w-xs flex-col items-center gap-5 rounded-[28px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 px-8 py-8 text-center shadow-2xl">
+        <span className="relative grid h-16 w-16 place-items-center">
+          <span className="absolute inset-0 animate-ping rounded-2xl bg-emerald-500/40" />
+          <span className="relative grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-300">
+            <Store size={28} />
+          </span>
+        </span>
+        <div>
+          <p className="text-sm font-black text-white">{t("urmall.biz.dash.switchingBusiness")}</p>
+          {name ? <p className="mt-1 truncate text-xs font-bold text-emerald-300">{name}</p> : null}
+          <div className="mt-4 flex items-center justify-center gap-1.5" aria-hidden="true">
+            {[0, 150, 300].map((delay) => (
+              <span key={delay} className="h-2 w-2 animate-bounce rounded-full bg-emerald-400" style={{ animationDelay: `${delay}ms` }} />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

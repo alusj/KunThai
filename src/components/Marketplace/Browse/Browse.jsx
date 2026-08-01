@@ -106,7 +106,7 @@ function rememberRecentProduct(product) {
   }
 }
 
-export default function Browse({ activeTab = "new", onProductModeChange, searchOpen = false, supplementalContent = null }) {
+export default function Browse({ activeTab = "new", onProductModeChange, onCloseSearch, searchOpen = false, supplementalContent = null }) {
   const { t } = useI18n();
   const initialQueryFilters = cloneFilters(BROWSE_MEMORY.queryFilters);
   const initialCatalog = normalizeCatalog(
@@ -475,19 +475,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
   return (
     <div className="space-y-4">
       <PullToRefresh className="space-y-4" onRefresh={() => loadProductsRef.current?.()} disabled={detailOpen || sellerOpen}>
-      {/* The advert slider lives where the search card used to be; the full
-          search card only appears when the header search icon is active. */}
-      {searchOpen ? (
-        <BuyerDiscoveryBar
-          filters={filters}
-          setFilters={setFilters}
-          categories={options.categories}
-          locations={options.locations}
-          onClear={() => setFilters(DEFAULT_FILTERS)}
-        />
-      ) : (
-        <PromotedAdsCarousel onProductSelect={openProduct} />
-      )}
+      {/* The advert slider stays in the flow; the search/filter card now drops
+          from the header search icon as an attached popover (below). */}
+      <PromotedAdsCarousel onProductSelect={openProduct} />
 
       {notice && (
         <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">
@@ -511,6 +501,28 @@ export default function Browse({ activeTab = "new", onProductModeChange, searchO
       )}
       {activeTab === "top-rated" && <TopRated products={catalog.topRatedProducts} {...tabProps} />}
       </PullToRefresh>
+
+      {searchOpen ? (
+        <div className="fixed inset-0 z-[60]">
+          <button
+            type="button"
+            aria-label={t("urmall.header.closeSearch")}
+            onClick={() => onCloseSearch?.()}
+            className="absolute inset-0 bg-slate-950/20 backdrop-blur-[1px]"
+          />
+          <div className="kt-detail-zoom-enter absolute right-2 top-[calc(env(safe-area-inset-top)+3.75rem)] w-[min(94vw,30rem)] origin-top sm:right-4">
+            <span className="absolute -top-1.5 right-[9.75rem] h-3.5 w-3.5 rotate-45 rounded-[3px] border-l border-t border-gray-200 bg-white sm:right-[11rem]" />
+            <BuyerDiscoveryBar
+              filters={filters}
+              setFilters={setFilters}
+              categories={options.categories}
+              locations={options.locations}
+              onClear={() => setFilters(DEFAULT_FILTERS)}
+              onClose={() => onCloseSearch?.()}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <ProductDetailDrawer
         product={selectedProduct}

@@ -240,22 +240,22 @@ export function AddressAccuracyCaution({
 
   return (
     <div
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[1600] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-2xl"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[1600] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-2xl dark:border-amber-400/30 dark:bg-slate-900 dark:text-amber-50 dark:shadow-black/60"
       role="alertdialog"
       aria-label={title}
     >
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200 text-amber-800">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300">
           <ShieldCheck size={20} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black">{title}</p>
-          <p className="mt-1 text-sm font-semibold leading-5">{message}</p>
+          <p className="mt-1 text-sm font-semibold leading-5 dark:text-amber-100/80">{message}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={onLocateMe}
-              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
+              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300"
             >
               <LocateFixed size={15} />
               {locateLabel}
@@ -263,7 +263,7 @@ export function AddressAccuracyCaution({
             <button
               type="button"
               onClick={onDropPin}
-              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-xs font-black text-amber-800 hover:bg-amber-100"
+              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-xs font-black text-amber-800 hover:bg-amber-100 dark:border-amber-400/30 dark:bg-transparent dark:text-amber-200 dark:hover:bg-amber-400/10"
             >
               <MapPin size={15} />
               {dropPinLabel}
@@ -274,7 +274,7 @@ export function AddressAccuracyCaution({
           type="button"
           onClick={onCancel}
           aria-label={cancelLabel}
-          className="kt-pressable grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-amber-300 bg-white text-amber-700 hover:bg-amber-100"
+          className="kt-pressable grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-amber-300 bg-white text-amber-700 hover:bg-amber-100 dark:border-amber-400/30 dark:bg-transparent dark:text-amber-300 dark:hover:bg-amber-400/10"
         >
           <X size={16} />
         </button>
@@ -315,14 +315,14 @@ export function AddressAreaResolutionCard({
   const toneClass = tone === "blue" ? "blue" : "emerald";
   const foundClasses =
     toneClass === "blue"
-      ? "border-blue-100 bg-blue-50 text-blue-900"
-      : "border-emerald-100 bg-emerald-50 text-emerald-900";
+      ? "border-blue-100 bg-blue-50 text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200"
+      : "border-emerald-100 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200";
 
   if (isFound || isSearching) {
     return (
       <div
         className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs font-bold leading-5 ${
-          isFound ? foundClasses : "border-slate-200 bg-slate-50 text-slate-600"
+          isFound ? foundClasses : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
         }`}
       >
         <AddressAreaStatusIcon status={status} className="mt-0.5 shrink-0" />
@@ -336,12 +336,12 @@ export function AddressAreaResolutionCard({
   }
 
   return (
-    <div className="rounded-xl border border-rose-100 bg-rose-50 p-3">
+    <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 dark:border-rose-500/30 dark:bg-rose-500/10">
       <div className="flex items-start gap-2">
-        <XCircle className="mt-0.5 shrink-0 text-rose-600" size={18} />
+        <XCircle className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" size={18} />
         <div className="min-w-0">
-          <p className="text-sm font-black text-rose-950">Location unknown or unfindable</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-rose-800">
+          <p className="text-sm font-black text-rose-950 dark:text-rose-200">Location unknown or unfindable</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-rose-800 dark:text-rose-300/90">
             Area View could not match this address. Please allow us to locate you so we can get your exact location, or drop a pin manually.
           </p>
         </div>
@@ -351,7 +351,7 @@ export function AddressAreaResolutionCard({
         <button
           type="button"
           onClick={onLocateMe}
-          className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
+          className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
         >
           <LocateFixed size={15} />
           {locateLabel}
@@ -360,7 +360,7 @@ export function AddressAreaResolutionCard({
         <button
           type="button"
           onClick={onDropPin}
-          className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-3 text-xs font-black text-rose-700 hover:bg-rose-100"
+          className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-3 text-xs font-black text-rose-700 hover:bg-rose-100 dark:border-rose-500/30 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-500/10"
         >
           <MapPin size={15} />
           {dropPinLabel}

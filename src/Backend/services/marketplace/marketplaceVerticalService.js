@@ -95,10 +95,39 @@ async function uploadVerticalMediaPackage(businessId, input, folders, onProgress
 
 export async function fetchRestaurantMenu(businessId, dayOfWeek = new Date().getDay()) {
   let query = supabase.from("marketplace_restaurant_menu_items").select("*").eq("business_id", businessId).order("sort_order").order("created_at");
-  if (Number.isInteger(dayOfWeek)) query = query.eq("day_of_week", dayOfWeek);
+  // A meal shows for a given weekday when it is marked available every day, or
+  // when that weekday is one of its selected available_days.
+  if (Number.isInteger(dayOfWeek)) query = query.or(`available_everyday.eq.true,available_days.cs.{${dayOfWeek}}`);
   const { data, error } = await query;
   const fallback = throwOrEmpty(error, "Unable to load this restaurant menu.");
   return fallback || data || [];
+}
+
+// A menu row is served on a weekday when it is available every day or that
+// weekday is one of its selected days. Falls back to the legacy day_of_week for
+// rows saved before multi-day availability existed.
+export function menuItemServedOnDay(row, dayOfWeek) {
+  if (!row) return false;
+  if (row.available_everyday) return true;
+  if (Array.isArray(row.available_days) && row.available_days.length) {
+    return row.available_days.map(Number).includes(Number(dayOfWeek));
+  }
+  return Number(row.day_of_week) === Number(dayOfWeek);
+}
+
+// Resolve the availability part of the payload: every-day (default) clears the
+// day list; specific-days requires at least one valid weekday and re-anchors the
+// legacy day_of_week to the first selected day.
+function normalizeMenuAvailability(input = {}) {
+  const everyday = input.available_everyday !== false;
+  if (everyday) return { available_everyday: true, available_days: [] };
+  const days = Array.from(new Set(
+    (Array.isArray(input.available_days) ? input.available_days : [])
+      .map(Number)
+      .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
+  )).sort((a, b) => a - b);
+  if (!days.length) throw new Error("Pick at least one day, or make the meal available every day.");
+  return { available_everyday: false, available_days: days, day_of_week: days[0] };
 }
 
 export async function saveRestaurantMenuItem(businessId, input = {}, onProgress) {
@@ -121,6 +150,7 @@ export async function saveRestaurantMenuItem(businessId, input = {}, onProgress)
     video_url: videoUrl,
     preparation_minutes: Number(input.preparation_minutes || 20),
     available: input.available !== false,
+    ...normalizeMenuAvailability(input),
     updated_at: new Date().toISOString(),
   };
   if (!payload.name) throw new Error("Add the menu item name.");
@@ -250,19 +280,46 @@ export async function savePropertyListing(businessId, input = {}, onProgress) {
     : [input.image_urls?.[0] || "", input.image_urls?.slice(1) || [], input.video_url || ""];
   onProgress?.("save");
   const imageUrls = [coverUrl, ...extraUrls];
+  const propertyType = input.property_type || "house";
+  const isLand = propertyType === "land";
+  const isCommercial = propertyType === "commercial";
+  const isHotel = propertyType === "hotel";
+  const hasFloorArea = isCommercial || isHotel;
+  const numberOrNull = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : null;
+  };
+  // Coordinates may be negative (e.g. western/southern hemispheres) or zero, so
+  // they only need to be finite — not positive like sizes/counts.
+  const coordinateOrNull = (value) => {
+    if (value === "" || value === null || value === undefined) return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
   const payload = {
     business_id: businessId,
     title: String(input.title || "").trim(),
     description: String(input.description || "").trim(),
     purpose: input.purpose || "rent",
-    property_type: input.property_type || "house",
+    property_type: propertyType,
     price: Number(input.price || 0),
     rent_period: input.purpose === "rent" ? input.rent_period || "month" : null,
-    bedrooms: Number(input.bedrooms || 0),
-    bathrooms: Number(input.bathrooms || 0),
-    furnished: Boolean(input.furnished),
+    // Type-specific attributes: only the fields that apply to the chosen type
+    // are stored; the rest are cleared so a listing never carries mismatched data.
+    bedrooms: isLand || isHotel ? 0 : Number(input.bedrooms || 0),
+    bathrooms: isLand || isHotel ? 0 : Number(input.bathrooms || 0),
+    furnished: isLand || isHotel ? false : Boolean(input.furnished),
+    land_size: isLand ? numberOrNull(input.land_size) : null,
+    land_size_unit: isLand ? input.land_size_unit || "plots" : null,
+    floor_area: hasFloorArea ? numberOrNull(input.floor_area) : null,
+    floor_area_unit: hasFloorArea ? input.floor_area_unit || "sqm" : null,
+    rooms: isHotel ? Number(input.rooms || 0) : 0,
+    star_rating: isHotel ? numberOrNull(input.star_rating) : null,
+    parking_spaces: isLand ? 0 : Number(input.parking_spaces || 0),
     address: String(input.address || "").trim(),
     city: String(input.city || "").trim(),
+    latitude: coordinateOrNull(input.latitude),
+    longitude: coordinateOrNull(input.longitude),
     image_urls: imageUrls,
     video_url: videoUrl,
     amenities: String(input.amenitiesText || "").split(",").map((item) => item.trim()).filter(Boolean),
@@ -272,12 +329,34 @@ export async function savePropertyListing(businessId, input = {}, onProgress) {
     updated_at: new Date().toISOString(),
   };
   if (!payload.title || !payload.address) throw new Error("Add the property title and location.");
-  const query = input.id
-    ? supabase.from("marketplace_property_listings").update(payload).eq("id", input.id).eq("business_id", businessId)
-    : supabase.from("marketplace_property_listings").insert(payload);
-  const { data, error } = await query.select().single();
-  if (error) throw new Error(error.message || "Unable to save this property.");
+  const data = await writePropertyListing(businessId, input.id, payload);
   return data;
+}
+
+const TYPED_PROPERTY_COLUMNS = ["land_size", "land_size_unit", "floor_area", "floor_area_unit", "parking_spaces", "rooms", "star_rating"];
+
+// Saves the listing, and if the typed-attribute columns are not present yet
+// (migration not applied), retries once without them so the core listing still
+// saves instead of failing outright.
+async function writePropertyListing(businessId, id, payload) {
+  const run = (body) => {
+    const query = id
+      ? supabase.from("marketplace_property_listings").update(body).eq("id", id).eq("business_id", businessId)
+      : supabase.from("marketplace_property_listings").insert(body);
+    return query.select().single();
+  };
+  const { data, error } = await run(payload);
+  if (!error) return data;
+  const message = String(error.message || "");
+  const missingTypedColumn = TYPED_PROPERTY_COLUMNS.some((column) => message.includes(column));
+  if (missingTypedColumn) {
+    const fallback = { ...payload };
+    TYPED_PROPERTY_COLUMNS.forEach((column) => delete fallback[column]);
+    const retry = await run(fallback);
+    if (!retry.error) return retry.data;
+    throw new Error(retry.error.message || "Unable to save this property.");
+  }
+  throw new Error(error.message || "Unable to save this property.");
 }
 
 export async function deletePropertyListing(item) {
@@ -356,7 +435,7 @@ export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {
   ]);
 
   const menus = (throwOrEmpty(menusResult.error, "Unable to load today's menus.") || menusResult.data || [])
-    .filter((row) => Number(row.day_of_week) === getMarketplaceBusinessDay(nestedBusiness(row).country_iso));
+    .filter((row) => menuItemServedOnDay(row, getMarketplaceBusinessDay(nestedBusiness(row).country_iso)));
   const hotelImages = throwOrEmpty(hotelImagesResult.error, "Unable to load hotels.") || hotelImagesResult.data || [];
   const rooms = throwOrEmpty(roomsResult.error, "Unable to load hotel rooms.") || roomsResult.data || [];
   const properties = throwOrEmpty(propertiesResult.error, "Unable to load properties.") || propertiesResult.data || [];

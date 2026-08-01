@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Filter, MapPin, Search, SlidersHorizontal, Truck, X } from "lucide-react";
 import {
   LOCATION_SCOPE_COUNTRY,
@@ -29,7 +30,7 @@ const LOCATION_SCOPES = [
   { value: LOCATION_SCOPE_COUNTRY, labelKey: "urmall.browse.scopeCountry" },
 ];
 
-export default function BuyerDiscoveryBar({ filters, setFilters, categories = [], locations = [], onClear }) {
+export default function BuyerDiscoveryBar({ filters, setFilters, categories = [], locations = [], onClear, onClose }) {
   const { t } = useI18n();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -55,6 +56,33 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filters],
   );
+
+  // Live "similar" suggestions from the categories, business types, and seller
+  // locations that match what is being typed — surfaced instantly as the user
+  // types rather than only once they stop.
+  const searchQuery = filters.search.trim();
+  const suggestions = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    if (!query) return [];
+    const matches = [];
+    VERTICAL_CATEGORIES.forEach((option) => {
+      const label = t(option.labelKey);
+      if (label.toLowerCase().includes(query)) matches.push({ type: "category", value: option.value, label });
+    });
+    categories.forEach((category) => {
+      if (String(category).toLowerCase().includes(query)) matches.push({ type: "category", value: category, label: category });
+    });
+    locations.forEach((location) => {
+      if (String(location).toLowerCase().includes(query)) matches.push({ type: "location", value: location, label: location });
+    });
+    return matches.slice(0, 6);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, categories, locations]);
+  const showSuggestions = Boolean(searchQuery);
+
+  function applySuggestion(suggestion) {
+    setFilters((current) => ({ ...current, search: "", [suggestion.type]: suggestion.value }));
+  }
 
   function updateField(field, value) {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -148,14 +176,41 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-lg bg-gray-100 px-3 text-gray-500">
-          <Search size={18} />
-          <input
-            value={filters.search}
-            onChange={(event) => updateField("search", event.target.value)}
-            placeholder={t("urmall.browse.searchPlaceholder")}
-            className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-500"
-          />
+        <div className="relative flex-1">
+          <div className="flex min-h-11 items-center gap-2 rounded-lg bg-gray-100 px-3 text-gray-500">
+            <Search size={18} />
+            <input
+              value={filters.search}
+              onChange={(event) => updateField("search", event.target.value)}
+              placeholder={t("urmall.browse.searchPlaceholder")}
+              className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-500"
+            />
+          </div>
+          {showSuggestions ? (
+            <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-20 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => onClose?.()}
+                className="flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2.5 text-left text-sm font-black text-gray-900 hover:bg-gray-50"
+              >
+                <Search size={15} className="text-emerald-700" />
+                <span className="truncate">{t("urmall.browse.seeResultsFor", { query: searchQuery })}</span>
+              </button>
+              {suggestions.map((suggestion) => (
+                <button
+                  key={`${suggestion.type}-${suggestion.value}`}
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => applySuggestion(suggestion)}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50"
+                >
+                  {suggestion.type === "location" ? <MapPin size={15} className="text-gray-400" /> : <Filter size={15} className="text-gray-400" />}
+                  <span className="truncate">{suggestion.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <button
@@ -207,8 +262,8 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
         </div>
       ) : null}
 
-      {filtersOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+      {filtersOpen ? createPortal(
+        <div className="fixed inset-0 z-[70] lg:hidden">
           <button type="button" aria-label={t("urmall.browse.closeFilters")} onClick={() => setFiltersOpen(false)} className="absolute inset-0 bg-gray-950/45" />
           <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-4 shadow-2xl">
             <div className="flex items-center justify-between">
@@ -251,7 +306,8 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </section>
   );

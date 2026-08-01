@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bath, BedDouble, Clock3, MapPin } from "lucide-react";
+import { Bath, BedDouble, Clock3, MapPin, PackageSearch } from "lucide-react";
 
 import {
   createVerticalBooking,
@@ -13,7 +13,6 @@ import { useI18n, t } from "../../i18n";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
 import SellerProfileDrawer from "./Browse/SellerProfileDrawer";
-import { MarketplaceVerificationBadge, MarketplaceVerificationModal } from "./shared/MarketplaceVerification";
 
 const EMPTY = { restaurants: [], hotels: [], properties: [] };
 
@@ -23,6 +22,33 @@ function money(value, currency = "") {
 
 function mealPeriodLabel(period) {
   return period ? String(period).replaceAll("_", " ") : t("urmall.vertical.allDay");
+}
+
+function propertyUnitSymbol(unit) {
+  return { sqm: "m²", sqft: "ft²", acres: "acres", plots: "plots", hectares: "ha" }[unit] || unit || "";
+}
+
+// Buyer-facing property spec line — shows only the attributes that apply to the
+// listing's type (land size for land, floor area for commercial, rooms for the
+// rest) so each category reads uniquely.
+function buildPropertySpecifications(item) {
+  const isLandType = item.property_type === "land";
+  const isCommercialType = item.property_type === "commercial";
+  const isHotelType = item.property_type === "hotel";
+  const parts = [item.property_type];
+  if (isLandType && Number(item.land_size) > 0) parts.push(`${Number(item.land_size).toLocaleString()} ${propertyUnitSymbol(item.land_size_unit)}`.trim());
+  if ((isCommercialType || isHotelType) && Number(item.floor_area) > 0) parts.push(`${Number(item.floor_area).toLocaleString()} ${propertyUnitSymbol(item.floor_area_unit)}`.trim());
+  if (isHotelType) {
+    if (Number(item.rooms) > 0) parts.push(t("urmall.vertical.roomsN", { count: item.rooms }));
+    if (Number(item.star_rating) > 0) parts.push(t("urmall.vertical.starN", { count: item.star_rating }));
+  }
+  if (!isLandType && !isHotelType) {
+    parts.push(t("urmall.vertical.bedroomsN", { count: item.bedrooms || 0 }));
+    parts.push(t("urmall.vertical.bathroomsN", { count: item.bathrooms || 0 }));
+  }
+  if (Number(item.parking_spaces) > 0) parts.push(t("urmall.vertical.parkingN", { count: item.parking_spaces }));
+  if (!isLandType && !isHotelType) parts.push(item.furnished ? t("urmall.vertical.furnished") : t("urmall.vertical.notFurnished"));
+  return parts.filter(Boolean).join(" · ");
 }
 
 function mapVerticalProduct({ item, type }) {
@@ -73,6 +99,8 @@ function mapVerticalProduct({ item, type }) {
     ...shared,
     name: item.name,
     category: t("urmall.vertical.restaurantMeal"),
+    badgePrimary: t("urmall.vertical.catRestaurant"),
+    badgeSecondary: mealPeriodLabel(item.meal_period),
     price: Number(item.price || 0),
     description: item.description || t("urmall.vertical.mealDescription", { name: seller.name }),
     imageUrl: item.image_url || item.bannerUrl || "",
@@ -88,6 +116,8 @@ function mapVerticalProduct({ item, type }) {
     id: item.id || seller.id,
     name: item.businessName,
     category: t("urmall.vertical.catHotel"),
+    badgePrimary: t("urmall.vertical.catHotel"),
+    badgeSecondary: t("urmall.vertical.availableRooms"),
     price: Number(item.fromPrice || 0),
     description: item.description || t("urmall.vertical.hotelDescription", { name: seller.name }),
     imageUrl: item.images?.[0] || item.bannerUrl || "",
@@ -102,6 +132,8 @@ function mapVerticalProduct({ item, type }) {
     ...shared,
     name: item.title,
     category: t("urmall.vertical.propertyForPurpose", { purpose: item.purpose || "viewing" }),
+    badgePrimary: t("urmall.vertical.catProperty"),
+    badgeSecondary: t("urmall.vertical.forPurpose", { purpose: item.purpose || "viewing" }),
     price: Number(item.price || 0),
     description: item.description || t("urmall.vertical.propertyDescription", { name: seller.name }),
     imageUrl: item.image_urls?.[0] || item.bannerUrl || "",
@@ -109,12 +141,7 @@ function mapVerticalProduct({ item, type }) {
     videoUrl: item.video_url || "",
     allowNegotiation: true,
     details: {
-      specifications: [
-        item.property_type,
-        t("urmall.vertical.bedroomsN", { count: item.bedrooms || 0 }),
-        t("urmall.vertical.bathroomsN", { count: item.bathrooms || 0 }),
-        item.furnished ? t("urmall.vertical.furnished") : t("urmall.vertical.notFurnished"),
-      ].filter(Boolean).join(" · "),
+      specifications: buildPropertySpecifications(item),
     },
   };
 }
@@ -125,7 +152,6 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
-  const [verification, setVerification] = useState(null);
   const [profileSeller, setProfileSeller] = useState(null);
   useBodyScrollLock(Boolean(selected));
 
@@ -234,13 +260,12 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
       <>
         {error ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">{error}</div> : null}
         {mixedItems.map(({ type, item }) => type === "restaurant"
-          ? <RestaurantCard key={`restaurant-${item.id}`} item={item} onClick={() => setSelected({ type, item })} onVerification={() => setVerification(item)} />
+          ? <RestaurantCard key={`restaurant-${item.id}`} item={item} onClick={() => setSelected({ type, item })} />
           : type === "hotel"
-            ? <HotelCard key={`hotel-${item.id}`} item={item} onClick={() => setSelected({ type, item })} onVerification={() => setVerification(item)} />
-            : <PropertyCard key={`property-${item.id}`} item={item} onClick={() => setSelected({ type, item })} onVerification={() => setVerification(item)} />)}
+            ? <HotelCard key={`hotel-${item.id}`} item={item} onClick={() => setSelected({ type, item })} />
+            : <PropertyCard key={`property-${item.id}`} item={item} onClick={() => setSelected({ type, item })} />)}
         {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageSeller} onOpenSeller={setProfileSeller} onOrder={selected.type === "restaurant" ? orderRestaurant : bookVertical} /> : null}
         <VerticalSellerProfile seller={profileSeller} onClose={() => setProfileSeller(null)} />
-        {verification ? <MarketplaceVerificationModal status={verification.verificationStatus} audience="buyer" onClose={() => setVerification(null)} /> : null}
       </>
     );
   }
@@ -251,28 +276,27 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
       {sections.includes("restaurants") ? (
         <VerticalSection eyebrow={t("urmall.vertical.foodEyebrow")} title={t("urmall.vertical.foodTitle")} subtitle={t("urmall.vertical.foodSubtitle")}>
           <CardLayout compact={mode === "all"} empty={t("urmall.vertical.foodEmpty")}>
-            {catalog.restaurants.map((item) => <RestaurantCard key={item.id} item={item} onClick={() => setSelected({ type: "restaurant", item })} onVerification={() => setVerification(item)} />)}
+            {catalog.restaurants.map((item) => <RestaurantCard key={item.id} item={item} onClick={() => setSelected({ type: "restaurant", item })} />)}
           </CardLayout>
         </VerticalSection>
       ) : null}
       {sections.includes("hotels") ? (
         <VerticalSection eyebrow={t("urmall.vertical.hotelsEyebrow")} title={t("urmall.vertical.hotelsTitle")} subtitle={t("urmall.vertical.hotelsSubtitle")}>
           <CardLayout compact={mode === "all"} empty={t("urmall.vertical.hotelsEmpty")}>
-            {catalog.hotels.map((item) => <HotelCard key={item.id} item={item} onClick={() => setSelected({ type: "hotel", item })} onVerification={() => setVerification(item)} />)}
+            {catalog.hotels.map((item) => <HotelCard key={item.id} item={item} onClick={() => setSelected({ type: "hotel", item })} />)}
           </CardLayout>
         </VerticalSection>
       ) : null}
       {sections.includes("properties") ? (
         <VerticalSection eyebrow={t("urmall.vertical.propertyEyebrow")} title={t("urmall.vertical.propertyTitle")} subtitle={t("urmall.vertical.propertySubtitle")}>
           <CardLayout compact={mode === "all"} empty={t("urmall.vertical.propertyEmpty")}>
-            {catalog.properties.map((item) => <PropertyCard key={item.id} item={item} onClick={() => setSelected({ type: "property", item })} onVerification={() => setVerification(item)} />)}
+            {catalog.properties.map((item) => <PropertyCard key={item.id} item={item} onClick={() => setSelected({ type: "property", item })} />)}
           </CardLayout>
         </VerticalSection>
       ) : null}
 
       {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageSeller} onOpenSeller={setProfileSeller} onOrder={selected.type === "restaurant" ? orderRestaurant : bookVertical} /> : null}
       <VerticalSellerProfile seller={profileSeller} onClose={() => setProfileSeller(null)} />
-      {verification ? <MarketplaceVerificationModal status={verification.verificationStatus} audience="buyer" onClose={() => setVerification(null)} /> : null}
     </div>
   );
 }
@@ -289,20 +313,127 @@ function CardLayout({ children, compact, empty }) {
     : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>;
 }
 
-function CardShell({ children, image, imageAlt, onClick }) {
-  return <article role="button" tabIndex={0} onClick={onClick} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onClick?.(); }} className="snap-start overflow-hidden rounded-[24px] border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><div className="h-44 bg-gradient-to-br from-emerald-100 to-slate-100">{image ? <img src={image} alt={imageAlt} className="h-full w-full object-cover" /> : null}</div><div className="p-4">{children}</div></article>;
+// Shared vertical-listing card. Mirrors the retail BuyerProductCard shell exactly
+// — square image, overlaid category pills, and the same body type scale/padding —
+// so restaurant, hotel, and property cards line up as the same size beside retail
+// cards in the mixed UrMall grid. Content differs per vertical; the shell does not.
+function VerticalCardShell({ badges, children, image, imageAlt, onClick }) {
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick?.();
+        }
+      }}
+      className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
+    >
+      <div className="relative aspect-square overflow-hidden bg-gray-100">
+        {image ? (
+          <img src={image} alt={imageAlt} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 via-white to-emerald-50 text-gray-400">
+            <PackageSearch size={34} strokeWidth={1.8} />
+          </div>
+        )}
+      </div>
+      <div className="space-y-1.5 p-2.5">
+        {badges ? <div className="flex flex-wrap items-center gap-1">{badges}</div> : null}
+        {children}
+      </div>
+    </article>
+  );
 }
 
-function RestaurantCard({ item, onClick, onVerification }) {
-  return <CardShell image={item.image_url || item.bannerUrl} imageAlt={item.name} onClick={onClick}><div className="flex items-center justify-between gap-3"><div className="flex flex-wrap gap-1"><span className="rounded-full bg-orange-600 px-2.5 py-1 text-[11px] font-black text-white">{t("urmall.vertical.catRestaurant")}</span><span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-black text-orange-700">{mealPeriodLabel(item.meal_period)}</span></div><span className="text-xs font-black text-emerald-700">{money(item.price, item.currency)}</span></div><h3 className="mt-3 text-lg font-black text-gray-950">{item.name}</h3><p className="mt-1 truncate text-sm font-bold text-gray-600">{item.businessName}</p><div className="mt-2" onClick={(event) => event.stopPropagation()}><MarketplaceVerificationBadge status={item.verificationStatus} onClick={onVerification} /></div><p className="mt-3 flex items-center gap-2 text-xs font-bold text-gray-500"><Clock3 size={15} /> {item.preparation_minutes || 20} {t("urmall.vertical.minutesShort")} <MapPin size={15} className="ml-2" /> {item.city || t("urmall.vertical.locationAvailable")}</p></CardShell>;
+function CardInfoRow({ children, icon: Icon }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 leading-5">
+      <Icon size={13} className="shrink-0 text-emerald-600" />
+      <span className="truncate">{children}</span>
+    </span>
+  );
 }
 
-function HotelCard({ item, onClick, onVerification }) {
-  return <CardShell image={item.images?.[0] || item.bannerUrl} imageAlt={item.businessName} onClick={onClick}><div className="flex flex-wrap gap-1"><span className="rounded-full bg-blue-600 px-2.5 py-1 text-[11px] font-black text-white">{t("urmall.vertical.catHotel")}</span><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-700">{t("urmall.vertical.availableRooms")}</span></div><h3 className="mt-3 text-lg font-black text-gray-950">{item.businessName}</h3><div className="mt-2" onClick={(event) => event.stopPropagation()}><MarketplaceVerificationBadge status={item.verificationStatus} onClick={onVerification} /></div><p className="mt-2 flex items-center gap-1.5 text-sm font-bold text-gray-500"><MapPin size={15} /> {item.city || item.address}</p><p className="mt-3 text-sm font-black text-gray-950">{t("urmall.vertical.fromPerNight", { value: money(item.fromPrice, item.currency) })}</p></CardShell>;
+function RestaurantCard({ item, onClick }) {
+  return (
+    <VerticalCardShell
+      onClick={onClick}
+      image={item.image_url || item.bannerUrl}
+      imageAlt={item.name}
+      badges={
+        <>
+          <span className="rounded-md bg-orange-600 whitespace-nowrap px-1.5 py-0.5 text-[9px] font-black uppercase text-white">{t("urmall.vertical.catRestaurant")}</span>
+          <span className="rounded-md bg-orange-500/95 whitespace-nowrap px-1.5 py-0.5 text-[9px] font-black uppercase text-white">{mealPeriodLabel(item.meal_period)}</span>
+        </>
+      }
+    >
+      <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-[1.125rem] text-gray-950">{item.name}</h3>
+      <p className="text-base font-black text-gray-950">{money(item.price, item.currency)}</p>
+      <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
+        <CardInfoRow icon={MapPin}>{item.city || t("urmall.vertical.locationAvailable")}</CardInfoRow>
+        <CardInfoRow icon={Clock3}>{item.preparation_minutes || 20} {t("urmall.vertical.minutesShort")}</CardInfoRow>
+      </div>
+    </VerticalCardShell>
+  );
 }
 
-function PropertyCard({ item, onClick, onVerification }) {
-  return <CardShell image={item.image_urls?.[0] || item.bannerUrl} imageAlt={item.title} onClick={onClick}><div className="flex items-center justify-between gap-3"><div className="flex flex-wrap gap-1"><span className="rounded-full bg-violet-700 px-2.5 py-1 text-[11px] font-black text-white">{t("urmall.vertical.catProperty")}</span><span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-black uppercase text-violet-700">{t("urmall.vertical.forPurpose", { purpose: item.purpose })}</span></div><span className="text-xs font-black capitalize text-gray-500">{item.property_type}</span></div><h3 className="mt-3 text-lg font-black text-gray-950">{item.title}</h3><div className="mt-2" onClick={(event) => event.stopPropagation()}><MarketplaceVerificationBadge status={item.verificationStatus} onClick={onVerification} /></div><p className="mt-2 flex items-center gap-1.5 text-sm font-bold text-gray-500"><MapPin size={15} /> {item.city || item.address}</p><div className="mt-3 flex items-center gap-4 text-xs font-bold text-gray-500"><span className="flex items-center gap-1"><BedDouble size={15} /> {item.bedrooms}</span><span className="flex items-center gap-1"><Bath size={15} /> {item.bathrooms}</span><strong className="ml-auto text-sm text-gray-950">{money(item.price, item.currency)}{item.purpose === "rent" ? `/${item.rent_period || "month"}` : ""}</strong></div></CardShell>;
+function HotelCard({ item, onClick }) {
+  return (
+    <VerticalCardShell
+      onClick={onClick}
+      image={item.images?.[0] || item.bannerUrl}
+      imageAlt={item.businessName}
+      badges={
+        <>
+          <span className="rounded-md bg-blue-600 whitespace-nowrap px-1.5 py-0.5 text-[9px] font-black uppercase text-white">{t("urmall.vertical.catHotel")}</span>
+          <span className="rounded-md bg-blue-500/95 whitespace-nowrap px-1.5 py-0.5 text-[9px] font-black uppercase text-white">{t("urmall.vertical.availableRooms")}</span>
+        </>
+      }
+    >
+      <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-[1.125rem] text-gray-950">{item.businessName}</h3>
+      <p className="text-base font-black text-gray-950">
+        {money(item.fromPrice, item.currency)}
+        <span className="text-[11px] font-bold text-gray-400"> {t("urmall.vertical.perNightSuffix")}</span>
+      </p>
+      <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
+        <CardInfoRow icon={MapPin}>{item.city || item.address}</CardInfoRow>
+        <CardInfoRow icon={BedDouble}>{t("urmall.vertical.availableRooms")}</CardInfoRow>
+      </div>
+    </VerticalCardShell>
+  );
+}
+
+function PropertyCard({ item, onClick }) {
+  return (
+    <VerticalCardShell
+      onClick={onClick}
+      image={item.image_urls?.[0] || item.bannerUrl}
+      imageAlt={item.title}
+      badges={
+        <>
+          <span className="rounded-md bg-violet-700 whitespace-nowrap px-1.5 py-0.5 text-[9px] font-black uppercase text-white">{t("urmall.vertical.catProperty")}</span>
+          <span className="rounded-md bg-violet-500/95 whitespace-nowrap px-1.5 py-0.5 text-[9px] font-black uppercase text-white">{t("urmall.vertical.forPurpose", { purpose: item.purpose })}</span>
+        </>
+      }
+    >
+      <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-[1.125rem] text-gray-950">{item.title}</h3>
+      <p className="text-base font-black text-gray-950">
+        {money(item.price, item.currency)}
+        {item.purpose === "rent" ? <span className="text-[11px] font-bold text-gray-400">/{item.rent_period || "month"}</span> : null}
+      </p>
+      <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
+        <CardInfoRow icon={MapPin}>{item.city || item.address}</CardInfoRow>
+        <span className="flex min-w-0 items-center gap-2 leading-5">
+          <span className="flex shrink-0 items-center gap-1"><BedDouble size={13} className="text-emerald-600" /> {item.bedrooms || 0}</span>
+          <span className="flex shrink-0 items-center gap-1"><Bath size={13} className="text-emerald-600" /> {item.bathrooms || 0}</span>
+          {item.property_type ? <span className="truncate capitalize">{item.property_type}</span> : null}
+        </span>
+      </div>
+    </VerticalCardShell>
+  );
 }
 
 function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, onOrder, product, type }) {

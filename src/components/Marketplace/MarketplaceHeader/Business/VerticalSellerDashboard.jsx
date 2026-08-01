@@ -23,6 +23,7 @@ import { urMallShareToastOptions } from "../../../../Backend/services/shareCtaSe
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import { createEmptyVerticalMedia } from "../../../../Backend/services/marketplace/verticalMediaValidation";
 import VerticalMediaFields from "./VerticalMediaFields";
+import AddressLocationField from "../../../shared/AddressLocationField";
 import ListingUploadProgressCard from "../../shared/ListingUploadProgressCard";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import { useI18n, t } from "../../../../i18n";
@@ -87,7 +88,7 @@ function RestaurantDashboard({ business, canManage = true }) {
   const [submitting, setSubmitting] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
   const submissionLock = useRef(false);
-  const [form, setForm] = useState({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, ...createEmptyVerticalMedia() });
+  const [form, setForm] = useState({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
   const editingMeal = Boolean(form.id);
   const activity = useVerticalActivity(business.id);
   const load = useCallback(async () => {
@@ -96,7 +97,7 @@ function RestaurantDashboard({ business, canManage = true }) {
   }, [business.id, day]);
   useEffect(() => { load(); }, [load]);
   const openNewMeal = useCallback(() => {
-    setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, ...createEmptyVerticalMedia() });
+    setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
     setFormOpen(true);
   }, []);
   useOpenVerticalEditor(openNewMeal, canManage);
@@ -110,6 +111,8 @@ function RestaurantDashboard({ business, canManage = true }) {
       price: item.price ?? "",
       meal_period: item.meal_period || "all_day",
       preparation_minutes: item.preparation_minutes || 20,
+      available_everyday: item.available_everyday !== false,
+      available_days: Array.isArray(item.available_days) ? item.available_days.map(Number) : [],
       image_url: item.image_url || "",
       image_urls: item.image_urls || [],
       video_url: item.video_url || "",
@@ -121,12 +124,16 @@ function RestaurantDashboard({ business, canManage = true }) {
   async function save(event) {
     event.preventDefault();
     if (submissionLock.current) return;
+    if (!form.available_everyday && !(form.available_days || []).length) {
+      showToast(t("urmall.biz.vert.errPickDay"), "danger");
+      return;
+    }
     submissionLock.current = true;
     setSubmitting(true);
     try {
       const wasEditing = editingMeal;
       await saveRestaurantMenuItem(business.id, { ...form, day_of_week: day }, setUploadStage);
-      setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, ...createEmptyVerticalMedia() });
+      setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
       setFormOpen(false);
       await load();
       notifyVerticalListingUpdated(business.id);
@@ -157,9 +164,61 @@ function RestaurantForm({ formId, form, setForm, onSubmit }) {
     <form id={formId} onSubmit={onSubmit} className="grid gap-3 rounded-2xl bg-orange-50 p-4 sm:grid-cols-2">
       <Input label={t("urmall.biz.vert.mealName")} value={form.name} onChange={(value) => setForm({ ...form, name: value })} /><Input label={t("urmall.biz.cat.price")} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} />
       <Select label={t("urmall.biz.vert.mealPeriod")} value={form.meal_period} onChange={(value) => setForm({ ...form, meal_period: value })} options={["all_day", "breakfast", "lunch", "dinner", "drinks"]} labels={{ all_day: t("urmall.biz.vert.allDay"), breakfast: t("urmall.biz.vert.breakfast"), lunch: t("urmall.biz.vert.lunch"), dinner: t("urmall.biz.vert.dinner"), drinks: t("urmall.biz.vert.drinks") }} /><Input label={t("urmall.biz.vert.prepMinutes")} type="number" value={form.preparation_minutes} onChange={(value) => setForm({ ...form, preparation_minutes: value })} />
+      <AvailabilityField form={form} setForm={setForm} />
       <TextArea label={t("urmall.detail.description")} value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
       <VerticalMediaFields media={form} setMedia={setForm} accent="orange" noun="meal" />
     </form>
+  );
+}
+
+function AvailabilityField({ form, setForm }) {
+  const everyday = form.available_everyday !== false;
+  const selected = (form.available_days || []).map(Number);
+  const toggleDay = (index) => {
+    const set = new Set(selected);
+    if (set.has(index)) set.delete(index); else set.add(index);
+    setForm({ ...form, available_days: Array.from(set).sort((a, b) => a - b) });
+  };
+  return (
+    <div className="rounded-2xl border border-orange-100 bg-white p-3 sm:col-span-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-wide text-gray-500">{t("urmall.biz.vert.availability")}</p>
+          <p className="mt-0.5 truncate text-sm font-black text-gray-900">{t("urmall.biz.vert.availableEveryday")}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={everyday}
+          aria-label={t("urmall.biz.vert.availableEveryday")}
+          onClick={() => setForm({ ...form, available_everyday: !everyday })}
+          className={`relative h-7 w-12 shrink-0 rounded-full transition ${everyday ? "bg-orange-600" : "bg-gray-300"}`}
+        >
+          <span className={`absolute top-0.5 grid h-6 w-6 place-items-center rounded-full bg-white shadow transition-all ${everyday ? "left-[1.375rem]" : "left-0.5"}`} />
+        </button>
+      </div>
+      {!everyday ? (
+        <div className="mt-3">
+          <p className="text-xs font-black text-gray-600">{t("urmall.biz.vert.selectDays")}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {DAYS.map((label, index) => {
+              const active = selected.includes(index);
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => toggleDay(index)}
+                  aria-pressed={active}
+                  className={`min-w-[56px] rounded-xl border px-3 py-2 text-xs font-black transition ${active ? "border-orange-600 bg-orange-600 text-white" : "border-gray-200 bg-white text-gray-600"}`}
+                >
+                  {dayShort(index)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -214,13 +273,13 @@ function PropertyDashboard({ business, canManage = true }) {
   const [submitting, setSubmitting] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
   const submissionLock = useRef(false);
-  const [form, setForm] = useState({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, address: "", city: business.location || "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
+  const [form, setForm] = useState({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, parking_spaces: 0, land_size: "", land_size_unit: "plots", floor_area: "", floor_area_unit: "sqm", rooms: 0, star_rating: "", address: "", city: business.location || "", latitude: "", longitude: "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
   const editingProperty = Boolean(form.id);
   const activity = useVerticalActivity(business.id);
   const load = useCallback(async () => setListings(await fetchPropertyListings(business.id)), [business.id]);
   useEffect(() => { load().catch((error) => showToast(error.message, "danger")); }, [load]);
   const openNewProperty = useCallback(() => {
-    setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, address: "", city: business.location || "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
+    setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, parking_spaces: 0, land_size: "", land_size_unit: "plots", floor_area: "", floor_area_unit: "sqm", rooms: 0, star_rating: "", address: "", city: business.location || "", latitude: "", longitude: "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
     setFormOpen(true);
   }, [business.location]);
   useOpenVerticalEditor(openNewProperty, canManage);
@@ -245,7 +304,7 @@ function PropertyDashboard({ business, canManage = true }) {
     try {
       const wasEditing = editingProperty;
       await savePropertyListing(business.id, form, setUploadStage);
-      setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, address: "", city: business.location || "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
+      setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, parking_spaces: 0, land_size: "", land_size_unit: "plots", floor_area: "", floor_area_unit: "sqm", rooms: 0, star_rating: "", address: "", city: business.location || "", latitude: "", longitude: "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
       setFormOpen(false);
       await load();
       notifyVerticalListingUpdated(business.id);
@@ -271,16 +330,98 @@ function PropertyDashboard({ business, canManage = true }) {
   );
 }
 
+const RESIDENTIAL_TYPES = ["house", "apartment"];
+
+// Each property type reads differently, so the description prompt is tailored
+// rather than a single generic one.
+function propertyDescriptionPlaceholder(type) {
+  if (type === "land") return t("urmall.biz.vert.descPhLand");
+  if (type === "commercial") return t("urmall.biz.vert.descPhCommercial");
+  if (type === "hotel") return t("urmall.biz.vert.descPhHotel");
+  if (type === "apartment") return t("urmall.biz.vert.descPhApartment");
+  return t("urmall.biz.vert.descPhHouse");
+}
+
+function propertyAmenitiesPlaceholder(type) {
+  if (type === "land") return t("urmall.biz.vert.amenitiesPhLand");
+  if (type === "commercial") return t("urmall.biz.vert.amenitiesPhCommercial");
+  if (type === "hotel") return t("urmall.biz.vert.amenitiesPhHotel");
+  return t("urmall.biz.vert.amenitiesPhResidential");
+}
+
+// The property type is the first choice; every field beneath it is shown or
+// hidden based on that type so a land listing never asks for bedrooms, etc.
 function PropertyForm({ formId, form, setForm, onSubmit }) {
+  const type = form.property_type || "house";
+  const isResidential = RESIDENTIAL_TYPES.includes(type);
+  const isLand = type === "land";
+  const isCommercial = type === "commercial";
+  const isHotel = type === "hotel";
+  const hasFloorArea = isCommercial || isHotel;
+  const isRent = form.purpose === "rent";
+
+  const update = (patch) => setForm({ ...form, ...patch });
+  // Switching type clears fields that do not apply to the new type so stale
+  // values (e.g. bedrooms left over from a house) never save onto land.
+  const changeType = (next) => update({ property_type: next, bedrooms: 0, bathrooms: 0, furnished: false, parking_spaces: 0, land_size: "", floor_area: "", rooms: 0, star_rating: "" });
+
   return (
     <form id={formId} onSubmit={onSubmit} className="grid gap-3 rounded-2xl bg-violet-50 p-4 sm:grid-cols-2">
-      <Input label={t("urmall.biz.vert.propertyTitle")} value={form.title} onChange={(value) => setForm({ ...form, title: value })} /><Input label={t("urmall.biz.cat.price")} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} />
-      <Select label={t("urmall.biz.vert.purpose")} value={form.purpose} onChange={(value) => setForm({ ...form, purpose: value })} options={["rent", "sale"]} labels={{ rent: t("urmall.biz.vert.rent"), sale: t("urmall.biz.vert.sale") }} /><Select label={t("urmall.biz.vert.propertyType")} value={form.property_type} onChange={(value) => setForm({ ...form, property_type: value })} options={["house", "apartment", "land", "hotel", "commercial"]} labels={{ house: t("urmall.biz.vert.house"), apartment: t("urmall.biz.vert.apartment"), land: t("urmall.biz.vert.land"), hotel: t("urmall.biz.vert.hotelType"), commercial: t("urmall.biz.vert.commercial") }} />
-      <Input label={t("urmall.biz.vert.bedrooms")} type="number" value={form.bedrooms} onChange={(value) => setForm({ ...form, bedrooms: value })} /><Input label={t("urmall.biz.vert.bathrooms")} type="number" value={form.bathrooms} onChange={(value) => setForm({ ...form, bathrooms: value })} />
-      <Input label={t("urmall.biz.reg.address")} value={form.address} onChange={(value) => setForm({ ...form, address: value })} /><Input label={t("urmall.biz.vert.cityArea")} value={form.city} onChange={(value) => setForm({ ...form, city: value })} />
-      <TextArea label={t("urmall.detail.description")} value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
+      <Select full label={t("urmall.biz.vert.propertyType")} hint={t("urmall.biz.vert.propertyTypeHint")} value={type} onChange={changeType} options={["house", "apartment", "land", "commercial", "hotel"]} labels={{ house: t("urmall.biz.vert.house"), apartment: t("urmall.biz.vert.apartment"), land: t("urmall.biz.vert.land"), commercial: t("urmall.biz.vert.commercial"), hotel: t("urmall.biz.vert.hotelType") }} />
+
+      <FormSectionLabel label={t("urmall.biz.vert.secBasics")} />
+      <Input full label={t("urmall.biz.vert.propertyTitle")} value={form.title} onChange={(value) => update({ title: value })} placeholder={t("urmall.biz.vert.propertyTitlePh")} />
+      <Select label={t("urmall.biz.vert.purpose")} value={form.purpose} onChange={(value) => update({ purpose: value })} options={["rent", "sale"]} labels={{ rent: t("urmall.biz.vert.rent"), sale: t("urmall.biz.vert.sale") }} />
+      <Input label={t("urmall.biz.cat.price")} type="number" min="0" value={form.price} onChange={(value) => update({ price: value })} />
+      {isRent ? <Select label={t("urmall.biz.vert.rentPeriod")} value={form.rent_period || "month"} onChange={(value) => update({ rent_period: value })} options={["day", "week", "month", "year"]} labels={{ day: t("urmall.biz.vert.perDay"), week: t("urmall.biz.vert.perWeek"), month: t("urmall.biz.vert.perMonth"), year: t("urmall.biz.vert.perYear") }} /> : null}
+
+      <FormSectionLabel label={t("urmall.biz.vert.secDetails")} />
+      {isResidential ? (
+        <>
+          <Input label={t("urmall.biz.vert.bedrooms")} type="number" min="0" value={form.bedrooms} onChange={(value) => update({ bedrooms: value })} />
+          <Input label={t("urmall.biz.vert.bathrooms")} type="number" min="0" value={form.bathrooms} onChange={(value) => update({ bathrooms: value })} />
+          <Input required={false} label={t("urmall.biz.vert.parkingSpaces")} type="number" min="0" value={form.parking_spaces} onChange={(value) => update({ parking_spaces: value })} />
+        </>
+      ) : null}
+      {isLand ? (
+        <>
+          <Input required={false} label={t("urmall.biz.vert.landSize")} type="number" min="0" value={form.land_size} onChange={(value) => update({ land_size: value })} />
+          <Select label={t("urmall.biz.vert.landSizeUnit")} value={form.land_size_unit || "plots"} onChange={(value) => update({ land_size_unit: value })} options={["plots", "sqm", "acres", "hectares", "sqft"]} labels={{ plots: t("urmall.biz.vert.unitPlots"), sqm: t("urmall.biz.vert.unitSqm"), acres: t("urmall.biz.vert.unitAcres"), hectares: t("urmall.biz.vert.unitHectares"), sqft: t("urmall.biz.vert.unitSqft") }} />
+        </>
+      ) : null}
+      {isHotel ? (
+        <>
+          <Input required={false} label={t("urmall.biz.vert.rooms")} type="number" min="0" value={form.rooms} onChange={(value) => update({ rooms: value })} />
+          <Input required={false} label={t("urmall.biz.vert.starRating")} hint={t("urmall.biz.vert.starRatingHint")} type="number" min="1" max="5" value={form.star_rating} onChange={(value) => update({ star_rating: value })} />
+          <Input required={false} label={t("urmall.biz.vert.parkingSpaces")} type="number" min="0" value={form.parking_spaces} onChange={(value) => update({ parking_spaces: value })} />
+        </>
+      ) : null}
+      {isCommercial ? (
+        <>
+          <Input label={t("urmall.biz.vert.bathrooms")} type="number" min="0" value={form.bathrooms} onChange={(value) => update({ bathrooms: value })} />
+          <Input required={false} label={t("urmall.biz.vert.parkingSpaces")} type="number" min="0" value={form.parking_spaces} onChange={(value) => update({ parking_spaces: value })} />
+        </>
+      ) : null}
+      {hasFloorArea ? (
+        <>
+          <Input required={false} label={t("urmall.biz.vert.floorArea")} type="number" min="0" value={form.floor_area} onChange={(value) => update({ floor_area: value })} />
+          <Select label={t("urmall.biz.vert.floorAreaUnit")} value={form.floor_area_unit || "sqm"} onChange={(value) => update({ floor_area_unit: value })} options={["sqm", "sqft"]} labels={{ sqm: t("urmall.biz.vert.unitSqm"), sqft: t("urmall.biz.vert.unitSqft") }} />
+        </>
+      ) : null}
+      <Input full required={false} label={t("urmall.biz.vert.amenitiesLabel")} value={form.amenitiesText} onChange={(value) => update({ amenitiesText: value })} placeholder={propertyAmenitiesPlaceholder(type)} hint={t("urmall.biz.vert.amenitiesHint")} />
+      {isResidential || isCommercial ? <CheckboxRow checked={form.furnished} onChange={(value) => update({ furnished: value })} label={t(isCommercial ? "urmall.biz.vert.fitted" : "urmall.biz.vert.furnishedLabel")} /> : null}
+
+      <FormSectionLabel label={t("urmall.biz.vert.secLocation")} />
+      <AddressLocationField
+        value={{ address: form.address, city: form.city, latitude: form.latitude, longitude: form.longitude }}
+        onChange={(patch) => update(patch)}
+      />
+      <Input full label={t("urmall.biz.vert.cityArea")} value={form.city} onChange={(value) => update({ city: value })} />
+
+      <FormSectionLabel label={t("urmall.biz.vert.secDescription")} />
+      <TextArea label={t("urmall.detail.description")} value={form.description} onChange={(value) => update({ description: value })} placeholder={propertyDescriptionPlaceholder(type)} />
       <VerticalMediaFields media={form} setMedia={setForm} accent="violet" noun="property" />
-      <label className="flex items-center gap-2 rounded-xl border border-violet-100 bg-white p-3 text-sm font-black sm:col-span-2"><input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} /> {t("urmall.biz.vert.publishToMarketplace")}</label>
+      <CheckboxRow checked={form.published} onChange={(value) => update({ published: value })} label={t("urmall.biz.vert.publishToMarketplace")} />
     </form>
   );
 }
@@ -338,7 +479,7 @@ function SectionHeading({ children, eyebrow, title }) { return <div className="f
 function PrimaryButton({ className, label, onClick }) { return <button type="button" onClick={onClick} className={`flex h-11 shrink-0 items-center gap-2 rounded-2xl px-4 text-sm font-black text-white ${className}`}><Plus size={18} /> {label}</button>; }
 function MealCard({ business, item, canManage = true, onDelete, onEdit, onToggle }) {
   const gallery = item.image_urls || [];
-  return <article className="relative rounded-2xl border border-gray-200 p-3 pr-14"><div className="absolute right-3 top-3 z-10 flex flex-col items-center gap-2"><SellerItemActions label={item.name} canManage={canManage} shareUrl={buildShareUrl("meal", item.id)} onDelete={onDelete} onEdit={onEdit} />{canManage ? <button type="button" onClick={onToggle} className={item.available ? "text-emerald-600" : "text-gray-400"} aria-label={item.available ? t("urmall.biz.vert.hideItem", { name: item.name }) : t("urmall.biz.vert.showItem", { name: item.name })}>{item.available ? <ToggleRight /> : <ToggleLeft />}</button> : null}</div><div className="flex gap-3"><MediaImage src={item.image_url} alt={item.name} className="h-20 w-20 shrink-0 rounded-xl object-cover" icon={UtensilsCrossed} /><div className="min-w-0 flex-1"><h3 className="truncate font-black text-gray-950">{item.name}</h3><p className="mt-1 text-sm font-black text-gray-800">{business.currency} {Number(item.price).toLocaleString()}</p><p className="mt-2 flex items-center gap-1 text-xs font-bold text-gray-500"><Clock3 size={14} /> {t("urmall.biz.vert.minutes", { n: item.preparation_minutes })}</p></div></div>{gallery.length || item.video_url ? <div className="mt-3 flex gap-2 overflow-x-auto border-t border-gray-100 pt-3">{gallery.slice(0, 5).map((image, index) => <MediaImage key={`${image}-${index}`} src={image} alt={`${item.name} ${index + 2}`} className="h-12 w-12 shrink-0 rounded-lg object-cover" icon={UtensilsCrossed} />)}{item.video_url ? <div className="flex h-12 min-w-24 shrink-0 items-center justify-center gap-1 rounded-lg bg-slate-950 px-2 text-xs font-black text-white"><Film size={15} /> {t("urmall.biz.vert.video")}</div> : null}</div> : null}</article>;
+  return <article className="relative rounded-2xl border border-gray-200 p-3 pr-14"><div className="absolute right-3 top-3 z-10 flex flex-col items-center gap-2"><SellerItemActions label={item.name} canManage={canManage} shareUrl={buildShareUrl("meal", item.id)} onDelete={onDelete} onEdit={onEdit} />{canManage ? <button type="button" onClick={onToggle} className={item.available ? "text-emerald-600" : "text-gray-400"} aria-label={item.available ? t("urmall.biz.vert.hideItem", { name: item.name }) : t("urmall.biz.vert.showItem", { name: item.name })}>{item.available ? <ToggleRight /> : <ToggleLeft />}</button> : null}</div><div className="flex gap-3"><MediaImage src={item.image_url} alt={item.name} className="h-20 w-20 shrink-0 rounded-xl object-cover" icon={UtensilsCrossed} /><div className="min-w-0 flex-1"><h3 className="truncate font-black text-gray-950">{item.name}</h3><p className="mt-1 text-sm font-black text-gray-800">{business.currency} {Number(item.price).toLocaleString()}</p><p className="mt-2 flex items-center gap-1 text-xs font-bold text-gray-500"><Clock3 size={14} /> {t("urmall.biz.vert.minutes", { n: item.preparation_minutes })}</p><p className="mt-1 flex flex-wrap items-center gap-1 text-[11px] font-black text-orange-600"><CalendarDays size={13} /> {item.available_everyday !== false ? t("urmall.biz.vert.everydayBadge") : (Array.isArray(item.available_days) && item.available_days.length ? item.available_days.map(Number).sort((a, b) => a - b).map((d) => dayShort(d)).join(", ") : dayShort(item.day_of_week))}</p></div></div>{gallery.length || item.video_url ? <div className="mt-3 flex gap-2 overflow-x-auto border-t border-gray-100 pt-3">{gallery.slice(0, 5).map((image, index) => <MediaImage key={`${image}-${index}`} src={image} alt={`${item.name} ${index + 2}`} className="h-12 w-12 shrink-0 rounded-lg object-cover" icon={UtensilsCrossed} />)}{item.video_url ? <div className="flex h-12 min-w-24 shrink-0 items-center justify-center gap-1 rounded-lg bg-slate-950 px-2 text-xs font-black text-white"><Film size={15} /> {t("urmall.biz.vert.video")}</div> : null}</div> : null}</article>;
 }
 
 function PropertyListingCard({ business, item, canManage = true, onDelete, onEdit }) {
@@ -381,7 +522,10 @@ function SellerItemActions({ label, canManage = true, onDelete, onEdit, shareUrl
 
   return <><button type="button" onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-slate-950/80 text-white shadow-lg backdrop-blur-md transition hover:bg-slate-950" aria-label={t("urmall.biz.vert.actionsFor", { label })}><MoreVertical size={19} /></button>{open ? createPortal(<div className="fixed inset-0 z-[1350]" role="presentation"><button type="button" aria-label={t("urmall.biz.vert.closeItemActions")} onClick={() => { setOpen(false); setConfirmDelete(false); }} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[1px]" /><section role="dialog" aria-modal="true" aria-label={t("urmall.biz.vert.actionsFor", { label })} className="kt-detail-zoom-enter absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] ml-auto w-auto max-w-sm rounded-[24px] border border-white/70 bg-white p-3 shadow-2xl sm:right-4 sm:left-auto sm:w-80"><div className="mb-2 flex items-center justify-between gap-3 px-2 py-1"><p className="truncate text-sm font-black text-gray-950">{label}</p><button type="button" onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.vert.closeActions")}><X size={16} /></button></div>{canManage && onEdit ? <button type="button" onClick={() => { setOpen(false); onEdit(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Pencil size={17} /> {t("urmall.biz.reg.edit")}</button> : null}<button type="button" onClick={copyLink} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Copy size={17} /> {t("urmall.biz.vert.copyLink")}</button><button type="button" onClick={share} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Share2 size={17} /> {t("urmall.biz.vert.share")}</button>{canManage ? (confirmDelete ? <div className="mt-1 rounded-xl bg-red-50 p-3"><p className="text-xs font-bold text-red-700">{t("urmall.biz.vert.deletePermanently")}</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg bg-white px-2 py-2 text-xs font-black text-gray-700">{t("urmall.biz.vert.cancel")}</button><button type="button" disabled={deleting} onClick={remove} className="rounded-lg bg-red-600 px-2 py-2 text-xs font-black text-white disabled:opacity-60">{deleting ? t("urmall.biz.vert.deleting") : t("urmall.biz.vert.delete")}</button></div></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-black text-red-600 hover:bg-red-50"><Trash2 size={17} /> {t("urmall.biz.vert.delete")}</button>) : null}</section></div>, document.body) : null}</>;
 }
-function Input({ label, onChange, type = "text", value }) { return <label><span className="text-xs font-black text-gray-600">{label}</span><input required type={type} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold outline-none focus:border-emerald-400" /></label>; }
-function Select({ label, labels = null, onChange, options, value }) { return <label><span className="text-xs font-black text-gray-600">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold outline-none">{options.map((option) => <option key={option} value={option}>{labels?.[option] ?? option.replaceAll("_", " ")}</option>)}</select></label>; }
-function TextArea({ label, onChange, value }) { return <label className="sm:col-span-2"><span className="text-xs font-black text-gray-600">{label}</span><textarea required value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 min-h-24 w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none" /></label>; }
+function FieldHint({ hint }) { return hint ? <span className="mt-1 block text-[11px] font-semibold leading-4 text-gray-400">{hint}</span> : null; }
+function Input({ full = false, hint, label, max, min, onChange, placeholder = "", required = true, type = "text", value }) { return <label className={full ? "sm:col-span-2" : undefined}><span className="text-xs font-black text-gray-600">{label}</span><input required={required} type={type} min={min} max={max} placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold outline-none focus:border-emerald-400" /><FieldHint hint={hint} /></label>; }
+function Select({ full = false, hint, label, labels = null, onChange, options, value }) { return <label className={full ? "sm:col-span-2" : undefined}><span className="text-xs font-black text-gray-600">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold outline-none focus:border-emerald-400">{options.map((option) => <option key={option} value={option}>{labels?.[option] ?? option.replaceAll("_", " ")}</option>)}</select><FieldHint hint={hint} /></label>; }
+function TextArea({ hint, label, onChange, placeholder = "", required = true, value }) { return <label className="sm:col-span-2"><span className="text-xs font-black text-gray-600">{label}</span><textarea required={required} placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 min-h-24 w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-emerald-400" /><FieldHint hint={hint} /></label>; }
+function CheckboxRow({ checked, label, onChange }) { return <label className="flex items-center gap-2 rounded-xl border border-violet-100 bg-white p-3 text-sm font-black sm:col-span-2"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /> {label}</label>; }
+function FormSectionLabel({ label }) { return <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-violet-700 sm:col-span-2">{label}</p>; }
 function EmptyState({ text }) { return <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center"><CalendarDays className="mx-auto text-gray-400" /><p className="mt-2 text-sm font-bold text-gray-500">{text}</p></div>; }

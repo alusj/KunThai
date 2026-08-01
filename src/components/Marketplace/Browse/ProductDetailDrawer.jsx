@@ -284,6 +284,33 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
   );
 }
 
+// Solid / soft badge tones for the vertical category pills shown over the
+// detail hero image, matching the colours used on the grid cards.
+function verticalBadgeTone(type) {
+  if (type === "restaurant") return "bg-orange-600";
+  if (type === "hotel") return "bg-blue-600";
+  if (type === "property") return "bg-violet-700";
+  return "bg-emerald-600";
+}
+function verticalBadgeToneSoft(type) {
+  if (type === "restaurant") return "bg-orange-500/95";
+  if (type === "hotel") return "bg-blue-500/95";
+  if (type === "property") return "bg-violet-500/95";
+  return "bg-emerald-500/95";
+}
+
+// Inline category pills shown inside the description card below the image, so
+// vertical listings read like the other categories without covering the photo.
+function VerticalCategoryPills({ className = "", product }) {
+  if (!product.isVertical || !product.badgePrimary) return null;
+  return (
+    <div className={`flex flex-wrap gap-1.5 ${className}`}>
+      <span className={`rounded-md ${verticalBadgeTone(product.verticalType)} px-2.5 py-1 text-[11px] font-black uppercase text-white`}>{product.badgePrimary}</span>
+      {product.badgeSecondary ? <span className={`rounded-md ${verticalBadgeToneSoft(product.verticalType)} px-2.5 py-1 text-[11px] font-black uppercase text-white`}>{product.badgeSecondary}</span> : null}
+    </div>
+  );
+}
+
 function Gallery({ product, onOpenImage }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState(null);
@@ -1025,6 +1052,7 @@ export default function ProductDetailDrawer({
               </div>
 
               <div>
+                <VerticalCategoryPills product={product} className="mb-2.5" />
                 <h3 className="font-black text-gray-950">{t("urmall.detail.description")}</h3>
                 <p className="mt-1.5 text-sm font-medium leading-5 text-gray-600">
                   {product.description || t("urmall.detail.noDescription")}
