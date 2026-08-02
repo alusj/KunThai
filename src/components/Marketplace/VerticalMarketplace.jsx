@@ -331,7 +331,7 @@ function VerticalCardShell({ badges, children, image, imageAlt, onClick }) {
       }}
       className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
     >
-      <div className="relative aspect-square overflow-hidden bg-gray-100">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         {image ? (
           <img src={image} alt={imageAlt} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
         ) : (
@@ -340,7 +340,7 @@ function VerticalCardShell({ badges, children, image, imageAlt, onClick }) {
           </div>
         )}
       </div>
-      <div className="space-y-1.5 p-2.5">
+      <div className="space-y-1 p-2">
         {badges ? <div className="flex flex-wrap items-center gap-1">{badges}</div> : null}
         {children}
       </div>
@@ -370,7 +370,7 @@ function RestaurantCard({ item, onClick }) {
         </>
       }
     >
-      <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-[1.125rem] text-gray-950">{item.name}</h3>
+      <h3 className="line-clamp-2 text-[13px] font-black leading-[1.05rem] text-gray-950">{item.name}</h3>
       <p className="text-base font-black text-gray-950">{money(item.price, item.currency)}</p>
       <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
         <CardInfoRow icon={MapPin}>{item.city || t("urmall.vertical.locationAvailable")}</CardInfoRow>
@@ -393,7 +393,7 @@ function HotelCard({ item, onClick }) {
         </>
       }
     >
-      <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-[1.125rem] text-gray-950">{item.businessName}</h3>
+      <h3 className="line-clamp-2 text-[13px] font-black leading-[1.05rem] text-gray-950">{item.businessName}</h3>
       <p className="text-base font-black text-gray-950">
         {money(item.fromPrice, item.currency)}
         <span className="text-[11px] font-bold text-gray-400"> {t("urmall.vertical.perNightSuffix")}</span>
@@ -419,7 +419,7 @@ function PropertyCard({ item, onClick }) {
         </>
       }
     >
-      <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-[1.125rem] text-gray-950">{item.title}</h3>
+      <h3 className="line-clamp-2 text-[13px] font-black leading-[1.05rem] text-gray-950">{item.title}</h3>
       <p className="text-base font-black text-gray-950">
         {money(item.price, item.currency)}
         {item.purpose === "rent" ? <span className="text-[11px] font-bold text-gray-400">/{item.rent_period || "month"}</span> : null}

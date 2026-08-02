@@ -30,9 +30,13 @@ const LOCATION_SCOPES = [
   { value: LOCATION_SCOPE_COUNTRY, labelKey: "urmall.browse.scopeCountry" },
 ];
 
-export default function BuyerDiscoveryBar({ filters, setFilters, categories = [], locations = [], onClear, onClose }) {
+export default function BuyerDiscoveryBar({ filters, setFilters, categories = [], locations = [], onClear, autoFocus = false }) {
   const { t } = useI18n();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Once the shopper commits to a term (taps "see results"), collapse the
+  // suggestion dropdown so the live results below are unobstructed — without
+  // clearing the search the way closing the whole panel would.
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
 
   function getCategoryLabel(category) {
     const match = VERTICAL_CATEGORIES.find((option) => option.value === category);
@@ -78,13 +82,15 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
     return matches.slice(0, 6);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, categories, locations]);
-  const showSuggestions = Boolean(searchQuery);
+  const showSuggestions = Boolean(searchQuery) && !suggestionsDismissed;
 
   function applySuggestion(suggestion) {
+    setSuggestionsDismissed(true);
     setFilters((current) => ({ ...current, search: "", [suggestion.type]: suggestion.value }));
   }
 
   function updateField(field, value) {
+    if (field === "search") setSuggestionsDismissed(false);
     setFilters((current) => ({ ...current, [field]: value }));
   }
 
@@ -180,6 +186,7 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
           <div className="flex min-h-11 items-center gap-2 rounded-lg bg-gray-100 px-3 text-gray-500">
             <Search size={18} />
             <input
+              autoFocus={autoFocus}
               value={filters.search}
               onChange={(event) => updateField("search", event.target.value)}
               placeholder={t("urmall.browse.searchPlaceholder")}
@@ -191,7 +198,7 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
               <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => onClose?.()}
+                onClick={() => setSuggestionsDismissed(true)}
                 className="flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2.5 text-left text-sm font-black text-gray-900 hover:bg-gray-50"
               >
                 <Search size={15} className="text-emerald-700" />

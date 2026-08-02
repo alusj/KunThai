@@ -1,6 +1,7 @@
 // src/components/Marketplace/Browse/Browse.jsx
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import {
   addBuyerCartItem,
   createBuyerProductOrder,
@@ -474,6 +475,30 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
   };
   return (
     <div className="space-y-4">
+      {searchOpen ? (
+        <div className="sticky top-0 z-40 -mt-4 bg-gray-50/95 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur">
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onCloseSearch?.()}
+              aria-label={t("urmall.header.closeSearch")}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <p className="text-sm font-black text-gray-950">{t("urmall.header.searchProducts")}</p>
+          </div>
+          <BuyerDiscoveryBar
+            filters={filters}
+            setFilters={setFilters}
+            categories={options.categories}
+            locations={options.locations}
+            onClear={() => setFilters(DEFAULT_FILTERS)}
+            autoFocus
+          />
+        </div>
+      ) : null}
+
       <PullToRefresh className="space-y-4" onRefresh={() => loadProductsRef.current?.()} disabled={detailOpen || sellerOpen}>
       {/* The advert slider stays in the flow; the search/filter card now drops
           from the header search icon as an attached popover (below). */}
@@ -501,28 +526,6 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
       )}
       {activeTab === "top-rated" && <TopRated products={catalog.topRatedProducts} {...tabProps} />}
       </PullToRefresh>
-
-      {searchOpen ? (
-        <div className="fixed inset-0 z-[60]">
-          <button
-            type="button"
-            aria-label={t("urmall.header.closeSearch")}
-            onClick={() => onCloseSearch?.()}
-            className="absolute inset-0 bg-slate-950/20 backdrop-blur-[1px]"
-          />
-          <div className="kt-detail-zoom-enter absolute right-2 top-[calc(env(safe-area-inset-top)+3.75rem)] w-[min(94vw,30rem)] origin-top sm:right-4">
-            <span className="absolute -top-1.5 right-[9.75rem] h-3.5 w-3.5 rotate-45 rounded-[3px] border-l border-t border-gray-200 bg-white sm:right-[11rem]" />
-            <BuyerDiscoveryBar
-              filters={filters}
-              setFilters={setFilters}
-              categories={options.categories}
-              locations={options.locations}
-              onClear={() => setFilters(DEFAULT_FILTERS)}
-              onClose={() => onCloseSearch?.()}
-            />
-          </div>
-        </div>
-      ) : null}
 
       <ProductDetailDrawer
         product={selectedProduct}

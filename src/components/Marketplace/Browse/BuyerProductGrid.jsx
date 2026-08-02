@@ -47,7 +47,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
         }
       }}
     >
-      <div className="relative aspect-square overflow-hidden bg-gray-100">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         <ProductImage product={product} />
         <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
           <span className="rounded-md bg-slate-950/95 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">{t("urmall.browse.retail")}</span>
@@ -74,9 +74,9 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
         </button>
       </div>
 
-      <div className="space-y-1.5 p-2.5">
+      <div className="space-y-1 p-2">
         <div>
-          <h3 className="line-clamp-2 min-h-[2.25rem] text-[13px] font-black leading-[1.125rem] text-gray-950">
+          <h3 className="line-clamp-2 text-[13px] font-black leading-[1.05rem] text-gray-950">
             {product.name}
           </h3>
           <p className="mt-0.5 truncate text-[11px] font-semibold text-gray-500">
@@ -135,7 +135,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
 function ProductSkeleton() {
   return (
     <div className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="relative aspect-square animate-pulse rounded-[18px] bg-slate-100">
+      <div className="relative aspect-[4/3] animate-pulse rounded-[18px] bg-slate-100">
         <div className="absolute right-2 top-2 h-8 w-8 rounded-lg bg-white/80" />
       </div>
       <div className="mt-3 h-4 w-4/5 animate-pulse rounded-full bg-slate-200" />

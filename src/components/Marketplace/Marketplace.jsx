@@ -19,6 +19,43 @@ import {
 
 const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 
+// Auto-hide the header cluster on downward scroll (revealing more products) and
+// bring it back on any upward scroll — the same feel as the Explore feed. Near
+// the top of the page the header always stays visible.
+function useAutoHideOnScroll(disabled) {
+  const [hidden, setHidden] = useState(false);
+  const lastYRef = useRef(0);
+
+  useEffect(() => {
+    if (disabled) {
+      setHidden(false);
+      return undefined;
+    }
+
+    lastYRef.current = window.scrollY || 0;
+    let ticking = false;
+
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        const y = window.scrollY || 0;
+        const delta = y - lastYRef.current;
+        if (y < 80) setHidden(false);
+        else if (delta > 6) setHidden(true);
+        else if (delta < -6) setHidden(false);
+        lastYRef.current = y;
+        ticking = false;
+      });
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [disabled]);
+
+  return hidden;
+}
+
 export default function Marketplace({ nav, setNav, onActivityChange, onNotificationCountChange }) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("new");
@@ -37,6 +74,14 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
   });
   const [parentAvailability, setParentAvailability] = useState(null);
   const sellerHeader = useSellerHeader();
+  // Search only has an inline surface on the retail feeds ("all"/"shop"); on the
+  // vertical parents there is no discovery bar, so the header must stay put or
+  // the shopper would have no way back.
+  const searchSurfaceActive = activeParent === "all" || activeParent === "shop";
+  const searchTakingOver = searchOpen && searchSurfaceActive;
+  // The header retracts on scroll only while browsing; opening search or a
+  // product screen keeps it out of the way in its own dedicated fashion.
+  const headerHidden = useAutoHideOnScroll(productMode || searchTakingOver || Boolean(activeUtility) || Boolean(nav.sub));
   const sellerNotificationCount = sellerHeader.orderCount + sellerHeader.messageCount + sellerHeader.notificationCount;
   const totalNotificationCount = buyerNotificationState.totalCount + sellerNotificationCount;
   const businessCloseTimer = useRef(null);
@@ -177,8 +222,12 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
 
   return (
     <div className="w-full">
-      {!productMode && (
-        <>
+      {!productMode && !searchTakingOver && (
+        <div
+          className={`sticky top-0 z-30 transition-transform duration-300 ease-out ${
+            headerHidden ? "-translate-y-full" : "translate-y-0"
+          }`}
+        >
           <MarketplaceHeader
             activeUtility={activeUtility}
             onActivityChange={setHeaderActivityOpen}
@@ -209,7 +258,7 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
               }}
             />
           ) : null}
-        </>
+        </div>
       )}
 
       <div
