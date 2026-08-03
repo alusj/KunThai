@@ -1,4 +1,4 @@
-import { INTERNATIONAL_COUNTRY_DIALING_PROFILES } from "./internationalCountryDialingProfiles";
+import { INTERNATIONAL_COUNTRY_DIALING_PROFILES } from "./internationalCountryDialingProfiles.js";
 
 const emergencyRecords = [
   { country: "Benin", countryCode: "BJ", police: "117", ambulance: "112", fire: "118", national: "112" },

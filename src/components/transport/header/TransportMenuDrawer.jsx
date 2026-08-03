@@ -49,6 +49,10 @@ import {
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 import { getActiveCountryProfile, getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
+import {
+  resolveCurrentCountry,
+  applyBorderConfirmation,
+} from "../../../Backend/services/countryResolution/countryResolutionService";
 import { getRideFleetOptions } from "../../../data/globalTransportCapabilities";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { submitTransportSupportTicket } from "../../services/bookingService";
@@ -1257,7 +1261,34 @@ const passengerSafetyTopics = [
 
 function PassengerSafetyPage({ onOpenEmergencyArea }) {
   const [sosOpen, setSosOpen] = useState(false);
-  const countryCode = useMemo(() => getActiveCountryProfile().iso2, []);
+  // The emergency card is jurisdiction-critical: resolve the country from live
+  // GPS (source of truth), not the stored/locale country. The stored profile
+  // country is only a fallback when live location is unavailable.
+  const [country, setCountry] = useState(null);
+  const [detecting, setDetecting] = useState(false);
+
+  async function detectEmergencyCountry() {
+    setDetecting(true);
+    const resolved = await resolveCurrentCountry({
+      profileCountry: getActiveCountryProfile().iso2,
+    });
+    setCountry(resolved);
+    setDetecting(false);
+  }
+
+  function openSos() {
+    setSosOpen(true);
+    detectEmergencyCountry();
+  }
+
+  async function handleConfirmCountry(iso) {
+    setDetecting(true);
+    const resolved = await applyBorderConfirmation(iso, {
+      profileCountry: getActiveCountryProfile().iso2,
+    });
+    setCountry(resolved);
+    setDetecting(false);
+  }
 
   function openNearbyEmergencySearch(searchType) {
     setSosOpen(false);
@@ -1286,7 +1317,7 @@ function PassengerSafetyPage({ onOpenEmergencyArea }) {
             key={topic.title}
             number={index + 1}
             topic={topic}
-            onOpenSos={() => setSosOpen(true)}
+            onOpenSos={openSos}
           />
         ))}
       </section>
@@ -1312,7 +1343,11 @@ function PassengerSafetyPage({ onOpenEmergencyArea }) {
       <EmergencySheet
         open={sosOpen}
         onClose={() => setSosOpen(false)}
-        countryCode={countryCode}
+        countryCode={country?.countryCode || ""}
+        detectingCountry={detecting}
+        requiresConfirmation={Boolean(country?.requiresConfirmation)}
+        alternativeCountryCode={country?.alternativeCountryCode || ""}
+        onConfirmCountry={handleConfirmCountry}
         onNavigateNearby={openNearbyEmergencySearch}
       />
     </div>

@@ -9,6 +9,7 @@ import { formatCountryMoney } from "../../data/globalCountryProfiles";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
+import { useI18n, t } from "../../i18n";
 
 function filterFleetsForSelection(items, selection) {
   return selection.verifiedOnly
@@ -17,6 +18,7 @@ function filterFleetsForSelection(items, selection) {
 }
 
 export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification, onOpenBooking }) {
+  useI18n();
   const initialFleets = filterFleetsForSelection(getTransportFleets(selection), selection);
   const [fleets, setFleets] = useState(() => initialFleets);
   const [loading, setLoading] = useState(() => initialFleets.length === 0);
@@ -29,12 +31,12 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
   }, [fleets]);
 
   const modeLabel =
-    selection.mode === "topRated" ? "All Fleets" : selection.mode === "ride" ? "Ride" : "Delivery";
+    selection.mode === "topRated" ? t("urride.fleetList.modeAll") : selection.mode === "ride" ? t("urride.fleetList.modeRide") : t("urride.fleetList.modeDelivery");
 
   const helperText =
     selection.includeOffline
-      ? "Registered fleets are shown with active operators first, then offline fleets with last activity."
-      : "Only live fleets are shown here. Offline fleets stay inside ride and delivery category lists.";
+      ? t("urride.fleetList.helperOffline")
+      : t("urride.fleetList.helperLive");
 
   useEffect(() => {
     let alive = true;
@@ -61,7 +63,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
         if (alive) setFleets(visibleItems);
       } catch (err) {
         if (alive) {
-          setError(hasExistingFleets ? "" : err.message || "Unable to load fleets.");
+          setError(hasExistingFleets ? "" : err.message || t("urride.fleetList.loadError"));
           if (!hasExistingFleets) {
             setFleets([]);
           }
@@ -92,7 +94,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
         <div className="flex w-full items-center gap-3">
           <AppBackTab
             onBack={onBack}
-            label="Back to transport dashboard"
+            label={t("urride.fleetList.back")}
             historyKey="transport-fleet-list"
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           />
@@ -104,7 +106,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
 
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">
-              {fleets.length} registered
+              {t("urride.fleetList.registeredCount", { count: fleets.length })}
             </span>
 
             <button
@@ -112,7 +114,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
               onClick={() => onOpenBooking?.({ selection })}
               className="hidden h-10 rounded-full border border-sky-300 bg-white px-4 text-sm font-black text-sky-800 hover:bg-sky-50 sm:block"
             >
-              Open booking
+              {t("urride.fleetList.openBooking")}
             </button>
           </div>
         </div>
@@ -121,24 +123,24 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
       <main className="w-full px-3 py-4 sm:px-5 sm:py-5 xl:px-8">
         <div className="mb-4 grid gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-3">
           <SummaryItem
-            label="Sort"
-            value={selection.mode === "topRated" ? "Rating, trips, active status" : "Active, closest, then offline"}
+            label={t("urride.fleetList.sortLabel")}
+            value={selection.mode === "topRated" ? t("urride.fleetList.sortTopRated") : t("urride.fleetList.sortOther")}
           />
-          <SummaryItem label="Type" value={selection.mode === "topRated" ? "All fleet types" : selection.label} />
-          <SummaryItem label="Mode" value={selection.verifiedOnly ? "Verified only" : modeLabel} />
+          <SummaryItem label={t("urride.fleetList.typeLabel")} value={selection.mode === "topRated" ? t("urride.fleetList.typeAll") : selection.label} />
+          <SummaryItem label={t("urride.fleetList.modeLabel")} value={selection.verifiedOnly ? t("urride.fleetList.modeVerifiedOnly") : modeLabel} />
         </div>
         {refreshing && fleets.length ? (
           <p className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
-            Refreshing fleet availability...
+            {t("urride.fleetList.refreshing")}
           </p>
         ) : null}
 
         {error ? (
-          <EmptyState title="Unable to load fleets" body={error} />
+          <EmptyState title={t("urride.fleetList.loadErrorTitle")} body={error} />
         ) : loading && !fleets.length ? (
-          <EmptyState title="Loading fleets" body="Checking live operators from the backend." />
+          <EmptyState title={t("urride.fleetList.loadingTitle")} body={t("urride.fleetList.loadingBody")} />
         ) : fleets.length === 0 ? (
-          <EmptyState title="No fleets available" body="No registered operators match this transport sector yet." />
+          <EmptyState title={t("urride.fleetList.emptyTitle")} body={t("urride.fleetList.emptyBody")} />
         ) : (
           <div className="grid gap-3 2xl:grid-cols-2">
             {fleets.map((fleet) => (
@@ -158,6 +160,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
 }
 
 function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }) {
+  useI18n();
   const status = verificationStatuses[fleet.verificationStatus] || verificationStatuses.pending;
   const isActive = fleet.activeStatus === "active";
 
@@ -174,7 +177,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
             {fleet.isCompanyFleet ? (
               <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700">
                 <FiBriefcase className="shrink-0" />
-                <span className="truncate">Company fleet · {fleet.companyName}</span>
+                <span className="truncate">{t("urride.fleetList.companyFleet", { company: fleet.companyName })}</span>
               </span>
             ) : null}
             <p className="mt-1 text-xs text-gray-500">
@@ -197,7 +200,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
             onClick={onShowVerification}
             className="mt-2 block text-left text-xs font-medium text-gray-500 hover:text-sky-700"
           >
-            {status.shortText} - Read more
+            {t("urride.fleetList.readMore", { status: status.shortText })}
           </button>
         </div>
       </div>
@@ -205,24 +208,24 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
       <div className="grid gap-2 text-sm text-gray-600">
         {isActive ? (
           <>
-            <InfoLine icon={FiNavigation} text={`${fleet.distanceKm || 0} km away - ETA ${fleet.etaMinutes || "N/A"} min`} />
+            <InfoLine icon={FiNavigation} text={t("urride.fleetList.kmAwayEta", { distance: fleet.distanceKm || 0, eta: fleet.etaMinutes || t("urride.fleetList.etaNA") })} />
             <InfoLine icon={FiMapPin} text={fleet.currentLocation} />
           </>
         ) : (
           <>
             <InfoLine icon={FiClock} text={fleet.lastActive} />
-            <InfoLine icon={FiMapPin} text={`Last seen at ${fleet.lastKnownLocation}`} />
+            <InfoLine icon={FiMapPin} text={t("urride.fleetList.lastSeen", { location: fleet.lastKnownLocation })} />
           </>
         )}
 
-        <InfoLine icon={FiStar} text={`${fleet.rating || "New"} rating - ${fleet.trips || 0} completed trips`} />
-        {fleet.operatorName ? <InfoLine icon={FiClock} text={`Operator: ${fleet.operatorName}`} /> : null}
+        <InfoLine icon={FiStar} text={t("urride.fleetList.ratingTrips", { rating: fleet.rating || t("urride.fleetList.ratingNew"), trips: fleet.trips || 0 })} />
+        {fleet.operatorName ? <InfoLine icon={FiClock} text={t("urride.fleetList.operatorLabel", { name: fleet.operatorName })} /> : null}
       </div>
 
       <div className="flex flex-col gap-2 lg:items-end">
         <span className="text-sm font-bold text-gray-950 lg:text-right">
-          {fleet.pricePerKm ? `${formatCountryMoney(fleet.pricePerKm, moneyScope, { maximumFractionDigits: 0 })} / km` : fleet.priceHint}
-          {fleet.pricePerHour ? <span className="block text-xs text-gray-500">{formatCountryMoney(fleet.pricePerHour, moneyScope, { maximumFractionDigits: 0 })} / hour</span> : null}
+          {fleet.pricePerKm ? t("urride.fleetList.rateKm", { price: formatCountryMoney(fleet.pricePerKm, moneyScope, { maximumFractionDigits: 0 }) }) : fleet.priceHint}
+          {fleet.pricePerHour ? <span className="block text-xs text-gray-500">{t("urride.fleetList.rateHour", { price: formatCountryMoney(fleet.pricePerHour, moneyScope, { maximumFractionDigits: 0 }) })}</span> : null}
         </span>
 
         <button
@@ -231,7 +234,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
           disabled={!isActive}
           className="h-10 rounded-2xl border border-sky-300 bg-white px-4 text-sm font-semibold text-sky-800 transition hover:bg-sky-50 disabled:border-slate-200 disabled:bg-white disabled:text-slate-400"
         >
-          {isActive ? "Open booking" : "Offline"}
+          {isActive ? t("urride.fleetList.openBooking") : t("urride.fleetList.offline")}
         </button>
 
         <button
@@ -239,7 +242,7 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
           onClick={onViewFleet}
           className="h-10 rounded-2xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
         >
-          View fleet profile
+          {t("urride.fleetList.viewFleetProfile")}
         </button>
       </div>
     </article>
@@ -255,7 +258,7 @@ function StatusPill({ active }) {
           : "border-gray-200 bg-gray-100 text-gray-600"
       }`}
     >
-      {active ? "Active" : "Offline"}
+      {active ? t("urride.fleetList.active") : t("urride.fleetList.offline")}
     </span>
   );
 }

@@ -1,12 +1,14 @@
 import supabase from "../../Backend/lib/supabaseClient";
 import {
-  filterCountryScopedItems,
   formatCountryMoney,
   getActiveCountryProfile,
   getCountryCurrencyCode,
-  getNearbyCountryProfiles,
   normalizeCountryIso,
 } from "../../data/globalCountryProfiles";
+import {
+  filterStrictSameCountry,
+  filterCrossBorderRoute,
+} from "../../Backend/services/countryResolution/countryVisibility";
 import {
   isFleetAllowedForTransportMode,
   isFleetTypeAvailableForService,
@@ -242,6 +244,15 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null) {
     maxDistanceKm: row.max_distance_km || "",
     operatingHours: [row.operating_hours_start, row.operating_hours_end].filter(Boolean).join(" - "),
     updatedAt: row.updated_at || row.created_at || "",
+    region: row.region || operator.region || "",
+    district: row.district || operator.district || "",
+    serviceArea: row.service_area || row.operating_area || "",
+    // Cross-border capability (excluded from normal results; only surfaced in
+    // the explicit Cross-Border mode). Absent columns default to disabled.
+    crossBorderEnabled: Boolean(row.cross_border_enabled),
+    approvedOriginCountries: row.approved_origin_countries || [],
+    approvedDestinationCountries: row.approved_destination_countries || [],
+    operatingLicenseStatus: row.operating_license_status || "",
   };
 }
 
@@ -316,7 +327,11 @@ async function runFleetListQuery(countryIsos = null) {
     .order("updated_at", { ascending: false })
     .limit(100);
 
-  if (Array.isArray(countryIsos) && countryIsos.length) {
+  // Country scoping is enforced in the DATABASE query, not just the client, so a
+  // foreign operator is never even returned in the ordinary response. An empty
+  // ISO list means "no confirmed country" -> return nothing.
+  if (Array.isArray(countryIsos)) {
+    if (!countryIsos.length) return [];
     query = query.in("country_iso", countryIsos);
   }
 
@@ -325,52 +340,93 @@ async function runFleetListQuery(countryIsos = null) {
   return data || [];
 }
 
-export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
-  const includeOffline = selection.includeOffline === true;
-  const selectionCountry = selection.country || selection.countryCode || selection.countryIso || selection.country_iso || "";
-
-  // Country scoping happens in the database query: the active market first
-  // (plus legacy rows without a stamped country), then nearby markets, then
-  // the unscoped list. The client-side pass below stays as the final
-  // labelling/safety net over the smaller result.
-  const activeCountry = getActiveCountryProfile(selectionCountry);
-  const nearbyIsos = getNearbyCountryProfiles(activeCountry.iso2).map((profile) => profile.iso2);
-
-  let data = [];
-  try {
-    data = await runFleetListQuery([activeCountry.iso2, ""]);
-    if (!data.length && nearbyIsos.length) {
-      data = await runFleetListQuery([...nearbyIsos, ""]);
-    }
-  } catch {
-    data = [];
-  }
-  if (!data.length) {
-    data = await runFleetListQuery();
-  }
-
+async function hydrateLiveFleets(rows) {
+  const data = rows || [];
   const [affiliations, stats] = await Promise.all([
-    fetchPublicCompanyAffiliations((data || []).map((row) => row.operator_id)),
-    fetchPublicFleetStats((data || []).map((row) => row.id)),
+    fetchPublicCompanyAffiliations(data.map((row) => row.operator_id)),
+    fetchPublicFleetStats(data.map((row) => row.id)),
   ]);
-  const liveFleets = dedupeLiveFleets((data || []).map((row) => mapLiveFleet(row, affiliations.get(row.id), stats.get(row.id))));
-  const scopedFleets = filterCountryScopedItems(liveFleets, (fleet) => [fleet.countryCode, fleet.country], selection.country || selection.countryCode);
-  const scopedFleetIds = new Set(scopedFleets.items.map((fleet) => fleet.id));
-  const soleFleetsWithoutCountry = liveFleets.filter((fleet) =>
-    !fleet.isCompanyFleet &&
-    !fleet.countryCode &&
-    !fleet.country &&
-    !scopedFleetIds.has(fleet.id)
+  return dedupeLiveFleets(data.map((row) => mapLiveFleet(row, affiliations.get(row.id), stats.get(row.id))));
+}
+
+function passengerVisibilityFilters(fleet, selection, includeOffline) {
+  return (
+    (!fleet.isCompanyFleet || fleet.isVisibleToPassengers) &&
+    (!selection.fleetType || fleet.fleetType === selection.fleetType) &&
+    (includeOffline || fleet.activeStatus === "active")
   );
-  const passengerFleets = [...scopedFleets.items, ...soleFleetsWithoutCountry];
+}
+
+// Dedicated Cross-Border retrieval. This is the ONLY path allowed to return
+// operators from another country, and only operators that are cross-border
+// verified and legally cleared for the specific requested route.
+async function fetchCrossBorderFleets(route, selection) {
+  const includeOffline = selection.includeOffline === true;
+  const isos = Array.from(new Set([route.originIso, route.destinationIso].filter(Boolean)));
+  if (isos.length < 2) return [];
+
+  let rows = [];
+  try {
+    rows = await runFleetListQuery(isos);
+  } catch {
+    rows = [];
+  }
+  const liveFleets = await hydrateLiveFleets(rows);
+  const eligible = filterCrossBorderRoute(liveFleets, route);
 
   return sortFleets(
-    passengerFleets.filter((fleet) =>
+    eligible.filter((fleet) =>
       matchesMode(fleet, selection.mode) &&
-      isFleetAllowedForTransportMode(fleet, selection.mode, selectionCountry || fleet.countryCode || fleet.country) &&
-      (!fleet.isCompanyFleet || fleet.isVisibleToPassengers) &&
-      (!selection.fleetType || fleet.fleetType === selection.fleetType) &&
-      (includeOffline || fleet.activeStatus === "active")
+      passengerVisibilityFilters(fleet, selection, includeOffline),
+    ),
+    selection.mode,
+  );
+}
+
+export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
+  const includeOffline = selection.includeOffline === true;
+  const selectionCountry =
+    selection.countryIso || selection.country_iso || selection.country || selection.countryCode || "";
+
+  // Cross-Border mode: only when the user has explicitly requested a supported
+  // international route with both endpoints.
+  const requestedRoute = selection.crossBorder;
+  if (requestedRoute?.originIso && requestedRoute?.destinationIso) {
+    return fetchCrossBorderFleets(
+      {
+        originIso: normalizeCountryIso(requestedRoute.originIso),
+        destinationIso: normalizeCountryIso(requestedRoute.destinationIso),
+      },
+      selection,
+    );
+  }
+
+  // Normal experience: the user's CURRENT country is a hard operational
+  // boundary. It must be a validated ISO; there is no radius-only path and no
+  // silent widening to nearby countries.
+  const currentIso = normalizeCountryIso(selectionCountry) || getActiveCountryProfile(selectionCountry).iso2;
+  if (!currentIso) return [];
+
+  let rows = [];
+  try {
+    // Filter by country in the query itself — nearby and unscoped fallbacks are
+    // intentionally gone. No same-country operators => empty result.
+    rows = await runFleetListQuery([currentIso]);
+  } catch {
+    rows = [];
+  }
+
+  const liveFleets = await hydrateLiveFleets(rows);
+
+  // Client-side safety net mirrors the DB filter: same-country only, and
+  // operators with a missing/foreign country_code are excluded entirely.
+  const { items: sameCountryFleets } = filterStrictSameCountry(liveFleets, currentIso);
+
+  return sortFleets(
+    sameCountryFleets.filter((fleet) =>
+      matchesMode(fleet, selection.mode) &&
+      isFleetAllowedForTransportMode(fleet, selection.mode, currentIso) &&
+      passengerVisibilityFilters(fleet, selection, includeOffline),
     ),
     selection.mode,
   );

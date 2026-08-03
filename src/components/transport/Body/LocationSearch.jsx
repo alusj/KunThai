@@ -1,9 +1,10 @@
 import { FiMap, FiMapPin, FiNavigation, FiSearch, FiSend, FiSliders } from "react-icons/fi";
 
 import { getPassengerFleetFilterOptions } from "../../../data/globalTransportCapabilities";
+import { useI18n, t } from "../../../i18n";
 
 function getPlaceLabel(place) {
-  return place.category === "Other" ? place.customCategory || "Other" : place.category || "Saved";
+  return place.category === "Other" ? place.customCategory || t("urride.locationSearch.otherCategory") : place.category || t("urride.locationSearch.savedCategory");
 }
 
 export default function LocationSearch({
@@ -23,6 +24,7 @@ export default function LocationSearch({
   onLocateArea,
   onOpenBooking,
 }) {
+  useI18n();
   const fleetTypes = getPassengerFleetFilterOptions({}, filters?.mode || "topRated");
 
   return (
@@ -30,24 +32,24 @@ export default function LocationSearch({
       <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
         <div className="grid gap-3 lg:grid-cols-2">
           <label className="relative block">
-            <span className="sr-only">Search destination</span>
+            <span className="sr-only">{t("urride.locationSearch.searchDestination")}</span>
             <FiSearch size={19} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="search"
               value={destination}
               onChange={(event) => onDestinationChange(event.target.value)}
-              placeholder="Where are you going?"
+              placeholder={t("urride.locationSearch.whereGoing")}
               className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 pl-11 pr-4 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
             />
           </label>
 
           <label className="relative block">
-            <span className="sr-only">Pickup point</span>
+            <span className="sr-only">{t("urride.locationSearch.pickupPoint")}</span>
             <FiMapPin size={19} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               value={pickup}
               onChange={(event) => onPickupChange(event.target.value)}
-              placeholder="Pickup point"
+              placeholder={t("urride.locationSearch.pickupPoint")}
               className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 pl-11 pr-4 text-sm font-medium text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
             />
           </label>
@@ -60,7 +62,7 @@ export default function LocationSearch({
             className="h-12 rounded-2xl border border-gray-200 px-3 text-sm font-semibold text-gray-700 transition hover:border-green-200 hover:bg-green-50 flex items-center justify-center gap-2"
           >
             <FiNavigation size={17} />
-            <span className="hidden sm:inline">Nearby</span>
+            <span className="hidden sm:inline">{t("urride.locationSearch.nearby")}</span>
           </button>
           <button
             type="button"
@@ -70,28 +72,28 @@ export default function LocationSearch({
             }`}
           >
             <FiMapPin size={17} />
-            <span className="hidden sm:inline">Pickups</span>
+            <span className="hidden sm:inline">{t("urride.locationSearch.pickups")}</span>
           </button>
           <button
             type="button"
-            aria-label="Transport filters"
+            aria-label={t("urride.locationSearch.filtersAria")}
             onClick={onToggleFilterPanel}
             className={`h-12 rounded-2xl border px-3 text-sm font-semibold transition flex items-center justify-center gap-2 ${
               filterPanelOpen ? "border-green-200 bg-green-50 text-green-700" : "border-gray-200 text-gray-700 hover:border-green-200 hover:bg-green-50"
             }`}
           >
             <FiSliders size={17} />
-            <span className="hidden sm:inline">Filters</span>
+            <span className="hidden sm:inline">{t("urride.locationSearch.filters")}</span>
           </button>
           <button
             type="button"
             onClick={onLocateArea}
-            aria-label="Locate address in Area View"
-            title="Locate address in Area View"
+            aria-label={t("urride.locationSearch.locateAria")}
+            title={t("urride.locationSearch.locateAria")}
             className="h-12 rounded-2xl border border-emerald-200 bg-slate-950 px-3 text-sm font-black text-white shadow-sm shadow-slate-200/70 transition hover:bg-slate-900 flex items-center justify-center gap-2"
           >
             <FiMap size={17} />
-            <span className="hidden sm:inline">Locate</span>
+            <span className="hidden sm:inline">{t("urride.locationSearch.locate")}</span>
           </button>
           <button
             type="button"
@@ -99,7 +101,7 @@ export default function LocationSearch({
             className="h-12 rounded-2xl bg-green-600 px-3 text-sm font-black text-white transition hover:bg-green-700 flex items-center justify-center gap-2"
           >
             <FiSend size={17} />
-            <span className="hidden sm:inline">Open booking</span>
+            <span className="hidden sm:inline">{t("urride.locationSearch.openBooking")}</span>
           </button>
         </div>
       </div>
@@ -113,13 +115,13 @@ export default function LocationSearch({
       {pickupPanelOpen ? (
         <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 p-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-black text-gray-950">Pickup points</p>
+            <p className="text-sm font-black text-gray-950">{t("urride.locationSearch.pickupPointsTitle")}</p>
             <button
               type="button"
               onClick={() => onPickupChange("")}
               className="text-xs font-black text-gray-500 hover:text-gray-900"
             >
-              Clear
+              {t("urride.locationSearch.clear")}
             </button>
           </div>
           {savedPlaces.length ? (
@@ -138,7 +140,7 @@ export default function LocationSearch({
             </div>
           ) : (
             <p className="mt-2 rounded-xl bg-white p-3 text-xs font-bold text-gray-500">
-              Saved places from the passenger menu will appear here.
+              {t("urride.locationSearch.savedPlacesEmpty")}
             </p>
           )}
         </div>
@@ -147,20 +149,20 @@ export default function LocationSearch({
       {filterPanelOpen ? (
         <div className="mt-4 grid gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
           <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">Service</span>
+            <span className="text-xs font-black uppercase text-gray-500">{t("urride.locationSearch.serviceLabel")}</span>
             <select
               value={filters.mode}
               onChange={(event) => onFilterChange({ mode: event.target.value })}
               className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-black text-gray-900 outline-none focus:border-green-500"
             >
-              <option value="topRated">All services</option>
-              <option value="ride">Ride</option>
-              <option value="delivery">Delivery</option>
+              <option value="topRated">{t("urride.locationSearch.allServices")}</option>
+              <option value="ride">{t("urride.locationSearch.ride")}</option>
+              <option value="delivery">{t("urride.locationSearch.delivery")}</option>
             </select>
           </label>
 
           <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">Fleet type</span>
+            <span className="text-xs font-black uppercase text-gray-500">{t("urride.locationSearch.fleetTypeLabel")}</span>
             <select
               value={filters.fleetType || ""}
               onChange={(event) => onFilterChange({ fleetType: event.target.value || null })}
@@ -173,12 +175,12 @@ export default function LocationSearch({
           </label>
 
           <ToggleFilter
-            label="Active only"
+            label={t("urride.locationSearch.activeOnly")}
             checked={filters.activeOnly}
             onClick={() => onFilterChange({ activeOnly: !filters.activeOnly })}
           />
           <ToggleFilter
-            label="Verified first"
+            label={t("urride.locationSearch.verifiedFirst")}
             checked={filters.verifiedOnly}
             onClick={() => onFilterChange({ verifiedOnly: !filters.verifiedOnly })}
           />

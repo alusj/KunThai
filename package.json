@@ -9,6 +9,7 @@
     "check": "npm run lint && npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:unit": "node --test \"src/**/*.test.js\"",
     "test": "npm run check"
   },
   "dependencies": {

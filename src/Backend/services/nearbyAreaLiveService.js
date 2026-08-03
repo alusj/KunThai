@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { normalizeCountryIso } from "../../data/globalCountryProfiles";
 
 const OPERATOR_STALE_MINUTES = 10;
 const ACTIVE_OPERATOR_WINDOW_MS = OPERATOR_STALE_MINUTES * 60 * 1000;
@@ -178,6 +179,7 @@ function normalizeOperator(row) {
     id: String(row.operator_id || row.id),
     operatorId: row.operator_id || row.id,
     name: row.display_name || row.name || row.full_name || "Nearby operator",
+    countryCode: normalizeCountryIso(row.country_iso || row.country || row.metadata?.country_iso || ""),
     type,
     available,
     booked,
@@ -571,6 +573,11 @@ export async function getMyNearbyAreaLocationReviews(limit = 12) {
 export async function getLiveOperators(options = {}) {
   const { center, limit } = normalizeAreaOptions(options);
   const staleCutoff = new Date(Date.now() - ACTIVE_OPERATOR_WINDOW_MS).toISOString();
+  // The user's current country is a HARD boundary. A radius circle can cross an
+  // international border, so when we know the country we filter by it in the
+  // query — never showing a foreign operator just because it is closer. A blank
+  // country_iso is excluded until validated.
+  const countryIso = normalizeCountryIso(options.countryIso || options.country || "");
   const rows = await executeBoundedQuery((bounds) => {
     let query = supabase
       .from("transport_operator_locations")
@@ -580,11 +587,18 @@ export async function getLiveOperators(options = {}) {
       .order("last_seen_at", { ascending: false })
       .limit(limit);
 
+    if (countryIso) query = query.eq("country_iso", countryIso);
+
     query = applyLatLngBounds(query, bounds);
     return query;
   }, options);
 
-  return sortByDistance(dedupeById(rows.map(normalizeOperator).filter(Boolean)), center);
+  const normalized = dedupeById(rows.map(normalizeOperator).filter(Boolean));
+  // Client-side safety net mirroring the DB filter.
+  const scoped = countryIso
+    ? normalized.filter((operator) => normalizeCountryIso(operator.countryCode) === countryIso)
+    : normalized;
+  return sortByDistance(scoped, center);
 }
 
 export async function getNearbyReports(options = {}) {

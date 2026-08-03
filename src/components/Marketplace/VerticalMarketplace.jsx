@@ -10,6 +10,8 @@ import { createBuyerProductOrder, sendBuyerMarketplaceMessage } from "../../Back
 import { urMallShareToastOptions } from "../../Backend/services/shareCtaService";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
+import { getProductCardLocation, buildCardSellerLocation } from "../../Backend/utils/productCardLocation";
+import { ensureBuyerLocation, useBuyerLocation } from "../../Backend/utils/buyerLocationContext";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
 import SellerProfileDrawer from "./Browse/SellerProfileDrawer";
@@ -154,6 +156,9 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
   const [selected, setSelected] = useState(null);
   const [profileSeller, setProfileSeller] = useState(null);
   useBodyScrollLock(Boolean(selected));
+  useEffect(() => {
+    ensureBuyerLocation();
+  }, []);
 
   const selectedProduct = selected ? mapVerticalProduct(selected) : null;
 
@@ -348,6 +353,26 @@ function VerticalCardShell({ badges, children, image, imageAlt, onClick }) {
   );
 }
 
+// Context-aware short area for a vertical card, using the buyer's city vs the
+// item's saved city/country/coords and derived local area (privacy-safe).
+function verticalCardLocation(item, buyerLocation) {
+  return (
+    getProductCardLocation({
+      buyerLocation,
+      sellerLocation: buildCardSellerLocation({
+        address: item.address,
+        city: item.city,
+        country: item.country,
+        latitude: item.latitude,
+        longitude: item.longitude,
+      }),
+    }) ||
+    item.city ||
+    item.address ||
+    ""
+  );
+}
+
 function CardInfoRow({ children, icon: Icon }) {
   return (
     <span className="flex min-w-0 items-center gap-1.5 leading-5">
@@ -358,6 +383,7 @@ function CardInfoRow({ children, icon: Icon }) {
 }
 
 function RestaurantCard({ item, onClick }) {
+  const buyerLocation = useBuyerLocation();
   return (
     <VerticalCardShell
       onClick={onClick}
@@ -373,7 +399,7 @@ function RestaurantCard({ item, onClick }) {
       <h3 className="line-clamp-2 text-[13px] font-black leading-[1.05rem] text-gray-950">{item.name}</h3>
       <p className="text-base font-black text-gray-950">{money(item.price, item.currency)}</p>
       <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
-        <CardInfoRow icon={MapPin}>{item.city || t("urmall.vertical.locationAvailable")}</CardInfoRow>
+        <CardInfoRow icon={MapPin}>{verticalCardLocation(item, buyerLocation) || t("urmall.vertical.locationAvailable")}</CardInfoRow>
         <CardInfoRow icon={Clock3}>{item.preparation_minutes || 20} {t("urmall.vertical.minutesShort")}</CardInfoRow>
       </div>
     </VerticalCardShell>
@@ -381,6 +407,7 @@ function RestaurantCard({ item, onClick }) {
 }
 
 function HotelCard({ item, onClick }) {
+  const buyerLocation = useBuyerLocation();
   return (
     <VerticalCardShell
       onClick={onClick}
@@ -399,7 +426,7 @@ function HotelCard({ item, onClick }) {
         <span className="text-[11px] font-bold text-gray-400"> {t("urmall.vertical.perNightSuffix")}</span>
       </p>
       <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
-        <CardInfoRow icon={MapPin}>{item.city || item.address}</CardInfoRow>
+        <CardInfoRow icon={MapPin}>{verticalCardLocation(item, buyerLocation) || item.address}</CardInfoRow>
         <CardInfoRow icon={BedDouble}>{t("urmall.vertical.availableRooms")}</CardInfoRow>
       </div>
     </VerticalCardShell>
@@ -407,6 +434,7 @@ function HotelCard({ item, onClick }) {
 }
 
 function PropertyCard({ item, onClick }) {
+  const buyerLocation = useBuyerLocation();
   return (
     <VerticalCardShell
       onClick={onClick}
@@ -425,7 +453,7 @@ function PropertyCard({ item, onClick }) {
         {item.purpose === "rent" ? <span className="text-[11px] font-bold text-gray-400">/{item.rent_period || "month"}</span> : null}
       </p>
       <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
-        <CardInfoRow icon={MapPin}>{item.city || item.address}</CardInfoRow>
+        <CardInfoRow icon={MapPin}>{verticalCardLocation(item, buyerLocation) || item.address}</CardInfoRow>
         <span className="flex min-w-0 items-center gap-2 leading-5">
           <span className="flex shrink-0 items-center gap-1"><BedDouble size={13} className="text-emerald-600" /> {item.bedrooms || 0}</span>
           <span className="flex shrink-0 items-center gap-1"><Bath size={13} className="text-emerald-600" /> {item.bathrooms || 0}</span>

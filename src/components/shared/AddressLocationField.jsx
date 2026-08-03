@@ -11,6 +11,7 @@ import {
   useAddressAreaValidation,
 } from "./AddressAreaValidation";
 import { useI18n, t } from "../../i18n";
+import { normalizeGeocodeAddress } from "../../Backend/utils/geoAddress";
 
 // Reverse-geocodes a coordinate to a human address (mirrors the seller
 // registration flow's helper) so "Locate me" fills the address field.
@@ -18,15 +19,16 @@ async function reverseGeocodeAddress(latitude, longitude) {
   const fallback = { address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, city: "" };
   try {
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`,
       { headers: { Accept: "application/json" } },
     );
     if (!response.ok) return fallback;
     const data = await response.json();
-    const address = data?.address || {};
+    // Display text only; the caller keeps the exact latitude/longitude.
+    const normalized = normalizeGeocodeAddress(data?.address || {}, { latitude, longitude, displayName: data?.display_name });
     return {
-      address: data?.display_name || fallback.address,
-      city: address.city || address.town || address.village || address.county || "",
+      address: normalized.formattedAddress || fallback.address,
+      city: normalized.city,
     };
   } catch {
     return fallback;

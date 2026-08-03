@@ -8,6 +8,7 @@ import {
 } from "../../../data/globalCountryProfiles";
 import { getTierUnitPrice, normalizeTierPricing } from "./tierPricingUtils";
 import { uploadMediaDataUrl } from "../explore/mediaService";
+import { haversineKm } from "../../utils/distance";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -50,16 +51,8 @@ function getBrowserPosition(timeoutMs = 6000) {
   });
 }
 
-function distanceKm(a, b) {
-  const toRad = (value) => (value * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRad(b.latitude - a.latitude);
-  const dLng = toRad(b.longitude - a.longitude);
-  const sinLat = Math.sin(dLat / 2);
-  const sinLng = Math.sin(dLng / 2);
-  const h = sinLat * sinLat + Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * sinLng * sinLng;
-  return 2 * earthRadiusKm * Math.asin(Math.min(1, Math.sqrt(h)));
-}
+// Single source of truth for great-circle distance (returns km or null).
+const distanceKm = haversineKm;
 
 function mapBuyerProduct(product = {}) {
   const business = normalizeNestedBusiness(product.marketplace_businesses);

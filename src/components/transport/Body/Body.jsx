@@ -12,6 +12,7 @@ import TourHistory from "./TourHistory";
 import Favorite from "./Favorite";
 import NearbyOperators from "./NearbyOperators";
 import { fetchActiveTrips, fetchSavedOperators } from "../../services/passengerTransportService";
+import { t } from "../../../i18n";
 import {
   fetchTransportFleets,
   subscribeToFleetUpdates,
@@ -104,10 +105,10 @@ export default function Body({
     const fleetType = movementFilters.fleetType || null;
     const label = movementFilters.label || (
       mode === "ride"
-        ? fleetType || "Ride Fleets"
+        ? fleetType || t("urride.dashboard.rideFleets")
         : mode === "delivery"
-          ? fleetType || "Delivery Fleets"
-          : "All Registered Fleets"
+          ? fleetType || t("urride.dashboard.deliveryFleets")
+          : t("urride.dashboard.allFleets")
     );
 
     return {

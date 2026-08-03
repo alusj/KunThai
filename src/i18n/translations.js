@@ -2,6 +2,8 @@
 // UrRide, Fleet HQ, Space(s), KunThai ID, Visibility Credits — are product
 // vocabulary and are intentionally identical in every language.
 
+import { URRIDE } from "./urride";
+
 export const TRANSLATIONS = {
   en: {
     auth: {
@@ -1198,6 +1200,8 @@ export const TRANSLATIONS = {
         joinedNotAvailable: "Joined date not available",
         metersAway: "{value} m away",
         kmAway: "{value} km away",
+        nearby: "Nearby",
+        distanceUnavailable: "Distance unavailable",
         notAddedYet: "Not added yet",
         unnamedProduct: "Unnamed product",
         outOfStock: "Out of stock",
@@ -4202,6 +4206,8 @@ export const TRANSLATIONS = {
         joinedNotAvailable: "Date d'inscription non disponible",
         metersAway: "à {value} m",
         kmAway: "à {value} km",
+        nearby: "À proximité",
+        distanceUnavailable: "Distance indisponible",
         notAddedYet: "Non encore ajouté",
         unnamedProduct: "Produit sans nom",
         outOfStock: "Rupture de stock",
@@ -7366,6 +7372,8 @@ export const TRANSLATIONS = {
         joinedNotAvailable: "تاريخ الانضمام غير متاح",
         metersAway: "على بُعد {value} م",
         kmAway: "على بُعد {value} كم",
+        nearby: "قريب",
+        distanceUnavailable: "المسافة غير متاحة",
         notAddedYet: "لم تتم الإضافة بعد",
         unnamedProduct: "منتج بلا اسم",
         outOfStock: "نفد من المخزون",
@@ -9255,6 +9263,15 @@ export const TRANSLATIONS = {
     },
   },
 };
+
+// Graft the UrRide (transport) bundle onto each matching locale so that
+// t("urride.…") resolves through the same lookup as every inline section.
+// Only locales that already exist in TRANSLATIONS receive it.
+for (const [locale, section] of Object.entries(URRIDE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urride = section;
+  }
+}
 
 // Only locales whose bundle is complete are offered in the UI and used for
 // device-language auto-detection. The es/pt/sw bundles above are partial stubs

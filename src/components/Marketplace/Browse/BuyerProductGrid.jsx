@@ -1,7 +1,9 @@
-import { Fragment } from "react";
+import { Fragment, useEffect } from "react";
 import { BadgeCheck, Heart, MapPin, PackageSearch, Share2, ShoppingCart, Star, Truck } from "lucide-react";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { shareUrMallLink } from "../../../Backend/services/shareCtaService";
+import { getProductCardLocation, buildCardSellerLocation } from "../../../Backend/utils/productCardLocation";
+import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/buyerLocationContext";
 import { useI18n, t } from "../../../i18n";
 
 function ProductImage({ product }) {
@@ -22,8 +24,22 @@ function ProductImage({ product }) {
   );
 }
 
-function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved, saved }) {
+function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved, saved, buyerLocation }) {
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
+  // Context-aware, privacy-safe short area for the card (no house numbers). Uses
+  // the seller's saved city/country/coords + derived local area vs the buyer's
+  // city — never the full raw address.
+  const cardLocation =
+    getProductCardLocation({
+      buyerLocation,
+      sellerLocation: buildCardSellerLocation({
+        address: product.seller?.address || product.location,
+        city: product.seller?.city,
+        country: product.seller?.country || product.country,
+        latitude: product.seller?.latitude,
+        longitude: product.seller?.longitude,
+      }),
+    }) || product.location;
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
   const discountPercent = hasDiscount ? Math.round(((product.price - product.discountPrice) / product.price) * 100) : 0;
   const verifiedSeller = ["verified", "approved", "recommended", "verified_recommended"].includes(
@@ -94,7 +110,7 @@ function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved
         <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
           <span className="flex min-w-0 items-center gap-1.5 leading-5">
             <MapPin size={13} className="shrink-0 text-emerald-600" />
-            <span className="truncate">{product.location}</span>
+            <span className="truncate">{cardLocation}</span>
           </span>
           <span className="flex min-w-0 items-center gap-1.5 leading-5">
             <Truck size={13} className="shrink-0 text-emerald-600" />
@@ -161,6 +177,10 @@ export default function BuyerProductGrid({
   supplementalContent = null,
 }) {
   useI18n();
+  const buyerLocation = useBuyerLocation();
+  useEffect(() => {
+    ensureBuyerLocation();
+  }, []);
   if (loading && !products.length) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -204,7 +224,7 @@ export default function BuyerProductGrid({
         {products.map((product, index) => (
           <Fragment key={product.id}>
             {index === Math.min(3, products.length) ? supplementalContent : null}
-            <BuyerProductCard product={product} onProductSelect={onProductSelect} onAddToCart={onAddToCart} onToggleSaved={onToggleSaved} saved={savedIds.has(product.id)} />
+            <BuyerProductCard product={product} onProductSelect={onProductSelect} onAddToCart={onAddToCart} onToggleSaved={onToggleSaved} saved={savedIds.has(product.id)} buyerLocation={buyerLocation} />
           </Fragment>
         ))}
         {products.length <= 3 ? supplementalContent : null}

@@ -1,7 +1,9 @@
 import { FiInfo } from "react-icons/fi";
 import { verificationStatuses } from "./verificationStatus";
+import { useI18n } from "../../../i18n";
 
 export default function VerificationBadge({ status, onClick }) {
+  useI18n();
   const config = verificationStatuses[status] || verificationStatuses.pending;
 
   return (

@@ -5,6 +5,7 @@ import { fetchTransportFleets, getTransportFleets } from "../../services/transpo
 import VerificationBadge from "../verification/VerificationBadge";
 import VerificationDetailsModal from "../verification/VerificationDetailsModal";
 import { verificationStatuses } from "../verification/verificationStatus";
+import { useI18n, t } from "../../../i18n";
 
 function matchesQuery(operator, query) {
   const term = String(query || "").trim().toLowerCase();
@@ -41,6 +42,7 @@ export default function NearbyOperators({
   onOpenBooking,
   onReportConcern,
 }) {
+  useI18n();
   const [activeOperator, setActiveOperator] = useState(null);
   const initialOperators = applyOperatorFilters(
     getTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null }),
@@ -85,7 +87,7 @@ export default function NearbyOperators({
       })
       .catch((err) => {
         if (alive) {
-          setError(hasExistingOperators ? "" : err.message || "Unable to load operators.");
+          setError(hasExistingOperators ? "" : err.message || t("urride.operators.loadError"));
           if (!hasExistingOperators) {
             setOperators([]);
           }
@@ -107,27 +109,27 @@ export default function NearbyOperators({
     <section className="mt-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-bold text-gray-900">Live Operators</h2>
+          <h2 className="text-base font-bold text-gray-900">{t("urride.operators.title")}</h2>
           <p className="text-xs text-gray-500">
-            {pickup ? `Pickup: ${pickup}` : "Online fleets with KunThai verification status"}
+            {pickup ? t("urride.operators.pickup", { pickup }) : t("urride.operators.subtitle")}
           </p>
         </div>
         <button type="button" onClick={onViewAll} className="text-sm font-semibold text-sky-700">
-          View all
+          {t("urride.operators.viewAll")}
         </button>
       </div>
 
       {error ? (
-        <EmptyState title="Unable to load operators" body={error} />
+        <EmptyState title={t("urride.operators.loadErrorTitle")} body={error} />
       ) : loading && !operators.length ? (
-        <EmptyState title="Loading operators" body="Checking visible operator fleets." />
+        <EmptyState title={t("urride.operators.loadingTitle")} body={t("urride.operators.loadingBody")} />
       ) : operators.length === 0 ? (
-        <EmptyState title="No live operators" body="Online fleets will appear here. Offline fleets stay inside ride and delivery lists." />
+        <EmptyState title={t("urride.operators.emptyTitle")} body={t("urride.operators.emptyBody")} />
       ) : (
       <>
       {refreshing ? (
         <p className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
-          Refreshing live operators...
+          {t("urride.operators.refreshing")}
         </p>
       ) : null}
       <div className="grid gap-3 lg:grid-cols-3 2xl:grid-cols-6">
@@ -158,11 +160,11 @@ export default function NearbyOperators({
                 </div>
                 <div className="grid justify-items-end gap-1">
                   <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone}`}>
-                    {isActive ? "Online" : "Offline"}
+                    {isActive ? t("urride.operators.online") : t("urride.operators.offline")}
                   </span>
                   <div className="flex items-center gap-1 text-xs font-semibold text-gray-600">
                     <FiStar className="text-yellow-500" size={14} />
-                    {operator.rating || "New"}
+                    {operator.rating || t("urride.operators.ratingNew")}
                   </div>
                 </div>
               </div>
@@ -172,8 +174,8 @@ export default function NearbyOperators({
                 {operator.currentLocation || operator.lastKnownLocation}
               </div>
               <p className="mt-2 text-xs font-black text-slate-800">
-                {operator.pricePerKm ? `${formatCountryMoney(operator.pricePerKm, moneyScope, { maximumFractionDigits: 0 })} / km` : "Distance rate pending"}
-                {operator.pricePerHour ? ` - ${formatCountryMoney(operator.pricePerHour, moneyScope, { maximumFractionDigits: 0 })} / hour` : ""}
+                {operator.pricePerKm ? t("urride.operators.rateKm", { price: formatCountryMoney(operator.pricePerKm, moneyScope, { maximumFractionDigits: 0 }) }) : t("urride.operators.ratePending")}
+                {operator.pricePerHour ? ` - ${t("urride.operators.rateHour", { price: formatCountryMoney(operator.pricePerHour, moneyScope, { maximumFractionDigits: 0 }) })}` : ""}
               </p>
 
               <div className="mt-4">
@@ -186,7 +188,7 @@ export default function NearbyOperators({
                   onClick={() => setActiveOperator(operator)}
                   className="mt-2 block text-left text-xs font-medium text-gray-500 hover:text-sky-700"
                 >
-                  {status.shortText} - Read more
+                  {t("urride.operators.readMore", { status: status.shortText })}
                 </button>
               </div>
 
@@ -206,14 +208,14 @@ export default function NearbyOperators({
                   disabled={!isActive}
                   className="h-10 rounded-xl border border-sky-300 bg-white px-3 text-xs font-black text-sky-800 transition hover:bg-sky-50 disabled:border-slate-200 disabled:bg-white disabled:text-slate-400"
                 >
-                  {isActive ? "Open booking" : "Offline"}
+                  {isActive ? t("urride.operators.openBooking") : t("urride.operators.offline")}
                 </button>
                 <button
                   type="button"
                   onClick={() => onViewFleet?.(operator.id)}
                   className="h-10 rounded-xl border border-gray-200 px-3 text-xs font-black text-gray-700 transition hover:bg-gray-50"
                 >
-                  Profile
+                  {t("urride.operators.profile")}
                 </button>
               </div>
             </article>

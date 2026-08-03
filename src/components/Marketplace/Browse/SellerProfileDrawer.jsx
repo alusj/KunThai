@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BadgeCheck,
@@ -40,6 +40,10 @@ import {
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { storeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
 import { MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
+import { normalizeCoordinates } from "../../../Backend/utils/coordinates";
+import { haversineKm, distanceBand, resolveDistanceLabel } from "../../../Backend/utils/distance";
+import { cleanAddressString } from "../../../Backend/utils/geoAddress";
+import { isCoordinatePlausibleForCountry } from "../../../Backend/utils/coordinatePlausibility";
 
 function StarRatingInput({ value, onChange }) {
   return (
@@ -101,7 +105,11 @@ function getSellerCategory(seller, catalog) {
 
 function getFullAddress(seller) {
   const safeSeller = asObject(seller);
-  return [safeSeller.address, safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || t("urmall.seller.addressNotAdded");
+  // Address is display text only. Dedupe repeated commas / area / city / country
+  // so "26a Grassfield,, Lumley, Lumley, Sierra Leone, Sierra Leone" reads as
+  // "26a Grassfield, Lumley, Sierra Leone".
+  const combined = [safeSeller.address, safeSeller.city, safeSeller.country].filter(Boolean).join(", ");
+  return cleanAddressString(combined) || t("urmall.seller.addressNotAdded");
 }
 
 function getLocationSearchText(location, fallback = "") {
@@ -239,27 +247,17 @@ function formatJoinedDate(value) {
   return new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(date);
 }
 
+// Distance is calculated ONLY between two validated coordinate pairs, via the
+// shared Haversine utility. Accepts the drawer's legacy { lat, lng } points.
 function distanceInKm(from, to) {
-  if (!from || !to) return null;
-  if (!Number.isFinite(from.lat) || !Number.isFinite(from.lng) || !Number.isFinite(to.lat) || !Number.isFinite(to.lng)) {
-    return null;
-  }
-  const earthRadiusKm = 6371;
-  const toRadians = (value) => (value * Math.PI) / 180;
-  const dLat = toRadians(to.lat - from.lat);
-  const dLng = toRadians(to.lng - from.lng);
-  const lat1 = toRadians(from.lat);
-  const lat2 = toRadians(to.lat);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadiusKm * c;
+  return haversineKm(from, to);
 }
 
 function formatDistanceLabel(km) {
-  if (km == null) return "";
-  if (km < 1) return t("urmall.seller.metersAway", { value: Math.max(1, Math.round(km * 1000)) });
+  const band = distanceBand(km);
+  if (band === "unavailable") return "";
+  if (band === "nearby") return t("urmall.seller.nearby");
+  if (band === "meters") return t("urmall.seller.metersAway", { value: Math.round(km * 1000) });
   return t("urmall.seller.kmAway", { value: km < 10 ? km.toFixed(1) : Math.round(km) });
 }
 
@@ -629,15 +627,29 @@ export default function SellerProfileDrawer({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return;
-        setBuyerPosition({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
+        setBuyerPosition((previous) => {
+          const next = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+          };
+          // Never overwrite a better (more accurate) reading with a much weaker
+          // one arriving later.
+          if (
+            previous &&
+            Number.isFinite(previous.accuracy) &&
+            Number.isFinite(next.accuracy) &&
+            next.accuracy > previous.accuracy * 2
+          ) {
+            return previous;
+          }
+          return next;
         });
       },
       () => {
         if (!cancelled) setBuyerPosition(null);
       },
-      { enableHighAccuracy: false, maximumAge: 60000, timeout: 6000 },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 },
     );
 
     return () => {
@@ -649,7 +661,7 @@ export default function SellerProfileDrawer({
   const sellerCategory = useMemo(() => getSellerCategory(safeSeller, safeCatalog), [safeCatalog, safeSeller]);
   const fullAddress = useMemo(() => getFullAddress(safeSeller), [safeSeller]);
   const cityCountry = useMemo(
-    () => [safeSeller.city, safeSeller.country].filter(Boolean).join(", ") || t("urmall.seller.cityCountryNotAdded"),
+    () => cleanAddressString([safeSeller.city, safeSeller.country].filter(Boolean).join(", ")) || t("urmall.seller.cityCountryNotAdded"),
     [safeSeller],
   );
   const hasFullAddress = Boolean(String(safeSeller.address || "").trim());
@@ -723,12 +735,69 @@ export default function SellerProfileDrawer({
     });
     return nearest || withCoordinates[0];
   }, [buyerPosition, fullAddress, storeLocations]);
-  const distanceLabel = useMemo(() => {
+  // currentUserCoordinates (live GPS), sellerCoordinates (saved pin) and the
+  // map-selected point are kept strictly separate; only these two validated
+  // pairs ever feed the badge.
+  const currentUserCoordinates = useMemo(() => normalizeCoordinates(buyerPosition), [buyerPosition]);
+  const sellerCoordinates = useMemo(() => {
     const destination = nearestStoreLocation
       ? { lat: nearestStoreLocation.latitude, lng: nearestStoreLocation.longitude }
       : sellerDestination;
-    return formatDistanceLabel(distanceInKm(buyerPosition, destination));
-  }, [buyerPosition, nearestStoreLocation, sellerDestination]);
+    return normalizeCoordinates(destination);
+  }, [nearestStoreLocation, sellerDestination]);
+  // false = coordinate is a whole country away from its written country (corrupt
+  // data, e.g. a Sierra Leone business pinned in South Sudan); null = can't tell.
+  const sellerCoordinatesPlausible = useMemo(
+    () => isCoordinatePlausibleForCountry(sellerCoordinates, safeSeller.country),
+    [sellerCoordinates, safeSeller.country],
+  );
+
+  const distanceLabel = useMemo(() => {
+    // Coordinates are the source of truth. With no valid saved pin, or a pin
+    // that is implausible for the written country, show "Distance unavailable"
+    // rather than inventing a distance from address/city/country/map centre.
+    if (!sellerCoordinates || sellerCoordinatesPlausible === false) {
+      const hasAnyLocationText = String(safeSeller.address || safeSeller.city || safeSeller.country || "").trim();
+      return hasAnyLocationText || sellerCoordinates ? t("urmall.seller.distanceUnavailable") : "";
+    }
+    if (!currentUserCoordinates) return "";
+    return resolveDistanceLabel(currentUserCoordinates, sellerCoordinates, t);
+  }, [currentUserCoordinates, sellerCoordinates, sellerCoordinatesPlausible, safeSeller.address, safeSeller.city, safeSeller.country]);
+
+  // Development-only diagnostics: logs the exact numbers behind the badge, but
+  // only when they actually change (deduped by signature) so re-renders don't
+  // spam the console. Never left on in production (gated on import.meta.env.DEV).
+  const lastLoggedSignatureRef = useRef("");
+  useEffect(() => {
+    if (!import.meta.env.DEV || !open) return;
+    const signature = JSON.stringify({
+      s: sellerCoordinates,
+      u: currentUserCoordinates,
+      p: sellerCoordinatesPlausible,
+      c: safeSeller.country,
+    });
+    if (signature === lastLoggedSignatureRef.current) return;
+    lastLoggedSignatureRef.current = signature;
+
+    if (sellerCoordinatesPlausible === false) {
+      console.warn("[distance] seller coordinates implausible for written country", {
+        country: safeSeller.country,
+        sellerLatitude: sellerCoordinates?.latitude,
+        sellerLongitude: sellerCoordinates?.longitude,
+      });
+      return;
+    }
+    if (sellerCoordinates && currentUserCoordinates) {
+      console.log("[distance] seller badge", {
+        userLatitude: currentUserCoordinates.latitude,
+        userLongitude: currentUserCoordinates.longitude,
+        sellerLatitude: sellerCoordinates.latitude,
+        sellerLongitude: sellerCoordinates.longitude,
+        userAccuracy: buyerPosition?.accuracy ?? null,
+        calculatedDistanceKm: haversineKm(currentUserCoordinates, sellerCoordinates),
+      });
+    }
+  }, [open, currentUserCoordinates, sellerCoordinates, sellerCoordinatesPlausible, safeSeller.country, buyerPosition]);
 
   if (!open || !seller) return null;
 

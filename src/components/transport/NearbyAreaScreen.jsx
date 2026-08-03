@@ -1518,7 +1518,13 @@ export default function NearbyAreaScreen({
 
     async function loadLiveAreaData() {
       const initialWeatherPosition = mapCenterRef.current || userLocationRef.current || null;
-      const areaOptions = { center: initialWeatherPosition, radiusKm: LIVE_AREA_RADIUS_KM };
+      // Live operators are country-scoped: never show a foreign operator merely
+      // because a radius circle reaches across a border.
+      const areaOptions = {
+        center: initialWeatherPosition,
+        radiusKm: LIVE_AREA_RADIUS_KM,
+        countryIso: getActiveCountryProfile().iso2,
+      };
       let results = null;
 
       try {
@@ -1561,6 +1567,7 @@ export default function NearbyAreaScreen({
       getArea: () => ({
         center: mapCenterRef.current || userLocationRef.current || liveAreaPositionRef.current,
         radiusKm: LIVE_AREA_RADIUS_KM,
+        countryIso: getActiveCountryProfile().iso2,
       }),
     });
     const unsubscribeReviews = subscribeToMyNearbyAreaLocationReviews((reviews) => {
@@ -1599,7 +1606,11 @@ export default function NearbyAreaScreen({
 
     if (shouldRefreshLiveArea && !liveAreaRefreshTimerRef.current) {
       liveAreaRefreshTimerRef.current = window.setTimeout(async () => {
-        const areaOptions = { center: nextPosition, radiusKm: LIVE_AREA_RADIUS_KM };
+        const areaOptions = {
+          center: nextPosition,
+          radiusKm: LIVE_AREA_RADIUS_KM,
+          countryIso: getActiveCountryProfile().iso2,
+        };
         let results = null;
 
         try {

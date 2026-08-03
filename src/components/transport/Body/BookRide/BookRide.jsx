@@ -3,8 +3,10 @@ import { MdElectricRickshaw } from "react-icons/md";
 
 import FleetOptionButton from "../FleetOptionButton";
 import { getRideFleetOptions } from "../../../../data/globalTransportCapabilities";
+import { useI18n, t } from "../../../../i18n";
 
 export default function BookRide({ onSelectFleetType }) {
+  useI18n();
   const options = getRideFleetOptions();
   const icons = {
     Car: <FaCarSide />,
@@ -17,9 +19,9 @@ export default function BookRide({ onSelectFleetType }) {
       <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[4rem] bg-emerald-50" />
       <div className="relative">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-lg font-black text-slate-900">Book a Ride</h3>
+          <h3 className="text-lg font-black text-slate-900">{t("urride.dashboard.bookRideTitle")}</h3>
           <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">
-            Passenger
+            {t("urride.dashboard.passengerTag")}
           </span>
         </div>
 

@@ -1,6 +1,9 @@
 import { FiHeart } from "react-icons/fi";
 
+import { useI18n, t } from "../../../i18n";
+
 export default function Favorite({ onClick, count = 0, loading = false }) {
+  useI18n();
   return (
     <button
       type="button"
@@ -9,9 +12,9 @@ export default function Favorite({ onClick, count = 0, loading = false }) {
     >
       <div className="flex h-full flex-col justify-between">
         <span>
-          <span className="block text-lg font-black text-slate-900">Saved Operators</span>
+          <span className="block text-lg font-black text-slate-900">{t("urride.dashboard.savedOperatorsTitle")}</span>
           <span className="mt-1 block text-xs font-black uppercase tracking-wide text-rose-700">
-            {loading ? "Loading..." : `${count} saved`}
+            {loading ? t("urride.common.loading") : t("urride.dashboard.savedCount", { count })}
           </span>
         </span>
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-rose-600 shadow-sm transition group-hover:scale-105">

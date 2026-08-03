@@ -18,6 +18,7 @@ import {
   validateCountryPhone,
 } from "../../data/globalCountryProfiles";
 import { scrollToFirstBlockingFieldSoon } from "../../components/shared/formValidationNavigation";
+import { normalizeGeocodeAddress } from "../utils/geoAddress";
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
 
@@ -157,20 +158,21 @@ async function reverseGeocode(latitude, longitude) {
 
   try {
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`,
       { headers: { Accept: "application/json" } },
     );
 
     if (!response.ok) return fallback;
 
     const data = await response.json();
-    const address = data?.address || {};
-    const city = address.city || address.town || address.village || address.county || "";
-
+    // Reverse geocoding produces DISPLAY TEXT ONLY — the passed-in coordinates
+    // remain authoritative. Build a clean, community-first, de-duplicated
+    // address instead of the provider's raw display_name.
+    const normalized = normalizeGeocodeAddress(data?.address || {}, { latitude, longitude, displayName: data?.display_name });
     return {
-      address: data?.display_name || fallback.address,
-      city,
-      country: address.country || "",
+      address: normalized.formattedAddress || fallback.address,
+      city: normalized.city,
+      country: normalized.country,
     };
   } catch {
     return fallback;

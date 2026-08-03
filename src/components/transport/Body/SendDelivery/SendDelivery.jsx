@@ -3,8 +3,10 @@ import { MdElectricRickshaw } from "react-icons/md";
 
 import FleetOptionButton from "../FleetOptionButton";
 import { getDeliveryFleetOptions } from "../../../../data/globalTransportCapabilities";
+import { useI18n, t } from "../../../../i18n";
 
 export default function SendDelivery({ onSelectFleetType }) {
+  useI18n();
   const options = getDeliveryFleetOptions();
   const icons = {
     Car: <FaTruck />,
@@ -17,9 +19,9 @@ export default function SendDelivery({ onSelectFleetType }) {
       <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[4rem] bg-amber-50" />
       <div className="relative">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-lg font-black text-slate-900">Send Delivery</h3>
+          <h3 className="text-lg font-black text-slate-900">{t("urride.dashboard.sendDeliveryTitle")}</h3>
           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-700">
-            Parcel
+            {t("urride.dashboard.parcelTag")}
           </span>
         </div>
 

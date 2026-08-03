@@ -2,13 +2,27 @@ import { useState } from "react";
 import { FiAlertTriangle, FiCheckCircle, FiX } from "react-icons/fi";
 import AppPortal from "../../shared/AppPortal";
 import { verificationStatuses } from "./verificationStatus";
+import { useI18n, t } from "../../../i18n";
 
+// Stable reason values (kept in English so the reported payload is consistent
+// for support) paired with the translation key used only for display.
 const reportReasons = [
-  "Verification concern",
-  "Safety concern",
-  "Wrong fleet details",
-  "Operator contact issue",
+  { value: "Verification concern", labelKey: "urride.verification.modal.reasonVerification" },
+  { value: "Safety concern", labelKey: "urride.verification.modal.reasonSafety" },
+  { value: "Wrong fleet details", labelKey: "urride.verification.modal.reasonWrongDetails" },
+  { value: "Operator contact issue", labelKey: "urride.verification.modal.reasonContact" },
 ];
+
+// Each verification action is a stable id (used by handleAction control flow);
+// this maps that id to its display translation key.
+const ACTION_LABEL_KEYS = {
+  "View profile": "urride.verification.actions.viewProfile",
+  "Continue carefully": "urride.verification.actions.continueCarefully",
+  "Choose verified operators": "urride.verification.actions.chooseVerified",
+  "Choose verified sellers": "urride.verification.actions.chooseVerifiedSellers",
+  "Book operator": "urride.verification.actions.bookOperator",
+  "Report concern": "urride.verification.actions.reportConcern",
+};
 
 export default function VerificationDetailsModal({
   status,
@@ -20,9 +34,10 @@ export default function VerificationDetailsModal({
   onReportConcern,
   onViewProfile,
 }) {
+  useI18n();
   const [busyAction, setBusyAction] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState(reportReasons[0]);
+  const [reportReason, setReportReason] = useState(reportReasons[0].value);
   const [reportMessage, setReportMessage] = useState("");
   const [reportFeedback, setReportFeedback] = useState("");
   const [reportError, setReportError] = useState("");
@@ -80,7 +95,7 @@ export default function VerificationDetailsModal({
     const message = reportMessage.trim();
     if (message.length < 12) {
       setReportFeedback("");
-      setReportError("Please add a clear concern so support can review the operator properly.");
+      setReportError(t("urride.verification.modal.errorShort"));
       return;
     }
 
@@ -90,7 +105,7 @@ export default function VerificationDetailsModal({
 
     try {
       if (!onReportConcern) {
-        throw new Error("Support reporting is not available on this screen yet.");
+        throw new Error(t("urride.verification.modal.errorUnavailable"));
       }
 
       const result = await onReportConcern({
@@ -100,11 +115,11 @@ export default function VerificationDetailsModal({
       setReportMessage("");
       setReportFeedback(
         result?.synced === false
-          ? "Your concern has been saved and will be sent to KunThai support when the connection is available."
-          : "Your concern has been sent to KunThai support. We will review the operator details and keep the safety record attached.",
+          ? t("urride.verification.modal.feedbackOffline")
+          : t("urride.verification.modal.feedbackSent"),
       );
     } catch (error) {
-      setReportError(error.message || "Unable to send this concern right now.");
+      setReportError(error.message || t("urride.verification.modal.errorSend"));
     } finally {
       setBusyAction("");
     }
@@ -115,7 +130,7 @@ export default function VerificationDetailsModal({
     <div className="fixed inset-0 z-[1200] flex items-center justify-center px-4 py-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)]">
       <button
         type="button"
-        aria-label="Close verification details overlay"
+        aria-label={t("urride.verification.modal.closeOverlay")}
         onClick={onClose}
         className="absolute inset-0 bg-slate-950/40"
       />
@@ -124,13 +139,13 @@ export default function VerificationDetailsModal({
         <div className={`rounded-t-3xl border-b px-5 py-4 ${config.panelClass}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide">Verification Status</p>
+              <p className="text-xs font-semibold uppercase tracking-wide">{t("urride.verification.modal.statusLabel")}</p>
               <h2 className="mt-1 text-xl font-bold">{config.label}</h2>
               <p className="mt-1 text-sm">{operatorName}</p>
             </div>
             <button
               type="button"
-              aria-label="Close verification details"
+              aria-label={t("urride.verification.modal.close")}
               onClick={onClose}
               className="h-9 w-9 rounded-full bg-white/80 flex items-center justify-center"
             >
@@ -164,7 +179,7 @@ export default function VerificationDetailsModal({
                     : "border border-gray-200 text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                {busyAction === action ? "Working..." : action}
+                {busyAction === action ? t("urride.verification.modal.working") : t(ACTION_LABEL_KEYS[action] || "")}
               </button>
             ))}
           </div>
@@ -176,33 +191,33 @@ export default function VerificationDetailsModal({
                   <FiAlertTriangle size={18} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-amber-950">Report a concern</p>
+                  <p className="text-sm font-black text-amber-950">{t("urride.verification.modal.reportTitle")}</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-                    Send a clear safety or verification concern about {operatorName || "this operator"}. KunThai support will receive the operator record with your message.
+                    {t("urride.verification.modal.reportIntro", { operator: operatorName || t("urride.verification.modal.operatorFallback") })}
                   </p>
                 </div>
               </div>
 
               <label className="mt-4 block">
-                <span className="mb-1 block text-xs font-black uppercase tracking-wide text-amber-900">Reason</span>
+                <span className="mb-1 block text-xs font-black uppercase tracking-wide text-amber-900">{t("urride.verification.modal.reasonLabel")}</span>
                 <select
                   value={reportReason}
                   onChange={(event) => setReportReason(event.target.value)}
                   className="h-11 w-full rounded-2xl border border-amber-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-amber-500"
                 >
                   {reportReasons.map((reason) => (
-                    <option key={reason} value={reason}>{reason}</option>
+                    <option key={reason.value} value={reason.value}>{t(reason.labelKey)}</option>
                   ))}
                 </select>
               </label>
 
               <label className="mt-3 block">
-                <span className="mb-1 block text-xs font-black uppercase tracking-wide text-amber-900">Message</span>
+                <span className="mb-1 block text-xs font-black uppercase tracking-wide text-amber-900">{t("urride.verification.modal.messageLabel")}</span>
                 <textarea
                   rows={4}
                   value={reportMessage}
                   onChange={(event) => setReportMessage(event.target.value)}
-                  placeholder="Explain what looks wrong, unsafe, or unclear about this operator."
+                  placeholder={t("urride.verification.modal.messagePlaceholder")}
                   className="w-full resize-none rounded-2xl border border-amber-200 bg-white px-3 py-3 text-sm font-semibold leading-5 text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-500"
                 />
               </label>
@@ -224,14 +239,14 @@ export default function VerificationDetailsModal({
                   }}
                   className="h-11 rounded-2xl border border-amber-200 bg-white text-sm font-black text-amber-900 hover:bg-amber-50"
                 >
-                  Cancel
+                  {t("urride.verification.modal.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={busyAction === "Report concern"}
                   className="h-11 rounded-2xl bg-slate-950 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-60"
                 >
-                  {busyAction === "Report concern" ? "Sending..." : "Send concern"}
+                  {busyAction === "Report concern" ? t("urride.verification.modal.sending") : t("urride.verification.modal.send")}
                 </button>
               </div>
             </form>

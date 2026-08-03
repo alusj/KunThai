@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
+import { getCountryProfile } from "../../data/globalCountryProfiles";
 import FlagIcon from "../FlagIcon";
 
 const nearbyActions = [
@@ -102,6 +103,9 @@ export default function EmergencySheet({
   onClose,
   countryCode,
   detectingCountry = false,
+  requiresConfirmation = false,
+  alternativeCountryCode = "",
+  onConfirmCountry,
   onNavigateNearby,
 }) {
   if (!open) return null;
@@ -110,6 +114,22 @@ export default function EmergencySheet({
   const emergency = getEmergencyContacts(normalizedCountryCode);
   const countryLabel = detectingCountry ? "Detecting country..." : emergency.country;
   const showCountryFlag = !detectingCountry && /^[A-Z]{2}$/.test(normalizedCountryCode);
+
+  // Strict emergency rule: if the detected country has no verified numbers, we
+  // NEVER borrow a neighbour's — we tell the user plainly and point them at the
+  // device dialler / nearby search instead.
+  const hasVerifiedNumbers = Boolean(
+    emergency.national?.length ||
+      emergency.police?.length ||
+      emergency.ambulance?.length ||
+      emergency.fire?.length,
+  );
+  const alternativeIso = String(alternativeCountryCode || "").toUpperCase();
+  const alternativeName = /^[A-Z]{2}$/.test(alternativeIso)
+    ? getCountryProfile(alternativeIso)?.name || alternativeIso
+    : "";
+  const showBorderConfirm =
+    requiresConfirmation && typeof onConfirmCountry === "function" && !detectingCountry;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-end bg-slate-950/60 px-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
@@ -138,7 +158,7 @@ export default function EmergencySheet({
                 </h2>
                 <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-red-50">
                   {showCountryFlag ? <FlagIcon code={normalizedCountryCode} className="h-5 w-7 shrink-0 rounded-[4px] ring-1 ring-white/60" /> : null}
-                  {countryLabel}
+                  {detectingCountry ? countryLabel : `Emergency services for ${emergency.country}`}
                 </p>
               </div>
 
@@ -153,12 +173,50 @@ export default function EmergencySheet({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3">
-            {emergency.national?.length ? <CallButton icon={<Siren size={22} />} label="National Emergency" numbers={emergency.national} /> : null}
-            <CallButton icon={<ShieldAlert size={22} />} label="Police" numbers={emergency.police} />
-            <CallButton icon={<HeartPulse size={22} />} label="Ambulance / Medical" numbers={emergency.ambulance} />
-            <CallButton icon={<Flame size={22} />} label="Fire Force" numbers={emergency.fire} />
-          </div>
+          {showBorderConfirm ? (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-black text-amber-900">Confirm your country</p>
+              <p className="mt-1 text-xs font-bold leading-5 text-amber-800">
+                We detected that you may be near an international border. Please confirm the country you are currently in — emergency numbers must match your real location.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => onConfirmCountry(normalizedCountryCode)}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 active:scale-[0.98]"
+                >
+                  {showCountryFlag ? <FlagIcon code={normalizedCountryCode} className="h-4 w-6 rounded-[3px]" /> : null}
+                  I am in {emergency.country}
+                </button>
+                {alternativeName ? (
+                  <button
+                    type="button"
+                    onClick={() => onConfirmCountry(alternativeIso)}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 active:scale-[0.98]"
+                  >
+                    <FlagIcon code={alternativeIso} className="h-4 w-6 rounded-[3px]" />
+                    I am in {alternativeName}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {hasVerifiedNumbers ? (
+            <div className="mt-4 grid gap-3">
+              {emergency.national?.length ? <CallButton icon={<Siren size={22} />} label="National Emergency" numbers={emergency.national} /> : null}
+              <CallButton icon={<ShieldAlert size={22} />} label="Police" numbers={emergency.police} />
+              <CallButton icon={<HeartPulse size={22} />} label="Ambulance / Medical" numbers={emergency.ambulance} />
+              <CallButton icon={<Flame size={22} />} label="Fire Force" numbers={emergency.fire} />
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-black text-slate-900">Verified numbers unavailable</p>
+              <p className="mt-1 text-xs font-bold leading-5 text-slate-600">
+                Verified emergency information is not currently available for this country. Contact local authorities or use your device&apos;s emergency calling feature. Do not rely on numbers from a neighbouring country.
+              </p>
+            </div>
+          )}
 
           <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
             Emergency numbers may vary by network or region. Try another listed number if one fails.

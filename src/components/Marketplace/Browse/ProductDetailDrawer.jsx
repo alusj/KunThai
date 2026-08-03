@@ -31,6 +31,7 @@ import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import useImageViewerGestures from "../../shared/useImageViewerGestures";
 import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
+import { cleanAddressString } from "../../../Backend/utils/geoAddress";
 import { getProductTierPricing, getTierUnitPrice } from "../../../Backend/services/marketplace/tierPricingUtils";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
@@ -1028,7 +1029,7 @@ export default function ProductDetailDrawer({
                     >
                       <MapPin size={14} />
                       <span className="truncate">
-                        {[product.seller.city, product.seller.country].filter(Boolean).join(", ") || product.location}
+                        {cleanAddressString([product.seller.city, product.seller.country].filter(Boolean).join(", ")) || cleanAddressString(product.location)}
                       </span>
                     </button>
                   </div>
@@ -1047,7 +1048,7 @@ export default function ProductDetailDrawer({
                 </div>
                 <div className="rounded-lg bg-gray-100 p-2.5">
                   <p className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.location")}</p>
-                  <p className="mt-0.5 truncate text-sm font-black text-gray-950">{product.location}</p>
+                  <p className="mt-0.5 truncate text-sm font-black text-gray-950">{cleanAddressString(product.location)}</p>
                 </div>
               </div>
 

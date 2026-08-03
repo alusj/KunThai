@@ -2,8 +2,8 @@ const COUNTRY_STORAGE_KEY = "kunthai.activeCountryIso";
 
 export const DEFAULT_COUNTRY_ISO = "SL";
 
-import { getEmergencyContacts } from "./emergencyContacts";
-import { INTERNATIONAL_COUNTRY_DIALING_PROFILES } from "./internationalCountryDialingProfiles";
+import { getEmergencyContacts } from "./emergencyContacts.js";
+import { INTERNATIONAL_COUNTRY_DIALING_PROFILES } from "./internationalCountryDialingProfiles.js";
 
 const CURATED_GLOBAL_COUNTRY_PROFILES = [
   {

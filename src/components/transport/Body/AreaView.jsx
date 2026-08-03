@@ -1,6 +1,9 @@
 import { FiMapPin, FiNavigation } from "react-icons/fi";
 
+import { useI18n, t } from "../../../i18n";
+
 export default function AreaView({ onClick }) {
+  useI18n();
   return (
     <button
       type="button"
@@ -15,8 +18,8 @@ export default function AreaView({ onClick }) {
       <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-4 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <span>
-            <span className="block text-base font-black text-slate-900">Nearby Area</span>
-            <span className="mt-0.5 block text-xs font-bold text-slate-500">Map, routes, locations</span>
+            <span className="block text-base font-black text-slate-900">{t("urride.dashboard.nearbyAreaTitle")}</span>
+            <span className="mt-0.5 block text-xs font-bold text-slate-500">{t("urride.dashboard.nearbyAreaSubtitle")}</span>
           </span>
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white transition group-hover:bg-emerald-700">
             <FiNavigation size={20} />
