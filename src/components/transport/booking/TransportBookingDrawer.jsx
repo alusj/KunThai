@@ -38,6 +38,7 @@ import {
   formatBookingDistance,
 } from "../../services/transportPricingService";
 import { getPassengerFleetFilterOptions } from "../../../data/globalTransportCapabilities";
+import { useI18n, t } from "../../../i18n";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
 
@@ -54,14 +55,14 @@ function selectionFromTarget(target) {
     return {
       mode,
       fleetType: target.fleet.fleetType || null,
-      label: target.fleet.displayType || target.fleet.fleetType || "Selected fleet",
+      label: target.fleet.displayType || target.fleet.fleetType || t("urride.booking.selectedFleetLabel"),
     };
   }
 
   return {
     mode: target?.selection?.mode === "delivery" ? "delivery" : target?.selection?.mode === "ride" ? "ride" : "topRated",
     fleetType: target?.selection?.fleetType || null,
-    label: target?.selection?.label || "Available transport",
+    label: target?.selection?.label || t("urride.booking.availableTransport"),
   };
 }
 
@@ -101,40 +102,44 @@ function getLocationInputValue(place) {
 }
 
 function getBookingRequirementMessage(form, mode) {
-  if (!hasText(form.pickup)) return "Add a pickup point before sending this booking.";
-  if (!hasText(form.dropoff)) return "Add a drop-off point before sending this booking.";
-  if (!hasText(form.passengerName)) return "Add the passenger or sender name.";
+  if (!hasText(form.pickup)) return t("urride.booking.needPickup");
+  if (!hasText(form.dropoff)) return t("urride.booking.needDropoff");
+  if (!hasText(form.passengerName)) return t("urride.booking.needName");
   const phoneValidation = validateCountryPhone(form.phone);
   if (!phoneValidation.valid) return phoneValidation.message;
-  if (form.pickupTime === "schedule" && !form.scheduledAt) return "Choose the scheduled pickup time.";
-  if (form.bookingMethod === "time" && Number(form.bookedHours || 0) <= 0) return "Add the number of hours for this time booking.";
-  if (mode === "delivery" && !hasText(form.packageDescription)) return "Add a package description for this delivery.";
+  if (form.pickupTime === "schedule" && !form.scheduledAt) return t("urride.booking.needScheduledTime");
+  if (form.bookingMethod === "time" && Number(form.bookedHours || 0) <= 0) return t("urride.booking.needHours");
+  if (mode === "delivery" && !hasText(form.packageDescription)) return t("urride.booking.needPackage");
   return "";
 }
 
 function getBookingPickerLabels(kind, bookingMode) {
   const isPickup = kind === "pickup";
-  const destinationName = bookingMode === "delivery" ? "delivery drop-off" : "drop-off";
-  const label = isPickup ? "pickup" : destinationName;
+  const label = isPickup
+    ? t("urride.booking.pickerNounPickup")
+    : bookingMode === "delivery"
+      ? t("urride.booking.pickerNounDelivery")
+      : t("urride.booking.pickerNounDropoff");
 
   return {
     historyKey: `transport-booking-${kind}-picker`,
-    backLabel: "Back to booking form",
-    eyebrow: "Transport booking",
-    cardEyebrow: isPickup ? "Pickup point" : bookingMode === "delivery" ? "Delivery address" : "Drop-off point",
-    headerCurrentTitle: `Confirm ${label} location`,
-    headerDropTitle: `Drop ${label} pin`,
-    currentHeading: `Your current ${label} location`,
-    dropHeading: `Place the pin on the ${label} point`,
-    dropInstruction: `Move the map until the pin sits exactly on the ${label} gate, door, junction, or landmark, then add the location.`,
-    currentStatus: `Confirming your current ${label} location...`,
-    dropStatus: `Move the map until the pin is exactly on the ${label} point.`,
-    currentName: `Current ${label} location`,
-    droppedName: `Pinned ${label} location`,
+    backLabel: t("urride.booking.pickerBack"),
+    eyebrow: t("urride.booking.pickerEyebrow"),
+    cardEyebrow: isPickup ? t("urride.booking.pickerCardPickup") : bookingMode === "delivery" ? t("urride.booking.pickerCardDelivery") : t("urride.booking.pickerCardDropoff"),
+    headerCurrentTitle: t("urride.booking.pickerHeaderCurrent", { label }),
+    headerDropTitle: t("urride.booking.pickerHeaderDrop", { label }),
+    currentHeading: t("urride.booking.pickerCurrentHeading", { label }),
+    dropHeading: t("urride.booking.pickerDropHeading", { label }),
+    dropInstruction: t("urride.booking.pickerDropInstruction", { label }),
+    currentStatus: t("urride.booking.pickerCurrentStatus", { label }),
+    dropStatus: t("urride.booking.pickerDropStatus", { label }),
+    currentName: t("urride.booking.pickerCurrentName", { label }),
+    droppedName: t("urride.booking.pickerDroppedName", { label }),
   };
 }
 
 export default function TransportBookingDrawer({ open, target, onClose, onCreated, onLocateArea }) {
+  useI18n();
   const initialSelection = useMemo(() => selectionFromTarget(target), [target]);
   const [selection, setSelection] = useState(initialSelection);
   const [availableFleets, setAvailableFleets] = useState([]);
@@ -144,6 +149,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const [routeMessage, setRouteMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
+  // Whether `status` is a success (booking sent) message, tracked separately so
+  // translated strings never need pattern matching for styling.
+  const [statusSuccess, setStatusSuccess] = useState(false);
   const [searchCenter, setSearchCenter] = useState(null);
   const [areaPicker, setAreaPicker] = useState(null);
   const [showPassengerCaution, setShowPassengerCaution] = useState(false);
@@ -201,9 +209,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const fareEstimate = describeFleetFare(displayFleet, pricingInput);
   const requirementMessage = getBookingRequirementMessage(form, bookingMode);
   const fleetMessage = !isDirectedBooking && loadingFleets
-    ? "Checking nearby registered operators for this request."
+    ? t("urride.booking.checkingOperators")
     : !isDirectedBooking && !bookingTargetFleets.length
-      ? "No nearby registered operator matches this service and fleet type right now."
+      ? t("urride.booking.noMatchingOperators")
       : "";
   const sendBlockMessage = requirementMessage || fleetMessage;
   const canSendBooking = !submitting && !routeLoading && !requirementMessage && bookingTargetFleets.length > 0;
@@ -271,7 +279,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           lat: coords.latitude,
           lng: coords.longitude,
           accuracy: coords.accuracy,
-          label: "Current area",
+          label: t("urride.booking.currentArea"),
         });
       },
       () => {
@@ -299,7 +307,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     const timer = window.setTimeout(async () => {
       try {
         setRouteLoading(true);
-        setRouteMessage("Calculating the route distance...");
+        setRouteMessage(t("urride.booking.calculatingRoute"));
         const nextRoute = await calculateBookingRoute(form.pickup, form.dropoff, {
           pickupPoint: form.pickupPoint,
           destinationPoint: form.dropoffPoint,
@@ -307,11 +315,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         });
         if (!alive) return;
         setRouteEstimate(nextRoute);
-        setRouteMessage(`${formatBookingDistance(nextRoute.distanceKm)} route${nextRoute.approximate ? " - approximate road estimate" : ""}`);
+        setRouteMessage(t("urride.booking.routeSummary", { distance: formatBookingDistance(nextRoute.distanceKm) }) + (nextRoute.approximate ? t("urride.booking.routeApproxSuffix") : ""));
       } catch (error) {
         if (!alive) return;
         setRouteEstimate(null);
-        setRouteMessage(error.message || "Unable to calculate this route.");
+        setRouteMessage(error.message || t("urride.booking.routeError"));
       } finally {
         if (alive) setRouteLoading(false);
       }
@@ -355,7 +363,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       .catch((error) => {
         if (alive) {
           setAvailableFleets([]);
-          setStatus(error.message || "Unable to load available operators.");
+          setStatus(error.message || t("urride.booking.noOperatorsAvailable"));
         }
       })
       .finally(() => {
@@ -394,18 +402,19 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     const nextPoint = normalizeLocationPoint(nextLocation);
     if (!nextPoint) return;
 
+    setStatusSuccess(false);
     if (areaPicker?.kind === "pickup") {
       updateForm({
         pickup: getLocationInputValue(nextPoint),
         pickupPoint: nextPoint,
       });
-      setStatus(`Pickup location added: ${nextPoint.address}`);
+      setStatus(t("urride.booking.pickupAdded", { address: nextPoint.address }));
     } else {
       updateForm({
         dropoff: getLocationInputValue(nextPoint),
         dropoffPoint: nextPoint,
       });
-      setStatus(`Drop-off location added: ${nextPoint.address}`);
+      setStatus(t("urride.booking.dropoffAdded", { address: nextPoint.address }));
     }
     setAreaPicker(null);
   }
@@ -428,8 +437,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       status: "community",
       description:
         kind === "pickup"
-          ? "Passenger pickup area from transport booking."
-          : `Transport route from ${pickupText || "current location"} to ${dropoffText || areaText}.`,
+          ? t("urride.booking.pickupAreaDescription")
+          : t("urride.booking.routeDescription", { pickup: pickupText || t("urride.booking.currentLocationFallback"), dropoff: dropoffText || areaText }),
       searchQuery: areaText,
       pickup: pickupText,
       destination: dropoffText,
@@ -442,7 +451,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     const destination = buildBookingAreaDestination(kind);
 
     if (!destination) {
-      setStatus(kind === "pickup" ? "Add a pickup point before locating it." : "Add a drop-off point before routing.");
+      setStatusSuccess(false);
+      setStatus(kind === "pickup" ? t("urride.booking.needPickupLocate") : t("urride.booking.needDropoffRoute"));
       return;
     }
 
@@ -460,6 +470,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
   async function sendBooking() {
     setStatus("");
+    setStatusSuccess(false);
 
     const nextRequirementMessage = getBookingRequirementMessage(form, bookingMode);
     if (nextRequirementMessage) {
@@ -478,11 +489,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           center: searchCenter,
         });
         setRouteEstimate(resolvedRoute);
-        setRouteMessage(`${formatBookingDistance(resolvedRoute.distanceKm)} route${resolvedRoute.approximate ? " - approximate road estimate" : ""}`);
+        setRouteMessage(t("urride.booking.routeSummary", { distance: formatBookingDistance(resolvedRoute.distanceKm) }) + (resolvedRoute.approximate ? t("urride.booking.routeApproxSuffix") : ""));
       }
 
       if (!bookingTargetFleets.length) {
-        throw new Error("No nearby matching operators are available for this booking right now.");
+        throw new Error(t("urride.booking.noOperatorsAvailable"));
       }
 
       const nextBookingMode = modeForFleet(bookingFleet || null, selection.mode);
@@ -505,15 +516,17 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       sounds.success("transport");
       setStatus(
         isDirectedBooking
-          ? `Booking sent directly to ${selectedFleet?.operatorName || selectedFleet?.fleetName || "the selected operator"}.`
+          ? t("urride.booking.sentDirect", { operator: selectedFleet?.operatorName || selectedFleet?.fleetName || t("urride.booking.selectedOperatorFallback") })
           : booking?.notifiedFleetCount > 1
-          ? `Booking sent to ${booking.notifiedFleetCount} nearby matching operators. Any available operator can contact you and respond.`
-          : "Booking sent. The operator will see this as a pending passenger request and can contact you.",
+          ? t("urride.booking.sentMultiple", { count: booking.notifiedFleetCount })
+          : t("urride.booking.sentSingle"),
       );
+      setStatusSuccess(true);
 
       onCreated?.(booking);
     } catch (error) {
-      setStatus(error.message || "Unable to send this booking.");
+      setStatus(error.message || t("urride.booking.sendError"));
+      setStatusSuccess(false);
     } finally {
       setSubmitting(false);
       setRouteLoading(false);
@@ -525,7 +538,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       <div className="fixed inset-0 z-[1200] flex justify-end">
         <button
           type="button"
-          aria-label="Close booking overlay"
+          aria-label={t("urride.booking.closeOverlay")}
           onClick={onClose}
           className="kt-backdrop absolute inset-0"
         />
@@ -534,10 +547,10 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
           <header className="kt-header-glass flex items-center justify-between px-4 py-3 sm:px-5">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
-                Transport booking
+                {t("urride.booking.headerEyebrow")}
               </p>
               <h2 className="mt-1 truncate text-xl font-black text-gray-950">
-                {bookingMode === "delivery" ? "Send delivery" : "Book a ride"}
+                {bookingMode === "delivery" ? t("urride.booking.headerDelivery") : t("urride.booking.headerRide")}
               </h2>
             </div>
 
@@ -545,7 +558,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               type="button"
               onClick={onClose}
               className="kt-touchable flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              aria-label="Close booking"
+              aria-label={t("urride.booking.close")}
             >
               <FiX size={20} />
             </button>
@@ -555,7 +568,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             {status ? (
               <p
                 className={`mb-4 rounded-xl p-3 text-sm font-bold ${
-                  status.startsWith("Booking sent") ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                  statusSuccess ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                 }`}
               >
                 {status}
@@ -564,40 +577,40 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
             <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
               <label className="block space-y-1">
-                <span className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Choose booking method</span>
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{t("urride.booking.chooseMethod")}</span>
                 <select
                   value={form.bookingMethod}
                   onChange={(event) => updateForm({ bookingMethod: event.target.value })}
                   className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
                 >
-                  <option value="distance">Book by distance</option>
-                  <option value="time">Book by time</option>
+                  <option value="distance">{t("urride.booking.byDistance")}</option>
+                  <option value="time">{t("urride.booking.byTime")}</option>
                 </select>
               </label>
               <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
                 {form.bookingMethod === "time"
-                  ? "Reserve the operator by the hour and see the total from the operator's hourly price."
-                  : "Route price is calculated from pickup to drop-off using the operator's price per kilometer."}
+                  ? t("urride.booking.methodHintTime")
+                  : t("urride.booking.methodHintDistance")}
               </p>
             </section>
 
             <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               {!isDirectedBooking ? <div className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Service</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.service")}</span>
                   <select
                     value={selection.mode}
                     onChange={(event) => updateSelection({ mode: event.target.value })}
                     className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
                   >
-                    <option value="topRated">Any service</option>
-                    <option value="ride">Ride</option>
-                    <option value="delivery">Delivery</option>
+                    <option value="topRated">{t("urride.booking.anyService")}</option>
+                    <option value="ride">{t("urride.booking.ride")}</option>
+                    <option value="delivery">{t("urride.booking.delivery")}</option>
                   </select>
                 </label>
 
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Fleet type</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.fleetType")}</span>
                   <select
                     value={selection.fleetType || ""}
                     onChange={(event) => updateSelection({ fleetType: event.target.value || null })}
@@ -612,12 +625,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
               {isDirectedBooking ? (
                 <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">Direct booking</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.booking.directBooking")}</p>
                   <p className="mt-1 text-lg font-black text-blue-950">
-                    {selectedFleet?.operatorName || selectedFleet?.fleetName || "Selected operator"}
+                    {selectedFleet?.operatorName || selectedFleet?.fleetName || t("urride.booking.selectedOperator")}
                   </p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-blue-800">
-                    This request is attached to this operator only. It will not be offered to other nearby operators.
+                    {t("urride.booking.directNotice")}
                   </p>
                   <p className="mt-2 text-xs font-black text-blue-700">
                     {[selectedFleet?.operatorId, selectedFleet?.displayType || selectedFleet?.fleetType, selectedFleet?.plateNumber]
@@ -626,14 +639,14 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   </p>
                 </div>
               ) : <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-                <p className="text-sm font-black text-emerald-950">Open request</p>
+                <p className="text-sm font-black text-emerald-950">{t("urride.booking.openRequest")}</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
-                  No operator is attached to this booking yet. When you save it, it enters My Trips and notifies every nearby registered operator matching the service and fleet type you selected.
+                  {t("urride.booking.openRequestBody")}
                 </p>
                 <p className="mt-2 text-xs font-black text-emerald-700">
                   {loadingFleets
-                    ? "Checking matching operators..."
-                    : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} ready for notification (${nearbyActiveFleets.length} active now).`}
+                    ? t("urride.booking.checkingMatching")
+                    : t(bookingTargetFleets.length === 1 ? "urride.booking.operatorsReadyOne" : "urride.booking.operatorsReady", { count: bookingTargetFleets.length, active: nearbyActiveFleets.length })}
                 </p>
               </div>}
 
@@ -641,22 +654,22 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 <div className="mt-4 grid gap-2 rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-600 sm:grid-cols-2">
                   <InfoLine
                     icon={FiTruck}
-                    label="Request"
+                    label={t("urride.booking.requestLabel")}
                     value={isDirectedBooking
-                      ? `Only ${selectedFleet?.operatorName || selectedFleet?.fleetName || "the selected operator"} will be notified`
-                      : `${bookingTargetFleets.length} nearby matching operator${bookingTargetFleets.length === 1 ? "" : "s"} will be notified`}
+                      ? t("urride.booking.onlyNotified", { operator: selectedFleet?.operatorName || selectedFleet?.fleetName || t("urride.booking.selectedOperatorFallback") })
+                      : t(bookingTargetFleets.length === 1 ? "urride.booking.countNotifiedOne" : "urride.booking.countNotified", { count: bookingTargetFleets.length })}
                   />
-                  <InfoLine icon={FiNavigation} label="Location" value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
+                  <InfoLine icon={FiNavigation} label={t("urride.booking.locationLabel")} value={displayFleet.currentLocation || displayFleet.lastKnownLocation} />
                   <InfoLine
                     icon={FiClock}
-                    label="Operator status"
+                    label={t("urride.booking.operatorStatusLabel")}
                     value={
                       isFleetBookable(displayFleet)
-                        ? isDirectedBooking ? "Selected operator is active now" : "At least one matching fleet is active now"
-                        : `${displayFleet.lastActive || "Offline"}; request will remain in this operator's alerts`
+                        ? isDirectedBooking ? t("urride.booking.selectedActiveNow") : t("urride.booking.oneMatchingActive")
+                        : t("urride.booking.offlineAlerts", { status: displayFleet.lastActive || t("urride.booking.offlineFallback") })
                     }
                   />
-                  <InfoLine icon={FiCreditCard} label="Fare" value={fareEstimate} />
+                  <InfoLine icon={FiCreditCard} label={t("urride.booking.fareLabel")} value={fareEstimate} />
                 </div>
               ) : null}
             </section>
@@ -667,12 +680,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   <FiCreditCard size={19} />
                 </span>
                 <div>
-                  <p className="text-sm font-black text-emerald-950">Calculated fare</p>
+                  <p className="text-sm font-black text-emerald-950">{t("urride.booking.calculatedFare")}</p>
                   <p className="mt-1 text-sm font-black text-emerald-700">{fareEstimate}</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
                     {form.bookingMethod === "distance"
-                      ? `Nearby matching operators will see your resolved route${routeEstimate ? ` of ${formatBookingDistance(routeEstimate.distanceKm)}` : ""} before responding.`
-                      : `Nearby matching operators will see your requested ${Number(form.bookedHours || 0)} hour${Number(form.bookedHours || 0) === 1 ? "" : "s"} before responding.`}
+                      ? t("urride.booking.fareHintDistance", { route: routeEstimate ? t("urride.booking.fareHintRoutePart", { distance: formatBookingDistance(routeEstimate.distanceKm) }) : "" })
+                      : t(Number(form.bookedHours || 0) === 1 ? "urride.booking.fareHintTimeOne" : "urride.booking.fareHintTime", { hours: Number(form.bookedHours || 0) })}
                   </p>
                 </div>
               </div>
@@ -682,7 +695,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               <div className="grid gap-3 md:grid-cols-2">
                 <AddressSuggestionInput
                   icon={FiMapPin}
-                  label="Pickup point"
+                  label={t("urride.booking.pickupPointLabel")}
                   value={form.pickup}
                   selectedPoint={form.pickupPoint}
                   center={searchCenter || form.dropoffPoint}
@@ -693,12 +706,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   })}
                   onLocateMe={() => openBookingLocationPicker("pickup", "current")}
                   onDropPin={() => openBookingLocationPicker("pickup", "dropPin")}
-                  placeholder="Street, junction, saved place, or landmark"
+                  placeholder={t("urride.booking.pickupPlaceholder")}
                 />
 
                 <AddressSuggestionInput
                   icon={FiNavigation}
-                  label={bookingMode === "delivery" ? "Delivery drop-off point" : "Drop-off point"}
+                  label={bookingMode === "delivery" ? t("urride.booking.deliveryDropoffLabel") : t("urride.booking.dropoffPointLabel")}
                   value={form.dropoff}
                   selectedPoint={form.dropoffPoint}
                   center={form.pickupPoint || searchCenter}
@@ -709,20 +722,20 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   })}
                   onLocateMe={() => openBookingLocationPicker("dropoff", "current")}
                   onDropPin={() => openBookingLocationPicker("dropoff", "dropPin")}
-                  placeholder="Destination, address, station, or landmark"
+                  placeholder={t("urride.booking.dropoffPlaceholder")}
                 />
 
                 <FormInput
                   icon={FiUser}
-                  label="Passenger / sender name"
+                  label={t("urride.booking.passengerName")}
                   value={form.passengerName}
                   onChange={(value) => updateForm({ passengerName: value })}
-                  placeholder="Name operator should see"
+                  placeholder={t("urride.booking.passengerNamePlaceholder")}
                 />
 
                 <FormInput
                   icon={FiPhone}
-                  label="Phone"
+                  label={t("urride.booking.phone")}
                   value={form.phone}
                   onChange={(value) => updateForm({ phone: constrainCountryPhoneInput(value, "", { international: true }) })}
                   placeholder={getCountryPhoneHint()}
@@ -732,15 +745,15 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               <div className="grid gap-2 sm:grid-cols-2">
                 <LocateAreaButton
                   icon={FiMapPin}
-                  label="Locate pickup"
-                  detail="Open pickup in Area View"
+                  label={t("urride.booking.locatePickup")}
+                  detail={t("urride.booking.locatePickupDetail")}
                   disabled={!hasText(form.pickup)}
                   onClick={() => handleLocateArea("pickup")}
                 />
                 <LocateAreaButton
                   icon={FiNavigation}
-                  label="Route drop-off"
-                  detail="Open smart Area View route"
+                  label={t("urride.booking.routeDropoff")}
+                  detail={t("urride.booking.routeDropoffDetail")}
                   disabled={!hasText(form.dropoff)}
                   onClick={() => handleLocateArea("dropoff")}
                   primary
@@ -752,11 +765,11 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   routeEstimate ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"
                 }`}>
                   <FiRefreshCw className={routeLoading ? "animate-spin" : ""} size={17} />
-                  <span>{routeMessage || "Add pickup and drop-off locations to calculate each operator's distance price."}</span>
+                  <span>{routeMessage || t("urride.booking.routePlaceholder")}</span>
                 </div>
               ) : (
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Number of hours</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.numberOfHours")}</span>
                   <input
                     type="number"
                     min="0.5"
@@ -770,19 +783,19 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
               <div className="grid gap-3 md:grid-cols-3">
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Pickup time</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.pickupTime")}</span>
                   <select
                     value={form.pickupTime}
                     onChange={(event) => updateForm({ pickupTime: event.target.value })}
                     className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
                   >
-                    <option value="now">Now</option>
-                    <option value="schedule">Schedule</option>
+                    <option value="now">{t("urride.booking.now")}</option>
+                    <option value="schedule">{t("urride.booking.schedule")}</option>
                   </select>
                 </label>
 
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-black uppercase text-gray-500">Scheduled time</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.scheduledTime")}</span>
                   <input
                     type="datetime-local"
                     value={form.scheduledAt}
@@ -796,34 +809,34 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               {bookingMode === "delivery" ? (
                 <FormInput
                   icon={FiBox}
-                  label="Package description"
+                  label={t("urride.booking.packageDescription")}
                   value={form.packageDescription}
                   onChange={(value) => updateForm({ packageDescription: value })}
-                  placeholder="Small bag, box, food parcel, documents..."
+                  placeholder={t("urride.booking.packagePlaceholder")}
                 />
               ) : (
                 <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">Passengers</span>
+                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
                   <select
                     value={form.passengers}
                     onChange={(event) => updateForm({ passengers: event.target.value })}
                     className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
                   >
-                    <option value="1">1 passenger</option>
-                    <option value="2">2 passengers</option>
-                    <option value="3">3 passengers</option>
-                    <option value="4">4 passengers</option>
+                    <option value="1">{t("urride.booking.passengerCountOne", { count: 1 })}</option>
+                    <option value="2">{t("urride.booking.passengerCount", { count: 2 })}</option>
+                    <option value="3">{t("urride.booking.passengerCount", { count: 3 })}</option>
+                    <option value="4">{t("urride.booking.passengerCount", { count: 4 })}</option>
                   </select>
                 </label>
               )}
 
               <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">Trip note</span>
+                <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.tripNote")}</span>
                 <textarea
                   value={form.note}
                   onChange={(event) => updateForm({ note: event.target.value })}
                   rows={4}
-                  placeholder="Gate color, route instruction, package handling, passenger note..."
+                  placeholder={t("urride.booking.tripNotePlaceholder")}
                   className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
               </label>
@@ -833,10 +846,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               <div className="flex items-start gap-3">
                 <FiAlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={20} />
                 <div>
-                  <p className="text-sm font-black text-amber-900">Payment notice</p>
+                  <p className="text-sm font-black text-amber-900">{t("urride.booking.paymentNotice")}</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-                    Built-in transport payments are not active yet. Confirm the fare, route, operator identity,
-                    and payment method before paying. Do not share PINs, OTPs, or account passwords.
+                    {t("urride.booking.paymentNoticeBody")}
                   </p>
                 </div>
               </div>
@@ -847,8 +859,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
               <p className={`text-xs font-semibold leading-5 ${sendBlockMessage ? "text-gray-500" : "text-emerald-700"}`}>
                 {requirementMessage || fleetMessage || (isDirectedBooking
-                  ? `Ready to send this ${bookingMode} request directly to ${selectedFleet?.operatorName || selectedFleet?.fleetName || "the selected operator"}.`
-                  : `Ready to save this ${bookingMode} request in My Trips and notify matching operators.`)}
+                  ? t("urride.booking.readyDirected", { mode: bookingMode === "delivery" ? t("urride.booking.modeNounDelivery") : t("urride.booking.modeNounRide"), operator: selectedFleet?.operatorName || selectedFleet?.fleetName || t("urride.booking.selectedOperatorFallback") })
+                  : t("urride.booking.readyOpen", { mode: bookingMode === "delivery" ? t("urride.booking.modeNounDelivery") : t("urride.booking.modeNounRide") }))}
               </p>
 
               <button
@@ -862,7 +874,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 }`}
               >
                 {submitting ? <FiClock size={17} /> : <FiSend size={17} />}
-                {submitting ? "Saving..." : "Save & notify"}
+                {submitting ? t("urride.booking.saving") : t("urride.booking.saveNotify")}
               </button>
             </div>
           </footer>
@@ -878,39 +890,19 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
-                    Passenger safety notice
+                    {t("urride.booking.cautionEyebrow")}
                   </p>
                   <h2 className="mt-1 text-xl font-black text-slate-950">
-                    Before you book with KunThai UrRide
+                    {t("urride.booking.cautionTitle")}
                   </h2>
                 </div>
               </div>
 
               <div className="mt-5 grid max-h-[48vh] gap-3 overflow-y-auto pr-1 text-sm font-semibold leading-6 text-slate-600">
-                <p>
-                  KunThai helps passengers connect with registered operators, view routes,
-                  create booking records, and report transport issues.
-                </p>
-
-                <p>
-                  We may use and share necessary booking details, passenger information,
-                  operator information, route history, contact details, payment records,
-                  or safety reports when required for fraud prevention, dispute review,
-                  emergency support, legal compliance, or verified government request.
-                </p>
-
-                <p>
-                  KunThai is a technology platform. We can guide, record, notify, and
-                  provide information, but we cannot physically guarantee your safety,
-                  prevent accidents, stop crime, replace emergency services, or control
-                  operator behavior in the real world.
-                </p>
-
-                <p>
-                  Always confirm the operator, fleet, route, fare, and payment method
-                  before moving. Do not share OTPs, PINs, passwords, or private financial
-                  details with anyone.
-                </p>
+                <p>{t("urride.booking.cautionP1")}</p>
+                <p>{t("urride.booking.cautionP2")}</p>
+                <p>{t("urride.booking.cautionP3")}</p>
+                <p>{t("urride.booking.cautionP4")}</p>
               </div>
 
               <label className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -921,7 +913,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   className="mt-1 h-5 w-5 accent-emerald-600"
                 />
                 <span className="text-sm font-bold leading-6 text-slate-700">
-                  Do not show this again
+                  {t("urride.booking.cautionDontShow")}
                 </span>
               </label>
 
@@ -930,7 +922,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 onClick={acceptPassengerCaution}
                 className="mt-5 h-12 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
               >
-                I Have Read and Accepted the Condition
+                {t("urride.booking.cautionAccept")}
               </button>
             </section>
           </div>
@@ -942,7 +934,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               mode="businessLocationPicker"
               pickerStart={areaPicker.start}
               pickerLabels={getBookingPickerLabels(areaPicker.kind, bookingMode)}
-              backLabel="Back to booking form"
+              backLabel={t("urride.booking.pickerBack")}
               onBack={() => setAreaPicker(null)}
               onLocationPicked={acceptBookingLocation}
             />
@@ -986,7 +978,7 @@ function InfoLine({ icon, label, value }) {
       {createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}
       <span className="min-w-0">
         <span className="mr-1 text-xs font-black uppercase text-gray-400">{label}:</span>
-        <span className="break-words">{value || "Pending"}</span>
+        <span className="break-words">{value || t("urride.booking.pending")}</span>
       </span>
     </div>
   );
@@ -1053,7 +1045,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
 
       {selectedPoint?.lat && selectedPoint?.lng ? (
         <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
-          Selected address matched nearby coordinates{selectedPoint.country ? ` in ${selectedPoint.country}` : ""}.
+          {selectedPoint.country ? t("urride.booking.addressMatchedIn", { country: selectedPoint.country }) : t("urride.booking.addressMatched")}
         </p>
       ) : null}
 
@@ -1064,7 +1056,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
           className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
         >
           <FiNavigation size={15} />
-          Locate me
+          {t("urride.booking.locateMe")}
         </button>
         <button
           type="button"
@@ -1072,7 +1064,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
           className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
         >
           <FiMapPin size={15} />
-          Drop a pin
+          {t("urride.booking.dropPin")}
         </button>
       </div>
 
@@ -1085,7 +1077,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
       {showSuggestions ? (
         <div className="max-h-56 overflow-y-auto rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
           {searching ? (
-            <p className="px-3 py-3 text-xs font-black uppercase tracking-wide text-gray-400">Searching nearby addresses...</p>
+            <p className="px-3 py-3 text-xs font-black uppercase tracking-wide text-gray-400">{t("urride.booking.searchingAddresses")}</p>
           ) : suggestions.length ? (
             suggestions.map((place) => (
               <button
@@ -1112,7 +1104,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
             ))
           ) : (
             <p className="px-3 py-3 text-xs font-bold leading-5 text-gray-500">
-              No nearby match yet. Add a clearer street, junction, landmark, or select from Area View.
+              {t("urride.booking.noAddressMatch")}
             </p>
           )}
         </div>

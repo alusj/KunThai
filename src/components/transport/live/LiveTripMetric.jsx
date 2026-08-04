@@ -7,6 +7,7 @@ import {
   formatTripElapsed,
   getElapsedTripSeconds,
 } from "./liveTripMetricUtils";
+import { useI18n, t } from "../../../i18n";
 
 const MIN_DISTANCE_UPDATE_METERS = 8;
 const MIN_PROGRESS_SAVE_MS = 7000;
@@ -34,11 +35,11 @@ function useLiveTripMetric(trip) {
   useEffect(() => {
     if (trip?.bookingMethod !== "distance" || trip?.rawStatus !== "in_progress") return undefined;
     if (!navigator.geolocation) {
-      setTrackingMessage("Live GPS is not available on this device.");
+      setTrackingMessage(t("urride.live.gpsUnavailable"));
       return undefined;
     }
 
-    setTrackingMessage("GPS tracking active");
+    setTrackingMessage(t("urride.live.gpsActive"));
     const watchId = navigator.geolocation.watchPosition(
       ({ coords }) => {
         const point = { lat: coords.latitude, lng: coords.longitude };
@@ -57,11 +58,11 @@ function useLiveTripMetric(trip) {
           latitude: point.lat,
           longitude: point.lng,
         }).catch(() => {
-          setTrackingMessage("GPS detected. Waiting to sync live distance.");
+          setTrackingMessage(t("urride.live.gpsSyncing"));
         });
       },
       (error) => {
-        setTrackingMessage(error.code === 1 ? "Allow location access to update trip distance." : "Waiting for a stronger GPS signal.");
+        setTrackingMessage(error.code === 1 ? t("urride.live.gpsAllow") : t("urride.live.gpsWeak"));
       },
       { enableHighAccuracy: true, maximumAge: 1500, timeout: 12000 },
     );
@@ -72,17 +73,18 @@ function useLiveTripMetric(trip) {
   const elapsedSeconds = getElapsedTripSeconds(trip, clockNow);
   return useMemo(
     () => ({
-      label: trip?.bookingMethod === "time" ? "Current time covered" : "Current distance covered",
+      label: trip?.bookingMethod === "time" ? t("urride.live.timeLabel") : t("urride.live.distanceLabel"),
       value: trip?.bookingMethod === "time" ? formatTripElapsed(elapsedSeconds) : formatTripDistance(distanceMeters),
       detail: trip?.bookingMethod === "time"
-        ? trip?.rawStatus === "paused" ? "Timer paused" : "Counting every second"
-        : trackingMessage || "Distance updates from your live GPS movement",
+        ? trip?.rawStatus === "paused" ? t("urride.live.timerPaused") : t("urride.live.counting")
+        : trackingMessage || t("urride.live.gpsMovement"),
     }),
     [distanceMeters, elapsedSeconds, trackingMessage, trip?.bookingMethod, trip?.rawStatus],
   );
 }
 
 export default function LiveTripMetric({ trip, compact = false }) {
+  useI18n();
   const metric = useLiveTripMetric(trip);
 
   return (

@@ -13,6 +13,7 @@ import {
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
 import { fetchTransportOperationBadgeState } from "../../services/transportHeaderService";
+import { useI18n, t } from "../../../i18n";
 
 export default function Header({
   companyAccount,
@@ -25,6 +26,7 @@ export default function Header({
   onViewFleet,
   onOpenEmergencyArea,
 }) {
+  useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -42,7 +44,7 @@ export default function Header({
       if (!item?.fleetId) continue;
       const existing = seen.get(item.fleetId);
       if (existing) existing.count += 1;
-      else seen.set(item.fleetId, { fleetId: item.fleetId, fleetName: item.fleetName || "Fleet", count: 1 });
+      else seen.set(item.fleetId, { fleetId: item.fleetId, fleetName: item.fleetName || t("urride.header.fleetFallback"), count: 1 });
     }
     return Array.from(seen.values());
   })();
@@ -153,8 +155,8 @@ export default function Header({
       />
 
       <CenteredModal open={fleetPickerOpen} onClose={() => setFleetPickerOpen(false)} maxWidth="max-w-sm" labelledBy="fleet-picker-title">
-        <h2 id="fleet-picker-title" className="text-lg font-black text-slate-950">Open the fleet with a booking</h2>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">You have pending bookings across more than one fleet. Choose which to open.</p>
+        <h2 id="fleet-picker-title" className="text-lg font-black text-slate-950">{t("urride.header.openBookedFleetTitle")}</h2>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("urride.header.openBookedFleetBody")}</p>
         <div className="mt-4 space-y-2">
           {bookedFleets.map((fleet) => (
             <button

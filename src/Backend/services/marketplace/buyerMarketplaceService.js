@@ -9,6 +9,11 @@ import {
 import { getTierUnitPrice, normalizeTierPricing } from "./tierPricingUtils";
 import { uploadMediaDataUrl } from "../explore/mediaService";
 import { haversineKm } from "../../utils/distance";
+import {
+  buildProductRecallFilter,
+  buildRelaxedRecallFilter,
+  rankSearchResults,
+} from "./productSearch";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -129,7 +134,7 @@ function mapBuyerProduct(product = {}) {
 
 const PRODUCT_SELECT = `
   id,business_id,name,description,price,discount_price,location,category,condition,brand,model,
-  tier_pricing,
+  product_attributes,tier_pricing,
   main_image_url,image_urls,video_url,stock,views,sales,created_at,delivery_available,pickup_available,
   delivery_time,allow_negotiation,country,country_iso,currency,
   marketplace_businesses (
@@ -295,9 +300,18 @@ function applyProductFilters(query, filters = {}) {
     nextQuery = nextQuery.ilike("location", `%${filters.location}%`);
   }
 
+  // Broad candidate recall: the query is normalized (trim, collapse spaces,
+  // drop punctuation, flatten hyphens) and every token must appear in at least
+  // one searchable field — name, description, category, brand, model, location.
+  // Precise product-first ranking happens after mapping (see rankSearchResults).
+  // When `searchRelaxed` is set (no strict matches were found) a looser
+  // prefix-based recall powers partial-word / typo tolerance without pulling the
+  // whole catalogue into the browser.
   if (filters.search) {
-    const term = `%${filters.search}%`;
-    nextQuery = nextQuery.or(`name.ilike.${term},description.ilike.${term},category.ilike.${term},location.ilike.${term}`);
+    const recall = filters.searchRelaxed
+      ? buildRelaxedRecallFilter(filters.search)
+      : buildProductRecallFilter(filters.search);
+    if (recall) nextQuery = nextQuery.or(recall);
   }
 
   if (filters.delivery === "delivery") nextQuery = nextQuery.eq("delivery_available", true);
@@ -502,21 +516,49 @@ async function applyClientProductScopes(products, filters = {}) {
 }
 
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
-  const data = await runCountryScopedProductListQuery({ filters });
-  const scoped = filterCountryScopedItems(
-    (data || []).map(mapBuyerProduct),
-    (product) => [product.seller?.country, product.location],
-    filters.country || filters.countryCode,
-  );
-  const scopedItems = await applyClientProductScopes(scoped.items, filters);
-  const products = sortProducts(scopedItems, filters.sort);
+  const searchTerm = String(filters.search || "").trim();
+
+  async function loadScoped(effectiveFilters) {
+    const data = await runCountryScopedProductListQuery({ filters: effectiveFilters });
+    const scoped = filterCountryScopedItems(
+      (data || []).map(mapBuyerProduct),
+      (product) => [product.seller?.country, product.location],
+      filters.country || filters.countryCode,
+    );
+    const scopedItems = await applyClientProductScopes(scoped.items, effectiveFilters);
+    return { scoped, scopedItems };
+  }
+
+  let { scoped, scopedItems } = await loadScoped(filters);
+
+  // When a strict search recalls nothing, retry once with the looser
+  // prefix-based recall so typos and partial words still surface products. Only
+  // when the relaxed filter is non-empty — never fall through to an unfiltered
+  // full-catalogue fetch.
+  if (searchTerm && !scopedItems.length && buildRelaxedRecallFilter(searchTerm)) {
+    const relaxed = await loadScoped({ ...filters, searchRelaxed: true });
+    scoped = relaxed.scoped;
+    scopedItems = relaxed.scopedItems;
+  }
+
+  // With a search term, relevance ranking (product name > brand/model >
+  // keywords > category > description > store, typo-tolerant) takes priority
+  // over the plain newest/popular sort. An explicit price/discount sort still
+  // wins so the sort selector keeps working; otherwise "Most relevant" is the
+  // default order for searches.
+  const useRelevance = Boolean(searchTerm) && !["price-low", "price-high", "discount"].includes(filters.sort);
+  const products = useRelevance
+    ? rankSearchResults(scopedItems, searchTerm)
+    : sortProducts(searchTerm ? rankSearchResults(scopedItems, searchTerm) : scopedItems, filters.sort);
 
   return {
     newProducts: products,
     discountedProducts: products.filter((product) => product.discountPrice && product.discountPrice < product.price),
-    highDemandProducts: [...products]
-      .filter((product) => product.views > 0 || product.sales > 0)
-      .sort((a, b) => b.sales + b.views - (a.sales + a.views)),
+    highDemandProducts: searchTerm
+      ? products
+      : [...products]
+          .filter((product) => product.views > 0 || product.sales > 0)
+          .sort((a, b) => b.sales + b.views - (a.sales + a.views)),
     topRatedProducts: products,
     countryScope: scoped.scope,
     country: scoped.country,

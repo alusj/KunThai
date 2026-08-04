@@ -493,6 +493,13 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
             setFilters={setFilters}
             categories={options.categories}
             locations={options.locations}
+            products={catalog.newProducts}
+            onProductSelect={openProduct}
+            onStoreSelect={(seller) => {
+              setDetailOpen(false);
+              setSelectedSeller(seller);
+              setSellerOpen(true);
+            }}
             onClear={() => setFilters(DEFAULT_FILTERS)}
             autoFocus
           />

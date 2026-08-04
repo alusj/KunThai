@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Filter, MapPin, Search, SlidersHorizontal, Truck, X } from "lucide-react";
+import { Clock, Filter, MapPin, Package, Search, SlidersHorizontal, Store, Truck, X } from "lucide-react";
 import {
   LOCATION_SCOPE_COUNTRY,
   LOCATION_SCOPE_NEARBY,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { buildSearchSuggestions, MIN_QUERY_LENGTH } from "../../../Backend/services/marketplace/productSearch";
+import { addRecentMarketplaceSearch, getRecentMarketplaceSearches } from "../../../Backend/services/marketplace/recentSearchesService";
 import { useI18n } from "../../../i18n";
 
 const SORT_OPTIONS = [
@@ -30,13 +32,25 @@ const LOCATION_SCOPES = [
   { value: LOCATION_SCOPE_COUNTRY, labelKey: "urmall.browse.scopeCountry" },
 ];
 
-export default function BuyerDiscoveryBar({ filters, setFilters, categories = [], locations = [], onClear, autoFocus = false }) {
+export default function BuyerDiscoveryBar({
+  filters,
+  setFilters,
+  categories = [],
+  locations = [],
+  products = [],
+  onProductSelect,
+  onStoreSelect,
+  onClear,
+  autoFocus = false,
+}) {
   const { t } = useI18n();
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Once the shopper commits to a term (taps "see results"), collapse the
   // suggestion dropdown so the live results below are unobstructed — without
   // clearing the search the way closing the whole panel would.
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [recentSearches, setRecentSearches] = useState(() => getRecentMarketplaceSearches());
 
   function getCategoryLabel(category) {
     const match = VERTICAL_CATEGORIES.find((option) => option.value === category);
@@ -61,32 +75,85 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
     [filters],
   );
 
-  // Live "similar" suggestions from the categories, business types, and seller
-  // locations that match what is being typed — surfaced instantly as the user
-  // types rather than only once they stop.
+  // Unique seller/store list drawn from the products already loaded for the
+  // current query — no extra request needed to power store suggestions.
+  const stores = useMemo(() => {
+    const map = new Map();
+    products.forEach((product) => {
+      const seller = product.seller;
+      if (seller?.id && seller?.name && !map.has(seller.id)) map.set(seller.id, seller);
+    });
+    return Array.from(map.values());
+  }, [products]);
+
+  // Product-first, typed suggestions. Matching products come first (relevance
+  // ranked, typo tolerant), then the verticals/categories and stores that match
+  // — each carries a `type` so the UI shows the right icon and select action.
   const searchQuery = filters.search.trim();
   const suggestions = useMemo(() => {
-    const query = searchQuery.toLowerCase();
-    if (!query) return [];
-    const matches = [];
-    VERTICAL_CATEGORIES.forEach((option) => {
-      const label = t(option.labelKey);
-      if (label.toLowerCase().includes(query)) matches.push({ type: "category", value: option.value, label });
+    const verticalCategoryLabels = VERTICAL_CATEGORIES.map((option) => ({ value: option.value, label: t(option.labelKey) }));
+    const built = buildSearchSuggestions({
+      products,
+      categories,
+      stores,
+      locations,
+      rawQuery: searchQuery,
     });
-    categories.forEach((category) => {
-      if (String(category).toLowerCase().includes(query)) matches.push({ type: "category", value: category, label: category });
+    // Fold in the business-type verticals as category suggestions.
+    verticalCategoryLabels.forEach(({ value, label }) => {
+      if (label.toLowerCase().includes(searchQuery.toLowerCase()) && !built.some((s) => s.value === value)) {
+        built.push({ type: "category", value, label });
+      }
     });
-    locations.forEach((location) => {
-      if (String(location).toLowerCase().includes(query)) matches.push({ type: "location", value: location, label: location });
-    });
-    return matches.slice(0, 6);
+    return built.slice(0, 8);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, categories, locations]);
-  const showSuggestions = Boolean(searchQuery) && !suggestionsDismissed;
+  }, [searchQuery, categories, locations, products, stores]);
+
+  const hasQuery = searchQuery.length >= MIN_QUERY_LENGTH;
+  const showSuggestions = hasQuery && !suggestionsDismissed;
+  // Empty-state: recent searches surface the moment the box is focused with no
+  // text, and are replaced by live suggestions as soon as the shopper types.
+  const showEmptyState = inputFocused && !searchQuery && recentSearches.length > 0;
 
   function applySuggestion(suggestion) {
     setSuggestionsDismissed(true);
+    if (suggestion.type === "product") {
+      // A product suggestion opens the product directly — not a category filter.
+      if (searchQuery) setRecentSearches(addRecentMarketplaceSearch(searchQuery));
+      onProductSelect?.(suggestion.product);
+      return;
+    }
+    if (suggestion.type === "store") {
+      onStoreSelect?.(suggestion.store);
+      return;
+    }
+    // Category / location suggestions open that facet.
     setFilters((current) => ({ ...current, search: "", [suggestion.type]: suggestion.value }));
+  }
+
+  function commitSearch() {
+    setSuggestionsDismissed(true);
+    if (searchQuery) setRecentSearches(addRecentMarketplaceSearch(searchQuery));
+  }
+
+  function applyRecentSearch(term) {
+    setSuggestionsDismissed(false);
+    setInputFocused(false);
+    setFilters((current) => ({ ...current, search: term }));
+  }
+
+  function suggestionIcon(type) {
+    if (type === "product") return <Package size={15} className="text-emerald-700" />;
+    if (type === "store") return <Store size={15} className="text-gray-500" />;
+    if (type === "location") return <MapPin size={15} className="text-gray-400" />;
+    return <Filter size={15} className="text-gray-400" />;
+  }
+
+  function suggestionTypeLabel(type) {
+    if (type === "product") return t("urmall.browse.suggestProduct");
+    if (type === "store") return t("urmall.browse.suggestStore");
+    if (type === "location") return t("urmall.browse.suggestLocation");
+    return t("urmall.browse.suggestCategory");
   }
 
   function updateField(field, value) {
@@ -189,6 +256,11 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
               autoFocus={autoFocus}
               value={filters.search}
               onChange={(event) => updateField("search", event.target.value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commitSearch();
+              }}
               placeholder={t("urmall.browse.searchPlaceholder")}
               className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-500"
             />
@@ -198,22 +270,49 @@ export default function BuyerDiscoveryBar({ filters, setFilters, categories = []
               <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => setSuggestionsDismissed(true)}
+                onClick={commitSearch}
                 className="flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2.5 text-left text-sm font-black text-gray-900 hover:bg-gray-50"
               >
                 <Search size={15} className="text-emerald-700" />
                 <span className="truncate">{t("urmall.browse.seeResultsFor", { query: searchQuery })}</span>
               </button>
-              {suggestions.map((suggestion) => (
+              {suggestions.length ? (
+                suggestions.map((suggestion) => (
+                  <button
+                    key={`${suggestion.type}-${suggestion.value}`}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => applySuggestion(suggestion)}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50"
+                  >
+                    {suggestionIcon(suggestion.type)}
+                    <span className="min-w-0 flex-1 truncate">{suggestion.label}</span>
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-gray-500">
+                      {suggestionTypeLabel(suggestion.type)}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="px-3 py-2.5 text-sm font-bold text-gray-500">
+                  {t("urmall.browse.noSuggestions", { query: searchQuery })}
+                </p>
+              )}
+            </div>
+          ) : showEmptyState ? (
+            <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-20 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+              <p className="px-3 pb-1 pt-2.5 text-[10px] font-black uppercase tracking-wide text-gray-400">
+                {t("urmall.browse.recentSearches")}
+              </p>
+              {recentSearches.map((term) => (
                 <button
-                  key={`${suggestion.type}-${suggestion.value}`}
+                  key={term}
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => applySuggestion(suggestion)}
+                  onClick={() => applyRecentSearch(term)}
                   className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50"
                 >
-                  {suggestion.type === "location" ? <MapPin size={15} className="text-gray-400" /> : <Filter size={15} className="text-gray-400" />}
-                  <span className="truncate">{suggestion.label}</span>
+                  <Clock size={15} className="text-gray-400" />
+                  <span className="truncate">{term}</span>
                 </button>
               ))}
             </div>

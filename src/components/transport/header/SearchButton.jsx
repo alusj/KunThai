@@ -10,6 +10,7 @@ import { openPublicCodeResult } from "../../../Backend/services/publicCodeServic
 import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
 import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
 import VerificationBadge from "../verification/VerificationBadge";
+import { useI18n, t } from "../../../i18n";
 
 function matchesSearch(fleet, query) {
   const value = query.trim().toLowerCase();
@@ -32,6 +33,7 @@ function matchesSearch(fleet, query) {
 }
 
 export default function SearchButton({ onOpenChange, onViewFleet }) {
+  useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [fleets, setFleets] = useState([]);
@@ -51,7 +53,7 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || "Unable to search transport operators.");
+          setError(err.message || t("urride.search.loadError"));
           setFleets([]);
         }
       })
@@ -84,9 +86,9 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
     <>
       <PremiumHeaderButton
         icon={Search}
-        label="Search operator, code, plate, or fleet"
+        label={t("urride.search.button")}
         onClick={() => setOpen(true)}
-        title="Search operator, code, plate, or fleet"
+        title={t("urride.search.button")}
       />
 
       {open ? (
@@ -97,20 +99,20 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-green-700">
-                    Transport Search
+                    {t("urride.search.eyebrow")}
                   </p>
                   <h2 className="mt-1 text-xl font-black text-slate-950">
-                    Find operators
+                    {t("urride.search.title")}
                   </h2>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Search by operator, code, plate, vehicle type, or location.
+                    {t("urride.search.subtitle")}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  aria-label="Close transport search"
+                  aria-label={t("urride.search.close")}
                 >
                   <X size={18} />
                 </button>
@@ -123,7 +125,7 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                     type="search"
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search KT code, plate, taxi, bike, area..."
+                    placeholder={t("urride.search.placeholder")}
                     autoFocus
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-950 outline-none focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
                   />
@@ -134,11 +136,11 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                     <PublicCodeResultCard lookup={codeLookup} surface="urride" onOpen={openCodeResult} />
                   ) : null}
                   {error ? (
-                    <SearchState title="Unable to search" body={error} />
+                    <SearchState title={t("urride.search.errorTitle")} body={error} />
                   ) : loading ? (
-                    <SearchState title="Loading operators" body="Checking passenger-visible fleets." />
+                    <SearchState title={t("urride.search.loadingTitle")} body={t("urride.search.loadingBody")} />
                   ) : results.length === 0 ? (
-                    <SearchState title="No matching operators" body="Try a fleet type, plate number, operator code, or area." />
+                    <SearchState title={t("urride.search.emptyTitle")} body={t("urride.search.emptyBody")} />
                   ) : (
                     results.map((fleet) => (
                       <article key={fleet.id} className="rounded-2xl border border-slate-100 p-3 shadow-sm">
@@ -165,7 +167,7 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                           }}
                           className="kt-touchable mt-3 h-10 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
                         >
-                          View fleet profile
+                          {t("urride.search.viewProfile")}
                         </button>
                       </article>
                     ))

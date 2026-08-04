@@ -2,10 +2,12 @@ import { useState } from "react";
 import TransactionsHeader from "./TransactionsHeader";
 import CashIn from "./CashIn";
 import CashOut from "./CashOut";
+import { useI18n, t } from "../../../../i18n";
 
 const transactionTabs = ["cashout", "cashin"];
 
 export default function TransactionsScreen({ setActiveScreen }) {
+  useI18n();
   const [activeTab, setActiveTab] = useState("cashout");
 
   function selectTab(tab) {
@@ -33,7 +35,7 @@ export default function TransactionsScreen({ setActiveScreen }) {
               : "text-gray-500"
           }`}
         >
-          Cash Out History
+          {t("urride.header.cashOutHistory")}
         </button>
 
         <button
@@ -45,7 +47,7 @@ export default function TransactionsScreen({ setActiveScreen }) {
               : "text-gray-500"
           }`}
         >
-          Cash In History
+          {t("urride.header.cashInHistory")}
         </button>
 
       </div>

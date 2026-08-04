@@ -15,8 +15,10 @@ import {
 } from "../../../Backend/services/notificationSeenStore";
 import { fetchTransportNotifications } from "../../services/transportHeaderService";
 import { subscribePassengerTrips } from "../../services/passengerTransportService";
+import { useI18n, t } from "../../../i18n";
 
 export default function NotificationButton({ companyAccount, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet }) {
+  useI18n();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +57,7 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || "Unable to load transport notifications.");
+          setError(err.message || t("urride.notifications.loadError"));
           setNotifications([]);
         }
       })
@@ -136,9 +138,9 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
         <PremiumHeaderButton
           badge={unreadCount}
           icon={Bell}
-          label="Open transport notifications"
+          label={t("urride.notifications.button")}
           onClick={() => setOpen(true)}
-          title="Open transport notifications"
+          title={t("urride.notifications.button")}
         />
         {unreadCount > 0 && !open ? (
           <button
@@ -146,7 +148,7 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
             onClick={() => setOpen(true)}
             className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-40 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left text-xs font-black text-slate-700 shadow-xl shadow-slate-900/10"
           >
-            New notification
+            {t("urride.notifications.new")}
             <span className="absolute -top-1 right-5 h-3 w-3 rotate-45 border-l border-t border-emerald-100 bg-white" />
           </button>
         ) : null}
@@ -160,7 +162,7 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
         >
           <button
             type="button"
-            aria-label="Close transport notifications overlay"
+            aria-label={t("urride.notifications.closeOverlay")}
             onClick={() => setOpen(false)}
             tabIndex={open ? 0 : -1}
             className={`absolute inset-0 border-0 bg-slate-950/45 p-0 backdrop-blur-sm transition-opacity duration-300 ${
@@ -176,7 +178,7 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
             <header className="kt-header-glass flex items-start gap-3 px-4 py-4">
               <AppBackTab
                 onBack={() => setOpen(false)}
-                label="Back to transport"
+                label={t("urride.notifications.back")}
                 historyKey="transport-notifications"
                 iconSize={30}
                 className="mt-0.5 shrink-0 rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
@@ -184,24 +186,24 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
               />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black uppercase tracking-wide text-green-700">
-                  Transport Alerts
+                  {t("urride.notifications.eyebrow")}
                 </p>
                 <h2 className="mt-1 truncate text-xl font-black text-slate-950">
-                  Notifications
+                  {t("urride.notifications.title")}
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Passenger ride, delivery, and active-trip updates.
+                  {t("urride.notifications.subtitle")}
                 </p>
               </div>
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4">
               {error ? (
-                <NotificationState title="Unable to load alerts" body={error} />
+                <NotificationState title={t("urride.notifications.errorTitle")} body={error} />
               ) : loading ? (
-                <NotificationState title="Loading notifications" body="Checking transport trips and operator alerts." />
+                <NotificationState title={t("urride.notifications.loadingTitle")} body={t("urride.notifications.loadingBody")} />
               ) : notifications.length === 0 ? (
-                <NotificationState title="No notifications" body="Ride, delivery, and operator alerts will appear here." />
+                <NotificationState title={t("urride.notifications.emptyTitle")} body={t("urride.notifications.emptyBody")} />
               ) : (
                 <div className="space-y-3">
                   {notifications.map((notification) => (
@@ -236,7 +238,7 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
                               }}
                               className="kt-touchable mt-3 text-sm font-black text-green-700 hover:text-green-800"
                             >
-                              View fleet
+                              {t("urride.notifications.viewFleet")}
                             </button>
                           ) : null}
                         </div>

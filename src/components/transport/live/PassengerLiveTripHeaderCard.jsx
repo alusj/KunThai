@@ -23,12 +23,14 @@ import {
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 import LiveTripMetric from "./LiveTripMetric";
+import { useI18n, t } from "../../../i18n";
 
 function isHeaderTrip(trip) {
   return ["start_requested", "in_progress", "paused"].includes(trip.rawStatus);
 }
 
 export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
+  useI18n();
   const [trips, setTrips] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
@@ -123,7 +125,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
       showToast(successMessage, "success");
       await refresh();
     } catch (error) {
-      showToast(error.message || "Unable to update this trip.", "danger");
+      showToast(error.message || t("urride.liveTrip.updateError"), "danger");
     } finally {
       setBusy(false);
     }
@@ -136,7 +138,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
 
   if (!trip) return null;
 
-  const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || "Your operator";
+  const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || t("urride.liveTrip.operatorFallback");
   const paused = trip.rawStatus === "paused";
 
   return (
@@ -146,29 +148,29 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
           <div>
             <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
               <FiShield size={14} />
-              Trip start approval
+              {t("urride.liveTrip.startApproval")}
             </p>
-            <h2 className="mt-1 text-base font-black text-slate-950">{operatorName} wants to start the trip</h2>
-            <p className="mt-1 text-xs font-bold text-slate-500">Confirm only when you are with the operator and ready to move.</p>
+            <h2 className="mt-1 text-base font-black text-slate-950">{t("urride.liveTrip.wantsToStart", { operator: operatorName })}</h2>
+            <p className="mt-1 text-xs font-bold text-slate-500">{t("urride.liveTrip.confirmHint")}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => run(confirmTransportTripStart, "Trip started. Your live trip card is now active.")}
+              onClick={() => run(confirmTransportTripStart, t("urride.liveTrip.startedToast"))}
               disabled={busy}
               className="kt-touchable flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white disabled:opacity-50"
             >
               <FiPlay size={16} />
-              Start
+              {t("urride.liveTrip.start")}
             </button>
             <button
               type="button"
-              onClick={() => run(declineTransportTripStart, "Trip start cancelled. The operator can request again when you are ready.")}
+              onClick={() => run(declineTransportTripStart, t("urride.liveTrip.startCancelledToast"))}
               disabled={busy}
               className="kt-touchable flex h-11 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-black text-red-700 disabled:opacity-50"
             >
               <FiX size={16} />
-              Cancel
+              {t("urride.liveTrip.cancel")}
             </button>
           </div>
         </div>
@@ -178,11 +180,11 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
                 <FiNavigation size={14} />
-                Trip updated
+                {t("urride.liveTrip.tripUpdated")}
               </p>
               <h2 className="mt-1 break-words text-lg font-black leading-tight text-slate-950">{trip.title}</h2>
               <p className="mt-1 text-xs font-bold text-slate-500">
-                {operatorName} - {paused ? "Trip paused" : "Trip in progress"}
+                {t("urride.liveTrip.statusLine", { operator: operatorName, status: paused ? t("urride.liveTrip.paused") : t("urride.liveTrip.inProgress") })}
               </p>
             </div>
 
@@ -192,7 +194,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
               onClick={toggleMenu}
               className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-950 text-white shadow-sm"
               aria-expanded={menuOpen}
-              aria-label="Open trip safety actions"
+              aria-label={t("urride.liveTrip.safetyActionsAria")}
             >
               <FiMoreHorizontal size={18} />
             </button>
@@ -210,18 +212,18 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
               }`}
             >
               <div className="mb-3 rounded-2xl bg-white/10 px-3 py-2">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">Safety ready</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">{t("urride.liveTrip.safetyReady")}</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-200">
-                  Choose an action. Each one opens the dedicated trip screen with the same slide transition.
+                  {t("urride.liveTrip.chooseAction")}
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <PassengerAction icon={paused ? FiPlay : FiPause} label={paused ? "Continue trip" : "Pause trip"} onClick={() => openAction("pause")} />
-                <PassengerAction icon={FiShare2} label="Share live location" onClick={() => openAction("share")} />
-                <PassengerAction icon={FiPhone} label="Contact operator" onClick={() => openAction("contact")} />
-                <PassengerAction icon={FiAlertTriangle} label="Emergency" danger onClick={() => openAction("emergency")} />
-                <PassengerAction icon={FiFlag} label="Report" onClick={() => openAction("report")} />
-                <PassengerAction icon={FiXCircle} label="End trip" danger onClick={() => openAction("end")} />
+                <PassengerAction icon={paused ? FiPlay : FiPause} label={paused ? t("urride.liveTrip.continueTrip") : t("urride.liveTrip.pauseTrip")} onClick={() => openAction("pause")} />
+                <PassengerAction icon={FiShare2} label={t("urride.liveTrip.shareLocation")} onClick={() => openAction("share")} />
+                <PassengerAction icon={FiPhone} label={t("urride.liveTrip.contactOperator")} onClick={() => openAction("contact")} />
+                <PassengerAction icon={FiAlertTriangle} label={t("urride.liveTrip.emergency")} danger onClick={() => openAction("emergency")} />
+                <PassengerAction icon={FiFlag} label={t("urride.liveTrip.report")} onClick={() => openAction("report")} />
+                <PassengerAction icon={FiXCircle} label={t("urride.liveTrip.endTrip")} danger onClick={() => openAction("end")} />
               </div>
             </div>
           ) : null}
