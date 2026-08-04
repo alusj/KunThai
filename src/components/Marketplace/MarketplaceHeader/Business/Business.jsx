@@ -40,6 +40,7 @@ import {
 } from "../../../../Backend/services/marketplace/sellerRegistrationService";
 import { consumeSellerOrdersAreaViewReturn } from "../../../../Backend/services/marketplace/navigationHandoffService";
 import { getBusinessPermissions, getAllowedWorkspaceTabs } from "../../../../Backend/services/marketplace/businessPermissions";
+import { requestOpenVerticalEditor } from "../../../../Backend/services/marketplace/verticalEditorBus";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n, t } from "../../../../i18n";
 
@@ -107,17 +108,41 @@ export default function Business({ onBack }) {
   const [businesses, setBusinesses] = useState([]);
   const [switchingBusiness, setSwitchingBusiness] = useState(false);
   const switchTargetRef = useRef(null);
+  const pendingSwitchToastRef = useRef(false);
   const sellerScreenTimerRef = useRef(null);
 
-  // Keeps the switch animation up until the newly selected business has actually
-  // loaded (so the dashboard never flashes the previous business type), with a
-  // safety timeout in case the overview never resolves.
+  // Keeps the switch animation up until the newly selected business AND its
+  // dashboard data have loaded, so the seller never sees the empty skeleton
+  // cards flash after switching. A safety cap stops a slow/never-resolving
+  // overview from trapping the overlay. The "switched" toast is announced only
+  // once the overlay closes, so it appears after the animation instead of
+  // sitting behind it.
   useEffect(() => {
     if (!switchingBusiness) return undefined;
-    const arrived = switchTargetRef.current && sellerOverview.business?.id === switchTargetRef.current;
-    const timer = window.setTimeout(() => setSwitchingBusiness(false), arrived ? 520 : 4000);
+
+    const businessArrived = switchTargetRef.current && sellerOverview.business?.id === switchTargetRef.current;
+    const dashboardReady =
+      businessArrived && Boolean(sellerOverview.storeStatus && sellerOverview.health && sellerOverview.today);
+
+    function closeAndAnnounce() {
+      setSwitchingBusiness(false);
+      if (pendingSwitchToastRef.current) {
+        pendingSwitchToastRef.current = false;
+        setToastMessage(t("urmall.biz.dash.bizSwitched"));
+        window.setTimeout(() => setToastMessage(""), 2500);
+      }
+    }
+
+    const delay = dashboardReady ? 220 : businessArrived ? 1500 : 4000;
+    const timer = window.setTimeout(closeAndAnnounce, delay);
     return () => window.clearTimeout(timer);
-  }, [switchingBusiness, sellerOverview.business?.id]);
+  }, [
+    switchingBusiness,
+    sellerOverview.business?.id,
+    sellerOverview.storeStatus,
+    sellerOverview.health,
+    sellerOverview.today,
+  ]);
 
   // Returning from an order-address Area View lands directly on the orders
   // screen the seller left from.
@@ -384,12 +409,13 @@ export default function Business({ onBack }) {
 
   if (loading || sellerDashboardInitialLoading) {
     // The overview cache keeps stats persistent across visits, so this quiet
-    // state only appears on the very first dashboard open of a session.
+    // state only appears on the very first dashboard open of a session. A single
+    // skeleton — header (with a placeholder where the business switcher sits)
+    // plus the dashboard cards — stands in for the real layout instead of a
+    // "Opening dashboard" line.
     return (
-      <div className={`${dashboardRevealClass} min-h-screen bg-slate-50`} style={dashboardRevealStyle}>
-        <div className="flex min-h-screen items-center justify-center px-6">
-          <p className="text-sm font-bold text-slate-400">{t("urmall.biz.dash.openingDashboard")}</p>
-        </div>
+      <div className={`${dashboardRevealClass} min-h-screen bg-gray-50`} style={dashboardRevealStyle} aria-busy="true">
+        <SellerDashboardSkeleton />
       </div>
     );
   }
@@ -422,7 +448,7 @@ export default function Business({ onBack }) {
               return;
             }
             if (businessKind !== "retail") {
-              window.dispatchEvent(new CustomEvent("marketplace-open-vertical-editor"));
+              requestOpenVerticalEditor();
               return;
             }
             setEditingProduct(null);
@@ -450,12 +476,14 @@ export default function Business({ onBack }) {
           onSwitchBusiness={async (businessId) => {
             if (businessId && businessId !== activeBusinessId) {
               switchTargetRef.current = businessId;
+              pendingSwitchToastRef.current = true;
               setSwitchingBusiness(true);
             }
             await setActiveRegisteredBusiness(businessId);
             setActiveTab("overview");
-            setToastMessage(t("urmall.biz.dash.bizSwitched"));
-            window.setTimeout(() => setToastMessage(""), 2500);
+            // The "switched" toast is announced once the switch overlay closes
+            // (see the switchingBusiness effect), so it never sits behind the
+            // animation.
           }}
           primaryActionLabel={primaryActionLabel}
           showAddProduct={permissions.canAddProducts}
@@ -573,30 +601,69 @@ export default function Business({ onBack }) {
   );
 }
 
+// Single first-load skeleton for the seller dashboard: a header row that mirrors
+// the real one — including a placeholder where the business switcher renders —
+// over the dashboard's stat/summary cards. Replaces the old "Opening dashboard"
+// text so only one skeleton represents the screen while it loads.
+function SellerDashboardSkeleton() {
+  return (
+    <>
+      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
+        <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
+            {/* Where the business switcher renders. */}
+            <div className="h-10 w-16 animate-pulse rounded-xl bg-gray-200" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
+            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
+            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
+          </div>
+        </div>
+      </header>
+      <div className="w-full space-y-4 px-4 py-5 sm:px-6 lg:px-8">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="h-36 animate-pulse rounded-xl border border-gray-200 bg-white" />
+          <div className="h-36 animate-pulse rounded-xl border border-gray-200 bg-white" />
+        </div>
+        <div className="h-28 animate-pulse rounded-xl border border-gray-200 bg-white" />
+      </div>
+    </>
+  );
+}
+
 // Covers the dashboard while a business switch is in flight so the seller never
 // sees the previous business type linger. Its ping ring, popping card, and
 // bouncing dots give the wait a deliberate, branded feel.
+//
+// Rendered through AppPortal so its `fixed inset-0` is measured against the
+// viewport, not an animated/transformed ancestor — otherwise the card drifts
+// off-centre or is clipped. z-index sits above the sticky header (z-30) so the
+// animation is never partially hidden behind it.
 function BusinessSwitchOverlay({ name }) {
   return (
-    <div className="kt-detail-backdrop-enter fixed inset-0 z-[900] flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-sm">
-      <div className="kt-detail-zoom-enter flex w-full max-w-xs flex-col items-center gap-5 rounded-[28px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 px-8 py-8 text-center shadow-2xl">
-        <span className="relative grid h-16 w-16 place-items-center">
-          <span className="absolute inset-0 animate-ping rounded-2xl bg-emerald-500/40" />
-          <span className="relative grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-300">
-            <Store size={28} />
+    <AppPortal>
+      <div className="kt-detail-backdrop-enter fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-sm">
+        <div className="kt-detail-zoom-enter flex w-full max-w-xs flex-col items-center gap-5 rounded-[28px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 px-8 py-8 text-center shadow-2xl">
+          <span className="relative grid h-16 w-16 place-items-center">
+            <span className="absolute inset-0 animate-ping rounded-2xl bg-emerald-500/40" />
+            <span className="relative grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-300">
+              <Store size={28} />
+            </span>
           </span>
-        </span>
-        <div>
-          <p className="text-sm font-black text-white">{t("urmall.biz.dash.switchingBusiness")}</p>
-          {name ? <p className="mt-1 truncate text-xs font-bold text-emerald-300">{name}</p> : null}
-          <div className="mt-4 flex items-center justify-center gap-1.5" aria-hidden="true">
-            {[0, 150, 300].map((delay) => (
-              <span key={delay} className="h-2 w-2 animate-bounce rounded-full bg-emerald-400" style={{ animationDelay: `${delay}ms` }} />
-            ))}
+          <div>
+            <p className="text-sm font-black text-white">{t("urmall.biz.dash.switchingBusiness")}</p>
+            {name ? <p className="mt-1 truncate text-xs font-bold text-emerald-300">{name}</p> : null}
+            <div className="mt-4 flex items-center justify-center gap-1.5" aria-hidden="true">
+              {[0, 150, 300].map((delay) => (
+                <span key={delay} className="h-2 w-2 animate-bounce rounded-full bg-emerald-400" style={{ animationDelay: `${delay}ms` }} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </AppPortal>
   );
 }
 

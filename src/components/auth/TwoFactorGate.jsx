@@ -42,11 +42,10 @@ export default function TwoFactorGate({ user, children }) {
   }, [guest, userId]);
 
   if (required === null) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-slate-100">
-        <p className="text-sm font-bold text-slate-400">Checking account security...</p>
-      </div>
-    );
+    // Blend into the single app loading backdrop instead of adding a separate
+    // "Checking account security" screen — the check is brief and the extra
+    // wording just stacked another loading state on top of the app skeleton.
+    return <div className="min-h-dvh bg-slate-100" aria-label="Loading KunThai" />;
   }
 
   if (!required) return children;

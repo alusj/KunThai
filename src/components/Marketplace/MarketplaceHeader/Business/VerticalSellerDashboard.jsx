@@ -22,6 +22,7 @@ import { showToast } from "../../../../Backend/services/toastService";
 import { urMallShareToastOptions } from "../../../../Backend/services/shareCtaService";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import { createEmptyVerticalMedia } from "../../../../Backend/services/marketplace/verticalMediaValidation";
+import { consumePendingVerticalEditor, subscribeVerticalEditor } from "../../../../Backend/services/marketplace/verticalEditorBus";
 import VerticalMediaFields from "./VerticalMediaFields";
 import AddressLocationField from "../../../shared/AddressLocationField";
 import ListingUploadProgressCard from "../../shared/ListingUploadProgressCard";
@@ -470,8 +471,15 @@ function BookingRequests({ bookings = [] }) {
 function useOpenVerticalEditor(open, enabled = true) {
   useEffect(() => {
     if (!enabled) return undefined;
-    window.addEventListener("marketplace-open-vertical-editor", open);
-    return () => window.removeEventListener("marketplace-open-vertical-editor", open);
+    // Replay a request that arrived before this editor finished mounting (e.g.
+    // the header "+" tapped while the dashboard was still remounting after a
+    // business switch).
+    if (consumePendingVerticalEditor()) open();
+    const handleRequest = () => {
+      consumePendingVerticalEditor();
+      open();
+    };
+    return subscribeVerticalEditor(handleRequest);
   }, [open, enabled]);
 }
 function DaySelector({ day, setDay }) { return <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{DAYS.map((label, index) => <button key={label} type="button" onClick={() => setDay(index)} className={`min-w-[92px] rounded-2xl border px-3 py-3 text-sm font-black ${day === index ? "border-orange-600 bg-orange-600 text-white" : "border-gray-200 bg-white text-gray-600"}`}>{dayShort(index)}</button>)}</div>; }

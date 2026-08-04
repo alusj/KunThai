@@ -247,7 +247,7 @@ export default function BuyerDiscoveryBar({
   }
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+    <section className="kt-urmall-search rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <div className="flex min-h-11 items-center gap-2 rounded-lg bg-gray-100 px-3 text-gray-500">
@@ -371,7 +371,7 @@ export default function BuyerDiscoveryBar({
       {filtersOpen ? createPortal(
         <div className="fixed inset-0 z-[70] lg:hidden">
           <button type="button" aria-label={t("urmall.browse.closeFilters")} onClick={() => setFiltersOpen(false)} className="absolute inset-0 bg-gray-950/45" />
-          <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-4 shadow-2xl">
+          <div className="kt-urmall-search absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-black uppercase text-emerald-700">UrMall</p>

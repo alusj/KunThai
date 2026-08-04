@@ -57,73 +57,46 @@ import { getRideFleetOptions } from "../../../data/globalTransportCapabilities";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import { submitTransportSupportTicket } from "../../services/bookingService";
 import TransportCautionCard from "../shared/TransportCautionCard";
+import { useI18n, t } from "../../../i18n";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
 
+// Stable category values (stored on the place and compared against "Other");
+// display labels resolve through this map so translation never changes storage.
 const placeTypes = ["Home", "Work", "School", "Market", "Bus stop", "Other"];
+const PLACE_TYPE_LABEL_KEYS = {
+  Home: "urride.menu.placeHome",
+  Work: "urride.menu.placeWork",
+  School: "urride.menu.placeSchool",
+  Market: "urride.menu.placeMarket",
+  "Bus stop": "urride.menu.placeBusStop",
+  Other: "urride.menu.placeOther",
+};
 
+// `id` is the stable screen identifier used by control flow; title/description
+// are translation keys resolved at render so the menu follows the locale.
 const menuSections = [
   {
-    title: "Travel",
+    sectionKey: "urride.menu.sectionTravel",
     items: [
-      {
-        id: "caution",
-        icon: BookOpenCheck,
-        title: "Caution Card",
-        description: "Passenger seats, operator accounts, fleets, and safer booking guidance.",
-      },
-      {
-        id: "trips",
-        icon: History,
-        title: "My trips",
-        description: "Pending rides, delivery requests, and previous trips.",
-      },
-      {
-        id: "places",
-        icon: MapPin,
-        title: "Saved places",
-        description: "Home, work, pickup points, and rider notes.",
-      },
+      { id: "caution", icon: BookOpenCheck, titleKey: "urride.menu.cautionTitle", descKey: "urride.menu.cautionDesc" },
+      { id: "trips", icon: History, titleKey: "urride.menu.tripsTitle", descKey: "urride.menu.tripsDesc" },
+      { id: "places", icon: MapPin, titleKey: "urride.menu.placesTitle", descKey: "urride.menu.placesDesc" },
     ],
   },
   {
-    title: "Money & safety",
+    sectionKey: "urride.menu.sectionMoney",
     items: [
-      {
-        id: "wallet",
-        icon: CreditCard,
-        title: "Wallet & top up",
-        description: "Payment readiness, safe top-up notice, and payment note.",
-      },
-      {
-        id: "paymentSafety",
-        icon: ShieldAlert,
-        title: "Payment safety",
-        description: "How to handle fares while transport payments are prepared.",
-      },
-      {
-        id: "safety",
-        icon: LifeBuoy,
-        title: "Safety & emergency",
-        description: "Passenger guidance for safer pickup, trips, delivery, and urgent situations.",
-      },
+      { id: "wallet", icon: CreditCard, titleKey: "urride.menu.walletTitle", descKey: "urride.menu.walletDesc" },
+      { id: "paymentSafety", icon: ShieldAlert, titleKey: "urride.menu.paymentSafetyTitle", descKey: "urride.menu.paymentSafetyDesc" },
+      { id: "safety", icon: LifeBuoy, titleKey: "urride.menu.safetyTitle", descKey: "urride.menu.safetyDesc" },
     ],
   },
   {
-    title: "Help",
+    sectionKey: "urride.menu.sectionHelp",
     items: [
-      {
-        id: "support",
-        icon: LifeBuoy,
-        title: "Support",
-        description: "Trip issues, safety reports, operator feedback, and help.",
-      },
-      {
-        id: "settings",
-        icon: Settings,
-        title: "UrRide settings",
-        description: "Trip alerts, privacy, language, and travel preferences.",
-      },
+      { id: "support", icon: LifeBuoy, titleKey: "urride.menu.supportTitle", descKey: "urride.menu.supportDesc" },
+      { id: "settings", icon: Settings, titleKey: "urride.menu.settingsTitle", descKey: "urride.menu.settingsDesc" },
     ],
   },
 ];
@@ -159,18 +132,20 @@ function createEmptyPlace(profile = {}) {
 }
 
 function getPlaceLabel(place) {
-  return place.category === "Other" ? place.customCategory || "Other" : place.category || "Home";
+  if (place.category === "Other") return place.customCategory || t("urride.menu.placeOther");
+  const key = PLACE_TYPE_LABEL_KEYS[place.category];
+  return key ? t(key) : place.category || t("urride.menu.placeHome");
 }
 
 function getPlaceShareText(place) {
   const label = getPlaceLabel(place);
-  const address = place.street || place.detectedAddress || "Address pending";
-  const note = place.note ? `\nNote: ${place.note}` : "";
-  return `${label} saved place\n${address}${note}`;
+  const address = place.street || place.detectedAddress || t("urride.menu.places.addressPending");
+  const note = place.note ? `\n${t("urride.menu.places.shareNoteLine", { note: place.note })}` : "";
+  return `${t("urride.menu.places.shareText", { label })}\n${address}${note}`;
 }
 
 function formatDate(value) {
-  if (!value) return "Date pending";
+  if (!value) return t("urride.menu.trips.datePending");
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -179,12 +154,16 @@ function findMenuItem(screenId) {
 }
 
 export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpenEmergencyArea }) {
+  const { locale } = useI18n();
   const [activeScreen, setActiveScreen] = useState(null);
   const [supportSeed, setSupportSeed] = useState(null);
   const { visibleKey: visibleScreen, action: screenAction } = useSlidePanel(activeScreen);
   const activeTitle = useMemo(
-    () => findMenuItem(visibleScreen || activeScreen)?.title || "Passenger Menu",
-    [activeScreen, visibleScreen],
+    () => {
+      const item = findMenuItem(visibleScreen || activeScreen);
+      return item ? t(item.titleKey) : t("urride.menu.passengerMenu");
+    },
+    [activeScreen, visibleScreen, locale],
   );
 
   useEffect(() => {
@@ -229,7 +208,11 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
   function openSupportFromTrip(trip) {
     setSupportSeed({
       topic: "Trip issue",
-      details: `${trip.title || "UrRide trip"} - ${trip.pickup || "Pickup pending"} to ${trip.destination || "Destination pending"}`,
+      details: t("urride.menu.trips.seedDetails", {
+        title: trip.title || t("urride.menu.trips.seedTitle"),
+        pickup: trip.pickup || t("urride.menu.trips.seedPickup"),
+        destination: trip.destination || t("urride.menu.trips.seedDestination"),
+      }),
     });
     setActiveScreen("support");
   }
@@ -283,7 +266,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
     >
       <button
         type="button"
-        aria-label="Close transport passenger menu"
+        aria-label={t("urride.menu.close")}
         onClick={closeDrawer}
         tabIndex={open ? 0 : -1}
         className={`absolute inset-0 border-0 bg-slate-950/45 p-0 backdrop-blur-sm transition-opacity duration-300 ${
@@ -298,20 +281,20 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <PassengerMenuHeader title="Passenger Menu" showBack={false} onClose={closeDrawer} />
+        <PassengerMenuHeader title={t("urride.menu.passengerMenu")} showBack={false} onClose={closeDrawer} />
 
         <div className="flex-1 overflow-y-auto pb-6">
           <PassengerSummaryCard onOpenWallet={() => setActiveScreen("wallet")} />
 
           <div className="space-y-5 px-4 pt-5">
             {menuSections.map((section) => (
-              <PassengerDrawerSection key={section.title} title={section.title}>
+              <PassengerDrawerSection key={section.sectionKey} title={t(section.sectionKey)}>
                 {section.items.map((item) => (
                   <PassengerDrawerNavItem
                     key={item.id}
                     icon={item.icon}
-                    title={item.title}
-                    description={item.description}
+                    title={t(item.titleKey)}
+                    description={t(item.descKey)}
                     onClick={() => {
                       setSupportSeed(null);
                       setActiveScreen(item.id);
@@ -349,8 +332,9 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
 }
 
 function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
+  useI18n();
   const backHandler = showBack ? onBack : onClose;
-  const backLabel = showBack ? "Back to passenger menu" : "Back to transport";
+  const backLabel = showBack ? t("urride.menu.backToMenu") : t("urride.menu.backToTransport");
 
   return (
     <div className="kt-header-glass flex h-16 items-center justify-between px-3 py-3 sm:px-4">
@@ -376,12 +360,13 @@ function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
 }
 
 function PassengerMenuPageHeader({ title, eyebrow = "UrRide", onBack }) {
+  useI18n();
   return (
     <header className="kt-header-glass sticky top-0 z-30 px-4 py-3 sm:px-6">
       <div className="flex min-w-0 items-start gap-3">
         <AppBackTab
           onBack={onBack}
-          label="Back"
+          label={t("urride.menu.back")}
           historyKey="transport-passenger-menu-screen"
           className="mt-0.5 flex-none"
           useHistoryLayer={false}
@@ -398,6 +383,7 @@ function PassengerMenuPageHeader({ title, eyebrow = "UrRide", onBack }) {
 }
 
 function PassengerSummaryCard({ onOpenWallet }) {
+  useI18n();
   return (
     <button
       type="button"
@@ -411,14 +397,14 @@ function PassengerSummaryCard({ onOpenWallet }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-base font-black">Passenger workspace</p>
+            <p className="truncate text-base font-black">{t("urride.menu.workspace")}</p>
             <CheckCircle2 className="shrink-0 text-emerald-300" size={17} />
           </div>
           <p className="mt-1 truncate text-sm font-semibold text-white/70">
-            Trips, saved places, and support
+            {t("urride.menu.workspaceSub")}
           </p>
           <p className="mt-1 truncate text-xs font-semibold text-white/55">
-            Payment service in preparation
+            {t("urride.menu.workspacePayment")}
           </p>
         </div>
 
@@ -426,8 +412,8 @@ function PassengerSummaryCard({ onOpenWallet }) {
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold">
-        <span className="rounded-lg bg-white/10 px-3 py-2">Wallet {getCountryCurrencyCode()} 0.00</span>
-        <span className="rounded-lg bg-white/10 px-3 py-2">Safe trip tools</span>
+        <span className="rounded-lg bg-white/10 px-3 py-2">{t("urride.menu.walletBalance", { currency: getCountryCurrencyCode() })}</span>
+        <span className="rounded-lg bg-white/10 px-3 py-2">{t("urride.menu.safeTripTools")}</span>
       </div>
     </button>
   );
@@ -468,6 +454,7 @@ function PassengerDrawerNavItem({ icon, title, description, onClick }) {
 }
 
 function MyTripsPage({ onViewFleet, onOpenSupport }) {
+  useI18n();
   const [activeTab, setActiveTab] = useState("pending");
   const [trips, setTrips] = useState(() => getPassengerTrips());
   const [loading, setLoading] = useState(true);
@@ -486,7 +473,7 @@ function MyTripsPage({ onViewFleet, onOpenSupport }) {
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || "Unable to load your trips.");
+          setError(err.message || t("urride.menu.trips.loadError"));
           setTrips([]);
         }
       })
@@ -526,19 +513,19 @@ function MyTripsPage({ onViewFleet, onOpenSupport }) {
       <InfoPanel
         icon={ReceiptText}
         tone="emerald"
-        title="Passenger trip record"
-        body="My trips now separates current or pending transport activity from previous completed and cancelled trips, so passengers can see what still needs attention and what has already happened."
+        title={t("urride.menu.trips.recordTitle")}
+        body={t("urride.menu.trips.recordBody")}
       />
 
       <div className="grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
         <TripTab
-          label="Pending"
+          label={t("urride.menu.trips.tabPending")}
           count={pendingTrips.length}
           active={activeTab === "pending"}
           onClick={() => setActiveTab("pending")}
         />
         <TripTab
-          label="Previous"
+          label={t("urride.menu.trips.tabPrevious")}
           count={previousTrips.length}
           active={activeTab === "previous"}
           onClick={() => setActiveTab("previous")}
@@ -546,16 +533,16 @@ function MyTripsPage({ onViewFleet, onOpenSupport }) {
       </div>
 
       {error ? (
-        <EmptyState title="Unable to load trips" body={error} />
+        <EmptyState title={t("urride.menu.trips.errorTitle")} body={error} />
       ) : loading ? (
-        <EmptyState title="Loading trips" body="Checking your pending and previous transport records." />
+        <EmptyState title={t("urride.menu.trips.loadingTitle")} body={t("urride.menu.trips.loadingBody")} />
       ) : visibleTrips.length === 0 ? (
         <EmptyState
-          title={activeTab === "pending" ? "No pending trips" : "No previous trips"}
+          title={activeTab === "pending" ? t("urride.menu.trips.noPendingTitle") : t("urride.menu.trips.noPreviousTitle")}
           body={
             activeTab === "pending"
-              ? "Pending ride and delivery requests will appear here after booking."
-              : "Completed and cancelled rides or deliveries will appear here."
+              ? t("urride.menu.trips.noPendingBody")
+              : t("urride.menu.trips.noPreviousBody")
           }
         />
       ) : (
@@ -575,6 +562,7 @@ function MyTripsPage({ onViewFleet, onOpenSupport }) {
 }
 
 function TripTab({ label, count, active, onClick }) {
+  useI18n();
   return (
     <button
       type="button"
@@ -583,12 +571,13 @@ function TripTab({ label, count, active, onClick }) {
         active ? "bg-emerald-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
       }`}
     >
-      {label} ({count})
+      {t("urride.menu.trips.tabWithCount", { label, count })}
     </button>
   );
 }
 
 function TripCard({ trip, onViewFleet, onOpenSupport }) {
+  useI18n();
   const isPrevious = trip.group === "previous";
 
   return (
@@ -604,16 +593,16 @@ function TripCard({ trip, onViewFleet, onOpenSupport }) {
             isPrevious ? "bg-gray-100 text-gray-700" : "bg-amber-50 text-amber-700"
           }`}
         >
-          {isPrevious ? "Previous" : "Pending"}
+          {isPrevious ? t("urride.menu.trips.statusPrevious") : t("urride.menu.trips.statusPending")}
         </span>
       </div>
 
       <div className="mt-4 grid gap-2 text-sm font-semibold text-gray-600">
-        <TripLine label="Status" value={`${trip.status} | ${trip.stage}`} />
-        <TripLine label="Pickup" value={trip.pickup} />
-        <TripLine label="Destination" value={trip.destination} />
-        <TripLine label="Fare" value={trip.fare} />
-        <TripLine label="Fleet" value={trip.fleet?.fleetName || "Fleet details unavailable"} />
+        <TripLine label={t("urride.menu.trips.lineStatus")} value={t("urride.menu.trips.statusStage", { status: trip.status, stage: trip.stage })} />
+        <TripLine label={t("urride.menu.trips.linePickup")} value={trip.pickup} />
+        <TripLine label={t("urride.menu.trips.lineDestination")} value={trip.destination} />
+        <TripLine label={t("urride.menu.trips.lineFare")} value={trip.fare} />
+        <TripLine label={t("urride.menu.trips.lineFleet")} value={trip.fleet?.fleetName || t("urride.menu.trips.fleetUnavailable")} />
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -623,14 +612,14 @@ function TripCard({ trip, onViewFleet, onOpenSupport }) {
           disabled={!trip.fleetId}
           className="kt-touchable h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-500"
         >
-          View fleet
+          {t("urride.menu.trips.viewFleet")}
         </button>
         <button
           type="button"
           onClick={onOpenSupport}
           className="kt-touchable h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
         >
-          Get support
+          {t("urride.menu.trips.getSupport")}
         </button>
       </div>
     </article>
@@ -662,6 +651,7 @@ function SavedPlaceMenuAction({ danger = false, icon, label, onClick }) {
 }
 
 function SavedPlacesPage() {
+  const { locale } = useI18n();
   const [places, setPlaces] = useState(() => getTransportSavedPlaces());
   const [place, setPlace] = useState(createEmptyPlace);
   const [locationCandidate, setLocationCandidate] = useState(null);
@@ -682,20 +672,20 @@ function SavedPlacesPage() {
   const savedPlacePickerLabels = useMemo(
     () => ({
       historyKey: "transport-saved-place-picker",
-      backLabel: "Back to saved place",
-      eyebrow: "Transport place",
-      cardEyebrow: "Saved place",
-      headerCurrentTitle: "Confirm saved location",
-      headerDropTitle: "Drop saved-place pin",
-      currentHeading: "Your current saved location",
-      dropHeading: "Place the pin on the saved place",
-      dropInstruction: "Move the map until the pin sits exactly on the gate, pickup side, delivery door, or landmark, then add the location.",
-      currentStatus: "Confirming your current saved location...",
-      dropStatus: "Move the map until the pin is exactly on the saved place.",
-      currentName: "Current saved location",
-      droppedName: "Pinned saved location",
+      backLabel: t("urride.menu.places.pickerBack"),
+      eyebrow: t("urride.menu.places.pickerEyebrow"),
+      cardEyebrow: t("urride.menu.places.pickerCard"),
+      headerCurrentTitle: t("urride.menu.places.pickerHeaderCurrent"),
+      headerDropTitle: t("urride.menu.places.pickerHeaderDrop"),
+      currentHeading: t("urride.menu.places.pickerCurrentHeading"),
+      dropHeading: t("urride.menu.places.pickerDropHeading"),
+      dropInstruction: t("urride.menu.places.pickerDropInstruction"),
+      currentStatus: t("urride.menu.places.pickerCurrentStatus"),
+      dropStatus: t("urride.menu.places.pickerDropStatus"),
+      currentName: t("urride.menu.places.pickerCurrentName"),
+      droppedName: t("urride.menu.places.pickerDroppedName"),
     }),
-    [],
+    [locale],
   );
 
   useEffect(() => {
@@ -749,7 +739,7 @@ function SavedPlacesPage() {
 
   function savePlace() {
     if (!place.street.trim() && !place.detectedAddress.trim()) {
-      setMessage("Add a street, landmark, or detected location before saving this place.");
+      setMessage(t("urride.menu.places.needAddress"));
       return;
     }
 
@@ -759,7 +749,7 @@ function SavedPlacesPage() {
     setLocationCandidate(null);
     setLocationStatus("");
     setFormOpen(false);
-    setMessage(`${getPlaceLabel(savedPlace)} place saved for future passenger trips.`);
+    setMessage(t("urride.menu.places.placeSaved", { label: getPlaceLabel(savedPlace) }));
   }
 
   function removePlace(placeId) {
@@ -768,13 +758,13 @@ function SavedPlacesPage() {
     if (place.id === placeId) {
       closeForm();
     }
-    setMessage("Saved place removed.");
+    setMessage(t("urride.menu.places.placeRemoved"));
   }
 
   function selectPlace(nextPlace) {
     setActionMenuId("");
     selectTransportSavedPlace(nextPlace);
-    setMessage(`${getPlaceLabel(nextPlace)} selected for your next transport search.`);
+    setMessage(t("urride.menu.places.placeSelected", { label: getPlaceLabel(nextPlace) }));
   }
 
   async function sharePlace(nextPlace) {
@@ -784,22 +774,22 @@ function SavedPlacesPage() {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: `${getPlaceLabel(nextPlace)} saved place`,
+          title: t("urride.menu.places.shareText", { label: getPlaceLabel(nextPlace) }),
           text,
         });
-        setMessage("Saved place ready to share.");
+        setMessage(t("urride.menu.places.shareReady"));
         return;
       }
 
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        setMessage("Saved place details copied.");
+        setMessage(t("urride.menu.places.shareCopied"));
         return;
       }
 
       setMessage(text);
     } catch {
-      setMessage("Unable to share this place right now.");
+      setMessage(t("urride.menu.places.shareError"));
     }
   }
 
@@ -827,7 +817,7 @@ function SavedPlacesPage() {
       street: nextLocation.address || place.street,
       coordinates: nextLocation.coordinates,
     });
-    setLocationStatus(`Location added: ${nextLocation.address}`);
+    setLocationStatus(t("urride.menu.places.locationAdded", { address: nextLocation.address }));
     setAreaPicker(null);
   }
 
@@ -842,13 +832,13 @@ function SavedPlacesPage() {
         longitude: locationCandidate.longitude,
       },
     });
-    setLocationStatus("Location added. You can edit the street before saving.");
+    setLocationStatus(t("urride.menu.places.locationAddedEdit"));
     setLocationCandidate(null);
   }
 
   function rejectDetectedLocation() {
     setLocationCandidate(null);
-    setLocationStatus("Enter the address manually.");
+    setLocationStatus(t("urride.menu.places.enterManually"));
   }
 
   function handleFrontPictureChange(event) {
@@ -866,7 +856,7 @@ function SavedPlacesPage() {
       {actionMenuId ? (
         <button
           type="button"
-          aria-label="Close saved place actions"
+          aria-label={t("urride.menu.places.closeActions")}
           className="fixed inset-0 z-10 cursor-default bg-transparent"
           onClick={() => setActionMenuId("")}
         />
@@ -874,7 +864,7 @@ function SavedPlacesPage() {
 
       {places.length ? (
         <div className="space-y-2">
-          <p className="text-sm font-black text-gray-950">Saved places</p>
+          <p className="text-sm font-black text-gray-950">{t("urride.menu.places.heading")}</p>
           {places.map((item) => {
             const actionKey = item.id || `${item.category}-${item.street || item.detectedAddress || "place"}`;
 
@@ -885,7 +875,7 @@ function SavedPlacesPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <button type="button" onClick={() => editPlace(item)} className="kt-touchable min-w-0 flex-1 text-left">
-                  <p className="text-sm font-black text-gray-950">{getPlaceLabel(item)} place</p>
+                  <p className="text-sm font-black text-gray-950">{t("urride.menu.places.placeSuffix", { label: getPlaceLabel(item) })}</p>
                   <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
                     {item.street || item.detectedAddress}
                   </p>
@@ -897,7 +887,7 @@ function SavedPlacesPage() {
                     setActionMenuId((current) => (current === actionKey ? "" : actionKey));
                   }}
                   className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-950"
-                  aria-label={`${getPlaceLabel(item)} place actions`}
+                  aria-label={t("urride.menu.places.actionsAria", { label: getPlaceLabel(item) })}
                   aria-expanded={actionMenuId === actionKey}
                 >
                   <MoreHorizontal size={18} />
@@ -905,10 +895,10 @@ function SavedPlacesPage() {
               </div>
               {actionMenuId === actionKey ? (
                 <div className="kt-modal-enter absolute right-3 top-12 z-30 w-56 overflow-hidden rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl shadow-slate-950/10">
-                  <SavedPlaceMenuAction icon={Navigation} label="Use for next trip" onClick={() => selectPlace(item)} />
-                  <SavedPlaceMenuAction icon={Pencil} label="Edit place" onClick={() => editPlace(item)} />
-                  <SavedPlaceMenuAction icon={Share2} label="Share details" onClick={() => sharePlace(item)} />
-                  <SavedPlaceMenuAction danger icon={Trash2} label="Delete place" onClick={() => removePlace(item.id)} />
+                  <SavedPlaceMenuAction icon={Navigation} label={t("urride.menu.places.useForTrip")} onClick={() => selectPlace(item)} />
+                  <SavedPlaceMenuAction icon={Pencil} label={t("urride.menu.places.editPlace")} onClick={() => editPlace(item)} />
+                  <SavedPlaceMenuAction icon={Share2} label={t("urride.menu.places.shareDetails")} onClick={() => sharePlace(item)} />
+                  <SavedPlaceMenuAction danger icon={Trash2} label={t("urride.menu.places.deletePlace")} onClick={() => removePlace(item.id)} />
                 </div>
               ) : null}
             </article>
@@ -924,7 +914,7 @@ function SavedPlacesPage() {
           className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
         >
           <Plus size={17} />
-          {places.length ? "Add Another Location" : "Add Location"}
+          {places.length ? t("urride.menu.places.addAnother") : t("urride.menu.places.addLocation")}
         </button>
       ) : null}
 
@@ -933,73 +923,73 @@ function SavedPlacesPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-black text-gray-950">
-                {place.id ? "Edit saved location" : "Add location"}
+                {place.id ? t("urride.menu.places.editSavedLocation") : t("urride.menu.places.addLocationTitle")}
               </p>
               <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
-                Save clear pickup, drop-off, or delivery details for future transport bookings.
+                {t("urride.menu.places.formIntro")}
               </p>
             </div>
             <button
               type="button"
               onClick={closeForm}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50"
-              aria-label="Close location form"
+              aria-label={t("urride.menu.places.closeForm")}
             >
               <X size={16} />
             </button>
           </div>
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Location category</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.categoryLabel")}</span>
           <select
             value={place.category}
             onChange={(event) => updatePlace({ category: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
             {placeTypes.map((type) => (
-              <option key={type} value={type}>{type}</option>
+              <option key={type} value={type}>{t(PLACE_TYPE_LABEL_KEYS[type])}</option>
             ))}
           </select>
         </label>
 
         {place.category === "Other" ? (
           <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">Custom category</span>
+            <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.customCategoryLabel")}</span>
             <input
               value={place.customCategory}
               onChange={(event) => updatePlace({ customCategory: event.target.value })}
-              placeholder="Eg. Clinic, church, garage"
+              placeholder={t("urride.menu.places.customCategoryPlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
             />
           </label>
         ) : null}
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Place name</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.placeNameLabel")}</span>
           <input
             value={place.placeName}
             onChange={(event) => updatePlace({ placeName: event.target.value })}
-            placeholder="Eg. Home gate, office entrance, school pickup"
+            placeholder={t("urride.menu.places.placeNamePlaceholder")}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
           />
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">Contact name</span>
+            <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.contactNameLabel")}</span>
             <input
               value={place.contactName}
               onChange={(event) => updatePlace({ contactName: event.target.value })}
-              placeholder="Passenger or receiver"
+              placeholder={t("urride.menu.places.contactNamePlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">Phone number</span>
+            <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.phoneLabel")}</span>
             <input
               value={place.phone}
               onChange={(event) => updatePlace({ phone: event.target.value })}
-              placeholder="Phone number"
+              placeholder={t("urride.menu.places.phonePlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
             />
           </label>
@@ -1007,14 +997,14 @@ function SavedPlacesPage() {
 
         <label className="space-y-1">
           <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
-            Street / landmark
+            {t("urride.menu.places.streetLabel")}
             <AddressAreaStatusIcon status={placeValidation.status} />
           </span>
           <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <input
               value={place.street}
               onChange={(event) => updatePlace({ street: event.target.value })}
-              placeholder="Street, city, junction, or landmark"
+              placeholder={t("urride.menu.places.streetPlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
             />
             <button
@@ -1023,7 +1013,7 @@ function SavedPlacesPage() {
               className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
             >
               <LocateFixed size={16} />
-              Locate me
+              {t("urride.menu.places.locateMe")}
             </button>
             <button
               type="button"
@@ -1031,7 +1021,7 @@ function SavedPlacesPage() {
               className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
             >
               <MapPin size={16} />
-              Drop a pin
+              {t("urride.menu.places.dropPin")}
             </button>
           </div>
         </label>
@@ -1045,7 +1035,7 @@ function SavedPlacesPage() {
         {locationCandidate ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
             <p className="text-sm font-black text-emerald-950">
-              Your current location is {locationCandidate.address}
+              {t("urride.menu.places.currentLocationIs", { address: locationCandidate.address })}
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <button
@@ -1054,32 +1044,32 @@ function SavedPlacesPage() {
                 className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
               >
                 <CheckCircle2 size={15} />
-                Correct, add location
+                {t("urride.menu.places.correctAdd")}
               </button>
               <button
                 type="button"
                 onClick={rejectDetectedLocation}
                 className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
               >
-                Wrong, enter manually
+                {t("urride.menu.places.wrongManual")}
               </button>
             </div>
           </div>
         ) : null}
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Pickup / delivery note</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.noteLabel")}</span>
           <textarea
             value={place.note}
             onChange={(event) => updatePlace({ note: event.target.value })}
-            placeholder="Gate color, nearby shop, safest pickup side, floor, or rider note"
+            placeholder={t("urride.menu.places.notePlaceholder")}
             rows={3}
             className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
           />
         </label>
 
         <label className="space-y-2">
-          <span className="text-xs font-black uppercase text-gray-500">Place front picture</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.pictureLabel")}</span>
           <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
               {place.frontPictureUrl ? (
@@ -1096,7 +1086,7 @@ function SavedPlacesPage() {
                 className="text-sm font-semibold text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white"
               />
               <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-                Add a clear front-facing picture of the gate, junction, building, or pickup point.
+                {t("urride.menu.places.pictureHint")}
               </p>
             </div>
           </div>
@@ -1104,7 +1094,7 @@ function SavedPlacesPage() {
 
         {place.detectedAddress ? (
           <p className="rounded-xl bg-gray-50 p-3 text-xs font-bold leading-5 text-gray-600">
-            Detected location: {place.detectedAddress}
+            {t("urride.menu.places.detectedLocation", { address: place.detectedAddress })}
           </p>
         ) : null}
         {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
@@ -1117,7 +1107,7 @@ function SavedPlacesPage() {
           onClick={savePlace}
           className="kt-touchable h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
         >
-          {place.id ? "Update Transport Place" : "Save Transport Place"}
+          {place.id ? t("urride.menu.places.updatePlace") : t("urride.menu.places.savePlace")}
         </button>
       ) : null}
 
@@ -1127,7 +1117,7 @@ function SavedPlacesPage() {
             mode="businessLocationPicker"
             pickerStart={areaPicker.start}
             pickerLabels={savedPlacePickerLabels}
-            backLabel="Back to saved place"
+            backLabel={t("urride.menu.places.pickerBack")}
             onBack={() => setAreaPicker(null)}
             onLocationPicked={acceptAreaLocation}
           />
@@ -1138,13 +1128,14 @@ function SavedPlacesPage() {
 }
 
 function PaymentReadinessPage({ variant }) {
+  useI18n();
   const [paymentNote, setPaymentNote] = useState(() => readLocalText(TRANSPORT_PAYMENT_NOTE_KEY));
   const [message, setMessage] = useState("");
   const isWallet = variant === "wallet";
 
   function savePaymentNote() {
     writeLocalText(TRANSPORT_PAYMENT_NOTE_KEY, paymentNote);
-    setMessage("Payment note saved on this device.");
+    setMessage(t("urride.menu.payment.noteSaved"));
   }
 
   return (
@@ -1154,37 +1145,37 @@ function PaymentReadinessPage({ variant }) {
       <InfoPanel
         icon={isWallet ? CreditCard : ShieldAlert}
         tone="amber"
-        title={isWallet ? "Transport wallet is being prepared" : "Payment safety"}
-        body="KunThai transport payments and wallet top-up are not active yet. We are holding this field until payments can be connected to a verified trip, a verified operator, a receipt, and a clear support record. That is safer for passengers and more professional for operators than showing a payment form before the service can protect the transaction."
+        title={isWallet ? t("urride.menu.payment.walletPrepTitle") : t("urride.menu.payment.safetyTitle")}
+        body={t("urride.menu.payment.body")}
       />
 
       <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <PaymentGuideline
-          title="For now"
-          body="Confirm the route, fare, operator identity, fleet plate, pickup point, destination, and expected payment method before you pay."
+          title={t("urride.menu.payment.forNowTitle")}
+          body={t("urride.menu.payment.forNowBody")}
         />
         <PaymentGuideline
-          title="Do not share secrets"
-          body="Never enter or send wallet PINs, OTPs, full card details, or account passwords through a trip message or support note."
+          title={t("urride.menu.payment.secretsTitle")}
+          body={t("urride.menu.payment.secretsBody")}
         />
         <PaymentGuideline
-          title="Keep proof"
-          body="Keep the trip record, operator name, payment confirmation, and conversation visible until the ride or delivery is completed."
+          title={t("urride.menu.payment.proofTitle")}
+          body={t("urride.menu.payment.proofBody")}
         />
       </section>
 
       {isWallet ? (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div>
-            <p className="text-sm font-black text-gray-950">Temporary passenger payment note</p>
+            <p className="text-sm font-black text-gray-950">{t("urride.menu.payment.tempNoteTitle")}</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
-              This is a private note for your own reminder. It is not a live payment method.
+              {t("urride.menu.payment.tempNoteSub")}
             </p>
           </div>
           <textarea
             value={paymentNote}
             onChange={(event) => setPaymentNote(event.target.value)}
-            placeholder="Cash, mobile money after confirmation, or preferred fare arrangement"
+            placeholder={t("urride.menu.payment.notePlaceholder")}
             rows={4}
             className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
           />
@@ -1193,7 +1184,7 @@ function PaymentReadinessPage({ variant }) {
             onClick={savePaymentNote}
             className="kt-touchable h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700"
           >
-            Save Payment Note
+            {t("urride.menu.payment.saveNote")}
           </button>
         </section>
       ) : null}
@@ -1211,55 +1202,19 @@ function PaymentGuideline({ title, body }) {
 }
 
 const passengerSafetyTopics = [
-  {
-    title: "What KunThai can do",
-    body:
-      "KunThai can help passengers make safer decisions by showing operator profiles, fleet details, saved places, route context, support records, and safety reminders. The app can also help you keep evidence of what was agreed before and during a trip. KunThai cannot physically rescue a passenger, physically control an operator, or replace police, ambulance, fire service, family, or trusted people nearby.",
-  },
-  {
-    title: "Before pickup",
-    body:
-      "Confirm the operator name, fleet type, plate number, pickup point, destination, estimated fare, and contact phone before you enter the vehicle. If the person or vehicle does not match the app information, do not enter. Move to a visible public place and contact support or a trusted person.",
-  },
-  {
-    title: "Pickup location safety",
-    body:
-      "Use saved places, Locate Me, or Drop Pin to make pickup points clear. A clear pickup point helps the right operator find you and reduces confusion. When possible, wait in a place with lighting, people nearby, and a clear route to leave if something feels wrong.",
-  },
-  {
-    title: "During the trip",
-    body:
-      "Keep your phone available, watch the route, and speak early if the route changes without explanation. Do not share private passwords, PINs, OTPs, full card details, or sensitive personal information. If the operator becomes unsafe, ask to stop at a public place when it is safe to do so.",
-  },
-  {
-    title: "Emergency action",
-    body:
-      "If there is immediate danger, call local emergency services first. After emergency help is contacted, use KunThai support to record the trip, operator, location, time, route, and what happened. The app record helps follow-up, but emergency responders and trusted people nearby should come first.",
-    action: "sos",
-  },
-  {
-    title: "Share proof and location",
-    body:
-      "Before or during a trip, share your route, operator name, plate number, and pickup or destination details with someone you trust. If a trip feels unusual, send a short message with your current location and what is happening before your battery or signal becomes a problem.",
-  },
-  {
-    title: "Fare and payment safety",
-    body:
-      "Agree on the fare method before the trip starts. Keep payment proof when money changes hands. If there is a fare disagreement, avoid arguing in an unsafe place; record the details and report through support after you are safe.",
-  },
-  {
-    title: "Delivery safety",
-    body:
-      "For delivery, confirm the receiver name, phone number, pickup address, drop-off address, item description, and payment responsibility. Do not send prohibited, dangerous, or unclear items. Use photos or notes when the pickup or delivery point may be confusing.",
-  },
-  {
-    title: "Reporting concerns",
-    body:
-      "Report unsafe driving, harassment, threats, damaged fleet, wrong operator, suspicious route changes, delivery issues, or payment disputes with as much detail as possible. Good reports include time, route, plate number, operator name, screenshots, photos where safe, and a calm description of what happened.",
-  },
+  { titleKey: "urride.menu.safety.t1Title", bodyKey: "urride.menu.safety.t1Body" },
+  { titleKey: "urride.menu.safety.t2Title", bodyKey: "urride.menu.safety.t2Body" },
+  { titleKey: "urride.menu.safety.t3Title", bodyKey: "urride.menu.safety.t3Body" },
+  { titleKey: "urride.menu.safety.t4Title", bodyKey: "urride.menu.safety.t4Body" },
+  { titleKey: "urride.menu.safety.t5Title", bodyKey: "urride.menu.safety.t5Body", action: "sos" },
+  { titleKey: "urride.menu.safety.t6Title", bodyKey: "urride.menu.safety.t6Body" },
+  { titleKey: "urride.menu.safety.t7Title", bodyKey: "urride.menu.safety.t7Body" },
+  { titleKey: "urride.menu.safety.t8Title", bodyKey: "urride.menu.safety.t8Body" },
+  { titleKey: "urride.menu.safety.t9Title", bodyKey: "urride.menu.safety.t9Body" },
 ];
 
 function PassengerSafetyPage({ onOpenEmergencyArea }) {
+  useI18n();
   const [sosOpen, setSosOpen] = useState(false);
   // The emergency card is jurisdiction-critical: resolve the country from live
   // GPS (source of truth), not the stored/locale country. The stored profile
@@ -1300,14 +1255,14 @@ function PassengerSafetyPage({ onOpenEmergencyArea }) {
       <InfoPanel
         icon={LifeBuoy}
         tone="red"
-        title="Safety & emergency guidance"
-        body="KunThai is designed to guide safer transport decisions, keep useful records, and make reporting clearer. In immediate danger, local emergency help and trusted people nearby should be contacted first."
+        title={t("urride.menu.safety.guidanceTitle")}
+        body={t("urride.menu.safety.guidanceBody")}
       />
 
       <section className="rounded-2xl border border-red-100 bg-red-50 p-4">
-        <p className="text-sm font-black text-red-800">Immediate danger comes first</p>
+        <p className="text-sm font-black text-red-800">{t("urride.menu.safety.immediateTitle")}</p>
         <p className="mt-1 text-xs font-semibold leading-5 text-red-700">
-          If a passenger, operator, child, receiver, or bystander may be harmed, do not wait for an app response. Call local emergency help, move to a safer public place if possible, and contact someone trusted nearby.
+          {t("urride.menu.safety.immediateBody")}
         </p>
       </section>
 
@@ -1323,18 +1278,18 @@ function PassengerSafetyPage({ onOpenEmergencyArea }) {
       </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <p className="text-sm font-black text-gray-950">What to keep ready</p>
+        <p className="text-sm font-black text-gray-950">{t("urride.menu.safety.keepReadyTitle")}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {[
-            "Operator name and fleet plate",
-            "Pickup and destination",
-            "Current location or nearest landmark",
-            "Trip time and fare agreement",
-            "Photos or screenshots when safe",
-            "Trusted contact phone number",
-          ].map((item) => (
-            <span key={item} className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-black text-gray-600">
-              {item}
+            "urride.menu.safety.keep1",
+            "urride.menu.safety.keep2",
+            "urride.menu.safety.keep3",
+            "urride.menu.safety.keep4",
+            "urride.menu.safety.keep5",
+            "urride.menu.safety.keep6",
+          ].map((key) => (
+            <span key={key} className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-black text-gray-600">
+              {t(key)}
             </span>
           ))}
         </div>
@@ -1355,6 +1310,7 @@ function PassengerSafetyPage({ onOpenEmergencyArea }) {
 }
 
 function SafetyTopicCard({ number, topic, onOpenSos }) {
+  useI18n();
   const hasSosAction = topic.action === "sos";
 
   return (
@@ -1364,8 +1320,8 @@ function SafetyTopicCard({ number, topic, onOpenSos }) {
           {number}
         </span>
         <div>
-          <h3 className="text-sm font-black text-gray-950">{topic.title}</h3>
-          <p className="mt-1 text-xs font-semibold leading-5 text-gray-600">{topic.body}</p>
+          <h3 className="text-sm font-black text-gray-950">{t(topic.titleKey)}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-gray-600">{t(topic.bodyKey)}</p>
           {hasSosAction ? (
             <button
               type="button"
@@ -1373,7 +1329,7 @@ function SafetyTopicCard({ number, topic, onOpenSos }) {
               className="kt-touchable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-black text-white shadow-sm shadow-red-950/15 transition hover:bg-red-700 sm:w-auto"
             >
               <Siren size={18} />
-              Open KunThai SOS
+              {t("urride.menu.safety.openSos")}
             </button>
           ) : null}
         </div>
@@ -1382,7 +1338,29 @@ function SafetyTopicCard({ number, topic, onOpenSos }) {
   );
 }
 
+// Stable topic/priority values kept in English (submitted to the ticket API and
+// used for the active-selection match); only their display labels are localized.
+const SUPPORT_TOPICS = [
+  { value: "Trip issue", labelKey: "urride.menu.support.topicTripIssue", descKey: "urride.menu.support.topicTripIssueDesc" },
+  { value: "Safety report", labelKey: "urride.menu.support.topicSafety", descKey: "urride.menu.support.topicSafetyDesc" },
+  { value: "Payment question", labelKey: "urride.menu.support.topicPayment", descKey: "urride.menu.support.topicPaymentDesc" },
+  { value: "Saved place", labelKey: "urride.menu.support.topicSavedPlace", descKey: "urride.menu.support.topicSavedPlaceDesc" },
+];
+const SUPPORT_TOPIC_OPTIONS = [
+  { value: "Trip issue", labelKey: "urride.menu.support.topicTripIssue" },
+  { value: "Safety report", labelKey: "urride.menu.support.topicSafety" },
+  { value: "Payment question", labelKey: "urride.menu.support.topicPayment" },
+  { value: "Saved place", labelKey: "urride.menu.support.topicSavedPlace" },
+  { value: "Operator feedback", labelKey: "urride.menu.support.topicOperator" },
+];
+const SUPPORT_PRIORITY_OPTIONS = [
+  { value: "Normal", labelKey: "urride.menu.support.priorityNormal" },
+  { value: "Urgent", labelKey: "urride.menu.support.priorityUrgent" },
+  { value: "Safety critical", labelKey: "urride.menu.support.prioritySafety" },
+];
+
 function SupportPage({ seed }) {
+  useI18n();
   const [form, setForm] = useState({
     topic: seed?.topic || "Trip issue",
     priority: "Normal",
@@ -1391,6 +1369,7 @@ function SupportPage({ seed }) {
     details: seed?.details || "",
   });
   const [message, setMessage] = useState("");
+  const [messageIsError, setMessageIsError] = useState(false);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -1408,25 +1387,28 @@ function SupportPage({ seed }) {
 
   async function prepareSupportRequest() {
     if (form.details.trim().length < 12) {
-      setMessage("Add a clear description so support can understand the transport issue.");
+      setMessageIsError(true);
+      setMessage(t("urride.menu.support.addError"));
       return;
     }
 
     setSending(true);
     setMessage("");
+    setMessageIsError(false);
     try {
       await submitTransportSupportTicket({
         topic: form.topic,
         priority: String(form.priority || "normal").toLowerCase(),
         body: [
-          form.tripReference ? `Trip reference: ${form.tripReference}` : "",
-          form.contact ? `Preferred contact: ${form.contact}` : "",
+          form.tripReference ? t("urride.menu.support.tripRefPrefix", { ref: form.tripReference }) : "",
+          form.contact ? t("urride.menu.support.contactPrefix", { contact: form.contact }) : "",
           form.details.trim(),
         ].filter(Boolean).join("\n"),
       });
-      setMessage("Support request sent to KunThai UrRide.");
+      setMessage(t("urride.menu.support.sent"));
     } catch (error) {
-      setMessage(error.message || "Unable to send this support request. Please try again.");
+      setMessageIsError(true);
+      setMessage(error.message || t("urride.menu.support.sendError"));
     } finally {
       setSending(false);
     }
@@ -1435,7 +1417,7 @@ function SupportPage({ seed }) {
   return (
     <div className="space-y-4">
       {message ? (
-        <p className={`rounded-xl p-3 text-sm font-bold ${message.startsWith("Add") ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+        <p className={`rounded-xl p-3 text-sm font-bold ${messageIsError ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
           {message}
         </p>
       ) : null}
@@ -1443,27 +1425,22 @@ function SupportPage({ seed }) {
       <InfoPanel
         icon={LifeBuoy}
         tone="emerald"
-        title="Passenger support"
-        body="Transport support should keep the trip, operator, location, fare expectation, and safety context together. Clear reports help the platform resolve issues faster and protect serious passengers and operators."
+        title={t("urride.menu.support.title")}
+        body={t("urride.menu.support.body")}
       />
 
       <section className="grid gap-3 sm:grid-cols-2">
-        {[
-          ["Trip issue", "Wrong route, no-show, late pickup, or trip cancellation."],
-          ["Safety report", "Unsafe driving, harassment, damaged vehicle, or urgent risk."],
-          ["Payment question", "Fare disagreement, duplicate payment, or unclear charge."],
-          ["Saved place", "Wrong pickup point, location problem, or address correction."],
-        ].map(([title, body]) => (
+        {SUPPORT_TOPICS.map((topic) => (
           <button
-            key={title}
+            key={topic.value}
             type="button"
-            onClick={() => updateForm({ topic: title })}
+            onClick={() => updateForm({ topic: topic.value })}
             className={`kt-touchable rounded-2xl border p-4 text-left shadow-sm transition ${
-              form.topic === title ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:border-gray-300"
+              form.topic === topic.value ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white hover:border-gray-300"
             }`}
           >
-            <p className="text-sm font-black text-gray-950">{title}</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">{body}</p>
+            <p className="text-sm font-black text-gray-950">{t(topic.labelKey)}</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">{t(topic.descKey)}</p>
           </button>
         ))}
       </section>
@@ -1471,59 +1448,57 @@ function SupportPage({ seed }) {
       <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">Topic</span>
+            <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.support.topicLabel")}</span>
             <select
               value={form.topic}
               onChange={(event) => updateForm({ topic: event.target.value })}
               className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
             >
-              <option>Trip issue</option>
-              <option>Safety report</option>
-              <option>Payment question</option>
-              <option>Saved place</option>
-              <option>Operator feedback</option>
+              {SUPPORT_TOPIC_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+              ))}
             </select>
           </label>
           <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">Priority</span>
+            <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.support.priorityLabel")}</span>
             <select
               value={form.priority}
               onChange={(event) => updateForm({ priority: event.target.value })}
               className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
             >
-              <option>Normal</option>
-              <option>Urgent</option>
-              <option>Safety critical</option>
+              {SUPPORT_PRIORITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+              ))}
             </select>
           </label>
         </div>
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Trip reference</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.support.tripRefLabel")}</span>
           <input
             value={form.tripReference}
             onChange={(event) => updateForm({ tripReference: event.target.value })}
-            placeholder="Trip title, operator name, plate number, or route"
+            placeholder={t("urride.menu.support.tripRefPlaceholder")}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
           />
         </label>
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Contact for follow-up</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.support.contactLabel")}</span>
           <input
             value={form.contact}
             onChange={(event) => updateForm({ contact: event.target.value })}
-            placeholder="Phone or email"
+            placeholder={t("urride.menu.support.contactPlaceholder")}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
           />
         </label>
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">What happened?</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.support.whatHappenedLabel")}</span>
           <textarea
             value={form.details}
             onChange={(event) => updateForm({ details: event.target.value })}
-            placeholder="Explain the route, operator, fare, pickup point, time, and the exact issue."
+            placeholder={t("urride.menu.support.whatHappenedPlaceholder")}
             rows={5}
             className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
           />
@@ -1535,14 +1510,14 @@ function SupportPage({ seed }) {
           disabled={sending}
           className="kt-touchable h-12 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {sending ? "Sending…" : "Send Support Request"}
+          {sending ? t("urride.menu.support.sending") : t("urride.menu.support.send")}
         </button>
       </section>
 
       <section className="rounded-2xl border border-red-100 bg-red-50 p-4">
-        <p className="text-sm font-black text-red-800">Safety first</p>
+        <p className="text-sm font-black text-red-800">{t("urride.menu.support.safetyFirstTitle")}</p>
         <p className="mt-1 text-xs font-semibold leading-5 text-red-700">
-          If a passenger is in immediate danger, contact local emergency help first. Transport support should follow after the person is safe.
+          {t("urride.menu.support.safetyFirstBody")}
         </p>
       </section>
     </div>
@@ -1550,8 +1525,11 @@ function SupportPage({ seed }) {
 }
 
 function TransportSettingsPage() {
+  useI18n();
   const [settings, setSettings] = useState(() => getTransportPassengerSettings());
   const [message, setMessage] = useState("");
+  // Values stay stable (stored + compared); only the two non-fleet-type entries
+  // get a localized display label below (fleet-type names are brand/data).
   const defaultRideTypeOptions = useMemo(
     () => ["Any available", ...getRideFleetOptions().map((option) => option.label), "Delivery"],
     [],
@@ -1568,7 +1546,7 @@ function TransportSettingsPage() {
 
   function saveSettings() {
     setSettings(saveTransportPassengerSettings(settings));
-    setMessage("Transport settings saved.");
+    setMessage(t("urride.menu.settings.saved"));
   }
 
   return (
@@ -1578,32 +1556,32 @@ function TransportSettingsPage() {
       <InfoPanel
         icon={Settings}
         tone="blue"
-        title="Passenger transport settings"
-        body="Transport settings are useful because passengers need practical control over alerts, privacy, saved place suggestions, and how operators appear during ride or delivery searches."
+        title={t("urride.menu.settings.title")}
+        body={t("urride.menu.settings.body")}
       />
 
       <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <SettingToggle
-          label="Trip alerts"
-          description="Notify me about pending trip updates and operator responses."
+          label={t("urride.menu.settings.tripAlerts")}
+          description={t("urride.menu.settings.tripAlertsDesc")}
           checked={settings.tripAlerts}
           onChange={() => updateSettings({ tripAlerts: !settings.tripAlerts })}
         />
         <SettingToggle
-          label="Nearby operator alerts"
-          description="Show active operators when I am searching from a saved area."
+          label={t("urride.menu.settings.nearby")}
+          description={t("urride.menu.settings.nearbyDesc")}
           checked={settings.nearbyOperators}
           onChange={() => updateSettings({ nearbyOperators: !settings.nearbyOperators })}
         />
         <SettingToggle
-          label="Safety reminders"
-          description="Show reminders for plate checks, fare confirmation, and trip proof."
+          label={t("urride.menu.settings.safetyReminders")}
+          description={t("urride.menu.settings.safetyRemindersDesc")}
           checked={settings.safetyReminders}
           onChange={() => updateSettings({ safetyReminders: !settings.safetyReminders })}
         />
         <SettingToggle
-          label="Saved place suggestions"
-          description="Use saved places to speed up pickup and delivery forms."
+          label={t("urride.menu.settings.savedSuggestions")}
+          description={t("urride.menu.settings.savedSuggestionsDesc")}
           checked={settings.savedPlaceSuggestions}
           onChange={() => updateSettings({ savedPlaceSuggestions: !settings.savedPlaceSuggestions })}
         />
@@ -1611,41 +1589,47 @@ function TransportSettingsPage() {
 
       <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Language</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.settings.languageLabel")}</span>
           <select
             value={settings.language}
             onChange={(event) => updateSettings({ language: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
-            <option>English</option>
-            <option>Krio</option>
-            <option>French</option>
+            <option value="English">English</option>
+            <option value="Krio">Krio</option>
+            <option value="French">Français</option>
           </select>
         </label>
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Default ride type</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.settings.defaultRideTypeLabel")}</span>
           <select
             value={settings.defaultRideType}
             onChange={(event) => updateSettings({ defaultRideType: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
             {defaultRideTypeOptions.map((option) => (
-              <option key={option}>{option}</option>
+              <option key={option} value={option}>
+                {option === "Any available"
+                  ? t("urride.menu.settings.anyAvailable")
+                  : option === "Delivery"
+                    ? t("urride.menu.settings.deliveryOption")
+                    : option}
+              </option>
             ))}
           </select>
         </label>
 
         <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">Location privacy</span>
+          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.settings.privacyLabel")}</span>
           <select
             value={settings.privacyMode}
             onChange={(event) => updateSettings({ privacyMode: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
-            <option>Balanced</option>
-            <option>Precise only during booking</option>
-            <option>Manual addresses only</option>
+            <option value="Balanced">{t("urride.menu.settings.privacyBalanced")}</option>
+            <option value="Precise only during booking">{t("urride.menu.settings.privacyPrecise")}</option>
+            <option value="Manual addresses only">{t("urride.menu.settings.privacyManual")}</option>
           </select>
         </label>
       </section>
@@ -1656,9 +1640,9 @@ function TransportSettingsPage() {
             <LockKeyhole size={19} />
           </span>
           <div>
-            <p className="text-sm font-black text-gray-950">Privacy guardrail</p>
+            <p className="text-sm font-black text-gray-950">{t("urride.menu.settings.guardTitle")}</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
-              Saved places and precise coordinates should support trip matching and delivery handling. They should not become public profile information.
+              {t("urride.menu.settings.guardBody")}
             </p>
           </div>
         </div>
@@ -1669,7 +1653,7 @@ function TransportSettingsPage() {
         onClick={saveSettings}
         className="h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
       >
-        Save Transport Settings
+        {t("urride.menu.settings.save")}
       </button>
     </div>
   );

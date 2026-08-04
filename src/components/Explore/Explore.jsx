@@ -992,7 +992,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     const target = event.target;
     if (
       target?.closest?.("input, textarea, select, [contenteditable='true']") ||
-      target?.closest?.(".overflow-x-auto, .overflow-x-scroll")
+      target?.closest?.(".overflow-x-auto, .overflow-x-scroll") ||
+      // Elements that own their own horizontal swipe (e.g. the suggested-accounts
+      // carousel) must not drag the whole Explore tab strip.
+      target?.closest?.("[data-suppress-tab-swipe]")
     ) {
       exploreGestureRef.current = null;
       return;

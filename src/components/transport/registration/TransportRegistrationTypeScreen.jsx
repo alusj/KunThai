@@ -12,21 +12,22 @@ import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { ScreenSlideTransition } from "../../shared/motion";
 import TransportEntryAnimation from "./TransportEntryAnimation";
 import TransportCautionCard from "../shared/TransportCautionCard";
+import { useI18n, t } from "../../../i18n";
 
 const OPTIONS = [
   {
     id: "solo",
-    title: "Solo Operator",
-    subtitle: "Register yourself and one primary fleet.",
+    titleKey: "urride.registration.type.soloTitle",
+    subtitleKey: "urride.registration.type.soloSubtitle",
     icon: UserRound,
-    bullets: ["Personal operator profile", "One fleet registration", "Direct passenger bookings"],
+    bulletKeys: ["urride.registration.type.soloBullet1", "urride.registration.type.soloBullet2", "urride.registration.type.soloBullet3"],
   },
   {
     id: "company",
-    title: "Company / Organization",
-    subtitle: "Register a transport business, add fleets, and invite operators.",
+    titleKey: "urride.registration.type.companyTitle",
+    subtitleKey: "urride.registration.type.companySubtitle",
     icon: Building2,
-    bullets: ["Fleet HQ workspace", "Multiple fleet documents", "Operator invites by KunThai ID"],
+    bulletKeys: ["urride.registration.type.companyBullet1", "urride.registration.type.companyBullet2", "urride.registration.type.companyBullet3"],
   },
 ];
 
@@ -35,6 +36,7 @@ function scrollViewportTop() {
 }
 
 export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
+  useI18n();
   const [showIntro, setShowIntro] = useState(true);
   const [cautionAccepted, setCautionAccepted] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
@@ -87,17 +89,17 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
             <div className="flex items-center gap-3">
               <AppBackTab
                 onBack={onBack}
-                label="Back to transport"
+                label={t("urride.registration.type.back")}
                 historyKey="transport-registration-policy"
                 className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
               />
 
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
-                  Before you continue
+                  {t("urride.registration.type.beforeContinue")}
                 </p>
                 <h1 className="truncate text-xl font-black text-slate-950">
-                  KunThai UrRide Registration
+                  {t("urride.registration.type.regTitle")}
                 </h1>
               </div>
             </div>
@@ -117,15 +119,15 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                 </div>
 
                 <h2 className="mt-5 text-3xl font-black text-slate-950">
-                  Before you register with KunThai UrRide
+                  {t("urride.registration.type.beforeRegister")}
                 </h2>
 
                 <div className="mt-5"><TransportCautionCard /></div>
 
                 <div className="mt-5 rounded-3xl border border-slate-100 bg-slate-50 p-4">
-                  <p className="text-sm font-black text-slate-950">Professional responsibility</p>
+                  <p className="text-sm font-black text-slate-950">{t("urride.registration.type.professionalTitle")}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                    KunThai may assist with bookings, route records, emergency reporting, account verification, fraud prevention, and lawful information requests. UrRide is a technology platform, so operators and companies must still follow local transport laws, protect passengers, and keep every trip safe and respectful.
+                    {t("urride.registration.type.professionalBody")}
                   </p>
                 </div>
               </div>
@@ -138,8 +140,8 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                   className="h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:opacity-70"
                 >
                   {leavingCaution
-                    ? "Opening registration options..."
-                    : "I Understand and Want to Continue"}
+                    ? t("urride.registration.type.opening")
+                    : t("urride.registration.type.understand")}
                 </button>
               </div>
             </section>
@@ -158,17 +160,17 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
           <div className="flex items-center gap-3">
             <AppBackTab
               onBack={onBack}
-              label="Back to transport"
+              label={t("urride.registration.type.back")}
               historyKey="transport-registration-type"
               className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
             />
 
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
-                Transport registration
+                {t("urride.registration.type.regEyebrow")}
               </p>
               <h1 className="truncate text-xl font-black text-slate-950">
-                Choose your registration type
+                {t("urride.registration.type.chooseType")}
               </h1>
             </div>
           </div>
@@ -185,11 +187,11 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
             </p>
 
             <h2 className="mt-2 text-2xl font-black text-slate-950">
-              Register operators, fleets, and transport companies.
+              {t("urride.registration.type.registerHeading")}
             </h2>
 
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-              Choose the right setup for your transport account.
+              {t("urride.registration.type.chooseSetup")}
             </p>
           </section>
 
@@ -222,10 +224,10 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
 
                     <span className="min-w-0 flex-1">
                       <span className="block text-xl font-black text-slate-950">
-                        {option.title}
+                        {t(option.titleKey)}
                       </span>
                       <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">
-                        {option.subtitle}
+                        {t(option.subtitleKey)}
                       </span>
                     </span>
 
@@ -236,12 +238,12 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
                   </div>
 
                   <div className="mt-5 grid gap-2 sm:grid-cols-3">
-                    {option.bullets.map((bullet) => (
+                    {option.bulletKeys.map((bulletKey) => (
                       <span
-                        key={bullet}
+                        key={bulletKey}
                         className="rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-600"
                       >
-                        {bullet}
+                        {t(bulletKey)}
                       </span>
                     ))}
                   </div>

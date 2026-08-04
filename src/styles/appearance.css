@@ -133,6 +133,13 @@ html.dark .bg-zinc-100 {
   background-color: #1e293b !important;
 }
 
+/* Translucent sticky-header variant that was missing from the mapping above, so
+ * headers like the UrMall search bar stayed light in dark mode. */
+html.dark [class~="bg-gray-50/95"],
+html.dark [class~="bg-slate-50/95"] {
+  background-color: rgb(2 6 23 / 0.9) !important;
+}
+
 html.dark .bg-slate-200,
 html.dark .bg-gray-200,
 html.dark .bg-zinc-200 {
@@ -521,4 +528,31 @@ html.dark :disabled[class*="disabled:bg-zinc-"] {
   .kt-soft-card {
     transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
+}
+
+/* UrMall buyer search — dark mode polish.
+ *
+ * The generic mappings above turned the panel's primary buttons into near-black
+ * (#020617) rectangles that vanished against the page, and left its inputs at
+ * the same tone as the card. These scoped rules (higher specificity than the
+ * generic layer, so they win) give the search a clean elevation ladder:
+ *   page #020617  <  card #0f172a  <  inputs/controls #1e293b  <  buttons #334155
+ */
+html.dark .kt-urmall-search .bg-gray-100,
+html.dark .kt-urmall-search .bg-white,
+html.dark .kt-urmall-search input,
+html.dark .kt-urmall-search select {
+  background-color: #1e293b !important;
+}
+
+html.dark .kt-urmall-search .border-gray-200 {
+  border-color: #334155 !important;
+}
+
+html.dark .kt-urmall-search .bg-gray-950 {
+  background-color: #334155 !important;
+}
+
+html.dark .kt-urmall-search .bg-gray-950:hover {
+  background-color: #475569 !important;
 }

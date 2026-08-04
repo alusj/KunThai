@@ -132,7 +132,6 @@ function readStoredMarketplaceNav() {
 }
 
 function AppLoading({ page = "explore" }) {
-  const pageTitle = page === "marketplace" ? "UrMall" : page === "transport" ? "UrRide" : "Explore";
   const [showPatienceNotice, setShowPatienceNotice] = useState(false);
   const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
   // Distinguishes a genuine connectivity fault from a page that is merely slow
@@ -184,16 +183,10 @@ function AppLoading({ page = "explore" }) {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
-        <div className="flex h-16 items-center justify-center px-4">
-          <div className="space-y-2 text-center">
-            <div className="mx-auto h-2 w-16 animate-pulse rounded-full bg-sky-100" />
-            <div className="mx-auto rounded-full bg-slate-200 px-4 py-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
-              {pageTitle}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* A neutral header bar stands in for the real header. The old EXPLORE /
+          URMALL / URRIDE title pill was removed — it only labelled the wait
+          without representing any real UI. */}
+      <div className="sticky top-0 z-30 h-16 border-b border-slate-200 bg-white" aria-hidden="true" />
 
       <div className="space-y-4 px-4 py-4">
         {showPatienceNotice ? (

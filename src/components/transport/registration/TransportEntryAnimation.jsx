@@ -1,11 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Bike, Truck } from "lucide-react";
 
+import { useI18n, t } from "../../../i18n";
+
 export default function TransportEntryAnimation({ show }) {
+  useI18n();
   const vehicles = [
-    { id: "bike", Icon: Bike, label: "Bike" },
-    { id: "keke", emoji: "🛺", label: "Tricycle" },
-    { id: "truck", Icon: Truck, label: "Delivery" },
+    { id: "bike", Icon: Bike },
+    { id: "keke", emoji: "🛺" },
+    { id: "truck", Icon: Truck },
   ];
 
   return (
@@ -78,7 +81,7 @@ export default function TransportEntryAnimation({ show }) {
                 exit={{ opacity: 0, x: 80 }}
                 transition={{ delay: 0.15 }}
               >
-                Entering Transport
+                {t("urride.registration.entry.title")}
               </motion.h2>
 
               <motion.p
@@ -88,7 +91,7 @@ export default function TransportEntryAnimation({ show }) {
                 exit={{ opacity: 0, x: 80 }}
                 transition={{ delay: 0.25 }}
               >
-                from KunThai...
+                {t("urride.registration.entry.subtitle")}
               </motion.p>
             </div>
           </motion.div>

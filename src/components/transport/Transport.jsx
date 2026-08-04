@@ -34,6 +34,7 @@ import { submitTransportSupportTicket } from "../services/bookingService";
 import { guardGuestAction } from "../../Backend/services/guestModeService";
 import { subscribeNotificationSeen } from "../../Backend/services/notificationSeenStore";
 import { showToast } from "../../Backend/services/toastService";
+import { useI18n, t } from "../../i18n";
 
 // Session-lived cache of the operator/company accounts, mirroring UrMall's
 // SELLER_HEADER_MEMORY. Re-entering UrRide then paints the header from this
@@ -48,6 +49,7 @@ const TRANSPORT_ACCOUNT_MEMORY = {
 };
 
 export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled }) {
+  useI18n();
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
   const [companyRegistrationMode, setCompanyRegistrationMode] = useState("full");
@@ -321,7 +323,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setFleetSelection({
       mode: "topRated",
       fleetType: null,
-      label: "Verified Operators",
+      label: t("urride.transport.verifiedOperators"),
       verifiedOnly: true,
     });
   }
@@ -349,20 +351,21 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     const payload = maybePayload || fleetOrPayload || {};
 
     if (!fleet) {
-      throw new Error("Select the operator again so KunThai can attach the correct fleet record.");
+      throw new Error(t("urride.transport.report.selectAgain"));
     }
 
     const reason = payload.reason || "Verification concern";
     const message = String(payload.message || "").trim();
+    const unavailable = t("urride.transport.report.unavailable");
     const supportBody = [
-      `Reason: ${reason}`,
-      `Operator: ${fleet.operatorName || fleet.fleetName || "Transport operator"}`,
-      `Fleet: ${fleet.fleetName || "Fleet name unavailable"}`,
-      `Fleet ID: ${fleet.id || "Unavailable"}`,
-      `Operator record: ${fleet.operatorRecordId || "Unavailable"}`,
-      `Display code: ${fleet.operatorId || "Unavailable"}`,
-      `Plate: ${fleet.plateNumber || "Unavailable"}`,
-      `Verification status: ${fleet.verificationStatus || "Unknown"}`,
+      t("urride.transport.report.reasonPrefix", { reason }),
+      t("urride.transport.report.operatorPrefix", { name: fleet.operatorName || fleet.fleetName || t("urride.transport.report.operatorFallback") }),
+      t("urride.transport.report.fleetPrefix", { name: fleet.fleetName || t("urride.transport.report.fleetNameUnavailable") }),
+      t("urride.transport.report.fleetIdPrefix", { id: fleet.id || unavailable }),
+      t("urride.transport.report.operatorRecordPrefix", { id: fleet.operatorRecordId || unavailable }),
+      t("urride.transport.report.displayCodePrefix", { code: fleet.operatorId || unavailable }),
+      t("urride.transport.report.platePrefix", { plate: fleet.plateNumber || unavailable }),
+      t("urride.transport.report.statusPrefix", { status: fleet.verificationStatus || t("urride.transport.report.unknown") }),
       "",
       message,
     ].join("\n");
@@ -388,7 +391,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       setOperatorInviteStatus("");
     } catch (error) {
       if (!/sign in/i.test(error.message || "")) {
-        setOperatorInviteStatus(error.message || "Unable to load company registration requests.");
+        setOperatorInviteStatus(error.message || t("urride.transport.status.invitesLoadError"));
       }
     } finally {
       setOperatorInviteLoading(false);
@@ -449,7 +452,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
       setOperatorInviteDocumentsInvite(updatedInvite);
     } catch (error) {
-      setOperatorInviteStatus(error.message || "Unable to accept this company request.");
+      setOperatorInviteStatus(error.message || t("urride.transport.status.acceptError"));
     }
   }
 
@@ -457,17 +460,17 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setOperatorInviteDocumentsInvite(null);
     await refreshOperatorCompanyInvites(operatorAccount).catch(() => {});
     setOperatorInviteStatus(
-      `${invite?.companyName || "Company"} request accepted. You can add your operator documents any time from the Verification Center.`,
+      t("urride.transport.status.skipDocs", { company: invite?.companyName || t("urride.transport.status.companyFallback") }),
     );
-    showToast("Request accepted. Documents can be added later.", "success", {
-      title: "Company invitation",
+    showToast(t("urride.transport.toast.docsLater"), "success", {
+      title: t("urride.transport.toast.companyInvitation"),
     });
   }
 
   async function continueWithExistingOperatorDocuments() {
     if (!documentReuseInvite) return;
     try {
-      const reuseNotice = "KunThai will use the operator identity and license documents you previously submitted for review.";
+      const reuseNotice = t("urride.transport.status.reuseNotice");
       await respondToOperatorInvite(documentReuseInvite, {
         status: "accepted",
         documents: {
@@ -478,9 +481,9 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       });
       setDocumentReuseInvite(null);
       await refreshOperatorCompanyInvites(operatorAccount);
-      setOperatorInviteStatus("Company request accepted. KunThai will use your previously submitted operator documents.");
+      setOperatorInviteStatus(t("urride.transport.status.reuseAccepted"));
     } catch (error) {
-      setOperatorInviteStatus(error.message || "Unable to continue with existing documents.");
+      setOperatorInviteStatus(error.message || t("urride.transport.status.continueDocsError"));
     }
   }
 
@@ -496,13 +499,13 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       });
       removeOperatorInvite(rejectedInvite);
       setDocumentReuseInvite(null);
-      showToast("You've rejected this request.", "warning", {
-        title: "Request rejected",
+      showToast(t("urride.transport.toast.rejected"), "warning", {
+        title: t("urride.transport.toast.requestRejected"),
         anchor: "notification",
       });
       await refreshOperatorCompanyInvites(operatorAccount);
     } catch (error) {
-      setOperatorInviteStatus(error.message || "Unable to decline this company request.");
+      setOperatorInviteStatus(error.message || t("urride.transport.status.declineError"));
     }
   }
 
@@ -518,7 +521,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       removeOperatorInvite(completedInvite);
       setOperatorInviteStatus("");
     } catch (error) {
-      setOperatorInviteStatus(error.message || "Unable to dismiss this completed request.");
+      setOperatorInviteStatus(error.message || t("urride.transport.status.dismissError"));
     }
   }
 
@@ -552,9 +555,9 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       });
       setOperatorInviteDocumentsInvite(null);
       await refreshOperatorCompanyInvites(operatorAccount);
-      setOperatorInviteStatus(`${updatedInvite.companyName || "Company"} request accepted. Your operator documents were submitted for review.`);
+      setOperatorInviteStatus(t("urride.transport.status.submitDocs", { company: updatedInvite.companyName || t("urride.transport.status.companyFallback") }));
     } catch (error) {
-      throw new Error(error.message || "Unable to submit operator documents for this request.");
+      throw new Error(error.message || t("urride.transport.docs.submitError"));
     }
   }
 
@@ -576,7 +579,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         const invites = await getOperatorCompanyInvites(account).catch(() => []);
         setOperatorCompanyInvites(invites);
       } catch (error) {
-        setOperatorInviteStatus(error.message || "Operator registered, but the company request could not be updated.");
+        setOperatorInviteStatus(error.message || t("urride.transport.status.registerUpdateError"));
       } finally {
         setRegistrationInvite(null);
       }
@@ -592,12 +595,12 @@ export default function Transport({ active = false, onActivityChange, onNotifica
 
   async function openCompanyOperatorDashboard(operator) {
     if (!operator?.operatorId) {
-      setCompanyWorkspaceStatus("This operator has not completed registration yet, so the dashboard is not available.");
+      setCompanyWorkspaceStatus(t("urride.transport.status.operatorNotRegistered"));
       return;
     }
 
     try {
-      setCompanyWorkspaceStatus("Opening operator dashboard...");
+      setCompanyWorkspaceStatus(t("urride.transport.status.openingDashboard"));
       const dashboard = operator.transportFleetId
         ? await fetchOperatorDashboard(operator.operatorId, operator.transportFleetId, { fleetScoped: true })
         : null;
@@ -608,7 +611,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       setRouteDirection("forward");
       setCompanyWorkspaceStatus("");
     } catch (error) {
-      setCompanyWorkspaceStatus(error.message || "Unable to open this operator dashboard.");
+      setCompanyWorkspaceStatus(error.message || t("urride.transport.status.openDashboardError"));
     }
   }
 
@@ -621,7 +624,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         const account = await getOperatorAccount();
         if (alive) setOperatorAccount(account);
       } catch (error) {
-        if (alive) setOperatorError(error.message || "Unable to load fleet account.");
+        if (alive) setOperatorError(error.message || t("urride.transport.operatorError"));
       } finally {
         if (alive) setOperatorLoading(false);
       }
@@ -705,20 +708,20 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       if (nextAccount?.id && inviteUpdate?.company_id === nextAccount.id) {
         const inviteStatus = String(inviteUpdate.status || "").toLowerCase();
         const inviteDocuments = inviteUpdate.documents || {};
-        const operatorName = inviteUpdate.operator_name || "An operator";
+        const operatorName = inviteUpdate.operator_name || t("urride.transport.status.operatorFallback");
         const message = inviteStatus === "rejected"
-          ? `${operatorName} declined your company invitation.`
+          ? t("urride.transport.status.inviteDeclined", { operator: operatorName })
           : inviteStatus === "accepted" && inviteDocuments.operatorDocumentsSubmitted
-            ? `${operatorName} accepted and submitted operator documents for review.`
+            ? t("urride.transport.status.inviteAcceptedSubmitted", { operator: operatorName })
             : inviteStatus === "accepted"
-              ? `${operatorName} accepted your company invitation.`
+              ? t("urride.transport.status.inviteAccepted", { operator: operatorName })
               : "";
 
         if (message) {
           setCompanyWorkspaceStatus(message);
           if (activeRef.current) {
             showToast(message, inviteStatus === "rejected" ? "warning" : "success", {
-              title: inviteStatus === "rejected" ? "Invitation declined" : "Invitation accepted",
+              title: inviteStatus === "rejected" ? t("urride.transport.toast.invitationDeclined") : t("urride.transport.toast.invitationAccepted"),
             });
           }
         }
@@ -851,7 +854,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           onBack={closeRegistrationOneKmPreview}
           onDone={closeRegistrationOneKmPreview}
           mode="oneKmPreview"
-          backLabel="Back to price form"
+          backLabel={t("urride.transport.back.priceForm")}
         />
       </div>
     );
@@ -945,7 +948,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           companyLoading={companyLoading}
           initialView="dashboard"
           readOnly
-          readOnlyReason="Company owner view. You can review this company fleet and its trips, but only the assigned operator can change service controls."
+          readOnlyReason={t("urride.transport.readOnlyReason")}
           onBack={() => {
             setRouteDirection("backward");
             setCompanyOperatorDashboardOpen(false);
@@ -961,7 +964,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           onSwitchCompany={async (company) => {
             await setActiveTransportCompanyId(company.id);
             setCompanyAccount(company);
-            setCompanyWorkspaceStatus(`Switched to ${company.companyName}.`);
+            setCompanyWorkspaceStatus(t("urride.transport.status.switchedTo", { company: company.companyName }));
           }}
         />
       </div>
@@ -1051,7 +1054,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
             await setActiveTransportCompanyId(company.id);
             setCompanyAccount(company);
             setCompanyOperationBadgeCount(0);
-            showToast(`Transport group switched to ${company.companyName}.`, "success");
+            showToast(t("urride.transport.toast.groupSwitched", { company: company.companyName }), "success");
           }}
           onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}
           onEditRegistration={() => {
@@ -1116,16 +1119,16 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           }}
           backLabel={
             nearbyAreaRequest?.returnTo === "booking"
-              ? "Back to booking form"
+              ? t("urride.transport.back.bookingForm")
               : nearbyAreaRequest?.returnTo === "active-trips"
-                ? "Back to active trips"
+                ? t("urride.transport.back.activeTrips")
               : nearbyAreaRequest?.returnTo === "explore-messages"
-                ? "Back to messages"
+                ? t("urride.transport.back.messages")
                 : nearbyAreaRequest?.returnTo === "marketplace-seller"
-                  ? "Back to seller profile"
+                  ? t("urride.transport.back.sellerProfile")
                 : nearbyAreaRequest?.returnTo === "marketplace-seller-orders"
-                  ? "Back to seller orders"
-                : "Back to transport"
+                  ? t("urride.transport.back.sellerOrders")
+                : t("urride.transport.back.transport")
           }
         />
       </div>
@@ -1327,7 +1330,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         }}
         onOpenTopRated={() => {
           setRouteDirection("forward");
-          setFleetSelection({ mode: "topRated", fleetType: null, label: "Top Rated Fleets", includeOffline: false });
+          setFleetSelection({ mode: "topRated", fleetType: null, label: t("urride.transport.topRatedFleets"), includeOffline: false });
         }}
         onOpenNearbyArea={() => {
           openNearbyAreaRoute();
@@ -1369,30 +1372,14 @@ function hasSubmittedOperatorDocuments(account) {
 }
 
 const operatorInviteDocumentFields = [
-  {
-    key: "nationalId",
-    label: "National ID card",
-    detail: "Upload a clear photo or scan of the operator's national identity card.",
-  },
-  {
-    key: "license",
-    label: "Driver or rider license",
-    detail: "Use the license that allows you to operate this transport type.",
-  },
-  {
-    key: "operatorPhoto",
-    label: "Operator selfie/photo",
-    detail: "Upload a recent face photo for identity verification.",
-  },
-  {
-    key: "supportingDocument",
-    label: "Supporting document",
-    detail: "Optional permit, union card, background check, or other operator-only document.",
-    optional: true,
-  },
+  { key: "nationalId", labelKey: "urride.transport.docs.nationalIdLabel", detailKey: "urride.transport.docs.nationalIdDetail" },
+  { key: "license", labelKey: "urride.transport.docs.licenseLabel", detailKey: "urride.transport.docs.licenseDetail" },
+  { key: "operatorPhoto", labelKey: "urride.transport.docs.photoLabel", detailKey: "urride.transport.docs.photoDetail" },
+  { key: "supportingDocument", labelKey: "urride.transport.docs.supportingLabel", detailKey: "urride.transport.docs.supportingDetail", optional: true },
 ];
 
 function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
+  useI18n();
   const [documents, setDocuments] = useState({});
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1402,8 +1389,8 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
     setDocuments((current) => ({
       ...current,
       [field.key]: {
-        label: field.label,
-        fileName: file?.name || "Selected",
+        label: t(field.labelKey),
+        fileName: file?.name || t("urride.transport.docs.selectedFallback"),
         file: file || null,
         uploadedAt: new Date().toISOString(),
       },
@@ -1414,7 +1401,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
   async function submitDocuments() {
     const missing = requiredDocuments.filter((field) => !documents[field.key]?.fileName);
     if (missing.length) {
-      setStatus(`Upload ${missing.map((field) => field.label.toLowerCase()).join(", ")} before submitting.`);
+      setStatus(t("urride.transport.docs.uploadMissing", { docs: missing.map((field) => t(field.labelKey).toLowerCase()).join(", ") }));
       return;
     }
 
@@ -1423,7 +1410,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
       setStatus("");
       await onSubmit?.(invite, documents);
     } catch (error) {
-      setStatus(error.message || "Unable to submit these operator documents.");
+      setStatus(error.message || t("urride.transport.docs.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -1435,13 +1422,13 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
         <div className="flex items-center gap-3">
           <AppBackTab
             onBack={onBack}
-            label="Back to company request"
+            label={t("urride.transport.docs.back")}
             historyKey="transport-company-invite-documents"
             className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
           />
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-wide text-blue-700">Operator documents</p>
-            <h1 className="truncate text-xl font-black text-slate-950">Complete company invitation</h1>
+            <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.transport.docs.eyebrow")}</p>
+            <h1 className="truncate text-xl font-black text-slate-950">{t("urride.transport.docs.heading")}</h1>
           </div>
         </div>
       </header>
@@ -1451,16 +1438,16 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
             <FiFileText size={23} />
           </span>
-          <p className="mt-4 text-xs font-black uppercase tracking-wide text-blue-700">Company invitation</p>
+          <p className="mt-4 text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.transport.docs.inviteEyebrow")}</p>
           <h2 className="mt-1 text-2xl font-black leading-tight text-slate-950">
-            Upload only your operator documents
+            {t("urride.transport.docs.uploadTitle")}
           </h2>
           <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-            {invite?.companyName || "This company"} invited you to operate under {invite?.fleetName || invite?.fleetType || "their Fleet HQ"}. The company already provides company and fleet records. You only need to submit documents that prove your operator identity and license.
+            {t("urride.transport.docs.inviteBody", { company: invite?.companyName || t("urride.transport.docs.companyFallback"), fleet: invite?.fleetName || invite?.fleetType || t("urride.transport.docs.fleetFallback") })}
           </p>
           {onSkip ? (
             <p className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold leading-5 text-emerald-800">
-              Your acceptance is already saved. Documents are optional right now - you can skip this step and add them later from the Verification Center, but your account stays Not verified until KunThai reviews them.
+              {t("urride.transport.docs.skipNotice")}
             </p>
           ) : null}
         </section>
@@ -1473,9 +1460,9 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-black text-slate-950">
-                      {field.label} {field.optional ? <span className="text-slate-400">(optional)</span> : null}
+                      {t(field.labelKey)} {field.optional ? <span className="text-slate-400">{t("urride.transport.docs.optional")}</span> : null}
                     </p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{field.detail}</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{t(field.detailKey)}</p>
                     {selected ? <p className="mt-2 text-xs font-black text-blue-700">{selected}</p> : null}
                   </div>
                   <span className={`flex h-10 w-10 flex-none items-center justify-center rounded-2xl ${selected ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
@@ -1489,7 +1476,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
                   onChange={(event) => markDocument(field, event.target.files?.[0])}
                 />
                 <span className="mt-3 inline-flex h-10 items-center rounded-2xl border border-blue-200 bg-blue-50 px-4 text-xs font-black text-blue-800">
-                  {selected ? "Replace document" : "Choose document"}
+                  {selected ? t("urride.transport.docs.replace") : t("urride.transport.docs.choose")}
                 </span>
               </label>
             );
@@ -1508,7 +1495,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
             onClick={onBack}
             className="h-12 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700"
           >
-            Back
+            {t("urride.transport.docs.backBtn")}
           </button>
           {onSkip ? (
             <button
@@ -1517,7 +1504,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
               disabled={submitting}
               className="h-12 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 text-sm font-black text-emerald-800 disabled:opacity-60"
             >
-              Skip for now
+              {t("urride.transport.docs.skipForNow")}
             </button>
           ) : null}
           <button
@@ -1526,7 +1513,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
             disabled={submitting}
             className="h-12 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-600/20 disabled:opacity-60"
           >
-            {submitting ? "Submitting documents..." : "Submit operator documents"}
+            {submitting ? t("urride.transport.docs.submitting") : t("urride.transport.docs.submit")}
           </button>
         </div>
       </main>
@@ -1543,7 +1530,7 @@ function normalizeDashboardVerification(value = "pending") {
   return map[value] || value || "pending";
 }
 
-function titleCaseTransportValue(value = "", fallback = "Not added") {
+function titleCaseTransportValue(value = "", fallback = t("urride.transport.notAdded")) {
   const text = String(value || "").replace(/[_-]+/g, " ").trim();
   if (!text) return fallback;
   return text.replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -1560,15 +1547,15 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
     operatorId: operator.operator_code || "",
     displayCode: invite.publicId || operator.display_code,
     form: {
-      name: invite.name || "Registered operator",
+      name: invite.name || t("urride.transport.registeredOperator"),
       phone: "",
       country: invite.companyCountry || fleet.country || "",
       countryCode: fleet.country_iso || "",
       currency: fleet.currency || operator.currency || "",
       city: invite.city || invite.companyCity || "",
-      category: invite.serviceCategory || titleCaseTransportValue(fleet.service_category, "Transport"),
-      fleetType: invite.fleetType || titleCaseTransportValue(fleet.fleet_type, "Fleet"),
-      fleetName: invite.fleetName || fleet.fleet_name || "Registered Fleet",
+      category: invite.serviceCategory || titleCaseTransportValue(fleet.service_category, t("urride.transport.transportFallback")),
+      fleetType: invite.fleetType || titleCaseTransportValue(fleet.fleet_type, t("urride.transport.fleetFallback")),
+      fleetName: invite.fleetName || fleet.fleet_name || t("urride.transport.registeredFleet"),
       plateNumber: invite.plateNumber || fleet.plate_number || "",
       make: invite.make || fleet.make || "",
       model: invite.model || fleet.model || "",
@@ -1596,6 +1583,7 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
 }
 
 function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onCompleteRegistration, onDone, onReject }) {
+  useI18n();
   const visibleInvites = invites.filter((invite) =>
     !invite.documents?.operatorAcknowledgedAt &&
       !["archived", "cancelled", "canceled", "declined", "rejected", "revoked"].includes(String(invite.status || "").toLowerCase()),
@@ -1609,10 +1597,10 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
           <FiBriefcase size={21} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">Company registration request</p>
-          <h2 className="mt-1 text-lg font-black leading-tight text-slate-950">Transport company invitations</h2>
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.transport.invitePanel.eyebrow")}</p>
+          <h2 className="mt-1 text-lg font-black leading-tight text-slate-950">{t("urride.transport.invitePanel.heading")}</h2>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-            Review requests from companies that want you to operate under their Fleet HQ.
+            {t("urride.transport.invitePanel.body")}
           </p>
         </div>
       </div>
@@ -1626,7 +1614,7 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
       <div className="mt-4 grid gap-3">
         {loading && visibleInvites.length ? (
           <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700">
-            Refreshing company requests...
+            {t("urride.transport.invitePanel.refreshing")}
           </div>
         ) : null}
         {visibleInvites.map((invite) => (
@@ -1645,10 +1633,11 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
 }
 
 function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, onDone, onReject }) {
+  useI18n();
   const needsDocuments = invite.status === "accepted_pending_documents" || invite.documents?.operatorDocumentsRequired;
   const accepted = invite.status === "accepted" && !needsDocuments;
   const rejected = invite.status === "rejected";
-  const statusLabel = needsDocuments ? "Accepted" : accepted ? "Accepted" : rejected ? "Declined" : "Pending";
+  const statusLabel = needsDocuments ? t("urride.transport.inviteCard.statusAccepted") : accepted ? t("urride.transport.inviteCard.statusAccepted") : rejected ? t("urride.transport.inviteCard.statusDeclined") : t("urride.transport.inviteCard.statusPending");
   const statusTone = needsDocuments || accepted
     ? "bg-blue-100 text-blue-700"
     : rejected
@@ -1659,11 +1648,11 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-            {needsDocuments ? "Operator documents needed" : "New request"}
+            {needsDocuments ? t("urride.transport.inviteCard.docsNeeded") : t("urride.transport.inviteCard.newRequest")}
           </p>
-          <h3 className="mt-1 break-words text-base font-black text-slate-950">{invite.companyName || "Transport company"}</h3>
+          <h3 className="mt-1 break-words text-base font-black text-slate-950">{invite.companyName || t("urride.transport.inviteCard.companyFallback")}</h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-            {invite.fleetName || invite.fleetType || "Company fleet"} {invite.plateNumber ? `- ${invite.plateNumber}` : ""}
+            {invite.fleetName || invite.fleetType || t("urride.transport.inviteCard.fleetFallback")} {invite.plateNumber ? `- ${invite.plateNumber}` : ""}
           </p>
         </div>
         <span className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-black ${statusTone}`}>
@@ -1672,14 +1661,14 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
       </div>
       <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
         {needsDocuments
-          ? "Upload your operator identity and license documents. The company and fleet documents are handled by the company."
+          ? t("urride.transport.inviteCard.bodyDocsNeeded")
           : accepted
             ? invite.documents?.reuseNotice || invite.documents?.reusedExistingDocuments
-              ? "Accepted. KunThai will use your previously submitted operator identity and license documents for this company invitation."
-              : "Accepted. This company can now keep your operator record in its Fleet HQ."
+              ? t("urride.transport.inviteCard.bodyReuse")
+              : t("urride.transport.inviteCard.bodyAccepted")
             : rejected
-              ? "You declined this company request. The company will see that this invitation was not accepted."
-              : "Accept if you want this company to register you as an operator. Reject if you do not want to join this company fleet."}
+              ? t("urride.transport.inviteCard.bodyRejected")
+              : t("urride.transport.inviteCard.bodyPending")}
       </p>
       {!accepted && !rejected ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -1689,7 +1678,7 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
           className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
         >
           {needsDocuments ? <FiFileText size={17} /> : <FiCheckCircle size={17} />}
-          {needsDocuments ? "Upload documents" : "Accept"}
+          {needsDocuments ? t("urride.transport.inviteCard.uploadDocs") : t("urride.transport.inviteCard.accept")}
         </button>
         <button
           type="button"
@@ -1697,7 +1686,7 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
           className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-700"
         >
           <FiX size={17} />
-          Reject
+          {t("urride.transport.inviteCard.reject")}
         </button>
         </div>
       ) : accepted ? (
@@ -1707,11 +1696,11 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
           className="kt-pressable mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white shadow-lg shadow-emerald-700/15 transition hover:bg-emerald-700"
         >
           <FiCheckCircle size={17} />
-          Done
+          {t("urride.transport.inviteCard.done")}
         </button>
       ) : (
         <div className="mt-4 rounded-2xl border border-white bg-white px-4 py-3 text-xs font-black text-slate-600">
-          No active action remains on this request.
+          {t("urride.transport.inviteCard.noAction")}
         </div>
       )}
     </article>
@@ -1719,6 +1708,7 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
 }
 
 function DocumentReuseDecisionModal({ invite, onClose, onContinue, onDeny }) {
+  useI18n();
   if (!invite) return null;
 
   return (
@@ -1728,17 +1718,17 @@ function DocumentReuseDecisionModal({ invite, onClose, onContinue, onDeny }) {
           type="button"
           onClick={onClose}
           className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700"
-          aria-label="Close document reuse notice"
+          aria-label={t("urride.transport.reuse.close")}
         >
           <FiX />
         </button>
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
           <FiShield size={23} />
         </span>
-        <p className="mt-4 text-xs font-black uppercase tracking-wide text-emerald-700">Existing documents available</p>
-        <h2 className="mt-1 pr-10 text-2xl font-black leading-tight text-slate-950">Use your submitted operator documents?</h2>
+        <p className="mt-4 text-xs font-black uppercase tracking-wide text-emerald-700">{t("urride.transport.reuse.eyebrow")}</p>
+        <h2 className="mt-1 pr-10 text-2xl font-black leading-tight text-slate-950">{t("urride.transport.reuse.heading")}</h2>
         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-          {invite.companyName || "This company"} invited you to join {invite.fleetName || invite.fleetType || "their fleet"}. Since you have already submitted operator documents, KunThai can use your previous identity and license records for this company invitation.
+          {t("urride.transport.reuse.body", { company: invite.companyName || t("urride.transport.reuse.companyFallback"), fleet: invite.fleetName || invite.fleetType || t("urride.transport.reuse.fleetFallback") })}
         </p>
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
           <button
@@ -1746,14 +1736,14 @@ function DocumentReuseDecisionModal({ invite, onClose, onContinue, onDeny }) {
             onClick={onContinue}
             className="h-11 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white"
           >
-            Continue
+            {t("urride.transport.reuse.continue")}
           </button>
           <button
             type="button"
             onClick={onDeny}
             className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
           >
-            Deny
+            {t("urride.transport.reuse.deny")}
           </button>
         </div>
       </section>

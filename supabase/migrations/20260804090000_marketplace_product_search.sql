@@ -77,7 +77,7 @@ as $$
   )
   select
     p as product,
-    b.id as seller_id,          -- unique seller id (business_id)
+    p.business_id as seller_id,  -- unique seller id, always present on the product row
     b.business_name as seller_name,
     b.logo_url as seller_logo_url
   from public.marketplace_products p

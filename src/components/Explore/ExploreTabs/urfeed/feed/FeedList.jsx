@@ -316,6 +316,9 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
       </div>
       <div
         ref={viewportRef}
+        // Own the horizontal gesture: this carousel slides its own cards, so the
+        // Explore tab swipe must ignore drags that start here (see Explore.jsx).
+        data-suppress-tab-swipe="true"
         className="mt-3 overflow-hidden"
         style={{ touchAction: "pan-y" }}
         onPointerDown={handlePointerDown}
