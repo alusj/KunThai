@@ -12,22 +12,34 @@ import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup"
 import VerificationBadge from "../verification/VerificationBadge";
 import { useI18n, t } from "../../../i18n";
 
-function matchesSearch(fleet, query) {
+// Search scopes shown as pills so a passenger can target a specific identity —
+// car name, plate, service category, operator code, or pickup area — instead of
+// only a broad free-text match.
+const SEARCH_SCOPES = [
+  { id: "all", labelKey: "urride.search.scopeAll" },
+  { id: "car", labelKey: "urride.search.scopeCar" },
+  { id: "plate", labelKey: "urride.search.scopePlate" },
+  { id: "category", labelKey: "urride.search.scopeCategory" },
+  { id: "code", labelKey: "urride.search.scopeCode" },
+  { id: "location", labelKey: "urride.search.scopeLocation" },
+];
+
+const SCOPE_FIELDS = {
+  all: ["fleetName", "operatorName", "operatorId", "plateNumber", "displayType", "fleetType", "serviceCategory", "currentLocation", "lastKnownLocation", "operatingArea"],
+  car: ["fleetName", "operatorName"],
+  plate: ["plateNumber"],
+  category: ["serviceCategory", "fleetType", "displayType"],
+  code: ["operatorId"],
+  location: ["currentLocation", "lastKnownLocation", "operatingArea"],
+};
+
+function matchesSearch(fleet, query, scope = "all") {
   const value = query.trim().toLowerCase();
   if (!value) return true;
 
-  return [
-    fleet.fleetName,
-    fleet.operatorName,
-    fleet.operatorId,
-    fleet.plateNumber,
-    fleet.displayType,
-    fleet.fleetType,
-    fleet.serviceCategory,
-    fleet.currentLocation,
-    fleet.lastKnownLocation,
-    fleet.operatingArea,
-  ]
+  const fields = SCOPE_FIELDS[scope] || SCOPE_FIELDS.all;
+  return fields
+    .map((field) => fleet[field])
     .filter(Boolean)
     .some((item) => String(item).toLowerCase().includes(value));
 }
@@ -36,6 +48,7 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
   useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [scope, setScope] = useState("all");
   const [fleets, setFleets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -72,8 +85,8 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
   }, [onOpenChange, open]);
 
   const results = useMemo(
-    () => fleets.filter((fleet) => matchesSearch(fleet, query)).slice(0, 20),
-    [fleets, query],
+    () => fleets.filter((fleet) => matchesSearch(fleet, query, scope)).slice(0, 20),
+    [fleets, query, scope],
   );
   const codeLookup = usePublicCodeLookup(query);
 
@@ -130,6 +143,21 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-bold text-slate-950 outline-none focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
                   />
                 </label>
+
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {SEARCH_SCOPES.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setScope(item.id)}
+                      className={`h-9 flex-none rounded-2xl px-4 text-sm font-bold transition ${
+                        scope === item.id ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {t(item.labelKey)}
+                    </button>
+                  ))}
+                </div>
 
                 <div className="mt-4 max-h-[60vh] space-y-3 overflow-y-auto pr-1">
                   {codeLookup.kind && codeLookup.kind !== "urride" ? (

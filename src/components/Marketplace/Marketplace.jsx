@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Browse from "./Browse/Browse";
+import MarketplaceSearchOverlay from "./Browse/MarketplaceSearchOverlay";
 import MarketplaceHeader from "./MarketplaceHeader/MarketplaceHeader";
 import Business from "./MarketplaceHeader/Business/Business";
 import Messages from "./Messages";
@@ -60,6 +61,7 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("new");
   const [activeParent, setActiveParent] = useState("all");
+  const [dashboardPriority, setDashboardPriority] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [verticalDetailOpen, setVerticalDetailOpen] = useState(false);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
@@ -154,6 +156,39 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
     setActiveTab(tab);
   }
 
+  // Search-overlay selections always resolve on the retail "all" surface (where
+  // Browse is mounted and listens for these events). A short delay lets Browse
+  // mount first when the shopper searched from a vertical parent.
+  function dispatchToBrowse(name, detail) {
+    setActiveParent("all");
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent(name, { detail })), 60);
+  }
+
+  function handleSearchOpenProduct(product) {
+    dispatchToBrowse("marketplace-open-product", { product });
+  }
+
+  function handleSearchOpenSeller(seller) {
+    dispatchToBrowse("marketplace-open-seller", { seller });
+  }
+
+  function handleSearchOpenVertical(type, item) {
+    dispatchToBrowse("marketplace-open-vertical", { type, item });
+  }
+
+  function handleSearchApply(payload) {
+    dispatchToBrowse("marketplace-apply-search", payload);
+  }
+
+  // Choosing a category in the search overlay reorders the "all" dashboard so
+  // that category leads, with the other categories following — and closes the
+  // overlay. "All categories" clears it back to the default order.
+  function handleBrowseCategory(categoryId) {
+    setActiveParent("all");
+    setDashboardPriority(categoryId && categoryId !== "all" ? categoryId : null);
+    setSearchOpen(false);
+  }
+
   function openMyBiz() {
     if (businessCloseTimer.current) {
       window.clearTimeout(businessCloseTimer.current);
@@ -222,7 +257,7 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
 
   return (
     <div className="w-full">
-      {!productMode && !searchTakingOver && (
+      {!productMode && (
         <div
           className={`sticky top-0 z-30 transition-transform duration-300 ease-out ${
             headerHidden ? "-translate-y-full" : "translate-y-0"
@@ -261,6 +296,17 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
         </div>
       )}
 
+      <MarketplaceSearchOverlay
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onOpenProduct={handleSearchOpenProduct}
+        onOpenSeller={handleSearchOpenSeller}
+        onOpenVertical={handleSearchOpenVertical}
+        onApplySearch={handleSearchApply}
+        activeCategory={dashboardPriority || "all"}
+        onBrowseCategory={handleBrowseCategory}
+      />
+
       <div
         key={`${activeParent}-${activeTab}`}
         className={`${productMode ? "" : "px-4 pb-28 pt-4 sm:px-6 lg:px-8"} ${
@@ -270,13 +316,14 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
         {activeParent === "all" ? (
           <Browse
             activeTab={activeTab}
-            searchOpen={searchOpen}
-            onCloseSearch={() => setSearchOpen(false)}
+            searchOpen={false}
             onProductModeChange={setMarketplaceScreenMode}
-            supplementalContent={<VerticalMarketplace mode="mixed" onDetailChange={setVerticalDetailOpen} />}
+            priorityCategory={dashboardPriority}
+            onClearPriority={() => setDashboardPriority(null)}
+            supplementalContent={<VerticalMarketplace mode="mixed" priorityType={dashboardPriority} onDetailChange={setVerticalDetailOpen} />}
           />
         ) : null}
-        {activeParent === "shop" ? <Browse activeTab={activeTab} searchOpen={searchOpen} onCloseSearch={() => setSearchOpen(false)} onProductModeChange={setMarketplaceScreenMode} /> : null}
+        {activeParent === "shop" ? <Browse activeTab={activeTab} searchOpen={false} onProductModeChange={setMarketplaceScreenMode} /> : null}
         {activeParent === "food" ? <VerticalMarketplace mode="food" onDetailChange={setVerticalDetailOpen} /> : null}
         {activeParent === "hotels" ? <VerticalMarketplace mode="hotels" onDetailChange={setVerticalDetailOpen} /> : null}
         {activeParent === "property" ? <VerticalMarketplace mode="property" onDetailChange={setVerticalDetailOpen} /> : null}

@@ -659,6 +659,35 @@ export async function fetchBuyerProductDetail(productId) {
   return mapBuyerProduct(data);
 }
 
+// Store/business-name search for the marketplace search overlay. Returns the
+// discoverable businesses whose name matches the query, mapped to a light shape
+// the overlay and seller drawer can consume. Respects RLS (only
+// discoverable_nearby businesses are readable by buyers).
+export async function searchMarketplaceStores(rawQuery, limit = 6) {
+  const query = String(rawQuery || "").trim();
+  if (query.length < 2) return [];
+
+  const term = `%${query}%`;
+  const { data, error } = await supabase
+    .from("marketplace_businesses")
+    .select("id,business_name,city,country,logo_url,business_kind,verification_status")
+    .eq("discoverable_nearby", true)
+    .ilike("business_name", term)
+    .limit(limit);
+
+  if (error) return [];
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    name: row.business_name || "UrMall seller",
+    city: row.city || "",
+    country: row.country || "",
+    logoUrl: row.logo_url || "",
+    businessKind: row.business_kind || "retail",
+    verificationStatus: row.verification_status || "pending",
+  }));
+}
+
 export async function fetchBuyerDiscoveryOptions() {
   const data = await runCountryScopedProductListQuery();
   const scoped = filterCountryScopedItems(

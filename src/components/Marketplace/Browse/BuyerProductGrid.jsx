@@ -175,12 +175,21 @@ export default function BuyerProductGrid({
   onToggleSaved,
   savedIds = new Set(),
   supplementalContent = null,
+  priorityCategory = null,
 }) {
   useI18n();
   const buyerLocation = useBuyerLocation();
   useEffect(() => {
     ensureBuyerLocation();
   }, []);
+  // Where the vertical (meals/hotels/property) block sits in the grid. When a
+  // vertical category leads, it goes first (before retail); when Retail leads it
+  // goes last; otherwise it keeps its default spot after the third product.
+  const supplementalIndex = ["restaurant", "hotel", "property"].includes(priorityCategory)
+    ? 0
+    : priorityCategory === "retail"
+      ? products.length
+      : Math.min(3, products.length);
   if (loading && !products.length) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -221,13 +230,14 @@ export default function BuyerProductGrid({
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {supplementalIndex <= 0 ? supplementalContent : null}
         {products.map((product, index) => (
           <Fragment key={product.id}>
-            {index === Math.min(3, products.length) ? supplementalContent : null}
+            {supplementalIndex > 0 && supplementalIndex < products.length && index === supplementalIndex ? supplementalContent : null}
             <BuyerProductCard product={product} onProductSelect={onProductSelect} onAddToCart={onAddToCart} onToggleSaved={onToggleSaved} saved={savedIds.has(product.id)} buyerLocation={buyerLocation} />
           </Fragment>
         ))}
-        {products.length <= 3 ? supplementalContent : null}
+        {supplementalIndex > 0 && supplementalIndex >= products.length ? supplementalContent : null}
       </div>
     </div>
   );

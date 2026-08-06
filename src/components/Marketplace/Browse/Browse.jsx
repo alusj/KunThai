@@ -1,7 +1,7 @@
 // src/components/Marketplace/Browse/Browse.jsx
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Search, X } from "lucide-react";
 import {
   addBuyerCartItem,
   createBuyerProductOrder,
@@ -107,7 +107,7 @@ function rememberRecentProduct(product) {
   }
 }
 
-export default function Browse({ activeTab = "new", onProductModeChange, onCloseSearch, searchOpen = false, supplementalContent = null }) {
+export default function Browse({ activeTab = "new", onProductModeChange, onCloseSearch, searchOpen = false, supplementalContent = null, priorityCategory = null, onClearPriority }) {
   const { t } = useI18n();
   const initialQueryFilters = cloneFilters(BROWSE_MEMORY.queryFilters);
   const initialCatalog = normalizeCatalog(
@@ -347,6 +347,20 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
     return () => window.removeEventListener("marketplace-open-seller", handleExternalSellerOpen);
   }, []);
 
+  // The header search overlay dispatches a chosen text/category query here; the
+  // grid then shows the filtered, relevance-ranked results.
+  useEffect(() => {
+    function handleApplySearch(event) {
+      const detail = event.detail || {};
+      setDetailOpen(false);
+      setSellerOpen(false);
+      setFilters({ ...DEFAULT_FILTERS, search: detail.search || "", category: detail.category || "all" });
+    }
+
+    window.addEventListener("marketplace-apply-search", handleApplySearch);
+    return () => window.removeEventListener("marketplace-apply-search", handleApplySearch);
+  }, []);
+
   useEffect(() => {
     let alive = true;
 
@@ -472,6 +486,13 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
     onAddToCart: addToCart,
     onToggleSaved: toggleSaved,
     supplementalContent,
+    priorityCategory,
+  };
+  const PRIORITY_LABEL_KEYS = {
+    retail: "urmall.search.filterRetail",
+    restaurant: "urmall.search.filterRestaurant",
+    property: "urmall.search.filterProperty",
+    hotel: "urmall.search.filterHotel",
   };
   return (
     <div className="space-y-4">
@@ -511,11 +532,49 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
           from the header search icon as an attached popover (below). */}
       <PromotedAdsCarousel onProductSelect={openProduct} />
 
+      {priorityCategory ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="flex min-w-0 items-center gap-2 text-sm font-black text-emerald-800">
+            <Search size={16} className="shrink-0 text-emerald-700" />
+            <span className="min-w-0 truncate">
+              {t("urmall.browse.showingCategory", { category: t(PRIORITY_LABEL_KEYS[priorityCategory] || "urmall.search.filterAll") })}
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => onClearPriority?.()}
+            className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white"
+          >
+            <ArrowLeft size={14} /> {t("urmall.browse.showAll")}
+          </button>
+        </div>
+      ) : null}
+
       {notice && (
         <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">
           {notice}
         </div>
       )}
+
+      {filters.search || filters.category !== "all" ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+          <p className="flex min-w-0 items-center gap-2 text-sm font-black text-gray-900">
+            <Search size={16} className="shrink-0 text-emerald-700" />
+            <span className="min-w-0 truncate">
+              {filters.search
+                ? t("urmall.browse.resultsFor", { query: filters.search })
+                : t("urmall.browse.resultsInCategory", { category: String(filters.category).replace(/^vertical:/, "") })}
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setFilters(DEFAULT_FILTERS)}
+            className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-gray-950 px-3 text-xs font-black text-white"
+          >
+            <X size={14} /> {t("urmall.browse.clear")}
+          </button>
+        </div>
+      ) : null}
 
       {codeLookup.kind ? (
         <PublicCodeResultCard lookup={codeLookup} surface="urmall" onOpen={openCodeResult} />

@@ -148,7 +148,7 @@ function mapVerticalProduct({ item, type }) {
   };
 }
 
-export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
+export default function VerticalMarketplace({ mode = "all", onDetailChange, priorityType = null }) {
   useI18n();
   const [catalog, setCatalog] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -246,6 +246,19 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
     return () => onDetailChange?.(false);
   }, [onDetailChange, selected]);
 
+  // The header search overlay opens a chosen restaurant/hotel/property listing
+  // here (the item shape matches this catalog's rows).
+  useEffect(() => {
+    function handleOpenVertical(event) {
+      const { type, item } = event.detail || {};
+      if (!type || !item) return;
+      setSelected({ type, item });
+    }
+
+    window.addEventListener("marketplace-open-vertical", handleOpenVertical);
+    return () => window.removeEventListener("marketplace-open-vertical", handleOpenVertical);
+  }, []);
+
   const sections = useMemo(() => {
     if (mode === "food") return ["restaurants"];
     if (mode === "hotels") return ["hotels"];
@@ -256,11 +269,16 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange }) {
   if (loading) return mode === "mixed" ? null : <VerticalSkeleton mode={mode} />;
 
   if (mode === "mixed") {
-    const mixedItems = [
+    const baseItems = [
       ...catalog.restaurants.map((item) => ({ type: "restaurant", item })),
       ...catalog.hotels.map((item) => ({ type: "hotel", item })),
       ...catalog.properties.map((item) => ({ type: "property", item })),
     ];
+    // When a category leads the dashboard, float that vertical to the front so
+    // its listings show first; the others still follow.
+    const mixedItems = priorityType && ["restaurant", "hotel", "property"].includes(priorityType)
+      ? [...baseItems.filter((entry) => entry.type === priorityType), ...baseItems.filter((entry) => entry.type !== priorityType)]
+      : baseItems;
     return (
       <>
         {error ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">{error}</div> : null}

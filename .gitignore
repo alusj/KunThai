@@ -1,44 +1,64 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
 # Logs
-logs
 *.log
-vite-dev.err
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build artifacts (if any build tools are added later)
+dist/
+build/
+
+# Node.js
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+package-lock.json
 
-node_modules
-dist
-dist-ssr
-*.local
-#local environment files
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Environment files (never commit secrets)
 .env
-supabase/.temp
-supabase/hardening/
-supabase/.branches
-supabase/explore_foundation_hardening.sql
-supabase/marketplace_seller_schema.sql
-supabase/marketplace_buyer_schema.sql
-# Keep linked-project state and legacy SQL snapshots local. Version every
-# migration so a fresh clone can recreate the backend schema.
-supabase/*
-!supabase/migrations/
-supabase/migrations/*
-!supabase/migrations/*.sql
+.env.*
+!.env.example
 
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
+# Vercel
+.vercel/
 .vercel
-.env*
-.claude/

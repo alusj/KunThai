@@ -1,8 +1,3 @@
-/* =========================
-   Discounted.jsx
-   Products with discounts
-========================= */
-
 import { useI18n } from "../../../../i18n";
 import BuyerProductGrid from "../BuyerProductGrid";
 
@@ -15,6 +10,7 @@ export default function Discounted({
   onAddToCart,
   onToggleSaved,
   supplementalContent,
+  priorityCategory,
 }) {
   const { t } = useI18n();
   return (
@@ -27,6 +23,7 @@ export default function Discounted({
       onAddToCart={onAddToCart}
       onToggleSaved={onToggleSaved}
       supplementalContent={supplementalContent}
+      priorityCategory={priorityCategory}
       emptyTitle={t("urmall.browse.emptyDiscountedTitle")}
       emptyBody={t("urmall.browse.emptyDiscountedBody")}
     />
