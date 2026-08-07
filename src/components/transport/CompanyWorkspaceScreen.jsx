@@ -32,6 +32,7 @@ import { HiOutlineCheckCircle } from "react-icons/hi2";
 
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
+import { useI18n, t } from "../../i18n";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
 import {
@@ -70,7 +71,47 @@ import {
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
 
+const TAB_LABEL_KEYS = {
+  Overview: "urride.companyWs.tabOverview",
+  Fleets: "urride.companyWs.tabFleets",
+  Operators: "urride.companyWs.tabOperators",
+  Requests: "urride.companyWs.tabRequests",
+  Activity: "urride.companyWs.tabActivity",
+  "My Dashboard": "urride.companyWs.tabMyDashboard",
+};
+
+function tabLabel(tab) {
+  return TAB_LABEL_KEYS[tab] ? t(TAB_LABEL_KEYS[tab]) : tab;
+}
+
+const ROLE_LABEL_KEYS = {
+  operator: "urride.companyWs.roleOperatorLabel",
+  dispatcher: "urride.companyWs.roleDispatcherLabel",
+  fleet_manager: "urride.companyWs.roleFleetManagerLabel",
+  admin: "urride.companyWs.roleAdminLabel",
+};
+
+const ROLE_DESC_KEYS = {
+  operator: "urride.companyWs.roleOperatorDesc",
+  dispatcher: "urride.companyWs.roleDispatcherDesc",
+  fleet_manager: "urride.companyWs.roleFleetManagerDesc",
+  admin: "urride.companyWs.roleAdminDesc",
+};
+
+function roleLabel(roleId) {
+  return ROLE_LABEL_KEYS[roleId]
+    ? t(ROLE_LABEL_KEYS[roleId])
+    : COMPANY_OPERATOR_ROLES[roleId]?.label || COMPANY_OPERATOR_ROLES.operator.label;
+}
+
+function roleDesc(roleId) {
+  return ROLE_DESC_KEYS[roleId]
+    ? t(ROLE_DESC_KEYS[roleId])
+    : COMPANY_OPERATOR_ROLES[roleId]?.description || "";
+}
+
 export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
+  useI18n();
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   const companyOperatorAssignment = useMemo(
     () => basicOperator ? resolveTransportCompanyOperatorAssignment(company) : null,
@@ -184,10 +225,10 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const bookingNotificationCount = bookingNotificationItems.length;
   const metrics = useMemo(
     () => [
-      { label: "Fleets", value: fleets.length, icon: Truck, tone: "emerald" },
-      { label: "Operators", value: acceptedOperators.length, icon: UsersRound, tone: "blue" },
-      { label: "Requests", value: pendingRequests.length, icon: ClipboardList, tone: "amber" },
-      { label: "Status", value: company?.verificationStatus || "Not started", icon: ShieldCheck, tone: "slate" },
+      { label: t("urride.companyWs.metricFleets"), value: fleets.length, icon: Truck, tone: "emerald" },
+      { label: t("urride.companyWs.metricOperators"), value: acceptedOperators.length, icon: UsersRound, tone: "blue" },
+      { label: t("urride.companyWs.metricRequests"), value: pendingRequests.length, icon: ClipboardList, tone: "amber" },
+      { label: t("urride.companyWs.metricStatus"), value: company?.verificationStatus || t("urride.companyWs.statusNotStarted"), icon: ShieldCheck, tone: "slate" },
     ],
     [acceptedOperators.length, company?.verificationStatus, fleets.length, pendingRequests.length],
   );
@@ -195,43 +236,43 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     () => [
       {
         id: "profile",
-        label: "Company profile",
-        detail: "Identity, owner ID, base location, and operating areas.",
+        label: t("urride.companyWs.profileLabel"),
+        detail: t("urride.companyWs.profileDetail"),
         icon: Building2,
-        stat: company?.companyCode || "Profile",
+        stat: company?.companyCode || t("urride.companyWs.profileStat"),
       },
       {
         id: "fleets",
-        label: "Fleet records",
-        detail: "Review registered fleets, home base, plate numbers, and service class.",
+        label: t("urride.companyWs.fleetsLabel"),
+        detail: t("urride.companyWs.fleetsDetail"),
         icon: Truck,
         stat: `${fleets.length}`,
       },
       {
         id: "operators",
-        label: "Operator access",
-        detail: "Open accepted operator dashboards in company owner view.",
+        label: t("urride.companyWs.operatorsLabel"),
+        detail: t("urride.companyWs.operatorsDetail"),
         icon: UsersRound,
         stat: `${acceptedOperators.length}`,
       },
       {
         id: "requests",
-        label: "Requests & documents",
-        detail: "Track operator invitations, accepted requests, and document progress.",
+        label: t("urride.companyWs.requestsLabel"),
+        detail: t("urride.companyWs.requestsDetail"),
         icon: ClipboardList,
         stat: `${pendingRequests.length}`,
       },
       {
         id: "verification",
-        label: "Verification center",
-        detail: "Company documents, readiness checks, and Fleet HQ review status.",
+        label: t("urride.companyWs.verificationLabel"),
+        detail: t("urride.companyWs.verificationDetail"),
         icon: BadgeCheck,
-        stat: company?.verificationStatus || "Pending",
+        stat: company?.verificationStatus || t("urride.companyWs.statusPending"),
       },
       {
         id: "activity",
-        label: "Activity log",
-        detail: "Registration, fleet, operator, and review updates.",
+        label: t("urride.companyWs.activityLabel"),
+        detail: t("urride.companyWs.activityDetail"),
         icon: Clock3,
         stat: `${company?.activities?.length || 0}`,
       },
@@ -270,9 +311,9 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     setCompanyNotificationPreferences(next);
     try {
       await updateCompanyNotificationPreferences(company?.id, notificationPreferenceUserId, next);
-      showToast("Company notification preferences updated.", "success");
+      showToast(t("urride.companyWs.prefsUpdated"), "success");
     } catch (error) {
-      showToast(error.message || "Unable to save company notification preferences.", "danger");
+      showToast(error.message || t("urride.companyWs.prefsError"), "danger");
     }
   }
 
@@ -408,10 +449,10 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
           transportFleetId: updatedFleet?.id || fleet.transportFleetId,
         } : fleet),
       });
-      showToast(activeNow ? "Your company fleet is now visible to passengers." : "Your company fleet is offline and hidden from passengers.", "success");
+      showToast(activeNow ? t("urride.companyWs.fleetVisible") : t("urride.companyWs.fleetOffline"), "success");
     } catch (error) {
       setOperatorAvailable(!nextActive);
-      showToast(error.message || "Unable to update discoverability.", "danger");
+      showToast(error.message || t("urride.companyWs.discoverError"), "danger");
     } finally {
       setAvailabilitySaving(false);
     }
@@ -438,15 +479,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       if (status === "start_requested") await requestTransportTripStart(trip.id);
       else await updateTransportTripStatus(trip.id, status, patch);
       const statusCopy = {
-        accepted: "Booking accepted. The passenger and company owner can see the update.",
-        arrived: "Arrival marked. The passenger and company owner can see the update.",
-        start_requested: "Trip start requested. Waiting for passenger approval.",
-        cancelled: "Booking declined or cancelled.",
+        accepted: t("urride.companyWs.tripAccepted"),
+        arrived: t("urride.companyWs.tripArrived"),
+        start_requested: t("urride.companyWs.tripStartRequested"),
+        cancelled: t("urride.companyWs.tripCancelled"),
       };
-      showToast(statusCopy[status] || "Company trip updated.", "success");
+      showToast(statusCopy[status] || t("urride.companyWs.tripUpdated"), "success");
       await refreshCompanyTripData();
     } catch (error) {
-      showToast(error.message || "Unable to update this company trip.", "danger");
+      showToast(error.message || t("urride.companyWs.tripUpdateError"), "danger");
       throw error;
     }
   }
@@ -500,10 +541,10 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       setLeaveCompanyOpen(false);
       setOperatorMenuOpen(false);
       onCompanyUpdate?.(null);
-      showToast("You have left the company. Your personal operator account is unchanged.", "success");
+      showToast(t("urride.companyWs.leftCompany"), "success");
       onCompanyLeft?.();
     } catch (error) {
-      showToast(error.message || "Unable to leave this company.", "danger");
+      showToast(error.message || t("urride.companyWs.leaveError"), "danger");
     } finally {
       setManagementBusy(false);
     }
@@ -514,12 +555,12 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       setManagementBusy(true);
       const updatedCompany = await manageTransportCompanyOperator(company, operator, action, options);
       const copy = action === "responsibility"
-        ? "Operator responsibility updated."
+        ? t("urride.companyWs.respUpdated")
         : action === "suspend"
-          ? "Operator service suspended."
+          ? t("urride.companyWs.opSuspended")
           : action === "restore"
-            ? "Operator service restored."
-            : "Operator removed from Fleet HQ.";
+            ? t("urride.companyWs.opRestored")
+            : t("urride.companyWs.opRemoved");
       setLocalStatus(copy);
       onCompanyUpdate?.(updatedCompany);
       setOperatorAction(null);
@@ -527,7 +568,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       setRemoveOperator(null);
       showToast(copy, "success");
     } catch (error) {
-      showToast(error.message || "Unable to update this operator.", "danger");
+      showToast(error.message || t("urride.companyWs.opUpdateError"), "danger");
     } finally {
       setManagementBusy(false);
     }
@@ -538,15 +579,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       setManagementBusy(true);
       const updatedCompany = await manageTransportCompanyFleet(company, fleet, action, options);
       const copy = action === "delete"
-        ? "Fleet deleted from Fleet HQ."
-        : "Operator removed from this fleet. The fleet stays offline until a new operator is assigned.";
+        ? t("urride.companyWs.fleetDeleted")
+        : t("urride.companyWs.fleetOperatorRemoved");
       setLocalStatus(copy);
       onCompanyUpdate?.(updatedCompany);
       setFleetAction(null);
       setFleetConfirm(null);
       showToast(copy, "success");
     } catch (error) {
-      showToast(error.message || "Unable to update this fleet.", "danger");
+      showToast(error.message || t("urride.companyWs.fleetUpdateError"), "danger");
     } finally {
       setManagementBusy(false);
     }
@@ -616,14 +657,14 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
         <div className="flex items-center gap-3">
           <AppBackTab
             onBack={onBack}
-            label="Back to transport"
+            label={t("urride.companyWs.back")}
             historyKey="transport-fleet-hq"
             className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
           />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
+            <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.eyebrow")}</p>
             <h1 className="truncate text-xl font-black text-slate-950">
-              {company?.companyName || "Company Workspace"}
+              {company?.companyName || t("urride.companyWs.fallbackName")}
             </h1>
           </div>
           {company && canViewCompanyNotifications ? (
@@ -635,8 +676,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
                 setSeenVersion((version) => version + 1);
                 setCompanyNotificationsOpen(true);
               }}
-              aria-label="Fleet HQ notifications"
-              title="Fleet HQ notifications"
+              aria-label={t("urride.companyWs.notificationsAria")}
+              title={t("urride.companyWs.notificationsAria")}
               className="kt-touchable relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-800 transition hover:border-blue-200 hover:bg-blue-50"
             >
               <Bell size={19} />
@@ -653,8 +694,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               onClick={() => {
                 setBookingQueueOpen(true);
               }}
-              aria-label="Company waiting bookings"
-              title="Company waiting bookings"
+              aria-label={t("urride.companyWs.bookingsAria")}
+              title={t("urride.companyWs.bookingsAria")}
               className="kt-touchable relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
             >
               <CalendarClock size={19} />
@@ -672,13 +713,13 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               className="kt-pressable flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-900"
             >
               <MenuIcon size={18} />
-              Menu
+              {t("urride.companyWs.menu")}
             </button>
           ) : company && basicOperator ? (
             <button
               type="button"
               onClick={() => setOperatorMenuOpen(true)}
-              aria-label="Company operator actions"
+              aria-label={t("urride.companyWs.operatorActionsAria")}
               className="kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-900"
             >
               <MoreHorizontal size={21} />
@@ -690,7 +731,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               className="kt-pressable flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
             >
               <Pencil size={18} />
-              Register
+              {t("urride.companyWs.register")}
             </button>
           )}
         </div>
@@ -702,20 +743,20 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-50 text-blue-700">
               <Building2 size={32} />
             </div>
-            <h2 className="mt-5 text-3xl font-black leading-tight text-slate-950">Create your Fleet HQ</h2>
+            <h2 className="mt-5 text-3xl font-black leading-tight text-slate-950">{t("urride.companyWs.createTitle")}</h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-              Register a company or organization when you manage more than one fleet, invite operators, or need admins to help run transport activity.
+              {t("urride.companyWs.createBody")}
             </p>
             <button
               type="button"
               onClick={onRegisterCompany}
               className="mt-6 h-12 rounded-2xl bg-blue-600 px-6 text-sm font-black text-white"
             >
-              Start Company Registration
+              {t("urride.companyWs.startRegistration")}
             </button>
           </section>
           <section className="grid gap-3">
-            {["Invite operators by KunThai ID", "Track fleet documents", "Manage colleagues and company activity", "Keep company verification separate from solo operator records"].map((item) => (
+            {[t("urride.companyWs.feat1"), t("urride.companyWs.feat2"), t("urride.companyWs.feat3"), t("urride.companyWs.feat4")].map((item) => (
               <div key={item} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-3">
                   <FileCheck2 className="text-blue-700" size={22} />
@@ -733,11 +774,11 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
                 <p className="text-xs font-black uppercase tracking-wide text-blue-700">{company.companyCode}</p>
                 <h2 className="mt-1 text-3xl font-black leading-tight text-slate-950">{company.companyName}</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  {company.companyType} - {company.city || "City not added"} {company.address ? `- ${company.address}` : ""}
+                  {company.companyType} - {company.city || t("urride.companyWs.cityNotAdded")} {company.address ? `- ${company.address}` : ""}
                 </p>
               </div>
               <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-black uppercase text-slate-400">Owner KunThai ID</p>
+                <p className="text-xs font-black uppercase text-slate-400">{t("urride.companyWs.ownerId")}</p>
                 <p className="mt-1 font-black text-slate-950">{company.ownerPublicId}</p>
               </div>
             </div>
@@ -824,7 +865,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             onMarkAllRead={() => {
               markNotificationsSeen(notificationReadScope, companyNotificationItems);
               setSeenVersion((version) => version + 1);
-              showToast("All company notifications marked as read.", "success");
+              showToast(t("urride.companyWs.allMarkedRead"), "success");
             }}
             onRead={(activity) => {
               markNotificationsSeen(notificationReadScope, [activity]);
@@ -837,7 +878,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             onDeleteAll={() => {
               markNotificationsSeen(notificationDismissedScope, companyNotificationItems);
               setSeenVersion((version) => version + 1);
-              showToast("All company notifications deleted.", "success");
+              showToast(t("urride.companyWs.allDeleted"), "success");
             }}
           />
           <CompanyBookingQueueDrawer
@@ -864,7 +905,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               onClose={() => setOperatorMenuOpen(false)}
               onCopy={() => {
                 navigator.clipboard?.writeText(company?.companyCode || company?.companyName || "");
-                showToast("Company code copied.", "success");
+                showToast(t("urride.companyWs.codeCopied"), "success");
                 setOperatorMenuOpen(false);
               }}
               onLeave={() => {
@@ -1013,7 +1054,7 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
       >
         <button
           type="button"
-          aria-label="Close Fleet HQ menu"
+          aria-label={t("urride.companyWs.closeMenuAria")}
           onClick={onClose}
           className={`absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-sm transition-opacity duration-300 ${
             panelOpen ? "opacity-100" : "opacity-0"
@@ -1030,14 +1071,14 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
                 <Building2 size={22} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ menu</p>
+                <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.menuTitle")}</p>
                 <h2 className="truncate text-xl font-black text-slate-950">{company.companyName}</h2>
                 <p className="mt-1 truncate text-sm font-bold text-slate-500">{company.companyCode}</p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close menu"
+                aria-label={t("urride.companyWs.closeMenu")}
                 className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-700 transition hover:bg-slate-100"
               >
                 <X size={20} />
@@ -1050,7 +1091,7 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
                 className="kt-pressable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-700/15 transition hover:bg-blue-700"
               >
                 <Pencil size={18} />
-                Edit company details
+                {t("urride.companyWs.editDetails")}
               </button>
             ) : null}
           </div>
@@ -1065,8 +1106,8 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
 
           <div className="border-t border-slate-100 bg-white px-4 py-4">
             <div className="grid grid-cols-2 gap-2">
-              <MenuStat icon={ShieldCheck} label="Status" value={company.verificationStatus || "Pending"} />
-              <MenuStat icon={UserRoundPlus} label="Owner ID" value={company.ownerPublicId || "Not set"} />
+              <MenuStat icon={ShieldCheck} label={t("urride.companyWs.statStatus")} value={company.verificationStatus || t("urride.companyWs.statusPending")} />
+              <MenuStat icon={UserRoundPlus} label={t("urride.companyWs.statOwnerId")} value={company.ownerPublicId || t("urride.companyWs.notSet")} />
             </div>
           </div>
         </aside>
@@ -1133,14 +1174,14 @@ function FleetHqMenuScreen({
             <div className="flex items-center gap-3">
               <AppBackTab
                 onBack={onBack}
-                label="Back to Fleet HQ"
+                label={t("urride.companyWs.backToFleetHq")}
                 historyKey={`fleet-hq-menu-${screen}`}
                 useHistoryLayer={false}
                 className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
               />
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
-                <h2 className="truncate text-xl font-black text-slate-950">{item?.label || "Fleet HQ"}</h2>
+                <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.eyebrow")}</p>
+                <h2 className="truncate text-xl font-black text-slate-950">{item?.label || t("urride.companyWs.fleetHqFallback")}</h2>
               </div>
             </div>
           </header>
@@ -1173,25 +1214,25 @@ function CompanyProfilePanel({ company }) {
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">{company.companyCode}</p>
         <h3 className="mt-2 text-3xl font-black leading-tight text-slate-950">{company.companyName}</h3>
         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-          {company.companyType} - {company.city || "City not added"} {company.address ? `- ${company.address}` : ""}
+          {company.companyType} - {company.city || t("urride.companyWs.cityNotAdded")} {company.address ? `- ${company.address}` : ""}
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <ProfileFact label="Owner KunThai ID" value={company.ownerPublicId || "Not set"} />
-          <ProfileFact label="Verification" value={company.verificationStatus || "Pending"} />
-          <ProfileFact label="Company code" value={company.companyCode || "Not generated"} />
-          <ProfileFact label="Base city" value={company.city || "Not added"} />
+          <ProfileFact label={t("urride.companyWs.factOwnerId")} value={company.ownerPublicId || t("urride.companyWs.notSet")} />
+          <ProfileFact label={t("urride.companyWs.factVerification")} value={company.verificationStatus || t("urride.companyWs.statusPending")} />
+          <ProfileFact label={t("urride.companyWs.factCompanyCode")} value={company.companyCode || t("urride.companyWs.notGenerated")} />
+          <ProfileFact label={t("urride.companyWs.factBaseCity")} value={company.city || t("urride.companyWs.notAdded")} />
         </div>
       </section>
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h3 className="font-black text-slate-950">Operating areas</h3>
+        <h3 className="font-black text-slate-950">{t("urride.companyWs.operatingAreas")}</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {(company.operatingAreas || []).length ? company.operatingAreas.map((area) => (
             <span key={area} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">{area}</span>
-          )) : <p className="text-sm font-semibold text-slate-500">No operating areas added.</p>}
+          )) : <p className="text-sm font-semibold text-slate-500">{t("urride.companyWs.noAreas")}</p>}
         </div>
-        <h4 className="mt-6 font-black text-slate-950">Dispatch policy</h4>
+        <h4 className="mt-6 font-black text-slate-950">{t("urride.companyWs.dispatchPolicy")}</h4>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          {company.supportPolicy || "No dispatch and safety policy added yet."}
+          {company.supportPolicy || t("urride.companyWs.noPolicy")}
         </p>
       </section>
     </div>
@@ -1213,8 +1254,8 @@ function FleetRecordsPanel({ fleets, onEdit }) {
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet records</p>
-            <h3 className="text-2xl font-black text-slate-950">{fleets.length} registered fleet{fleets.length === 1 ? "" : "s"}</h3>
+            <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.fleetRecords")}</p>
+            <h3 className="text-2xl font-black text-slate-950">{fleets.length === 1 ? t("urride.companyWs.registeredFleetsOne", { n: fleets.length }) : t("urride.companyWs.registeredFleetsMany", { n: fleets.length })}</h3>
           </div>
           {onEdit ? (
             <button
@@ -1223,7 +1264,7 @@ function FleetRecordsPanel({ fleets, onEdit }) {
               className="kt-pressable flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
             >
               <Pencil size={17} />
-              Edit records
+              {t("urride.companyWs.editRecords")}
             </button>
           ) : null}
         </div>
@@ -1237,10 +1278,10 @@ function OperatorAccessPanel({ canManageOperators, onAddOperator, onManageOperat
   return (
     <div className="grid gap-4">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Operator access</p>
-        <h3 className="text-2xl font-black text-slate-950">{operators.length} accepted operator{operators.length === 1 ? "" : "s"}</h3>
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.operatorAccess")}</p>
+        <h3 className="text-2xl font-black text-slate-950">{operators.length === 1 ? t("urride.companyWs.acceptedOperatorsOne", { n: operators.length }) : t("urride.companyWs.acceptedOperatorsMany", { n: operators.length })}</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          Company owners can review the assigned company fleet and its trips here without changing the operator's personal account.
+          {t("urride.companyWs.operatorAccessBody")}
         </p>
       </section>
       <Colleagues
@@ -1258,10 +1299,10 @@ function RequestsPanel({ requests, pendingRequests }) {
   return (
     <div className="grid gap-4">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Requests & documents</p>
-        <h3 className="text-2xl font-black text-slate-950">{pendingRequests.length} request{pendingRequests.length === 1 ? "" : "s"} need attention</h3>
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.requestsDocs")}</p>
+        <h3 className="text-2xl font-black text-slate-950">{pendingRequests.length === 1 ? t("urride.companyWs.requestsNeedOne", { n: pendingRequests.length }) : t("urride.companyWs.requestsNeedMany", { n: pendingRequests.length })}</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          Operator invitations stay here until the selected operator accepts, rejects, or completes identity and license document review.
+          {t("urride.companyWs.requestsPanelBody")}
         </p>
       </section>
       <Requests requests={requests} />
@@ -1275,13 +1316,13 @@ function VerificationCenterPanel({ company, fleets, pendingRequests, onEdit }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Verification center</p>
-        <h3 className="mt-1 text-2xl font-black text-slate-950">{company.verificationStatus || "Pending"}</h3>
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.verificationCenter")}</p>
+        <h3 className="mt-1 text-2xl font-black text-slate-950">{company.verificationStatus || t("urride.companyWs.statusPending")}</h3>
         <div className="mt-4 grid gap-3">
-          <ReadinessItem ready={Boolean(company.address)} label="Company base location" />
-          <ReadinessItem ready={fleets.length > 0} label="Fleet record connected" />
-          <ReadinessItem ready={documents.length > 0} label="Company documents attached" />
-          <ReadinessItem ready={pendingRequests.length === 0} label="Operator requests reviewed" />
+          <ReadinessItem ready={Boolean(company.address)} label={t("urride.companyWs.readyBase")} />
+          <ReadinessItem ready={fleets.length > 0} label={t("urride.companyWs.readyFleetConnected")} />
+          <ReadinessItem ready={documents.length > 0} label={t("urride.companyWs.readyDocsAttached")} />
+          <ReadinessItem ready={pendingRequests.length === 0} label={t("urride.companyWs.readyReviewed")} />
         </div>
         {onEdit ? (
           <button
@@ -1290,12 +1331,12 @@ function VerificationCenterPanel({ company, fleets, pendingRequests, onEdit }) {
             className="kt-pressable mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
           >
             <Pencil size={17} />
-            Update verification file
+            {t("urride.companyWs.updateVerification")}
           </button>
         ) : null}
       </section>
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h3 className="font-black text-slate-950">Submitted documents</h3>
+        <h3 className="font-black text-slate-950">{t("urride.companyWs.submittedDocuments")}</h3>
         <div className="mt-4 grid gap-3">
           {documents.length ? documents.map(([key, value]) => (
             <div key={key} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
@@ -1308,7 +1349,7 @@ function VerificationCenterPanel({ company, fleets, pendingRequests, onEdit }) {
               </div>
             </div>
           )) : (
-            <EmptyPanel title="No company documents yet" body="Use edit registration to attach company certificates, licenses, and supporting records." />
+            <EmptyPanel title={t("urride.companyWs.noCompanyDocsTitle")} body={t("urride.companyWs.noCompanyDocsBody")} />
           )}
         </div>
       </section>
@@ -1320,8 +1361,8 @@ function ActivityPanel({ company }) {
   return (
     <div className="grid gap-4">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Activity log</p>
-        <h3 className="text-2xl font-black text-slate-950">{company.activities?.length || 0} recorded update{(company.activities?.length || 0) === 1 ? "" : "s"}</h3>
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.activityLog")}</p>
+        <h3 className="text-2xl font-black text-slate-950">{(company.activities?.length || 0) === 1 ? t("urride.companyWs.recordedUpdatesOne", { n: company.activities?.length || 0 }) : t("urride.companyWs.recordedUpdatesMany", { n: company.activities?.length || 0 })}</h3>
       </section>
       <Activity company={company} />
     </div>
@@ -1336,11 +1377,11 @@ function humanizeKey(key) {
 }
 
 function formatDocumentValue(value) {
-  if (value === true) return "Submitted";
+  if (value === true) return t("urride.companyWs.docSubmitted");
   if (typeof value === "string") return value;
-  if (Array.isArray(value)) return `${value.length} file${value.length === 1 ? "" : "s"}`;
-  if (value && typeof value === "object") return value.name || value.fileName || value.status || "Provided";
-  return "Provided";
+  if (Array.isArray(value)) return value.length === 1 ? t("urride.companyWs.docFilesOne", { n: value.length }) : t("urride.companyWs.docFilesMany", { n: value.length });
+  if (value && typeof value === "object") return value.name || value.fileName || value.status || t("urride.companyWs.docProvided");
+  return t("urride.companyWs.docProvided");
 }
 
 function MetricCard({ metric }) {
@@ -1364,22 +1405,22 @@ function Overview({ company, fleets, pendingRequests }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h3 className="font-black text-slate-950">Company readiness</h3>
+        <h3 className="font-black text-slate-950">{t("urride.companyWs.readinessTitle")}</h3>
         <div className="mt-4 grid gap-3">
-          <ReadinessItem ready={Boolean(company.address)} label="Company base location" />
-          <ReadinessItem ready={fleets.length > 0} label="At least one fleet added" />
-          <ReadinessItem ready={pendingRequests.length === 0} label="Operator requests reviewed" />
-          <ReadinessItem ready={company.documents && Object.keys(company.documents).length > 0} label="Company documents uploaded" />
+          <ReadinessItem ready={Boolean(company.address)} label={t("urride.companyWs.readyBase")} />
+          <ReadinessItem ready={fleets.length > 0} label={t("urride.companyWs.readyOneFleet")} />
+          <ReadinessItem ready={pendingRequests.length === 0} label={t("urride.companyWs.readyReviewed")} />
+          <ReadinessItem ready={company.documents && Object.keys(company.documents).length > 0} label={t("urride.companyWs.readyDocsUploaded")} />
         </div>
       </section>
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h3 className="font-black text-slate-950">Operating areas</h3>
+        <h3 className="font-black text-slate-950">{t("urride.companyWs.operatingAreas")}</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {(company.operatingAreas || []).length ? company.operatingAreas.map((area) => (
             <span key={area} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">{area}</span>
-          )) : <p className="text-sm font-semibold text-slate-500">No operating areas added.</p>}
+          )) : <p className="text-sm font-semibold text-slate-500">{t("urride.companyWs.noAreas")}</p>}
         </div>
-        <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">{company.supportPolicy || "No dispatch and safety policy added yet."}</p>
+        <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">{company.supportPolicy || t("urride.companyWs.noPolicy")}</p>
       </section>
     </div>
   );
@@ -1388,8 +1429,8 @@ function Overview({ company, fleets, pendingRequests }) {
 function BasicOperatorCompanyDashboard({ assignment, available, availabilitySaving, bookingCount = 0, company, dashboard, onOpenBookings, onToggleAvailability, onViewRoute }) {
   const access = company?.access || {};
   const responsibilities = access.responsibilities || [];
-  const operatorName = assignment?.operatorName || access.fullName || "Company operator";
-  const fleetName = assignment?.fleetName || assignment?.fleetType || "Fleet assignment pending";
+  const operatorName = assignment?.operatorName || access.fullName || t("urride.companyWs.operatorFallbackName");
+  const fleetName = assignment?.fleetName || assignment?.fleetType || t("urride.companyWs.fleetPending");
   const verification = String(assignment?.verificationStatus || "pending").replaceAll("_", " ");
   const today = dashboard?.today || {};
   const reviews = dashboard?.reviews || {};
@@ -1401,7 +1442,7 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
   );
   const formatRate = (value, suffix = "") => {
     const numeric = Number(value || 0);
-    if (!numeric) return "Not set";
+    if (!numeric) return t("urride.companyWs.notSet");
     return `${currency ? `${currency} ` : ""}${numeric.toLocaleString()}${suffix}`;
   };
 
@@ -1423,16 +1464,16 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
                 <Truck size={22} />
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Company operator</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">{t("urride.companyWs.companyOperatorEyebrow")}</p>
                 <h2 className="mt-1 truncate text-2xl font-black">{operatorName}</h2>
-                <p className="mt-1 truncate text-sm font-bold text-white/65">{fleetName} · {company?.companyName || "Fleet HQ"}</p>
+                <p className="mt-1 truncate text-sm font-bold text-white/65">{fleetName} · {company?.companyName || t("urride.companyWs.fleetHqFallback")}</p>
               </div>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={available}
-              aria-label={available ? "Go offline" : "Go online"}
+              aria-label={available ? t("urride.companyWs.goOffline") : t("urride.companyWs.goOnline")}
               disabled={!assignment?.companyFleetId || availabilitySaving}
               onClick={onToggleAvailability}
               className={`relative h-8 w-14 flex-none rounded-full p-1 transition disabled:cursor-wait disabled:opacity-60 ${available ? "bg-emerald-400" : "bg-white/25"}`}
@@ -1442,26 +1483,26 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-3 py-1.5 text-xs font-black ${available ? "bg-emerald-400/15 text-emerald-200" : "bg-white/10 text-white/70"}`}>
-              {availabilitySaving ? "Updating..." : available ? "Online - visible to passengers" : "Offline - hidden from passengers"}
+              {availabilitySaving ? t("urride.companyWs.updating") : available ? t("urride.companyWs.onlineVisible") : t("urride.companyWs.offlineHidden")}
             </span>
             <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black capitalize text-white/75">{verification}</span>
           </div>
         </div>
 
         <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
-          <ProfileFact label="Operator" value={operatorName} />
-          <ProfileFact label="Operator ID" value={assignment?.publicId || access.publicId || "Pending"} />
-          <ProfileFact label="Fleet code" value={assignment?.fleetCode || "Pending"} />
-          <ProfileFact label="Operating area" value={assignment?.operatingArea || company?.city || "Not added"} />
-          <ProfileFact label="Service status" value={access.serviceStatus || "active"} />
+          <ProfileFact label={t("urride.companyWs.factOperator")} value={operatorName} />
+          <ProfileFact label={t("urride.companyWs.factOperatorId")} value={assignment?.publicId || access.publicId || t("urride.companyWs.pending")} />
+          <ProfileFact label={t("urride.companyWs.factFleetCode")} value={assignment?.fleetCode || t("urride.companyWs.pending")} />
+          <ProfileFact label={t("urride.companyWs.factOperatingArea")} value={assignment?.operatingArea || company?.city || t("urride.companyWs.notAdded")} />
+          <ProfileFact label={t("urride.companyWs.factServiceStatus")} value={access.serviceStatus || "active"} />
         </div>
       </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CompanyOperatorMetric icon={CalendarClock} label="Waiting" value={bookingCount} detail="bookings" tone="emerald" />
-        <CompanyOperatorMetric icon={History} label="History" value={tripHistory.length} detail="recent trips" tone="blue" />
-        <CompanyOperatorMetric icon={Star} label="Rating" value={Number(reviews.averageRating || 0).toFixed(1)} detail={`${reviews.count || 0} reviews`} tone="amber" />
-        <CompanyOperatorMetric icon={Clock3} label="Earnings" value={formatRate(dashboard?.earnings?.today)} detail={`${today.trips || 0} trips today`} tone="slate" />
+        <CompanyOperatorMetric icon={CalendarClock} label={t("urride.companyWs.metricWaiting")} value={bookingCount} detail={t("urride.companyWs.metricWaitingDetail")} tone="emerald" />
+        <CompanyOperatorMetric icon={History} label={t("urride.companyWs.metricHistory")} value={tripHistory.length} detail={t("urride.companyWs.metricHistoryDetail")} tone="blue" />
+        <CompanyOperatorMetric icon={Star} label={t("urride.companyWs.metricRating")} value={Number(reviews.averageRating || 0).toFixed(1)} detail={t("urride.companyWs.metricRatingDetail", { n: reviews.count || 0 })} tone="amber" />
+        <CompanyOperatorMetric icon={Clock3} label={t("urride.companyWs.metricEarnings")} value={formatRate(dashboard?.earnings?.today)} detail={t("urride.companyWs.metricEarningsDetail", { n: today.trips || 0 })} tone="slate" />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
@@ -1473,34 +1514,34 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
           >
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-emerald-600 text-white"><CalendarClock size={22} /></span>
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-black uppercase tracking-wide text-emerald-700">Waiting bookings</span>
-              <span className="mt-1 block text-xl font-black text-slate-950">{bookingCount} passenger{bookingCount === 1 ? "" : "s"}</span>
-              <span className="mt-1 block text-sm font-semibold text-slate-600">Open your current company queue.</span>
+              <span className="block text-xs font-black uppercase tracking-wide text-emerald-700">{t("urride.companyWs.waitingBookings")}</span>
+              <span className="mt-1 block text-xl font-black text-slate-950">{bookingCount === 1 ? t("urride.companyWs.passengersOne", { n: bookingCount }) : t("urride.companyWs.passengersMany", { n: bookingCount })}</span>
+              <span className="mt-1 block text-sm font-semibold text-slate-600">{t("urride.companyWs.openQueue")}</span>
             </span>
           </button>
         ) : null}
 
         <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Private operator access</p>
-          <h3 className="mt-1 text-xl font-black text-slate-950">Your dashboard, your passengers</h3>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urride.companyWs.privateAccess")}</p>
+          <h3 className="mt-1 text-xl font-black text-slate-950">{t("urride.companyWs.privateAccessTitle")}</h3>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            You can see your company membership and your own bookings. Other operator records stay private unless the company creator assigns you responsibility.
+            {t("urride.companyWs.privateAccessBody")}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            {(responsibilities.length ? responsibilities : ["Operator only"]).map((item) => (
+            {(responsibilities.length ? responsibilities : [t("urride.companyWs.operatorOnly")]).map((item) => (
               <span key={item} className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{item}</span>
             ))}
           </div>
         </section>
 
         <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">Company membership</p>
-          <h3 className="mt-1 text-xl font-black text-slate-950">{company?.companyName || "Fleet HQ"}</h3>
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.companyMembership")}</p>
+          <h3 className="mt-1 text-xl font-black text-slate-950">{company?.companyName || t("urride.companyWs.fleetHqFallback")}</h3>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {company?.companyType || "Transport company"} - {company?.city || assignment?.operatingArea || "Location not added"}
+            {company?.companyType || t("urride.companyWs.transportCompany")} - {company?.city || assignment?.operatingArea || t("urride.companyWs.locationNotAdded")}
           </p>
-          <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-400">Company code</p>
-          <p className="mt-1 font-black text-slate-950">{company?.companyCode || "Pending"}</p>
+          <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-400">{t("urride.companyWs.companyCodeLabel")}</p>
+          <p className="mt-1 font-black text-slate-950">{company?.companyCode || t("urride.companyWs.pending")}</p>
         </section>
       </div>
 
@@ -1509,20 +1550,20 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-700"><ClipboardList size={20} /></span>
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-blue-700">Rates & service</p>
-              <h3 className="mt-1 text-xl font-black text-slate-950">Passenger pricing</h3>
+              <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.ratesService")}</p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">{t("urride.companyWs.passengerPricing")}</h3>
             </div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <ProfileFact label="Base fare" value={formatRate(dashboard?.fleet?.base_fare)} />
-            <ProfileFact label="Per kilometre" value={formatRate(dashboard?.fleet?.price_per_km, " / km")} />
-            <ProfileFact label="Per hour" value={formatRate(dashboard?.fleet?.price_per_hour, " / hour")} />
+            <ProfileFact label={t("urride.companyWs.baseFare")} value={formatRate(dashboard?.fleet?.base_fare)} />
+            <ProfileFact label={t("urride.companyWs.perKm")} value={formatRate(dashboard?.fleet?.price_per_km, t("urride.companyWs.perKmSuffix"))} />
+            <ProfileFact label={t("urride.companyWs.perHour")} value={formatRate(dashboard?.fleet?.price_per_hour, t("urride.companyWs.perHourSuffix"))} />
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            {tripControls.acceptsRide ? <ServiceChip label="Passenger rides" /> : null}
-            {tripControls.acceptsDelivery ? <ServiceChip label="Deliveries" /> : null}
-            {tripControls.maxDistanceKm ? <ServiceChip label={`Up to ${tripControls.maxDistanceKm} km`} /> : null}
-            {tripControls.startTime && tripControls.endTime ? <ServiceChip label={`${tripControls.startTime} - ${tripControls.endTime}`} /> : null}
+            {tripControls.acceptsRide ? <ServiceChip label={t("urride.companyWs.chipRides")} /> : null}
+            {tripControls.acceptsDelivery ? <ServiceChip label={t("urride.companyWs.chipDeliveries")} /> : null}
+            {tripControls.maxDistanceKm ? <ServiceChip label={t("urride.companyWs.chipUpToKm", { n: tripControls.maxDistanceKm })} /> : null}
+            {tripControls.startTime && tripControls.endTime ? <ServiceChip label={t("urride.companyWs.chipTimeRange", { start: tripControls.startTime, end: tripControls.endTime })} /> : null}
           </div>
         </section>
 
@@ -1530,25 +1571,25 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-700"><Star size={20} /></span>
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">Passenger trust</p>
-              <h3 className="mt-1 text-xl font-black text-slate-950">Ratings & reviews</h3>
+              <p className="text-xs font-black uppercase tracking-wide text-amber-700">{t("urride.companyWs.passengerTrust")}</p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">{t("urride.companyWs.ratingsReviews")}</h3>
             </div>
           </div>
           <div className="mt-4 flex items-end gap-3">
             <span className="text-4xl font-black text-slate-950">{Number(reviews.averageRating || 0).toFixed(1)}</span>
-            <span className="pb-1 text-sm font-bold text-slate-500">from {reviews.count || 0} review{reviews.count === 1 ? "" : "s"}</span>
+            <span className="pb-1 text-sm font-bold text-slate-500">{reviews.count === 1 ? t("urride.companyWs.fromReviewsOne", { n: reviews.count || 0 }) : t("urride.companyWs.fromReviewsMany", { n: reviews.count || 0 })}</span>
           </div>
           <div className="mt-4 grid gap-2">
             {(reviews.items || []).slice(0, 2).map((review) => (
               <article key={review.id} className="rounded-2xl bg-slate-50 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="truncate text-sm font-black text-slate-900">{review.passengerName || "Passenger"}</p>
+                  <p className="truncate text-sm font-black text-slate-900">{review.passengerName || t("urride.companyWs.passengerFallback")}</p>
                   <span className="text-xs font-black text-amber-700">{Number(review.rating || 0).toFixed(1)} ★</span>
                 </div>
-                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{review.reviewText || "Rating submitted without a written review."}</p>
+                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{review.reviewText || t("urride.companyWs.noWrittenReview")}</p>
               </article>
             ))}
-            {!reviews.items?.length ? <EmptyCompanyOperatorLine text="Passenger reviews will appear after completed company trips." /> : null}
+            {!reviews.items?.length ? <EmptyCompanyOperatorLine text={t("urride.companyWs.reviewsEmpty")} /> : null}
           </div>
         </section>
       </div>
@@ -1557,8 +1598,8 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><History size={20} /></span>
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Company service</p>
-            <h3 className="mt-1 text-xl font-black text-slate-950">Trip history</h3>
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urride.companyWs.companyService")}</p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">{t("urride.companyWs.tripHistory")}</h3>
           </div>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
@@ -1566,18 +1607,18 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
             <article key={trip.id} className="rounded-2xl bg-slate-50 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-slate-950">{trip.name || trip.title || "Passenger trip"}</p>
-                  <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{trip.route || `${trip.pickup} to ${trip.destination}`}</p>
+                  <p className="truncate text-sm font-black text-slate-950">{trip.name || trip.title || t("urride.companyWs.passengerTrip")}</p>
+                  <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{trip.route || t("urride.companyWs.tripRouteJoin", { pickup: trip.pickup, destination: trip.destination })}</p>
                 </div>
-                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">{trip.status || "completed"}</span>
+                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">{trip.status || t("urride.companyWs.completedStatus")}</span>
               </div>
               <div className="mt-3 flex items-center justify-between text-xs font-black">
-                <span className="text-slate-500">{trip.mode || "Ride"}</span>
-                <span className="text-emerald-700">{trip.fare || "Fare pending"}</span>
+                <span className="text-slate-500">{trip.mode || t("urride.companyWs.rideMode")}</span>
+                <span className="text-emerald-700">{trip.fare || t("urride.companyWs.farePending")}</span>
               </div>
             </article>
           ))}
-          {!tripHistory.length ? <EmptyCompanyOperatorLine text="Completed and cancelled company trips will appear here." /> : null}
+          {!tripHistory.length ? <EmptyCompanyOperatorLine text={t("urride.companyWs.tripHistoryEmpty")} /> : null}
         </div>
       </section>
     </div>
@@ -1611,26 +1652,26 @@ function EmptyCompanyOperatorLine({ text }) {
 
 function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonalDashboard, open }) {
   return (
-    <FleetHqActionSheet label="Company operator actions" onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow={company?.companyName || "Fleet HQ"} icon={MoreHorizontal} onClose={onClose} title="Operator actions" />
+    <FleetHqActionSheet label={t("urride.companyWs.operatorActionsSheet")} onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow={company?.companyName || t("urride.companyWs.fleetHqFallback")} icon={MoreHorizontal} onClose={onClose} title={t("urride.companyWs.operatorActionsTitle")} />
       <div className="grid gap-3 bg-slate-50 p-4">
         <OperatorActionButton
-          detail="Return to your full personal operator dashboard, trips, documents, and earnings."
+          detail={t("urride.companyWs.personalDashboardDetail")}
           icon={Truck}
-          label="Personal operator dashboard"
+          label={t("urride.companyWs.personalDashboard")}
           onClick={onOpenPersonalDashboard}
         />
         <OperatorActionButton
-          detail="Copy this Fleet HQ code for company support or verification."
+          detail={t("urride.companyWs.copyCodeDetail")}
           icon={Copy}
-          label="Copy company code"
+          label={t("urride.companyWs.copyCode")}
           onClick={onCopy}
         />
         <OperatorActionButton
           danger
-          detail="Disconnect your operator membership without deleting your KunThai account."
+          detail={t("urride.companyWs.leaveCompanyDetail")}
           icon={LogOut}
-          label="Leave company"
+          label={t("urride.companyWs.leaveCompany")}
           onClick={onLeave}
         />
       </div>
@@ -1640,16 +1681,16 @@ function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonal
 
 function LeaveCompanyDrawer({ busy, company, onClose, onConfirm, open }) {
   return (
-    <FleetHqActionSheet label="Leave company" onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow="Company membership" icon={LogOut} onClose={onClose} title={`Leave ${company?.companyName || "company"}?`} />
+    <FleetHqActionSheet label={t("urride.companyWs.leaveCompany")} onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow={t("urride.companyWs.membershipEyebrow")} icon={LogOut} onClose={onClose} title={t("urride.companyWs.leaveTitle", { name: company?.companyName || t("urride.companyWs.companyFallback") })} />
       <div className="p-5">
         <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">
-          Your company access and company bookings will stop. Your personal operator profile, identity, and records will remain in KunThai.
+          {t("urride.companyWs.leaveWarning")}
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">Stay</button>
+          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">{t("urride.companyWs.stay")}</button>
           <button type="button" disabled={busy} onClick={onConfirm} className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
-            {busy ? "Leaving..." : "Leave company"}
+            {busy ? t("urride.companyWs.leaving") : t("urride.companyWs.leaveCompany")}
           </button>
         </div>
       </div>
@@ -1673,7 +1714,7 @@ function getFleetAssignedOperator(fleet = {}) {
 }
 
 function FleetList({ canManage = false, fleets, onManageFleet }) {
-  if (!fleets.length) return <EmptyPanel title="No fleets yet" body="Company fleets will appear here after registration." />;
+  if (!fleets.length) return <EmptyPanel title={t("urride.companyWs.noFleetsTitle")} body={t("urride.companyWs.noFleetsBody")} />;
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {fleets.map((fleet) => {
@@ -1681,15 +1722,15 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
         return (
           <section key={fleet.localId || fleet.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode || "Fleet code pending"}</p>
+              <p className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode || t("urride.companyWs.fleetCodePending")}</p>
               <div className="flex shrink-0 items-center gap-2">
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.activeStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                  {fleet.activeStatus || "offline"}
+                  {fleet.activeStatus || t("urride.companyWs.offlineStatus")}
                 </span>
                 {canManage && onManageFleet ? (
                   <button
                     type="button"
-                    aria-label={`Fleet actions for ${fleet.fleetName || fleet.fleetCode || "fleet"}`}
+                    aria-label={t("urride.companyWs.fleetActionsAria", { name: fleet.fleetName || fleet.fleetCode || t("urride.companyWs.fleetFallback") })}
                     onClick={() => onManageFleet(fleet)}
                     className="kt-touchable flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
@@ -1698,14 +1739,14 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
                 ) : null}
               </div>
             </div>
-            <h3 className="mt-1 text-lg font-black text-slate-950">{fleet.fleetName || "Unnamed fleet"}</h3>
-            <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.fleetType} · {fleet.plateNumber || "No plate"} · {fleet.serviceCategory}</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">{fleet.fleetName || t("urride.companyWs.unnamedFleet")}</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.fleetType} · {fleet.plateNumber || t("urride.companyWs.noPlate")} · {fleet.serviceCategory}</p>
             <div className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-500">
               <FiMapPin />
-              <span className="min-w-0 truncate">{fleet.homeBase || fleet.operatingArea || "Home base not added"}</span>
+              <span className="min-w-0 truncate">{fleet.homeBase || fleet.operatingArea || t("urride.companyWs.homeBaseNotAdded")}</span>
             </div>
             <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${assignedOperator ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}>
-              {assignedOperator ? `Operator: ${assignedOperator.name || assignedOperator.publicId || "Assigned"}` : "No operator assigned yet"}
+              {assignedOperator ? t("urride.companyWs.operatorPrefix", { name: assignedOperator.name || assignedOperator.publicId || t("urride.companyWs.operatorAssigned") }) : t("urride.companyWs.noOperatorAssigned")}
             </p>
           </section>
         );
@@ -1718,7 +1759,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
   if (!operators.length) {
     return (
       <div className="grid gap-3">
-        <EmptyPanel title="No operators accepted yet" body="Accepted operators and delegated staff will appear here." />
+        <EmptyPanel title={t("urride.companyWs.noOperatorsTitle")} body={t("urride.companyWs.noOperatorsBody")} />
         {canManageOperators && onAddOperator ? (
           <button
             type="button"
@@ -1726,7 +1767,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
             className="kt-pressable flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-700/15"
           >
             <UserRoundPlus size={18} />
-            Add an operator
+            {t("urride.companyWs.addOperator")}
           </button>
         ) : null}
       </div>
@@ -1742,20 +1783,19 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
             className="kt-pressable flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-700/15"
           >
             <UserRoundPlus size={17} />
-            Add operator
+            {t("urride.companyWs.addOperatorShort")}
           </button>
         </div>
       ) : null}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {operators.map((operator) => {
           const suspended = operator.serviceStatus === "suspended";
-          const role = COMPANY_OPERATOR_ROLES[operator.memberRole] || COMPANY_OPERATOR_ROLES.operator;
           return (
             <section key={operator.operatorId || operator.requestId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-black uppercase tracking-wide ${suspended ? "text-amber-700" : "text-emerald-700"}`}>
-                    {suspended ? "Service suspended" : role.label}
+                    {suspended ? t("urride.companyWs.serviceSuspended") : roleLabel(operator.memberRole || "operator")}
                   </p>
                   <h3 className="mt-1 truncate text-lg font-black text-slate-950">{operator.name}</h3>
                   <p className="mt-1 truncate text-sm font-semibold text-slate-500">{operator.publicId}</p>
@@ -1763,7 +1803,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
                 {canManageOperators ? (
                   <button
                     type="button"
-                    aria-label={`Manage ${operator.name || "operator"}`}
+                    aria-label={t("urride.companyWs.manageAria", { name: operator.name || t("urride.companyWs.operatorFallback") })}
                     onClick={() => onManageOperator?.(operator)}
                     className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
@@ -1772,7 +1812,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
                 ) : null}
               </div>
               <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${suspended ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>
-                Assigned to {operator.fleetName || operator.fleetType}
+                {t("urride.companyWs.assignedTo", { name: operator.fleetName || operator.fleetType })}
               </p>
               <button
                 type="button"
@@ -1781,7 +1821,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
                 className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
               >
                 <Eye size={17} />
-                {operator.operatorId ? "View dashboard" : "Dashboard pending"}
+                {operator.operatorId ? t("urride.companyWs.viewDashboard") : t("urride.companyWs.dashboardPending")}
               </button>
             </section>
           );
@@ -1792,7 +1832,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
 }
 
 function Requests({ requests }) {
-  if (!requests.length) return <EmptyPanel title="No operator requests" body="Operator invitations will appear here after you add them by KunThai ID." />;
+  if (!requests.length) return <EmptyPanel title={t("urride.companyWs.noRequestsTitle")} body={t("urride.companyWs.noRequestsBody")} />;
   return (
     <div className="grid gap-3">
       {requests.map((request) => (
@@ -1803,16 +1843,16 @@ function Requests({ requests }) {
               <h3 className="mt-1 font-black text-slate-950">{request.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType}</p>
               {request.status === "accepted_pending_documents" || request.documents?.operatorDocumentsRequired || request.documents?.registrationRequired ? (
-                <p className="mt-2 text-xs font-bold text-blue-700">Operator accepted. Identity and license documents are optional and can be added later for verification.</p>
+                <p className="mt-2 text-xs font-bold text-blue-700">{t("urride.companyWs.acceptedOptional")}</p>
               ) : null}
               {request.documents?.reuseNotice ? (
-                <p className="mt-2 text-xs font-bold text-emerald-700">Using the operator identity and license documents previously submitted.</p>
+                <p className="mt-2 text-xs font-bold text-emerald-700">{t("urride.companyWs.reuseNotice")}</p>
               ) : null}
               {request.documents?.operatorDocumentsSubmitted ? (
-                <p className="mt-2 text-xs font-bold text-emerald-700">Operator documents submitted for KunThai review.</p>
+                <p className="mt-2 text-xs font-bold text-emerald-700">{t("urride.companyWs.docsSubmitted")}</p>
               ) : null}
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">{request.plateNumber || "No plate"}</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">{request.plateNumber || t("urride.companyWs.noPlate")}</span>
           </div>
         </section>
       ))}
@@ -1822,7 +1862,7 @@ function Requests({ requests }) {
 
 function Activity({ company }) {
   const activities = company.activities || [];
-  if (!activities.length) return <EmptyPanel title="No activity yet" body="Fleet HQ activity will appear here as the company works." />;
+  if (!activities.length) return <EmptyPanel title={t("urride.companyWs.noActivityTitle")} body={t("urride.companyWs.noActivityBody")} />;
   return (
     <div className="grid gap-3">
       {activities.map((activity) => (
@@ -1865,7 +1905,7 @@ function FleetHqActionSheet({ children, label, onClose, open, widthClass = "max-
       <div className="fixed inset-0 z-[1320] flex items-end justify-center px-3 py-4 sm:items-center">
         <button
           type="button"
-          aria-label={`Close ${label}`}
+          aria-label={t("urride.companyWs.closePrefix", { label })}
           onClick={onClose}
           className={`absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-sm transition-opacity duration-300 ${panelOpen ? "opacity-100" : "opacity-0"}`}
         />
@@ -1904,13 +1944,13 @@ function CompanyDashboardTabDrawer({
       <section className="mt-4 rounded-[30px] border border-slate-200/80 bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
-            Fleet HQ
+            {t("urride.companyWs.eyebrow")}
           </p>
           <h2 className="mt-1 truncate text-xl font-black text-slate-950">
-            Company dashboard
+            {t("urride.companyWs.companyDashboard")}
           </h2>
           <p className="mt-1 truncate text-sm font-semibold text-slate-500">
-            {company?.companyName || "Transport company"}
+            {company?.companyName || t("urride.companyWs.transportCompany")}
           </p>
         </div>
         <div className="no-scrollbar mt-5 flex gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5">
@@ -1925,7 +1965,7 @@ function CompanyDashboardTabDrawer({
                   : "text-slate-500 hover:bg-white hover:text-slate-900"
               }`}
             >
-              {tab}
+              {tabLabel(tab)}
             </button>
           ))}
         </div>
@@ -1942,7 +1982,7 @@ function CompanyDashboardTabDrawer({
       >
         <button
           type="button"
-          aria-label="Collapse Fleet HQ drawer"
+          aria-label={t("urride.companyWs.collapseDrawerAria")}
           onClick={onCollapse}
           tabIndex={panelOpen ? 0 : -1}
           className={`absolute inset-0 border-0 bg-slate-950/35 p-0 backdrop-blur-sm transition-opacity duration-300 ${
@@ -1951,7 +1991,7 @@ function CompanyDashboardTabDrawer({
         />
 
         <section
-          aria-label={`${activeTab} dashboard`}
+          aria-label={t("urride.companyWs.tabScreenAria", { tab: tabLabel(activeTab) })}
           className={`absolute bottom-0 left-0 right-0 mx-auto flex h-[86dvh] max-w-2xl transform flex-col overflow-hidden rounded-t-[2rem] bg-white shadow-2xl transition-transform duration-300 ${
             panelOpen ? "translate-y-0" : "translate-y-full"
           }`}
@@ -1960,7 +2000,7 @@ function CompanyDashboardTabDrawer({
             <button
               type="button"
               onClick={onCollapse}
-              aria-label="Collapse Fleet HQ dashboard"
+              aria-label={t("urride.companyWs.collapseDashAria")}
               className="mb-3 flex w-full justify-center"
             >
               <span className="h-1.5 w-12 rounded-full bg-slate-300" />
@@ -1968,20 +2008,20 @@ function CompanyDashboardTabDrawer({
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
-                  Fleet HQ
+                  {t("urride.companyWs.eyebrow")}
                 </p>
                 <h2 className="mt-1 truncate text-xl font-black text-slate-950">
-                  {activeTab}
+                  {tabLabel(activeTab)}
                 </h2>
                 <p className="mt-1 truncate text-sm font-semibold text-slate-500">
-                  {company?.companyName || "Company dashboard"}
+                  {company?.companyName || t("urride.companyWs.companyDashboard")}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onCollapse}
                 className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100"
-                aria-label="Close Fleet HQ dashboard"
+                aria-label={t("urride.companyWs.closeDashAria")}
               >
                 <X size={22} />
               </button>
@@ -2000,7 +2040,7 @@ function CompanyDashboardTabDrawer({
                   }`}
                   style={{ transitionDelay: `${Math.abs(index - activeIndex) * 18}ms` }}
                 >
-                  {tab}
+                  {tabLabel(tab)}
                 </button>
               ))}
             </div>
@@ -2093,7 +2133,7 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close"
+        aria-label={t("urride.companyWs.close")}
         className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
       >
         <X size={20} />
@@ -2104,18 +2144,18 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
 
 function CompanyActivityDrawer({ activities, company, notificationPreferences, onClose, onDelete, onDeleteAll, onMarkAllRead, onRead, onTogglePreference, onToggleSettings, open, settingsOpen }) {
   return (
-    <FleetHqFullScreen label="Fleet HQ notifications" onClose={onClose} open={open}>
+    <FleetHqFullScreen label={t("urride.companyWs.notificationsLabel")} onClose={onClose} open={open}>
       <FleetHqFullScreenHeader
-        eyebrow="Company notifications"
-        label="Back to Fleet HQ"
+        eyebrow={t("urride.companyWs.companyNotifications")}
+        label={t("urride.companyWs.backToFleetHq")}
         onBack={onClose}
         rightAction={(
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onMarkAllRead}
-              aria-label="Mark all company notifications as read"
-              title="Mark all as read"
+              aria-label={t("urride.companyWs.markAllReadAria")}
+              title={t("urride.companyWs.markAllReadTitle")}
               className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-xl text-blue-700 transition hover:bg-blue-100"
             >
               <HiOutlineCheckCircle />
@@ -2124,8 +2164,8 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
               type="button"
               onClick={activities.length ? onDeleteAll : undefined}
               disabled={!activities.length}
-              aria-label="Delete all company notifications"
-              title="Delete all notifications"
+              aria-label={t("urride.companyWs.deleteAllAria")}
+              title={t("urride.companyWs.deleteAllTitle")}
               className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
             >
               <Trash2 size={19} />
@@ -2133,16 +2173,16 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
             <button
               type="button"
               onClick={onToggleSettings}
-              aria-label="Company notification settings"
+              aria-label={t("urride.companyWs.settingsAria")}
               aria-expanded={settingsOpen}
-              title="Notification settings"
+              title={t("urride.companyWs.settingsTitle")}
               className={`kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl text-blue-700 transition ${settingsOpen ? "bg-blue-100" : "bg-blue-50 hover:bg-blue-100"}`}
             >
               <Settings2 size={19} />
             </button>
           </div>
         )}
-        title={company?.companyName || "Fleet HQ"}
+        title={company?.companyName || t("urride.companyWs.fleetHqFallback")}
       />
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
         {settingsOpen ? (
@@ -2173,8 +2213,8 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
                       event.stopPropagation();
                       onDelete?.(activity);
                     }}
-                    aria-label="Delete this notification"
-                    title="Delete notification"
+                    aria-label={t("urride.companyWs.deleteNotifAria")}
+                    title={t("urride.companyWs.deleteNotifTitle")}
                     className="kt-touchable mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-rose-500 shadow-sm transition hover:bg-rose-50 hover:text-rose-600"
                   >
                     <Trash2 size={16} />
@@ -2184,7 +2224,7 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
             ))}
           </div>
         ) : (
-          <EmptyPanel title="No company notifications" body="Operator invitation responses will appear here." />
+          <EmptyPanel title={t("urride.companyWs.noNotifTitle")} body={t("urride.companyWs.noNotifBody")} />
         )}
       </div>
     </FleetHqFullScreen>
@@ -2192,30 +2232,30 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
 }
 
 const COMPANY_NOTIFICATION_OPTIONS = [
-  ["operatorInvitations", "Operator invitations", "Invitation responses and operator document updates."],
-  ["bookingAccepted", "Booking accepted", "An operator accepts a passenger booking."],
-  ["operatorArrived", "Operator arrived", "An operator marks arrival at pickup."],
-  ["startApproval", "Start approval requested", "An operator asks the passenger to approve trip start."],
-  ["tripStarted", "Trip started", "An approved trip moves into progress."],
-  ["tripPaused", "Trip paused", "An operator pauses an active trip."],
-  ["tripCompleted", "Trip completed", "An operator completes a trip."],
-  ["tripCancelled", "Trip cancelled", "A booking is declined or cancelled."],
-  ["otherTripUpdates", "Other trip updates", "Statuses outside the standard trip flow."],
+  ["operatorInvitations", "urride.companyWs.optInvitationsTitle", "urride.companyWs.optInvitationsDesc"],
+  ["bookingAccepted", "urride.companyWs.optBookingAcceptedTitle", "urride.companyWs.optBookingAcceptedDesc"],
+  ["operatorArrived", "urride.companyWs.optArrivedTitle", "urride.companyWs.optArrivedDesc"],
+  ["startApproval", "urride.companyWs.optStartTitle", "urride.companyWs.optStartDesc"],
+  ["tripStarted", "urride.companyWs.optStartedTitle", "urride.companyWs.optStartedDesc"],
+  ["tripPaused", "urride.companyWs.optPausedTitle", "urride.companyWs.optPausedDesc"],
+  ["tripCompleted", "urride.companyWs.optCompletedTitle", "urride.companyWs.optCompletedDesc"],
+  ["tripCancelled", "urride.companyWs.optCancelledTitle", "urride.companyWs.optCancelledDesc"],
+  ["otherTripUpdates", "urride.companyWs.optOtherTitle", "urride.companyWs.optOtherDesc"],
 ];
 
 function CompanyNotificationSettings({ onToggle, settings = DEFAULT_COMPANY_NOTIFICATION_PREFERENCES }) {
   return (
     <section className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Notification settings</p>
-      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Choose the Fleet HQ updates this admin account receives.</p>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.companyWs.settingsTitle")}</p>
+      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("urride.companyWs.notifSettingsBody")}</p>
       <div className="mt-4 divide-y divide-slate-100">
-        {COMPANY_NOTIFICATION_OPTIONS.map(([key, title, description]) => {
+        {COMPANY_NOTIFICATION_OPTIONS.map(([key, titleKey, descKey]) => {
           const enabled = settings[key] !== false;
           return (
             <button key={key} type="button" onClick={() => onToggle?.(key)} className="flex w-full items-center gap-3 py-3 text-left">
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-black text-slate-950">{title}</span>
-                <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{description}</span>
+                <span className="block text-sm font-black text-slate-950">{t(titleKey)}</span>
+                <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{t(descKey)}</span>
               </span>
               <span className={`relative h-7 w-12 flex-none rounded-full transition ${enabled ? "bg-blue-600" : "bg-slate-200"}`} aria-hidden="true">
                 <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${enabled ? "left-6" : "left-1"}`} />
@@ -2230,11 +2270,11 @@ function CompanyNotificationSettings({ onToggle, settings = DEFAULT_COMPANY_NOTI
 
 function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClose, onRead, onUpdateTrip, onViewRoute, open, operatorMode }) {
   return (
-    <FleetHqFullScreen label="Company waiting bookings" onClose={onClose} open={open}>
-      <FleetHqFullScreenHeader eyebrow="Waiting bookings" icon={CalendarClock} label="Back to Fleet HQ" onBack={onClose} title={company?.companyName || "Fleet HQ"} />
+    <FleetHqFullScreen label={t("urride.companyWs.waitingBookingsLabel")} onClose={onClose} open={open}>
+      <FleetHqFullScreenHeader eyebrow={t("urride.companyWs.waitingBookingsEyebrow")} icon={CalendarClock} label={t("urride.companyWs.backToFleetHq")} onBack={onClose} title={company?.companyName || t("urride.companyWs.fleetHqFallback")} />
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
         {loading ? (
-          <div className="rounded-2xl bg-white p-5 text-center text-sm font-black text-slate-500">Loading company bookings...</div>
+          <div className="rounded-2xl bg-white p-5 text-center text-sm font-black text-slate-500">{t("urride.companyWs.loadingBookings")}</div>
         ) : bookings.length ? (
           <div className="grid gap-3">
             {bookings.map((booking) => (
@@ -2260,7 +2300,7 @@ function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClo
             ))}
           </div>
         ) : (
-          <EmptyPanel title="No waiting bookings" body="New passenger and delivery requests assigned to company operators will appear here." />
+          <EmptyPanel title={t("urride.companyWs.noWaitingTitle")} body={t("urride.companyWs.noWaitingBody")} />
         )}
       </div>
     </FleetHqFullScreen>
@@ -2292,15 +2332,15 @@ function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose
   if (!operator && !open) return null;
   const suspended = operator?.serviceStatus === "suspended";
   return (
-    <FleetHqActionSheet label="Operator actions" onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow={company?.companyName || "Fleet HQ"} icon={MoreHorizontal} onClose={onClose} title={operator?.name || "Operator actions"} />
+    <FleetHqActionSheet label={t("urride.companyWs.operatorActionsLabel")} onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow={company?.companyName || t("urride.companyWs.fleetHqFallback")} icon={MoreHorizontal} onClose={onClose} title={operator?.name || t("urride.companyWs.operatorActionsLabel")} />
       <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
         <div className="grid gap-3">
           <OperatorActionButton
-            detail="Review this operator's bookings, trips, documents, and service record."
+            detail={t("urride.companyWs.viewOpDashboardDetail")}
             disabled={!operator?.operatorId || !onOpenDashboard || busy}
             icon={Eye}
-            label="View operator dashboard"
+            label={t("urride.companyWs.viewOpDashboard")}
             onClick={() => {
               onClose?.();
               onOpenDashboard?.(operator);
@@ -2309,25 +2349,25 @@ function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose
           {canManage ? (
             <>
               <OperatorActionButton
-                detail="Choose operator-only, dispatcher, fleet manager, or company admin access."
+                detail={t("urride.companyWs.giveResponsibilityDetail")}
                 disabled={busy}
                 icon={Shield}
-                label="Give responsibility"
+                label={t("urride.companyWs.giveResponsibility")}
                 onClick={() => onResponsibility?.(operator)}
               />
               <OperatorActionButton
-                detail={suspended ? "Restore company service access for this operator." : "Pause company service and hide the operator's fleet from new passengers."}
+                detail={suspended ? t("urride.companyWs.restoreServiceDetail") : t("urride.companyWs.suspendServiceDetail")}
                 disabled={busy}
                 icon={suspended ? PlayCircle : ShieldCheck}
-                label={suspended ? "Restore service" : "Suspend service"}
+                label={suspended ? t("urride.companyWs.restoreService") : t("urride.companyWs.suspendService")}
                 onClick={() => (suspended ? onRestore?.(operator) : onSuspend?.(operator))}
               />
               {onAddOperator ? (
                 <OperatorActionButton
-                  detail="Open company registration to invite another operator by KunThai ID."
+                  detail={t("urride.companyWs.addAnotherDetail")}
                   disabled={busy}
                   icon={UserRoundPlus}
-                  label="Add another operator"
+                  label={t("urride.companyWs.addAnother")}
                   onClick={() => {
                     onClose?.();
                     onAddOperator?.();
@@ -2336,10 +2376,10 @@ function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose
               ) : null}
               <OperatorActionButton
                 danger
-                detail="Detach this operator from Fleet HQ without deleting their personal KunThai account."
+                detail={t("urride.companyWs.removeFromCompanyDetail")}
                 disabled={busy}
                 icon={Trash2}
-                label="Remove from company"
+                label={t("urride.companyWs.removeFromCompany")}
                 onClick={() => onRemove?.(operator)}
               />
             </>
@@ -2354,51 +2394,51 @@ function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, 
   if (!fleet && !open) return null;
   const assignedOperator = getFleetAssignedOperator(fleet || {});
   return (
-    <FleetHqActionSheet label="Fleet actions" onClose={onClose} open={open}>
+    <FleetHqActionSheet label={t("urride.companyWs.fleetActionsLabel")} onClose={onClose} open={open}>
       <ActionSheetHeader
-        eyebrow={company?.companyName || "Fleet HQ"}
+        eyebrow={company?.companyName || t("urride.companyWs.fleetHqFallback")}
         icon={Truck}
         onClose={onClose}
-        title={fleet?.fleetName || fleet?.fleetCode || "Fleet actions"}
+        title={fleet?.fleetName || fleet?.fleetCode || t("urride.companyWs.fleetActionsLabel")}
       />
       <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
         <div className="grid gap-3">
           {onEditFleet ? (
             <OperatorActionButton
-              detail="Open company registration to update fleet details, pricing, photos, and documents."
+              detail={t("urride.companyWs.editFleetDetail")}
               disabled={busy}
               icon={Pencil}
-              label="Edit fleet"
+              label={t("urride.companyWs.editFleet")}
               onClick={onEditFleet}
             />
           ) : null}
           {onAssignOperator ? (
             <OperatorActionButton
               detail={assignedOperator
-                ? "Invite another operator by KunThai ID from company registration."
-                : "Invite an operator by KunThai ID so this fleet can serve passengers."}
+                ? t("urride.companyWs.addAnotherFleetDetail")
+                : t("urride.companyWs.assignOperatorDetail")}
               disabled={busy}
               icon={UserRoundPlus}
-              label={assignedOperator ? "Add another operator" : "Assign an operator"}
+              label={assignedOperator ? t("urride.companyWs.addAnother") : t("urride.companyWs.assignOperator")}
               onClick={onAssignOperator}
             />
           ) : null}
           {canManage && assignedOperator ? (
             <OperatorActionButton
-              detail={`Detach ${assignedOperator.name || "the assigned operator"} from this fleet and take it offline.`}
+              detail={t("urride.companyWs.removeOpFromFleetDetail", { name: assignedOperator.name || t("urride.companyWs.assignedOperatorFallback") })}
               disabled={busy}
               icon={UsersRound}
-              label="Remove operator from fleet"
+              label={t("urride.companyWs.removeOpFromFleet")}
               onClick={() => onRemoveOperator?.(fleet)}
             />
           ) : null}
           {canManage ? (
             <OperatorActionButton
               danger
-              detail="Withdraw this fleet's invitations and delete it from Fleet HQ. Operator KunThai accounts are not deleted."
+              detail={t("urride.companyWs.deleteFleetDetail")}
               disabled={busy}
               icon={Trash2}
-              label="Delete fleet"
+              label={t("urride.companyWs.deleteFleet")}
               onClick={() => onDelete?.(fleet)}
             />
           ) : null}
@@ -2411,24 +2451,24 @@ function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, 
 function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
   const fleet = confirm?.fleet || {};
   const isDelete = confirm?.action === "delete";
-  const fleetLabel = fleet.fleetName || fleet.fleetCode || "this fleet";
+  const fleetLabel = fleet.fleetName || fleet.fleetCode || t("urride.companyWs.thisFleet");
   return (
-    <FleetHqActionSheet label={isDelete ? "Delete fleet" : "Remove fleet operator"} onClose={onClose} open={open}>
+    <FleetHqActionSheet label={isDelete ? t("urride.companyWs.deleteFleetLabel") : t("urride.companyWs.removeFleetOperatorLabel")} onClose={onClose} open={open}>
       <ActionSheetHeader
-        eyebrow="Fleet management"
+        eyebrow={t("urride.companyWs.fleetManagement")}
         icon={isDelete ? Trash2 : UsersRound}
         onClose={onClose}
-        title={isDelete ? `Delete ${fleetLabel}?` : `Remove the operator from ${fleetLabel}?`}
+        title={isDelete ? t("urride.companyWs.deleteFleetTitle", { name: fleetLabel }) : t("urride.companyWs.removeOperatorTitle", { name: fleetLabel })}
       />
       <div className="p-5">
         <div className={`rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${isDelete ? "border-rose-100 bg-rose-50 text-rose-900" : "border-amber-100 bg-amber-50 text-amber-900"}`}>
           {isDelete
-            ? "This deletes the fleet record, withdraws its operator invitations, and stops passenger service for this fleet. Operator KunThai accounts and trip history are not deleted."
-            : "The operator loses access to this company fleet and the fleet goes offline until you assign a new operator. Their personal KunThai account is not affected."}
+            ? t("urride.companyWs.deleteFleetWarning")
+            : t("urride.companyWs.removeOperatorWarning")}
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60">
-            Go back
+            {t("urride.companyWs.goBack")}
           </button>
           <button
             type="button"
@@ -2436,7 +2476,7 @@ function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
             onClick={onConfirm}
             className={`h-12 rounded-2xl px-4 text-sm font-black text-white shadow-lg disabled:opacity-60 ${isDelete ? "bg-rose-600 shadow-rose-700/15" : "bg-amber-600 shadow-amber-700/15"}`}
           >
-            {busy ? "Working..." : isDelete ? "Delete fleet" : "Remove operator"}
+            {busy ? t("urride.companyWs.working") : isDelete ? t("urride.companyWs.deleteFleet") : t("urride.companyWs.removeOperatorConfirm")}
           </button>
         </div>
       </div>
@@ -2446,14 +2486,14 @@ function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
 
 function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
   return (
-    <FleetHqActionSheet label="Give operator responsibility" onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow="Access and responsibility" icon={Shield} onClose={onClose} title={operator?.name || "Operator"} />
+    <FleetHqActionSheet label={t("urride.companyWs.giveRespLabel")} onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow={t("urride.companyWs.accessResp")} icon={Shield} onClose={onClose} title={operator?.name || t("urride.companyWs.operatorTitleFallback")} />
       <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
         <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">
-          Choose the smallest role this person needs. Operator-only access stays limited to their own dashboard and bookings.
+          {t("urride.companyWs.chooseRole")}
         </p>
         <div className="grid gap-3">
-          {Object.entries(COMPANY_OPERATOR_ROLES).map(([role, preset]) => {
+          {Object.keys(COMPANY_OPERATOR_ROLES).map((role) => {
             const selected = (operator?.memberRole || "operator") === role;
             return (
               <button
@@ -2469,8 +2509,8 @@ function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
                   {selected ? <Check size={18} /> : <Shield size={18} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black text-slate-950">{preset.label}</span>
-                  <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{preset.description}</span>
+                  <span className="block text-sm font-black text-slate-950">{roleLabel(role)}</span>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{roleDesc(role)}</span>
                 </span>
               </button>
             );
@@ -2483,16 +2523,16 @@ function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
 
 function RemoveOperatorDrawer({ busy, onClose, onConfirm, open, operator }) {
   return (
-    <FleetHqActionSheet label="Remove operator from company" onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow="Company access" icon={Trash2} onClose={onClose} title={`Remove ${operator?.name || "operator"}?`} />
+    <FleetHqActionSheet label={t("urride.companyWs.removeOpLabel")} onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow={t("urride.companyWs.companyAccess")} icon={Trash2} onClose={onClose} title={t("urride.companyWs.removeOpTitle", { name: operator?.name || t("urride.companyWs.operatorFallback") })} />
       <div className="p-5">
         <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">
-          This removes the operator from Fleet HQ and stops company service. It does not delete their KunThai account, personal records, or identity.
+          {t("urride.companyWs.removeOpWarning")}
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60">Keep operator</button>
+          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60">{t("urride.companyWs.keepOperator")}</button>
           <button type="button" disabled={busy} onClick={onConfirm} className="h-12 rounded-2xl bg-rose-600 px-4 text-sm font-black text-white shadow-lg shadow-rose-700/15 disabled:opacity-60">
-            {busy ? "Removing..." : "Remove from company"}
+            {busy ? t("urride.companyWs.removing") : t("urride.companyWs.removeFromCompany")}
           </button>
         </div>
       </div>

@@ -396,7 +396,7 @@ function ProductCard({
     >
       <div className="relative overflow-hidden rounded-lg bg-gray-100">
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt={productName} className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
+          <img src={product.imageUrl} alt={productName} loading="lazy" decoding="async" className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
         ) : (
           <div className="flex aspect-square w-full items-center justify-center text-xs font-black text-gray-400">
             {t("urmall.seller.productPlaceholder")}

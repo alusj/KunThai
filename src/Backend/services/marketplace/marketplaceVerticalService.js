@@ -1,5 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingTable } from "../explore/errors";
+import { optimizeImageFile } from "./imageOptimization";
 import { validateVerticalMediaPackage } from "./verticalMediaValidation";
 
 const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,whatsapp_enabled,whatsapp,logo_url,banner_url,vertical_video_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
@@ -62,9 +63,11 @@ export async function uploadMarketplaceVerticalImage(file, businessId, folder = 
   if (!file) return "";
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData?.user?.id) throw new Error("Sign in before uploading business images.");
-  const extension = file.name?.split(".").pop() || "jpg";
+  // Downscale + re-encode before upload to keep Storage and Egress down.
+  const optimized = await optimizeImageFile(file);
+  const extension = optimized.name?.split(".").pop() || "jpg";
   const path = `${userData.user.id}/${folder}/${businessId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabase.storage.from("marketplace-business-media").upload(path, file, { cacheControl: "31536000", upsert: false });
+  const { error } = await supabase.storage.from("marketplace-business-media").upload(path, optimized, { cacheControl: "31536000", contentType: optimized.type || undefined, upsert: false });
   if (error) throw new Error(error.message || "Unable to upload this image.");
   return supabase.storage.from("marketplace-business-media").getPublicUrl(path).data.publicUrl;
 }

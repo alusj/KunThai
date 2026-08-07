@@ -64,64 +64,29 @@ import {
   formatTripElapsed,
   getElapsedTripSeconds,
 } from "./live/liveTripMetricUtils";
+import { useI18n, t } from "../../i18n";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
 }
 
+// label/shortText/detail/checks are locale-aware getters (like the shared
+// verificationStatus module); colorClass/panelClass stay language-independent.
+function makeOperatorStatus(base, keyRoot) {
+  return {
+    ...base,
+    get label() { return t(`${keyRoot}.label`); },
+    get shortText() { return t(`${keyRoot}.shortText`); },
+    get detail() { return t(`${keyRoot}.detail`); },
+    get checks() { return [t(`${keyRoot}.check1`), t(`${keyRoot}.check2`), t(`${keyRoot}.check3`)]; },
+  };
+}
+
 const operatorVerificationStatuses = {
-  notVerified: {
-    label: "Not Verified",
-    shortText: "Documents or safety checks are missing",
-    detail:
-      "Your operator account is not verified yet. Upload the required documents and complete your fleet details so KunThai can review your account.",
-    checks: [
-      "Identity and fleet documents still need review",
-      "Passengers may see your fleet as unverified",
-      "Complete your profile to continue verification",
-    ],
-    colorClass: "border-red-200 bg-red-100 text-red-700",
-    panelClass: "border-red-200 bg-red-50 text-red-900",
-  },
-  pending: {
-    label: "Verification Pending",
-    shortText: "Your account is under review",
-    detail:
-      "Your account verification is under review by KunThai. You will be notified when your status changes.",
-    checks: [
-      "Documents submitted",
-      "KunThai admin review in progress",
-      "Next status will appear after review",
-    ],
-    colorClass: "border-amber-200 bg-amber-100 text-amber-800",
-    panelClass: "border-amber-200 bg-amber-50 text-amber-950",
-  },
-  verified: {
-    label: "Verified",
-    shortText: "Your required checks passed",
-    detail:
-      "Your operator account has passed the required KunThai checks. Keep your fleet details and availability accurate to maintain passenger trust.",
-    checks: [
-      "Identity reviewed",
-      "Fleet documents reviewed",
-      "Account can show verified status to passengers",
-    ],
-    colorClass: "border-blue-200 bg-blue-100 text-blue-700",
-    panelClass: "border-blue-200 bg-blue-50 text-blue-950",
-  },
-  recommended: {
-    label: "Verified Recommended",
-    shortText: "Your account is verified and recommended",
-    detail:
-      "KunThai has verified and recommended your operator account. Keep service quality, safety, and response times strong to protect this status.",
-    checks: [
-      "All core checks passed",
-      "Service quality signals are strong",
-      "Recommended badge can improve passenger trust",
-    ],
-    colorClass: "border-green-200 bg-green-100 text-green-700",
-    panelClass: "border-green-200 bg-green-50 text-green-950",
-  },
+  notVerified: makeOperatorStatus({ colorClass: "border-red-200 bg-red-100 text-red-700", panelClass: "border-red-200 bg-red-50 text-red-900" }, "urride.opDash.verify.notVerified"),
+  pending: makeOperatorStatus({ colorClass: "border-amber-200 bg-amber-100 text-amber-800", panelClass: "border-amber-200 bg-amber-50 text-amber-950" }, "urride.opDash.verify.pending"),
+  verified: makeOperatorStatus({ colorClass: "border-blue-200 bg-blue-100 text-blue-700", panelClass: "border-blue-200 bg-blue-50 text-blue-950" }, "urride.opDash.verify.verified"),
+  recommended: makeOperatorStatus({ colorClass: "border-green-200 bg-green-100 text-green-700", panelClass: "border-green-200 bg-green-50 text-green-950" }, "urride.opDash.verify.recommended"),
 };
 
 const OPERATOR_DRAWER_TRANSITION_MS = 360;
@@ -156,8 +121,9 @@ export default function OperatorDashboardScreen({
   onRegisterCompany,
   onEditRegistration,
   readOnly = false,
-  readOnlyReason = "Company owner view. Only the operator can make changes.",
+  readOnlyReason,
 }) {
+  useI18n();
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
   const [activeView, setActiveView] = useState(initialView);
   const [verificationOpen, setVerificationOpen] = useState(false);
@@ -181,22 +147,22 @@ export default function OperatorDashboardScreen({
   // can see and finish the details that improve trust and verification.
   const operatorHealth = useMemo(() => {
     const checklist = [
-      { label: "Operator name", complete: Boolean(form.name) },
-      { label: "Phone number", complete: Boolean(form.phone) },
-      { label: "City or base area", complete: Boolean(form.city || form.homeBaseLocation || form.operatingArea) },
-      { label: "Vehicle type", complete: Boolean(form.fleetType) },
-      { label: "Plate number", complete: Boolean(form.plateNumber) },
-      { label: "Vehicle make and model", complete: Boolean(form.make && form.model) },
-      { label: "Pricing set", complete: [form.baseFare, form.pricePerKm, form.pricePerHour].some((value) => Number(value || 0) > 0) },
-      { label: "Verification documents", complete: !account?.documentsSkipped },
-      { label: "KunThai verification", complete: verificationStatus === "verified" },
+      { label: t("urride.opDash.health.name"), complete: Boolean(form.name) },
+      { label: t("urride.opDash.health.phone"), complete: Boolean(form.phone) },
+      { label: t("urride.opDash.health.cityBase"), complete: Boolean(form.city || form.homeBaseLocation || form.operatingArea) },
+      { label: t("urride.opDash.health.vehicleType"), complete: Boolean(form.fleetType) },
+      { label: t("urride.opDash.health.plate"), complete: Boolean(form.plateNumber) },
+      { label: t("urride.opDash.health.makeModel"), complete: Boolean(form.make && form.model) },
+      { label: t("urride.opDash.health.pricing"), complete: [form.baseFare, form.pricePerKm, form.pricePerHour].some((value) => Number(value || 0) > 0) },
+      { label: t("urride.opDash.health.documents"), complete: !account?.documentsSkipped },
+      { label: t("urride.opDash.health.kunthaiVerification"), complete: verificationStatus === "verified" },
     ];
     const completeCount = checklist.filter((item) => item.complete).length;
     const score = Math.round((completeCount / checklist.length) * 100);
     return {
       score,
-      label: "Fleet setup",
-      nextStep: score >= 100 ? "Your fleet setup is complete." : "Add the remaining fleet details to improve trust and verification.",
+      label: t("urride.opDash.health.label"),
+      nextStep: score >= 100 ? t("urride.opDash.health.complete") : t("urride.opDash.health.nextStep"),
       missingItems: checklist.filter((item) => !item.complete).map((item) => item.label),
     };
   }, [form, account?.documentsSkipped, verificationStatus]);
@@ -208,15 +174,15 @@ export default function OperatorDashboardScreen({
   const isCompanySuspended = companyAccount?.access?.serviceStatus === "suspended";
   const dashboardReadOnly = readOnly || isCompanySuspended;
   const dashboardReadOnlyReason = isCompanySuspended
-    ? `${companyAccount?.companyName || "Your company"} suspended company service access. Your personal operator information remains available, but service controls are paused until the company restores access.`
-    : readOnlyReason;
-  const operatorName = form.name || "Operator not added";
-  const fleetName = form.fleetName || "Registered Fleet";
-  const operatingArea = form.operatingArea || form.city || "Operating area not added";
-  const homeBase = form.homeBaseLocation || "Home base not added";
+    ? t("urride.opDash.suspended", { company: companyAccount?.companyName || t("urride.opDash.yourCompany") })
+    : (readOnlyReason || t("urride.opDash.readOnlyReasonDefault"));
+  const operatorName = form.name || t("urride.opDash.operatorNotAdded");
+  const fleetName = form.fleetName || t("urride.opDash.registeredFleet");
+  const operatingArea = form.operatingArea || form.city || t("urride.opDash.operatingAreaNotAdded");
+  const homeBase = form.homeBaseLocation || t("urride.opDash.homeBaseNotAdded");
   const availabilityText = isActive
-    ? "Active, Visible to passengers"
-    : "offline-not accepting trips";
+    ? t("urride.opDash.activeVisible")
+    : t("urride.opDash.offlineNotAccepting");
   const waitingPassengers = useMemo(() => dashboard?.waitingPassengers || [], [dashboard?.waitingPassengers]);
   const hasWaitingPassengers = waitingPassengers.length > 0;
   const hasActiveTrip = useMemo(
@@ -377,7 +343,7 @@ export default function OperatorDashboardScreen({
         setIsActive(nextDashboard.fleet.active_status === "active");
       }
     } catch (error) {
-      setDashboardError(error.message || "Unable to load operator dashboard.");
+      setDashboardError(error.message || t("urride.opDash.loadError"));
     } finally {
       setDashboardLoading(false);
     }
@@ -410,7 +376,7 @@ export default function OperatorDashboardScreen({
           : await updateOperatorAvailability(account?.fleetId, nextActive);
       const updatedActive = updatedFleet?.active_status === "active";
       setIsActive(updatedActive);
-      showToast(updatedActive ? "Fleet is live for passengers." : "Fleet is offline.", "success");
+      showToast(updatedActive ? t("urride.opDash.fleetLive") : t("urride.opDash.fleetOffline"), "success");
       onAccountUpdate?.((current) => {
         if (!current) return current;
 
@@ -434,8 +400,8 @@ export default function OperatorDashboardScreen({
       await refreshDashboard();
     } catch (error) {
       setIsActive(!nextActive);
-      setDashboardError(error.message || "Unable to update availability.");
-      showToast(error.message || "Unable to update availability.", "danger");
+      setDashboardError(error.message || t("urride.opDash.availabilityError"));
+      showToast(error.message || t("urride.opDash.availabilityError"), "danger");
     }
   }
 
@@ -446,7 +412,7 @@ export default function OperatorDashboardScreen({
     }
 
     if (!account?.fleetId && account?.companyFleetId) {
-      const message = "Go online once to activate this company fleet, then adjust trip controls.";
+      const message = t("urride.opDash.goOnlineFirst");
       setDashboardError(message);
       showToast(message, "warning");
       return;
@@ -455,11 +421,11 @@ export default function OperatorDashboardScreen({
     try {
       setControlsSaving(true);
       await updateTripControls(account?.fleetId, nextControls);
-      showToast("Trip controls saved.", "success");
+      showToast(t("urride.opDash.controlsSaved"), "success");
       await refreshDashboard();
     } catch (error) {
-      setDashboardError(error.message || "Unable to update trip controls.");
-      showToast(error.message || "Unable to update trip controls.", "danger");
+      setDashboardError(error.message || t("urride.opDash.controlsError"));
+      showToast(error.message || t("urride.opDash.controlsError"), "danger");
     } finally {
       setControlsSaving(false);
     }
@@ -476,17 +442,17 @@ export default function OperatorDashboardScreen({
       if (status === "start_requested") await requestTransportTripStart(trip.id);
       else await updateTransportTripStatus(trip.id, status, patch);
       const statusCopy = {
-        accepted: "Trip accepted. The passenger can now see that you accepted the request.",
-        arrived: "Arrival marked. The passenger can see that you are at the pickup point.",
-        start_requested: "Start request sent. The passenger must approve before the live trip begins.",
-        completed: "Trip completed and moved into history.",
-        cancelled: "Trip declined or cancelled.",
+        accepted: t("urride.opDash.tripAccepted"),
+        arrived: t("urride.opDash.tripArrived"),
+        start_requested: t("urride.opDash.tripStartRequested"),
+        completed: t("urride.opDash.tripCompleted"),
+        cancelled: t("urride.opDash.tripCancelled"),
       };
-      showToast(statusCopy[status] || "Trip updated.", "success");
+      showToast(statusCopy[status] || t("urride.opDash.tripUpdated"), "success");
       await refreshDashboard();
     } catch (error) {
-      setDashboardError(error.message || "Unable to update trip.");
-      showToast(error.message || "Unable to update trip.", "danger");
+      setDashboardError(error.message || t("urride.opDash.tripUpdateError"));
+      showToast(error.message || t("urride.opDash.tripUpdateError"), "danger");
     }
   }
 
@@ -505,7 +471,7 @@ export default function OperatorDashboardScreen({
         <div className="flex w-full items-center gap-3">
           <AppBackTab
             onBack={handleDashboardBack}
-            label={activeView === "dashboard" ? "Back to previous screen" : "Back to operator dashboard"}
+            label={activeView === "dashboard" ? t("urride.opDash.backPrev") : t("urride.opDash.backDashboard")}
             historyKey="transport-operator-dashboard"
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             useHistoryLayer={false}
@@ -513,7 +479,7 @@ export default function OperatorDashboardScreen({
 
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-black text-gray-950">
-              {activeView === "waiting" ? "Passenger Requests" : activeView === "history" ? "Trip History" : "Operator Dashboard"}
+              {activeView === "waiting" ? t("urride.opDash.titleWaiting") : activeView === "history" ? t("urride.opDash.titleHistory") : t("urride.opDash.titleDashboard")}
             </h1>
             <p className="truncate text-xs text-gray-500">
               {account?.displayCode} - {fleetName}
@@ -523,7 +489,7 @@ export default function OperatorDashboardScreen({
           {dashboardReadOnly ? (
             <span className="hidden h-10 items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 text-sm font-black text-blue-700 sm:flex">
               <FiShield size={16} />
-              Read only
+              {t("urride.opDash.readOnlyBadge")}
             </span>
           ) : (
             <button
@@ -536,15 +502,15 @@ export default function OperatorDashboardScreen({
               }`}
             >
               <span className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-green-600" : "bg-gray-400"}`} />
-              {isActive ? "Active" : "Offline"}
+              {isActive ? t("urride.opDash.active") : t("urride.opDash.offline")}
             </button>
           )}
 
           {hasWaitingPassengers && (
             <button
               type="button"
-              aria-label="Waiting passengers"
-              title="Waiting passengers"
+              aria-label={t("urride.opDash.waitingPassengersAria")}
+              title={t("urride.opDash.waitingPassengersAria")}
               onClick={() => setActiveView((view) => (view === "waiting" ? "dashboard" : "waiting"))}
               className={`relative h-10 w-10 rounded-full border flex items-center justify-center transition ${
                 activeView === "waiting"
@@ -563,7 +529,7 @@ export default function OperatorDashboardScreen({
 
           <button
             type="button"
-            aria-label="Operator notifications"
+            aria-label={t("urride.opDash.notificationsAria")}
             onClick={() => {
               markNotificationsSeen(alertSeenScope, alertNotificationItems);
               setSeenVersion((version) => version + 1);
@@ -581,12 +547,12 @@ export default function OperatorDashboardScreen({
 
           <button
             type="button"
-            aria-label="Open operator menu"
+            aria-label={t("urride.opDash.openMenuAria")}
             onClick={() => setOperatorMenuOpen(true)}
             className="h-10 rounded-full border border-gray-200 bg-white px-3 text-sm font-black text-gray-800 flex items-center justify-center gap-2 hover:bg-gray-50"
           >
             <FiMoreVertical size={18} />
-            <span>Menu</span>
+            <span>{t("urride.opDash.menu")}</span>
           </button>
         </div>
       </header>
@@ -628,7 +594,7 @@ export default function OperatorDashboardScreen({
           {dashboardReadOnly ? (
             <div className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-700">
               <FiShield size={16} />
-              {isCompanySuspended ? "Company service suspended" : "Read-only company owner view"}
+              {isCompanySuspended ? t("urride.opDash.companySuspendedShort") : t("urride.opDash.readOnlyCompanyView")}
             </div>
           ) : (
             <button
@@ -662,7 +628,7 @@ export default function OperatorDashboardScreen({
         <section className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-green-700">
-              Fleet Profile
+              {t("urride.opDash.fleetProfile")}
             </span>
             <button
               type="button"
@@ -675,7 +641,7 @@ export default function OperatorDashboardScreen({
 
           <h2 className="mt-4 text-3xl font-black text-gray-950">{fleetName}</h2>
           <p className="mt-1 text-sm font-black text-gray-500">
-            {account?.displayCode} - {form.category || "Transport"} - {form.fleetType || "Fleet"} - {form.plateNumber || "No plate"}
+            {account?.displayCode} - {form.category || t("urride.opDash.transportFallback")} - {form.fleetType || t("urride.opDash.fleetFallback")} - {form.plateNumber || t("urride.opDash.noPlate")}
           </p>
 
           <div className="mt-4 grid gap-2">
@@ -685,7 +651,7 @@ export default function OperatorDashboardScreen({
               value={operatingArea}
               action={
                 isUsableAreaText(operatingArea) ? (
-                  <LocateAreaIconButton label="Locate operating area" onClick={() => openOperatorArea(operatingArea)} />
+                  <LocateAreaIconButton label={t("urride.opDash.locateOperatingArea")} onClick={() => openOperatorArea(operatingArea)} />
                 ) : null
               }
             />
@@ -694,7 +660,7 @@ export default function OperatorDashboardScreen({
               value={homeBase}
               action={
                 isUsableAreaText(homeBase) ? (
-                  <LocateAreaIconButton label="Locate home base" onClick={() => openOperatorArea(homeBase, "home-base")} />
+                  <LocateAreaIconButton label={t("urride.opDash.locateHomeBase")} onClick={() => openOperatorArea(homeBase, "home-base")} />
                 ) : null
               }
             />
@@ -708,7 +674,7 @@ export default function OperatorDashboardScreen({
             >
               <span className="flex items-center justify-center gap-2">
                 <FiEdit3 size={17} />
-                Edit Profile
+                {t("urride.opDash.editProfile")}
               </span>
             </button>
           ) : null}
@@ -727,10 +693,10 @@ export default function OperatorDashboardScreen({
           <OperationsContainer
             isActive={isActive}
             availabilityText={availabilityText}
-            service={form.category || "Transport"}
-            baseFare={form.baseFare || "Not added"}
-            pricePerKm={form.pricePerKm || "Not added"}
-            pricePerHour={form.pricePerHour || "Not added"}
+            service={form.category || t("urride.opDash.transportFallback")}
+            baseFare={form.baseFare || t("urride.opDash.notAdded")}
+            pricePerKm={form.pricePerKm || t("urride.opDash.notAdded")}
+            pricePerHour={form.pricePerHour || t("urride.opDash.notAdded")}
             waitingCount={waitingPassengers.length}
             verification={verification}
             readOnly={dashboardReadOnly}
@@ -778,7 +744,7 @@ export default function OperatorDashboardScreen({
         onMarkAllRead={() => {
           markNotificationsSeen(alertReadScope, alertNotificationItems);
           setSeenVersion((version) => version + 1);
-          showToast("All operator notifications marked as read.", "success");
+          showToast(t("urride.opDash.allReadToast"), "success");
         }}
         onRead={(alert) => {
           markNotificationsSeen(alertReadScope, [alert]);
@@ -804,8 +770,8 @@ export default function OperatorDashboardScreen({
         isActive={isActive}
         verification={verification}
         homeBase={homeBase}
-        fleetType={form.fleetType || "Not added"}
-        documents={account?.documentsSkipped ? "Skipped" : "Submitted"}
+        fleetType={form.fleetType || t("urride.opDash.notAdded")}
+        documents={account?.documentsSkipped ? t("urride.opDash.documentsSkipped") : t("urride.opDash.documentsSubmitted")}
         companyAccount={companyAccount}
         companyOperationBadgeCount={companyBadgeCount}
         companyLoading={companyLoading}
@@ -944,6 +910,7 @@ function LocateAreaIconButton({ label, onClick }) {
 }
 
 export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
+  useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
   const menuRef = useRef(null);
@@ -952,7 +919,7 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
   const passengerPhone = trip.contactPhone || trip.raw?.contact_phone || "";
   const paused = trip.status === "paused";
   const awaitingStart = trip.status === "start_requested";
-  const statusLabel = awaitingStart ? "Waiting for passenger approval" : paused ? "Trip paused" : "Trip in progress";
+  const statusLabel = awaitingStart ? t("urride.opDash.liveStatusWaiting") : paused ? t("urride.opDash.liveStatusPaused") : t("urride.opDash.liveStatusInProgress");
 
   const clearCloseTimer = useCallback(() => {
     if (!closeTimerRef.current || typeof window === "undefined") return;
@@ -1020,30 +987,30 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
 
   async function shareRouteStatus() {
     const text = [
-      `KunThai trip status: ${statusLabel}`,
-      `Passenger: ${trip.name}`,
-      `Route: ${trip.route}`,
-      `Pickup: ${trip.pickup}`,
-      `Drop-off: ${trip.destination}`,
+      t("urride.opDash.shareStatusLine", { status: statusLabel }),
+      t("urride.opDash.sharePassenger", { name: trip.name }),
+      t("urride.opDash.shareRoute", { route: trip.route }),
+      t("urride.opDash.sharePickup", { pickup: trip.pickup }),
+      t("urride.opDash.shareDropoff", { destination: trip.destination }),
     ].filter(Boolean).join("\n");
 
     try {
       if (navigator.share) {
         await navigator.share({
-          title: "KunThai live route status",
+          title: t("urride.opDash.shareTitle"),
           text,
         });
         closeMenu(true);
         return;
       }
 
-      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      if (!navigator.clipboard) throw new Error(t("urride.opDash.clipboardUnavailable"));
       await navigator.clipboard.writeText(text);
       closeMenu(true);
-      showToast("Route status copied.", "success");
+      showToast(t("urride.opDash.routeCopied"), "success");
     } catch (error) {
       if (error?.name === "AbortError") return;
-      showToast(error.message || "Unable to share route status.", "danger");
+      showToast(error.message || t("urride.opDash.shareRouteError"), "danger");
     }
   }
 
@@ -1052,21 +1019,21 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
       await createSupportTicket({
         category: "Transport",
         priority: "high",
-        subject: `Operator trip concern - ${trip.name}`,
+        subject: t("urride.opDash.concernSubject", { name: trip.name }),
         message: [
-          `Trip ID: ${trip.id}`,
-          `Fleet: ${fleetName}`,
-          `Passenger: ${trip.name}`,
-          `Status: ${statusLabel}`,
-          `Route: ${trip.route}`,
-          `Pickup: ${trip.pickup}`,
-          `Drop-off: ${trip.destination}`,
+          t("urride.opDash.concernTripId", { id: trip.id }),
+          t("urride.opDash.concernFleet", { name: fleetName }),
+          t("urride.opDash.concernPassenger", { name: trip.name }),
+          t("urride.opDash.concernStatus", { status: statusLabel }),
+          t("urride.opDash.concernRoute", { route: trip.route }),
+          t("urride.opDash.concernPickup", { pickup: trip.pickup }),
+          t("urride.opDash.concernDropoff", { destination: trip.destination }),
         ].join("\n"),
       });
       closeMenu(true);
-      showToast("Transport concern sent to support.", "success");
+      showToast(t("urride.opDash.concernSent"), "success");
     } catch (error) {
-      showToast(error.message || "Unable to submit this transport concern.", "danger");
+      showToast(error.message || t("urride.opDash.concernError"), "danger");
     }
   }
 
@@ -1076,11 +1043,11 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
             <FiRadio size={14} />
-            Live Distance/Time Update
+            {t("urride.opDash.liveUpdate")}
           </p>
           <h2 className="mt-1 break-words text-lg font-black leading-tight text-gray-950">{trip.title}</h2>
           <p className="mt-1 text-xs font-bold text-gray-500">
-            {fleetName} - {trip.name} - {statusLabel}
+            {t("urride.opDash.liveStatusLine", { fleet: fleetName, name: trip.name, status: statusLabel })}
           </p>
         </div>
         <button
@@ -1089,7 +1056,7 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
           onClick={toggleMenu}
           className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-950 text-white shadow-sm"
           aria-expanded={menuOpen}
-          aria-label="Open operator trip actions"
+          aria-label={t("urride.opDash.tripActionsAria")}
         >
           <FiMoreHorizontal size={18} />
         </button>
@@ -1097,7 +1064,7 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
 
       <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(190px,280px)] sm:items-stretch">
         <div className="rounded-2xl border border-white bg-white/80 px-3 py-3 shadow-sm">
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-400">Current route</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-400">{t("urride.opDash.currentRoute")}</p>
           <p className="mt-1 break-words text-sm font-black leading-5 text-gray-950">{trip.route}</p>
           <button
             type="button"
@@ -1106,14 +1073,14 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
             className="mt-3 inline-flex h-9 items-center gap-2 rounded-full bg-emerald-600 px-3 text-xs font-black text-white shadow-sm disabled:bg-gray-300"
           >
             <FiNavigation size={15} />
-            View route
+            {t("urride.opDash.viewRoute")}
           </button>
         </div>
         {awaitingStart ? (
           <div className="rounded-2xl border border-sky-100 bg-sky-50 px-3 py-3">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-sky-700">Passenger approval</p>
-            <p className="mt-1 text-xl font-black text-slate-950">Pending</p>
-            <p className="mt-1 text-xs font-bold leading-5 text-sky-700">The live counter starts only after the passenger taps Start.</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-sky-700">{t("urride.opDash.passengerApproval")}</p>
+            <p className="mt-1 text-xl font-black text-slate-950">{t("urride.opDash.pending")}</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-sky-700">{t("urride.opDash.pendingHint")}</p>
           </div>
         ) : (
           <OperatorLiveTripMetric trip={trip} />
@@ -1130,22 +1097,22 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
           <div className="mb-3 rounded-2xl bg-white/10 px-3 py-2">
             <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">
               <FiShield size={14} />
-              Operator safety
+              {t("urride.opDash.operatorSafety")}
             </p>
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-200">
-              Keep route visibility, passenger contact, and emergency access within reach during the trip.
+              {t("urride.opDash.liveSafetyHint")}
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <OperatorLiveAction icon={FiNavigation} label="View route" onClick={() => {
+            <OperatorLiveAction icon={FiNavigation} label={t("urride.opDash.viewRoute")} onClick={() => {
               closeMenu(true);
               onViewRoute?.();
             }} />
-            <OperatorLiveAction icon={FiPhone} label={passengerPhone ? "Call passenger" : "Passenger phone unavailable"} href={passengerPhone ? `tel:${passengerPhone}` : ""} disabled={!passengerPhone} />
-            <OperatorLiveAction icon={FiShare2} label="Share route status" onClick={shareRouteStatus} />
-            <OperatorLiveAction icon={FiAlertTriangle} label="Emergency 112" href="tel:112" danger />
-            <OperatorLiveAction icon={FiFlag} label="Report concern" onClick={reportConcern} />
-            <OperatorLiveAction icon={paused ? FiPlay : FiClock} label={paused ? "Waiting paused" : "Live tracking"} disabled />
+            <OperatorLiveAction icon={FiPhone} label={passengerPhone ? t("urride.opDash.callPassenger") : t("urride.opDash.passengerPhoneUnavailable")} href={passengerPhone ? `tel:${passengerPhone}` : ""} disabled={!passengerPhone} />
+            <OperatorLiveAction icon={FiShare2} label={t("urride.opDash.shareRouteStatus")} onClick={shareRouteStatus} />
+            <OperatorLiveAction icon={FiAlertTriangle} label={t("urride.opDash.emergency112")} href="tel:112" danger />
+            <OperatorLiveAction icon={FiFlag} label={t("urride.opDash.reportConcern")} onClick={reportConcern} />
+            <OperatorLiveAction icon={paused ? FiPlay : FiClock} label={paused ? t("urride.opDash.waitingPaused") : t("urride.opDash.liveTracking")} disabled />
           </div>
         </div>
       ) : null}
@@ -1154,6 +1121,7 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
 }
 
 function OperatorLiveTripMetric({ trip }) {
+  useI18n();
   const [clockNow, setClockNow] = useState(Date.now());
   const isTime = trip.bookingMethod === "time";
 
@@ -1166,10 +1134,10 @@ function OperatorLiveTripMetric({ trip }) {
   const value = isTime
     ? formatTripElapsed(getElapsedTripSeconds({ ...trip, rawStatus: trip.status }, clockNow))
     : formatTripDistance(trip.distanceCoveredMeters);
-  const label = isTime ? "Live time update" : "Live distance update";
+  const label = isTime ? t("urride.opDash.liveTimeUpdate") : t("urride.opDash.liveDistanceUpdate");
   const detail = isTime
-    ? trip.status === "paused" ? "Timer paused by passenger" : "Counting from trip start"
-    : trip.status === "paused" ? "Distance paused by passenger" : "Synced from live trip progress";
+    ? trip.status === "paused" ? t("urride.opDash.timerPausedPassenger") : t("urride.opDash.countingFromStart")
+    : trip.status === "paused" ? t("urride.opDash.distancePausedPassenger") : t("urride.opDash.syncedFromProgress");
 
   return (
     <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3">
@@ -1237,25 +1205,25 @@ function DashboardContainer({ title, subtitle, icon, children, action }) {
 function TodaysDemandContainer({ waitingPassengers, today, account, isActive, loading, onRefresh, onOpenWaiting }) {
   return (
     <DashboardContainer
-      title="Today's Demand"
-      subtitle={isActive ? "Live requests and work signals" : "Go active to receive passenger requests"}
+      title={t("urride.opDash.todaysDemand")}
+      subtitle={isActive ? t("urride.opDash.demandLive") : t("urride.opDash.demandOffline")}
       icon={FiRadio}
       action={
         <button
           type="button"
           onClick={onRefresh}
           className="h-9 w-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50"
-          aria-label="Refresh demand"
+          aria-label={t("urride.opDash.refreshDemandAria")}
         >
           <FiRefreshCw size={16} className={loading ? "animate-spin" : ""} />
         </button>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <MetricCard label="Waiting" value={waitingPassengers.length} detail="passengers" />
-        <MetricCard label="Trips today" value={today.trips || 0} detail="completed" />
-        <MetricCard label="Earnings" value={formatOperatorMoney(today.earnings || 0, account)} detail="today" />
-        <MetricCard label="Response" value={formatSeconds(today.averageResponseSeconds)} detail="average" />
+        <MetricCard label={t("urride.opDash.metricWaiting")} value={waitingPassengers.length} detail={t("urride.opDash.waitingDetail")} />
+        <MetricCard label={t("urride.opDash.tripsToday")} value={today.trips || 0} detail={t("urride.opDash.tripsDetail")} />
+        <MetricCard label={t("urride.opDash.earningsLabel")} value={formatOperatorMoney(today.earnings || 0, account)} detail={t("urride.opDash.earningsDetail")} />
+        <MetricCard label={t("urride.opDash.responseLabel")} value={formatSeconds(today.averageResponseSeconds)} detail={t("urride.opDash.responseDetail")} />
       </div>
       <button
         type="button"
@@ -1263,7 +1231,7 @@ function TodaysDemandContainer({ waitingPassengers, today, account, isActive, lo
         disabled={!onOpenWaiting}
         className="mt-4 h-11 w-full rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-200 disabled:text-gray-500"
       >
-        {waitingPassengers.length ? "Open waiting passengers" : "No passengers waiting"}
+        {waitingPassengers.length ? t("urride.opDash.openWaiting") : t("urride.opDash.noWaiting")}
       </button>
     </DashboardContainer>
   );
@@ -1283,24 +1251,24 @@ function OperationsContainer({
   onShowVerification,
 }) {
   return (
-    <DashboardContainer title="Operations" subtitle={availabilityText} icon={FiTruck}>
+    <DashboardContainer title={t("urride.opDash.operations")} subtitle={availabilityText} icon={FiTruck}>
       <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-3">
-        <span className="text-sm font-semibold text-gray-500">Availability</span>
+        <span className="text-sm font-semibold text-gray-500">{t("urride.opDash.availabilityLabel")}</span>
         <ToggleSwitch checked={isActive} onChange={onToggle} disabled={readOnly} />
       </div>
       <div className="mt-3 grid gap-3">
-        <MiniRow label="Status" value={isActive ? "Online" : "Offline"} />
-        <MiniRow label="Service" value={service} />
-        <MiniRow label="Base fare" value={baseFare} />
-        <MiniRow label="Price per km" value={pricePerKm} />
-        <MiniRow label="Price per hour" value={pricePerHour} />
-        <MiniRow label="Waiting" value={`${waitingCount} passengers`} />
+        <MiniRow label={t("urride.opDash.statusRow")} value={isActive ? t("urride.opDash.online") : t("urride.opDash.offline")} />
+        <MiniRow label={t("urride.opDash.service")} value={service} />
+        <MiniRow label={t("urride.opDash.baseFare")} value={baseFare} />
+        <MiniRow label={t("urride.opDash.pricePerKm")} value={pricePerKm} />
+        <MiniRow label={t("urride.opDash.pricePerHour")} value={pricePerHour} />
+        <MiniRow label={t("urride.opDash.waitingRow")} value={t("urride.opDash.waitingValue", { count: waitingCount })} />
         <button
           type="button"
           onClick={onShowVerification}
           className={`flex items-center justify-between rounded-2xl border px-3 py-3 text-left ${verification.colorClass}`}
         >
-          <span className="text-sm font-semibold">Verification</span>
+          <span className="text-sm font-semibold">{t("urride.opDash.verificationRow")}</span>
           <span className="text-sm font-black">{verification.label}</span>
         </button>
       </div>
@@ -1335,17 +1303,17 @@ function TripControlsContainer({ controls, saving, readOnly = false, onSave }) {
   };
 
   return (
-    <DashboardContainer title="Trip Controls" subtitle="Routes, modes, limits, and schedule" icon={FiSliders}>
+    <DashboardContainer title={t("urride.opDash.tripControls")} subtitle={t("urride.opDash.tripControlsSub")} icon={FiSliders}>
       <div className="grid gap-3">
         {readOnly ? (
           <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
-            Company owners can review trip controls but cannot change operator service rules.
+            {t("urride.opDash.controlsReadOnly")}
           </div>
         ) : null}
-        <ToggleRow label="Accept rides" checked={draft.acceptsRide} disabled={readOnly} onChange={() => update("acceptsRide", !draft.acceptsRide)} />
-        <ToggleRow label="Accept deliveries" checked={draft.acceptsDelivery} disabled={readOnly} onChange={() => update("acceptsDelivery", !draft.acceptsDelivery)} />
+        <ToggleRow label={t("urride.opDash.acceptRides")} checked={draft.acceptsRide} disabled={readOnly} onChange={() => update("acceptsRide", !draft.acceptsRide)} />
+        <ToggleRow label={t("urride.opDash.acceptDeliveries")} checked={draft.acceptsDelivery} disabled={readOnly} onChange={() => update("acceptsDelivery", !draft.acceptsDelivery)} />
         <label className="grid gap-1">
-          <span className="text-xs font-black uppercase tracking-wide text-gray-400">Max distance km</span>
+          <span className="text-xs font-black uppercase tracking-wide text-gray-400">{t("urride.opDash.maxDistance")}</span>
           <input
             type="number"
             min="0"
@@ -1356,17 +1324,17 @@ function TripControlsContainer({ controls, saving, readOnly = false, onSave }) {
           />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TimeInput label="Start" value={draft.startTime} disabled={readOnly} onChange={(value) => update("startTime", value)} />
-          <TimeInput label="End" value={draft.endTime} disabled={readOnly} onChange={(value) => update("endTime", value)} />
+          <TimeInput label={t("urride.opDash.startLabel")} value={draft.startTime} disabled={readOnly} onChange={(value) => update("startTime", value)} />
+          <TimeInput label={t("urride.opDash.endLabel")} value={draft.endTime} disabled={readOnly} onChange={(value) => update("endTime", value)} />
         </div>
         <label className="grid gap-1">
-          <span className="text-xs font-black uppercase tracking-wide text-gray-400">Pause reason</span>
+          <span className="text-xs font-black uppercase tracking-wide text-gray-400">{t("urride.opDash.pauseReasonLabel")}</span>
           <input
             value={draft.pauseReason}
             onChange={(event) => update("pauseReason", event.target.value)}
             disabled={readOnly}
             className="h-11 rounded-2xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-green-500"
-            placeholder="Optional"
+            placeholder={t("urride.opDash.optional")}
           />
         </label>
         {!readOnly ? (
@@ -1376,7 +1344,7 @@ function TripControlsContainer({ controls, saving, readOnly = false, onSave }) {
             disabled={saving}
             className="h-11 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:opacity-60"
           >
-            {saving ? "Saving controls..." : "Save trip controls"}
+            {saving ? t("urride.opDash.savingControls") : t("urride.opDash.saveControls")}
           </button>
         ) : null}
       </div>
@@ -1387,16 +1355,16 @@ function TripControlsContainer({ controls, saving, readOnly = false, onSave }) {
 function VerificationCenterContainer({ verification, center, onOpen }) {
   const docs = center?.documents || [];
   return (
-    <DashboardContainer title="Verification Center" subtitle={verification.shortText} icon={FiShield}>
+    <DashboardContainer title={t("urride.opDash.verificationCenter")} subtitle={verification.shortText} icon={FiShield}>
       <div className={`rounded-2xl border p-4 ${verification.panelClass}`}>
         <p className="text-sm font-bold">{verification.detail}</p>
       </div>
       <div className="mt-3 grid gap-2">
         {docs.length ? docs.slice(0, 3).map((doc) => (
-          <MiniRow key={doc.id} label={doc.document_type} value={doc.status || "submitted"} />
+          <MiniRow key={doc.id} label={doc.document_type} value={doc.status || t("urride.opDash.submittedFallback")} />
         )) : (
           <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-500">
-            No document rows found yet.
+            {t("urride.opDash.noDocRows")}
           </p>
         )}
       </div>
@@ -1405,7 +1373,7 @@ function VerificationCenterContainer({ verification, center, onOpen }) {
         onClick={onOpen}
         className="mt-3 h-11 w-full rounded-2xl border border-gray-200 px-4 text-sm font-black text-gray-700 hover:bg-gray-50"
       >
-        View verification details
+        {t("urride.opDash.viewVerificationDetails")}
       </button>
     </DashboardContainer>
   );
@@ -1414,18 +1382,18 @@ function VerificationCenterContainer({ verification, center, onOpen }) {
 function EarningsContainer({ earnings, account }) {
   const transactions = earnings.transactions || [];
   return (
-    <DashboardContainer title="Earnings & Wallet" subtitle="Trips, payouts, and wallet movement" icon={FiCreditCard}>
+    <DashboardContainer title={t("urride.opDash.earnings")} subtitle={t("urride.opDash.earningsSub")} icon={FiCreditCard}>
       <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Today" value={formatOperatorMoney(earnings.today || 0, account)} />
-        <MetricCard label="Wallet" value={formatOperatorMoney(earnings.walletBalance || 0, account)} />
-        <MetricCard label="Pending" value={formatOperatorMoney(earnings.pendingPayout || 0, account)} />
+        <MetricCard label={t("urride.opDash.todayLabel")} value={formatOperatorMoney(earnings.today || 0, account)} />
+        <MetricCard label={t("urride.opDash.walletLabel")} value={formatOperatorMoney(earnings.walletBalance || 0, account)} />
+        <MetricCard label={t("urride.opDash.pendingLabel")} value={formatOperatorMoney(earnings.pendingPayout || 0, account)} />
       </div>
       <div className="mt-3 grid gap-2">
         {transactions.length ? transactions.slice(0, 3).map((item) => (
           <MiniRow key={item.id} label={item.description || item.type} value={formatCountryMoney(item.amount, item.currency || account?.form?.currency || account?.form?.countryCode || account?.form?.country)} />
         )) : (
           <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-500">
-            No wallet transactions yet.
+            {t("urride.opDash.noTransactions")}
           </p>
         )}
       </div>
@@ -1436,20 +1404,20 @@ function EarningsContainer({ earnings, account }) {
 function ReviewsContainer({ reviews }) {
   const items = reviews.items || [];
   return (
-    <DashboardContainer title="Reviews & Ratings" subtitle="Passenger trust and service quality" icon={FiStar}>
+    <DashboardContainer title={t("urride.opDash.reviews")} subtitle={t("urride.opDash.reviewsSub")} icon={FiStar}>
       <div className="grid gap-3 sm:grid-cols-2">
-        <MetricCard label="Average" value={Number(reviews.averageRating || 0).toFixed(1)} detail="stars" />
-        <MetricCard label="Reviews" value={reviews.count || 0} detail="total" />
+        <MetricCard label={t("urride.opDash.averageLabel")} value={Number(reviews.averageRating || 0).toFixed(1)} detail={t("urride.opDash.starsDetail")} />
+        <MetricCard label={t("urride.opDash.reviewsLabel")} value={reviews.count || 0} detail={t("urride.opDash.totalDetail")} />
       </div>
       <div className="mt-3 grid gap-2">
         {items.length ? items.slice(0, 2).map((review) => (
           <div key={review.id} className="rounded-2xl bg-gray-50 px-4 py-3">
-            <p className="text-sm font-black text-gray-950">{review.passengerName} - {review.rating}/5</p>
-            <p className="mt-1 text-xs font-semibold text-gray-500">{review.reviewText || "No written review."}</p>
+            <p className="text-sm font-black text-gray-950">{t("urride.opDash.reviewLine", { name: review.passengerName, rating: review.rating })}</p>
+            <p className="mt-1 text-xs font-semibold text-gray-500">{review.reviewText || t("urride.opDash.noWrittenReview")}</p>
           </div>
         )) : (
           <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-500">
-            Reviews will appear after completed trips.
+            {t("urride.opDash.reviewsAppear")}
           </p>
         )}
       </div>
@@ -1459,7 +1427,7 @@ function ReviewsContainer({ reviews }) {
 
 function OperatorAlertsContainer({ alerts }) {
   return (
-    <DashboardContainer title="Operator Alerts" subtitle="Verification, demand, payment, and system notices" icon={FiBell}>
+    <DashboardContainer title={t("urride.opDash.operatorAlerts")} subtitle={t("urride.opDash.operatorAlertsSub")} icon={FiBell}>
       <div className="grid gap-2">
         {alerts.length ? alerts.slice(0, 4).map((alert) => (
           <div key={alert.id} className={`rounded-2xl border px-4 py-3 ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}>
@@ -1468,7 +1436,7 @@ function OperatorAlertsContainer({ alerts }) {
           </div>
         )) : (
           <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-500">
-            No operator alerts right now.
+            {t("urride.opDash.noAlerts")}
           </p>
         )}
       </div>
@@ -1487,6 +1455,7 @@ function OperatorAlertsDrawer({
   onOpenWaiting,
   onOpenHistory,
 }) {
+  useI18n();
   const { rendered, panelOpen } = useDrawerTransition(open);
   useBodyScrollLock(rendered);
 
@@ -1509,7 +1478,7 @@ function OperatorAlertsDrawer({
     <div className={`fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
-        aria-label="Close operator notifications overlay"
+        aria-label={t("urride.opDash.alertsCloseOverlay")}
         onClick={onClose}
         className={`absolute inset-0 border-0 bg-slate-950/35 p-0 transition-opacity duration-300 ${
           panelOpen ? "opacity-100" : "opacity-0"
@@ -1524,23 +1493,23 @@ function OperatorAlertsDrawer({
         <header className="kt-header-glass flex items-start gap-4 px-4 py-4">
           <AppBackTab
             onBack={onClose}
-            label="Back to operator"
+            label={t("urride.opDash.alertsBack")}
             historyKey="transport-operator-alerts"
             className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             useHistoryLayer={false}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator Alerts</p>
-            <h2 className="mt-1 truncate text-xl font-black text-gray-950">Notifications</h2>
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">{t("urride.opDash.operatorAlerts")}</p>
+            <h2 className="mt-1 truncate text-xl font-black text-gray-950">{t("urride.opDash.alertsTitle")}</h2>
             <p className="mt-1 text-sm font-semibold text-gray-500">
-              {fleetName} - {operatorName}
+              {t("urride.opDash.alertsStatusLine", { fleet: fleetName, operator: operatorName })}
             </p>
           </div>
           <button
             type="button"
             onClick={onMarkAllRead}
-            aria-label="Mark all operator notifications as read"
-            title="Mark all as read"
+            aria-label={t("urride.opDash.markAllAria")}
+            title={t("urride.opDash.markAllTitle")}
             className="kt-touchable grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-green-50 text-xl text-green-700 transition hover:bg-green-100"
           >
             <HiOutlineCheckCircle />
@@ -1560,8 +1529,8 @@ function OperatorAlertsDrawer({
               </article>
             )) : (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center">
-                <p className="text-sm font-black text-gray-950">No operator alerts</p>
-                <p className="mt-1 text-sm font-semibold text-gray-500">Verification, demand, and fleet notices will appear here.</p>
+                <p className="text-sm font-black text-gray-950">{t("urride.opDash.noAlertsTitle")}</p>
+                <p className="mt-1 text-sm font-semibold text-gray-500">{t("urride.opDash.noAlertsBody")}</p>
               </div>
             )}
           </div>
@@ -1569,14 +1538,14 @@ function OperatorAlertsDrawer({
           <div className="mt-4 grid gap-2">
             <ActionRow
               icon={FiUsers}
-              label="Waiting passengers"
-              detail={onOpenWaiting ? "Review live passenger demand" : "No passengers waiting now"}
+              label={t("urride.opDash.waitingPassengers")}
+              detail={onOpenWaiting ? t("urride.opDash.reviewDemand") : t("urride.opDash.noWaitingNow")}
               onClick={onOpenWaiting}
             />
             <ActionRow
               icon={FiMap}
-              label="Trip history"
-              detail="View completed routes and delivery work"
+              label={t("urride.opDash.tripHistory")}
+              detail={t("urride.opDash.viewCompletedRoutes")}
               onClick={onOpenHistory}
             />
           </div>
@@ -1588,17 +1557,17 @@ function OperatorAlertsDrawer({
 
 function OperatorToolsContainer({ hasWaitingPassengers, readOnly = false, onOpenHistory, onOpenWaiting }) {
   return (
-    <DashboardContainer title="Operator Tools" subtitle={readOnly ? "Company owner review tools" : "Quick actions for your workspace"} icon={FiCalendar}>
+    <DashboardContainer title={t("urride.opDash.operatorTools")} subtitle={readOnly ? t("urride.opDash.toolsReadOnly") : t("urride.opDash.toolsSub")} icon={FiCalendar}>
       <div className="grid gap-2">
         <ActionRow
           icon={FiUsers}
-          label="Waiting passengers"
-          detail={hasWaitingPassengers ? "Review passenger requests" : "No passengers waiting now"}
+          label={t("urride.opDash.waitingPassengers")}
+          detail={hasWaitingPassengers ? t("urride.opDash.reviewRequests") : t("urride.opDash.noWaitingNow")}
           onClick={onOpenWaiting}
         />
-        <ActionRow icon={FiSliders} label="Trip controls" detail={readOnly ? "Read-only service rules" : "Fares, route limits, and service rules"} />
-        <ActionRow icon={FiMap} label="Trip history" detail="Areas worked, deliveries, and completed routes" onClick={onOpenHistory} />
-        <ActionRow icon={FiCalendar} label="Schedule" detail={readOnly ? "Review operating hours" : "Plan shifts and operating hours"} />
+        <ActionRow icon={FiSliders} label={t("urride.opDash.controlsRow")} detail={readOnly ? t("urride.opDash.readOnlyRules") : t("urride.opDash.faresRules")} />
+        <ActionRow icon={FiMap} label={t("urride.opDash.tripHistory")} detail={t("urride.opDash.areasWorked")} onClick={onOpenHistory} />
+        <ActionRow icon={FiCalendar} label={t("urride.opDash.schedule")} detail={readOnly ? t("urride.opDash.reviewHours") : t("urride.opDash.planShifts")} />
       </div>
     </DashboardContainer>
   );
@@ -1640,7 +1609,7 @@ function TimeInput({ label, value, disabled = false, onChange }) {
 
 function formatSeconds(value) {
   const seconds = Number(value || 0);
-  if (!seconds) return "N/A";
+  if (!seconds) return t("urride.opDash.na");
   if (seconds < 60) return `${seconds}s`;
   return `${Math.round(seconds / 60)}m`;
 }
@@ -1695,6 +1664,7 @@ function ActionRow({ icon, label, detail, onClick }) {
 }
 
 function WaitingPassengersScreen({ passengers, fleetName, account, isActive, availabilityText, readOnly = false, onBack, onUpdateTrip, onViewRoute }) {
+  useI18n();
   return (
     <section className="mx-auto max-w-5xl">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -1703,7 +1673,7 @@ function WaitingPassengersScreen({ passengers, fleetName, account, isActive, ava
           onClick={onBack}
           className="h-10 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700"
         >
-          Dashboard
+          {t("urride.opDash.dashboardBtn")}
         </button>
         <span
           className={`rounded-full px-3 py-1 text-xs font-black ${
@@ -1717,8 +1687,8 @@ function WaitingPassengersScreen({ passengers, fleetName, account, isActive, ava
       <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-green-700">Live Demand</p>
-            <h2 className="mt-1 text-2xl font-black text-gray-950">Passenger requests</h2>
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">{t("urride.opDash.liveDemand")}</p>
+            <h2 className="mt-1 text-2xl font-black text-gray-950">{t("urride.opDash.passengerRequests")}</h2>
             <p className="mt-1 text-sm font-semibold text-gray-500">{fleetName}</p>
           </div>
           <div className="h-12 w-12 rounded-full bg-green-50 text-green-700 flex items-center justify-center">
@@ -1739,7 +1709,7 @@ function WaitingPassengersScreen({ passengers, fleetName, account, isActive, ava
             />
           )) : (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm font-bold text-gray-500">
-              New passenger requests and active trip steps will appear here.
+              {t("urride.opDash.emptyRequests")}
             </div>
           )}
         </div>
@@ -1749,6 +1719,7 @@ function WaitingPassengersScreen({ passengers, fleetName, account, isActive, ava
 }
 
 export function OperatorTripRequestCard({ passenger, account, isActive, readOnly = false, onUpdateTrip, onViewRoute }) {
+  useI18n();
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const status = passenger.status || "requested";
@@ -1760,16 +1731,16 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
   const isInProgress = status === "in_progress";
   const isPaused = status === "paused";
   const statusLabel = {
-    requested: "Waiting for operator",
-    waiting_operator: "Waiting for operator",
-    pending_confirmation: "Waiting for operator",
-    accepted: "Accepted by operator",
-    arrived: "Operator arrived",
-    start_requested: "Start requested",
-    in_progress: "Trip in progress",
-    paused: "Trip paused",
-    completed: "Trip completed",
-    cancelled: "Declined or cancelled",
+    requested: t("urride.opDash.reqStatusWaiting"),
+    waiting_operator: t("urride.opDash.reqStatusWaiting"),
+    pending_confirmation: t("urride.opDash.reqStatusWaiting"),
+    accepted: t("urride.opDash.reqStatusAccepted"),
+    arrived: t("urride.opDash.reqStatusArrived"),
+    start_requested: t("urride.opDash.reqStatusStartRequested"),
+    in_progress: t("urride.opDash.reqStatusInProgress"),
+    paused: t("urride.opDash.reqStatusPaused"),
+    completed: t("urride.opDash.reqStatusCompleted"),
+    cancelled: t("urride.opDash.reqStatusCancelled"),
   }[status] || String(status).replaceAll("_", " ");
 
   async function runAction(nextStatus, patch = {}) {
@@ -1787,8 +1758,8 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         <div className="min-w-0">
           <h3 className="truncate text-base font-black text-gray-950">{passenger.name}</h3>
           <p className="mt-1 text-sm font-semibold text-gray-600">{passenger.route}</p>
-          <p className="mt-1 text-xs font-black uppercase tracking-wide text-green-700">{passenger.requestType} - Book by {passenger.bookingMethod}</p>
-          {passenger.packageDescription ? <p className="mt-1 text-xs font-semibold text-gray-600">Package: {passenger.packageDescription}</p> : null}
+          <p className="mt-1 text-xs font-black uppercase tracking-wide text-green-700">{t("urride.opDash.bookByLine", { type: passenger.requestType, method: passenger.bookingMethod })}</p>
+          {passenger.packageDescription ? <p className="mt-1 text-xs font-semibold text-gray-600">{t("urride.opDash.packageLine", { desc: passenger.packageDescription })}</p> : null}
           <p className="mt-1 text-xs font-semibold text-gray-500">{passenger.note}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -1800,9 +1771,9 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <MiniRow label="Pickup" value={passenger.pickup} />
-        <MiniRow label="Drop-off" value={passenger.destination} />
-        <MiniRow label="Fare" value={passenger.fare} />
+        <MiniRow label={t("urride.opDash.pickup")} value={passenger.pickup} />
+        <MiniRow label={t("urride.opDash.dropoff")} value={passenger.destination} />
+        <MiniRow label={t("urride.opDash.fare")} value={passenger.fare} />
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -1813,7 +1784,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
           className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-green-200 bg-white px-4 text-sm font-black text-green-700 transition hover:bg-green-50 disabled:border-gray-200 disabled:text-gray-400"
         >
           <FiNavigation size={17} />
-          View route
+          {t("urride.opDash.viewRoute")}
         </button>
         <a
           href={passengerPhone ? `tel:${passengerPhone}` : undefined}
@@ -1825,26 +1796,26 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
           }`}
         >
           <FiPhone size={17} />
-          {passengerPhone ? "Call passenger" : "No passenger phone"}
+          {passengerPhone ? t("urride.opDash.callPassenger") : t("urride.opDash.noPassengerPhone")}
         </a>
       </div>
 
       {readOnly && (isWaiting || isAccepted || isArrived) ? (
         <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
-          Company owner view: passenger trip actions are read-only and can only be updated by the operator.
+          {t("urride.opDash.requestReadOnly")}
         </div>
       ) : null}
 
       {!readOnly && isWaiting ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
           <label className="block">
-            <span className="mb-1 block text-xs font-black uppercase tracking-wide text-gray-400">Confirmed fare optional</span>
+            <span className="mb-1 block text-xs font-black uppercase tracking-wide text-gray-400">{t("urride.opDash.confirmedFare")}</span>
             <input
               type="number"
               min="0"
               value={fareAmount}
               onChange={(event) => setFareAmount(event.target.value)}
-              placeholder={`${getCountryCurrencyCode(account?.form?.countryCode || account?.form?.country)} amount`}
+              placeholder={t("urride.opDash.amountPlaceholder", { currency: getCountryCurrencyCode(account?.form?.countryCode || account?.form?.country) })}
               className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm font-bold outline-none focus:border-green-500"
             />
           </label>
@@ -1854,7 +1825,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
             className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
             disabled={!isActive || busy}
           >
-            Accept
+            {t("urride.opDash.accept")}
           </button>
           <button
             type="button"
@@ -1862,7 +1833,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
             className="h-10 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-black text-red-700 disabled:opacity-50"
             disabled={busy}
           >
-            Decline
+            {t("urride.opDash.decline")}
           </button>
         </div>
       ) : null}
@@ -1875,7 +1846,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
             disabled={!isActive || busy}
             className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
           >
-            Mark arrived
+            {t("urride.opDash.markArrived")}
           </button>
           <button
             type="button"
@@ -1883,7 +1854,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
             disabled={busy}
             className="h-10 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-black text-red-700"
           >
-            Cancel
+            {t("urride.opDash.cancel")}
           </button>
         </div>
       ) : null}
@@ -1895,19 +1866,19 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
           disabled={!isActive || busy}
           className="mt-4 h-10 w-full rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
         >
-          Request trip start
+          {t("urride.opDash.requestStart")}
         </button>
       ) : null}
 
       {isStartRequested ? (
         <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
-          Waiting for passenger approval. The live trip begins only after the passenger taps Start.
+          {t("urride.opDash.awaitingApproval")}
         </div>
       ) : null}
 
       {isInProgress || isPaused ? (
         <div className="mt-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-          Live trip active. The passenger controls pause, continue, safety actions, and trip completion from their live trip card.
+          {t("urride.opDash.liveTripActive")}
         </div>
       ) : null}
     </article>
@@ -1915,18 +1886,19 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
 }
 
 function TripHistoryScreen({ trips, fleetName, onBack }) {
+  useI18n();
   return (
     <section className="space-y-4">
       <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
         <AppBackTab
           onBack={onBack}
-          label="Back to dashboard"
+          label={t("urride.opDash.historyBack")}
           historyKey="transport-operator-history"
           className="mb-4 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           useHistoryLayer={false}
         />
-        <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator History</p>
-        <h2 className="mt-1 text-2xl font-black text-gray-950">Trip and delivery history</h2>
+        <p className="text-xs font-black uppercase tracking-wide text-green-700">{t("urride.opDash.historyEyebrow")}</p>
+        <h2 className="mt-1 text-2xl font-black text-gray-950">{t("urride.opDash.historyTitle")}</h2>
         <p className="mt-1 text-sm font-semibold text-gray-500">{fleetName}</p>
       </div>
 
@@ -1935,20 +1907,20 @@ function TripHistoryScreen({ trips, fleetName, onBack }) {
           <article key={trip.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-wide text-green-700">{trip.status || "completed"}</p>
+                <p className="text-xs font-black uppercase tracking-wide text-green-700">{trip.status || t("urride.opDash.completedFallback")}</p>
                 <h3 className="mt-1 truncate text-base font-black text-gray-950">{trip.name}</h3>
                 <p className="mt-1 text-sm font-semibold text-gray-600">{trip.route}</p>
               </div>
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black text-gray-700">{trip.time}</span>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <MiniRow label="Fare" value={trip.fare} />
-              <MiniRow label="Note" value={trip.note} />
+              <MiniRow label={t("urride.opDash.fare")} value={trip.fare} />
+              <MiniRow label={t("urride.opDash.noteLabel")} value={trip.note} />
             </div>
           </article>
         )) : (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm font-bold text-gray-500 xl:col-span-2">
-            Completed ride and delivery areas will appear here.
+            {t("urride.opDash.emptyHistory")}
           </div>
         )}
       </div>
@@ -1985,6 +1957,7 @@ function OperatorMenuDrawer({
   onLocateArea,
   onRequestDeletion,
 }) {
+  useI18n();
   const { rendered, panelOpen } = useDrawerTransition(open);
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
   const canOpenCompanyHq = Boolean(hasCompanyAccount && companyAccount?.access?.canViewCompanyHq && onOpenCompany);
@@ -2009,27 +1982,27 @@ function OperatorMenuDrawer({
   const companyAction = canOpenCompanyHq
     ? {
         icon: FiBriefcase,
-        label: "Open Fleet HQ",
-        detail: `${companyAccount.companyName || "Company workspace"} - ${companyAccount.verificationStatus || "pending"}`,
+        label: t("urride.opDash.openFleetHq"),
+        detail: t("urride.opDash.companyStatusLine", { name: companyAccount.companyName || t("urride.opDash.companyWorkspace"), status: companyAccount.verificationStatus || t("urride.opDash.pendingFallback") }),
         onClick: onOpenCompany,
         badge: companyBadgeCount,
       }
     : hasCompanyAccount
       ? {
           icon: FiBriefcase,
-          label: companyAccount.companyName || "Company membership",
+          label: companyAccount.companyName || t("urride.opDash.companyMembershipFallback"),
           detail: companyAccount?.access?.serviceStatus === "suspended"
-            ? "Company service is suspended. Your personal operator information remains available."
-            : "Operator-only access - your dashboard and bookings stay private",
+            ? t("urride.opDash.companySuspendedDetail")
+            : t("urride.opDash.operatorOnlyAccess"),
           badge: companyBadgeCount,
         }
       : !readOnly
       ? {
           icon: FiBriefcase,
-          label: "Register your transport company",
+          label: t("urride.opDash.registerCompany"),
           detail: companyLoading
-            ? "Checking company workspace..."
-            : "Create a company workspace for teams, fleets, and operators",
+            ? t("urride.opDash.checkingWorkspace")
+            : t("urride.opDash.createWorkspace"),
           onClick: companyLoading ? undefined : onRegisterCompany,
         }
       : null;
@@ -2037,33 +2010,33 @@ function OperatorMenuDrawer({
   const actions = [
     {
       icon: FiNavigation,
-      label: "Locate Area",
-      detail: isUsableAreaText(operatingArea) ? operatingArea : "Add operating area first",
+      label: t("urride.opDash.locateArea"),
+      detail: isUsableAreaText(operatingArea) ? operatingArea : t("urride.opDash.addAreaFirst"),
       onClick: isUsableAreaText(operatingArea) ? () => onLocateArea?.(operatingArea, "operating-area") : undefined,
     },
     {
       icon: FiTruck,
-      label: "Fleet dashboard",
+      label: t("urride.opDash.fleetDashboard"),
       detail: fleetName,
       onClick: onOpenDashboard,
     },
     companyAction,
     {
       icon: FiLifeBuoy,
-      label: "Safety & emergency",
-      detail: "Professional guidance for passengers, routes, incidents, and urgent risk",
+      label: t("urride.opDash.safetyEmergency"),
+      detail: t("urride.opDash.safetyMenuDetail"),
       onClick: onOpenSafety,
     },
     {
       icon: FiUsers,
-      label: "Waiting passengers",
-      detail: "Review nearby demand and accept requests",
+      label: t("urride.opDash.waitingPassengers"),
+      detail: t("urride.opDash.reviewNearbyDemand"),
       onClick: onOpenWaiting,
     },
     {
       icon: FiMap,
-      label: "Trip history",
-      detail: "Completed areas, routes, and deliveries",
+      label: t("urride.opDash.tripHistory"),
+      detail: t("urride.opDash.completedAreas"),
       onClick: onOpenHistory,
     },
     {
@@ -2075,26 +2048,26 @@ function OperatorMenuDrawer({
     !readOnly
       ? {
           icon: FiEdit3,
-          label: "Edit fleet profile",
-          detail: "Operator, base, area, documents, and fleet details",
+          label: t("urride.opDash.editFleetProfile"),
+          detail: t("urride.opDash.editFleetDetail"),
           onClick: onEditProfile,
         }
       : null,
     {
       icon: FiSliders,
-      label: "Trip controls",
-      detail: readOnly ? "Read-only service rules" : "Fare hints, routes, and service rules",
+      label: t("urride.opDash.controlsRow"),
+      detail: readOnly ? t("urride.opDash.readOnlyRules") : t("urride.opDash.fareHints"),
     },
     {
       icon: FiCalendar,
-      label: "Schedule",
-      detail: readOnly ? "Review operating hours" : "Plan shifts and operating hours",
+      label: t("urride.opDash.schedule"),
+      detail: readOnly ? t("urride.opDash.reviewHours") : t("urride.opDash.planShifts"),
     },
     !readOnly
       ? {
           icon: FiTrash2,
-          label: "Request account deletion",
-          detail: "Ask admin to review your UrRide operator account, trips, and support records before deletion",
+          label: t("urride.opDash.requestDeletion"),
+          detail: t("urride.opDash.deletionDetail"),
           onClick: onRequestDeletion,
         }
       : null,
@@ -2104,7 +2077,7 @@ function OperatorMenuDrawer({
     <div className={`fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
-        aria-label="Close operator menu overlay"
+        aria-label={t("urride.opDash.menuCloseOverlay")}
         onClick={onClose}
         className={`absolute inset-0 border-0 bg-slate-950/30 p-0 transition-opacity duration-300 ${
           panelOpen ? "opacity-100" : "opacity-0"
@@ -2119,13 +2092,13 @@ function OperatorMenuDrawer({
         <div className="flex items-center gap-4 border-b border-gray-100 px-5 py-4">
           <AppBackTab
             onBack={onClose}
-            label="Back to operator"
+            label={t("urride.opDash.menuBack")}
             historyKey="transport-operator-menu"
             className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
             useHistoryLayer={false}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-wide text-green-700">Operator Menu</p>
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">{t("urride.opDash.menuEyebrow")}</p>
             <h2 className="truncate text-lg font-black text-gray-950">{fleetName}</h2>
             <p className="truncate text-xs font-semibold text-gray-500">
               {account?.displayCode} - {operatorName}
@@ -2139,39 +2112,39 @@ function OperatorMenuDrawer({
               <div className="min-w-0">
                 <p className="text-sm font-black text-gray-950">{operatorName}</p>
                 <p className="mt-1 truncate text-xs font-semibold text-green-800">{operatingArea}</p>
-                <p className="mt-2 text-xs font-black text-green-700">{readOnly ? "Read-only company owner view" : availabilityText}</p>
+                <p className="mt-2 text-xs font-black text-green-700">{readOnly ? t("urride.opDash.readOnlyCompanyView") : availabilityText}</p>
               </div>
               <ToggleSwitch checked={isActive} disabled={readOnly} onChange={onToggleAvailability} />
             </div>
           </section>
 
           <section className="space-y-2">
-            <h3 className="text-xs font-black uppercase tracking-wide text-gray-400">Fleet profile</h3>
+            <h3 className="text-xs font-black uppercase tracking-wide text-gray-400">{t("urride.opDash.fleetProfileSection")}</h3>
             <div className="grid gap-3">
-              <ProfileItem icon={FiUser} label="Operator" value={operatorName} />
+              <ProfileItem icon={FiUser} label={t("urride.opDash.operatorLabel")} value={operatorName} />
               <ProfileItem
                 icon={FiMapPin}
-                label="Operating Area"
+                label={t("urride.opDash.operatingAreaLabel")}
                 value={operatingArea}
                 action={
                   isUsableAreaText(operatingArea) ? (
-                    <LocateAreaIconButton label="Locate operating area" onClick={() => onLocateArea?.(operatingArea, "operating-area")} />
+                    <LocateAreaIconButton label={t("urride.opDash.locateOperatingArea")} onClick={() => onLocateArea?.(operatingArea, "operating-area")} />
                   ) : null
                 }
               />
               <ProfileItem
                 icon={FiHome}
-                label="Home Base"
+                label={t("urride.opDash.homeBaseLabel")}
                 value={homeBase}
                 action={
                   isUsableAreaText(homeBase) ? (
-                    <LocateAreaIconButton label="Locate home base" onClick={() => onLocateArea?.(homeBase, "home-base")} />
+                    <LocateAreaIconButton label={t("urride.opDash.locateHomeBase")} onClick={() => onLocateArea?.(homeBase, "home-base")} />
                   ) : null
                 }
               />
-              <ProfileItem icon={FiTruck} label="Fleet Type" value={fleetType} />
-              <ProfileItem icon={FiShield} label="Verification" value={verification.label} />
-              <ProfileItem icon={FiFileText} label="Documents" value={documents} />
+              <ProfileItem icon={FiTruck} label={t("urride.opDash.fleetTypeLabel")} value={fleetType} />
+              <ProfileItem icon={FiShield} label={t("urride.opDash.verificationRow")} value={verification.label} />
+              <ProfileItem icon={FiFileText} label={t("urride.opDash.documentsLabel")} value={documents} />
             </div>
           </section>
 
@@ -2209,54 +2182,19 @@ function OperatorMenuDrawer({
 }
 
 const operatorSafetyTopics = [
-  {
-    title: "What KunThai can do",
-    body:
-      "KunThai can give operators better guidance, route context, trip records, passenger request details, safety reminders, and reporting tools. KunThai cannot physically protect an operator or passenger, control road conditions, or replace emergency services. When life, health, violence, fire, crash, or serious danger is involved, emergency help and nearby trusted people must come first.",
-  },
-  {
-    title: "Professional duty before accepting",
-    body:
-      "Accept only the trips you can safely complete. Check pickup point, destination, fleet type, passenger count, parcel details, and any special notes. If the trip is outside your service area, unsafe for your fleet, overloaded, or unclear, do not accept it just to win the request.",
-  },
-  {
-    title: "Arrival protocol",
-    body:
-      "Arrive at the pickup point shown in the booking, identify yourself calmly, and let the passenger confirm your operator name, fleet type, and plate number. Do not pressure a passenger to enter if they are still checking details. A professional operator makes the passenger feel safe before the trip starts.",
-  },
-  {
-    title: "Passenger respect and boundaries",
-    body:
-      "Avoid harassment, insults, threats, aggressive bargaining, or unnecessary personal questions. Keep communication focused on pickup, route, fare, delivery, and safety. If a passenger is distressed, confused, elderly, disabled, or travelling with a child, slow down the interaction and make the process clear.",
-  },
-  {
-    title: "Route discipline",
-    body:
-      "Follow the agreed route or the route shown in area view unless traffic, road closure, danger, or passenger instruction requires a change. If you must change route, explain it before or immediately after the change. Sudden unexplained detours create fear and can become a safety report.",
-  },
-  {
-    title: "Emergency handling",
-    body:
-      "In a crash, medical problem, violence, fire, robbery, or serious road danger, stop in the safest available place, contact local emergency help, and protect people before protecting the trip record. After urgent help is contacted, record the trip details, passenger name, location, time, and what happened for support follow-up.",
-  },
-  {
-    title: "Conflict and fare disagreement",
-    body:
-      "Do not escalate arguments on the roadside. If a fare, route, or delivery disagreement happens, keep your voice low, move to a public and safer place where possible, and preserve the trip details. Support can understand a calm report better than a heated argument with missing facts.",
-  },
-  {
-    title: "Delivery safety",
-    body:
-      "Check parcel description, pickup person, receiver details, payment responsibility, and drop-off location before moving. Do not carry suspicious, dangerous, illegal, leaking, or poorly described items. If the receiver cannot be verified, document the issue and contact support instead of abandoning the parcel without record.",
-  },
-  {
-    title: "Reporting as an operator",
-    body:
-      "Report passenger threats, unsafe pickup locations, fake bookings, harassment, unpaid fares, dangerous parcels, wrong saved locations, or route incidents with clear details. Include route, time, passenger name, phone if available, screenshots, and what action you took to keep people safe.",
-  },
+  { titleKey: "urride.opDash.safety.st1Title", bodyKey: "urride.opDash.safety.st1Body" },
+  { titleKey: "urride.opDash.safety.st2Title", bodyKey: "urride.opDash.safety.st2Body" },
+  { titleKey: "urride.opDash.safety.st3Title", bodyKey: "urride.opDash.safety.st3Body" },
+  { titleKey: "urride.opDash.safety.st4Title", bodyKey: "urride.opDash.safety.st4Body" },
+  { titleKey: "urride.opDash.safety.st5Title", bodyKey: "urride.opDash.safety.st5Body" },
+  { titleKey: "urride.opDash.safety.st6Title", bodyKey: "urride.opDash.safety.st6Body" },
+  { titleKey: "urride.opDash.safety.st7Title", bodyKey: "urride.opDash.safety.st7Body" },
+  { titleKey: "urride.opDash.safety.st8Title", bodyKey: "urride.opDash.safety.st8Body" },
+  { titleKey: "urride.opDash.safety.st9Title", bodyKey: "urride.opDash.safety.st9Body" },
 ];
 
 function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose }) {
+  useI18n();
   const { rendered, panelOpen } = useDrawerTransition(open);
   useBodyScrollLock(rendered);
 
@@ -2279,7 +2217,7 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
     <div className={`fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
-        aria-label="Close account deletion overlay"
+        aria-label={t("urride.opDash.deletionCloseOverlay")}
         onClick={onClose}
         className={`absolute inset-0 border-0 bg-slate-950/35 p-0 transition-opacity duration-300 ${
           panelOpen ? "opacity-100" : "opacity-0"
@@ -2295,14 +2233,14 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
           <div className="flex items-center gap-4">
             <AppBackTab
               onBack={onClose}
-              label="Back to operator menu"
+              label={t("urride.opDash.deletionBack")}
               historyKey="transport-operator-account-deletion"
               className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
               useHistoryLayer={false}
             />
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-wide text-rose-700">Operator Account</p>
-              <h2 className="truncate text-lg font-black text-gray-950">Request account deletion</h2>
+              <p className="text-xs font-black uppercase tracking-wide text-rose-700">{t("urride.opDash.deletionEyebrow")}</p>
+              <h2 className="truncate text-lg font-black text-gray-950">{t("urride.opDash.deletionTitle")}</h2>
               <p className="truncate text-xs font-semibold text-gray-500">
                 {fleetName} - {operatorName}
               </p>
@@ -2319,6 +2257,7 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
 }
 
 function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
+  useI18n();
   const { rendered, panelOpen } = useDrawerTransition(open);
   useBodyScrollLock(rendered);
 
@@ -2341,7 +2280,7 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
     <div className={`fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
-        aria-label="Close operator safety overlay"
+        aria-label={t("urride.opDash.safetyCloseOverlay")}
         onClick={onClose}
         className={`absolute inset-0 border-0 bg-slate-950/35 p-0 transition-opacity duration-300 ${
           panelOpen ? "opacity-100" : "opacity-0"
@@ -2357,14 +2296,14 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
           <div className="flex items-center gap-4">
             <AppBackTab
               onBack={onClose}
-              label="Back to operator menu"
+              label={t("urride.opDash.safetyBack")}
               historyKey="transport-operator-safety"
               className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
               useHistoryLayer={false}
             />
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-wide text-red-700">Operator Safety</p>
-              <h2 className="truncate text-lg font-black text-gray-950">Safety & emergency</h2>
+              <p className="text-xs font-black uppercase tracking-wide text-red-700">{t("urride.opDash.safetyEyebrow")}</p>
+              <h2 className="truncate text-lg font-black text-gray-950">{t("urride.opDash.safetyTitle")}</h2>
               <p className="truncate text-xs font-semibold text-gray-500">
                 {fleetName} - {operatorName}
               </p>
@@ -2379,9 +2318,9 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
                 <FiAlertTriangle size={22} />
               </span>
               <div>
-                <h3 className="font-black text-red-900">Emergency help comes first</h3>
+                <h3 className="font-black text-red-900">{t("urride.opDash.emergencyFirst")}</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-red-800">
-                  KunThai can support records, reports, and trip follow-up. In immediate danger, contact local emergency help first, then use the app record after people are safe.
+                  {t("urride.opDash.emergencyBody")}
                 </p>
               </div>
             </div>
@@ -2394,14 +2333,14 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
           </section>
 
           <section className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="font-black text-gray-950">Operator incident record</h3>
+            <h3 className="font-black text-gray-950">{t("urride.opDash.incidentRecord")}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
-              After an incident, write down the trip ID or route, passenger name, pickup point, destination, time, location, what happened, who was contacted, and whether emergency help was called. A calm record protects serious operators and helps KunThai review the case more fairly.
+              {t("urride.opDash.incidentBody")}
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {["Trip or request reference", "Passenger or receiver details", "Current location or landmark", "Route and fare agreement", "Photos when safe", "Emergency contact outcome"].map((item) => (
-                <span key={item} className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-black text-gray-600">
-                  {item}
+              {["urride.opDash.keep1", "urride.opDash.keep2", "urride.opDash.keep3", "urride.opDash.keep4", "urride.opDash.keep5", "urride.opDash.keep6"].map((key) => (
+                <span key={key} className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-black text-gray-600">
+                  {t(key)}
                 </span>
               ))}
             </div>
@@ -2413,6 +2352,7 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
 }
 
 function OperatorSafetyTopic({ number, topic }) {
+  useI18n();
   return (
     <article className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -2420,8 +2360,8 @@ function OperatorSafetyTopic({ number, topic }) {
           {number}
         </span>
         <div>
-          <h3 className="text-sm font-black text-gray-950">{topic.title}</h3>
-          <p className="mt-1 text-xs font-semibold leading-5 text-gray-600">{topic.body}</p>
+          <h3 className="text-sm font-black text-gray-950">{t(topic.titleKey)}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-gray-600">{t(topic.bodyKey)}</p>
         </div>
       </div>
     </article>
@@ -2429,13 +2369,14 @@ function OperatorSafetyTopic({ number, topic }) {
 }
 
 function OperatorVerificationModal({ open, config, fleetName, onClose }) {
+  useI18n();
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <button
         type="button"
-        aria-label="Close operator verification overlay"
+        aria-label={t("urride.opDash.verifyModalCloseOverlay")}
         onClick={onClose}
         className="absolute inset-0 bg-slate-950/40"
       />
@@ -2444,13 +2385,13 @@ function OperatorVerificationModal({ open, config, fleetName, onClose }) {
         <div className={`rounded-t-3xl border-b px-5 py-4 ${config.panelClass}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide">Operator Verification</p>
+              <p className="text-xs font-black uppercase tracking-wide">{t("urride.opDash.verifyModalEyebrow")}</p>
               <h2 className="mt-1 text-xl font-black">{config.label}</h2>
               <p className="mt-1 text-sm font-semibold">{fleetName}</p>
             </div>
             <button
               type="button"
-              aria-label="Close verification details"
+              aria-label={t("urride.opDash.verifyModalClose")}
               onClick={onClose}
               className="h-9 w-9 rounded-full bg-white/80 flex items-center justify-center"
             >

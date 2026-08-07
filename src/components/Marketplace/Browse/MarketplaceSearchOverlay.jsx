@@ -404,7 +404,7 @@ function ResultRow({ row, onClick }) {
       className="kt-pressable flex w-full items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2.5 text-left hover:bg-gray-100"
     >
       <span className="grid h-10 w-10 flex-none place-items-center overflow-hidden rounded-xl bg-gray-200 text-gray-500">
-        {row.image ? <img src={row.image} alt="" className="h-full w-full object-cover" /> : <Icon size={17} />}
+        {row.image ? <img src={row.image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <Icon size={17} />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-black text-gray-950">{row.name}</span>

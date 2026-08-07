@@ -134,7 +134,10 @@ export function getCountryOptions(cases = []) {
 
 export function getCaseTypeLabel(item = {}) {
   const type = item.case_type || item.resource_type || "";
+  if (item.resource_type === "public_data_access_request") return "Data access request";
+  if (item.resource_type === "public_account_deletion_request") return "Public account deletion request";
   if (type === "account_deletion_request" || String(item.resource_type || "").includes("account_deletion_request")) return "Account deletion request";
+  if (type === "privacy_request") return "Privacy request";
   if (type === "user_voice" || item.resource_type === "user_care_feedback") return "My Voice";
   if (item.resource_type === "explore_post_report" || type === "content_report") return "Reported post";
   if (item.resource_type === "explore_comment_report" || type === "comment_report") return "Reported comment";
@@ -567,6 +570,26 @@ function normalizeAccountDeletionContent(source = {}, item = {}) {
   };
 }
 
+function normalizePublicPrivacyContent(source = {}, item = {}) {
+  const isDeletion = source.request_type === "account_deletion" || item.resource_type === "public_account_deletion_request";
+  return {
+    id: item.resource_id || source.id || item.id,
+    type: isDeletion ? "account_deletion_request" : "data_access_request",
+    title: `${isDeletion ? "Account deletion" : "Data access"} request: ${source.full_name || "KunThai user"}`,
+    description: source.details || item.description || "Submitted from the public KunThai Policy Center.",
+    meta: [
+      source.reference ? `Reference: ${source.reference}` : "",
+      source.account_email ? `Account email: ${source.account_email}` : "",
+      source.account_phone ? `Account phone: ${source.account_phone}` : "",
+      source.country ? `Country: ${source.country}` : "",
+      source.verification_status ? `Verification: ${titleCaseForService(source.verification_status)}` : "",
+      source.created_at ? `Submitted: ${source.created_at}` : "",
+    ].filter(Boolean),
+    media: [],
+    source,
+  };
+}
+
 function fallbackCaseContent(item = {}) {
   const source = sourceFor(item);
   return [{
@@ -613,8 +636,11 @@ function previewCaseContent(item = {}) {
     return [normalizeAreaReportContent(sourceFor(item))];
   }
   if (item.case_type === "account_deletion_request" || String(item.resource_type || "").includes("account_deletion_request")) {
-    return [normalizeAccountDeletionContent(sourceFor(item), item)];
+    return [item.resource_type === "public_account_deletion_request"
+      ? normalizePublicPrivacyContent(sourceFor(item), item)
+      : normalizeAccountDeletionContent(sourceFor(item), item)];
   }
+  if (item.resource_type === "public_data_access_request" || item.case_type === "privacy_request") return [normalizePublicPrivacyContent(sourceFor(item), item)];
   return fallbackCaseContent(item);
 }
 
@@ -646,6 +672,8 @@ export async function getAdminCaseContent(item) {
   } else if (item.resource_type === "area_report") {
     const row = await fetchSingle("nearby_area_reports", "id", source.id || item.resource_id);
     content = normalizeAreaReportContent(row || source);
+  } else if (item.resource_type === "public_account_deletion_request" || item.resource_type === "public_data_access_request") {
+    content = normalizePublicPrivacyContent(source, item);
   } else if (item.case_type === "account_deletion_request" || String(item.resource_type || "").includes("account_deletion_request")) {
     content = normalizeAccountDeletionContent(source, item);
   }

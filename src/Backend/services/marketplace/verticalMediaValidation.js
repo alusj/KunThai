@@ -1,5 +1,5 @@
 export const MAX_VERTICAL_VIDEO_BYTES = 50 * 1024 * 1024;
-export const MAX_VERTICAL_VIDEO_SECONDS = 30;
+export const MAX_VERTICAL_VIDEO_SECONDS = 10;
 export const REQUIRED_EXTRA_IMAGE_COUNT = 5;
 export const MAX_EXTRA_IMAGE_COUNT = 6;
 
@@ -43,8 +43,9 @@ export async function validateVerticalVideo(file) {
   }
   const duration = await readVideoDuration(file);
   if (duration > MAX_VERTICAL_VIDEO_SECONDS + 0.25) {
-    const error = new Error(`Your video is ${Math.ceil(duration)} seconds. We can only accept videos up to 30 seconds.`);
+    const error = new Error(`Your video is ${Math.ceil(duration)} seconds. We can only accept videos up to ${MAX_VERTICAL_VIDEO_SECONDS} seconds.`);
     error.code = "VIDEO_TOO_LONG";
+    error.duration = duration;
     throw error;
   }
   return { duration };

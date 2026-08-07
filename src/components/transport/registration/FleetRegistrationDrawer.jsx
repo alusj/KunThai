@@ -41,46 +41,49 @@ import {
   getPersonalFleetTypeOptions,
   getPersonalServiceCategoryOptions,
 } from "../../../data/globalTransportCapabilities";
+import { useI18n, t } from "../../../i18n";
 
+// Stored enum values stay English; display localized via urride.fleetEdit.enum.
 const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends only", "Night service"];
 const fuelTypes = ["Petrol", "Diesel", "Hybrid", "Electric", "Not applicable"];
 const carBodyTypes = ["Sedan", "SUV", "Hatchback", "Minivan", "Pickup", "Van"];
 const deliveryBodyTypes = ["Open cargo", "Covered cargo", "Delivery box", "Insulated box", "Passenger + cargo"];
 const activeCountry = getActiveCountryProfile();
+const enumLabel = (value) => t(`urride.fleetEdit.enum.${value}`);
 
 const fleetQuestions = {
   Car: [
-    { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
-    { key: "doorsWorking", label: "Are all passenger doors working?", type: "select" },
-    { key: "seatbelts", label: "Are seatbelts available and usable?", type: "select" },
-    { key: "acOrVentilation", label: "Is AC or clear ventilation available?", type: "select" },
-    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
-    { key: "spareTire", label: "Is a spare tire or emergency repair kit available?", type: "select" },
-    { key: "interiorClean", label: "Is the passenger interior clean and safe?", type: "select" },
+    { key: "seatCount", labelKey: "urride.fleetEdit.q.seatCount", type: "number" },
+    { key: "doorsWorking", labelKey: "urride.fleetEdit.q.doorsWorking", type: "select" },
+    { key: "seatbelts", labelKey: "urride.fleetEdit.q.seatbelts", type: "select" },
+    { key: "acOrVentilation", labelKey: "urride.fleetEdit.q.acOrVentilation", type: "select" },
+    { key: "lightsMirrors", labelKey: "urride.fleetEdit.q.lightsMirrors", type: "select" },
+    { key: "spareTire", labelKey: "urride.fleetEdit.q.spareTire", type: "select" },
+    { key: "interiorClean", labelKey: "urride.fleetEdit.q.interiorClean", type: "select" },
   ],
   Motorcycle: [
-    { key: "helmet", label: "Is a passenger helmet available?", type: "select" },
-    { key: "brakes", label: "Is the brake system in good condition?", type: "select" },
-    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
-    { key: "passengerFootrest", label: "Is the passenger footrest safe and usable?", type: "select" },
-    { key: "deliveryBox", label: "Is there a delivery box or secure bag when used for delivery?", type: "select" },
+    { key: "helmet", labelKey: "urride.fleetEdit.q.helmet", type: "select" },
+    { key: "brakes", labelKey: "urride.fleetEdit.q.brakes", type: "select" },
+    { key: "lightsMirrors", labelKey: "urride.fleetEdit.q.lightsMirrors", type: "select" },
+    { key: "passengerFootrest", labelKey: "urride.fleetEdit.q.passengerFootrest", type: "select" },
+    { key: "deliveryBox", labelKey: "urride.fleetEdit.q.deliveryBox", type: "select" },
   ],
   Tricycle: [
-    { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
-    { key: "entrySafe", label: "Is the passenger entry safe and easy to access?", type: "select" },
-    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
-    { key: "coveredSpace", label: "Is the passenger or cargo space clean and covered?", type: "select" },
-    { key: "sideBar", label: "Are side bars, rails, or passenger supports firm?", type: "select" },
+    { key: "seatCount", labelKey: "urride.fleetEdit.q.seatCount", type: "number" },
+    { key: "entrySafe", labelKey: "urride.fleetEdit.q.entrySafe", type: "select" },
+    { key: "lightsMirrors", labelKey: "urride.fleetEdit.q.lightsMirrors", type: "select" },
+    { key: "coveredSpace", labelKey: "urride.fleetEdit.q.coveredSpace", type: "select" },
+    { key: "sideBar", labelKey: "urride.fleetEdit.q.sideBar", type: "select" },
   ],
 };
 
 const steps = [
-  { label: "Operator", icon: FiUser },
-  { label: "Service", icon: FiTruck },
-  { label: "Fleet", icon: FiMapPin },
-  { label: "Safety", icon: FiShield },
-  { label: "Documents", icon: FiFileText },
-  { label: "Review", icon: FiCheckCircle },
+  { labelKey: "urride.fleetEdit.sectionOperator", icon: FiUser },
+  { labelKey: "urride.fleetEdit.sectionService", icon: FiTruck },
+  { labelKey: "urride.fleetEdit.sectionFleet", icon: FiMapPin },
+  { labelKey: "urride.fleetEdit.sectionSafety", icon: FiShield },
+  { labelKey: "urride.fleetEdit.sectionDocuments", icon: FiFileText },
+  { labelKey: "urride.fleetEdit.sectionReview", icon: FiCheckCircle },
 ];
 
 function generateOperatorId() {
@@ -164,6 +167,7 @@ function clearFieldError(errors, field) {
 }
 
 export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExit, onViewOneKmPreview }) {
+  useI18n();
   const [step, setStep] = useState(0);
   const [maxStepReached, setMaxStepReached] = useState(0);
   const [operatorId, setOperatorId] = useState(generateOperatorId);
@@ -241,7 +245,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
           }));
         }
       } catch {
-        if (alive) setSubmitError("Sign in again before continuing your fleet registration.");
+        if (alive) setSubmitError(t("urride.fleetReg.signIn"));
       }
     }
 
@@ -328,42 +332,42 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     const nextErrors = {};
 
     if (targetStep === 0) {
-      if (!form.name.trim()) nextErrors.name = "Operator name required.";
+      if (!form.name.trim()) nextErrors.name = t("urride.fleetReg.req.name");
       const phoneValidation = validateCountryPhone(form.phone, form.countryCode || form.country);
-      if (!form.phone.trim()) nextErrors.phone = "Phone number required.";
+      if (!form.phone.trim()) nextErrors.phone = t("urride.fleetReg.req.phone");
       else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
-      if (!form.city.trim()) nextErrors.city = "City or district required.";
+      if (!form.city.trim()) nextErrors.city = t("urride.fleetReg.req.city");
       const emergencyValidation = validateCountryPhone(form.emergencyContact, form.countryCode || form.country);
-      if (!form.emergencyContact.trim()) nextErrors.emergencyContact = "Emergency contact required.";
+      if (!form.emergencyContact.trim()) nextErrors.emergencyContact = t("urride.fleetReg.req.emergency");
       else if (!emergencyValidation.valid) nextErrors.emergencyContact = emergencyValidation.message;
       return nextErrors;
     }
 
     if (targetStep === 1) {
-      if (!form.category) nextErrors.category = "Service category required.";
-      if (!form.fleetType) nextErrors.fleetType = "Fleet type required.";
+      if (!form.category) nextErrors.category = t("urride.fleetReg.req.category");
+      if (!form.fleetType) nextErrors.fleetType = t("urride.fleetReg.req.fleetType");
       return nextErrors;
     }
 
     if (targetStep === 2) {
-      if (!form.fleetName.trim()) nextErrors.fleetName = "Fleet name required.";
-      if (!form.plateNumber.trim()) nextErrors.plateNumber = "Plate number required.";
-      if (!form.make.trim()) nextErrors.make = "Make / brand required.";
-      if (!form.model.trim()) nextErrors.model = "Model required.";
-      if (!form.year.trim()) nextErrors.year = "Year required.";
-      if (!form.color.trim()) nextErrors.color = "Color required.";
-      if (!form.operatingArea.trim()) nextErrors.operatingArea = "Operating area required.";
-      if (!form.homeBaseLocation.trim()) nextErrors.homeBaseLocation = "Home base required.";
-      if (!form.baseFare.trim()) nextErrors.baseFare = "Starting price required.";
-      if (!form.pricePerKm.trim()) nextErrors.pricePerKm = "Price per 1 km required.";
-      if (!form.pricePerHour.trim()) nextErrors.pricePerHour = "Price per 1 hour required.";
+      if (!form.fleetName.trim()) nextErrors.fleetName = t("urride.fleetReg.req.fleetName");
+      if (!form.plateNumber.trim()) nextErrors.plateNumber = t("urride.fleetReg.req.plate");
+      if (!form.make.trim()) nextErrors.make = t("urride.fleetReg.req.make");
+      if (!form.model.trim()) nextErrors.model = t("urride.fleetReg.req.model");
+      if (!form.year.trim()) nextErrors.year = t("urride.fleetReg.req.year");
+      if (!form.color.trim()) nextErrors.color = t("urride.fleetReg.req.color");
+      if (!form.operatingArea.trim()) nextErrors.operatingArea = t("urride.fleetReg.req.area");
+      if (!form.homeBaseLocation.trim()) nextErrors.homeBaseLocation = t("urride.fleetReg.req.homeBase");
+      if (!form.baseFare.trim()) nextErrors.baseFare = t("urride.fleetReg.req.startPrice");
+      if (!form.pricePerKm.trim()) nextErrors.pricePerKm = t("urride.fleetReg.req.perKm");
+      if (!form.pricePerHour.trim()) nextErrors.pricePerHour = t("urride.fleetReg.req.perHour");
       return nextErrors;
     }
 
     if (targetStep === 3) {
       questions.forEach((question) => {
         if (question.type === "number" && !String(answers[question.key] || "").trim()) {
-          nextErrors[`answer-${question.key}`] = `${question.label} required.`;
+          nextErrors[`answer-${question.key}`] = t("urride.fleetReg.req.suffix", { label: t(question.labelKey) });
         }
       });
       return nextErrors;
@@ -373,12 +377,12 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       if (documentsSkipped) return nextErrors;
       fleetImageRequirements.forEach((requirement) => {
         if (!getRequirementUpload(uploads, "fleet", requirement)) {
-          nextErrors[requirementUploadKey("fleet", requirement)] = `${formatDocumentRequirementLabel(requirement)} required.`;
+          nextErrors[requirementUploadKey("fleet", requirement)] = t("urride.fleetReg.req.suffix", { label: formatDocumentRequirementLabel(requirement) });
         }
       });
       documents.forEach((requirement) => {
         if (!getRequirementUpload(uploads, "doc", requirement)) {
-          nextErrors[requirementUploadKey("doc", requirement)] = `${formatDocumentRequirementLabel(requirement)} required.`;
+          nextErrors[requirementUploadKey("doc", requirement)] = t("urride.fleetReg.req.suffix", { label: formatDocumentRequirementLabel(requirement) });
         }
       });
       return nextErrors;
@@ -397,9 +401,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     }
 
     const preview = messages.slice(0, 4).join(", ");
-    const extra = messages.length > 4 ? ` and ${messages.length - 4} more` : "";
+    const extra = messages.length > 4 ? t("urride.fleetReg.stepErrorMore", { count: messages.length - 4 }) : "";
     setFieldErrors(nextErrors);
-    setStepError(`Complete this stage first: ${preview}${extra}. Save keeps your progress, but Continue unlocks only after this stage is complete.`);
+    setStepError(t("urride.fleetReg.stepError", { preview, extra }));
     scrollToFirstBlockingFieldSoon();
     return false;
   };
@@ -434,7 +438,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       setSubmitError("");
       return true;
     } catch (error) {
-      setSubmitError(error.message || "Unable to save this fleet draft.");
+      setSubmitError(error.message || t("urride.fleetReg.draftError"));
       return false;
     } finally {
       setSavingDraft(false);
@@ -448,7 +452,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 
   const continueAfterSave = () => {
     setShowSaveCheckpoint(false);
-    setSavedMessage("Checkpoint saved. You can continue from this step.");
+    setSavedMessage(t("urride.fleetReg.checkpointSaved"));
     window.setTimeout(() => setSavedMessage(""), 4200);
   };
 
@@ -480,7 +484,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       await new Promise((resolve) => window.setTimeout(resolve, 480));
       onComplete?.(account, origin);
     } catch (error) {
-      setSubmitError(error.message || "Unable to submit fleet registration.");
+      setSubmitError(error.message || t("urride.fleetReg.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -524,10 +528,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     try {
       await saveOperatorDraft(buildPayload("draft"));
       setShowReviewSaveWarning(false);
-      setSavedMessage("Review checkpoint saved. You can return later before submitting.");
+      setSavedMessage(t("urride.fleetReg.reviewCheckpointSaved"));
       window.setTimeout(() => setSavedMessage(""), 4200);
     } catch (error) {
-      setSubmitError(error.message || "Unable to save this fleet draft.");
+      setSubmitError(error.message || t("urride.fleetReg.draftError"));
     }
   };
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
@@ -556,14 +560,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
         <div className="flex w-full items-center gap-3 sm:gap-4">
           <AppBackTab
             onBack={handleRegistrationBack}
-            label={step > 0 ? "Back to previous registration step" : "Back to previous screen"}
+            label={step > 0 ? t("urride.fleetReg.backStep") : t("urride.fleetReg.backScreen")}
             historyKey="transport-registration"
             className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-bold text-gray-950">Fleet Registration</h1>
+            <h1 className="truncate text-lg font-bold text-gray-950">{t("urride.fleetReg.title")}</h1>
             <p className="hidden truncate text-xs text-gray-500 sm:block">
-              Operator ID KT-{operatorId} will be searchable after submission.
+              {t("urride.fleetReg.operatorIdNote", { id: operatorId })}
             </p>
           </div>
           {savedMessage && (
@@ -572,7 +576,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
             </span>
           )}
           <div className="shrink-0 rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700 sm:px-3">
-            Step {step + 1} of {steps.length}
+            {t("urride.fleetReg.stepOf", { step: step + 1, total: steps.length })}
           </div>
         </div>
       </header>
@@ -584,11 +588,11 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               const locked = index > maxStepReached;
               return (
                 <button
-                  key={item.label}
+                  key={item.labelKey}
                   type="button"
                   onClick={() => goToStep(index)}
                   disabled={locked}
-                  title={locked ? "Complete the previous steps first" : item.label}
+                  title={locked ? t("urride.fleetReg.lockedTitle") : t(item.labelKey)}
                   className={`min-h-12 rounded-2xl border px-2 py-2 text-xs font-semibold transition sm:px-3 sm:py-3 lg:text-left ${
                     step === index
                       ? "border-green-500 bg-green-50 text-green-700"
@@ -599,7 +603,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 >
                   <span className="flex min-w-0 items-center justify-center gap-2 lg:justify-start">
                     <item.icon size={16} />
-                    <span className="truncate">{item.label}</span>
+                    <span className="truncate">{t(item.labelKey)}</span>
                   </span>
                 </button>
               );
@@ -622,39 +626,39 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
           {step === 0 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <FormInput
-                label="Operator name"
+                label={t("urride.fleetEdit.nameLabel")}
                 value={form.name}
                 onChange={(value) => update("name", value)}
-                placeholder="Operator name"
+                placeholder={t("urride.fleetEdit.nameLabel")}
                 autoComplete="name"
-                helper="Use the real operator name that passengers or admins can verify."
+                helper={t("urride.fleetEdit.nameHelper")}
                 error={fieldErrors.name}
               />
               <FormInput
-                label="Phone number"
+                label={t("urride.fleetEdit.phoneLabel")}
                 type="tel"
                 value={form.phone}
                 onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))}
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
-                helper="This number is used for operator contact and account review."
+                helper={t("urride.fleetEdit.phoneHelper")}
                 error={fieldErrors.phone}
               />
               <LocationInput
-                label="City or district"
+                label={t("urride.fleetEdit.cityLabel")}
                 value={form.city}
                 onChange={(value) => update("city", value)}
-                placeholder="City or district"
+                placeholder={t("urride.fleetEdit.cityLabel")}
                 error={fieldErrors.city}
               />
               <FormInput
-                label="Emergency contact"
+                label={t("urride.fleetEdit.emergencyLabel")}
                 type="tel"
                 value={form.emergencyContact}
                 onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))}
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
-                helper="A trusted contact for urgent transport safety follow-up."
+                helper={t("urride.fleetEdit.emergencyHelper")}
                 error={fieldErrors.emergencyContact}
               />
             </div>
@@ -663,19 +667,19 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
           {step === 1 && (
             <div className="space-y-5">
                 <SelectField
-                label="Service category"
+                label={t("urride.fleetEdit.categoryLabel")}
                 options={categoryOptions}
                 value={form.category}
                 onChange={updateCategory}
-                helper="Choose what this fleet will offer to passengers."
+                helper={t("urride.fleetEdit.categoryHelper")}
                 error={fieldErrors.category}
               />
               <SelectField
-                label="Fleet type"
+                label={t("urride.fleetEdit.fleetTypeLabel")}
                 options={fleetTypeOptions}
                 value={form.fleetType}
                 onChange={(value) => update("fleetType", value)}
-                helper="This controls the safety questions and required review details."
+                helper={t("urride.fleetEdit.fleetTypeHelper")}
                 error={fieldErrors.fleetType}
               />
             </div>
@@ -683,17 +687,17 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 
           {step === 2 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <FormInput label="Fleet name or label" value={form.fleetName} onChange={(value) => update("fleetName", value)} placeholder="Fleet name or label" helper="A short public name passengers can recognize." error={fieldErrors.fleetName} />
-              <FormInput label="Plate number" value={form.plateNumber} onChange={(value) => update("plateNumber", value.toUpperCase())} placeholder="Plate number" helper="Use the plate exactly as shown on the fleet." error={fieldErrors.plateNumber} />
-              <FormInput label="Make / brand" value={form.make} onChange={(value) => update("make", value)} placeholder="Make or brand" error={fieldErrors.make} />
-              <FormInput label="Model" value={form.model} onChange={(value) => update("model", value)} placeholder="Model" error={fieldErrors.model} />
-              <FormInput label="Year" type="number" value={form.year} onChange={(value) => update("year", value)} placeholder="Year" min="1950" helper="Vehicle manufacture year." error={fieldErrors.year} />
-              <FormInput label="Color" value={form.color} onChange={(value) => update("color", value)} placeholder="Color" error={fieldErrors.color} />
-              <LocationInput label="Operating area" value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder="Operating area" error={fieldErrors.operatingArea} />
-              <LocationInput label="Home base or station" value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder="Home base or station" error={fieldErrors.homeBaseLocation} />
-              <FormInput label="Starting price" type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder="Starting price" min="0" helper="The minimum fare shown when a distance or time total is lower than your starting price." error={fieldErrors.baseFare} />
+              <FormInput label={t("urride.fleetEdit.fleetNameLabel")} value={form.fleetName} onChange={(value) => update("fleetName", value)} placeholder={t("urride.fleetEdit.fleetNameLabel")} helper={t("urride.fleetEdit.fleetNameHelper")} error={fieldErrors.fleetName} />
+              <FormInput label={t("urride.fleetEdit.plateLabel")} value={form.plateNumber} onChange={(value) => update("plateNumber", value.toUpperCase())} placeholder={t("urride.fleetEdit.plateLabel")} helper={t("urride.fleetEdit.plateHelper")} error={fieldErrors.plateNumber} />
+              <FormInput label={t("urride.fleetEdit.makeLabel")} value={form.make} onChange={(value) => update("make", value)} placeholder={t("urride.fleetEdit.makePlaceholder")} error={fieldErrors.make} />
+              <FormInput label={t("urride.fleetEdit.modelLabel")} value={form.model} onChange={(value) => update("model", value)} placeholder={t("urride.fleetEdit.modelLabel")} error={fieldErrors.model} />
+              <FormInput label={t("urride.fleetEdit.yearLabel")} type="number" value={form.year} onChange={(value) => update("year", value)} placeholder={t("urride.fleetEdit.yearLabel")} min="1950" helper={t("urride.fleetEdit.yearHelper")} error={fieldErrors.year} />
+              <FormInput label={t("urride.fleetEdit.colorLabel")} value={form.color} onChange={(value) => update("color", value)} placeholder={t("urride.fleetEdit.colorLabel")} error={fieldErrors.color} />
+              <LocationInput label={t("urride.fleetEdit.areaLabel")} value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder={t("urride.fleetEdit.areaLabel")} error={fieldErrors.operatingArea} />
+              <LocationInput label={t("urride.fleetEdit.homeBaseLabel")} value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder={t("urride.fleetEdit.homeBaseLabel")} error={fieldErrors.homeBaseLocation} />
+              <FormInput label={t("urride.fleetEdit.startPriceLabel")} type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder={t("urride.fleetEdit.startPriceLabel")} min="0" helper={t("urride.fleetEdit.startPriceHelper")} error={fieldErrors.baseFare} />
               <div>
-                <FormInput label="Price per 1 km or kilometer" type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder="Price for 1 km" min="0" helper="Distance bookings calculate this rate against the passenger route." error={fieldErrors.pricePerKm} />
+                <FormInput label={t("urride.fleetEdit.perKmLabel")} type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder={t("urride.fleetEdit.perKmPlaceholder")} min="0" helper={t("urride.fleetEdit.perKmHelper")} error={fieldErrors.pricePerKm} />
                 <PricingGuide
                   type="km"
                   open={activePricingGuide === "km"}
@@ -703,32 +707,33 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 />
               </div>
               <div>
-                <FormInput label="Price per 1 hour" type="number" value={form.pricePerHour} onChange={(value) => update("pricePerHour", value)} placeholder="Price for 1 hour" min="0" helper="Time bookings calculate this rate against the passenger's requested hours." error={fieldErrors.pricePerHour} />
+                <FormInput label={t("urride.fleetEdit.perHourLabel")} type="number" value={form.pricePerHour} onChange={(value) => update("pricePerHour", value)} placeholder={t("urride.fleetEdit.perHourPlaceholder")} min="0" helper={t("urride.fleetEdit.perHourHelper")} error={fieldErrors.pricePerHour} />
                 <PricingGuide
                   type="hour"
                   open={activePricingGuide === "hour"}
                   onToggle={() => setActivePricingGuide((current) => (current === "hour" ? "" : "hour"))}
                 />
               </div>
-              <FormInput label="Passenger price note optional" value={form.priceHint} onChange={(value) => update("priceHint", value)} placeholder="Optional public price note" helper="Add a note only when passengers need extra context about your rates." />
+              <FormInput label={t("urride.fleetEdit.priceNoteLabel")} value={form.priceHint} onChange={(value) => update("priceHint", value)} placeholder={t("urride.fleetEdit.priceNotePlaceholder")} helper={t("urride.fleetEdit.priceNoteHelper")} />
               <SelectField
-                label="Availability"
+                label={t("urride.fleetEdit.availabilityLabel")}
                 options={availabilityOptions}
+                optionLabels={enumLabel}
                 value={form.availability}
                 onChange={(value) => update("availability", value)}
-                helper="Choose when this fleet is usually available."
+                helper={t("urride.fleetEdit.availabilityHelper")}
               />
               {form.fleetType === "Car" && (
                 <>
-                  <SelectField label="Fuel type" options={fuelTypes} value={form.fuelType} onChange={(value) => update("fuelType", value)} />
-                  <SelectField label="Car body type" options={carBodyTypes} value={form.carBodyType} onChange={(value) => update("carBodyType", value)} />
+                  <SelectField label={t("urride.fleetEdit.fuelLabel")} options={fuelTypes} optionLabels={enumLabel} value={form.fuelType} onChange={(value) => update("fuelType", value)} />
+                  <SelectField label={t("urride.fleetEdit.carBodyLabel")} options={carBodyTypes} optionLabels={enumLabel} value={form.carBodyType} onChange={(value) => update("carBodyType", value)} />
                 </>
               )}
               {(form.category === "Delivery" || form.category === "Both") && (
-                <FormInput label="Estimated max load" value={form.maxLoad} onChange={(value) => update("maxLoad", value)} placeholder="Estimated max load" />
+                <FormInput label={t("urride.fleetEdit.maxLoadLabel")} value={form.maxLoad} onChange={(value) => update("maxLoad", value)} placeholder={t("urride.fleetEdit.maxLoadLabel")} />
               )}
               {(form.category === "Delivery" || form.category === "Both") && form.fleetType === "Tricycle" && (
-                <SelectField label="Delivery booth type" options={deliveryBodyTypes} value={form.deliveryBodyType} onChange={(value) => update("deliveryBodyType", value)} />
+                <SelectField label={t("urride.fleetEdit.deliveryBoothLabel")} options={deliveryBodyTypes} optionLabels={enumLabel} value={form.deliveryBodyType} onChange={(value) => update("deliveryBodyType", value)} />
               )}
             </div>
           )}
@@ -739,9 +744,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 <div className="flex items-start gap-3">
                   <FiAlertTriangle className="mt-1 text-amber-700" size={19} />
                   <div>
-                    <h2 className="font-semibold text-amber-900">Conditional safety questions</h2>
+                    <h2 className="font-semibold text-amber-900">{t("urride.fleetEdit.conditionalTitle")}</h2>
                     <p className="mt-1 text-sm text-amber-800">
-                      These questions change for car, motorcycle, and tricycle fleets.
+                      {t("urride.fleetEdit.conditionalBody")}
                     </p>
                   </div>
                 </div>
@@ -751,7 +756,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                   const questionError = fieldErrors[`answer-${question.key}`];
                   return (
                   <label key={question.key} data-field-error={questionError ? "true" : undefined} className={`block rounded-2xl border p-4 ${questionError ? "border-red-200 bg-red-50" : "border-gray-100"}`}>
-                    <span className="text-sm font-semibold text-gray-900">{question.label}</span>
+                    <span className="text-sm font-semibold text-gray-900">{t(question.labelKey)}</span>
                     {question.type === "number" ? (
                       <input
                         type="number"
@@ -768,9 +773,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                         onChange={(event) => updateAnswer(question.key, event.target.value)}
                         className="mt-3 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-green-500"
                       >
-                        <option>Yes</option>
-                        <option>No</option>
-                        <option>Needs admin check</option>
+                        <option value="Yes">{t("urride.fleetEdit.answerYes")}</option>
+                        <option value="No">{t("urride.fleetEdit.answerNo")}</option>
+                        <option value="Needs admin check">{t("urride.fleetEdit.answerAdmin")}</option>
                       </select>
                     )}
                     {questionError ? <span className="mt-2 block text-xs font-bold text-red-600" role="alert">{questionError}</span> : null}
@@ -786,8 +791,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               <section>
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="font-bold text-gray-950">Required fleet images</h2>
-                    <p className="text-xs text-gray-500">At least front, back, left side, and right side are required.</p>
+                    <h2 className="font-bold text-gray-950">{t("urride.fleetReg.requiredImages")}</h2>
+                    <p className="text-xs text-gray-500">{t("urride.fleetReg.imagesHint")}</p>
                   </div>
                   <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700">
                     {fleetImageCount}/4
@@ -808,12 +813,12 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 
               <section>
                 <div className="mb-3">
-                  <h2 className="font-bold text-gray-950">Documents</h2>
-                  <p className="text-xs text-gray-500">Upload PDF or image files for review.</p>
+                  <h2 className="font-bold text-gray-950">{t("urride.fleetEdit.documentsTitle")}</h2>
+                  <p className="text-xs text-gray-500">{t("urride.fleetEdit.documentsNote")}</p>
                 </div>
                 {documentsSkipped && (
                   <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
-                    Documents skipped. You can access the dashboard, but your account will be marked unverified.
+                    {t("urride.fleetReg.skippedNotice")}
                   </div>
                 )}
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -828,15 +833,15 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                   ))}
                 </div>
                 <div className="mt-5">
-                  <h3 className="font-bold text-gray-950">Additional documents optional</h3>
+                  <h3 className="font-bold text-gray-950">{t("urride.fleetEdit.additionalTitle")}</h3>
                   <p className="mt-1 text-xs text-gray-500">
-                    Add any extra permit, association card, inspection note, or supporting document that can help the review team.
+                    {t("urride.fleetEdit.additionalNote")}
                   </p>
                   <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {[1, 2, 3].map((item) => (
                       <UploadField
                         key={item}
-                        label={`Additional document ${item} (if applicable)`}
+                        label={t("urride.fleetEdit.additionalDoc", { n: item })}
                         value={uploads[`doc-additional-${item}`]}
                         onChange={(file) => markUpload(`doc-additional-${item}`, file)}
                       />
@@ -850,25 +855,25 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
           {step === 5 && (
             <div className="space-y-4">
               <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
-                <p className="text-sm font-semibold text-green-800">Operator ID</p>
-                <p className="mt-1 text-3xl font-bold text-gray-950">KT-{operatorId}</p>
+                <p className="text-sm font-semibold text-green-800">{t("urride.fleetReg.operatorIdLabel")}</p>
+                <p className="mt-1 text-3xl font-bold text-gray-950">{t("urride.fleetReg.operatorIdValue", { id: operatorId })}</p>
                 <p className="mt-1 text-xs text-green-700">
-                  Passengers can search this ID after registration is submitted.
+                  {t("urride.fleetReg.searchNote")}
                 </p>
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <ReviewRow label="Operator" value={form.name || "Not filled"} />
-                <ReviewRow label="Category" value={form.category} />
-                <ReviewRow label="Fleet type" value={form.fleetType} />
-                <ReviewRow label="Plate number" value={form.plateNumber || "Not filled"} />
-                <ReviewRow label="Home base" value={form.homeBaseLocation || "Not filled"} />
-                <ReviewRow label="Starting price" value={form.baseFare ? formatFareReview(form.baseFare, form.currency || form.countryCode || form.country) : "Not filled"} />
-                <ReviewRow label="Distance rate" value={form.pricePerKm ? `${formatFareReview(form.pricePerKm, form.currency || form.countryCode || form.country)} per km` : "Not filled"} />
-                <ReviewRow label="Time rate" value={form.pricePerHour ? `${formatFareReview(form.pricePerHour, form.currency || form.countryCode || form.country)} per hour` : "Not filled"} />
-                <ReviewRow label="Fleet images" value={`${fleetImageCount}/${fleetImageRequirements.length} uploaded`} />
+                <ReviewRow label={t("urride.fleetEdit.reviewOperator")} value={form.name || t("urride.fleetReg.notFilled")} />
+                <ReviewRow label={t("urride.fleetEdit.reviewCategory")} value={form.category} />
+                <ReviewRow label={t("urride.fleetEdit.reviewFleetType")} value={form.fleetType} />
+                <ReviewRow label={t("urride.fleetEdit.reviewPlate")} value={form.plateNumber || t("urride.fleetReg.notFilled")} />
+                <ReviewRow label={t("urride.fleetEdit.reviewHomeBase")} value={form.homeBaseLocation || t("urride.fleetReg.notFilled")} />
+                <ReviewRow label={t("urride.fleetEdit.reviewStartPrice")} value={form.baseFare ? formatFareReview(form.baseFare, form.currency || form.countryCode || form.country) : t("urride.fleetReg.notFilled")} />
+                <ReviewRow label={t("urride.fleetEdit.reviewDistanceRate")} value={form.pricePerKm ? t("urride.fleetEdit.ratePerKm", { price: formatFareReview(form.pricePerKm, form.currency || form.countryCode || form.country) }) : t("urride.fleetReg.notFilled")} />
+                <ReviewRow label={t("urride.fleetEdit.reviewTimeRate")} value={form.pricePerHour ? t("urride.fleetEdit.ratePerHour", { price: formatFareReview(form.pricePerHour, form.currency || form.countryCode || form.country) }) : t("urride.fleetReg.notFilled")} />
+                <ReviewRow label={t("urride.fleetReg.fleetImagesRow")} value={t("urride.fleetReg.imagesUploaded", { count: fleetImageCount, total: fleetImageRequirements.length })} />
                 <ReviewRow
-                  label="Current status"
-                  value={documentsSkipped ? "Unverified - documents skipped" : "Verification Pending"}
+                  label={t("urride.fleetEdit.reviewCurrentStatus")}
+                  value={documentsSkipped ? t("urride.fleetEdit.unverified") : t("urride.fleetEdit.pending")}
                 />
               </div>
             </div>
@@ -890,7 +895,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               >
                 <span className="flex items-center gap-2">
                   <FiChevronLeft size={17} />
-                  Back
+                  {t("urride.fleetReg.back")}
                 </span>
               </button>
 
@@ -901,7 +906,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 onClick={() => setShowSkipWarning(true)}
                 className="h-11 w-full rounded-2xl border border-amber-200 bg-amber-50 px-5 text-sm font-semibold text-amber-800 hover:bg-amber-100 transition sm:w-auto"
               >
-                Skip for now
+                {t("urride.fleetReg.skipForNow")}
               </button>
               ) : null}
               <button
@@ -910,7 +915,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 disabled={savingDraft}
                 className="h-11 w-full rounded-2xl border border-green-200 bg-green-50 px-5 text-sm font-semibold text-green-700 hover:bg-green-100 transition sm:w-auto"
               >
-                {savingDraft ? "Saving..." : "Save"}
+                {savingDraft ? t("urride.fleetReg.saving") : t("urride.fleetReg.save")}
               </button>
               {step < steps.length - 1 ? (
               <button
@@ -919,7 +924,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 className="h-11 w-full rounded-2xl bg-green-600 px-5 text-sm font-semibold text-white hover:bg-green-700 transition sm:w-auto"
               >
                 <span className="flex items-center gap-2">
-                  Continue
+                  {t("urride.fleetReg.continue")}
                   <FiChevronRight size={17} />
                 </span>
               </button>
@@ -930,7 +935,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 disabled={submitting}
                 className="h-11 w-full rounded-2xl bg-green-600 px-5 text-sm font-semibold text-white hover:bg-green-700 transition disabled:opacity-60 sm:w-auto"
               >
-                {submitting ? "Submitting..." : "Review and submit"}
+                {submitting ? t("urride.fleetReg.submitting") : t("urride.fleetReg.reviewSubmit")}
               </button>
             )}
               </div>
@@ -943,9 +948,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
         <div className="flex items-start gap-3">
           <FiAlertTriangle className="mt-1 shrink-0 text-amber-600" size={22} />
           <div>
-            <h2 id="fleet-skip-title" className="text-lg font-black text-gray-950">Skip documents?</h2>
+            <h2 id="fleet-skip-title" className="text-lg font-black text-gray-950">{t("urride.fleetReg.skipTitle")}</h2>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              You can access the dashboard, but your account will be marked unverified until your documents are uploaded and approved.
+              {t("urride.fleetReg.skipBody")}
             </p>
           </div>
         </div>
@@ -955,14 +960,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
             onClick={() => setShowSkipWarning(false)}
             className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
           >
-            Go back
+            {t("urride.fleetReg.goBack")}
           </button>
           <button
             type="button"
             onClick={handleSkipDocuments}
             className="h-11 rounded-2xl bg-amber-600 text-sm font-bold text-white"
           >
-            Skip and continue
+            {t("urride.fleetReg.skipContinue")}
           </button>
         </div>
       </CenteredModal>
@@ -971,9 +976,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
         <div className="flex items-start gap-3">
           <FiShield className="mt-1 shrink-0 text-green-700" size={22} />
           <div>
-            <h2 id="fleet-safety-title" className="text-lg font-black text-gray-950">Confirm safety answers</h2>
+            <h2 id="fleet-safety-title" className="text-lg font-black text-gray-950">{t("urride.fleetReg.safetyTitle")}</h2>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Be aware that the KunThai admin team will thoroughly check the safety answers you provided. Make sure each answer is honest and matches the actual condition of the fleet.
+              {t("urride.fleetReg.safetyBody")}
             </p>
           </div>
         </div>
@@ -983,14 +988,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
             onClick={() => setShowSafetyWarning(false)}
             className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
           >
-            Edit safety questions
+            {t("urride.fleetReg.editSafety")}
           </button>
           <button
             type="button"
             onClick={confirmSafetyAndContinue}
             className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
           >
-            Yes, continue
+            {t("urride.fleetReg.yesContinue")}
           </button>
         </div>
       </CenteredModal>
@@ -999,9 +1004,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
         <div className="flex items-start gap-3">
           <FiCheckCircle className="mt-1 shrink-0 text-green-700" size={23} />
           <div>
-            <h2 id="fleet-save-title" className="text-lg font-black text-gray-950">Your information has been saved</h2>
+            <h2 id="fleet-save-title" className="text-lg font-black text-gray-950">{t("urride.fleetReg.savedTitle")}</h2>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              When you return to fleet registration, KunThai will continue from this same step. Choose Save if you want to leave the form now, or Continue if you want to keep completing it.
+              {t("urride.fleetReg.savedBody")}
             </p>
           </div>
         </div>
@@ -1011,14 +1016,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
             onClick={saveAndExit}
             className="h-11 rounded-2xl border border-green-200 bg-green-50 text-sm font-bold text-green-700 hover:bg-green-100"
           >
-            Save
+            {t("urride.fleetReg.save")}
           </button>
           <button
             type="button"
             onClick={continueAfterSave}
             className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white hover:bg-green-700"
           >
-            Continue
+            {t("urride.fleetReg.continue")}
           </button>
         </div>
       </CenteredModal>
@@ -1027,9 +1032,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
         <div className="flex items-start gap-3">
           <FiAlertTriangle className="mt-1 shrink-0 text-amber-600" size={22} />
           <div>
-            <h2 id="fleet-review-title" className="text-lg font-black text-gray-950">Before final review</h2>
+            <h2 id="fleet-review-title" className="text-lg font-black text-gray-950">{t("urride.fleetReg.reviewTitle")}</h2>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              We are going to check every document you provided and run a thorough verification review. Please make sure most documents carry the same, or very similar, operator and fleet names so the KunThai admin team can confirm ownership faster.
+              {t("urride.fleetReg.reviewBody")}
             </p>
           </div>
         </div>
@@ -1039,14 +1044,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
             onClick={() => setShowReviewSaveWarning(false)}
             className="h-11 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700"
           >
-            Go back
+            {t("urride.fleetReg.goBack")}
           </button>
           <button
             type="button"
             onClick={saveReviewDraft}
             className="h-11 rounded-2xl border border-green-200 bg-green-50 text-sm font-bold text-green-700"
           >
-            Save
+            {t("urride.fleetReg.save")}
           </button>
           <button
             type="button"
@@ -1061,12 +1066,12 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 await saveOperatorDraft(buildPayload("draft"));
                 await handleSubmit(origin);
               } catch (error) {
-                setSubmitError(error.message || "Unable to save this fleet draft.");
+                setSubmitError(error.message || t("urride.fleetReg.draftError"));
               }
             }}
             className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
           >
-            Save and continue
+            {t("urride.fleetReg.saveAndContinue")}
           </button>
         </div>
       </CenteredModal>
@@ -1075,13 +1080,14 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 }
 
 function PricingGuide({ type, open, onToggle, onViewOneKm, disabled = false }) {
+  useI18n();
   const isDistance = type === "km";
-  const audience = isDistance ? "customers and passengers" : "customers who book by time";
+  const audience = isDistance ? t("urride.fleetReg.audienceDistance") : t("urride.fleetReg.audienceTime");
 
   return (
     <div className="mt-2 rounded-2xl border border-green-100 bg-green-50 px-3 py-3">
       <p className="text-xs font-bold leading-5 text-green-800">
-        Please enter a fair price to attract more {audience}.
+        {t("urride.fleetReg.fairPrice", { audience })}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
@@ -1089,7 +1095,7 @@ function PricingGuide({ type, open, onToggle, onViewOneKm, disabled = false }) {
           onClick={onToggle}
           className="rounded-full border border-green-200 bg-white px-3 py-1.5 text-xs font-black text-green-700 hover:bg-green-100"
         >
-          {open ? "Show less" : "Read more"}
+          {open ? t("urride.fleetReg.showLess") : t("urride.fleetReg.readMore")}
         </button>
         {isDistance ? (
           <button
@@ -1098,21 +1104,13 @@ function PricingGuide({ type, open, onToggle, onViewOneKm, disabled = false }) {
             disabled={disabled}
             className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            {disabled ? "Saving..." : "View 1 KM"}
+            {disabled ? t("urride.fleetReg.saving") : t("urride.fleetReg.viewOneKm")}
           </button>
         ) : null}
       </div>
       {open ? (
         <div className="mt-3 rounded-2xl bg-white px-3 py-3 text-xs font-semibold leading-5 text-gray-600">
-          {isDistance ? (
-            <p>
-              A lower and honest price per kilometre can help passengers choose your fleet more often, especially for short trips. Start with a rate that covers fuel, maintenance, and your time, but avoid pricing so high that customers compare you with cheaper operators before booking.
-            </p>
-          ) : (
-            <p>
-              For hourly bookings, customers look for confidence and value. Choose a fair hourly rate that covers waiting time and service quality, then keep it simple. A reasonable price can bring more repeat bookings than a high rate that only works once.
-            </p>
-          )}
+          <p>{isDistance ? t("urride.fleetReg.distanceBody") : t("urride.fleetReg.hourBody")}</p>
         </div>
       ) : null}
     </div>
@@ -1155,7 +1153,7 @@ function LocationInput({ error = "", label, value, onChange, placeholder = "", h
   );
 }
 
-function SelectField({ error = "", label, options, value, onChange, helper = "" }) {
+function SelectField({ error = "", label, options, value, onChange, helper = "", optionLabels }) {
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
@@ -1165,10 +1163,10 @@ function SelectField({ error = "", label, options, value, onChange, helper = "" 
         aria-invalid={error ? "true" : undefined}
         className={`h-12 w-full rounded-2xl border bg-gray-50 px-4 text-sm font-semibold text-gray-700 outline-none transition focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 ${error ? "border-red-300" : "border-gray-200"}`}
       >
-        {!value ? <option value="">Select {label.toLowerCase()}</option> : null}
+        {!value ? <option value="">{t("urride.fleetEdit.selectPlaceholder", { label: String(label).toLowerCase() })}</option> : null}
         {options.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {optionLabels ? optionLabels(option) : option}
           </option>
         ))}
       </select>
@@ -1195,7 +1193,7 @@ function UploadField({ error = "", label, value, onChange }) {
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-gray-900">{label}</span>
-          <span className="block truncate text-xs text-gray-500">{selectedName || "Upload or take photo"}</span>
+          <span className="block truncate text-xs text-gray-500">{selectedName || t("urride.fleetEdit.uploadPhoto")}</span>
         </span>
       </span>
       {error ? <span className="mt-3 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}

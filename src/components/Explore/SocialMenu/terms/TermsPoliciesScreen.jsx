@@ -26,6 +26,7 @@ import {
   resolvePolicy,
 } from "../../../../data/policies";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import PublicPrivacyRequestDialog from "../../../public/PublicPrivacyRequestDialog";
 
 const iconMap = {
   banknotes: HiOutlineBanknotes,
@@ -302,7 +303,7 @@ function PolicyCenterHome({ onOpen }) {
               <p className="mt-2 text-sm font-bold leading-6">
                 Some policies apply only to services that are available for your account, country, role, or business type. Conditional services are marked clearly.
               </p>
-              {unresolvedLegalFields.length ? (
+              {import.meta.env.DEV && unresolvedLegalFields.length ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-white/70 p-3">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Needs legal confirmation</p>
                   <p className="mt-1 text-sm font-bold leading-6">
@@ -436,20 +437,36 @@ function PolicySection({ section }) {
   );
 }
 
-function PolicyActions({ actions = [], onOpenHelp, onOpenPrivacy, onOpenReport }) {
+function PolicyActions({ actions = [], onOpenHelp, onOpenPrivacy, onOpenReport, onRequestPrivacy }) {
   if (!actions.length) return null;
+
+  function email(address, action) {
+    const subject = encodeURIComponent(`KunThai: ${action}`);
+    window.location.href = `mailto:${address}?subject=${subject}`;
+  }
 
   function runAction(action) {
     const label = normalizeSearchText(action);
-    if (label.includes("data") || label.includes("delete") || label.includes("privacy")) {
-      onOpenPrivacy?.();
+    if (label.includes("delete")) {
+      onRequestPrivacy?.("account_deletion");
+      return;
+    }
+    if (label.includes("data")) {
+      onRequestPrivacy?.("data_access");
+      return;
+    }
+    if (label.includes("privacy")) {
+      if (onOpenPrivacy) onOpenPrivacy();
+      else email(legalConfig.privacyEmail, action);
       return;
     }
     if (label.includes("report") || label.includes("appeal") || label.includes("ip") || label.includes("accessibility")) {
-      onOpenReport?.();
+      if (onOpenReport) onOpenReport();
+      else email(legalConfig.supportEmail, action);
       return;
     }
-    onOpenHelp?.();
+    if (onOpenHelp) onOpenHelp();
+    else email(legalConfig.supportEmail, action);
   }
 
   return (
@@ -495,7 +512,7 @@ function RelatedPolicies({ ids = [], onOpen }) {
   );
 }
 
-function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpenReport, sectionTarget }) {
+function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpenReport, onRequestPrivacy, sectionTarget }) {
   const articleRef = useRef(null);
   const [showTop, setShowTop] = useState(false);
 
@@ -576,6 +593,7 @@ function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpe
             onOpenHelp={onOpenHelp}
             onOpenPrivacy={onOpenPrivacy}
             onOpenReport={onOpenReport}
+            onRequestPrivacy={onRequestPrivacy}
           />
         </aside>
       </div>
@@ -603,6 +621,7 @@ export default function TermsPoliciesScreen({
 }) {
   const [activeSlug, setActiveSlug] = useState(() => getInitialSlug(initialPolicyId));
   const [sectionTarget, setSectionTarget] = useState("");
+  const [publicPrivacyRequest, setPublicPrivacyRequest] = useState("");
   const activePolicy = resolvePolicy(activeSlug);
   const browserBack = useBrowserBack(Boolean(activePolicy), () => {
     setActiveSlug("");
@@ -619,6 +638,14 @@ export default function TermsPoliciesScreen({
     setSectionTarget(sectionId);
   }
 
+  function requestPrivacyAction(requestType) {
+    if (onOpenPrivacy) {
+      onOpenPrivacy();
+      return;
+    }
+    setPublicPrivacyRequest(requestType);
+  }
+
   if (activePolicy) {
     return (
       <div>
@@ -630,8 +657,12 @@ export default function TermsPoliciesScreen({
           onOpenHelp={onOpenHelp}
           onOpenPrivacy={onOpenPrivacy}
           onOpenReport={onOpenReport}
+          onRequestPrivacy={requestPrivacyAction}
           sectionTarget={sectionTarget}
         />
+        {publicPrivacyRequest ? (
+          <PublicPrivacyRequestDialog requestType={publicPrivacyRequest} onClose={() => setPublicPrivacyRequest("")} />
+        ) : null}
       </div>
     );
   }

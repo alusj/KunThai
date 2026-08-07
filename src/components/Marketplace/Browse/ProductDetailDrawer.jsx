@@ -274,7 +274,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
                 }`}
                 aria-label={t("urmall.detail.openImageN", { index: index + 1 })}
               >
-                <img src={image} alt="" className="h-full w-full object-cover" />
+                <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </button>
             ))}
           </div>
@@ -369,7 +369,7 @@ function Gallery({ product, onOpenImage }) {
               }`}
               aria-label={t("urmall.detail.showImageN", { index: index + 1 })}
             >
-              <img src={image} alt="" className="h-full w-full object-cover transition hover:scale-105" />
+              <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition hover:scale-105" />
             </button>
           ))}
         </div>

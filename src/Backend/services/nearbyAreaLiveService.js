@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { cachedQuery } from "../lib/queryCache";
 import { normalizeCountryIso } from "../../data/globalCountryProfiles";
 
 const OPERATOR_STALE_MINUTES = 10;
@@ -6,6 +7,37 @@ const ACTIVE_OPERATOR_WINDOW_MS = OPERATOR_STALE_MINUTES * 60 * 1000;
 const LIVE_REFRESH_DEBOUNCE_MS = 650;
 const DEFAULT_AREA_RADIUS_KM = 25;
 const MAX_AREA_RADIUS_KM = 60;
+
+// Egress control: how long each Area View read stays fresh. Live layers (operators,
+// reports, traffic) use a short window so a burst of realtime change events collapses
+// into at most one fetch per window instead of one fetch per event. Approved locations
+// and weather change slowly, so they cache far longer.
+const CACHE_TTL = {
+  operators: 5000,
+  reports: 8000,
+  traffic: 8000,
+  locations: 60000,
+  weather: 300000,
+};
+
+// Build a stable cache key from the bounded area so different map positions and
+// countries never share a cached result. Rounding the bounds keeps tiny map jitters
+// on the same key instead of minting a new one for every pixel of pan.
+function areaCacheKey(prefix, options = {}) {
+  const { bounds, limit } = normalizeAreaOptions(options);
+  const countryIso = normalizeCountryIso(options.countryIso || options.country || "");
+  if (!bounds) return `${prefix}|all|${countryIso}|${limit}`;
+  const round = (value) => Number(value).toFixed(2);
+  return [
+    prefix,
+    round(bounds.minLat),
+    round(bounds.maxLat),
+    round(bounds.minLng),
+    round(bounds.maxLng),
+    countryIso,
+    limit,
+  ].join("|");
+}
 
 const TRANSPORT_TYPES = new Set(["bike", "keke", "car", "van"]);
 const LIVE_OPERATOR_STATUSES = new Set(["online", "busy"]);
@@ -413,20 +445,26 @@ async function getCurrentUserId() {
 
 export async function getApprovedNearbyLocations(options = {}) {
   const { center, limit } = normalizeAreaOptions(options);
-  const rows = await executeBoundedQuery((bounds) => {
-    let query = supabase
-      .from("nearby_area_locations")
-      .select("*")
-      .eq("status", "approved")
-      .eq("visibility", "public")
-      .order("updated_at", { ascending: false })
-      .limit(limit);
+  return cachedQuery(
+    areaCacheKey("nearby-locations", options),
+    async () => {
+      const rows = await executeBoundedQuery((bounds) => {
+        let query = supabase
+          .from("nearby_area_locations")
+          .select("*")
+          .eq("status", "approved")
+          .eq("visibility", "public")
+          .order("updated_at", { ascending: false })
+          .limit(limit);
 
-    query = applyLatLngBounds(query, bounds);
-    return query;
-  }, options);
+        query = applyLatLngBounds(query, bounds);
+        return query;
+      }, options);
 
-  return sortByDistance(dedupeById(rows.map(normalizeNearbyLocation).filter(Boolean)), center);
+      return sortByDistance(dedupeById(rows.map(normalizeNearbyLocation).filter(Boolean)), center);
+    },
+    CACHE_TTL.locations,
+  );
 }
 
 export async function submitNearbyAreaLocation(input = {}) {
@@ -578,87 +616,115 @@ export async function getLiveOperators(options = {}) {
   // query — never showing a foreign operator just because it is closer. A blank
   // country_iso is excluded until validated.
   const countryIso = normalizeCountryIso(options.countryIso || options.country || "");
-  const rows = await executeBoundedQuery((bounds) => {
-    let query = supabase
-      .from("transport_operator_locations")
-      .select("*")
-      .in("status", Array.from(LIVE_OPERATOR_STATUSES))
-      .gte("last_seen_at", staleCutoff)
-      .order("last_seen_at", { ascending: false })
-      .limit(limit);
+  return cachedQuery(
+    areaCacheKey("live-operators", options),
+    async () => {
+      const rows = await executeBoundedQuery((bounds) => {
+        let query = supabase
+          .from("transport_operator_locations")
+          .select("*")
+          .in("status", Array.from(LIVE_OPERATOR_STATUSES))
+          .gte("last_seen_at", staleCutoff)
+          .order("last_seen_at", { ascending: false })
+          .limit(limit);
 
-    if (countryIso) query = query.eq("country_iso", countryIso);
+        if (countryIso) query = query.eq("country_iso", countryIso);
 
-    query = applyLatLngBounds(query, bounds);
-    return query;
-  }, options);
+        query = applyLatLngBounds(query, bounds);
+        return query;
+      }, options);
 
-  const normalized = dedupeById(rows.map(normalizeOperator).filter(Boolean));
-  // Client-side safety net mirroring the DB filter.
-  const scoped = countryIso
-    ? normalized.filter((operator) => normalizeCountryIso(operator.countryCode) === countryIso)
-    : normalized;
-  return sortByDistance(scoped, center);
+      const normalized = dedupeById(rows.map(normalizeOperator).filter(Boolean));
+      // Client-side safety net mirroring the DB filter.
+      const scoped = countryIso
+        ? normalized.filter((operator) => normalizeCountryIso(operator.countryCode) === countryIso)
+        : normalized;
+      return sortByDistance(scoped, center);
+    },
+    CACHE_TTL.operators,
+  );
 }
 
 export async function getNearbyReports(options = {}) {
   const { center, limit } = normalizeAreaOptions(options);
-  const rows = await executeBoundedQuery((bounds) => {
-    let query = supabase
-      .from("nearby_area_reports")
-      .select("*")
-      .in("status", ["verified", "submitted", "active"])
-      .order("created_at", { ascending: false })
-      .limit(limit);
+  return cachedQuery(
+    areaCacheKey("nearby-reports", options),
+    async () => {
+      const rows = await executeBoundedQuery((bounds) => {
+        let query = supabase
+          .from("nearby_area_reports")
+          .select("*")
+          .in("status", ["verified", "submitted", "active"])
+          .order("created_at", { ascending: false })
+          .limit(limit);
 
-    query = applyLatLngBounds(query, bounds);
-    return query;
-  }, options);
+        query = applyLatLngBounds(query, bounds);
+        return query;
+      }, options);
 
-  return sortByDistance(dedupeById(rows.map(normalizeReport).filter(Boolean)), center);
+      return sortByDistance(dedupeById(rows.map(normalizeReport).filter(Boolean)), center);
+    },
+    CACHE_TTL.reports,
+  );
 }
 
 export async function getTrafficSnapshots(options = {}) {
   const { center, limit } = normalizeAreaOptions(options);
-  const rows = await executeBoundedQuery((bounds) => {
-    let query = supabase
-      .from("nearby_area_traffic_snapshots")
-      .select("*")
-      .gt("expires_at", new Date().toISOString())
-      .order("updated_at", { ascending: false })
-      .limit(limit);
+  return cachedQuery(
+    areaCacheKey("traffic-snapshots", options),
+    async () => {
+      const rows = await executeBoundedQuery((bounds) => {
+        let query = supabase
+          .from("nearby_area_traffic_snapshots")
+          .select("*")
+          .gt("expires_at", new Date().toISOString())
+          .order("updated_at", { ascending: false })
+          .limit(limit);
 
-    query = applyLatLngBounds(query, bounds);
-    return query;
-  }, options);
+        query = applyLatLngBounds(query, bounds);
+        return query;
+      }, options);
 
-  return sortByDistance(dedupeById(rows.map(normalizeTrafficSnapshot).filter(Boolean)), center);
+      return sortByDistance(dedupeById(rows.map(normalizeTrafficSnapshot).filter(Boolean)), center);
+    },
+    CACHE_TTL.traffic,
+  );
 }
 
 export async function getWeatherCacheNearArea(position = null) {
-  try {
-    const { data, error } = await supabase
-      .from("nearby_area_weather_cache")
-      .select("*")
-      .gt("expires_at", new Date().toISOString())
-      .order("fetched_at", { ascending: false })
-      .limit(25);
+  const posKey =
+    position?.lat != null && position?.lng != null
+      ? `${Number(position.lat).toFixed(2)},${Number(position.lng).toFixed(2)}`
+      : "none";
+  return cachedQuery(
+    `weather-cache|${posKey}`,
+    async () => {
+      try {
+        const { data, error } = await supabase
+          .from("nearby_area_weather_cache")
+          .select("*")
+          .gt("expires_at", new Date().toISOString())
+          .order("fetched_at", { ascending: false })
+          .limit(25);
 
-    if (error) return null;
+        if (error) return null;
 
-    const weatherItems = (data || []).map(normalizeWeatherCache).filter(Boolean);
-    if (!position?.lat || !position?.lng) return weatherItems[0] || null;
+        const weatherItems = (data || []).map(normalizeWeatherCache).filter(Boolean);
+        if (!position?.lat || !position?.lng) return weatherItems[0] || null;
 
-    return (
-      weatherItems
-        .map((item) => ({ item, distance: distanceInMeters(position, item) }))
-        .sort((a, b) => a.distance - b.distance)[0]?.item ||
-      weatherItems[0] ||
-      null
-    );
-  } catch {
-    return null;
-  }
+        return (
+          weatherItems
+            .map((item) => ({ item, distance: distanceInMeters(position, item) }))
+            .sort((a, b) => a.distance - b.distance)[0]?.item ||
+          weatherItems[0] ||
+          null
+        );
+      } catch {
+        return null;
+      }
+    },
+    CACHE_TTL.weather,
+  );
 }
 
 export async function getRecentSearchHistory(limit = 12) {

@@ -34,78 +34,166 @@ export const policyDocuments = [
     title: "Terms Of Service",
     shortTitle: "Terms",
     category: "account-privacy",
-    summary: "The rules for using KunThai accounts, Explore, UrMall, Transport, support, and related services.",
-    keywords: ["terms", "account", "minimum age", "content licence", "transport", "marketplace", "payments"],
-    audience: "Everyone who creates an account, browses public content, posts, messages, buys, sells, books transport, or uses support tools.",
-    appliesWhen: "Applies to all KunThai services that are currently enabled. Future services apply only when launched for your account or country.",
+    summary: "The worldwide rules for accessing KunThai accounts, Explore, UrMall, Transport, support, and related services.",
+    keywords: ["terms", "global", "account", "minimum age", "content licence", "transport", "marketplace", "payments", "disputes"],
+    audience: "Everyone worldwide who visits KunThai, creates an account, posts, messages, buys, sells, books transport, provides services, or uses support tools.",
+    appliesWhen: "These Terms apply wherever KunThai is offered, subject to local availability and any mandatory rights provided by the law where you live.",
     sections: [
-      section("acceptance", "Accepting These Terms", {
+      section("agreement-scope", "Agreement And Scope", {
         paragraphs: [
-          `By using ${legalConfig.platformName}, you agree to follow these Terms and the policies linked from the Policy Center. If you do not agree, you should not use the service.`,
-          "Some services have extra rules. For example, sellers must follow marketplace standards, transport operators must follow transport standards, and users of payment features must follow the payment notice when those features are enabled.",
-        ],
-        bullets: [
-          "Use KunThai only for lawful, honest, and respectful activity.",
-          "Do not try to bypass safety, verification, moderation, or account controls.",
-          "Do not use another person's account without permission.",
-        ],
-      }),
-      section("eligibility", "Who May Use KunThai", {
-        paragraphs: [
-          `You must be at least ${legalConfig.minimumAge} years old, or older if local law requires a higher age for the service you want to use.`,
-          "Business, seller, driver, and transport-company accounts may require additional eligibility checks, documents, or authorization from the business owner.",
+          `These Terms form an agreement between you and ${legalConfig.legalBusinessName} for your use of ${legalConfig.platformName}, its website, mobile application, public pages, and enabled services. By accessing or using KunThai, you agree to these Terms and the policies linked from the Policy Center.`,
+          "If you use KunThai for a company, shop, transport operator, or other organization, you confirm that you are authorized to accept these Terms for that organization. If you do not agree, do not access or use the service.",
+          "Service-specific rules also apply. Marketplace participants must follow UrMall policies, transport participants must follow transport and safety rules, and payment-related features are governed by the payment notice when those features are enabled.",
         ],
         callouts: [
-          "If a service requires legal capacity, a licence, or business authorization, you are responsible for making sure you meet that requirement before using it.",
+          "Nothing in these Terms removes consumer, privacy, employment, transport, or other rights that cannot legally be waived in your country.",
+        ],
+      }),
+      section("global-availability", "Global Availability And Local Law", {
+        paragraphs: [
+          "KunThai is designed for users in multiple countries, but features, languages, maps, products, transport options, verification methods, payment tools, and support channels may differ by location. A feature shown in the app is not a promise that it is legally or operationally available everywhere.",
+          "You are responsible for following the laws that apply to your activity, including rules for online content, consumer protection, trade, taxes, licences, transport, employment, privacy, advertising, exports, sanctions, and restricted products.",
+        ],
+        bullets: [
+          "Do not use KunThai where access is prohibited by applicable law.",
+          "Do not misrepresent your country, identity, age, licence, business status, or eligibility to unlock a service.",
+          "We may limit a feature by country, region, account type, age, verification status, or legal requirement.",
+        ],
+      }),
+      section("eligibility", "Eligibility And Account Roles", {
+        paragraphs: [
+          `You must be at least ${legalConfig.minimumAge} years old and meet any higher minimum age required in your country. People below the age of legal majority may use KunThai only with any consent or supervision required by local law.`,
+          "Seller, hotel, restaurant, property, driver, fleet, and transport-company accounts may require additional documents, licences, insurance, business authorization, or identity checks. Approval by KunThai does not replace any government licence or professional obligation.",
+        ],
+        callouts: [
+          "Some services involve contracts, payments, driving, accommodation, regulated goods, or other activities that may require users to be adults or legally authorized businesses.",
         ],
       }),
       section("account-security", "Account Information And Security", {
         paragraphs: [
-          "Keep your account details accurate and protect your login details. You are responsible for activity that happens through your account unless the activity was caused by a security failure outside your control.",
+          "Provide accurate, current information and keep your phone number, email address, recovery methods, and profile details up to date. You are responsible for protecting your password, device, authentication codes, and linked sign-in accounts.",
+          "You are generally responsible for activity performed through your account unless it results from a security failure outside your reasonable control. Tell support promptly if you suspect unauthorized access, fraud, identity misuse, or loss of a device connected to KunThai.",
         ],
         bullets: [
-          "Use your real contact details where verification is required.",
-          "Do not sell, rent, or transfer account access.",
-          "Tell support quickly if you believe your account was taken over.",
+          "Do not sell, rent, share, or transfer account access without written permission from KunThai.",
+          "Do not create accounts using another person's identity or contact details without lawful authorization.",
+          "We may request verification or temporarily restrict access to protect an account or investigate suspicious activity.",
         ],
       }),
-      section("content", "Your Content", {
+      section("user-content", "Your Content And Licence To KunThai", {
         paragraphs: [
           "You keep ownership of content you create and upload, such as posts, comments, images, videos, voice notes, listings, reviews, messages, and business profile details.",
-          "You give KunThai a licence to host, display, process, copy, adapt for technical formatting, moderate, recommend, translate where available, and share your content as needed to operate the service.",
+          "When you upload or share content, you give KunThai a worldwide, non-exclusive, royalty-free licence to host, store, reproduce, technically adapt, display, distribute, moderate, translate, and make that content available only as needed to operate, secure, promote, and improve KunThai. This licence ends when the content is deleted from our active systems, except where copies must remain for other users, backups, safety, disputes, or legal obligations.",
+          "You must have all rights and permissions needed for the content you provide, including rights relating to copyright, trademarks, privacy, publicity, music, images, locations, and information about other people.",
         ],
         bullets: [
-          "Only upload content you created or have permission to use.",
-          "You are responsible for the accuracy and legality of your content.",
-          "Removing content from one surface may not immediately remove copies from reports, backups, messages, support cases, or legal records.",
+          "Choose the correct audience and avoid posting confidential or sensitive information publicly.",
+          "Do not imply that KunThai endorses your content, listing, business, product, route, or service.",
+          "Feedback and product suggestions may be used without payment or confidentiality obligations unless we agree otherwise in writing.",
         ],
       }),
-      section("service-roles", "Marketplace, Transport, And Payment Roles", {
+      section("social-communications", "Social Features And Communications", {
         paragraphs: [
-          "KunThai provides technology that helps people discover, communicate, list, book, report, and manage activity. Unless a specific written agreement says otherwise, KunThai is not automatically the seller, buyer, driver, transporter, bank, insurer, police service, ambulance service, or physical security provider.",
-          "Third-party sellers, businesses, drivers, transport operators, payment partners, and service providers may have their own responsibilities and terms.",
+          "Explore, Swip, Spaces, profiles, comments, reactions, follows, messages, and sharing tools help people communicate and discover content. You control what you choose to publish, but public content may be viewed, copied, reshared, indexed, or captured by others.",
+          "Private messages are intended for their participants, but they are not described as end-to-end encrypted unless KunThai specifically says so. Reported communications may be reviewed when necessary for safety, support, fraud prevention, or legal compliance.",
+        ],
+      }),
+      section("marketplace", "UrMall Marketplace", {
+        paragraphs: [
+          "UrMall provides tools for users and independent businesses to discover products and services, communicate, create listings, manage orders or bookings, review experiences, and resolve issues. Unless KunThai expressly identifies itself as the seller, the transaction is between the buyer and the independent seller or service provider.",
+          "Sellers are responsible for accurate listings, lawful products, required licences, prices, taxes, stock, quality, warranties, delivery, refunds, and consumer obligations. Buyers are responsible for reviewing listing details, confirming the counterparty, using safe payment methods, and providing accurate delivery or booking information.",
+        ],
+        callouts: [
+          "Verification badges and reviews are trust signals, not guarantees of identity, legality, quality, availability, safety, or future conduct.",
+        ],
+      }),
+      section("transport", "Transport And Location Services", {
+        paragraphs: [
+          "KunThai may connect passengers with independent drivers, companies, fleets, or transport operators and may provide booking, route, fare, location, safety, and support tools. Unless a separate written agreement says otherwise, the transport provider—not KunThai—performs the physical transport service.",
+          "Drivers and operators are responsible for lawful licensing, roadworthiness, insurance, safe driving, passenger limits, fares, taxes, and compliance with local transport rules. Passengers must provide accurate pickup information, behave safely, and verify vehicle and operator details before travel.",
+          "Maps, routes, estimated arrival times, location results, emergency contacts, and fare estimates may be incomplete, delayed, or inaccurate. They must not replace road signs, professional judgment, official emergency services, or lawful directions from authorities.",
+        ],
+      }),
+      section("payments-promotions", "Payments, Credits, Promotions, And Advertising", {
+        paragraphs: [
+          "Payment, payout, wallet, visibility-credit, subscription, or promotional features apply only when they are expressly enabled. Additional terms, fees, exchange rates, eligibility checks, refund rules, and third-party payment-provider terms may apply before a transaction is completed.",
+          "Promoted listings, advertisements, recommendations, rankings, and visibility tools may affect where content appears. A promotion does not mean KunThai guarantees or endorses the advertiser, seller, product, service, or claim.",
+        ],
+        bullets: [
+          "Do not use payment or promotion tools for fraud, laundering, prohibited trade, fake engagement, or misleading claims.",
+          "Keep transaction records and review the final amount, currency, recipient, and terms before authorizing payment.",
+          "Taxes, duties, refunds, chargebacks, and payout obligations may depend on the transaction and local law.",
+        ],
+      }),
+      section("third-parties", "Third-Party Services And Links", {
+        paragraphs: [
+          "KunThai may depend on independent providers for sign-in, hosting, storage, maps, directions, content moderation, notifications, communications, analytics, verification, and payments. Their services may be governed by separate terms and privacy notices.",
+          "Links, seller websites, map data, payment pages, and third-party content are provided for convenience. KunThai does not control every third-party service and is not responsible for its independent acts, content, availability, or security, subject to rights that cannot be excluded by law.",
         ],
       }),
       section("restricted-conduct", "Restricted Conduct", {
         bullets: [
-          "Do not harass, threaten, exploit, scam, impersonate, spam, or coordinate fake activity.",
-          "Do not upload illegal content, child sexual abuse material, non-consensual intimate content, or content that creates a serious safety risk.",
-          "Do not attack the app, scrape private data, reverse engineer protected systems, or interfere with security controls.",
-          "Do not use KunThai to sell illegal goods, arrange violence, launder money, or evade lawful enforcement.",
+          "Do not harass, threaten, exploit, discriminate, scam, impersonate, spam, manipulate reviews, or coordinate fake activity.",
+          "Do not upload illegal content, child sexual abuse material, non-consensual intimate content, stolen material, malware, or content that creates a serious safety risk.",
+          "Do not attack KunThai, probe non-public systems, scrape private data, evade access controls, reverse engineer protected components, or interfere with security or service availability.",
+          "Do not use KunThai for unlawful trade, trafficking, violence, money laundering, sanctions evasion, regulated activity without authorization, or prohibited products.",
+          "Do not collect, publish, sell, or misuse another person's personal information without a lawful basis and appropriate permission.",
         ],
       }),
-      section("changes-liability", "Service Changes, Disclaimers, And Liability", {
+      section("moderation-enforcement", "Moderation, Reports, And Enforcement", {
         paragraphs: [
-          "KunThai may add, change, suspend, or remove features to improve safety, reliability, legal compliance, or product quality.",
-          "Services are provided with reasonable care, but availability, recommendations, maps, routes, moderation, search results, and emergency tools may be incomplete or delayed.",
+          "KunThai may use automated tools and human review to detect abuse, moderate content, prioritize reports, verify accounts, reduce unsafe recommendations, and protect the service. Automated systems can make mistakes, and review or appeal tools may be available depending on the decision and local law.",
+          "We may label, reduce, restrict, remove, preserve, or report content; limit features; pause transactions; require verification; suspend accounts; or terminate access when reasonably necessary for safety, policy enforcement, legal compliance, fraud prevention, or service integrity.",
+          "When appropriate, we may notify you of an enforcement decision and provide a way to request review. We may withhold details if disclosure could expose another person, compromise an investigation, enable abuse, or violate law.",
+        ],
+      }),
+      section("intellectual-property", "KunThai Intellectual Property", {
+        paragraphs: [
+          "KunThai's software, design, branding, logos, databases, documentation, and original service content are protected by intellectual-property laws. These Terms give you a limited, personal, revocable, non-exclusive, non-transferable right to use the service as intended; they do not transfer ownership of KunThai technology or branding.",
+        ],
+        bullets: [
+          "Do not copy, sell, sublicense, or commercially exploit KunThai technology except as permitted by law or written authorization.",
+          `Send copyright or trademark concerns to ${legalConfig.copyrightEmail} with the work, location, ownership basis, and requested action.`,
+        ],
+      }),
+      section("availability-changes", "Availability, Changes, And Updates", {
+        paragraphs: [
+          "KunThai may add, change, test, suspend, or discontinue features to improve safety, reliability, legal compliance, or product quality. We may provide notice when a change materially affects users, but urgent security or legal changes may take effect immediately.",
+          "You are responsible for maintaining a compatible device, internet connection, current app version, and any carrier or data plan needed to use the service.",
+        ],
+      }),
+      section("disclaimers", "Safety And Service Disclaimers", {
+        paragraphs: [
+          "KunThai provides digital tools with reasonable care, but no online service can guarantee uninterrupted availability, perfect accuracy, complete security, successful transactions, safe conduct by every user, or error-free moderation and recommendations.",
+          "Never rely only on KunThai during an emergency. Contact the official emergency services for your location and follow instructions from qualified authorities. KunThai is not a police, ambulance, fire, medical, insurance, banking, or physical security service.",
         ],
         callouts: [
-          "Governing law, dispute venue, limitation of liability, and indemnity wording require final legal review before launch.",
+          "Nothing in this section excludes warranties, remedies, or responsibilities that cannot lawfully be excluded in your country.",
         ],
       }),
-      section("contact", "Legal Contact", {
+      section("liability", "Responsibility And Limits Of Liability", {
         paragraphs: [
-          "Official business name, registered address, governing law, dispute jurisdiction, and legal contact details are pending confirmation in the legal configuration.",
+          "To the extent permitted by applicable law, each party is responsible for losses that are a reasonably foreseeable result of its breach, negligence, fraud, willful misconduct, or violation of law. KunThai is not responsible for independent sellers, buyers, drivers, transport operators, advertisers, or third-party providers merely because they use or appear in the service.",
+          "To the extent permitted by law, KunThai is not liable for indirect, incidental, special, punitive, or consequential losses, lost opportunities, lost profits, lost data, or events outside reasonable control. These limits do not apply where liability cannot legally be limited, including certain consumer rights, fraud, willful misconduct, or personal injury caused by negligence where applicable.",
+        ],
+      }),
+      section("termination", "Suspension, Termination, And Account Closure", {
+        paragraphs: [
+          "You may stop using KunThai at any time and may use available account controls to deactivate or request deletion. We may suspend or terminate access for serious or repeated violations, fraud, danger, legal requirements, prolonged inactivity, or risks to KunThai and its users.",
+          "Terms that by their nature should continue after closure remain effective, including provisions about ownership, licences for content that lawfully remains, retained records, disputes, disclaimers, and liability.",
+        ],
+      }),
+      section("disputes-law", "Questions, Complaints, And Applicable Law", {
+        paragraphs: [
+          `Please first contact ${legalConfig.supportEmail} with enough detail for us to understand and try to resolve the issue. Privacy matters may be sent to ${legalConfig.privacyEmail}.`,
+          "These Terms are interpreted under applicable law. Mandatory consumer and privacy protections in your country continue to apply. If a dispute cannot be resolved informally, it may be brought before a court or authority that has jurisdiction under applicable law.",
+          "Any future arbitration requirement, class-action waiver, or fixed governing-law clause will apply only if it is clearly presented, legally valid for you, and incorporated into these Terms.",
+        ],
+      }),
+      section("changes-contact", "Changes To These Terms And Contact", {
+        paragraphs: [
+          "We may update these Terms when services, technology, risks, or laws change. The version and update date appear at the top. For material changes, we may provide additional notice in the app, by email, or through another appropriate channel before the changes take effect where required.",
+          `KunThai's website is ${legalConfig.websiteUrl}. General questions may be sent to ${legalConfig.supportEmail}; legal or authority requests may be sent to ${legalConfig.lawEnforcementEmail}.`,
         ],
       }),
     ],
@@ -117,60 +205,172 @@ export const policyDocuments = [
     title: "Privacy Policy",
     shortTitle: "Privacy",
     category: "account-privacy",
-    summary: "How KunThai collects, uses, shares, protects, and retains information across its services.",
-    keywords: ["privacy", "data", "messages", "location", "deletion", "retention", "cookies", "reports"],
-    audience: "People who use KunThai accounts, public pages, Explore, messages, UrMall, Transport, support, reporting, or verification tools.",
+    summary: "How KunThai handles personal information worldwide across accounts, social, marketplace, transport, safety, and support services.",
+    keywords: ["privacy", "global", "personal data", "messages", "location", "contacts", "deletion", "retention", "cookies", "rights", "transfers"],
+    audience: "People worldwide who visit KunThai, create an account, use public pages, Explore, messaging, UrMall, Transport, safety, support, reporting, or verification tools.",
+    appliesWhen: "This policy applies to KunThai services worldwide. Additional country or regional notices may apply where local law requires them.",
     sections: [
-      section("information-collected", "Information We Collect", {
+      section("scope-controller", "Scope And Who Is Responsible", {
         paragraphs: [
-          "KunThai collects information you provide, information created by your activity, and technical information needed to run the service.",
-        ],
-        bullets: [
-          "Account and profile details, contact information, verification status, preferences, language, and appearance choices.",
-          "Posts, comments, reactions, shares, Swip videos, voice notes, uploaded images or videos, direct messages, reports, appeals, and support requests.",
-          "Marketplace listings, seller registrations, business documents, orders, customer messages, reviews, and dispute details.",
-          "Transport booking details, pickup and destination information, route records, driver or vehicle details, support cases, and safety incident reports.",
-          "Device, browser, network, log, security, cookie, local storage, and approximate or precise location information where permission is granted.",
+          `This Privacy Policy explains how ${legalConfig.legalBusinessName} ("KunThai", "we", "us", or "our") collects, uses, discloses, stores, and protects personal information when you use ${legalConfig.websiteUrl}, the KunThai application, public pages, and related services.`,
+          "KunThai is generally responsible for personal information processed to operate the platform. Independent sellers, transport operators, payment providers, sign-in providers, and other organizations may separately control information they collect for their own services. Their privacy notices may also apply.",
+          "This policy describes the main practices across KunThai. A feature-specific or regional notice may provide more detail and will apply together with this policy.",
         ],
       }),
-      section("use", "How We Use Information", {
-        bullets: [
-          "Operate accounts, profiles, feeds, search, messaging, marketplace, transport, notifications, and support.",
-          "Personalize Explore, recommendations, topics, saved content, and service shortcuts.",
-          "Detect fraud, abuse, spam, suspicious logins, unsafe transport activity, and policy violations.",
-          "Moderate content, review reports, process appeals, and protect users from serious harm.",
-          "Improve reliability, diagnose errors, develop features, and meet legal obligations.",
-        ],
-      }),
-      section("sharing", "When Information May Be Shared", {
+      section("information-provided", "Information You Provide", {
         paragraphs: [
-          "KunThai shares information only where needed for the service, safety, support, legal compliance, or user-directed activity.",
+          "The information we receive depends on the services you choose, your role, your country, and the permissions you grant.",
         ],
         bullets: [
-          "With other users when you post publicly, message them, submit a seller profile, review a product, or join a transport booking.",
-          "With sellers, businesses, drivers, transport operators, or support teams when needed to complete a request or investigate a problem.",
-          "With service providers such as hosting, authentication, moderation, analytics, storage, communication, verification, map, or payment partners where applicable.",
-          "With government or law-enforcement authorities only when a request is lawful, urgent, or otherwise required by applicable law.",
+          "Account and identity information, such as name, username, date of birth or age range, phone number, email address, password credentials handled by our authentication provider, profile photo, language, country, and verification status.",
+          "Content and communications, including posts, comments, reactions, shares, Swip videos, voice notes, photos, videos, messages, reports, appeals, surveys, and support requests.",
+          "Marketplace and business information, including listings, seller profiles, business contacts, addresses, documents, products, prices, orders, bookings, reviews, customer messages, delivery details, and disputes.",
+          "Transport information, including pickup and destination details, route and trip records, driver, company, fleet and vehicle information, licences or verification documents, safety reports, and support cases.",
+          "Payment and promotion information when enabled, such as transaction references, payment status, credit balances, promotion activity, payout details, and records needed for refunds, disputes, fraud prevention, accounting, or tax compliance. Full payment credentials may be collected directly by a payment provider rather than KunThai.",
         ],
       }),
-      section("retention", "Retention And Deletion", {
+      section("automatic-information", "Information Collected Automatically", {
         paragraphs: [
-          "KunThai keeps information for as long as needed to provide services, maintain records, investigate safety issues, prevent fraud, resolve disputes, and comply with law.",
-          "Account deletion does not always mean every record disappears immediately. Shared messages, support cases, transaction records, fraud signals, legal holds, backups, and safety incident records may remain where necessary.",
+          "When you use KunThai, we and our service providers may automatically receive technical and activity information needed to operate, protect, and improve the service.",
+        ],
+        bullets: [
+          "Device, browser, operating-system, app-version, language, network, IP-address, diagnostic, crash, performance, security, and authentication information.",
+          "Usage information such as pages and features used, searches, interactions, follows, saves, recommendations, notification activity, timestamps, referral information, and approximate session history.",
+          "Cookie, local-storage, cache, device-token, and similar identifiers used for sessions, preferences, security, notifications, fraud prevention, and service performance.",
+          "Approximate or precise location when a feature needs it and your device settings permit it, including map searches, nearby results, pickup and destination points, routes, live-trip activity, delivery locations, and safety tools.",
+        ],
+      }),
+      section("sources-permissions", "Other Sources And Device Permissions", {
+        paragraphs: [
+          "We may receive information from other users, businesses, transport operators, public sources, identity or sign-in providers, payment partners, mapping providers, moderation services, and authorities where lawful.",
+        ],
+        bullets: [
+          "If you sign in with Google, Apple, Facebook, or another provider, we receive the account details and tokens that provider authorizes, such as your provider identifier, name, email, or profile image.",
+          "With your permission, KunThai may access location, camera, microphone, photos, files, contacts, and notification capabilities for the feature you request.",
+          "For contact discovery, selected phone numbers may be normalized and checked for matching accounts. KunThai does not use your address book or precise location for advertising.",
+          "You can withdraw device permissions in system settings, although the related feature may stop working.",
+        ],
+      }),
+      section("use", "How And Why We Use Information", {
+        paragraphs: [
+          "We use personal information only for described purposes, compatible purposes, or other purposes disclosed with an appropriate legal basis.",
+        ],
+        bullets: [
+          "Provide and perform the services you request, including authentication, profiles, feeds, search, messaging, marketplace, orders, bookings, transport, maps, notifications, exports, and support.",
+          "Personalize content, language, topics, recommendations, nearby results, saved items, service shortcuts, and the order in which information is presented.",
+          "Protect users and the platform by verifying accounts, moderating content, detecting spam and fraud, investigating reports, preventing unsafe transport activity, securing sessions, and enforcing policies.",
+          "Communicate about accounts, transactions, trips, safety, support, policy changes, new features, and marketing where permitted. You can manage optional communications through available controls.",
+          "Measure performance, diagnose errors, conduct research, improve accessibility, develop features, and understand how services are used.",
+          "Comply with law, respond to lawful requests, maintain business and transaction records, establish or defend legal claims, and protect vital interests in emergencies.",
+        ],
+      }),
+      section("legal-bases", "Legal Bases Where Required", {
+        paragraphs: [
+          "Depending on your country, KunThai may need a legal basis for each use of personal information. The basis depends on the context and may include performing a contract with you, your consent, compliance with law, protection of vital interests, or our legitimate interests and those of others.",
+          "Legitimate interests may include providing a safe and useful service, preventing fraud, protecting accounts, improving KunThai, understanding service performance, and supporting users. We consider the effect on your rights before relying on those interests. You may withdraw consent at any time, but withdrawal does not make earlier lawful processing invalid.",
+        ],
+      }),
+      section("visibility", "Public Information And Your Choices", {
+        paragraphs: [
+          "Some KunThai features are public by design. Profile details, posts, comments, reactions, follower relationships, Spaces, seller pages, listings, business contacts, reviews, transport-company profiles, and other content you publish may be visible to users or people outside KunThai, depending on the feature and your settings.",
+          "Information you send in a message, order, booking, report, or transaction is shared with the people and organizations needed to carry out that action. Review the audience, recipient, and business details before submitting information.",
+        ],
+        callouts: [
+          "Deleting public content may not remove copies already shared, quoted, downloaded, indexed, or retained by other users and lawful record-keeping systems.",
+        ],
+      }),
+      section("sharing", "When We Disclose Information", {
+        paragraphs: [
+          "KunThai does not disclose personal information indiscriminately. We disclose it when needed to provide a requested service, follow your direction, operate safely, work with processors, complete a business change, or meet legal obligations.",
+        ],
+        bullets: [
+          "Other users and the public, according to your actions, settings, and the design of the feature.",
+          "Sellers, businesses, buyers, drivers, fleets, transport companies, or support participants when needed for a listing, order, booking, trip, delivery, dispute, review, or safety matter.",
+          "Vendors that process data for hosting, authentication, databases, storage, content delivery, moderation, maps, geocoding, directions, notifications, communications, analytics, verification, customer support, security, and payments.",
+          "Professional advisers, auditors, insurers, financing parties, and transaction participants under appropriate confidentiality and security obligations.",
+          "Authorities, courts, emergency responders, or other parties when disclosure is required by law, necessary to respond to a valid legal process, or reasonably needed to prevent serious harm, fraud, abuse, or threats to rights and safety.",
+        ],
+        callouts: [
+          "KunThai does not sell personal information for money. If a regional law treats certain advertising or analytics disclosures as a sale or sharing, we will provide any controls required by that law.",
+        ],
+      }),
+      section("international-transfers", "International Data Transfers", {
+        paragraphs: [
+          "KunThai is a global service. Personal information may be stored or processed in countries other than the country where you live, including locations used by our hosting, authentication, storage, mapping, moderation, communication, and support providers.",
+          "Where required, we use recognized transfer mechanisms, contractual protections, risk assessments, or other safeguards intended to protect transferred information. Local authorities in another country may have lawful access under that country's laws.",
+        ],
+      }),
+      section("retention", "How Long We Keep Information", {
+        paragraphs: [
+          "We keep personal information only for as long as reasonably needed for the purposes described in this policy. The exact period depends on the type of information, the service, user expectations, safety risks, contractual obligations, limitation periods, and legal requirements.",
+        ],
+        bullets: [
+          "Account and profile information is generally kept while the account is active and for a limited period after closure when needed for restoration, security, disputes, or legal compliance.",
+          "Public content and messages are kept while needed to provide the feature. Copies may remain for recipients, reports, moderation, backups, or legal claims after you remove them from your own view.",
+          "Marketplace, payment, promotion, booking, and transport records may be retained for accounting, tax, consumer protection, safety, fraud prevention, insurance, disputes, and legal obligations.",
+          "Security logs, fraud signals, reports, and enforcement records may be retained long enough to protect users, prevent repeat abuse, and demonstrate compliance.",
+          "Backups are deleted or overwritten on scheduled cycles unless preservation is required for security, disaster recovery, litigation, or law.",
+        ],
+      }),
+      section("deletion", "Account Deletion", {
+        paragraphs: [
+          `You may delete your account through available in-app account controls. You can review the deletion instructions and retention details at ${legalConfig.deletionRequestUrl}. We may verify your identity before processing a request to protect the account from unauthorized deletion.`,
+          `Verified deletion requests are normally processed ${legalConfig.deletionProcessingTimeframe}. Eligible account information is deleted or anonymized, while limited records may remain for legal obligations, fraud prevention, safety, disputes, transaction integrity, backups, and the rights of other users.`,
+          "Deactivation is different from deletion: deactivation hides or pauses an account but retains information so the account can be restored. The deletion page explains the options and the categories of information that may remain.",
+        ],
+      }),
+      section("security", "How We Protect Information", {
+        paragraphs: [
+          "We use administrative, technical, and organizational measures designed to protect personal information, including access controls, authentication, database permissions, encrypted network transport, monitoring, backups, moderation controls, and incident-response practices appropriate to the service.",
+          "No storage or transmission system is completely secure. Protect your password and authentication codes, keep devices updated, review recipients before sharing, and contact support if you believe your account or information has been compromised.",
+        ],
+      }),
+      section("automated-systems", "Recommendations, Moderation, And Automated Systems", {
+        paragraphs: [
+          "KunThai may use automated systems to rank content, recommend accounts or listings, identify spam, screen uploaded media, detect fraud, prioritize reports, protect logins, and support human review. These systems may consider content, activity, context, location relevance, reports, account history, and technical signals.",
+          "Automated systems can make mistakes. Depending on the decision and applicable law, you may be able to request human review, appeal an enforcement action, change recommendation inputs, or object to certain processing.",
         ],
       }),
       section("rights", "Your Choices And Rights", {
+        paragraphs: [
+          "Privacy rights differ by country. Subject to applicable law and appropriate identity verification, you may have some or all of the following rights.",
+        ],
         bullets: [
-          "Review and update profile information from account settings where available.",
-          "Use privacy settings to manage audiences, mentions, message controls, blocks, and content filters.",
-          "Request access, correction, deletion, objection, or support through the Help Center or privacy contact once confirmed.",
-          "Clear local cache from device controls where available, understanding that this may sign you out or reset preferences.",
+          "Access, confirm, or receive a portable copy of personal information associated with your account.",
+          "Correct inaccurate information and complete information that is materially incomplete.",
+          "Delete information or your account, subject to lawful retention exceptions.",
+          "Object to or restrict certain processing, withdraw consent, or opt out of certain targeted advertising, sales, sharing, or profiling where those rights apply.",
+          "Appeal certain privacy-request decisions and complain to the data-protection or consumer authority in your region.",
+          "Use account and privacy settings to manage audiences, messages, mentions, blocks, recommendations, permissions, notifications, and optional communications.",
+        ],
+        callouts: [
+          `Submit privacy requests through available account controls or email ${legalConfig.privacyEmail}. Describe the request, country, and account identifier, but never send your password or one-time authentication code. Authorized agents may be required to provide proof of authority.`,
+        ],
+      }),
+      section("cookies-storage", "Cookies, Local Storage, And Similar Technology", {
+        paragraphs: [
+          "KunThai uses cookies, local storage, caches, session tokens, service workers, and similar technologies to keep you signed in, remember settings, save drafts, support notifications, prevent fraud, improve performance, and understand service reliability.",
+          "Browser or device controls can remove or block some technologies, but doing so may sign you out, erase local preferences, interrupt uploads, disable notifications, or prevent parts of KunThai from working correctly.",
         ],
       }),
       section("children", "Children's Privacy", {
         paragraphs: [
-          `KunThai is not intended for children below the minimum age of ${legalConfig.minimumAge}, unless a specific child-safe service is later launched with appropriate protections.`,
-          "Reports involving child safety receive serious review and may be escalated to appropriate authorities where legally required.",
+          `KunThai is not directed to children below ${legalConfig.minimumAge}, and a higher minimum age may apply in some countries. We do not knowingly permit a child below the applicable minimum age to maintain a standard KunThai account.`,
+          `If you believe a child has provided personal information in violation of this policy, contact ${legalConfig.privacyEmail}. We may request information needed to verify the report and will take appropriate steps, which may include restricting or deleting the account and associated information.`,
+          "Child-safety reports are treated seriously and may be preserved or disclosed to appropriate authorities or child-protection organizations when required or permitted by law.",
+        ],
+      }),
+      section("regional-rights", "Regional Privacy Protections", {
+        paragraphs: [
+          "Users in the European Economic Area, United Kingdom, Switzerland, Brazil, California and other jurisdictions may receive additional rights under local privacy law. These can include information about processing, access, correction, deletion, portability, objection, restriction, consent withdrawal, opt-out rights, and review of certain automated decisions.",
+          "KunThai will apply mandatory regional protections based on the law governing the request. We may need to verify your identity, country, authority to act for another person, or relationship to an account before responding.",
+        ],
+      }),
+      section("changes-contact", "Policy Changes And Contact", {
+        paragraphs: [
+          "We may update this policy when our services, technology, vendors, risks, or legal duties change. The current version, effective date, and last-updated date appear at the top. We may provide additional notice of material changes through KunThai, email, or another appropriate channel.",
+          `Questions and privacy requests may be sent to ${legalConfig.privacyEmail}. General support is available at ${legalConfig.supportEmail}, and the official website is ${legalConfig.websiteUrl}.`,
+          "You may also have the right to contact the privacy, data-protection, or consumer authority where you live. Contacting an authority does not prevent you from asking KunThai to address the concern first.",
         ],
       }),
     ],
@@ -350,34 +550,81 @@ export const policyDocuments = [
     title: "Child Safety Standards",
     shortTitle: "Child Safety",
     category: "transport-safety",
-    summary: "Strict rules against child exploitation, grooming, unsafe contact, and abuse involving minors.",
-    keywords: ["child safety", "minors", "grooming", "exploitation", "sextortion"],
-    audience: "All users, moderators, sellers, businesses, transport operators, and support reviewers.",
+    summary: "KunThai's zero-tolerance standards for child sexual abuse and exploitation across Explore, Swip, Spaces, messages, UrMall, UrRide, and support.",
+    keywords: ["child safety", "CSAE", "CSAM", "minors", "grooming", "exploitation", "sextortion", "trafficking"],
+    audience: "Everyone who uses KunThai, including people who post, comment, share Swip videos, create Spaces, send messages, list products or services, use UrRide, or contact support.",
+    appliesWhen: "These standards apply worldwide to all KunThai accounts, content, communications, listings, transport activity, and conduct connected to the service, whether it occurs publicly, privately, or through a link or contact started on KunThai.",
+    supportActions: ["Report child-safety concern", "Contact child-safety team"],
     sections: [
-      section("age", "Minimum Age", {
+      section("commitment", "Our Zero-Tolerance Commitment", {
         paragraphs: [
-          `Users must meet the minimum age requirement of ${legalConfig.minimumAge}, or a higher local requirement where applicable.`,
-        ],
-      }),
-      section("zero-tolerance", "Zero Tolerance Rules", {
-        prohibited: [
-          "Child sexual abuse material or any attempt to request, trade, create, possess, or share it.",
-          "Grooming, sextortion, trafficking, sexualization of minors, dangerous contact, or attempts to move minors to unsafe channels.",
-          "Threats, coercion, or blackmail involving a minor or a minor's images, identity, location, school, or family.",
-        ],
-      }),
-      section("reporting", "Reporting And Escalation", {
-        paragraphs: [
-          "Users should report urgent child-safety concerns immediately. KunThai may preserve evidence and report to appropriate authorities where legally required.",
+          "KunThai prohibits child sexual abuse and exploitation (CSAE) and child sexual abuse material (CSAM). No user, seller, business, driver, transport operator, or other participant may use KunThai to create, upload, store, request, advertise, sell, exchange, distribute, facilitate, or promote CSAE or CSAM.",
+          "These standards cover Explore posts, comments, profiles, Swip videos, Spaces, direct messages, voice notes, images, videos, marketplace listings, seller and business pages, UrRide activity, support submissions, and links or off-platform contact used to continue conduct that began on KunThai.",
+          "For these standards, a child is any person under 18. KunThai's minimum account age does not reduce the protection owed to anyone under 18.",
         ],
         callouts: [
-          "If a child is in immediate danger, contact official emergency services first.",
+          "KunThai does not permit exceptions for claimed consent, humor, art, role-play, synthetic or computer-generated imagery, or content that has been edited to hide the age or identity of a child.",
         ],
       }),
-      section("guardian-support", "Guardian And Teen Support", {
+      section("prohibited-conduct", "Prohibited Child Sexual Abuse And Exploitation", {
+        prohibited: [
+          "CSAM or other sexual content involving an actual or apparent child, including photos, videos, illustrations, altered media, or computer-generated imagery.",
+          "Grooming a child for sexual activity, sexual conversation, sexual imagery, exploitation, trafficking, or an in-person meeting.",
+          "Sextortion, coercion, blackmail, threats, or bribery involving a child, sexual content, intimate imagery, money, gifts, transport, accommodation, or access to services.",
+          "Requesting, offering, buying, selling, trading, linking to, or directing anyone to CSAM or sexual services involving a child.",
+          "Sexualizing a child or encouraging, praising, normalizing, or instructing others in the sexual abuse or exploitation of children.",
+          "Using profiles, Spaces, messages, marketplace listings, business pages, or transport features to identify, recruit, advertise, arrange, or facilitate the sexual exploitation or trafficking of a child.",
+          "Sharing a child's sexual or intimate information, location, school, identity, or contact details to enable abuse, stalking, coercion, or exploitation.",
+        ],
+      }),
+      section("age", "Account Age Requirement", {
+        paragraphs: [
+          `A standard KunThai account requires a date of birth during account setup. A person younger than ${legalConfig.minimumAge} cannot complete KunThai onboarding, and a higher minimum age applies where local law requires it.`,
+          "If KunThai learns that an account holder is below the applicable minimum age, we may restrict or remove the account and handle associated personal information under our Privacy Policy and applicable law.",
+        ],
+      }),
+      section("in-app-reporting", "How To Report In KunThai", {
         bullets: [
-          "Guardians can ask support for help with account, privacy, or safety concerns involving a minor.",
-          "Teen privacy protections may be expanded as age-appropriate product features become available.",
+          "For an Explore post, comment, profile, or Space, open the relevant menu and choose Report. You can also block the account or Space where the blocking control is available.",
+          "For a message or other concern that does not show a dedicated Report option, open Help Center, choose Report a problem, select Privacy & Safety, and mark an urgent safety issue when appropriate.",
+          "You can also open Your Voice, choose Safety, and send a private report with text and, when useful, an optional screenshot or voice note.",
+          "Include the username or profile name, the affected feature, a post or Space link or identifier when available, the date and time, and a concise description of what happened.",
+        ],
+        callouts: [
+          "Do not download, save, forward, email, or re-share suspected CSAM to document a report. Report the account, content, or location in KunThai and describe what you saw without attaching illegal material.",
+        ],
+      }),
+      section("external-reporting", "Report Without The App Or Escalate Urgent Harm", {
+        paragraphs: [
+          `Anyone can report a child-safety concern without signing in by emailing ${legalConfig.supportEmail} with the subject "Child Safety Report." This is KunThai's public child-safety reporting channel.`,
+          "If a child is in immediate danger, first contact the official emergency services or law-enforcement agency in the child's location. KunThai support is not an emergency service.",
+          "A report to KunThai does not prevent you from reporting the matter directly to a national child-protection hotline, law-enforcement agency, or other competent authority.",
+        ],
+      }),
+      section("review-enforcement", "Review, Removal, And Account Enforcement", {
+        paragraphs: [
+          "KunThai reviews child-safety reports using the information available in the report and relevant KunThai records. When KunThai obtains actual knowledge of CSAM on the service, we will disable access to or remove it and take action consistent with these standards and applicable law.",
+          "To protect a child or preserve an investigation, KunThai may act before notifying the reported user and may limit the information provided about a review or enforcement decision.",
+        ],
+        bullets: [
+          "Remove or restrict content, links, listings, profiles, Spaces, messages, or other material connected to the violation.",
+          "Restrict features, suspend an account during review, or permanently terminate accounts involved in CSAE or CSAM.",
+          "Preserve reports, account details, content identifiers, timestamps, and relevant technical records when necessary for safety, legal compliance, or an authority request.",
+          "Review related accounts or activity and apply additional restrictions when needed to prevent continued harm or repeated violations.",
+          "Reject or limit an appeal when immediate child safety, evidence preservation, or a legal obligation requires the action to remain in place.",
+        ],
+      }),
+      section("authority-reporting", "Reporting To Child-Protection Authorities", {
+        paragraphs: [
+          "KunThai complies with applicable child-safety laws and lawful reporting duties. When required, KunThai reports confirmed CSAM to the National Center for Missing & Exploited Children (NCMEC) or to the relevant regional child-protection or law-enforcement authority.",
+          "KunThai may preserve and disclose relevant account, content, report, and technical information to competent authorities when required by law, in response to valid legal process, or when legally permitted to address an emergency involving a credible risk of serious harm to a child.",
+        ],
+      }),
+      section("contact", "Child Safety Point Of Contact", {
+        paragraphs: [
+          `Child-safety reports and questions: KunThai Child Safety Team at ${legalConfig.supportEmail}.`,
+          `Law-enforcement, child-protection authority, and platform compliance notices: ${legalConfig.lawEnforcementEmail}.`,
+          "These mailboxes are intended for child-safety reports and official compliance communications. Never send passwords, one-time authentication codes, or copies of suspected CSAM.",
         ],
       }),
     ],
@@ -762,7 +1009,7 @@ export const policyDocuments = [
     sections: [
       section("request", "Requesting Deletion", {
         paragraphs: [
-          "Users may request account deletion through account controls or support when available. KunThai may require confirmation and security checks before processing a deletion request.",
+          `Users can delete a signed-in account from the KunThai Privacy Center. If the app is unavailable, use the Delete account action on ${legalConfig.deletionRequestUrl} or email ${legalConfig.privacyEmail}. KunThai verifies ownership before acting on an external request. Never send a password or one-time authentication code.`,
         ],
       }),
       section("deactivation", "Deactivation Versus Deletion", {
@@ -778,7 +1025,7 @@ export const policyDocuments = [
       }),
       section("timeframe", "Processing Timeframe", {
         paragraphs: [
-          `The final deletion processing timeframe is pending legal and operational confirmation: ${legalConfig.deletionProcessingTimeframe}.`,
+          `KunThai aims to complete verified deletion requests ${legalConfig.deletionProcessingTimeframe}. We will contact the requester if verification or a lawful retention requirement affects that timing.`,
           "KunThai will not promise immediate deletion of every record where safety, fraud, dispute, legal, or technical retention is required.",
         ],
       }),

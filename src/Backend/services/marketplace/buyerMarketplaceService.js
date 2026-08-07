@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { cachedQuery, invalidateCache } from "../../lib/queryCache";
 import {
   filterCountryScopedItems,
   getActiveCountryProfile,
@@ -515,7 +516,28 @@ async function applyClientProductScopes(products, filters = {}) {
   return scopedProducts;
 }
 
+// Buyer discovery (Browse tabs + promoted slider) changes slowly within a browsing
+// session, but the UI re-fetches it on every tab switch and re-mount. A short cache
+// lets those repeats reuse one download instead of re-pulling the product list.
+const BUYER_DISCOVERY_TTL_MS = 30000;
+
+function stableKey(value) {
+  try {
+    return JSON.stringify(value ?? {});
+  } catch {
+    return String(value);
+  }
+}
+
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
+  return cachedQuery(
+    `marketplace-products|${stableKey(filters)}`,
+    () => loadBuyerMarketplaceProducts(filters),
+    BUYER_DISCOVERY_TTL_MS,
+  );
+}
+
+async function loadBuyerMarketplaceProducts(filters = {}) {
   const searchTerm = String(filters.search || "").trim();
 
   async function loadScoped(effectiveFilters) {
@@ -569,6 +591,14 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
 // Active promotion rows power the advert slider. When a boost ends, the product
 // leaves this surface even if an older product flag is still true.
 export async function fetchPromotedMarketplaceProducts(limit = 12) {
+  return cachedQuery(
+    `marketplace-promoted|${getActiveCountryProfile().iso2}|${limit}`,
+    () => loadPromotedMarketplaceProducts(limit),
+    BUYER_DISCOVERY_TTL_MS,
+  );
+}
+
+async function loadPromotedMarketplaceProducts(limit = 12) {
   const nowIso = new Date().toISOString();
   const { data: promotionRows, error: promotionError } = await supabase
     .from("marketplace_promotions")
@@ -929,6 +959,7 @@ export async function checkoutBuyerCart(deliveryLocation = "", options = {}) {
   }
 
   await clearBuyerCart();
+  invalidateCache("buyer-orders");
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
   return orders;
 }
@@ -977,6 +1008,7 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
 
   if (error) throw new Error(error.message);
 
+  invalidateCache("buyer-orders");
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
   window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId: product.businessId } }));
   return data;
@@ -984,6 +1016,15 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
 
 export async function fetchBuyerOrders() {
   const buyerId = await getCurrentUserId("Sign in to view your orders.");
+  // Cached + deduped: the header polls this every 20s and several events re-trigger
+  // it. The TTL collapses overlapping loads; mutations invalidate "buyer-orders" so
+  // a placed/cancelled/hidden order still shows immediately.
+  return cachedQuery(`buyer-orders|${buyerId}`, () => loadBuyerOrders(buyerId), BUYER_DASHBOARD_TTL_MS);
+}
+
+const BUYER_DASHBOARD_TTL_MS = 15000;
+
+async function loadBuyerOrders(buyerId) {
   const hiddenResult = await supabase
     .from("marketplace_buyer_hidden_orders")
     .select("order_id")
@@ -1060,6 +1101,7 @@ export async function hideBuyerOrder(orderId) {
     .upsert({ buyer_id: buyerId, order_id: orderId }, { onConflict: "buyer_id,order_id" });
 
   if (error) throw new Error(error.message);
+  invalidateCache("buyer-orders");
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
 }
 
@@ -1073,11 +1115,16 @@ export async function cancelBuyerOrder(orderId) {
     .eq("status", "pending");
 
   if (error) throw new Error(error.message);
+  invalidateCache("buyer-orders");
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
 }
 
 export async function fetchBuyerMessages() {
   const buyerId = await getCurrentUserId("Sign in to view your messages.");
+  return cachedQuery(`buyer-messages|${buyerId}`, () => loadBuyerMessages(buyerId), BUYER_DASHBOARD_TTL_MS);
+}
+
+async function loadBuyerMessages(buyerId) {
   const { data, error } = await supabase
     .from("marketplace_customer_messages")
     .select(
@@ -1164,6 +1211,7 @@ export async function markBuyerMarketplaceConversationRead(conversation) {
     .in("id", sellerMessageIds);
 
   if (error) throw new Error(error.message);
+  invalidateCache("buyer-messages");
   window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
 }
 
@@ -1198,6 +1246,7 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
     .single();
 
   if (error) throw new Error(error.message);
+  invalidateCache("buyer-messages");
   window.dispatchEvent(new CustomEvent("marketplace-message-sent"));
   window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
   window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId } }));

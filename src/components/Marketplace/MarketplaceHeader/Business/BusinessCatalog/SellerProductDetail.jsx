@@ -135,7 +135,7 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
                     }`}
                     aria-label={t("urmall.biz.cat.showImage", { n: index + 1 })}
                   >
-                    <img src={image} alt="" className="h-full w-full object-cover" />
+                    <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>

@@ -1,5 +1,5 @@
 export const MAX_PRODUCT_VIDEO_MB = 50;
-export const MAX_PRODUCT_VIDEO_SECONDS = 30;
+export const MAX_PRODUCT_VIDEO_SECONDS = 10;
 
 export function formatVideoMb(bytes) {
   const mb = bytes / (1024 * 1024);

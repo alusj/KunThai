@@ -5,10 +5,14 @@ import {
   formatFileSize,
   MAX_EXTRA_IMAGE_COUNT,
   MAX_VERTICAL_VIDEO_BYTES,
+  MAX_VERTICAL_VIDEO_SECONDS,
   REQUIRED_EXTRA_IMAGE_COUNT,
   validateVerticalVideo,
 } from "../../../../Backend/services/marketplace/verticalMediaValidation";
+import VideoTrimmerScreen from "../../../shared/VideoTrimmerScreen";
 import { useI18n, t } from "../../../../i18n";
+
+const MAX_VERTICAL_VIDEO_MB = Math.round(MAX_VERTICAL_VIDEO_BYTES / (1024 * 1024));
 
 const NOUN_KEYS = { meal: "nounMeal", hotel: "nounHotel", property: "nounProperty", listing: "nounListing" };
 
@@ -16,15 +20,17 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
   useI18n();
   const nounLabel = t(`urmall.biz.vert.${NOUN_KEYS[noun] || "nounListing"}`);
   const [caution, setCaution] = useState("");
+  const [trimmerFile, setTrimmerFile] = useState(null);
   const accentClass = accent === "orange" ? "border-orange-200 bg-orange-50" : accent === "blue" ? "border-blue-200 bg-blue-50" : "border-violet-200 bg-violet-50";
   const extraImages = Array.from(media.extraImageFiles || []);
   const extrasFull = extraImages.length >= MAX_EXTRA_IMAGE_COUNT;
 
   async function chooseVideo(file) {
     if (!file) return;
+    // Oversized clips open the trimmer straight away (no need to read duration).
     if (file.size >= MAX_VERTICAL_VIDEO_BYTES) {
-      setMedia((current) => ({ ...current, videoFile: null, videoDuration: 0 }));
-      setCaution(t("urmall.biz.vert.videoCompress", { size: formatFileSize(file.size) }));
+      setCaution("");
+      setTrimmerFile(file);
       return;
     }
     try {
@@ -32,9 +38,26 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
       setCaution("");
       setMedia((current) => ({ ...current, videoFile: file, videoDuration: duration }));
     } catch (error) {
+      // A too-long (or too-large) clip is trimmable rather than rejected: open the
+      // free-form trimmer so the seller can crop the segment they want to keep.
+      if (error.code === "VIDEO_TOO_LONG" || error.code === "VIDEO_TOO_LARGE") {
+        setCaution("");
+        setTrimmerFile(file);
+        return;
+      }
       setMedia((current) => ({ ...current, videoFile: null, videoDuration: 0 }));
       setCaution(error.message);
     }
+  }
+
+  function handleTrimComplete(trimmedFile, meta = {}) {
+    setTrimmerFile(null);
+    setCaution("");
+    setMedia((current) => ({
+      ...current,
+      videoFile: trimmedFile,
+      videoDuration: meta.durationSeconds || 0,
+    }));
   }
 
   function addExtraImages(files) {
@@ -91,13 +114,24 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
       </div>
 
       {caution ? (
-        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[1500] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-2xl" role="alert">
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm sm:col-span-2" role="alert">
           <div className="flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200"><AlertTriangle size={20} /></span>
             <div className="min-w-0 flex-1"><p className="text-sm font-black">{t("urmall.biz.vert.mediaCaution")}</p><p className="mt-1 text-sm font-semibold leading-5">{caution}</p></div>
             <button type="button" onClick={() => setCaution("")} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/80" aria-label={t("urmall.biz.vert.closeCaution")}><X size={16} /></button>
           </div>
         </div>
+      ) : null}
+
+      {trimmerFile ? (
+        <VideoTrimmerScreen
+          file={trimmerFile}
+          onCancel={() => setTrimmerFile(null)}
+          onComplete={handleTrimComplete}
+          maxSeconds={MAX_VERTICAL_VIDEO_SECONDS}
+          maxMb={MAX_VERTICAL_VIDEO_MB}
+          eyebrow={t("urmall.biz.pform.trimVideo")}
+        />
       ) : null}
     </>
   );

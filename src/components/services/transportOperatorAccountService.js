@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { isMissingColumn, isMissingTable } from "../../Backend/services/explore/errors";
 import {
   formatCountryMoney,
@@ -589,8 +590,33 @@ export async function getOperatorAccount() {
   return account;
 }
 
+// The operator dashboard is read by both the header badge poller (every 20s, plus
+// on trip/booking events) and the dashboard screen itself. Caching it lets those
+// share one fetch instead of each hitting the DB. The TTL is short and every
+// booking/trip event invalidates it, so operators still see new work immediately.
+const OPERATOR_DASHBOARD_TTL_MS = 8000;
+let operatorDashboardInvalidationBound = false;
+
+function bindOperatorDashboardInvalidation() {
+  if (operatorDashboardInvalidationBound || typeof window === "undefined") return;
+  operatorDashboardInvalidationBound = true;
+  const invalidate = () => invalidateCache("operator-dashboard");
+  window.addEventListener("transport-trip-updated", invalidate);
+  window.addEventListener("transport-booking-created", invalidate);
+}
+
 export async function fetchOperatorDashboard(operatorId = null, preferredFleetId = null, options = {}) {
+  bindOperatorDashboardInvalidation();
   const fleetScoped = options.fleetScoped === true;
+  const cacheKey = `operator-dashboard|${operatorId || "self"}|${preferredFleetId || ""}|${fleetScoped}`;
+  return cachedQuery(
+    cacheKey,
+    () => loadOperatorDashboard(operatorId, preferredFleetId, fleetScoped),
+    OPERATOR_DASHBOARD_TTL_MS,
+  );
+}
+
+async function loadOperatorDashboard(operatorId = null, preferredFleetId = null, fleetScoped = false) {
   let resolvedOperatorId = operatorId;
 
   if (!resolvedOperatorId) {

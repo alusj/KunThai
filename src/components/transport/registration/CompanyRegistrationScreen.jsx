@@ -54,15 +54,18 @@ import {
   getCompanyFleetTypeOptions,
   getCompanyServiceCategoryOptions,
 } from "../../../data/globalTransportCapabilities";
+import { useI18n, t } from "../../../i18n";
 
 const steps = [
-  { label: "Company", icon: FiBriefcase },
-  { label: "Location", icon: FiMapPin },
-  { label: "Fleets", icon: FiTruck },
-  { label: "Review", icon: FiCheckCircle },
+  { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
+  { labelKey: "urride.companyReg.stepLocation", icon: FiMapPin },
+  { labelKey: "urride.companyReg.stepFleets", icon: FiTruck },
+  { labelKey: "urride.companyReg.stepReview", icon: FiCheckCircle },
 ];
 
+// Stored company-type values stay English; display via urride.companyReg.type.
 const companyTypes = ["Transport company", "Delivery company", "Taxi union", "Bike riders group", "Community fleet", "Other organization"];
+const companyTypeLabel = (value) => t(`urride.companyReg.type.${value}`);
 const companyFleetDocumentKeys = new Set([
   "vehicle_registration",
   "insurance_document",
@@ -73,36 +76,36 @@ const companyFleetDocumentKeys = new Set([
 ]);
 const fleetSafetyQuestions = {
   Taxi: [
-    { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
-    { key: "doorsWorking", label: "Are all passenger doors working?", type: "select" },
-    { key: "seatbelts", label: "Are seatbelts available and usable?", type: "select" },
-    { key: "acOrVentilation", label: "Is AC or clear ventilation available?", type: "select" },
-    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
-    { key: "spareTire", label: "Is a spare tire or emergency repair kit available?", type: "select" },
-    { key: "interiorClean", label: "Is the passenger interior clean and safe?", type: "select" },
+    { key: "seatCount", labelKey: "urride.fleetEdit.q.seatCount", type: "number" },
+    { key: "doorsWorking", labelKey: "urride.fleetEdit.q.doorsWorking", type: "select" },
+    { key: "seatbelts", labelKey: "urride.fleetEdit.q.seatbelts", type: "select" },
+    { key: "acOrVentilation", labelKey: "urride.fleetEdit.q.acOrVentilation", type: "select" },
+    { key: "lightsMirrors", labelKey: "urride.fleetEdit.q.lightsMirrors", type: "select" },
+    { key: "spareTire", labelKey: "urride.fleetEdit.q.spareTire", type: "select" },
+    { key: "interiorClean", labelKey: "urride.fleetEdit.q.interiorClean", type: "select" },
   ],
   Van: [
-    { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
-    { key: "doorsWorking", label: "Are all passenger and cargo doors working?", type: "select" },
-    { key: "seatbelts", label: "Are passenger seatbelts available and usable?", type: "select" },
-    { key: "acOrVentilation", label: "Is AC or clear ventilation available?", type: "select" },
-    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
-    { key: "spareTire", label: "Is a spare tire or emergency repair kit available?", type: "select" },
-    { key: "interiorClean", label: "Is the passenger or cargo area clean and safe?", type: "select" },
+    { key: "seatCount", labelKey: "urride.fleetEdit.q.seatCount", type: "number" },
+    { key: "doorsWorking", labelKey: "urride.companyReg.q.vanDoors", type: "select" },
+    { key: "seatbelts", labelKey: "urride.companyReg.q.vanSeatbelts", type: "select" },
+    { key: "acOrVentilation", labelKey: "urride.fleetEdit.q.acOrVentilation", type: "select" },
+    { key: "lightsMirrors", labelKey: "urride.fleetEdit.q.lightsMirrors", type: "select" },
+    { key: "spareTire", labelKey: "urride.fleetEdit.q.spareTire", type: "select" },
+    { key: "interiorClean", labelKey: "urride.companyReg.q.vanInterior", type: "select" },
   ],
   Motorbike: [
-    { key: "helmet", label: "Is a passenger helmet available?", type: "select" },
-    { key: "brakes", label: "Is the brake system in good condition?", type: "select" },
-    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
-    { key: "passengerFootrest", label: "Is the passenger footrest safe and usable?", type: "select" },
-    { key: "deliveryBox", label: "Is there a delivery box or secure bag when used for delivery?", type: "select" },
+    { key: "helmet", labelKey: "urride.fleetEdit.q.helmet", type: "select" },
+    { key: "brakes", labelKey: "urride.fleetEdit.q.brakes", type: "select" },
+    { key: "lightsMirrors", labelKey: "urride.fleetEdit.q.lightsMirrors", type: "select" },
+    { key: "passengerFootrest", labelKey: "urride.fleetEdit.q.passengerFootrest", type: "select" },
+    { key: "deliveryBox", labelKey: "urride.fleetEdit.q.deliveryBox", type: "select" },
   ],
   Tricycle: [
-    { key: "seatCount", label: "How many passenger seats are usable?", type: "number" },
-    { key: "entrySafe", label: "Is the passenger entry safe and easy to access?", type: "select" },
-    { key: "lightsMirrors", label: "Are lights, mirrors, indicators, and horn working?", type: "select" },
-    { key: "coveredSpace", label: "Is the passenger or cargo space clean and covered?", type: "select" },
-    { key: "sideBar", label: "Are side bars, rails, or passenger supports firm?", type: "select" },
+    { key: "seatCount", labelKey: "urride.fleetEdit.q.seatCount", type: "number" },
+    { key: "entrySafe", labelKey: "urride.fleetEdit.q.entrySafe", type: "select" },
+    { key: "lightsMirrors", labelKey: "urride.fleetEdit.q.lightsMirrors", type: "select" },
+    { key: "coveredSpace", labelKey: "urride.fleetEdit.q.coveredSpace", type: "select" },
+    { key: "sideBar", labelKey: "urride.fleetEdit.q.sideBar", type: "select" },
   ],
 };
 
@@ -246,6 +249,7 @@ function compactPublicId(value = "") {
 }
 
 export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaved, onSaveExit, onViewOneKmPreview }) {
+  useI18n();
   const addOperatorMode = mode === "addOperator";
   // Editing an existing company shows a single-screen accordion of the
   // registration steps (each with the current details + Edit) instead of
@@ -473,7 +477,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   function addOperatorInvite(fleetId, operator) {
     if (compactPublicId(operator.publicId) && compactPublicId(operator.publicId) === compactPublicId(form.ownerPublicId)) {
-      showStatus("Use the selected fleet operator's KunThai ID. The company owner does not receive operator invitation requests.", "error");
+      showStatus(t("urride.companyReg.ownerIdError"), "error");
       return;
     }
 
@@ -509,46 +513,46 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const nextErrors = {};
 
     if (targetStep === 0) {
-      if (!form.companyName.trim()) nextErrors.companyName = "Company or organization name required.";
-      if (!form.ownerName.trim()) nextErrors.ownerName = "Owner or director name required.";
+      if (!form.companyName.trim()) nextErrors.companyName = t("urride.companyReg.reqCompanyName");
+      if (!form.ownerName.trim()) nextErrors.ownerName = t("urride.companyReg.reqOwnerName");
       const phoneValidation = validateCountryPhone(form.phone, form.country);
-      if (!form.phone.trim()) nextErrors.phone = "Support phone required.";
+      if (!form.phone.trim()) nextErrors.phone = t("urride.companyReg.reqPhone");
       else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
     }
 
     if (targetStep === 1) {
-      if (!form.city.trim()) nextErrors.city = "City or district required.";
-      if (!form.address.trim()) nextErrors.address = "Company base address required.";
+      if (!form.city.trim()) nextErrors.city = t("urride.companyReg.reqCity");
+      if (!form.address.trim()) nextErrors.address = t("urride.companyReg.reqAddress");
     }
 
     if (targetStep === 2) {
-      if (!fleets.length) nextErrors.fleetList = "Add at least one fleet.";
+      if (!fleets.length) nextErrors.fleetList = t("urride.companyReg.reqAddFleet");
       fleets.forEach((fleet, index) => {
-        const labelPrefix = fleets.length > 1 ? `Fleet ${index + 1}: ` : "";
+        const labelPrefix = fleets.length > 1 ? t("urride.companyReg.fleetPrefix", { n: index + 1 }) : "";
         [
-          ["fleetName", "Fleet name required."],
-          ["plateNumber", "Plate number required."],
-          ["make", "Make / brand required."],
-          ["model", "Model required."],
-          ["year", "Year required."],
-          ["color", "Color required."],
-          ["operatingArea", "Operating area required."],
-          ["homeBase", "Home base required."],
-          ["baseFare", "Starting price required."],
-          ["pricePerKm", "Price per 1 km required."],
-          ["pricePerHour", "Price per 1 hour required."],
-        ].forEach(([field, message]) => {
+          ["fleetName", "urride.companyReg.reqFleetName"],
+          ["plateNumber", "urride.companyReg.reqPlate"],
+          ["make", "urride.companyReg.reqMake"],
+          ["model", "urride.companyReg.reqModel"],
+          ["year", "urride.companyReg.reqYear"],
+          ["color", "urride.companyReg.reqColor"],
+          ["operatingArea", "urride.companyReg.reqArea"],
+          ["homeBase", "urride.companyReg.reqHomeBase"],
+          ["baseFare", "urride.companyReg.reqStartPrice"],
+          ["pricePerKm", "urride.companyReg.reqPerKm"],
+          ["pricePerHour", "urride.companyReg.reqPerHour"],
+        ].forEach(([field, messageKey]) => {
           if (!String(fleet[field] || "").trim()) {
-            nextErrors[`${fleet.localId}-${field}`] = `${labelPrefix}${message}`;
+            nextErrors[`${fleet.localId}-${field}`] = `${labelPrefix}${t(messageKey)}`;
           }
         });
         (fleetSafetyQuestions[fleet.fleetType] || []).forEach((question) => {
           if (!String(fleet.safetyAnswers?.[question.key] || "").trim()) {
-            nextErrors[`${fleet.localId}-safety-${question.key}`] = `${labelPrefix}${question.label} required.`;
+            nextErrors[`${fleet.localId}-safety-${question.key}`] = `${labelPrefix}${t("urride.companyReg.reqSuffix", { label: t(question.labelKey) })}`;
           }
         });
         if (addOperatorMode && !(fleet.operators || []).length) {
-          nextErrors[`${fleet.localId}-operators`] = "Operator KunThai ID required.";
+          nextErrors[`${fleet.localId}-operators`] = t("urride.companyReg.reqOperatorId");
         }
       });
       // Fleet photos and vehicle documents are intentionally NOT required to
@@ -563,7 +567,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const messages = Object.values(nextErrors);
     if (!messages.length) return "";
     const preview = messages.slice(0, 3).join(" ");
-    const extra = messages.length > 3 ? ` ${messages.length - 3} more field${messages.length - 3 === 1 ? "" : "s"} need attention.` : "";
+    const remaining = messages.length - 3;
+    const extra = remaining > 0
+      ? (remaining === 1 ? t("urride.companyReg.errorsMoreOne", { count: remaining }) : t("urride.companyReg.errorsMoreMany", { count: remaining }))
+      : "";
     return `${preview}${extra}`;
   }
 
@@ -615,10 +622,12 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       activities: [
         {
           id: `activity-${Date.now()}`,
-          title: accountStatus === "submitted" ? "Company registration submitted" : "Company draft saved",
+          title: accountStatus === "submitted" ? t("urride.companyReg.actSubmitted") : t("urride.companyReg.actDraft"),
           body: addOperatorMode
-            ? `A new fleet operator request was prepared for ${form.companyName || "the company"}.`
-            : `${form.companyName || "Company"} has ${payloadFleets.length} fleet${payloadFleets.length === 1 ? "" : "s"} in Fleet HQ.`,
+            ? t("urride.companyReg.actOperatorBody", { company: form.companyName || t("urride.companyReg.companyFallbackLower") })
+            : (payloadFleets.length === 1
+                ? t("urride.companyReg.actFleetsBodyOne", { company: form.companyName || t("urride.companyReg.companyFallback"), count: payloadFleets.length })
+                : t("urride.companyReg.actFleetsBodyMany", { company: form.companyName || t("urride.companyReg.companyFallback"), count: payloadFleets.length })),
           createdAt: new Date().toISOString(),
         },
       ],
@@ -629,10 +638,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     try {
       setSaving(true);
       await saveTransportCompanyDraft(buildPayload("draft"));
-      showStatus("Company draft saved. You can keep editing or leave the form.", "success");
+      showStatus(t("urride.companyReg.draftSaved"), "success");
       return true;
     } catch (error) {
-      showStatus(error.message || "Unable to save company draft.", "error");
+      showStatus(error.message || t("urride.companyReg.draftError"), "error");
       return false;
     } finally {
       setSaving(false);
@@ -641,7 +650,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   async function handleViewOneKmPreview() {
     if (!onViewOneKmPreview) {
-      showStatus("The one kilometre preview is not available right now.", "error");
+      showStatus(t("urride.companyReg.previewUnavailable"), "error");
       return;
     }
 
@@ -656,7 +665,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   function continueAfterSave() {
     setSaveCheckpointOpen(false);
-    showStatus("Company draft saved. You can keep completing the registration.", "success");
+    showStatus(t("urride.companyReg.draftSavedContinue"), "success");
   }
 
   function saveAndExit() {
@@ -690,10 +699,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       setSubmitting(true);
       const account = await saveTransportCompanyAccount(buildPayload("submitted"));
       onSaved?.(account);
-      showStatus("Company changes saved.", "success");
+      showStatus(t("urride.companyReg.changesSaved"), "success");
       return { ok: true };
     } catch (error) {
-      showStatus(error.message || "Unable to save company changes.", "error");
+      showStatus(error.message || t("urride.companyReg.changesError"), "error");
       return { ok: false };
     } finally {
       setSubmitting(false);
@@ -726,7 +735,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       await new Promise((resolve) => window.setTimeout(resolve, 480));
       onComplete?.(account, origin);
     } catch (error) {
-      showStatus(error.message || "Unable to submit company registration.", "error");
+      showStatus(error.message || t("urride.companyReg.submitError"), "error");
     } finally {
       setSubmitting(false);
     }
@@ -752,7 +761,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     }));
     setLocationPickerMode(null);
     setLocationCautionOpen(false);
-    showStatus(`Company base set to ${location.address || "selected map point"}.`, "success");
+    showStatus(t("urride.companyReg.baseSet", { location: location.address || t("urride.companyReg.baseSetFallback") }), "success");
   }
 
   function handleRegistrationBack() {
@@ -772,21 +781,21 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         <NearbyAreaScreen
           mode="businessLocationPicker"
           pickerStart={locationPickerMode}
-          backLabel="Back to company form"
+          backLabel={t("urride.companyReg.pickerBack")}
           pickerLabels={{
             historyKey: "transport-company-location-picker",
-            backLabel: "Back to company form",
-            eyebrow: "Fleet HQ location",
-            headerCurrentTitle: "Locate company base",
-            headerDropTitle: "Drop company pin",
-            cardEyebrow: "Company base",
-            currentHeading: "Confirm company base",
-            dropHeading: "Place the pin on the company base",
-            dropInstruction: "Move the map until the pin sits exactly on the office, station, dispatch yard, or main pickup point.",
-            currentPreparing: "Preparing your current location for the company base.",
-            currentStatus: "Confirming company base location...",
-            currentName: "Company base",
-            droppedName: "Pinned company base",
+            backLabel: t("urride.companyReg.pickerBack"),
+            eyebrow: t("urride.companyReg.pickerEyebrow"),
+            headerCurrentTitle: t("urride.companyReg.pickerCurrentTitle"),
+            headerDropTitle: t("urride.companyReg.pickerDropTitle"),
+            cardEyebrow: t("urride.companyReg.pickerCardEyebrow"),
+            currentHeading: t("urride.companyReg.pickerCurrentHeading"),
+            dropHeading: t("urride.companyReg.pickerDropHeading"),
+            dropInstruction: t("urride.companyReg.pickerDropInstruction"),
+            currentPreparing: t("urride.companyReg.pickerPreparing"),
+            currentStatus: t("urride.companyReg.pickerCurrentStatus"),
+            currentName: t("urride.companyReg.pickerCurrentName"),
+            droppedName: t("urride.companyReg.pickerDroppedName"),
           }}
           onBack={() => setLocationPickerMode(null)}
           onLocationPicked={acceptLocation}
@@ -806,16 +815,16 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         <div className="flex w-full items-center gap-3">
           <AppBackTab
             onBack={handleRegistrationBack}
-            label={!addOperatorMode && !editing && step > 0 ? "Back to previous registration step" : "Back to previous screen"}
+            label={!addOperatorMode && !editing && step > 0 ? t("urride.companyReg.back") : t("urride.companyReg.backScreen")}
             historyKey="transport-company-registration"
             className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
-            <h1 className="truncate text-lg font-black text-slate-950">{addOperatorMode ? "Add company operator" : editing ? "Edit company profile" : "Company / Organization Registration"}</h1>
+            <h1 className="truncate text-lg font-black text-slate-950">{addOperatorMode ? t("urride.companyReg.addOperatorTitle") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
           </div>
           <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-            {addOperatorMode ? "Fleet stage" : `${completion}/4 ready`}
+            {addOperatorMode ? t("urride.companyReg.fleetStage") : t("urride.companyReg.readyCount", { count: completion })}
           </span>
         </div>
       </header>
@@ -828,7 +837,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
               const locked = index > maxStepReached;
               return (
                 <button
-                  key={item.label}
+                  key={item.labelKey}
                   type="button"
                   onClick={() => goToStep(index)}
                   disabled={locked}
@@ -842,7 +851,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 >
                   <span className="flex items-center justify-center gap-2 lg:justify-start">
                     <Icon size={16} />
-                    <span className="truncate">{item.label}</span>
+                    <span className="truncate">{t(item.labelKey)}</span>
                   </span>
                 </button>
               );
@@ -865,8 +874,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
               saving={submitting}
               sections={[
                 {
-                  title: "Company profile",
-                  summary: [form.companyName, form.companyType, form.phone].filter(Boolean).join("  •  ") || "Not set yet",
+                  title: t("urride.companyReg.secCompanyProfile"),
+                  summary: [form.companyName, companyTypeLabel(form.companyType), form.phone].filter(Boolean).join("  •  ") || t("urride.companyReg.notSetYet"),
                   node: (
                     <CompanyIdentityStep
                       documentRequirements={companyDocumentRequirements}
@@ -878,8 +887,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                   ),
                 },
                 {
-                  title: "Company base",
-                  summary: [form.city, form.country, form.address].filter(Boolean).join("  •  ") || "Not set yet",
+                  title: t("urride.companyReg.secCompanyBase"),
+                  summary: [form.city, form.country, form.address].filter(Boolean).join("  •  ") || t("urride.companyReg.notSetYet"),
                   node: (
                     <LocationOperationsStep
                       areaText={areaText}
@@ -894,8 +903,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                   ),
                 },
                 {
-                  title: "Fleets",
-                  summary: `${fleets.length} fleet${fleets.length === 1 ? "" : "s"}${
+                  title: t("urride.companyReg.secFleets"),
+                  summary: `${fleets.length === 1 ? t("urride.companyReg.fleetCountOne", { count: fleets.length }) : t("urride.companyReg.fleetCountMany", { count: fleets.length })}${
                     [...new Set(fleets.map((fleet) => fleet.fleetType).filter(Boolean))].length
                       ? `  •  ${[...new Set(fleets.map((fleet) => fleet.fleetType).filter(Boolean))].join(", ")}`
                       : ""
@@ -976,7 +985,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 disabled={!addOperatorMode && step === 0}
                 className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-700 disabled:opacity-40"
               >
-                <span className="flex items-center justify-center gap-2"><FiChevronLeft /> Back</span>
+                <span className="flex items-center justify-center gap-2"><FiChevronLeft /> {t("urride.companyReg.backBtn")}</span>
               </button>
               <div className="grid gap-2 sm:flex sm:justify-end">
                 {!addOperatorMode ? <button
@@ -985,7 +994,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                   disabled={saving}
                   className="h-11 rounded-2xl border border-blue-200 bg-blue-50 px-5 text-sm font-black text-blue-700 disabled:opacity-60"
                 >
-                  {saving ? "Saving..." : "Save"}
+                  {saving ? t("urride.companyReg.saving") : t("urride.companyReg.save")}
                 </button> : null}
                 {addOperatorMode ? (
                   <button
@@ -994,7 +1003,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                     disabled={submitting}
                     className="h-11 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
                   >
-                    {submitting ? "Sending request..." : "Send operator request"}
+                    {submitting ? t("urride.companyReg.sendingRequest") : t("urride.companyReg.sendOperatorRequest")}
                   </button>
                 ) : step < steps.length - 1 ? (
                   <button
@@ -1002,7 +1011,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                     onClick={nextStep}
                     className="h-11 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700"
                   >
-                    <span className="flex items-center justify-center gap-2">Continue <FiChevronRight /></span>
+                    <span className="flex items-center justify-center gap-2">{t("urride.companyReg.continue")} <FiChevronRight /></span>
                   </button>
                 ) : (
                   <button
@@ -1011,7 +1020,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                     disabled={submitting}
                     className="h-11 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
                   >
-                    {submitting ? "Submitting..." : "Submit Company"}
+                    {submitting ? t("urride.companyReg.submitting") : t("urride.companyReg.submitCompany")}
                   </button>
                 )}
               </div>
@@ -1026,16 +1035,16 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           type="button"
           onClick={() => setLocationCautionOpen(false)}
           className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
-          aria-label="Cancel location"
+          aria-label={t("urride.companyReg.cancelLocation")}
         >
           <FiX />
         </button>
         <div className="pl-12">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">Confirm company base</p>
-          <h2 id="company-location-title" className="mt-1 text-xl font-black text-slate-950">Be at the exact company location</h2>
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyReg.confirmBaseEyebrow")}</p>
+          <h2 id="company-location-title" className="mt-1 text-xl font-black text-slate-950">{t("urride.companyReg.beExactTitle")}</h2>
         </div>
         <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
-          Please stand at the office, station, dispatch yard, or main pickup point you want KunThai to verify for this company.
+          {t("urride.companyReg.beExactBody")}
         </p>
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
           <button
@@ -1046,7 +1055,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             }}
             className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white"
           >
-            Yes, locate me
+            {t("urride.companyReg.yesLocate")}
           </button>
           <button
             type="button"
@@ -1056,7 +1065,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             }}
             className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700"
           >
-            Drop a pin
+            {t("urride.companyReg.dropPin")}
           </button>
         </div>
       </CenteredModal>
@@ -1065,9 +1074,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         <div className="flex items-start gap-3">
           <FiCheckCircle className="mt-1 shrink-0 text-blue-700" size={23} />
           <div>
-            <h2 id="company-save-title" className="text-lg font-black text-slate-950">Your information has been saved</h2>
+            <h2 id="company-save-title" className="text-lg font-black text-slate-950">{t("urride.companyReg.savedTitle")}</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              When you return to company registration, KunThai will continue from this same step. Choose Save and exit if you want to leave the form now, or Keep editing if you want to keep completing it.
+              {t("urride.companyReg.savedBody")}
             </p>
           </div>
         </div>
@@ -1077,14 +1086,14 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             onClick={saveAndExit}
             className="h-11 rounded-2xl border border-blue-200 bg-blue-50 text-sm font-black text-blue-700 hover:bg-blue-100"
           >
-            Save and exit
+            {t("urride.companyReg.saveExit")}
           </button>
           <button
             type="button"
             onClick={continueAfterSave}
             className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700"
           >
-            Keep editing
+            {t("urride.companyReg.keepEditing")}
           </button>
         </div>
       </CenteredModal>
@@ -1108,7 +1117,7 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
   return (
     <div className="space-y-4">
       <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
-        Open any section to update its details, then save your changes.
+        {t("urride.companyReg.editIntro")}
       </p>
 
       {sections.map((section, index) => {
@@ -1128,18 +1137,18 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
                 )}
                 {savedSection === index ? (
                   <p className="mt-1 inline-flex items-center gap-1 text-xs font-black text-emerald-600">
-                    <FiCheckCircle /> Saved
+                    <FiCheckCircle /> {t("urride.companyReg.saved")}
                   </p>
                 ) : null}
               </div>
               <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-black text-slate-700">
                 {open ? (
                   <>
-                    <FiChevronUp /> Close
+                    <FiChevronUp /> {t("urride.companyReg.close")}
                   </>
                 ) : (
                   <>
-                    <FiEdit2 /> Edit
+                    <FiEdit2 /> {t("urride.companyReg.edit")}
                   </>
                 )}
               </span>
@@ -1154,7 +1163,7 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
                     onClick={() => onToggle(-1)}
                     className="h-11 rounded-2xl border border-slate-200 px-5 text-sm font-black text-slate-700"
                   >
-                    Close
+                    {t("urride.companyReg.close")}
                   </button>
                   <button
                     type="button"
@@ -1162,7 +1171,7 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
                     disabled={saving}
                     className="h-11 rounded-2xl bg-emerald-600 px-6 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-60"
                   >
-                    {saving ? "Saving..." : "Save changes"}
+                    {saving ? t("urride.companyReg.saving") : t("urride.companyReg.saveChanges")}
                   </button>
                 </div>
               </div>
@@ -1180,29 +1189,29 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Company profile</p>
-        <h2 className="mt-1 text-2xl font-black text-slate-950">Register the organization that owns or manages these fleets.</h2>
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyReg.profileEyebrow")}</p>
+        <h2 className="mt-1 text-2xl font-black text-slate-950">{t("urride.companyReg.profileHeading")}</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <FormInput label="Company / organization name" value={form.companyName} onChange={(value) => onChange("companyName", value)} placeholder="Example: ABC Transport SL" error={errors.companyName} />
-        <SelectField label="Company type" value={form.companyType} options={companyTypes} onChange={(value) => onChange("companyType", value)} />
-        <FormInput label="Business registration number" value={form.registrationNumber} onChange={(value) => onChange("registrationNumber", value)} placeholder="Registration number" />
-        <FormInput label="Tax or business ID optional" value={form.taxId} onChange={(value) => onChange("taxId", value)} placeholder="Tax ID" />
-        <FormInput label="Owner / director name" value={form.ownerName} onChange={(value) => onChange("ownerName", value)} placeholder="Responsible person" error={errors.ownerName} />
+        <FormInput label={t("urride.companyReg.companyNameLabel")} value={form.companyName} onChange={(value) => onChange("companyName", value)} placeholder={t("urride.companyReg.companyNamePlaceholder")} error={errors.companyName} />
+        <SelectField label={t("urride.companyReg.companyTypeLabel")} value={form.companyType} options={companyTypes} optionLabels={companyTypeLabel} onChange={(value) => onChange("companyType", value)} />
+        <FormInput label={t("urride.companyReg.regNumLabel")} value={form.registrationNumber} onChange={(value) => onChange("registrationNumber", value)} placeholder={t("urride.companyReg.regNumPlaceholder")} />
+        <FormInput label={t("urride.companyReg.taxIdLabel")} value={form.taxId} onChange={(value) => onChange("taxId", value)} placeholder={t("urride.companyReg.taxIdPlaceholder")} />
+        <FormInput label={t("urride.companyReg.ownerNameLabel")} value={form.ownerName} onChange={(value) => onChange("ownerName", value)} placeholder={t("urride.companyReg.ownerNamePlaceholder")} error={errors.ownerName} />
         <FormInput
-          label="Support phone"
+          label={t("urride.companyReg.supportPhoneLabel")}
           type="tel"
           value={form.phone}
           onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }))}
           placeholder={getCountryPhoneHint(countryProfile)}
-          helper={phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
+          helper={phoneValidation.valid ? t("urride.companyReg.phoneHelper", { country: countryProfile.name, dial: countryProfile.dialCode, placeholder: countryProfile.placeholder }) : phoneValidation.message}
           error={errors.phone}
         />
-        <FormInput label="Business email optional" type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder="company@example.com" />
+        <FormInput label={t("urride.companyReg.emailLabel")} type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder={t("urride.companyReg.emailPlaceholder")} />
         <label className="block">
-          <span className="mb-2 block text-sm font-bold text-slate-700">Owner KunThai ID</span>
+          <span className="mb-2 block text-sm font-bold text-slate-700">{t("urride.companyReg.ownerIdLabel")}</span>
           <input value={form.ownerPublicId} readOnly className="h-12 w-full rounded-2xl border border-blue-100 bg-blue-50 px-4 text-sm font-black text-blue-800 outline-none" />
-          <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">Use this ID when adding company admins, fleet managers, or operator invitations.</span>
+          <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">{t("urride.companyReg.ownerIdHelper")}</span>
         </label>
       </div>
       <DocumentGrid documents={documentRequirements.map((requirement) => documentGridItem(requirement))} uploads={form.documents} onUpload={onDocument} />
@@ -1225,19 +1234,19 @@ function LocationOperationsStep({ areaText, errors = {}, form, hasLocation, onAr
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Company base</p>
-        <h2 className="mt-1 text-2xl font-black text-slate-950">Add the company location passengers and operators can trust.</h2>
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyReg.baseEyebrow")}</p>
+        <h2 className="mt-1 text-2xl font-black text-slate-950">{t("urride.companyReg.baseHeading")}</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <SelectField label="Country" value={countryProfile.name} options={GLOBAL_COUNTRY_PROFILES.map((country) => country.name)} onChange={(value) => onChange("country", value)} />
-        <FormInput label="City / district" value={form.city} onChange={(value) => onChange("city", value)} placeholder="City or district" error={errors.city} />
+        <SelectField label={t("urride.companyReg.countryLabel")} value={countryProfile.name} options={GLOBAL_COUNTRY_PROFILES.map((country) => country.name)} onChange={(value) => onChange("country", value)} />
+        <FormInput label={t("urride.companyReg.cityLabel")} value={form.city} onChange={(value) => onChange("city", value)} placeholder={t("urride.companyReg.cityPlaceholder")} error={errors.city} />
         <div className="md:col-span-2">
           <FormInput
-            label="Office, station, or dispatch address"
+            label={t("urride.companyReg.addressLabel")}
             value={form.address}
             onChange={(value) => onChange("address", value)}
-            placeholder="Office, station, or dispatch address"
-            helper="Area View checks this address when you type, but an exact map point is optional."
+            placeholder={t("urride.companyReg.addressLabel")}
+            helper={t("urride.companyReg.addressHelper")}
             error={errors.address}
           />
           <CompanyAreaViewStatus validation={areaValidation} />
@@ -1248,32 +1257,32 @@ function LocationOperationsStep({ areaText, errors = {}, form, hasLocation, onAr
           {hasLocation ? <FiCheckCircle className="mt-1 text-emerald-700" /> : <FiMapPin className="mt-1 text-blue-700" />}
           <div className="min-w-0 flex-1">
             <h3 className={`font-black ${hasLocation ? "text-emerald-900" : "text-blue-900"}`}>
-              {hasLocation ? "Exact map point added" : "Exact map point optional"}
+              {hasLocation ? t("urride.companyReg.exactAdded") : t("urride.companyReg.exactOptional")}
             </h3>
             <p className={`mt-1 text-sm font-semibold leading-6 ${hasLocation ? "text-emerald-800" : "text-blue-800"}`}>
               {hasLocation
-                ? "KunThai can review the exact company base using the selected map point."
-                : "You can continue with the typed address. Use Locate Me if you are at the company base, or Drop Pin if you want to place it manually."}
+                ? t("urride.companyReg.exactAddedBody")
+                : t("urride.companyReg.exactOptionalBody")}
             </p>
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <button type="button" onClick={onLocateMe} className="h-11 rounded-2xl bg-slate-950 text-sm font-black text-white">
-            Locate Me
+            {t("urride.companyReg.locateMe")}
           </button>
           <button type="button" onClick={onDropPin} className="h-11 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700">
-            Drop a Pin
+            {t("urride.companyReg.dropPinBtn")}
           </button>
         </div>
       </div>
-      <FormInput label="Operating areas" value={areaText} onChange={onAreaText} placeholder="Operating areas" helper="Separate areas with commas." />
+      <FormInput label={t("urride.companyReg.areasLabel")} value={areaText} onChange={onAreaText} placeholder={t("urride.companyReg.areasLabel")} helper={t("urride.companyReg.areasHelper")} />
       <label className="block">
-        <span className="mb-2 block text-sm font-bold text-slate-700">Dispatch and safety policy</span>
+        <span className="mb-2 block text-sm font-bold text-slate-700">{t("urride.companyReg.policyLabel")}</span>
         <textarea
           value={form.supportPolicy}
           onChange={(event) => onChange("supportPolicy", event.target.value)}
           rows="4"
-          placeholder="How this company assigns operators, handles passenger calls, delivery support, safety checks, and complaints."
+          placeholder={t("urride.companyReg.policyPlaceholder")}
           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
         />
       </label>
@@ -1288,15 +1297,15 @@ function CompanyAreaViewStatus({ validation }) {
   const copy = {
     searching: {
       tone: "border-slate-200 bg-slate-50 text-slate-700",
-      text: "Checking whether KunThai Area View can find this address...",
+      text: t("urride.companyReg.areaSearching"),
     },
     found: {
       tone: "border-emerald-100 bg-emerald-50 text-emerald-800",
-      text: "Location findable by KunThai Area View.",
+      text: t("urride.companyReg.areaFound"),
     },
     notFound: {
       tone: "border-rose-100 bg-rose-50 text-rose-800",
-      text: "Location is not findable by KunThai Area View yet. You can still continue, or use Locate Me / Drop a Pin below to add an exact map point.",
+      text: t("urride.companyReg.areaNotFound"),
     },
   }[status];
 
@@ -1316,11 +1325,11 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet builder</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">Add every company fleet and invite operators by KunThai ID.</h2>
+          <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyReg.builderEyebrow")}</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">{t("urride.companyReg.builderHeading")}</h2>
         </div>
         {allowMultiple ? <button type="button" onClick={onAddFleet} className="h-11 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white">
-          <span className="flex items-center justify-center gap-2"><FiPlus /> Add Fleet</span>
+          <span className="flex items-center justify-center gap-2"><FiPlus /> {t("urride.companyReg.addFleet")}</span>
         </button> : null}
       </div>
       <div className="grid gap-4">
@@ -1357,27 +1366,27 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
   const applyLookupResult = useCallback((match) => {
     if (match && acceptedPublicIds.includes(compactPublicId(match.publicId))) {
       setOperatorMatch(null);
-      setLookupStatus("This operator is already accepted by the company and cannot be invited again.");
+      setLookupStatus(t("urride.companyReg.lookupAlreadyAccepted"));
       return;
     }
     setOperatorMatch(match);
-    setLookupStatus(match ? `Account available as ${match.name}` : "KunThai ID not found. Check the account ID and try again.");
+    setLookupStatus(match ? t("urride.companyReg.lookupAvailable", { name: match.name }) : t("urride.companyReg.lookupNotFound"));
   }, [acceptedPublicIds]);
 
   async function lookupOperator(query = operatorId) {
     const target = String(query || "").trim();
     if (!target) {
-      setLookupStatus("Enter the operator's KunThai ID first.");
+      setLookupStatus(t("urride.companyReg.lookupEnterFirst"));
       return;
     }
 
     setLookingUp(true);
-    setLookupStatus("Checking KunThai ID...");
+    setLookupStatus(t("urride.companyReg.lookupChecking"));
     try {
       const match = await lookupTransportOperatorByKunThaiId(target);
       applyLookupResult(match);
     } catch (error) {
-      setLookupStatus(error.message || "Unable to check this operator ID.");
+      setLookupStatus(error.message || t("urride.companyReg.lookupError"));
     } finally {
       setLookingUp(false);
     }
@@ -1395,7 +1404,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
 
     const compactTarget = target.replace(/[^a-z0-9]/gi, "");
     if (compactTarget.length < 7) {
-      setLookupStatus("Enter a complete KunThai ID.");
+      setLookupStatus(t("urride.companyReg.lookupEnterComplete"));
       setLookingUp(false);
       return undefined;
     }
@@ -1403,13 +1412,13 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
     let alive = true;
     const timer = window.setTimeout(async () => {
       setLookingUp(true);
-      setLookupStatus("Checking KunThai ID...");
+      setLookupStatus(t("urride.companyReg.lookupChecking"));
 
       try {
         const match = await lookupTransportOperatorByKunThaiId(target);
         if (alive) applyLookupResult(match);
       } catch (error) {
-        if (alive) setLookupStatus(error.message || "Unable to check this KunThai ID.");
+        if (alive) setLookupStatus(error.message || t("urride.companyReg.lookupCheckError"));
       } finally {
         if (alive) setLookingUp(false);
       }
@@ -1426,7 +1435,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
     onInvite(fleet.localId, operatorMatch);
     setOperatorId("");
     setOperatorMatch(null);
-    setLookupStatus("Operator request added to this fleet.");
+    setLookupStatus(t("urride.companyReg.operatorAdded"));
   }
 
   function updateServiceCategory(value) {
@@ -1443,39 +1452,39 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
     <section className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Fleet {index + 1}</p>
-          <h3 className="mt-1 text-xl font-black text-slate-950">{fleet.fleetName || `${fleet.fleetType} fleet`}</h3>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">{t("urride.companyReg.fleetNo", { n: index + 1 })}</p>
+          <h3 className="mt-1 text-xl font-black text-slate-950">{fleet.fleetName || t("urride.companyReg.fleetNameFallback", { type: fleet.fleetType })}</h3>
         </div>
         {removable ? (
-          <button type="button" onClick={() => onRemove(fleet.localId)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-rose-600 shadow-sm" aria-label="Remove fleet">
+          <button type="button" onClick={() => onRemove(fleet.localId)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-rose-600 shadow-sm" aria-label={t("urride.companyReg.removeFleet")}>
             <FiTrash2 />
           </button>
         ) : null}
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-600">Unique fleet code</p>
+          <p className="text-xs font-black uppercase tracking-wide text-blue-600">{t("urride.companyReg.uniqueCode")}</p>
           <p className="mt-1 font-black text-slate-950">{fleet.fleetCode}</p>
         </div>
-        <SelectField label="Fleet type" value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value) })} />
-        <SelectField label="Service category" value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />
-        <FormInput label="Fleet name" value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder="Fleet name" error={errors[`${fleet.localId}-fleetName`]} />
-        <FormInput label="Plate number" value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder="Plate number" error={errors[`${fleet.localId}-plateNumber`]} />
-        <FormInput label="Make / brand" value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder="Make or brand" error={errors[`${fleet.localId}-make`]} />
-        <FormInput label="Model" value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder="Model" error={errors[`${fleet.localId}-model`]} />
-        <FormInput label="Year" type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder="Year" error={errors[`${fleet.localId}-year`]} />
-        <FormInput label="Color" value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder="Color" error={errors[`${fleet.localId}-color`]} />
-        <FormInput label="Operating area" value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder="Main service area" error={errors[`${fleet.localId}-operatingArea`]} />
-        <FormInput label="Home base" value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder="Station, park, or yard" error={errors[`${fleet.localId}-homeBase`]} />
+        <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value) })} />
+        <SelectField label={t("urride.companyReg.serviceCategoryLabel")} value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />
+        <FormInput label={t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={t("urride.companyReg.fleetNameLabel")} error={errors[`${fleet.localId}-fleetName`]} />
+        <FormInput label={t("urride.companyReg.plateLabel")} value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder={t("urride.companyReg.plateLabel")} error={errors[`${fleet.localId}-plateNumber`]} />
+        <FormInput label={t("urride.companyReg.makeLabel")} value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder={t("urride.companyReg.makePlaceholder")} error={errors[`${fleet.localId}-make`]} />
+        <FormInput label={t("urride.companyReg.modelLabel")} value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder={t("urride.companyReg.modelLabel")} error={errors[`${fleet.localId}-model`]} />
+        <FormInput label={t("urride.companyReg.yearLabel")} type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder={t("urride.companyReg.yearLabel")} error={errors[`${fleet.localId}-year`]} />
+        <FormInput label={t("urride.companyReg.colorLabel")} value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder={t("urride.companyReg.colorLabel")} error={errors[`${fleet.localId}-color`]} />
+        <FormInput label={t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={t("urride.companyReg.opAreaPlaceholder")} error={errors[`${fleet.localId}-operatingArea`]} />
+        <FormInput label={t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={t("urride.companyReg.homeBasePlaceholder")} error={errors[`${fleet.localId}-homeBase`]} />
       </div>
       <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Passenger pricing · company owner</p>
-        <h4 className="mt-1 text-lg font-black text-slate-950">Set the prices passengers will see</h4>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">The company owner or CEO controls these prices. The assigned operator can manage availability and trips, but cannot replace company pricing.</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.companyReg.pricingEyebrow")}</p>
+        <h4 className="mt-1 text-lg font-black text-slate-950">{t("urride.companyReg.pricingHeading")}</h4>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("urride.companyReg.pricingBody")}</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FormInput label="Starting price" type="number" value={fleet.baseFare} onChange={(value) => onUpdate(fleet.localId, { baseFare: value })} placeholder="0" helper="The minimum fare shown when distance or time totals are lower than your starting price." error={errors[`${fleet.localId}-baseFare`]} />
+          <FormInput label={t("urride.companyReg.startPriceLabel")} type="number" value={fleet.baseFare} onChange={(value) => onUpdate(fleet.localId, { baseFare: value })} placeholder="0" helper={t("urride.companyReg.startPriceHelper")} error={errors[`${fleet.localId}-baseFare`]} />
           <div>
-            <FormInput label="Price per 1 km" type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper="Distance bookings multiply this rate by the passenger route." error={errors[`${fleet.localId}-pricePerKm`]} />
+            <FormInput label={t("urride.companyReg.perKmLabel")} type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper={t("urride.companyReg.perKmHelper")} error={errors[`${fleet.localId}-pricePerKm`]} />
             <PricingGuide
               type="km"
               open={activePricingGuide === "km"}
@@ -1484,20 +1493,20 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
             />
           </div>
           <div>
-            <FormInput label="Price per 1 hour" type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" helper="Time bookings use this rate for booked or waiting hours." error={errors[`${fleet.localId}-pricePerHour`]} />
+            <FormInput label={t("urride.companyReg.perHourLabel")} type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" helper={t("urride.companyReg.perHourHelper")} error={errors[`${fleet.localId}-pricePerHour`]} />
             <PricingGuide
               type="hour"
               open={activePricingGuide === "hour"}
               onToggle={() => setActivePricingGuide((current) => (current === "hour" ? "" : "hour"))}
             />
           </div>
-          <FormInput label="Passenger price note optional" value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder="Example: final fare confirmed in booking" helper="Add a short public note only when passengers need extra price context." />
+          <FormInput label={t("urride.companyReg.priceNoteLabel")} value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder={t("urride.companyReg.priceNotePlaceholder")} helper={t("urride.companyReg.priceNoteHelper")} />
         </div>
       </section>
       <FleetImagesSection fleet={fleet} form={form} onUploadDocument={onUploadDocument} />
       <section className="mt-5">
-        <h4 className="font-black text-slate-950">Vehicle documents</h4>
-        <p className="mt-1 text-xs font-semibold text-slate-500">Optional now, needed for verification. Use clear PDF or image files - you can also add them later from Fleet HQ.</p>
+        <h4 className="font-black text-slate-950">{t("urride.companyReg.vehicleDocsTitle")}</h4>
+        <p className="mt-1 text-xs font-semibold text-slate-500">{t("urride.companyReg.vehicleDocsNote")}</p>
         <DocumentGrid
           documents={getFleetDocumentRequirements(form, fleet).map((requirement) => documentGridItem(requirement))}
           uploads={fleet.documents}
@@ -1510,9 +1519,9 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
         <div className="flex items-start gap-3">
           <FiUserPlus className="mt-1 text-blue-700" />
           <div>
-            <h4 className="font-black text-slate-950">Add operator by KunThai ID</h4>
+            <h4 className="font-black text-slate-950">{t("urride.companyReg.addOperatorHeading")}</h4>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              Paste the operator's public KunThai ID. KunThai will send the operator a request with Accept and Reject actions.
+              {t("urride.companyReg.addOperatorBody")}
             </p>
           </div>
         </div>
@@ -1520,11 +1529,11 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
           <input
             value={operatorId}
             onChange={(event) => setOperatorId(event.target.value)}
-            placeholder="KTU-XXXX-XXXX"
+            placeholder={t("urride.companyReg.operatorIdPlaceholder")}
             className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
           />
           <button type="button" onClick={() => lookupOperator()} disabled={lookingUp} className="h-11 rounded-2xl border border-slate-950 bg-white px-5 text-sm font-black text-slate-950 disabled:opacity-60">
-            <span className="flex items-center justify-center gap-2"><FiSearch /> {lookingUp ? "Checking" : "Check"}</span>
+            <span className="flex items-center justify-center gap-2"><FiSearch /> {lookingUp ? t("urride.companyReg.checking") : t("urride.companyReg.check")}</span>
           </button>
         </div>
         {errors[`${fleet.localId}-operators`] ? <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{errors[`${fleet.localId}-operators`]}</p> : null}
@@ -1540,7 +1549,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
               <p className="text-xs font-bold text-blue-700">{operatorMatch.publicId} {operatorMatch.city ? `- ${operatorMatch.city}` : ""}</p>
             </div>
             <button type="button" onClick={addMatchedOperator} className="h-10 rounded-2xl border border-blue-300 bg-blue-50 px-5 text-sm font-black text-blue-800">
-              Add
+              {t("urride.companyReg.addMatched")}
             </button>
           </div>
         ) : null}
@@ -1564,8 +1573,8 @@ function FleetImagesSection({ fleet, form, onUploadDocument }) {
     <section className="mt-5 rounded-3xl border border-slate-100 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 className="font-black text-slate-950">Fleet images</h4>
-          <p className="mt-1 text-xs font-semibold text-slate-500">Front, back, left side, and right side views. Optional now - passengers see them once uploaded, and verification needs them.</p>
+          <h4 className="font-black text-slate-950">{t("urride.companyReg.imagesTitle")}</h4>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{t("urride.companyReg.imagesNote")}</p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{imageCount}/{imageRequirements.length}</span>
       </div>
@@ -1589,8 +1598,8 @@ function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
       <div className="flex items-start gap-3">
         <FiShield className="mt-1 shrink-0 text-amber-700" />
         <div>
-          <h4 className="font-black text-slate-950">Security and safety questions</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">KunThai reviews these answers for every company fleet, using the same checks as a sole operator.</p>
+          <h4 className="font-black text-slate-950">{t("urride.companyReg.safetyTitle")}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{t("urride.companyReg.safetyNote")}</p>
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1598,12 +1607,12 @@ function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
           const error = errors[`${fleet.localId}-safety-${question.key}`];
           return (
           <label key={question.key} data-field-error={error ? "true" : undefined} className={`rounded-2xl border bg-white p-3 ${error ? "border-rose-200" : "border-amber-100"}`}>
-            <span className="text-sm font-bold text-slate-800">{question.label}</span>
+            <span className="text-sm font-bold text-slate-800">{t(question.labelKey)}</span>
             {question.type === "number" ? (
               <input type="number" min="0" value={answers[question.key] || ""} onChange={(event) => updateAnswer(question.key, event.target.value)} placeholder="0" aria-invalid={error ? "true" : undefined} className={`mt-3 h-11 w-full rounded-xl border px-3 text-sm outline-none focus:border-blue-500 ${error ? "border-rose-300" : "border-slate-200"}`} />
             ) : (
               <select value={answers[question.key] || "Yes"} onChange={(event) => updateAnswer(question.key, event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500">
-                <option>Yes</option><option>No</option><option>Needs admin check</option>
+                <option value="Yes">{t("urride.fleetEdit.answerYes")}</option><option value="No">{t("urride.fleetEdit.answerNo")}</option><option value="Needs admin check">{t("urride.fleetEdit.answerAdmin")}</option>
               </select>
             )}
             {error ? <span className="mt-2 block text-xs font-bold text-rose-700" role="alert">{error}</span> : null}
@@ -1618,8 +1627,8 @@ function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
 function getOperatorRequestStatus(status = "pending", documents = {}) {
   if (status === "accepted_pending_documents" || documents?.operatorDocumentsRequired || documents?.registrationRequired) {
     return {
-      label: "Accepted - operator documents needed",
-      body: "The operator accepted the request and only needs to submit identity and license documents. Company and fleet documents remain under your Fleet HQ.",
+      label: t("urride.companyReg.reqAcceptedDocsLabel"),
+      body: t("urride.companyReg.reqAcceptedDocsBody"),
       panel: "border-blue-100 bg-blue-50",
       badge: "bg-blue-100 text-blue-700",
     };
@@ -1627,10 +1636,10 @@ function getOperatorRequestStatus(status = "pending", documents = {}) {
 
   if (status === "accepted") {
     return {
-      label: "Accepted",
+      label: t("urride.companyReg.reqAcceptedLabel"),
       body: documents?.reuseNotice
-        ? "The operator accepted the company request. KunThai will use the operator identity and license documents already submitted on that account."
-        : "The operator accepted the company request and submitted the required operator documents for review.",
+        ? t("urride.companyReg.reqAcceptedReuseBody")
+        : t("urride.companyReg.reqAcceptedBody"),
       panel: "border-emerald-100 bg-emerald-50",
       badge: "bg-emerald-100 text-emerald-700",
     };
@@ -1638,16 +1647,16 @@ function getOperatorRequestStatus(status = "pending", documents = {}) {
 
   if (status === "rejected") {
     return {
-      label: "Rejected",
-      body: "The operator declined this company request. You can invite another operator for this fleet.",
+      label: t("urride.companyReg.reqRejectedLabel"),
+      body: t("urride.companyReg.reqRejectedBody"),
       panel: "border-rose-100 bg-rose-50",
       badge: "bg-rose-100 text-rose-700",
     };
   }
 
   return {
-    label: "Waiting for operator response",
-    body: "The request has been sent to the operator. The operator must accept or reject it from their transport account.",
+    label: t("urride.companyReg.reqWaitingLabel"),
+    body: t("urride.companyReg.reqWaitingBody"),
     panel: "border-slate-100 bg-slate-50",
     badge: "bg-amber-100 text-amber-800",
   };
@@ -1660,7 +1669,7 @@ function OperatorRequestCard({ operator }) {
     <div className={`rounded-2xl border p-4 ${status.panel}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Operator request</p>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">{t("urride.companyReg.operatorRequest")}</p>
           <h5 className="mt-1 font-black text-slate-950">{operator.name}</h5>
           <p className="mt-1 text-xs font-bold text-slate-500">{operator.publicId}</p>
         </div>
@@ -1671,12 +1680,12 @@ function OperatorRequestCard({ operator }) {
       <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{status.body}</p>
       {operator.documents?.reuseNotice ? (
         <div className="mt-3 rounded-2xl border border-emerald-100 bg-white px-3 py-2 text-xs font-black text-emerald-700">
-          Operator identity and license documents reused
+          {t("urride.companyReg.reuseBadge")}
         </div>
       ) : null}
       {operator.documents?.operatorDocumentsSubmitted ? (
         <div className="mt-3 rounded-2xl border border-blue-100 bg-white px-3 py-2 text-xs font-black text-blue-700">
-          Operator documents submitted for review
+          {t("urride.companyReg.submittedBadge")}
         </div>
       ) : null}
     </div>
@@ -1688,29 +1697,29 @@ function CompanyReviewStep({ fleets, form }) {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-black uppercase tracking-wide text-blue-700">Final review</p>
-        <h2 className="mt-1 text-2xl font-black text-slate-950">Review the company before sending it to KunThai.</h2>
+        <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyReg.reviewEyebrow")}</p>
+        <h2 className="mt-1 text-2xl font-black text-slate-950">{t("urride.companyReg.reviewHeading")}</h2>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <ReviewTile label="Company" value={form.companyName || "Not filled"} />
-        <ReviewTile label="Company type" value={form.companyType} />
-        <ReviewTile label="Fleets" value={fleets.length} />
-        <ReviewTile label="Operator requests" value={operatorCount} />
+        <ReviewTile label={t("urride.companyReg.tileCompany")} value={form.companyName || t("urride.companyReg.notFilled")} />
+        <ReviewTile label={t("urride.companyReg.tileCompanyType")} value={companyTypeLabel(form.companyType)} />
+        <ReviewTile label={t("urride.companyReg.tileFleets")} value={fleets.length} />
+        <ReviewTile label={t("urride.companyReg.tileOperatorReqs")} value={operatorCount} />
       </div>
       <section className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-        <h3 className="font-black text-slate-950">Verification summary</h3>
+        <h3 className="font-black text-slate-950">{t("urride.companyReg.verificationSummary")}</h3>
         <div className="mt-3 grid gap-2 text-sm font-semibold text-slate-600">
-          <p><strong className="text-slate-950">Base:</strong> {form.address || "Not filled"} {form.city ? `- ${form.city}` : ""}</p>
-          <p><strong className="text-slate-950">Areas:</strong> {form.operatingAreas?.length ? form.operatingAreas.join(", ") : "Not filled"}</p>
-          <p><strong className="text-slate-950">Policy:</strong> {form.supportPolicy || "Not filled"}</p>
+          <p><strong className="text-slate-950">{t("urride.companyReg.baseRowLabel")}</strong> {form.address || t("urride.companyReg.notFilled")} {form.city ? `- ${form.city}` : ""}</p>
+          <p><strong className="text-slate-950">{t("urride.companyReg.areasRowLabel")}</strong> {form.operatingAreas?.length ? form.operatingAreas.join(", ") : t("urride.companyReg.notFilled")}</p>
+          <p><strong className="text-slate-950">{t("urride.companyReg.policyRowLabel")}</strong> {form.supportPolicy || t("urride.companyReg.notFilled")}</p>
         </div>
       </section>
       <div className="grid gap-3">
         {fleets.map((fleet) => (
           <div key={fleet.localId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode}</p>
-            <h4 className="mt-1 font-black text-slate-950">{fleet.fleetName || "Unnamed fleet"}</h4>
-            <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.plateNumber || "No plate"} - {fleet.serviceCategory}</p>
+            <h4 className="mt-1 font-black text-slate-950">{fleet.fleetName || t("urride.companyReg.unnamedFleet")}</h4>
+            <p className="mt-1 text-sm font-semibold text-slate-500">{fleet.plateNumber || t("urride.companyReg.noPlate")} - {fleet.serviceCategory}</p>
           </div>
         ))}
       </div>
@@ -1723,7 +1732,7 @@ function DocumentGrid({ compact = false, documents, onUpload, uploads = {} }) {
     <div className={`mt-4 grid gap-3 ${compact ? "sm:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
       {documents.map((document) => {
         const key = typeof document === "string" ? document : document.key;
-        const label = typeof document === "string" ? `${document} (if applicable)` : document.label;
+        const label = typeof document === "string" ? t("urride.companyReg.ifApplicable", { label: document }) : document.label;
         return (
           <UploadField
             key={key}
@@ -1751,12 +1760,12 @@ function UploadField({ label, onChange, value }) {
 
 function PricingGuide({ type, open, onToggle, onViewOneKm }) {
   const isDistance = type === "km";
-  const audience = isDistance ? "customers and passengers" : "customers booking by time";
+  const audience = isDistance ? t("urride.companyReg.audienceDistance") : t("urride.companyReg.audienceTime");
 
   return (
     <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3">
       <p className="text-xs font-bold leading-5 text-blue-800">
-        Please enter a fair price to attract more {audience}.
+        {t("urride.companyReg.fairPrice", { audience })}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
@@ -1764,7 +1773,7 @@ function PricingGuide({ type, open, onToggle, onViewOneKm }) {
           onClick={onToggle}
           className="rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-black text-blue-700 hover:bg-blue-100"
         >
-          {open ? "Show less" : "Read more"}
+          {open ? t("urride.companyReg.showLess") : t("urride.companyReg.readMore")}
         </button>
         {isDistance ? (
           <button
@@ -1773,21 +1782,13 @@ function PricingGuide({ type, open, onToggle, onViewOneKm }) {
             disabled={!onViewOneKm}
             className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            View 1 KM
+            {t("urride.companyReg.viewOneKm")}
           </button>
         ) : null}
       </div>
       {open ? (
         <div className="mt-3 rounded-2xl bg-white px-3 py-3 text-xs font-semibold leading-5 text-slate-600">
-          {isDistance ? (
-            <p>
-              A lower and honest price per kilometre can help passengers choose this company fleet more often, especially for short trips. Set a rate that covers fuel, maintenance, operator time, and company costs without making nearby trips feel too expensive.
-            </p>
-          ) : (
-            <p>
-              Hourly pricing is useful for waiting time, events, dispatch work, and booked blocks of service. Keep the hourly rate clear and fair so passengers understand what they will pay before they confirm.
-            </p>
-          )}
+          <p>{isDistance ? t("urride.companyReg.distanceBody") : t("urride.companyReg.hourBody")}</p>
         </div>
       ) : null}
     </div>
@@ -1812,7 +1813,7 @@ function FormInput({ error = "", helper = "", label, onChange, placeholder = "",
   );
 }
 
-function SelectField({ error = "", label, onChange, options, value }) {
+function SelectField({ error = "", label, onChange, options, value, optionLabels }) {
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
@@ -1822,7 +1823,7 @@ function SelectField({ error = "", label, onChange, options, value }) {
         aria-invalid={error ? "true" : undefined}
         className={`h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 ${error ? "border-rose-300" : "border-slate-200"}`}
       >
-        {options.map((option) => <option key={option}>{option}</option>)}
+        {options.map((option) => <option key={option} value={option}>{optionLabels ? optionLabels(option) : option}</option>)}
       </select>
       {error ? <span className="mt-2 block text-xs font-bold leading-5 text-rose-700" role="alert">{error}</span> : null}
     </label>
