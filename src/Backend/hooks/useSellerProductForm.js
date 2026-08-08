@@ -7,6 +7,7 @@ import {
   updateSellerProductListing,
 } from "../services/marketplace/sellerProductService";
 import { haptics, sounds } from "../services/feedbackService";
+import { showToast } from "../services/toastService";
 import {
   MINIMUM_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
@@ -221,6 +222,15 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
           : await submitSellerProduct(form, setSaveStatus);
       if (savedProduct.videoWarning) {
         setWarnings({ video: savedProduct.videoWarning });
+      }
+      // The listing saved but the Sponsored boost could not start. Surface the
+      // exact, traceable reason as a persistent toast so it survives the form
+      // closing and the seller knows the product is saved but not promoted.
+      if (savedProduct.promotionWarning) {
+        showToast(savedProduct.promotionWarning, "danger", {
+          title: "Sponsored boost didn't start",
+          duration: 9000,
+        });
       }
       setSaveStatus("");
       clearProductDraft();

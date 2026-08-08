@@ -263,6 +263,29 @@ async function insertProductPayload(payload) {
   return { data, error };
 }
 
+// After an insert, Postgres RLS can allow the write but return no row from the
+// RETURNING clause (the read-after-write policy is stricter than the insert
+// policy). The listing is saved and shows up in the dashboard, but its id never
+// reaches the client — which used to make "Publish & promote" fail with an
+// opaque "choose a product" message. Recover the id by reading the most recent
+// matching listing so the promotion can still run.
+async function findRecentProductId(businessId, name) {
+  if (!businessId) return "";
+  try {
+    const { data } = await supabase
+      .from("marketplace_products")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("name", name)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data?.id || "";
+  } catch {
+    return "";
+  }
+}
+
 async function updateProductPayload(productId, businessId, payload) {
   let { data, error } = await supabase.from("marketplace_products").update(payload).eq("id", productId).eq("business_id", businessId).select().maybeSingle();
 
@@ -398,11 +421,32 @@ export async function submitSellerProduct(form, onProgress) {
 
   if (error) throw new Error(error.message);
 
+  // The listing is now saved. Promotion is a separate, best-effort step: if it
+  // fails we keep the saved product and surface a specific, traceable reason
+  // instead of throwing a generic error that hides what actually happened.
+  const productName = form.basics.name.trim();
+  let promotedProductId = data?.id || "";
+  let promotionWarning = "";
+
   if (wantsPromotion) {
-    await promoteSellerProduct(
-      { id: data?.id, name: form.basics.name.trim() },
-      { credits: promotionCredits, audience: form.pricing.promotionAudience },
-    );
+    if (!promotedProductId) {
+      promotedProductId = await findRecentProductId(business.id, productName);
+    }
+
+    if (!promotedProductId) {
+      promotionWarning =
+        `“${productName}” was saved to your catalog, but the Sponsored boost could not start because the new listing's ID was not returned after saving (code: PROMO_NO_ID). Open it in Product Management and tap Promote to boost it.`;
+    } else {
+      try {
+        await promoteSellerProduct(
+          { id: promotedProductId, name: productName },
+          { credits: promotionCredits, audience: form.pricing.promotionAudience },
+        );
+      } catch (promotionError) {
+        promotionWarning =
+          `“${productName}” was saved to your catalog, but the Sponsored boost could not start: ${promotionError.message || "unknown error"} (code: PROMO_FAILED). Open it in Product Management and tap Promote to retry.`;
+      }
+    }
   }
 
   withTimeout(
@@ -421,10 +465,14 @@ export async function submitSellerProduct(form, onProgress) {
     8000,
   ).catch(() => {});
 
+  const savedProduct = normalizeSellerProduct(data) || {};
+  if (!savedProduct.id && promotedProductId) savedProduct.id = promotedProductId;
+
   return {
-    ...(normalizeSellerProduct(data) || {}),
-    promoted: wantsPromotion || Boolean(data?.promoted),
+    ...savedProduct,
+    promoted: (wantsPromotion && !promotionWarning) || Boolean(data?.promoted),
     videoWarning,
+    promotionWarning,
   };
 }
 
@@ -512,11 +560,19 @@ export async function updateSellerProductListing(product, form, onProgress) {
 
   if (error) throw new Error(error.message);
 
+  // Keep the saved update even if the boost cannot start; report the exact
+  // reason instead of throwing an opaque error.
+  let promotionWarning = "";
   if (wantsPromotion && !product.promoted) {
-    await promoteSellerProduct(
-      { id: product.id, name: form.basics.name.trim() },
-      { credits: promotionCredits, audience: form.pricing.promotionAudience },
-    );
+    try {
+      await promoteSellerProduct(
+        { id: product.id, name: form.basics.name.trim() },
+        { credits: promotionCredits, audience: form.pricing.promotionAudience },
+      );
+    } catch (promotionError) {
+      promotionWarning =
+        `“${form.basics.name.trim()}” was updated, but the Sponsored boost could not start: ${promotionError.message || "unknown error"} (code: PROMO_FAILED). Open it in Product Management and tap Promote to retry.`;
+    }
   }
 
   withTimeout(
@@ -537,8 +593,9 @@ export async function updateSellerProductListing(product, form, onProgress) {
 
   return {
     ...(normalizeSellerProduct(data) || {}),
-    promoted: wantsPromotion || Boolean(data?.promoted),
+    promoted: (wantsPromotion && !promotionWarning) || Boolean(data?.promoted),
     videoWarning,
+    promotionWarning,
   };
 }
 
@@ -583,8 +640,8 @@ export function createSellerProductShareLink(product) {
 
 export async function promoteSellerProduct(product, options = {}) {
   const business = await readRegisteredBusiness();
-  if (!business) throw new Error("Register a business before promoting products.");
-  if (!product?.id) throw new Error("Choose a saved product before promoting.");
+  if (!business) throw new Error("Register a business before promoting products. (code: PROMO_NO_BUSINESS)");
+  if (!product?.id) throw new Error("Cannot promote: the listing has no saved ID yet. (code: PROMO_NO_ID)");
   const creditBudget = normalizeVisibilityCreditSpend(
     options.credits || product.promotionCredits,
     MINIMUM_VISIBILITY_CREDITS,
@@ -597,7 +654,7 @@ export async function promoteSellerProduct(product, options = {}) {
     p_audience_type: audienceType,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(`${error.message} (code: PROMO_RPC)`);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("marketplace-products-updated"));
   }

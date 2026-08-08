@@ -206,6 +206,18 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
     }
   }, [showNotice, t]);
 
+  // Sponsored slider taps: retail products open the product drawer; promoted
+  // meals / properties open their vertical detail via the shared event that the
+  // mounted VerticalMarketplace listens for.
+  const openPromotedAd = useCallback((ad) => {
+    if (ad?.listingType === "meal" || ad?.listingType === "property") {
+      const type = ad.listingType === "meal" ? "restaurant" : "property";
+      window.dispatchEvent(new CustomEvent("marketplace-open-vertical", { detail: { type, item: ad.item } }));
+      return;
+    }
+    openProduct(ad);
+  }, [openProduct]);
+
   useEffect(() => {
     onProductModeChange?.(detailOpen || sellerOpen);
 
@@ -530,7 +542,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
       <PullToRefresh className="space-y-4" onRefresh={() => loadProductsRef.current?.()} disabled={detailOpen || sellerOpen}>
       {/* The advert slider stays in the flow; the search/filter card now drops
           from the header search icon as an attached popover (below). */}
-      <PromotedAdsCarousel onProductSelect={openProduct} />
+      <PromotedAdsCarousel onProductSelect={openPromotedAd} />
 
       {priorityCategory ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">

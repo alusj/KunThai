@@ -15,6 +15,7 @@ import {
   buildRelaxedRecallFilter,
   rankSearchResults,
 } from "./productSearch";
+import { fetchPromotedVerticalListings } from "./marketplaceVerticalService";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -593,9 +594,37 @@ async function loadBuyerMarketplaceProducts(filters = {}) {
 export async function fetchPromotedMarketplaceProducts(limit = 12) {
   return cachedQuery(
     `marketplace-promoted|${getActiveCountryProfile().iso2}|${limit}`,
-    () => loadPromotedMarketplaceProducts(limit),
+    () => loadAllPromotedListings(limit),
     BUYER_DISCOVERY_TTL_MS,
   );
+}
+
+// The Sponsored slider now carries retail products AND promoted meals /
+// properties. Interleave them so verticals stay visible even when products are
+// plentiful.
+async function loadAllPromotedListings(limit = 12) {
+  const [products, verticals] = await Promise.all([
+    loadPromotedMarketplaceProducts(limit).catch(() => []),
+    loadPromotedVerticalAds(limit).catch(() => []),
+  ]);
+
+  if (!verticals.length) return products.slice(0, limit);
+  if (!products.length) return verticals.slice(0, limit);
+
+  const merged = [];
+  const max = Math.max(products.length, verticals.length);
+  for (let index = 0; index < max; index += 1) {
+    if (products[index]) merged.push(products[index]);
+    if (verticals[index]) merged.push(verticals[index]);
+  }
+  return merged.slice(0, limit);
+}
+
+async function loadPromotedVerticalAds(limit = 12) {
+  const ads = await fetchPromotedVerticalListings(limit);
+  if (!ads.length) return [];
+  const scoped = filterCountryScopedItems(ads, (ad) => [ad.country, ad.location]);
+  return scoped.items;
 }
 
 async function loadPromotedMarketplaceProducts(limit = 12) {

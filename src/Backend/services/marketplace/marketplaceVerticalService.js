@@ -2,6 +2,11 @@ import supabase from "../../lib/supabaseClient";
 import { isMissingTable } from "../explore/errors";
 import { optimizeImageFile } from "./imageOptimization";
 import { validateVerticalMediaPackage } from "./verticalMediaValidation";
+import {
+  assertVisibilityCreditsAvailable,
+  MINIMUM_VISIBILITY_CREDITS,
+  normalizeVisibilityCreditSpend,
+} from "../visibilityCreditService";
 
 const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,whatsapp_enabled,whatsapp,logo_url,banner_url,vertical_video_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
 const COUNTRY_TIMEZONES = {
@@ -368,6 +373,40 @@ export async function deletePropertyListing(item) {
   await removeMarketplaceMedia([...(item.image_urls || []), item.video_url]);
 }
 
+// Boost a meal or property into the UrMall "Sponsored" slider using the same
+// Visibility Credits wallet as retail products. `listingType` is "meal" or
+// "property"; `listing` is the saved row (needs an id).
+export async function promoteVerticalListing(listingType, listing, options = {}) {
+  const type = String(listingType || "").toLowerCase();
+  if (!["meal", "property"].includes(type)) {
+    throw new Error("This listing type cannot be promoted. (code: PROMO_BAD_TYPE)");
+  }
+  if (!listing?.id) {
+    throw new Error("Cannot promote: the listing has no saved ID yet. (code: PROMO_NO_ID)");
+  }
+
+  const creditBudget = normalizeVisibilityCreditSpend(options.credits, MINIMUM_VISIBILITY_CREDITS);
+  await assertVisibilityCreditsAvailable(creditBudget);
+  const audienceType = String(options.audience || "countrywide").trim() || "countrywide";
+
+  const { data, error } = await supabase.rpc("create_marketplace_listing_promotion", {
+    p_listing_type: type,
+    p_listing_id: listing.id,
+    p_credit_budget: creditBudget,
+    p_audience_type: audienceType,
+  });
+
+  if (error) throw new Error(`${error.message} (code: PROMO_RPC)`);
+
+  if (typeof window !== "undefined") {
+    // The Sponsored slider listens for products-updated; verticals listen for
+    // their own event.
+    window.dispatchEvent(new CustomEvent("marketplace-products-updated"));
+    window.dispatchEvent(new CustomEvent("marketplace-vertical-listing-updated"));
+  }
+  return data;
+}
+
 export async function createVerticalBooking(product, input = {}) {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const buyerId = authData?.user?.id;
@@ -481,6 +520,80 @@ export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {
     hotels: Array.from(hotelsByBusiness.values()),
     properties: properties.map(normalizeBusinessRow),
   };
+}
+
+function promotedVerticalAd(listingType, row) {
+  const imageUrl = listingType === "meal"
+    ? row.image_url
+    : (Array.isArray(row.image_urls) ? row.image_urls[0] : "");
+  return {
+    id: row.id,
+    listingType,
+    imageUrl: imageUrl || "",
+    name: row.name || row.title || "",
+    seller: { name: row.businessName || "UrMall business" },
+    location: row.city || row.address || "",
+    country: row.country || "",
+    // The raw (business-normalized) row, so tapping the Sponsored card can open
+    // the vertical detail via the "marketplace-open-vertical" event.
+    item: row,
+  };
+}
+
+// Promoted meals & properties for the UrMall Sponsored slider. Returns ad items
+// shaped like promoted products ({ id, imageUrl, seller, ... }) plus a
+// `listingType` and the `item` needed to open the vertical detail.
+export async function fetchPromotedVerticalListings(limit = 12) {
+  const nowIso = new Date().toISOString();
+  const { data: promos, error } = await supabase
+    .from("marketplace_promotions")
+    .select("meal_id,property_id,listing_type,created_at,ends_at,status")
+    .eq("status", "active")
+    .in("listing_type", ["meal", "property"])
+    .gt("ends_at", nowIso)
+    .order("created_at", { ascending: false })
+    .limit(Math.max(limit, 1) * 3);
+
+  if (error || !promos?.length) return [];
+
+  const order = [];
+  const mealIds = [];
+  const propertyIds = [];
+  for (const promo of promos) {
+    if (promo.listing_type === "meal" && promo.meal_id) {
+      order.push({ type: "meal", id: promo.meal_id });
+      mealIds.push(promo.meal_id);
+    } else if (promo.listing_type === "property" && promo.property_id) {
+      order.push({ type: "property", id: promo.property_id });
+      propertyIds.push(promo.property_id);
+    }
+  }
+  if (!mealIds.length && !propertyIds.length) return [];
+
+  const select = `*, marketplace_businesses (${BUSINESS_SELECT})`;
+  const [mealsResult, propertiesResult] = await Promise.all([
+    mealIds.length
+      ? supabase.from("marketplace_restaurant_menu_items").select(select).in("id", mealIds).eq("available", true)
+      : Promise.resolve({ data: [] }),
+    propertyIds.length
+      ? supabase.from("marketplace_property_listings").select(select).in("id", propertyIds).eq("published", true)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const mealById = new Map((mealsResult.data || []).map((row) => [row.id, normalizeBusinessRow(row)]));
+  const propertyById = new Map((propertiesResult.data || []).map((row) => [row.id, normalizeBusinessRow(row)]));
+
+  const ads = [];
+  const seen = new Set();
+  for (const ref of order) {
+    const key = `${ref.type}:${ref.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const row = ref.type === "meal" ? mealById.get(ref.id) : propertyById.get(ref.id);
+    if (row) ads.push(promotedVerticalAd(ref.type, row));
+    if (ads.length >= limit) break;
+  }
+  return ads;
 }
 
 // A buyer vertical earns its own tab once it carries this many live items;

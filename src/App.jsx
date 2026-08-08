@@ -323,8 +323,12 @@ export default function App() {
     setTwoFactorPending(null);
   }, [userId]);
 
+  // The inviter's credit is only granted once the invited account is fully
+  // created and has landed on a dashboard (onboarding complete). Gating the
+  // finalize call on onboardingComplete — not just sign-in — enforces that on
+  // the client; the server RPC re-checks the same condition.
   useEffect(() => {
-    if (!userId || guestSession) return;
+    if (!userId || guestSession || !onboardingComplete) return;
 
     finalizeStoredVisibilityInvite(userId)
       .then((result) => {
@@ -335,7 +339,7 @@ export default function App() {
         }
       })
       .catch(() => {});
-  }, [guestSession, userId]);
+  }, [guestSession, userId, onboardingComplete]);
 
   // A guest visit lives for one tab session only. When the tab was closed and
   // the visitor returns with a leftover anonymous session, the visit ends
