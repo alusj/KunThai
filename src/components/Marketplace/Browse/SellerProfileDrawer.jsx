@@ -533,6 +533,7 @@ export default function SellerProfileDrawer({
   const [storeLocationRows, setStoreLocationRows] = useState([]);
   const [messagePanelOpen, setMessagePanelOpen] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
+  const onNoticeRef = useRef(onNotice);
   const safeSeller = useMemo(() => asObject(seller), [seller]);
   const sellerWhatsAppUrl = useMemo(
     () => buildWhatsAppUrl(safeSeller.whatsapp, t("urmall.seller.whatsappGreeting", { name: safeSeller.name || t("urmall.seller.thereFallback") })),
@@ -547,6 +548,10 @@ export default function SellerProfileDrawer({
     }),
     [reviews],
   );
+
+  useEffect(() => {
+    onNoticeRef.current = onNotice;
+  }, [onNotice]);
 
   useEffect(() => {
     let alive = true;
@@ -585,7 +590,7 @@ export default function SellerProfileDrawer({
           setReviewEligibility(eligibility);
         }
       } catch (err) {
-        if (alive) onNotice?.(err.message || t("urmall.seller.loadProfileFailed"), "danger");
+        if (alive) onNoticeRef.current?.(err.message || t("urmall.seller.loadProfileFailed"), "danger");
       } finally {
         if (alive) setLoadingProfile(false);
       }
@@ -596,7 +601,7 @@ export default function SellerProfileDrawer({
     return () => {
       alive = false;
     };
-  }, [open, safeSeller.id, onNotice]);
+  }, [open, safeSeller.id]);
 
   useBodyScrollLock(open);
 
