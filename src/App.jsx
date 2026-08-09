@@ -21,6 +21,7 @@ import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import { captureVisibilityInviteFromLocation, finalizeStoredVisibilityInvite } from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
+import { haptics } from "./Backend/services/feedbackService";
 import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed, runConnectivityChecks } from "./Backend/services/networkService";
 import supabase from "./Backend/lib/supabaseClient";
 
@@ -557,6 +558,10 @@ export default function App() {
     if (!nextPage || nextPage === page) {
       return;
     }
+
+    // A short vibration confirms every move between the three main screens
+    // (Explore / UrMall / UrRide), whether by bottom tab or swipe.
+    haptics.light();
 
     const currentIndex = PAGE_ORDER.indexOf(page);
     const nextIndex = PAGE_ORDER.indexOf(nextPage);

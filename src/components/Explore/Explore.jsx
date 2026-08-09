@@ -107,6 +107,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
   const [drawerDragging, setDrawerDragging] = useState(false);
   const [drawerMountedByDrag, setDrawerMountedByDrag] = useState(false);
+  const [drawerClosing, setDrawerClosing] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [headerOverlayOpen, setHeaderOverlayOpen] = useState(false);
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
@@ -265,7 +266,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   useEffect(() => {
     if (!active) {
       stopAllExploreMedia();
+      window.clearTimeout(dragSettleTimerRef.current);
       setLeftDrawerOpen(false);
+      setDrawerClosing(false);
+      setDrawerMountedByDrag(false);
     }
   }, [active]);
 
@@ -958,6 +962,46 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }, TAB_DRAG_SETTLE_MS + 30);
   }
 
+  // Animate the Social drawer shut (slide left + fade the backdrop) before it
+  // unmounts, so closing feels as smooth as the swipe that opened it instead of
+  // vanishing instantly.
+  function closeLeftDrawer() {
+    const aside = drawerAsideRef.current;
+    const backdrop = drawerBackdropRef.current;
+
+    if (!aside && !backdrop) {
+      setLeftDrawerOpen(false);
+      setDrawerMountedByDrag(false);
+      return;
+    }
+
+    setDrawerClosing(true);
+    const width = getDrawerWidth();
+    if (aside) {
+      aside.style.transition = `transform ${TAB_DRAG_SETTLE_MS}ms ease-in`;
+      aside.style.transform = `translate3d(${-width}px, 0, 0)`;
+    }
+    if (backdrop) {
+      backdrop.style.transition = `opacity ${TAB_DRAG_SETTLE_MS}ms ease-in`;
+      backdrop.style.opacity = "0";
+    }
+
+    window.clearTimeout(dragSettleTimerRef.current);
+    dragSettleTimerRef.current = window.setTimeout(() => {
+      setLeftDrawerOpen(false);
+      setDrawerMountedByDrag(false);
+      setDrawerClosing(false);
+      if (aside) {
+        aside.style.transition = "";
+        aside.style.transform = "";
+      }
+      if (backdrop) {
+        backdrop.style.transition = "";
+        backdrop.style.opacity = "";
+      }
+    }, TAB_DRAG_SETTLE_MS + 20);
+  }
+
   function finishTabDrag(gesture, rawDeltaX, velocity) {
     const activeNode = tabPanelRefs.current[activeTab];
     const incoming = tabPanelRefs.current[gesture.incomingTab];
@@ -1478,7 +1522,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       </div>
 
     </div>
-    {leftDrawerOpen || drawerDragging ? (
+    {leftDrawerOpen || drawerDragging || drawerClosing ? (
       <div className="fixed inset-0 z-[75] flex h-screen w-screen overflow-hidden">
         <button
           type="button"
@@ -1486,18 +1530,18 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           aria-label="Close social menu"
           className="absolute inset-0 bg-slate-950/30"
           style={drawerMountedByDrag && !leftDrawerOpen ? { opacity: 0 } : undefined}
-          onClick={() => setLeftDrawerOpen(false)}
+          onClick={closeLeftDrawer}
         />
         <aside
           ref={drawerAsideRef}
           style={drawerMountedByDrag && !leftDrawerOpen ? { transform: "translate3d(-100%, 0, 0)" } : undefined}
-          className={`${drawerMountedByDrag ? "" : "kt-explore-stack-enter-left"} relative z-10 flex h-full w-[min(78vw,390px)] min-w-[260px] max-w-sm flex-col bg-white shadow-2xl`}
+          className={`${drawerMountedByDrag || drawerClosing ? "" : "kt-explore-stack-enter-left"} relative z-10 flex h-full w-[min(78vw,390px)] min-w-[260px] max-w-sm flex-col bg-white shadow-2xl`}
         >
           <header className="border-b border-slate-200 px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
-                onClick={() => setLeftDrawerOpen(false)}
+                onClick={closeLeftDrawer}
                 className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-black text-slate-800 shadow-sm"
                 aria-label="Close menu"
               >
@@ -1513,7 +1557,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             compact
             currentProfile={profile}
             spaces={spaceProfiles}
-            onClose={() => setLeftDrawerOpen(false)}
+            onClose={closeLeftDrawer}
             onCreateSpace={() => openMenuScreen("CreateSpace")}
             onNavigate={(screen, options) => {
               setLeftDrawerOpen(false);

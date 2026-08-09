@@ -259,6 +259,13 @@ export default function PostMedia({ post, imageOnly = false }) {
               aria-modal="true"
               aria-label={t("post.fullScreenViewer")}
               style={{ touchAction: "none" }}
+              // The viewer drives itself with pointer events; swallow the parallel
+              // touch events so panning a zoomed image never bubbles up to the
+              // Explore tab/drawer swipe (which left the Social menu open after
+              // returning to the feed).
+              onTouchStart={(event) => event.stopPropagation()}
+              onTouchMove={(event) => event.stopPropagation()}
+              onTouchEnd={(event) => event.stopPropagation()}
               {...viewerGestures.stageHandlers}
             >
               <div
