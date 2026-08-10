@@ -460,13 +460,28 @@ export async function deleteBuyerDeliveryAddress(addressId) {
   if (!addressId || String(addressId).startsWith("local-")) return true;
 
   const buyerId = await getCurrentUserId("Sign in to delete your delivery address.");
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("marketplace_buyer_delivery_addresses")
     .delete()
     .eq("id", addressId)
-    .eq("buyer_id", buyerId);
+    .eq("buyer_id", buyerId)
+    .select("id");
 
   if (error) throw new Error(error.message);
+  if ((data || []).some((row) => String(row.id) === String(addressId))) return true;
+
+  // PostgREST can return a successful response when RLS prevents every row
+  // from being deleted. Verify that the row is actually gone so the client can
+  // keep its local deletion safeguard instead of restoring it on refresh.
+  const { data: remaining, error: verifyError } = await supabase
+    .from("marketplace_buyer_delivery_addresses")
+    .select("id")
+    .eq("id", addressId)
+    .eq("buyer_id", buyerId)
+    .maybeSingle();
+
+  if (verifyError) throw new Error(verifyError.message);
+  if (remaining) throw new Error("The delivery address could not be deleted. Please try again.");
   return true;
 }
 

@@ -9,18 +9,21 @@ import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { fetchBuyerDeliveryAddresses } from "../../../../Backend/services/marketplace/buyerMarketplaceService";
 import { useI18n, t } from "../../../../i18n";
+import {
+  BUYER_ADDRESS_SELECTED_EVENT,
+  findPreferredBuyerAddress,
+  getBuyerAddressKey,
+  mergeRemoteBuyerAddresses,
+  readBuyerAddressList,
+  writeBuyerAddressList,
+  writeBuyerAddressPreference,
+} from "../../shared/buyerAddressPreferences";
 import CartItem from "./CartItem";
 
-const BUYER_ADDRESSES_KEY = "marketplace-buyer-addresses";
 const BUYER_PAYMENT_KEY = "marketplace-buyer-payment";
 
 function readSavedAddresses() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(BUYER_ADDRESSES_KEY) || "[]");
-    return Array.isArray(saved) ? saved : [];
-  } catch {
-    return [];
-  }
+  return readBuyerAddressList();
 }
 
 function readPaymentPreference() {
@@ -68,17 +71,37 @@ export default function CartDrawer({
 
     setPaymentPreference(readPaymentPreference());
     const localAddresses = readSavedAddresses();
+    const preferredLocalAddress = findPreferredBuyerAddress(localAddresses);
     setSavedAddresses(localAddresses);
-    setSelectedAddressId((current) => current || localAddresses[0]?.id || "");
+    setSelectedAddressId(preferredLocalAddress?.id || "");
 
     fetchBuyerDeliveryAddresses()
       .then((addresses) => {
-        if (!addresses.length) return;
-        setSavedAddresses(addresses);
-        setSelectedAddressId((current) => current || addresses[0]?.id || "");
-        localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(addresses));
+        const visibleAddresses = mergeRemoteBuyerAddresses(addresses);
+        const preferredAddress = findPreferredBuyerAddress(visibleAddresses);
+        setSavedAddresses(visibleAddresses);
+        setSelectedAddressId((current) => visibleAddresses.some((address) => String(address.id) === String(current))
+          ? current
+          : preferredAddress?.id || "");
+        writeBuyerAddressList(visibleAddresses);
       })
       .catch(() => null);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function handleAddressSelected(event) {
+      const nextAddress = event.detail?.address || null;
+      const addresses = readBuyerAddressList();
+      setSavedAddresses(addresses);
+      const selected = nextAddress
+        ? addresses.find((address) => getBuyerAddressKey(address) === getBuyerAddressKey(nextAddress))
+        : null;
+      setSelectedAddressId(selected?.id || "");
+    }
+
+    window.addEventListener(BUYER_ADDRESS_SELECTED_EVENT, handleAddressSelected);
+    return () => window.removeEventListener(BUYER_ADDRESS_SELECTED_EVENT, handleAddressSelected);
   }, [open]);
 
   useBodyScrollLock(open);
@@ -175,7 +198,10 @@ export default function CartDrawer({
                   <button
                     key={address.id || `${address.category}-${getAddressText(address)}`}
                     type="button"
-                    onClick={() => setSelectedAddressId(address.id)}
+                    onClick={() => {
+                      setSelectedAddressId(address.id);
+                      writeBuyerAddressPreference(address);
+                    }}
                     className={`kt-touchable flex w-full items-start gap-2 rounded-xl border p-3 text-left ${
                       selected ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white"
                     }`}

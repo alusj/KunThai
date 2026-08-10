@@ -43,9 +43,12 @@ import {
   submitProductReview,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { MarketplaceVerificationBadge, MarketplaceVerificationInline, MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
-
-const BUYER_ADDRESS_KEY = "marketplace-buyer-address";
-const BUYER_ADDRESSES_KEY = "marketplace-buyer-addresses";
+import {
+  mergeRemoteBuyerAddresses,
+  readBuyerAddressList,
+  readBuyerAddressPreference,
+  writeBuyerAddressList,
+} from "../shared/buyerAddressPreferences";
 
 function mapSavedAddressToOrder(address = {}) {
   return {
@@ -61,31 +64,14 @@ function mapSavedAddressToOrder(address = {}) {
 }
 
 function readSavedAddresses() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(BUYER_ADDRESSES_KEY) || "[]");
-    if (Array.isArray(saved)) return saved;
-  } catch {
-    // Local suggestions are optional.
-  }
-  return [];
+  return readBuyerAddressList();
 }
 
 function readDefaultAddress() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(BUYER_ADDRESS_KEY) || "null");
-    if (saved && typeof saved === "object") {
-      return mapSavedAddressToOrder(saved);
-    }
-  } catch {
-    // Older saved addresses were plain strings.
-  }
-
-  try {
-    const legacyAddress = localStorage.getItem(BUYER_ADDRESS_KEY) || "";
-    return { addressType: "Resident", buyerName: "", phone: "", address: legacyAddress, detectedAddress: "", coordinates: null, note: "" };
-  } catch {
-    return { addressType: "Resident", buyerName: "", phone: "", address: "", detectedAddress: "", coordinates: null, note: "" };
-  }
+  const saved = readBuyerAddressPreference();
+  return saved
+    ? mapSavedAddressToOrder(saved)
+    : { addressType: "Resident", buyerName: "", phone: "", address: "", detectedAddress: "", coordinates: null, note: "" };
 }
 
 function getAddressLabel(address) {
@@ -812,10 +798,9 @@ export default function ProductDetailDrawer({
 
     try {
       const remoteAddresses = await fetchBuyerDeliveryAddresses();
-      if (remoteAddresses.length) {
-        setSavedAddresses(remoteAddresses);
-        localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(remoteAddresses));
-      }
+      const visibleAddresses = mergeRemoteBuyerAddresses(remoteAddresses);
+      setSavedAddresses(visibleAddresses);
+      writeBuyerAddressList(visibleAddresses);
     } catch {
       // Keep local suggestions if the address table has not been applied yet.
     }

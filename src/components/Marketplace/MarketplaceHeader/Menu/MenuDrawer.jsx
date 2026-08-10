@@ -50,9 +50,19 @@ import {
 import Orders from "../../Orders";
 import AdminRolesPanel from "../../shared/AdminRolesPanel";
 import UrMallCautionCard from "../../shared/UrMallCautionCard";
+import {
+  clearBuyerAddressDeleted,
+  findPreferredBuyerAddress,
+  getBuyerAddressKey,
+  markBuyerAddressDeleted,
+  mergeRemoteBuyerAddresses,
+  readBuyerAddressList,
+  readBuyerAddressPreference,
+  restoreBuyerAddress,
+  writeBuyerAddressList,
+  writeBuyerAddressPreference,
+} from "../../shared/buyerAddressPreferences";
 
-const BUYER_ADDRESS_KEY = "marketplace-buyer-address";
-const BUYER_ADDRESSES_KEY = "marketplace-buyer-addresses";
 const BUYER_PAYMENT_KEY = "marketplace-buyer-payment";
 const RECENT_PRODUCTS_KEY = "marketplace-recent-products";
 const addressTypes = ["Resident", "Office", "Market", "School", "Other"];
@@ -79,38 +89,20 @@ function readLocalValue(key) {
 }
 
 function readBuyerAddress() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(BUYER_ADDRESS_KEY) || "null");
-    if (saved && typeof saved === "object") {
-      return {
-        id: saved.id || "",
-        category: saved.category || saved.type || "Resident",
-        customCategory: saved.customCategory || "",
-        fullName: saved.fullName || saved.name || "",
-        phone: saved.phone || "",
-        street: saved.street || saved.address || "",
-        note: saved.note || "",
-        frontPictureUrl: saved.frontPictureUrl || "",
-        detectedAddress: saved.detectedAddress || "",
-        coordinates: saved.coordinates || null,
-      };
-    }
-  } catch {
-    const legacyAddress = readLocalValue(BUYER_ADDRESS_KEY);
-    if (legacyAddress) {
-      return {
-        id: "",
-        category: "Resident",
-        customCategory: "",
-        fullName: "",
-        phone: "",
-        street: legacyAddress,
-        note: "",
-        frontPictureUrl: "",
-        detectedAddress: "",
-        coordinates: null,
-      };
-    }
+  const saved = readBuyerAddressPreference();
+  if (saved) {
+    return {
+      id: saved.id || "",
+      category: saved.category || saved.type || "Resident",
+      customCategory: saved.customCategory || "",
+      fullName: saved.fullName || saved.name || "",
+      phone: saved.phone || "",
+      street: saved.street || saved.address || "",
+      note: saved.note || "",
+      frontPictureUrl: saved.frontPictureUrl || "",
+      detectedAddress: saved.detectedAddress || "",
+      coordinates: saved.coordinates || null,
+    };
   }
 
   return {
@@ -128,12 +120,7 @@ function readBuyerAddress() {
 }
 
 function readBuyerAddresses() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(BUYER_ADDRESSES_KEY) || "[]");
-    return Array.isArray(saved) ? saved : [];
-  } catch {
-    return [];
-  }
+  return readBuyerAddressList();
 }
 
 function getAddressLabel(address) {
@@ -141,7 +128,7 @@ function getAddressLabel(address) {
 }
 
 function getAddressActionKey(address = {}) {
-  return address.id || `${address.category || "Resident"}-${address.street || address.detectedAddress || "address"}`;
+  return getBuyerAddressKey(address);
 }
 
 function getAddressShareText(address) {
@@ -153,13 +140,11 @@ function getAddressShareText(address) {
 }
 
 function writeBuyerAddress(address) {
-  if (address) localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(address));
-  else localStorage.removeItem(BUYER_ADDRESS_KEY);
-  window.dispatchEvent(new CustomEvent("marketplace-delivery-address-selected", { detail: { address } }));
+  writeBuyerAddressPreference(address);
 }
 
 function writeBuyerAddresses(addresses) {
-  localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(addresses));
+  writeBuyerAddressList(addresses);
 }
 
 function createEmptyAddress(profile = {}) {
@@ -383,16 +368,12 @@ export default function MenuDrawer({ open, onClose }) {
       .catch(() => null);
     fetchBuyerDeliveryAddresses()
       .then((addresses) => {
-        if (addresses.length) {
-          setSavedAddresses(addresses);
-          // Preserve the address the user picked with "Use for next order"
-          // instead of always snapping back to the first one on reopen.
-          const activeKey = getAddressActionKey(readBuyerAddress());
-          const active = addresses.find((item) => getAddressActionKey(item) === activeKey) || addresses[0];
-          setAddress(active);
-          localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(active));
-          localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(addresses));
-        }
+        const mergedAddresses = mergeRemoteBuyerAddresses(addresses);
+        const activeAddress = findPreferredBuyerAddress(mergedAddresses);
+        setSavedAddresses(mergedAddresses);
+        setAddress(activeAddress ? { ...createEmptyAddress(), ...activeAddress } : createEmptyAddress());
+        writeBuyerAddressPreference(activeAddress, { notify: false });
+        writeBuyerAddressList(mergedAddresses);
       })
       .catch(() => null);
     fetchSavedBuyerProducts()
@@ -434,12 +415,14 @@ export default function MenuDrawer({ open, onClose }) {
   async function saveAddress() {
     const localId = address.id || `local-address-${Date.now()}`;
     const localAddress = { ...address, id: localId };
+    restoreBuyerAddress(localAddress);
     const nextAddresses = [localAddress, ...savedAddresses.filter((item) => item.id !== localId)];
     setSavedAddresses(nextAddresses);
     writeBuyerAddress(localAddress);
     writeBuyerAddresses(nextAddresses);
     try {
       const savedAddress = await saveBuyerDeliveryAddress(address);
+      restoreBuyerAddress(savedAddress);
       const syncedAddresses = [savedAddress, ...nextAddresses.filter((item) => item.id !== localId && item.id !== savedAddress.id)];
       setSavedAddresses(syncedAddresses);
       writeBuyerAddress(savedAddress);
@@ -525,18 +508,13 @@ export default function MenuDrawer({ open, onClose }) {
 
   async function removeAddress(addressKey, nextAddress) {
     setAddressActionMenuId("");
+    const deletingActiveAddress = getAddressActionKey(readBuyerAddressPreference() || {}) === addressKey;
+    markBuyerAddressDeleted(nextAddress);
     const nextAddresses = savedAddresses.filter((item) => getAddressActionKey(item) !== addressKey);
     setSavedAddresses(nextAddresses);
     writeBuyerAddresses(nextAddresses);
 
-    let activeAddress = null;
-    try {
-      activeAddress = JSON.parse(localStorage.getItem(BUYER_ADDRESS_KEY) || "null");
-    } catch {
-      activeAddress = null;
-    }
-
-    if (getAddressActionKey(activeAddress || {}) === addressKey) {
+    if (deletingActiveAddress) {
       const replacement = nextAddresses[0] || null;
       writeBuyerAddress(replacement);
       setAddress(replacement ? { ...createEmptyAddress(), ...replacement } : createEmptyAddress());
@@ -548,6 +526,7 @@ export default function MenuDrawer({ open, onClose }) {
 
     try {
       await deleteBuyerDeliveryAddress(nextAddress.id);
+      clearBuyerAddressDeleted(nextAddress);
       setMessage(t("urmall.menu.addressRemoved"));
     } catch {
       setMessage(t("urmall.menu.addressRemovedLocal"));

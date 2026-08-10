@@ -30,6 +30,7 @@ import {
   validateCountryPhone,
 } from "../../../data/globalCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
+import { getNextTransportPlace } from "../../services/passengerTransportService";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
@@ -251,6 +252,14 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
     const nextSelection = selectionFromTarget(target);
     const draftForm = target?.draftForm || null;
+    const preferredPickup = normalizeLocationPoint(getNextTransportPlace("pickup"));
+    const preferredDropoff = normalizeLocationPoint(getNextTransportPlace("dropoff"));
+    const targetPickup = target?.pickup || target?.movement?.pickup || draftForm?.pickup || "";
+    const targetDropoff = target?.destination || target?.movement?.destination || draftForm?.dropoff || "";
+    const targetPickupPoint = normalizeLocationPoint(target?.pickupPoint || target?.movement?.pickupPoint) || draftForm?.pickupPoint || null;
+    const targetDropoffPoint = normalizeLocationPoint(target?.destinationPoint || target?.movement?.destinationPoint) || draftForm?.dropoffPoint || null;
+    const usePreferredPickup = !targetPickup && !targetPickupPoint;
+    const usePreferredDropoff = !targetDropoff && !targetDropoffPoint;
     setSelection(nextSelection);
     setStatus("");
     setRouteEstimate(null);
@@ -259,10 +268,10 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     setForm((current) => ({
       ...current,
       ...(draftForm || {}),
-      pickup: target?.pickup || target?.movement?.pickup || draftForm?.pickup || current.pickup,
-      dropoff: target?.destination || target?.movement?.destination || draftForm?.dropoff || current.dropoff,
-      pickupPoint: normalizeLocationPoint(target?.pickupPoint || target?.movement?.pickupPoint) || draftForm?.pickupPoint || current.pickupPoint,
-      dropoffPoint: normalizeLocationPoint(target?.destinationPoint || target?.movement?.destinationPoint) || draftForm?.dropoffPoint || current.dropoffPoint,
+      pickup: targetPickup || (usePreferredPickup ? getLocationInputValue(preferredPickup) : ""),
+      dropoff: targetDropoff || (usePreferredDropoff ? getLocationInputValue(preferredDropoff) : ""),
+      pickupPoint: targetPickupPoint || (usePreferredPickup ? preferredPickup : null),
+      dropoffPoint: targetDropoffPoint || (usePreferredDropoff ? preferredDropoff : null),
       packageDescription: draftForm?.packageDescription || "",
       note: draftForm?.note || "",
     }));

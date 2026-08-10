@@ -267,6 +267,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const [locationPickerMode, setLocationPickerMode] = useState(null);
   const [locationCautionOpen, setLocationCautionOpen] = useState(false);
@@ -276,9 +277,6 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const longitude = form.coordinates?.longitude ?? form.coordinates?.lng;
   const hasLocation = latitude != null && longitude != null;
   const formTopRef = useRef(null);
-  // In edit mode the form is loaded from the company once; a later parent
-  // update (e.g. after an in-place save) must not reset the seller's edits.
-  const editInitializedRef = useRef(false);
   const statusClassName = statusTone === "error"
     ? "border-rose-200 bg-rose-50 text-rose-800"
     : statusTone === "success"
@@ -317,53 +315,54 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }, [step]);
 
   useEffect(() => {
-    // Once the edit form is populated, ignore further existingCompany changes so
-    // saving in place (which refreshes the parent company) can't wipe edits.
-    if (editing && editInitializedRef.current) return undefined;
-    if (editing) editInitializedRef.current = true;
-
     let alive = true;
 
     async function loadContext() {
-      const profile = await getOnboardingProfile().catch(() => null);
-      const draft = await getTransportCompanyDraft().catch(() => null);
-      if (!alive) return;
+      try {
+        const [profile, draft] = await Promise.all([
+          getOnboardingProfile().catch(() => null),
+          addOperatorMode ? Promise.resolve(null) : getTransportCompanyDraft().catch(() => null),
+        ]);
+        if (!alive) return;
 
-      const source = existingCompany || (addOperatorMode ? null : draft);
-      if (source?.companyName || source?.company?.companyName) {
-        const company = source.company || source;
-        const nextForm = {
-          ...createCompanyForm(profile || {}),
-          ...company,
-          ownerPublicId: company.ownerPublicId || getKunThaiPublicUserId({ ...(profile || {}), userId: source.userId }),
-          documents: company.documents || {},
-        };
+        const source = existingCompany || draft;
+        if (source?.companyName || source?.company?.companyName) {
+          const company = source.company || source;
+          const nextForm = {
+            ...createCompanyForm(profile || {}),
+            ...company,
+            ownerPublicId: company.ownerPublicId || getKunThaiPublicUserId({ ...(profile || {}), userId: source.userId }),
+            documents: company.documents || {},
+          };
+          setForm(nextForm);
+          setFleets(addOperatorMode
+            ? [createFleetDraft(0, nextForm)]
+            : sanitizeCompanyFleetsForCountry(
+                (source.fleets || [createFleetDraft(0, nextForm)]).length ? source.fleets : [createFleetDraft(0, nextForm)],
+                nextForm,
+              ));
+          setAreaText((company.operatingAreas || []).join(", "));
+          setStep(addOperatorMode ? 2 : source.step || 0);
+          setMaxStepReached(addOperatorMode ? 2 : source.maxStepReached || source.step || 0);
+          return;
+        }
+
+        const nextForm = createCompanyForm(profile || {});
         setForm(nextForm);
-        setFleets(addOperatorMode
-          ? [createFleetDraft(0, nextForm)]
-          : sanitizeCompanyFleetsForCountry(
-              (source.fleets || [createFleetDraft(0, nextForm)]).length ? source.fleets : [createFleetDraft(0, nextForm)],
-              nextForm,
-            ));
-        setAreaText((company.operatingAreas || []).join(", "));
-        setStep(addOperatorMode ? 2 : source.step || 0);
-        setMaxStepReached(addOperatorMode ? 2 : source.maxStepReached || source.step || 0);
-        return;
+        setFleets((items) => sanitizeCompanyFleetsForCountry(items, nextForm));
+      } finally {
+        if (alive) setInitializing(false);
       }
-
-      const nextForm = createCompanyForm(profile || {});
-      setForm(nextForm);
-      setFleets((items) => sanitizeCompanyFleetsForCountry(items, nextForm));
     }
 
     loadContext();
     return () => {
       alive = false;
     };
-    // `editing` is derived from addOperatorMode + existingCompany, which are the
-    // real triggers; the one-time guard above handles re-entry.
+    // Capture the opening company/mode once. Parent subscription refreshes must
+    // never replace fields while somebody is typing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addOperatorMode, existingCompany]);
+  }, []);
 
   const companyDocumentRequirements = useMemo(() => getUrRideCompanyDocumentRequirements({
     country: form.country,
@@ -371,7 +370,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }), [form.country, form.countryCode]);
 
   useEffect(() => {
-    setFleets((items) => sanitizeCompanyFleetsForCountry(items, form));
+    setFleets((items) => sanitizeCompanyFleetsForCountry(items, {
+      country: form.country,
+      countryCode: form.countryCode,
+    }));
   }, [form.country, form.countryCode]);
 
   const completion = useMemo(() => {
@@ -859,14 +861,21 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           </div>
         </aside> : null}
 
-        <section className="min-w-0 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+        <section aria-busy={initializing ? "true" : undefined} className="min-w-0 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
           {status ? (
             <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${statusClassName}`}>
               {status}
             </div>
           ) : null}
 
-          {editing ? (
+          {initializing ? (
+            <div className="grid min-h-72 place-items-center" role="status" aria-live="polite">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <span className="h-10 w-10 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" aria-hidden="true" />
+                <p className="text-sm font-black text-slate-600">{t("urride.common.loading")}</p>
+              </div>
+            </div>
+          ) : editing ? (
             <CompanyEditSections
               openSection={openSection}
               onToggle={setOpenSection}
@@ -971,7 +980,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           </StepSlideTransition>
           )}
 
-          {editing ? null : (
+          {initializing || editing ? null : (
           <div className="mt-6 border-t border-slate-100 pt-4">
             {status && statusTone === "error" ? (
               <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${statusClassName}`}>
