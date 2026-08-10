@@ -10,7 +10,6 @@ import {
   FiFileText,
   FiMapPin,
   FiPlus,
-  FiSearch,
   FiShield,
   FiTrash2,
   FiTruck,
@@ -31,6 +30,7 @@ import {
 import AppBackTab from "../../shared/AppBackTab";
 import AccountSetupLoader from "../../shared/AccountSetupLoader";
 import CenteredModal from "../../shared/CenteredModal";
+import KunThaiIdHelpButton from "../../shared/KunThaiIdHelpButton";
 import { AddressAreaStatusIcon, useAddressAreaValidation } from "../../shared/AddressAreaValidation";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
@@ -1358,39 +1358,25 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
-  const [lookingUp, setLookingUp] = useState(false);
+  const [, setLookingUp] = useState(false);
   const [activePricingGuide, setActivePricingGuide] = useState("");
+  const acceptedPublicIdsKey = acceptedPublicIds.join("|");
+  const acceptedPublicIdSet = useMemo(
+    () => new Set(acceptedPublicIdsKey.split("|").filter(Boolean)),
+    [acceptedPublicIdsKey],
+  );
   const serviceCategoryOptions = getCompanyServiceCategoryOptions(form);
   const fleetTypeOptions = getCompanyFleetTypeOptions(form, fleet.serviceCategory);
 
   const applyLookupResult = useCallback((match) => {
-    if (match && acceptedPublicIds.includes(compactPublicId(match.publicId))) {
+    if (match && acceptedPublicIdSet.has(compactPublicId(match.publicId))) {
       setOperatorMatch(null);
       setLookupStatus(t("urride.companyReg.lookupAlreadyAccepted"));
       return;
     }
     setOperatorMatch(match);
     setLookupStatus(match ? t("urride.companyReg.lookupAvailable", { name: match.name }) : t("urride.companyReg.lookupNotFound"));
-  }, [acceptedPublicIds]);
-
-  async function lookupOperator(query = operatorId) {
-    const target = String(query || "").trim();
-    if (!target) {
-      setLookupStatus(t("urride.companyReg.lookupEnterFirst"));
-      return;
-    }
-
-    setLookingUp(true);
-    setLookupStatus(t("urride.companyReg.lookupChecking"));
-    try {
-      const match = await lookupTransportOperatorByKunThaiId(target);
-      applyLookupResult(match);
-    } catch (error) {
-      setLookupStatus(error.message || t("urride.companyReg.lookupError"));
-    } finally {
-      setLookingUp(false);
-    }
-  }
+  }, [acceptedPublicIdSet]);
 
   useEffect(() => {
     const target = operatorId.trim();
@@ -1422,7 +1408,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
       } finally {
         if (alive) setLookingUp(false);
       }
-    }, 450);
+    }, 320);
 
     return () => {
       alive = false;
@@ -1518,32 +1504,34 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
       <div data-field-error={errors[`${fleet.localId}-operators`] ? "true" : undefined} className={`mt-5 rounded-3xl border bg-white p-4 ${errors[`${fleet.localId}-operators`] ? "border-rose-200" : "border-blue-100"}`}>
         <div className="flex items-start gap-3">
           <FiUserPlus className="mt-1 text-blue-700" />
-          <div>
+          <div className="min-w-0 flex-1">
             <h4 className="font-black text-slate-950">{t("urride.companyReg.addOperatorHeading")}</h4>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
               {t("urride.companyReg.addOperatorBody")}
             </p>
           </div>
+          <KunThaiIdHelpButton subject="operator" tone="blue" />
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="mt-4">
           <input
             value={operatorId}
-            onChange={(event) => setOperatorId(event.target.value)}
+            onChange={(event) => setOperatorId(event.target.value.toUpperCase())}
             placeholder={t("urride.companyReg.operatorIdPlaceholder")}
-            className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+            autoCapitalize="characters"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label={t("urride.companyReg.addOperatorHeading")}
+            className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black uppercase tracking-wide outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
           />
-          <button type="button" onClick={() => lookupOperator()} disabled={lookingUp} className="h-11 rounded-2xl border border-slate-950 bg-white px-5 text-sm font-black text-slate-950 disabled:opacity-60">
-            <span className="flex items-center justify-center gap-2"><FiSearch /> {lookingUp ? t("urride.companyReg.checking") : t("urride.companyReg.check")}</span>
-          </button>
         </div>
         {errors[`${fleet.localId}-operators`] ? <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{errors[`${fleet.localId}-operators`]}</p> : null}
         {lookupStatus ? (
-          <p className={`mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupStatus.includes("not found") || lookupStatus.includes("Unable") ? "text-rose-700" : "text-slate-600"}`}>
+          <p aria-live="polite" className={`kt-modal-enter mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupStatus.includes("not found") || lookupStatus.includes("Unable") ? "text-rose-700" : "text-slate-600"}`}>
             {lookupStatus}
           </p>
         ) : null}
         {operatorMatch ? (
-          <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-blue-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="kt-modal-enter mt-3 flex flex-col gap-3 rounded-2xl border border-blue-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-black text-slate-950">{operatorMatch.name}</p>
               <p className="text-xs font-bold text-blue-700">{operatorMatch.publicId} {operatorMatch.city ? `- ${operatorMatch.city}` : ""}</p>

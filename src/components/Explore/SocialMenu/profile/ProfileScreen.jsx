@@ -204,6 +204,22 @@ export default function ProfileScreen({
     }
   }
 
+  async function handleTransferCredits(kunThaiId, amount) {
+    try {
+      const result = await credits.transfer(kunThaiId, amount);
+      const recipientName = result?.recipientName || "the recipient";
+      const message = `${Number(result?.amount || amount)} Visibility Credits shared with ${recipientName}.`;
+      setFeedback(message);
+      showToast(message, "success", { title: "Credits shared" });
+      return result;
+    } catch (error) {
+      const message = error.message || "Unable to share Visibility Credits.";
+      setFeedback(message);
+      showToast(message, "danger");
+      throw error;
+    }
+  }
+
 
   async function blockProfile() {
     if (isSpace) {
@@ -377,6 +393,7 @@ export default function ProfileScreen({
           </section>
         ) : null}
         <ProfileHeaderCard
+          currentUserId={currentUserId}
           editable={editable}
           editing={editing}
           coverInputRef={coverInputRef}
@@ -398,9 +415,11 @@ export default function ProfileScreen({
           }}
           onFollow={followProfile}
           onMessage={() => onStartChat?.(values)}
+          onLookupCreditRecipient={credits.lookupRecipient}
           onReport={reportProfile}
           onShare={handleShare}
           onShareCredits={handleShareCredits}
+          onTransferCredits={handleTransferCredits}
           saving={saving}
           creditLoading={credits.loading}
           creditWallet={editable && !isSpace ? credits.wallet : null}

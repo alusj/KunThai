@@ -34,6 +34,7 @@ import { resolvePublicCode, detectPublicCodeKind } from "../../../../Backend/ser
 import { showToast } from "../../../../Backend/services/toastService";
 import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
+import KunThaiIdHelpButton from "../../../shared/KunThaiIdHelpButton";
 
 const INVITE_INITIAL = {
   kunthaiId: "",
@@ -246,7 +247,7 @@ export default function SpaceDashboardScreen({
       } catch {
         if (alive) setInviteLookup({ status: "notFound", name: "", message: "Unable to check this ID right now." });
       }
-    }, 450);
+    }, 320);
 
     return () => {
       alive = false;
@@ -401,14 +402,14 @@ export default function SpaceDashboardScreen({
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <Field label="KunThai ID">
-              <input value={invite.kunthaiId} onChange={(event) => setInvite((current) => ({ ...current, kunthaiId: event.target.value }))} placeholder="KTU-..." className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200" />
+            <Field label="KunThai ID" action={<KunThaiIdHelpButton subject="team member" tone="sky" />}>
+              <input value={invite.kunthaiId} onChange={(event) => setInvite((current) => ({ ...current, kunthaiId: event.target.value.toUpperCase() }))} placeholder="KTU-XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" spellCheck={false} aria-label="Team member KunThai ID" className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold uppercase tracking-wide text-slate-900 outline-none transition focus:bg-white focus:ring-4 focus:ring-sky-100" />
               {inviteLookup.status === "found" ? (
-                <p className="mt-1.5 text-xs font-black text-emerald-600">✓ {inviteLookup.name}</p>
+                <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-black text-emerald-600">✓ {inviteLookup.name}</p>
               ) : inviteLookup.status === "checking" ? (
-                <p className="mt-1.5 text-xs font-bold text-slate-500">{inviteLookup.message}</p>
+                <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-bold text-slate-500">{inviteLookup.message}</p>
               ) : inviteLookup.message ? (
-                <p className="mt-1.5 text-xs font-bold text-rose-600">{inviteLookup.message}</p>
+                <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-bold text-rose-600">{inviteLookup.message}</p>
               ) : null}
             </Field>
             <Field label="Role">
@@ -485,12 +486,24 @@ function Metric({ label, value }) {
   );
 }
 
-function Field({ children, label }) {
+function Field({ action = null, children, label }) {
+  if (!action) {
+    return (
+      <label className="block">
+        <span className="mb-2 block min-h-8 text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</span>
+        {children}
+      </label>
+    );
+  }
+
   return (
-    <label className="block">
-      <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</span>
+    <div className="block">
+      <span className="mb-2 flex min-h-8 items-center justify-between gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+        {label}
+        {action}
+      </span>
       {children}
-    </label>
+    </div>
   );
 }
 

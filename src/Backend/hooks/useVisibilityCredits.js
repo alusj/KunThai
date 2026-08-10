@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   fetchVisibilityCreditWallet,
+  lookupVisibilityCreditRecipient,
   shareVisibilityInviteLink,
+  transferVisibilityCredits,
 } from "../services/visibilityCreditService";
 
 const DEFAULT_WALLET = {
@@ -71,6 +73,14 @@ export function useVisibilityCredits({ enabled = true } = {}) {
     return nextWallet;
   }, []);
 
+  const lookupRecipient = useCallback((kunThaiId) => lookupVisibilityCreditRecipient(kunThaiId), []);
+
+  const transfer = useCallback(async (kunThaiId, amount) => {
+    const result = await transferVisibilityCredits(kunThaiId, amount);
+    await refresh();
+    return result;
+  }, [refresh]);
+
   return {
     ...wallet,
     wallet,
@@ -78,5 +88,7 @@ export function useVisibilityCredits({ enabled = true } = {}) {
     error,
     refresh,
     shareInvite,
+    lookupRecipient,
+    transfer,
   };
 }

@@ -7,6 +7,8 @@ import {
   HiOutlineClipboardDocument,
   HiOutlineEllipsisHorizontal,
   HiOutlineFlag,
+  HiOutlineGift,
+  HiOutlineInformationCircle,
   HiOutlineNoSymbol,
   HiOutlinePencilSquare,
   HiOutlinePhoto,
@@ -15,7 +17,7 @@ import {
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
@@ -23,6 +25,7 @@ import { getKunThaiPublicUserId } from "../../../../Backend/services/identityCod
 import { t } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
 import Avatar from "../../shared/Avatar";
+import ShareVisibilityCreditsModal from "./ShareVisibilityCreditsModal";
 
 const platformIcons = {
   facebook: FaFacebookF,
@@ -37,6 +40,7 @@ export default function ProfileHeaderCard({
   coverInputRef,
   creditLoading = false,
   creditWallet = null,
+  currentUserId = "",
   editable,
   editing,
   feedback,
@@ -50,9 +54,11 @@ export default function ProfileHeaderCard({
   onEdit,
   onFollow,
   onMessage,
+  onLookupCreditRecipient,
   onReport,
   onShare,
   onShareCredits,
+  onTransferCredits,
   loadingStats = false,
   saving,
   stats,
@@ -61,9 +67,12 @@ export default function ProfileHeaderCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [copiedPublicId, setCopiedPublicId] = useState(false);
   const [creditHelpOpen, setCreditHelpOpen] = useState(false);
+  const [creditMenuOpen, setCreditMenuOpen] = useState(false);
+  const [shareCreditOpen, setShareCreditOpen] = useState(false);
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
   const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
   const menuRef = useRef(null);
+  const creditMenuRef = useRef(null);
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
   const coverStyle = getCoverStyle(values.coverUrl);
   const publicUserId = getKunThaiPublicUserId(values);
@@ -84,16 +93,30 @@ export default function ProfileHeaderCard({
   }, [menuOpen]);
 
   useEffect(() => {
-    if (!publicIdHelpOpen && !creditHelpOpen) return undefined;
+    if (!creditMenuOpen) return undefined;
+
+    function handlePointerDown(event) {
+      if (!creditMenuRef.current?.contains(event.target)) {
+        setCreditMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [creditMenuOpen]);
+
+  useEffect(() => {
+    if (!publicIdHelpOpen && !creditHelpOpen && !creditMenuOpen) return undefined;
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         setPublicIdHelpOpen(false);
         setCreditHelpOpen(false);
+        setCreditMenuOpen(false);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [creditHelpOpen, publicIdHelpOpen]);
+  }, [creditHelpOpen, creditMenuOpen, publicIdHelpOpen]);
 
   function runMenuAction(action) {
     setMenuOpen(false);
@@ -360,40 +383,70 @@ export default function ProfileHeaderCard({
                     <span className="text-xs font-bold text-slate-500">{t("profile.available")}</span>
                   </p>
                 </div>
-                <motion.button
-                  type="button"
-                  onClick={() => setCreditHelpOpen(true)}
-                  whileHover={{ scale: 1.12, rotate: 6 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-sm font-black text-white shadow-md shadow-sky-500/30"
-                  aria-label={t("profile.whatCredits")}
-                  title={t("profile.aboutCredits")}
-                >
-                  ?
-                </motion.button>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2.5">
-                <motion.button
-                  type="button"
-                  onClick={onShareCredits}
-                  whileTap={{ scale: 0.97 }}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-sm disabled:opacity-50"
-                  disabled={creditLoading}
-                >
-                  <HiOutlineShare className="text-base" />
-                  Share
-                </motion.button>
-                <motion.button
-                  type="button"
-                  onClick={() => setBuyCreditsOpen(true)}
-                  whileTap={{ scale: 0.97 }}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-sky-300 bg-white px-4 text-sm font-black text-sky-700 shadow-sm disabled:opacity-50"
-                  disabled={creditLoading}
-                >
-                  <HiOutlineUserPlus className="text-base" />
-                  {t("buyCredits.button")}
-                </motion.button>
+                <div ref={creditMenuRef} className="relative">
+                  <motion.button
+                    type="button"
+                    onClick={() => setCreditMenuOpen((current) => !current)}
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 18 }}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 text-xl text-white shadow-md shadow-sky-500/30"
+                    aria-label="Open Visibility Credit actions"
+                    aria-expanded={creditMenuOpen}
+                    aria-haspopup="menu"
+                  >
+                    <HiOutlineEllipsisHorizontal />
+                  </motion.button>
+                  <AnimatePresence>
+                    {creditMenuOpen ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                        transition={{ type: "spring", stiffness: 420, damping: 30 }}
+                        role="menu"
+                        className="absolute right-0 top-full z-30 mt-2 w-60 overflow-hidden rounded-2xl border border-sky-100 bg-white p-2 text-sm font-semibold shadow-2xl shadow-slate-950/15"
+                      >
+                        <CreditMenuAction
+                          icon={HiOutlineShare}
+                          label="Share KunThai"
+                          helper="Invite someone to join"
+                          onClick={() => {
+                            setCreditMenuOpen(false);
+                            onShareCredits?.();
+                          }}
+                        />
+                        <CreditMenuAction
+                          icon={HiOutlineGift}
+                          label="Share credit"
+                          helper="Send credits by KunThai ID"
+                          onClick={() => {
+                            setCreditMenuOpen(false);
+                            setShareCreditOpen(true);
+                          }}
+                        />
+                        <CreditMenuAction
+                          icon={HiOutlineUserPlus}
+                          label={t("buyCredits.button")}
+                          helper="Add to your balance"
+                          onClick={() => {
+                            setCreditMenuOpen(false);
+                            setBuyCreditsOpen(true);
+                          }}
+                        />
+                        <div className="my-1 border-t border-slate-100" />
+                        <CreditMenuAction
+                          icon={HiOutlineInformationCircle}
+                          label="About credits"
+                          onClick={() => {
+                            setCreditMenuOpen(false);
+                            setCreditHelpOpen(true);
+                          }}
+                        />
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+                </div>
               </div>
             </motion.div>
           ) : null}
@@ -474,7 +527,36 @@ export default function ProfileHeaderCard({
           {t("profile.understood")}
         </button>
       </CenteredModal>
+
+      <ShareVisibilityCreditsModal
+        open={shareCreditOpen}
+        onClose={() => setShareCreditOpen(false)}
+        balance={creditWallet?.balance || 0}
+        loading={creditLoading}
+        currentUserId={currentUserId}
+        onLookup={onLookupCreditRecipient}
+        onTransfer={onTransferCredits}
+      />
     </section>
+  );
+}
+
+function CreditMenuAction({ helper = "", icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-slate-700 transition hover:bg-sky-50 hover:text-sky-800"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-700">
+        <Icon />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-black">{label}</span>
+        {helper ? <span className="mt-0.5 block text-[11px] font-semibold text-slate-500">{helper}</span> : null}
+      </span>
+    </button>
   );
 }
 

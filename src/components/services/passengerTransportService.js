@@ -4,6 +4,8 @@ import { fetchTransportFleetById } from "./transportFleetService";
 
 const TRANSPORT_SAVED_PLACES_KEY = "kuntai.transport.savedPlaces";
 const TRANSPORT_ACTIVE_PLACE_KEY = "kuntai.transport.activePlace";
+const TRANSPORT_NEXT_PICKUP_KEY = "kuntai.transport.nextPickup";
+const TRANSPORT_NEXT_DROPOFF_KEY = "kuntai.transport.nextDropoff";
 const TRANSPORT_SETTINGS_KEY = "kuntai.transport.passengerSettings";
 
 const pendingTripStatuses = ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "start_requested", "in_progress", "paused"];
@@ -46,6 +48,10 @@ export function getActiveTransportPlace() {
   return readLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, null);
 }
 
+export function getNextTransportPlace(kind = "pickup") {
+  return readLocalJson(kind === "dropoff" ? TRANSPORT_NEXT_DROPOFF_KEY : TRANSPORT_NEXT_PICKUP_KEY, null);
+}
+
 export function saveTransportSavedPlace(place) {
   const id = place.id || `local-place-${Date.now()}`;
   const savedPlace = {
@@ -57,6 +63,8 @@ export function saveTransportSavedPlace(place) {
   const nextPlaces = [savedPlace, ...places.filter((item) => item.id !== id)];
   writeLocalJson(TRANSPORT_SAVED_PLACES_KEY, nextPlaces);
   writeLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, savedPlace);
+  if (getNextTransportPlace("pickup")?.id === id) writeLocalJson(TRANSPORT_NEXT_PICKUP_KEY, savedPlace);
+  if (getNextTransportPlace("dropoff")?.id === id) writeLocalJson(TRANSPORT_NEXT_DROPOFF_KEY, savedPlace);
   return savedPlace;
 }
 
@@ -68,14 +76,18 @@ export function removeTransportSavedPlace(placeId) {
   if (activePlace?.id === placeId) {
     writeLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, nextPlaces[0] || null);
   }
+  if (getNextTransportPlace("pickup")?.id === placeId) writeLocalJson(TRANSPORT_NEXT_PICKUP_KEY, null);
+  if (getNextTransportPlace("dropoff")?.id === placeId) writeLocalJson(TRANSPORT_NEXT_DROPOFF_KEY, null);
 
   return nextPlaces;
 }
 
-export function selectTransportSavedPlace(place) {
+export function selectTransportSavedPlace(place, kind = "pickup") {
+  const targetKind = kind === "dropoff" ? "dropoff" : "pickup";
   writeLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, place || null);
+  writeLocalJson(targetKind === "dropoff" ? TRANSPORT_NEXT_DROPOFF_KEY : TRANSPORT_NEXT_PICKUP_KEY, place || null);
   if (typeof window !== "undefined" && place) {
-    window.dispatchEvent(new CustomEvent("transport-saved-place-selected", { detail: { place } }));
+    window.dispatchEvent(new CustomEvent("transport-saved-place-selected", { detail: { place, kind: targetKind } }));
   }
   return place;
 }

@@ -1953,13 +1953,13 @@ function CompanyDashboardTabDrawer({
             {company?.companyName || t("urride.companyWs.transportCompany")}
           </p>
         </div>
-        <div className="no-scrollbar mt-5 flex gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5">
+        <div className="mt-5 grid w-full grid-cols-5 gap-1 rounded-2xl bg-slate-50 p-1.5 sm:gap-2">
           {tabs.map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => handleTabClick(tab)}
-              className={`h-10 min-w-24 rounded-xl px-3 text-sm font-black transition ${
+              className={`min-w-0 rounded-xl px-0.5 py-2 text-[clamp(0.625rem,2.5vw,0.875rem)] font-black leading-tight transition sm:px-2 ${
                 activeTab === tab
                   ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
                   : "text-slate-500 hover:bg-white hover:text-slate-900"
@@ -2027,13 +2027,13 @@ function CompanyDashboardTabDrawer({
               </button>
             </div>
 
-            <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5">
+            <div className="mt-4 grid w-full grid-cols-5 gap-1 rounded-2xl bg-slate-50 p-1.5 sm:gap-2">
               {tabs.map((tab, index) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => handleTabClick(tab)}
-                  className={`h-10 min-w-24 rounded-xl px-3 text-sm font-black transition ${
+                  className={`min-w-0 rounded-xl px-0.5 py-2 text-[clamp(0.625rem,2.5vw,0.875rem)] font-black leading-tight transition sm:px-2 ${
                     activeTab === tab
                       ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
                       : "text-slate-500 hover:bg-white hover:text-slate-900"

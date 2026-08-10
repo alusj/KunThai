@@ -25,19 +25,45 @@ export function detectPublicCodeKind(value = "") {
 }
 
 export async function resolvePublicCode(value) {
-  if (!detectPublicCodeKind(value)) return null;
+  const detectedKind = detectPublicCodeKind(value);
+  if (!detectedKind) return null;
   const { data, error } = await supabase.rpc("resolve_kunthai_code", { lookup: String(value || "") });
-  if (error || !data?.kind) return null;
-  return {
-    kind: data.kind,
-    code: data.code || "",
-    title: data.title || "",
-    subtitle: data.subtitle || "",
-    avatarUrl: data.avatar_url || "",
-    userId: data.user_id || "",
-    businessId: data.business_id || "",
-    operatorId: data.operator_id || "",
-  };
+  if (!error && data?.kind) {
+    return {
+      kind: data.kind,
+      code: data.code || "",
+      title: data.title || "",
+      subtitle: data.subtitle || "",
+      avatarUrl: data.avatar_url || "",
+      userId: data.user_id || "",
+      businessId: data.business_id || "",
+      operatorId: data.operator_id || "",
+    };
+  }
+
+  // Dedicated fallback for account IDs. Several invite fields need to remain
+  // usable while older environments are still missing the cross-surface
+  // resolver, and this hardened RPC is indexed on the canonical KTU identity.
+  if (detectedKind === "kunthai") {
+    const { data: rows, error: lookupError } = await supabase.rpc("lookup_kunthai_account_by_public_id", {
+      input_public_id: String(value || ""),
+    });
+    if (lookupError) return null;
+    const account = Array.isArray(rows) ? rows[0] : rows;
+    if (!account?.user_id) return null;
+    return {
+      kind: "kunthai",
+      code: account.public_id || String(value || ""),
+      title: account.full_name || account.username || "KunThai account",
+      subtitle: account.username ? `@${account.username}` : account.city || "",
+      avatarUrl: account.avatar_url || "",
+      userId: account.user_id,
+      businessId: "",
+      operatorId: "",
+    };
+  }
+
+  return null;
 }
 
 // Navigation from a code result to its home surface. Each surface handles

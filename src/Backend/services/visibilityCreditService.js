@@ -6,6 +6,7 @@ const CREDIT_SHARE_PARAM = "kt_ref";
 
 export const VERIFIED_INVITE_CREDIT_REWARD = 5;
 export const MINIMUM_VISIBILITY_CREDITS = 5;
+export const MINIMUM_CREDIT_TRANSFER_BALANCE = 10;
 
 export const VISIBILITY_BOOST_PACKAGES = [
   {
@@ -186,6 +187,48 @@ export async function fetchVisibilityCreditWallet() {
   }
 
   return normalizeWallet(Array.isArray(wallet) ? wallet[0] : wallet, Array.isArray(invite) ? invite[0] : invite);
+}
+
+export async function lookupVisibilityCreditRecipient(kunThaiId = "") {
+  const input = String(kunThaiId || "").trim();
+  if (!input) return null;
+
+  const { data, error } = await supabase.rpc("lookup_kunthai_account_by_public_id", {
+    input_public_id: input,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Unable to find that KunThai user.");
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.user_id) return null;
+
+  return {
+    userId: row.user_id,
+    publicId: row.public_id || input,
+    name: row.full_name || "KunThai user",
+    username: row.username || "",
+    avatarUrl: row.avatar_url || "",
+  };
+}
+
+export async function transferVisibilityCredits(kunThaiId, amount) {
+  const transferAmount = Math.floor(Number(amount || 0));
+  if (!Number.isFinite(transferAmount) || transferAmount < 1) {
+    throw new Error("Enter at least 1 credit to share.");
+  }
+
+  const { data, error } = await supabase.rpc("transfer_visibility_credits", {
+    p_recipient_public_id: String(kunThaiId || "").trim(),
+    p_amount: transferAmount,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Unable to share Visibility Credits.");
+  }
+
+  return data || null;
 }
 
 export async function assertVisibilityCreditsAvailable(amount) {
