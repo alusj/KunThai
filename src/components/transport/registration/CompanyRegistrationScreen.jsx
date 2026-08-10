@@ -1380,9 +1380,9 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
 
   useEffect(() => {
     const target = operatorId.trim();
-    setOperatorMatch(null);
 
     if (!target) {
+      setOperatorMatch(null);
       setLookupStatus("");
       setLookingUp(false);
       return undefined;
@@ -1390,6 +1390,9 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
 
     const compactTarget = target.replace(/[^a-z0-9]/gi, "");
     if (compactTarget.length < 7) {
+      // Keep any previous match on screen instead of flashing it away on every
+      // keystroke — only reset once the field is clearly incomplete again.
+      setOperatorMatch(null);
       setLookupStatus(t("urride.companyReg.lookupEnterComplete"));
       setLookingUp(false);
       return undefined;
@@ -1526,12 +1529,12 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
         </div>
         {errors[`${fleet.localId}-operators`] ? <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{errors[`${fleet.localId}-operators`]}</p> : null}
         {lookupStatus ? (
-          <p aria-live="polite" className={`kt-modal-enter mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupStatus.includes("not found") || lookupStatus.includes("Unable") ? "text-rose-700" : "text-slate-600"}`}>
+          <p aria-live="polite" className={`mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupStatus.includes("not found") || lookupStatus.includes("Unable") ? "text-rose-700" : "text-slate-600"}`}>
             {lookupStatus}
           </p>
         ) : null}
         {operatorMatch ? (
-          <div className="kt-modal-enter mt-3 flex flex-col gap-3 rounded-2xl border border-blue-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-black text-slate-950">{operatorMatch.name}</p>
               <p className="text-xs font-bold text-blue-700">{operatorMatch.publicId} {operatorMatch.city ? `- ${operatorMatch.city}` : ""}</p>

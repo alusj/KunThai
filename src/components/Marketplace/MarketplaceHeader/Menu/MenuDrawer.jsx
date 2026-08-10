@@ -385,8 +385,12 @@ export default function MenuDrawer({ open, onClose }) {
       .then((addresses) => {
         if (addresses.length) {
           setSavedAddresses(addresses);
-          setAddress(addresses[0]);
-          localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(addresses[0]));
+          // Preserve the address the user picked with "Use for next order"
+          // instead of always snapping back to the first one on reopen.
+          const activeKey = getAddressActionKey(readBuyerAddress());
+          const active = addresses.find((item) => getAddressActionKey(item) === activeKey) || addresses[0];
+          setAddress(active);
+          localStorage.setItem(BUYER_ADDRESS_KEY, JSON.stringify(active));
           localStorage.setItem(BUYER_ADDRESSES_KEY, JSON.stringify(addresses));
         }
       })

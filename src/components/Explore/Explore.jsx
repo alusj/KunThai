@@ -132,11 +132,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
   const anyExploreOverlayVisible = menuOverlayVisible || leftDrawerOpen || composerOpen || headerOverlayOpen;
-  // The Social drawer manages its own scroll pin (below) so the window-scrolled
-  // feed keeps its exact position while the drawer slides in and out. Keeping it
-  // out of the shared body lock avoids the iOS "collapse to top" that made the
-  // feed jump on open and snap back on close.
-  const drawerPresent = leftDrawerOpen || drawerDragging || drawerClosing;
+  // Keep the Social drawer out of the shared body lock: locking sets the root to
+  // overflow:hidden, which collapses the window-scrolled feed to the top on iOS
+  // (jump on open, snap-back on close). Excluding it leaves the feed exactly
+  // where it is and fully visible behind the drawer.
   const scrollLockActive = menuOverlayVisible || composerOpen || headerOverlayOpen;
   const navHidden = useScrollHidden({
     enabled: active && !anyExploreOverlayVisible,
@@ -289,45 +288,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
   useBodyScrollLock(scrollLockActive);
 
-  // Pin the feed while the Social drawer is present so it never scrolls behind
-  // the backdrop — and, unlike a plain overflow lock, hold its exact scroll
-  // position (body is shifted up by the captured offset) so opening and closing
-  // the drawer never jumps the feed to the top or snaps it back.
-  useEffect(() => {
-    if (!drawerPresent || typeof document === "undefined") return undefined;
-
-    const body = document.body;
-    const html = document.documentElement;
-    const scrollY = window.scrollY || 0;
-    const saved = {
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-      bodyOverflow: body.style.overflow,
-      htmlOverflow: html.style.overflow,
-    };
-
-    body.style.position = "fixed";
-    body.style.top = `${-scrollY}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
-    body.style.overflow = "hidden";
-    html.style.overflow = "hidden";
-
-    return () => {
-      body.style.position = saved.position;
-      body.style.top = saved.top;
-      body.style.left = saved.left;
-      body.style.right = saved.right;
-      body.style.width = saved.width;
-      body.style.overflow = saved.bodyOverflow;
-      html.style.overflow = saved.htmlOverflow;
-      window.scrollTo({ left: 0, top: scrollY, behavior: "instant" });
-    };
-  }, [drawerPresent]);
+  // The Social drawer is intentionally NOT put through the shared body lock.
+  // The feed scrolls the window, and the lock's `overflow:hidden` collapses that
+  // scroll on iOS (feed jumped to the top on open and snapped back on close).
+  // Leaving the window untouched keeps the feed exactly where it is and fully
+  // visible behind the drawer; background scroll-through is blocked on the
+  // overlay itself (touch-none backdrop + overscroll-contained menu) instead.
 
   useEffect(() => {
     const previousStack = previousMenuStackRef.current;
@@ -1574,7 +1540,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           type="button"
           ref={drawerBackdropRef}
           aria-label="Close social menu"
-          className="absolute inset-0 bg-slate-950/30"
+          className="absolute inset-0 touch-none bg-slate-950/30"
           style={drawerMountedByDrag && !leftDrawerOpen ? { opacity: 0 } : undefined}
           onClick={closeLeftDrawer}
         />

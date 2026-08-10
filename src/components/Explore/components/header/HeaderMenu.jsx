@@ -108,7 +108,7 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6">
+      <div className="flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-slate-50 p-4 sm:p-6">
         <div className="mx-auto max-w-6xl space-y-5">
           <div className="rounded-[26px] border border-sky-100 bg-gradient-to-br from-white to-sky-50 p-2 shadow-sm">
             <MenuActionButton

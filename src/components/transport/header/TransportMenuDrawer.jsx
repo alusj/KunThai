@@ -879,10 +879,12 @@ function SavedPlacesPage({ onUseSavedPlace }) {
           {places.map((item) => {
             const actionKey = item.id || `${item.category}-${item.street || item.detectedAddress || "place"}`;
 
+            const menuOpen = actionMenuId === actionKey;
+
             return (
             <article
               key={actionKey}
-              className="kt-touchable relative rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
+              className={`kt-touchable relative rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm ${menuOpen ? "z-30" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <button type="button" onClick={() => editPlace(item)} className="kt-touchable min-w-0 flex-1 text-left">
