@@ -56,6 +56,49 @@ import {
   nearbyLocations,
 } from "../services/nearbyAreaService";
 import EmergencySheet from "../emergency/EmergencySheet";
+import { useI18n, t } from "../../i18n";
+
+const CATEGORY_LABEL_KEYS = {
+  All: "urride.areaView.catAll",
+  Fleets: "urride.areaView.catFleets",
+  Pickup: "urride.areaView.catPickup",
+  Shops: "urride.areaView.catShops",
+  Schools: "urride.areaView.catSchools",
+  Markets: "urride.areaView.catMarkets",
+  Emergency: "urride.areaView.catEmergency",
+  Community: "urride.areaView.catCommunity",
+};
+
+const ADD_CATEGORY_LABEL_KEYS = {
+  Shop: "urride.areaView.addShop",
+  School: "urride.areaView.addSchool",
+  Supermarket: "urride.areaView.addSupermarket",
+  Pharmacy: "urride.areaView.addPharmacy",
+  "Hospital / Clinic": "urride.areaView.addHospital",
+  Police: "urride.areaView.addPolice",
+  "Fire Station": "urride.areaView.addFire",
+  "Fuel Station": "urride.areaView.addFuel",
+  "Pickup Point": "urride.areaView.addPickup",
+  "Transport Park": "urride.areaView.addPark",
+  Market: "urride.areaView.addMarket",
+  Other: "urride.areaView.addOther",
+};
+
+const STATUS_LABEL_KEYS = {
+  community: "urride.areaView.statusCommunity",
+  pending: "urride.areaView.statusPending",
+  verified: "urride.areaView.statusVerified",
+  approved: "urride.areaView.statusApproved",
+  rejected: "urride.areaView.statusRejected",
+};
+
+function categoryDisplay(category) {
+  return CATEGORY_LABEL_KEYS[category] ? t(CATEGORY_LABEL_KEYS[category]) : String(category || "");
+}
+
+function addCategoryDisplay(category) {
+  return ADD_CATEGORY_LABEL_KEYS[category] ? t(ADD_CATEGORY_LABEL_KEYS[category]) : String(category || "");
+}
 
 const addCategories = [
   "Shop",
@@ -129,13 +172,13 @@ const areaCategoryAddDefaults = {
 };
 
 const areaCategoryLabels = {
-  Fleets: "fleet",
-  Pickup: "pickup point",
-  Shops: "shop",
-  Schools: "school",
-  Markets: "market",
-  Emergency: "emergency location",
-  Community: "community location",
+  Fleets: "urride.areaView.lblFleet",
+  Pickup: "urride.areaView.lblPickup",
+  Shops: "urride.areaView.lblShop",
+  Schools: "urride.areaView.lblSchool",
+  Markets: "urride.areaView.lblMarket",
+  Emergency: "urride.areaView.lblEmergency",
+  Community: "urride.areaView.lblCommunity",
 };
 
 function readCachedSosCountryCode() {
@@ -179,7 +222,7 @@ function createAddLocationDraft() {
 function getBrowserCurrentPosition() {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject(new Error("Location is not supported in this browser."));
+      reject(new Error(t("urride.areaView.errNotSupported")));
       return;
     }
 
@@ -191,12 +234,12 @@ function getBrowserCurrentPosition() {
   });
 }
 
-function getFriendlyLocationError(error, fallback = "Location permission is needed, or you can use Drop Pin instead.") {
+function getFriendlyLocationError(error, fallback) {
   const message = String(error?.message || "").trim();
   if (/kclerrordomain|operation couldn.?t be completed|position unavailable|timeout|permission|denied/i.test(message)) {
-    return "KunThai could not read your device GPS. Use Drop Pin to place the location manually, or keep the selected map point if it is already correct.";
+    return t("urride.areaView.errGpsFallback");
   }
-  return message || fallback;
+  return message || fallback || t("urride.areaView.errPermission");
 }
 
 function MapCardCollapseButton({ className = "", collapsed, label, onClick }) {
@@ -390,7 +433,9 @@ function getLocationsForAreaCategory(category, locations = []) {
 }
 
 function getAreaCategoryLabel(category) {
-  return areaCategoryLabels[category] || String(category || "location").toLowerCase();
+  return areaCategoryLabels[category]
+    ? t(areaCategoryLabels[category])
+    : String(category || t("urride.areaView.lblLocation")).toLowerCase();
 }
 
 function getAddCategoryForAreaCategory(category) {
@@ -847,6 +892,7 @@ export default function NearbyAreaScreen({
   initialEmergencyRequest = null,
   backLabel = "Back to transport",
 }) {
+  useI18n();
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
@@ -910,45 +956,39 @@ export default function NearbyAreaScreen({
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
   const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
-  const resolvedPickerLabels = useMemo(
-    () => ({
-      historyKey: "area-view-location-picker",
-      backLabel: "Back to location form",
-      eyebrow: "UrMall location",
-      headerCurrentTitle: "Confirm current location",
-      headerDropTitle: "Drop a pin",
-      cardEyebrow: "Business address",
-      currentHeading: "Your current location",
-      dropHeading: "Place the pin on your business",
-      dropInstruction: "Move the map until the pin sits exactly on the business entrance or pickup point, then add the location.",
-      currentPreparing: "Your current location is being prepared.",
-      currentStatus: "Confirming your current location...",
-      dropStatus: "Move the map until the pin is exactly on the selected location.",
-      currentName: "Current location",
-      droppedName: "Pinned location",
-      ...pickerLabels,
-    }),
-    [pickerLabels],
-  );
-  const areaAddLocationPickerLabels = useMemo(
-    () => ({
-      historyKey: "area-view-add-location-pin",
-      backLabel: "Back to add location",
-      eyebrow: "Area View",
-      headerCurrentTitle: "Locate me",
-      headerDropTitle: "Drop a pin",
-      cardEyebrow: "New location",
-      currentHeading: "Your current location",
-      dropHeading: "Place the pin on the missing location",
-      dropInstruction: "Move the map until the pin sits exactly on the place entrance, pickup point, or landmark. Then add the location to the form.",
-      currentPreparing: "Your current location is being prepared.",
-      currentStatus: "Confirming your current location...",
-      dropStatus: "Move the map until the pin is exactly on the missing location.",
-      currentName: "Current location",
-      droppedName: "Pinned location",
-    }),
-    [],
-  );
+  const resolvedPickerLabels = {
+    historyKey: "area-view-location-picker",
+    backLabel: t("urride.areaView.pickerBackLabel"),
+    eyebrow: t("urride.areaView.pickerEyebrow"),
+    headerCurrentTitle: t("urride.areaView.pickerHeaderCurrent"),
+    headerDropTitle: t("urride.areaView.dropPinTitle"),
+    cardEyebrow: t("urride.areaView.pickerCardEyebrow"),
+    currentHeading: t("urride.areaView.pickerCurrentHeading"),
+    dropHeading: t("urride.areaView.pickerDropHeading"),
+    dropInstruction: t("urride.areaView.pickerDropInstruction"),
+    currentPreparing: t("urride.areaView.pickerCurrentPreparing"),
+    currentStatus: t("urride.areaView.pickerCurrentStatus"),
+    dropStatus: t("urride.areaView.pickerDropStatus"),
+    currentName: "Current location",
+    droppedName: "Pinned location",
+    ...pickerLabels,
+  };
+  const areaAddLocationPickerLabels = {
+    historyKey: "area-view-add-location-pin",
+    backLabel: t("urride.areaView.addBackLabel"),
+    eyebrow: t("urride.areaView.toastAreaView"),
+    headerCurrentTitle: t("urride.areaView.addHeaderCurrent"),
+    headerDropTitle: t("urride.areaView.dropPinTitle"),
+    cardEyebrow: t("urride.areaView.addCardEyebrow"),
+    currentHeading: t("urride.areaView.pickerCurrentHeading"),
+    dropHeading: t("urride.areaView.addDropHeading"),
+    dropInstruction: t("urride.areaView.addDropInstruction"),
+    currentPreparing: t("urride.areaView.pickerCurrentPreparing"),
+    currentStatus: t("urride.areaView.pickerCurrentStatus"),
+    dropStatus: t("urride.areaView.addDropStatus"),
+    currentName: "Current location",
+    droppedName: "Pinned location",
+  };
 
   const displayLocations = useMemo(() => {
     const ids = new Set();
@@ -1034,8 +1074,8 @@ export default function NearbyAreaScreen({
 
     if (category === "Fleets") {
       if (!liveOperators.length) {
-        showToast("No nearby fleet available.", "warning", {
-          title: "Area View",
+        showToast(t("urride.areaView.noNearbyFleet"), "warning", {
+          title: t("urride.areaView.toastAreaView"),
           duration: 5200,
         });
       }
@@ -1049,9 +1089,9 @@ export default function NearbyAreaScreen({
 
     if (!nearest) {
       const label = getAreaCategoryLabel(category);
-      showToast(`No nearby ${label} available.`, "warning", {
-        title: "Area View",
-        actionLabel: `Add ${label}`,
+      showToast(t("urride.areaView.noNearbyCategory", { label }), "warning", {
+        title: t("urride.areaView.toastAreaView"),
+        actionLabel: t("urride.areaView.addCategoryAction", { label }),
         duration: 6500,
         onAction: () => openAddLocation(category),
       });
@@ -1192,21 +1232,21 @@ export default function NearbyAreaScreen({
     function announce({ online, unstable }, initial = false) {
       if (!online) {
         if (initial || previousOnline) {
-          showToast("You are offline. Area View needs a connection to load the map, search and routes.", "warning", {
-            title: "Area View",
+          showToast(t("urride.areaView.netOffline"), "warning", {
+            title: t("urride.areaView.toastAreaView"),
             duration: 4200,
             origin: false,
           });
         }
       } else if (previousOnline === false) {
-        showToast("Back online. Area View is refreshing.", "success", {
-          title: "Area View",
+        showToast(t("urride.areaView.netBackOnline"), "success", {
+          title: t("urride.areaView.toastAreaView"),
           duration: 2600,
           origin: false,
         });
       } else if (unstable && (initial || !previousUnstable)) {
-        showToast("Slow network detected. The map and routes may take longer to load.", "warning", {
-          title: "Area View",
+        showToast(t("urride.areaView.netSlow"), "warning", {
+          title: t("urride.areaView.toastAreaView"),
           duration: 4200,
           origin: false,
         });
@@ -1249,7 +1289,7 @@ export default function NearbyAreaScreen({
         if (cancelled) return;
         const nextLocation = buildPinnedLocationPreview(location, resolvedPickerLabels.currentName);
         setCurrentPickerLocation(nextLocation);
-        setPickerStatus("Current location ready. Review the address below, then add the location.");
+        setPickerStatus(t("urride.areaView.pickerCurrentReady"));
       })
       .finally(() => {
         if (!cancelled) setPickerBusy(false);
@@ -1272,10 +1312,10 @@ export default function NearbyAreaScreen({
     const isBusinessTarget = target === "business";
     if (isBusinessTarget) {
       setPickerBusy(true);
-      setPickerStatus("Reading the selected map location...");
+      setPickerStatus(t("urride.areaView.pickerReadingMap"));
     } else {
       setAddLocationBusy(true);
-      setAddLocationStatus("Reading the selected map location...");
+      setAddLocationStatus(t("urride.areaView.addReadingMap"));
     }
 
     try {
@@ -1288,7 +1328,7 @@ export default function NearbyAreaScreen({
 
       if (isBusinessTarget) {
         setCurrentPickerLocation(preview);
-        setPickerStatus("Pin ready. Review the address above, then add the location.");
+        setPickerStatus(t("urride.areaView.pickerPinReady"));
       } else {
         setAddLocationDraft((current) => ({
           ...current,
@@ -1299,13 +1339,13 @@ export default function NearbyAreaScreen({
           suggestedAddress: preview.suggestedAddress,
           source: "dropPin",
         }));
-        setAddLocationStatus("Exact pin saved. The coordinates match the map point; add a street or landmark only if you are sure.");
+        setAddLocationStatus(t("urride.areaView.addExactPinSaved"));
       }
 
       setDropPinExpandSignal((value) => value + 1);
     } catch (error) {
       if (dropPinResolveRequestRef.current !== requestId) return;
-      const message = getFriendlyLocationError(error, "Unable to read the pinned location. Try again.");
+      const message = getFriendlyLocationError(error, t("urride.areaView.errUnableReadPinned"));
       if (isBusinessTarget) {
         setPickerStatus(message);
       } else {
@@ -1328,13 +1368,13 @@ export default function NearbyAreaScreen({
 
     if (isBusinessLocationPicker && businessPickerMode === "dropPin") {
       setDropPinCollapseSignal((value) => value + 1);
-      setPickerStatus("Release the map to read this pin.");
+      setPickerStatus(t("urride.areaView.pickerReleaseToRead"));
       return;
     }
 
     if (!isSpecialMode && adding && addLocationMode === "dropPin") {
       setDropPinCollapseSignal((value) => value + 1);
-      setAddLocationStatus("Release the map to read this pin.");
+      setAddLocationStatus(t("urride.areaView.addReleaseToRead"));
     }
   }, [addLocationMode, adding, businessPickerMode, isBusinessLocationPicker, isSpecialMode]);
 
@@ -1411,8 +1451,8 @@ export default function NearbyAreaScreen({
           setSearchQuery(searchText);
           setSearchResults([]);
           setSearchOverlayOpen(true);
-          showToast("The passenger route could not be resolved. Search the destination manually.", "warning", {
-            title: "Routing paused",
+          showToast(t("urride.areaView.toastRouteFailed"), "warning", {
+            title: t("urride.areaView.toastRoutingPaused"),
           });
         })
         .finally(() => {
@@ -1722,7 +1762,7 @@ export default function NearbyAreaScreen({
     if (addLocationMode === "dropPin") {
       setAddLocationMode("form");
       setFocusMode(false);
-      setAddLocationStatus("Review the pinned address, then submit when the details are correct.");
+      setAddLocationStatus(t("urride.areaView.addReviewPinned"));
       return;
     }
 
@@ -1741,7 +1781,7 @@ export default function NearbyAreaScreen({
   const confirmAddLocationLocateMe = useCallback(async () => {
     setAddLocationLocateCautionOpen(false);
     setAddLocationBusy(true);
-    setAddLocationStatus("Requesting your exact device location...");
+    setAddLocationStatus(t("urride.areaView.addRequestingLocation"));
 
     try {
       const position = await getBrowserCurrentPosition();
@@ -1774,7 +1814,7 @@ export default function NearbyAreaScreen({
         accuracyMeters: point.accuracyMeters,
         source: "currentLocation",
       }));
-      setAddLocationStatus("Current location saved with exact coordinates. Add a street or landmark only if you are sure it matches this point.");
+      setAddLocationStatus(t("urride.areaView.addCurrentSaved"));
     } catch (error) {
       const fallbackPoint = normalizePosition(mapCenterRef.current) || normalizePosition(userLocationRef.current) || normalizePosition(userLocation);
       if (fallbackPoint) {
@@ -1810,12 +1850,12 @@ export default function NearbyAreaScreen({
       : mapCenterRef.current || userLocationRef.current || userLocation;
 
     if (!Number.isFinite(Number(point?.lat)) || !Number.isFinite(Number(point?.lng))) {
-      setAddLocationStatus("Move the map to the exact location, then add the location.");
+      setAddLocationStatus(t("urride.areaView.addMoveExact"));
       return;
     }
 
     setAddLocationBusy(true);
-    setAddLocationStatus("Reading the pinned map location...");
+    setAddLocationStatus(t("urride.areaView.addReadingPinned"));
 
     try {
       const location = await reverseGeocodePoint(point);
@@ -1831,9 +1871,9 @@ export default function NearbyAreaScreen({
       }));
       setAddLocationMode("form");
       setFocusMode(false);
-      setAddLocationStatus("Pinned point saved with exact coordinates. Add a street or landmark only if you are sure it matches this point.");
+      setAddLocationStatus(t("urride.areaView.addPinnedSaved"));
     } catch (error) {
-      setAddLocationStatus(getFriendlyLocationError(error, "Unable to read the pinned location. Try again."));
+      setAddLocationStatus(getFriendlyLocationError(error, t("urride.areaView.errUnableReadPinned")));
     } finally {
       setAddLocationBusy(false);
     }
@@ -1845,22 +1885,22 @@ export default function NearbyAreaScreen({
       : addLocationDraft.category;
 
     if (!addLocationDraft.name.trim()) {
-      setAddLocationStatus("Enter the place name before submitting.");
+      setAddLocationStatus(t("urride.areaView.addEnterName"));
       return;
     }
 
     if (!category) {
-      setAddLocationStatus("Choose or enter a category before submitting.");
+      setAddLocationStatus(t("urride.areaView.addChooseCategory"));
       return;
     }
 
     if (!Number.isFinite(Number(addLocationDraft.lat)) || !Number.isFinite(Number(addLocationDraft.lng))) {
-      setAddLocationStatus("Use Locate Me or Drop Pin before submitting so the location has an exact map point.");
+      setAddLocationStatus(t("urride.areaView.addUseLocate"));
       return;
     }
 
     setAddLocationBusy(true);
-    setAddLocationStatus("Submitting this location for KunThai review...");
+    setAddLocationStatus(t("urride.areaView.addSubmitting"));
 
     try {
       const submitted = await submitNearbyAreaLocation({
@@ -1891,7 +1931,7 @@ export default function NearbyAreaScreen({
       });
       closeAddLocation();
     } catch (error) {
-      setAddLocationStatus(getFriendlyLocationError(error, "Unable to submit this location for review."));
+      setAddLocationStatus(getFriendlyLocationError(error, t("urride.areaView.errUnableSubmit")));
     } finally {
       setAddLocationBusy(false);
     }
@@ -2058,8 +2098,8 @@ export default function NearbyAreaScreen({
 
   const handleGetDirections = useCallback((location = activeLocation) => {
     if (!Number.isFinite(Number(location?.lat)) || !Number.isFinite(Number(location?.lng))) {
-      showToast("This location does not have an exact map point yet.", "warning", {
-        title: "Area View",
+      showToast(t("urride.areaView.toastNoPoint"), "warning", {
+        title: t("urride.areaView.toastAreaView"),
       });
       return;
     }
@@ -2115,12 +2155,12 @@ export default function NearbyAreaScreen({
       : mapCenterRef.current || userLocationRef.current || userLocation;
 
     if (!point?.lat || !point?.lng) {
-      setPickerStatus("Move the map to the exact location, then add the location.");
+      setPickerStatus(t("urride.areaView.pickerMoveExact"));
       return;
     }
 
     setPickerBusy(true);
-    setPickerStatus("Reading the selected map location...");
+    setPickerStatus(t("urride.areaView.pickerReadingMap"));
 
     try {
       const location = await reverseGeocodePoint(point);
@@ -2130,7 +2170,7 @@ export default function NearbyAreaScreen({
         source: "dropPin",
       });
     } catch (error) {
-      setPickerStatus(getFriendlyLocationError(error, "Unable to read the pinned location. Try again."));
+      setPickerStatus(getFriendlyLocationError(error, t("urride.areaView.errUnableReadPinned")));
     } finally {
       setPickerBusy(false);
     }
@@ -2229,7 +2269,7 @@ export default function NearbyAreaScreen({
                 if (mapLocked) return;
                 onBack?.();
               }}
-              label={mapLocked ? "Map locked" : backLabel}
+              label={mapLocked ? t("urride.areaView.mapLocked") : backLabel}
               historyKey="transport-nearby-area"
               enableSwipe={false}
               className={`h-12 w-12 rounded-2xl shadow-lg ${
@@ -2245,7 +2285,7 @@ export default function NearbyAreaScreen({
             >
               <FiSearch className="shrink-0 text-slate-400" size={20} />
               <span className="truncate text-sm font-black sm:text-base">
-                {searchQuery || "Search street, shop, school, pickup point"}
+                {searchQuery || t("urride.areaView.searchPlaceholder")}
               </span>
             </button>
 
@@ -2255,7 +2295,7 @@ export default function NearbyAreaScreen({
               className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg transition ${
                 focusMode ? "bg-slate-950 text-white" : "bg-white/95 text-slate-900 hover:bg-white"
               }`}
-              aria-label={focusMode ? "Exit focus mode" : "Enter focus mode"}
+              aria-label={focusMode ? t("urride.areaView.exitFocus") : t("urride.areaView.enterFocus")}
             >
               {focusMode ? <FiEyeOff size={21} /> : <FiEye size={21} />}
             </button>
@@ -2266,7 +2306,7 @@ export default function NearbyAreaScreen({
               className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg transition ${
                 mapLocked ? "bg-green-600 text-white" : "bg-white/95 text-slate-900 hover:bg-white"
               }`}
-              aria-label={mapLocked ? "Unlock map screen" : "Lock map screen"}
+              aria-label={mapLocked ? t("urride.areaView.unlockMap") : t("urride.areaView.lockMap")}
             >
               {mapLocked ? <FiLock size={21} /> : <FiUnlock size={21} />}
             </button>
@@ -2275,7 +2315,7 @@ export default function NearbyAreaScreen({
               type="button"
               onClick={openAddLocation}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white shadow-lg transition hover:bg-green-700"
-              aria-label="Add location"
+              aria-label={t("urride.areaView.addLocationAria")}
             >
               <FiPlus size={22} />
             </button>
@@ -2295,7 +2335,7 @@ export default function NearbyAreaScreen({
                         : "bg-slate-900/85 text-white backdrop-blur"
                     }`}
                   >
-                    {category}
+                    {categoryDisplay(category)}
                   </button>
                 ))}
 
@@ -2309,7 +2349,7 @@ export default function NearbyAreaScreen({
                       : "bg-slate-900/85 text-white backdrop-blur"
                   }`}
                 >
-                  More
+                  {t("urride.areaView.more")}
                   {moreCategoriesOpen ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
                 </button>
               </div>
@@ -2327,7 +2367,7 @@ export default function NearbyAreaScreen({
                           : "bg-slate-100 text-slate-800 hover:bg-slate-200"
                       }`}
                     >
-                      <span>{category}</span>
+                      <span>{categoryDisplay(category)}</span>
                       {activeCategory === category ? <span className="h-2.5 w-2.5 rounded-full bg-white" /> : null}
                     </button>
                   ))}
@@ -2344,7 +2384,7 @@ export default function NearbyAreaScreen({
               type="button"
               onClick={openEmergencyMode}
               className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl"
-              aria-label="Open KunThai SOS"
+              aria-label={t("urride.areaView.openSos")}
             >
               <FiAlertTriangle size={22} />
             </button>
@@ -2353,7 +2393,7 @@ export default function NearbyAreaScreen({
               type="button"
               onClick={handleUseCurrentArea}
               className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full bg-slate-950/90 text-white shadow-xl"
-              aria-label="Return to current location"
+              aria-label={t("urride.areaView.returnCurrent")}
             >
               <FiCrosshair size={22} />
             </button>
@@ -2361,7 +2401,7 @@ export default function NearbyAreaScreen({
             <button
               type="button"
               className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-xl"
-              aria-label="Save current area"
+              aria-label={t("urride.areaView.saveArea")}
             >
               <FiBookmark size={22} />
             </button>
@@ -2440,10 +2480,10 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
   const cardMotion = useMapCardCollapseTransition(collapsed);
   const statusText =
     previewState === "loading"
-      ? "Finding a nearby road route for the 1 km preview..."
+      ? t("urride.areaView.oneKmStatusLoading")
       : previewState === "straight"
-        ? "No usable nearby road route was available, so this view falls back to a straight 1 km distance."
-        : "The green route follows nearby roads for the first 1 km so you can price each kilometre with confidence.";
+        ? t("urride.areaView.oneKmStatusStraight")
+        : t("urride.areaView.oneKmStatusRoad");
 
   return (
     <>
@@ -2459,8 +2499,8 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
             iconSize={22}
           />
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase text-green-700">Price guide</p>
-            <h1 className="truncate text-base font-black">1 KM preview</h1>
+            <p className="text-xs font-black uppercase text-green-700">{t("urride.areaView.priceGuide")}</p>
+            <h1 className="truncate text-base font-black">{t("urride.areaView.oneKmPreview")}</h1>
           </div>
         </div>
       </header>
@@ -2469,7 +2509,7 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
         <div className={`absolute bottom-5 right-4 z-30 sm:right-5 ${cardMotion.collapsedButtonClass}`}>
           <MapCardCollapseButton
             collapsed
-            label="Maximize distance view"
+            label={t("urride.areaView.maximizeDistance")}
             onClick={toggle}
           />
         </div>
@@ -2478,11 +2518,11 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
       <section className={`absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur transition-all duration-300 sm:bottom-5 sm:left-auto sm:right-5 sm:w-[390px] ${cardMotion.expandedCardClass}`}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase text-green-700">Distance view</p>
-            <h2 className="mt-1 text-xl font-black leading-tight">One kilometre from your current location</h2>
+            <p className="text-xs font-black uppercase text-green-700">{t("urride.areaView.distanceView")}</p>
+            <h2 className="mt-1 text-xl font-black leading-tight">{t("urride.areaView.oneKmHeading")}</h2>
           </div>
           <MapCardCollapseButton
-            label="Minimize distance view"
+            label={t("urride.areaView.minimizeDistance")}
             onClick={toggle}
           />
         </div>
@@ -2490,7 +2530,7 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{statusText}</p>
         {!ready ? (
           <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-xs font-black text-green-700">
-            {previewState === "loading" ? "Checking nearby roads..." : "Waiting for your current location..."}
+            {previewState === "loading" ? t("urride.areaView.checkingRoads") : t("urride.areaView.waitingLocation")}
           </p>
         ) : null}
         <button
@@ -2498,7 +2538,7 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
           onClick={onDone}
           className="mt-4 h-11 w-full rounded-2xl bg-green-600 text-sm font-black text-white hover:bg-green-700"
         >
-          Done
+          {t("urride.areaView.done")}
         </button>
       </section>
       ) : null}
@@ -2582,7 +2622,7 @@ function BusinessLocationPickerChrome({
         <div className={`absolute bottom-5 right-4 z-30 sm:right-5 ${cardMotion.collapsedButtonClass}`}>
           <MapCardCollapseButton
             collapsed
-            label={isDropPin ? "Maximize drop pin card" : "Maximize location card"}
+            label={isDropPin ? t("urride.areaView.maximizeDropPin") : t("urride.areaView.maximizeLocationCard")}
             onClick={toggle}
           />
         </div>
@@ -2597,7 +2637,7 @@ function BusinessLocationPickerChrome({
               </h2>
             </div>
             <MapCardCollapseButton
-              label={isDropPin ? "Minimize drop pin card" : "Minimize location card"}
+              label={isDropPin ? t("urride.areaView.minimizeDropPin") : t("urride.areaView.minimizeLocationCard")}
               onClick={toggle}
             />
           </div>
@@ -2623,7 +2663,7 @@ function BusinessLocationPickerChrome({
                   onClick={onBack}
                   className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
-                  Back
+                  {t("urride.areaView.back")}
                 </button>
                 <button
                   type="button"
@@ -2631,7 +2671,7 @@ function BusinessLocationPickerChrome({
                   disabled={busy}
                   className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
                 >
-                  {busy ? "Adding..." : "Add location"}
+                  {busy ? t("urride.areaView.adding") : t("urride.areaView.addLocationBtn")}
                 </button>
               </>
             ) : (
@@ -2641,7 +2681,7 @@ function BusinessLocationPickerChrome({
                   onClick={onDropPin}
                   className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
-                  Drop a pin
+                  {t("urride.areaView.dropPinTitle")}
                 </button>
                 <button
                   type="button"
@@ -2649,7 +2689,7 @@ function BusinessLocationPickerChrome({
                   disabled={busy || !currentLocation}
                   className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
                 >
-                  Add location
+                  {t("urride.areaView.addLocationBtn")}
                 </button>
               </>
             )}
@@ -2684,7 +2724,7 @@ function SearchOverlay({
                 autoFocus
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search KunThai map"
+                placeholder={t("urride.areaView.searchMapPlaceholder")}
                 className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-lg font-black text-slate-950 outline-none focus:border-green-500"
               />
               {query ? (
@@ -2702,7 +2742,7 @@ function SearchOverlay({
               type="button"
               onClick={onClose}
               className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900"
-              aria-label="Close search"
+              aria-label={t("urride.areaView.closeSearch")}
             >
               <FiX size={26} />
             </button>
@@ -2712,7 +2752,7 @@ function SearchOverlay({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {!query.trim() && recentSearches.length ? (
             <section className="mb-3 rounded-3xl bg-slate-50 p-3">
-              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Recent searches</p>
+              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">{t("urride.areaView.recentSearches")}</p>
               <div className="grid gap-2">
                 {recentSearches.slice(0, 5).map((item) => {
                   const label = item.place_name || item.search_text;
@@ -2742,7 +2782,7 @@ function SearchOverlay({
                             {label}
                           </span>
                           <span className="block truncate text-xs font-bold text-slate-500">
-                            {item.place_address || "Recent Area View search"}
+                            {item.place_address || t("urride.areaView.recentFallback")}
                           </span>
                         </span>
                       </button>
@@ -2751,7 +2791,7 @@ function SearchOverlay({
                         type="button"
                         onClick={() => onDeleteRecentSearch?.(item.id)}
                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
-                        aria-label={`Delete ${label} from recent searches`}
+                        aria-label={t("urride.areaView.deleteRecent", { label })}
                       >
                         <FiX size={17} />
                       </button>
@@ -2774,14 +2814,14 @@ function SearchOverlay({
               <FiNavigation size={20} />
             </span>
             <span>
-              <span className="block text-base font-black text-slate-950">Use current location</span>
-              <span className="block text-sm font-bold text-slate-500">Return the map to your live position</span>
+              <span className="block text-base font-black text-slate-950">{t("urride.areaView.useCurrentLocation")}</span>
+              <span className="block text-sm font-bold text-slate-500">{t("urride.areaView.useCurrentSub")}</span>
             </span>
           </button>
 
           {searching ? (
             <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-black text-slate-500">
-              Searching nearby places...
+              {t("urride.areaView.searchingNearby")}
             </div>
           ) : results.length ? (
             <div className="overflow-hidden rounded-3xl bg-white">
@@ -2810,11 +2850,11 @@ function SearchOverlay({
             </div>
           ) : query.trim().length >= 2 ? (
             <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-black text-slate-500">
-              No clear result found. Try a street, landmark, business name, or area.
+              {t("urride.areaView.noResult")}
             </div>
           ) : (
             <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-black text-slate-500">
-              Start typing to search for roads, shops, schools, pickup points, and landmarks.
+              {t("urride.areaView.startTyping")}
             </div>
           )}
         </div>
@@ -2843,14 +2883,16 @@ const MapPinButton = memo(function MapPinButton({ location, active, onSelect }) 
   );
 });
 function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocation, onGetDirections }) {
-  const status = locationStatusStyles[activeLocation?.status] || locationStatusStyles.community;
+  const statusKey = locationStatusStyles[activeLocation?.status] ? activeLocation.status : "community";
+  const status = locationStatusStyles[statusKey];
+  const statusLabel = STATUS_LABEL_KEYS[statusKey] ? t(STATUS_LABEL_KEYS[statusKey]) : status.label;
   const emergency = getEmergencyContacts(countryCode);
   const formatEmergencyNumbers = (numbers = []) => numbers.filter(Boolean).join(" / ");
   const emergencyContacts = [
-    emergency.national?.length ? { id: "national", label: "National Emergency", value: formatEmergencyNumbers(emergency.national) } : null,
-    { id: "police", label: "Police", value: formatEmergencyNumbers(emergency.police) },
-    { id: "ambulance", label: "Ambulance / Medical", value: formatEmergencyNumbers(emergency.ambulance) },
-    { id: "fire", label: "Fire Force", value: formatEmergencyNumbers(emergency.fire) },
+    emergency.national?.length ? { id: "national", label: t("urride.areaView.contactNational"), value: formatEmergencyNumbers(emergency.national) } : null,
+    { id: "police", label: t("urride.areaView.contactPolice"), value: formatEmergencyNumbers(emergency.police) },
+    { id: "ambulance", label: t("urride.areaView.contactAmbulance"), value: formatEmergencyNumbers(emergency.ambulance) },
+    { id: "fire", label: t("urride.areaView.contactFire"), value: formatEmergencyNumbers(emergency.fire) },
   ].filter((contact) => contact?.value);
 
   if (!open) return null;
@@ -2859,7 +2901,7 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
     <aside className="absolute left-3 right-3 top-36 z-30 max-h-[calc(100vh-10rem)] overflow-y-auto rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:left-auto sm:right-5 sm:w-[390px]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Nearby Area</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{t("urride.areaView.nearbyArea")}</p>
           <h2 className="mt-1 text-xl font-black">{activeLocation?.name}</h2>
           <p className="mt-1 text-sm text-slate-500">
             {activeLocation?.type} - {activeLocation?.distance}
@@ -2870,7 +2912,7 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
           type="button"
           onClick={onClose}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
-          aria-label="Close location card"
+          aria-label={t("urride.areaView.closeCard")}
         >
           <FiX size={18} />
         </button>
@@ -2878,7 +2920,7 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${status.className}`}>
-          {status.label}
+          {statusLabel}
         </span>
       </div>
 
@@ -2890,7 +2932,7 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
           onClick={() => onGetDirections?.(activeLocation)}
           className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
         >
-          Get Directions
+          {t("urride.areaView.getDirections")}
         </button>
 
         <button
@@ -2898,14 +2940,14 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
           onClick={onAddLocation}
           className="h-11 rounded-2xl border border-slate-200 text-sm font-bold text-slate-700"
         >
-          Add Missing Location
+          {t("urride.areaView.addMissing")}
         </button>
       </div>
 
       <section className="mt-5">
         <div className="mb-2 flex items-center gap-2 text-sm font-black">
           <FiShield className="text-red-500" />
-          Emergency Contacts
+          {t("urride.areaView.emergencyContacts")}
         </div>
 
         <div className="grid gap-2">
@@ -2928,10 +2970,10 @@ function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
   if (!notice) return null;
 
   const approved = notice.status === "approved";
-  const title = approved ? "Location approved" : "Location declined";
+  const title = approved ? t("urride.areaView.locApproved") : t("urride.areaView.locDeclined");
   const message = approved
-    ? "The location you added has been approved and can now appear in Area View."
-    : "The location you added was reviewed but not approved.";
+    ? t("urride.areaView.approvedMsg")
+    : t("urride.areaView.declinedMsg");
   const coordinates = formatCoordinateCode(notice);
 
   return (
@@ -2946,14 +2988,14 @@ function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Area View review</p>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">{t("urride.areaView.reviewTitle")}</p>
               <h2 className="mt-1 text-lg font-black">{title}</h2>
             </div>
             <button
               type="button"
               onClick={onDismiss}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-slate-300 hover:bg-white/15 hover:text-white"
-              aria-label="Dismiss location review"
+              aria-label={t("urride.areaView.dismissReview")}
             >
               <FiX size={17} />
             </button>
@@ -2963,7 +3005,7 @@ function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
           <p className="mt-2 truncate text-sm font-black text-white">{notice.name}</p>
           {notice.reason ? (
             <p className="mt-2 rounded-2xl bg-white/10 px-3 py-2 text-xs font-bold leading-5 text-slate-200">
-              Admin reason: {notice.reason}
+              {t("urride.areaView.adminReason", { reason: notice.reason })}
             </p>
           ) : null}
           {coordinates ? <p className="mt-2 text-xs font-bold text-slate-400">{coordinates}</p> : null}
@@ -2974,7 +3016,7 @@ function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
               onClick={onDismiss}
               className="h-10 rounded-2xl border border-white/15 text-sm font-black text-slate-200 hover:bg-white/10"
             >
-              Dismiss
+              {t("urride.areaView.dismiss")}
             </button>
             <button
               type="button"
@@ -2983,7 +3025,7 @@ function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
                 approved ? "bg-green-600 text-white hover:bg-green-700" : "bg-white text-slate-950 hover:bg-slate-100"
               }`}
             >
-              View point
+              {t("urride.areaView.viewPoint")}
             </button>
           </div>
         </div>
@@ -3032,7 +3074,7 @@ function AddLocationPanel({
         <div className={`pointer-events-auto absolute bottom-5 right-4 sm:right-5 ${panelMotion.collapsedButtonClass}`}>
           <MapCardCollapseButton
             collapsed
-            label="Maximize add location form"
+            label={t("urride.areaView.maximizeForm")}
             onClick={panelCollapse.expand}
           />
         </div>
@@ -3050,7 +3092,7 @@ function AddLocationPanel({
           <div className="flex min-w-0 items-center gap-3">
             <AppBackTab
               onBack={onBack}
-              label="Back to Area View"
+              label={t("urride.areaView.backToAreaView")}
               historyKey="area-view-add-location"
               useHistoryLayer={false}
               enableSwipe={false}
@@ -3058,12 +3100,12 @@ function AddLocationPanel({
               iconSize={21}
             />
             <div className="min-w-0">
-              <h2 className="truncate text-xl font-black">Add Location</h2>
-              <p className="mt-1 text-sm font-semibold text-slate-500">Add local places that are missing from normal maps.</p>
+              <h2 className="truncate text-xl font-black">{t("urride.areaView.addLocationTitle")}</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{t("urride.areaView.addLocationSub")}</p>
             </div>
           </div>
           <MapCardCollapseButton
-            label="Minimize add location form"
+            label={t("urride.areaView.minimizeForm")}
             onClick={panelCollapse.collapse}
           />
         </div>
@@ -3080,11 +3122,11 @@ function AddLocationPanel({
 
         {hasSelectedLocation ? (
           <div className="mb-4 rounded-2xl border border-green-100 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-wide text-green-700">Exact selected point</p>
-            <p className="mt-1 text-sm font-black text-slate-950">{selectedLocationLabel || "Pinned coordinates saved"}</p>
+            <p className="text-xs font-black uppercase tracking-wide text-green-700">{t("urride.areaView.exactPoint")}</p>
+            <p className="mt-1 text-sm font-black text-slate-950">{selectedLocationLabel || t("urride.areaView.pinnedSaved")}</p>
             {suggestedAddress ? (
               <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-                Nearby map label: {suggestedAddress}
+                {t("urride.areaView.nearbyLabel", { addr: suggestedAddress })}
               </p>
             ) : null}
           </div>
@@ -3092,68 +3134,68 @@ function AddLocationPanel({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <FormInput
-            label="Place name"
+            label={t("urride.areaView.fPlaceName")}
             value={draft.name}
             onChange={(value) => onChange("name", value)}
-            placeholder="Example: Musa Mini Mart"
+            placeholder={t("urride.areaView.phPlaceName")}
           />
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">Category</span>
+            <span className="mb-2 block text-sm font-bold text-slate-700">{t("urride.areaView.fCategory")}</span>
             <select
               value={category}
               onChange={(event) => onChange("category", event.target.value)}
               className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none"
             >
               {addCategories.map((item) => (
-                <option key={item}>{item}</option>
+                <option key={item} value={item}>{addCategoryDisplay(item)}</option>
               ))}
             </select>
           </label>
 
           {category === "Other" ? (
             <FormInput
-              label="Category name"
+              label={t("urride.areaView.fCategoryName")}
               value={draft.categoryName}
               onChange={(value) => onChange("categoryName", value)}
-              placeholder="Example: Garage, mosque, office, junction..."
+              placeholder={t("urride.areaView.phCategoryName")}
             />
           ) : null}
 
           <FormInput
-            label="Street / address optional"
+            label={t("urride.areaView.fStreet")}
             value={draft.address}
             onChange={(value) => onChange("address", value)}
-            placeholder="Only add if it matches the selected point"
+            placeholder={t("urride.areaView.phStreet")}
           />
           <FormInput
-            label="Landmark"
+            label={t("urride.areaView.fLandmark")}
             value={draft.landmark}
             onChange={(value) => onChange("landmark", value)}
-            placeholder="Near school, mosque, market..."
+            placeholder={t("urride.areaView.phLandmark")}
           />
           <FormInput
-            label="Phone optional"
+            label={t("urride.areaView.fPhone")}
             value={draft.phone}
             onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, "", { international: true }))}
             placeholder={getCountryPhoneHint()}
           />
           <FormInput
-            label="Opening hours optional"
+            label={t("urride.areaView.fHours")}
             value={draft.openingHours}
             onChange={(value) => onChange("openingHours", value)}
-            placeholder="8 AM - 9 PM"
+            placeholder={t("urride.areaView.phHours")}
           />
         </div>
 
         <label className="mt-3 block">
-          <span className="mb-2 block text-sm font-bold text-slate-700">Why is this place useful?</span>
+          <span className="mb-2 block text-sm font-bold text-slate-700">{t("urride.areaView.whyUseful")}</span>
           <textarea
             rows="3"
             value={draft.description}
             onChange={(event) => onChange("description", event.target.value)}
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none"
-            placeholder="Pickup point, safe waiting spot, shop landmark, emergency help..."
+            placeholder={t("urride.areaView.phWhy")}
           />
         </label>
 
@@ -3164,8 +3206,8 @@ function AddLocationPanel({
             disabled={busy}
             className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-3 text-sm font-black text-green-700 disabled:opacity-60"
           >
-            <span>Locate Me</span>
-            <span className="rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-black uppercase text-white">Recommended</span>
+            <span>{t("urride.areaView.locateMe")}</span>
+            <span className="rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-black uppercase text-white">{t("urride.areaView.recommended")}</span>
           </button>
 
           <button
@@ -3174,7 +3216,7 @@ function AddLocationPanel({
             disabled={busy}
             className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-700 disabled:opacity-60"
           >
-            Drop Pin
+            {t("urride.areaView.dropPinBtn")}
           </button>
 
           <button
@@ -3183,7 +3225,7 @@ function AddLocationPanel({
             disabled={busy}
             className="h-11 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:opacity-60"
           >
-            {busy ? "Please wait..." : "Submit for Review"}
+            {busy ? t("urride.areaView.pleaseWait") : t("urride.areaView.submitReview")}
           </button>
         </div>
         </div>
@@ -3192,7 +3234,7 @@ function AddLocationPanel({
           <div className={`pointer-events-auto absolute bottom-5 right-4 z-30 sm:right-5 ${cautionMotion.collapsedButtonClass}`}>
             <MapCardCollapseButton
               collapsed
-              label="Maximize locate me confirmation"
+              label={t("urride.areaView.maximizeLocate")}
               onClick={cautionCollapse.expand}
             />
           </div>
@@ -3205,21 +3247,21 @@ function AddLocationPanel({
                 type="button"
                 onClick={onCloseCaution}
                 className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
-                aria-label="Cancel locate me"
+                aria-label={t("urride.areaView.cancelLocate")}
               >
                 <FiX size={18} />
               </button>
               <MapCardCollapseButton
                 className="absolute right-3 top-3"
-                label="Minimize locate me confirmation"
+                label={t("urride.areaView.minimizeLocate")}
                 onClick={cautionCollapse.collapse}
               />
               <div className="pl-11">
-                <p className="text-xs font-black uppercase tracking-wide text-green-700">Confirm location</p>
-                <h3 className="mt-1 text-xl font-black">Be at the exact location</h3>
+                <p className="text-xs font-black uppercase tracking-wide text-green-700">{t("urride.areaView.confirmLocation")}</p>
+                <h3 className="mt-1 text-xl font-black">{t("urride.areaView.beExact")}</h3>
               </div>
               <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
-                Please make sure you are standing at the exact place you want to add. KunThai will use your device location to help reviewers place this location correctly.
+                {t("urride.areaView.beExactBody")}
               </p>
               <div className="mt-5 grid gap-2 sm:grid-cols-2">
                 <button
@@ -3228,7 +3270,7 @@ function AddLocationPanel({
                   disabled={busy}
                   className="h-11 rounded-2xl bg-green-600 text-sm font-black text-white disabled:opacity-60"
                 >
-                  Yes, locate me
+                  {t("urride.areaView.yesLocate")}
                 </button>
                 <button
                   type="button"
@@ -3236,7 +3278,7 @@ function AddLocationPanel({
                   disabled={busy}
                   className="h-11 rounded-2xl border border-slate-200 text-sm font-black text-slate-700 disabled:opacity-60"
                 >
-                  Drop a pin
+                  {t("urride.areaView.dropPinTitle")}
                 </button>
               </div>
             </div>

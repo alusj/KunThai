@@ -11,6 +11,25 @@ import {
 import { showToast } from "../../../Backend/services/toastService";
 import { getNetworkStatus, subscribeToNetworkStatus } from "../../../Backend/services/networkService";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
+import { useI18n, t } from "../../../i18n";
+
+const ROUTE_STATUS_LABEL_KEYS = {
+  correct: "urride.areaMap.rsCorrectLabel",
+  warning: "urride.areaMap.rsWarningLabel",
+  wrong: "urride.areaMap.rsWrongLabel",
+};
+
+const ROUTE_STATUS_MSG_KEYS = {
+  correct: "urride.areaMap.rsCorrectMsg",
+  warning: "urride.areaMap.rsWarningMsg",
+  wrong: "urride.areaMap.rsWrongMsg",
+};
+
+const ROUTE_STATUS_PILL_KEYS = {
+  correct: "urride.areaMap.pillCorrect",
+  warning: "urride.areaMap.pillWarning",
+  wrong: "urride.areaMap.pillWrong",
+};
 
 const defaultCountryProfile = getActiveCountryProfile();
 const DEFAULT_CENTER = defaultCountryProfile.mapCenter;
@@ -401,7 +420,7 @@ function createAreaLocationMarker(location) {
   wrapper.style.color = "white";
   wrapper.style.fontSize = "18px";
   wrapper.style.cursor = "pointer";
-  wrapper.title = location?.name || "Nearby location";
+  wrapper.title = location?.name || t("urride.areaMap.tNearbyLocation");
   wrapper.textContent = location?.category === "Emergency" ? "🚨" : "📍";
   return wrapper;
 }
@@ -420,7 +439,7 @@ function LegacyReportMarker(report) {
   wrapper.style.color = "white";
   wrapper.style.fontSize = "18px";
   wrapper.style.cursor = "pointer";
-  wrapper.title = report?.title || "Road report";
+  wrapper.title = report?.title || t("urride.areaMap.tRoadReport");
   wrapper.textContent = "⚠️";
   return wrapper;
 }
@@ -438,7 +457,7 @@ function createTrafficMarker(snapshot) {
   wrapper.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
   wrapper.style.color = "white";
   wrapper.style.fontSize = "16px";
-  wrapper.title = snapshot?.message || "Traffic update";
+  wrapper.title = snapshot?.message || t("urride.areaMap.tTrafficUpdate");
   wrapper.textContent = "●";
   return wrapper;
 }
@@ -455,7 +474,7 @@ function LegacyOperatorMarker(operator) {
   wrapper.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
   wrapper.style.color = "white";
   wrapper.style.fontSize = "20px";
-  wrapper.title = operator?.name || "Operator";
+  wrapper.title = operator?.name || t("urride.areaMap.tOperator");
   wrapper.textContent = operator?.type === "keke" ? "🛺" : operator?.type === "car" ? "🚗" : "🏍️";
   return wrapper;
 }
@@ -487,7 +506,7 @@ function createSmartReportMarker(report) {
   wrapper.style.fontSize = "17px";
   wrapper.style.fontWeight = "900";
   wrapper.style.cursor = "pointer";
-  wrapper.title = report?.title || "Road report";
+  wrapper.title = report?.title || t("urride.areaMap.tRoadReport");
   wrapper.textContent = icon;
   return wrapper;
 }
@@ -511,7 +530,7 @@ function SmartOperatorMarker(operator) {
   wrapper.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
   wrapper.style.color = "white";
   wrapper.style.fontSize = "20px";
-  wrapper.title = operator?.name || "Operator";
+  wrapper.title = operator?.name || t("urride.areaMap.tOperator");
 
   const iconNode = document.createElement("span");
   iconNode.dataset.operatorIcon = "true";
@@ -653,7 +672,7 @@ function updateLiveFleetOperatorMarkerElement(element, operator) {
   const liveDot = element.querySelector("[data-live-fleet-dot='true']");
   const bookedBadge = element.querySelector("[data-live-fleet-booked='true']");
 
-  element.title = [operator?.name || "Active operator", config.label, config.booked ? "Booked" : "Available"]
+  element.title = [operator?.name || t("urride.areaMap.tActiveOperator"), config.label, config.booked ? t("urride.areaMap.tBooked") : t("urride.areaMap.tAvailable")]
     .filter(Boolean)
     .join(" - ");
 
@@ -684,7 +703,7 @@ function updateLiveFleetOperatorMarkerElement(element, operator) {
   }
 
   if (bookedBadge) {
-    bookedBadge.textContent = config.booked ? "BOOKED" : "";
+    bookedBadge.textContent = config.booked ? t("urride.areaMap.markerBooked") : "";
     bookedBadge.style.display = config.booked ? "inline-flex" : "none";
   }
 }
@@ -756,7 +775,7 @@ function getSmartCameraCenter(position) {
 
 function getTrafficLevel(route, routeStatusKey) {
   if (!route?.distanceMeters || !route?.durationSeconds) {
-    return { label: "Traffic checking", detail: "Waiting for movement data", className: "bg-slate-100 text-slate-600" };
+    return { label: t("urride.areaMap.tlChecking"), detail: t("urride.areaMap.tlCheckingDetail"), className: "bg-slate-100 text-slate-600" };
   }
 
   const speedKmh = (route.distanceMeters / Math.max(route.durationSeconds, 1)) * 3.6;
@@ -764,14 +783,14 @@ function getTrafficLevel(route, routeStatusKey) {
   const isPeakTime = (hour >= 7 && hour <= 10) || (hour >= 16 && hour <= 20);
 
   if (routeStatusKey === "wrong") {
-    return { label: "Traffic risk high", detail: "Wrong-route movement may cause delay", className: "bg-red-100 text-red-700" };
+    return { label: t("urride.areaMap.tlRiskHigh"), detail: t("urride.areaMap.tlRiskHighDetail"), className: "bg-red-100 text-red-700" };
   }
 
   if (routeStatusKey === "warning" || speedKmh < 13 || isPeakTime) {
-    return { label: "Traffic may be slow", detail: "Expect slower movement on this route", className: "bg-yellow-100 text-yellow-700" };
+    return { label: t("urride.areaMap.tlSlow"), detail: t("urride.areaMap.tlSlowDetail"), className: "bg-yellow-100 text-yellow-700" };
   }
 
-  return { label: "Traffic looks normal", detail: "Route movement is currently clear", className: "bg-green-100 text-green-700" };
+  return { label: t("urride.areaMap.tlNormal"), detail: t("urride.areaMap.tlNormalDetail"), className: "bg-green-100 text-green-700" };
 }
 
 function getLiveTrafficInsight(trafficSnapshots = [], route, routeStatusKey) {
@@ -781,16 +800,16 @@ function getLiveTrafficInsight(trafficSnapshots = [], route, routeStatusKey) {
 
   if (redSnapshot) {
     return {
-      label: "Traffic danger nearby",
-      detail: redSnapshot.message || redSnapshot.roadName || "High-risk road condition reported",
+      label: t("urride.areaMap.ltDanger"),
+      detail: redSnapshot.message || redSnapshot.roadName || t("urride.areaMap.ltDangerDetail"),
       className: "bg-red-100 text-red-700",
     };
   }
 
   if (yellowSnapshot) {
     return {
-      label: "Traffic caution nearby",
-      detail: yellowSnapshot.message || yellowSnapshot.roadName || "Use caution around this area",
+      label: t("urride.areaMap.ltCaution"),
+      detail: yellowSnapshot.message || yellowSnapshot.roadName || t("urride.areaMap.ltCautionDetail"),
       className: "bg-yellow-100 text-yellow-700",
     };
   }
@@ -823,8 +842,8 @@ function LegacyWeatherMessage(currentWeather) {
 function getSmartWeatherMessage(currentWeather) {
   if (!currentWeather) {
     return {
-      label: "Weather checking",
-      detail: "Live weather will appear shortly",
+      label: t("urride.areaMap.wChecking"),
+      detail: t("urride.areaMap.wCheckingDetail"),
       className: "bg-slate-100 text-slate-600",
       relevant: false,
     };
@@ -851,8 +870,8 @@ function getSmartWeatherMessage(currentWeather) {
 
   if (riskLevel === "danger") {
     return {
-      label: `${temperature}°C • Road danger`,
-      detail: message || "Weather may make road movement unsafe",
+      label: t("urride.areaMap.wDanger", { temp: temperature }),
+      detail: message || t("urride.areaMap.wDangerDetail"),
       className: "bg-red-100 text-red-700",
       relevant: true,
     };
@@ -860,8 +879,8 @@ function getSmartWeatherMessage(currentWeather) {
 
   if (hasRainRisk) {
     return {
-      label: `${temperature}°C • Rain risk`,
-      detail: message || `Roads may be slippery. Wind ${wind} km/h`,
+      label: t("urride.areaMap.wRain", { temp: temperature }),
+      detail: message || t("urride.areaMap.wRainDetail", { wind }),
       className: "bg-blue-100 text-blue-700",
       relevant: true,
     };
@@ -869,16 +888,16 @@ function getSmartWeatherMessage(currentWeather) {
 
   if (hasVisibilityRisk || riskLevel === "caution") {
     return {
-      label: `${temperature}°C • Visibility caution`,
-      detail: message || `Use extra caution. Wind ${wind} km/h`,
+      label: t("urride.areaMap.wVisibility", { temp: temperature }),
+      detail: message || t("urride.areaMap.wVisibilityDetail", { wind }),
       className: "bg-yellow-100 text-yellow-700",
       relevant: true,
     };
   }
 
   return {
-    label: `${temperature}°C • Weather clear`,
-    detail: message || `Good travel condition. Wind ${wind} km/h`,
+    label: t("urride.areaMap.wClear", { temp: temperature }),
+    detail: message || t("urride.areaMap.wClearDetail", { wind }),
     className: "bg-sky-100 text-sky-700",
     relevant: false,
   };
@@ -990,13 +1009,13 @@ function detectTrafficAhead({
       ...snapshot,
       signalKind: "traffic",
       status: getSignalStatus(snapshot),
-      label: snapshot.message || snapshot.roadName || snapshot.areaName || "Traffic ahead",
+      label: snapshot.message || snapshot.roadName || snapshot.areaName || t("urride.areaMap.taSnapshotFallback"),
     })),
     ...reports.map((report) => ({
       ...report,
       signalKind: "report",
       status: getSignalStatus(report),
-      label: report.title || report.description || "Road report ahead",
+      label: report.title || report.description || t("urride.areaMap.taReportFallback"),
     })),
   ];
 
@@ -1023,9 +1042,9 @@ function detectTrafficAhead({
       return {
         id: signal.id,
         status,
-        label: "Traffic ahead",
-        detail: signal.label || signal.message || signal.description || "Slow or risky movement detected ahead",
-        roadName: signal.roadName || signal.areaName || "Affected road area",
+        label: t("urride.areaMap.taLabel"),
+        detail: signal.label || signal.message || signal.description || t("urride.areaMap.taDetailFallback"),
+        roadName: signal.roadName || signal.areaName || t("urride.areaMap.taRoadFallback"),
         distanceMeters: userDistance,
         routeDistanceMeters: nearest.distance,
         segmentIndex: nearest.segmentIndex,
@@ -1485,6 +1504,7 @@ export default function NearbyAreaMap({
   recenterSignal = 0,
   measurementPreview = null,
 }) {
+  useI18n();
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
@@ -1548,7 +1568,7 @@ export default function NearbyAreaMap({
   // snap can be released with hysteresis rather than flickering.
   const routeSnappedRef = useRef(false);
 
-  const [locationStatus, setLocationStatus] = useState(`Showing ${DEFAULT_CENTER.label}`);
+  const [locationStatus, setLocationStatus] = useState(() => t("urride.areaMap.gpsShowing", { area: DEFAULT_CENTER.label }));
   const [deviceLocationState, setDeviceLocationState] = useState("checking");
   const [userLocation, setUserLocation] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
@@ -1575,15 +1595,20 @@ export default function NearbyAreaMap({
   const [mapBlocked, setMapBlocked] = useState("");
   const [mapReloadKey, setMapReloadKey] = useState(0);
 
-  const routeStatus = ROUTE_STATUS[routeStatusKey];
+  const routeStatus = {
+    ...ROUTE_STATUS[routeStatusKey],
+    label: t(ROUTE_STATUS_LABEL_KEYS[routeStatusKey] || ROUTE_STATUS_LABEL_KEYS.correct),
+    message: t(ROUTE_STATUS_MSG_KEYS[routeStatusKey] || ROUTE_STATUS_MSG_KEYS.correct),
+  };
+  const routeStatusPill = t(ROUTE_STATUS_PILL_KEYS[routeStatusKey] || ROUTE_STATUS_PILL_KEYS.correct);
   const showNavigationCard = Boolean(routeLoading || routeInfo || routeError);
   const navigationCollapsed = navigationSnap === "collapsed";
-  const routeDistanceLabel = routeInfo?.distance || (routeLoading ? "Finding route" : "Route");
-  const routeDurationLabel = routeInfo?.duration || (routeError ? "Check route" : "");
+  const routeDistanceLabel = routeInfo?.distance || (routeLoading ? t("urride.areaMap.findingRoute") : t("urride.areaMap.routeWord"));
+  const routeDurationLabel = routeInfo?.duration || (routeError ? t("urride.areaMap.checkRoute") : "");
   const routeSummaryLabel = routeDurationLabel ? `${routeDistanceLabel} - ${routeDurationLabel}` : routeDistanceLabel;
-  const routeFromLabel = routeInfo?.from || "Current location";
+  const routeFromLabel = routeInfo?.from || t("urride.areaMap.currentLocation");
   const routePickupLabel = routeInfo?.pickup || routePlan?.pickup?.address || routePlan?.pickup?.name || "";
-  const routeToLabel = routeInfo?.to || routePlan?.dropoff?.address || selectedLocation?.name || selectedLocation?.label || "selected location";
+  const routeToLabel = routeInfo?.to || routePlan?.dropoff?.address || selectedLocation?.name || selectedLocation?.label || t("urride.areaMap.selectedLocationLc");
   const operatorPickup = normalizeRoutePreviewPoint(routePlan?.pickup);
   const operatorDropoff = normalizeRoutePreviewPoint(routePlan?.dropoff);
   const hasOperatorRoutePlan = Boolean(operatorPickup && operatorDropoff);
@@ -1731,7 +1756,7 @@ export default function NearbyAreaMap({
     const etaSpeed = Math.max(lastMovingSpeedRef.current, NAV_MOVEMENT_SETTINGS.minEtaSpeedMps);
     const etaSeconds = hasStartedMovingRef.current ? remainingMeters / etaSpeed : null;
     const nextDistance = formatDistance(Math.max(0, remainingMeters));
-    const nextDuration = etaSeconds != null ? formatDuration(etaSeconds) : NAV_MOVEMENT_SETTINGS.etaPlaceholder;
+    const nextDuration = etaSeconds != null ? formatDuration(etaSeconds) : t("urride.areaMap.etaPlaceholder");
 
     setRouteInfo((current) => {
       if (!current || current.routePlan) return current;
@@ -1825,7 +1850,7 @@ export default function NearbyAreaMap({
         current
           ? {
               ...current,
-              distance: "Rerouting",
+              distance: t("urride.areaMap.rerouting"),
               duration: "...",
             }
           : current,
@@ -1836,21 +1861,21 @@ export default function NearbyAreaMap({
 
   const routeCardStatus = routeError
     ? {
-        label: "Route needs attention",
+        label: t("urride.areaMap.routeNeedsAttention"),
         message: routeError,
         className: "bg-red-100 text-red-700",
       }
     : routeLoading
       ? {
-          label: "Calculating route",
-          message: "Getting the recommended route and live safety colors.",
+          label: t("urride.areaMap.calculatingRoute"),
+          message: t("urride.areaMap.calculatingMsg"),
           className: "bg-blue-100 text-blue-700",
         }
       : routeStatus;
   const activeTrafficInsight = trafficAhead
     ? {
-        label: trafficAhead.label || "Traffic ahead",
-        detail: `${trafficAhead.roadName || "Affected road"} - ${trafficAhead.detail}`,
+        label: trafficAhead.label || t("urride.areaMap.taLabel"),
+        detail: `${trafficAhead.roadName || t("urride.areaMap.taAffectedRoad")} - ${trafficAhead.detail}`,
         className: trafficAhead.status === "red" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700",
       }
     : trafficInsight;
@@ -1931,9 +1956,9 @@ export default function NearbyAreaMap({
       upsertAlternativeRouteLayer(mapRef.current, route.geometry);
     } catch {
       if (alternativeRouteRequestRef.current !== requestId) return;
-      setAlternativeError("Alternative route unavailable right now.");
-      showToast("No alternative route found right now. The current route stays active.", "warning", {
-        title: "Routing",
+      setAlternativeError(t("urride.areaMap.altUnavailable"));
+      showToast(t("urride.areaMap.altToast"), "warning", {
+        title: t("urride.areaMap.altToastTitle"),
       });
       clearAlternativeRouteLayer(mapRef.current);
     } finally {
@@ -1958,7 +1983,7 @@ export default function NearbyAreaMap({
     alternativeRouteRef.current = null;
     setAlternativeError("");
     setRouteInfo({
-      from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
+      from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
       to: selectedLocation.name,
       distance: formatDistance(route.distanceMeters),
       duration: formatDuration(route.durationSeconds),
@@ -2234,7 +2259,7 @@ export default function NearbyAreaMap({
       return;
     }
 
-    publishGpsUi("Checking location...", null, { force: true });
+    publishGpsUi(t("urride.areaMap.gpsChecking"), null, { force: true });
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -2243,11 +2268,11 @@ export default function NearbyAreaMap({
         const nextCenter = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-          label: "Your current area",
+          label: t("urride.areaMap.gpsYourArea"),
           accuracy,
         };
 
-        publishGpsUi("Using your current area", accuracy, { force: true });
+        publishGpsUi(t("urride.areaMap.gpsUsingArea"), accuracy, { force: true });
         setUserLocation(nextCenter);
         userLocationRef.current = nextCenter;
         smoothedPositionRef.current = nextCenter;
@@ -2266,7 +2291,7 @@ export default function NearbyAreaMap({
       },
       () => {
         setDeviceLocationState("unavailable");
-        publishGpsUi(`Showing ${DEFAULT_CENTER.label}`, null, { force: true });
+        publishGpsUi(t("urride.areaMap.gpsShowing", { area: DEFAULT_CENTER.label }), null, { force: true });
         setUserLocation(DEFAULT_CENTER);
         userLocationRef.current = DEFAULT_CENTER;
         smoothedPositionRef.current = DEFAULT_CENTER;
@@ -2417,10 +2442,10 @@ export default function NearbyAreaMap({
       setRouteError("");
       setRouteLoading(true);
       setRouteInfo({
-        from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
+        from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
         pickup: operatorPickup?.address || operatorPickup?.name,
-        to: routeTarget.address || routeTarget.name || "Selected destination",
-        distance: "Finding route",
+        to: routeTarget.address || routeTarget.name || t("urride.areaMap.selectedDestination"),
+        distance: t("urride.areaMap.findingRoute"),
         duration: "...",
         routePlan: hasOperatorRoutePlan,
       });
@@ -2448,7 +2473,7 @@ export default function NearbyAreaMap({
 
       if (operatorPickup) {
         pickupMarkerRef.current = new maplibregl.Marker({
-          element: createLabeledMarker("PICK UP POINT", "#059669"),
+          element: createLabeledMarker(t("urride.areaMap.markerPickup"), "#059669"),
           anchor: "center",
         })
           .setLngLat([operatorPickup.lng, operatorPickup.lat])
@@ -2456,10 +2481,10 @@ export default function NearbyAreaMap({
       }
 
       const destinationMarkerLabel = hasOperatorRoutePlan
-        ? "DROP OFF POINT"
+        ? t("urride.areaMap.markerDropoff")
         : selectedLocation.type === "seller"
-          ? "STORE"
-          : "DESTINATION";
+          ? t("urride.areaMap.markerStore")
+          : t("urride.areaMap.markerDestination");
 
       destinationMarkerRef.current = new maplibregl.Marker({
         element: createLabeledMarker(destinationMarkerLabel, "#2563eb"),
@@ -2512,14 +2537,14 @@ export default function NearbyAreaMap({
       }
 
       setRouteInfo({
-        from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
+        from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
         pickup: operatorPickup?.address || operatorPickup?.name,
         to: routeTarget.address || routeTarget.name,
         distance: formatDistance(route.distanceMeters),
         // The ETA is intentionally withheld until movement is detected: the
         // routing engine's static duration is not trustworthy for a live
         // traveller, so we compute it from real GPS speed instead.
-        duration: hasOperatorRoutePlan ? formatDuration(route.durationSeconds) : NAV_MOVEMENT_SETTINGS.etaPlaceholder,
+        duration: hasOperatorRoutePlan ? formatDuration(route.durationSeconds) : t("urride.areaMap.etaPlaceholder"),
         legs: route.legs || [],
         routePlan: hasOperatorRoutePlan,
         totalMeters: route.distanceMeters,
@@ -2544,17 +2569,17 @@ export default function NearbyAreaMap({
       setRouteStatusKey("wrong");
       routeStatusRef.current = "wrong";
       setRouteInfo({
-        from: userLocationRef.current ? "CURRENT LOCATION" : DEFAULT_CENTER.label,
+        from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
         pickup: operatorPickup?.address || operatorPickup?.name,
-        to: operatorDropoff?.address || selectedLocation?.name || "Selected destination",
-        distance: "Route unavailable",
-        duration: "Try again",
+        to: operatorDropoff?.address || selectedLocation?.name || t("urride.areaMap.selectedDestination"),
+        distance: t("urride.areaMap.routeUnavailable"),
+        duration: t("urride.areaMap.tryAgain"),
         routePlan: hasOperatorRoutePlan,
       });
       setNavigationSnap("half");
-      setRouteError(error.message || "Route unavailable. Check the route key or try another location.");
-      showToast("Route could not be drawn. Check your connection or pick a nearby destination.", "warning", {
-        title: "Routing paused",
+      setRouteError(error.message || t("urride.areaMap.routeErrorFallback"));
+      showToast(t("urride.areaMap.routeToastMsg"), "warning", {
+        title: t("urride.areaMap.routeToastTitle"),
       });
     });
 
@@ -2579,14 +2604,14 @@ export default function NearbyAreaMap({
         const accuracy = Math.round(position.coords.accuracy || 0);
 
         if (accuracy > GPS_SETTINGS.ignoreAccuracyAboveMeters) {
-          publishGpsUi(`Weak GPS signal - ${accuracy}m accuracy`, accuracy);
+          publishGpsUi(t("urride.areaMap.gpsWeak", { m: accuracy }), accuracy);
           return;
         }
 
         const rawLivePosition = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-          label: "Live current location",
+          label: t("urride.areaMap.liveCurrentLocation"),
           accuracy,
           heading: position.coords.heading,
           speed: position.coords.speed,
@@ -2611,7 +2636,7 @@ export default function NearbyAreaMap({
             rawDistance > GPS_SETTINGS.jumpDistanceMeters &&
             rawSpeed > GPS_SETTINGS.maxHumanSpeedMetersPerSecond
           ) {
-            publishGpsUi(`Filtering GPS jump - ${accuracy}m accuracy`, accuracy);
+            publishGpsUi(t("urride.areaMap.gpsJump", { m: accuracy }), accuracy);
             return;
           }
         }
@@ -2645,8 +2670,8 @@ export default function NearbyAreaMap({
 
         publishGpsUi(
           accuracy > GPS_SETTINGS.lowAccuracyWarningMeters
-            ? `Low GPS accuracy - ${accuracy}m`
-            : "Live tracking active",
+            ? t("urride.areaMap.gpsLow", { m: accuracy })
+            : t("urride.areaMap.gpsLive"),
           accuracy,
         );
         userLocationRef.current = livePosition;
@@ -2714,14 +2739,14 @@ export default function NearbyAreaMap({
             routeStatusRef.current = "correct";
             setRouteStatusKey("correct");
             setRouteLineColor(mapRef.current, ROUTE_STATUS.correct.color);
-            setLocationStatus("Arrived at destination");
+            setLocationStatus(t("urride.areaMap.gpsArrived"));
             setNavigationSnap("half");
             setRouteInfo((current) =>
               current
                 ? {
                     ...current,
                     distance: "0 m",
-                    duration: "Arrived",
+                    duration: t("urride.areaMap.arrived"),
                   }
                 : current,
             );
@@ -2788,7 +2813,7 @@ export default function NearbyAreaMap({
       },
       () => {
         setDeviceLocationState((current) => current === "ready" ? current : "unavailable");
-        publishGpsUi("Location permission needed for live tracking", null, { force: true });
+        publishGpsUi(t("urride.areaMap.gpsPermission"), null, { force: true });
       },
       {
         enableHighAccuracy: true,
@@ -2988,7 +3013,7 @@ export default function NearbyAreaMap({
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
           <div className="flex items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-xs font-black text-slate-700 shadow-xl">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
-            Loading map...
+            {t("urride.areaMap.loadingMap")}
           </div>
         </div>
       ) : null}
@@ -3000,19 +3025,19 @@ export default function NearbyAreaMap({
               {mapBlocked === "offline" ? "📴" : "🐢"}
             </div>
             <p className="text-base font-black text-slate-950">
-              {mapBlocked === "offline" ? "You are offline" : "Weak network"}
+              {mapBlocked === "offline" ? t("urride.areaMap.offline") : t("urride.areaMap.weakNetwork")}
             </p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
               {mapBlocked === "offline"
-                ? "The map cannot load without a connection. It will refresh automatically once you are back online."
-                : "The map is struggling to load on this connection. It will keep trying, or you can retry now."}
+                ? t("urride.areaMap.offlineBody")
+                : t("urride.areaMap.slowBody")}
             </p>
             <button
               type="button"
               onClick={() => setMapReloadKey((value) => value + 1)}
               className="kt-pressable mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white"
             >
-              Retry map
+              {t("urride.areaMap.retryMap")}
             </button>
           </div>
         </div>
@@ -3038,9 +3063,9 @@ export default function NearbyAreaMap({
               });
             }}
             className="rounded-full bg-slate-950/90 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-white shadow-xl"
-            aria-label="Toggle map direction mode"
+            aria-label={t("urride.areaMap.toggleDirection")}
           >
-            {headingMode === "smart" ? "SMART" : headingMode === "compass" ? "COMPASS" : "NORTH"}
+            {headingMode === "smart" ? t("urride.areaMap.modeSmart") : headingMode === "compass" ? t("urride.areaMap.modeCompass") : t("urride.areaMap.modeNorth")}
             {heading != null && headingMode !== "north" ? <span className="ml-1 text-white/60">{heading}°</span> : null}
           </button>
         </div>
@@ -3060,7 +3085,7 @@ export default function NearbyAreaMap({
             }}
           >
             <span className="h-1.5 w-16 rounded-full bg-slate-300 shadow-sm" />
-            <span className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">Drag</span>
+            <span className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">{t("urride.areaMap.drag")}</span>
           </div>
 
           <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-1">
@@ -3068,9 +3093,9 @@ export default function NearbyAreaMap({
               type="button"
               onClick={() => setNextNavigationSnap(navigationCollapsed ? "up" : "down")}
               className="kt-pressable rounded-full bg-green-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-green-700"
-              aria-label={navigationCollapsed ? "Expand navigation sheet" : "Collapse navigation sheet"}
+              aria-label={navigationCollapsed ? t("urride.areaMap.expandSheet") : t("urride.areaMap.collapseSheet")}
             >
-              {routeInfo?.routePlan ? "Operator Route Preview" : "Live Navigation"}
+              {routeInfo?.routePlan ? t("urride.areaMap.operatorRoutePreview") : t("urride.areaMap.liveNavigation")}
             </button>
 
             <div className="flex items-center gap-2">
@@ -3082,7 +3107,7 @@ export default function NearbyAreaMap({
                 type="button"
                 onClick={() => setNextNavigationSnap(navigationCollapsed ? "up" : "down")}
                 className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full border-2 border-slate-300 bg-white/95 text-xl font-black leading-none text-slate-950 shadow-lg backdrop-blur"
-                aria-label={navigationCollapsed ? "Expand navigation" : "Collapse navigation"}
+                aria-label={navigationCollapsed ? t("urride.areaMap.expandNav") : t("urride.areaMap.collapseNav")}
               >
                 {navigationCollapsed ? <FiChevronUp strokeWidth={3.2} /> : <FiChevronDown strokeWidth={3.2} />}
               </button>
@@ -3095,7 +3120,7 @@ export default function NearbyAreaMap({
                 {routeSummaryLabel}
               </h3>
               <span className={`rounded-2xl px-3 py-2 text-xs font-black ${routeCardStatus.className}`}>
-                {routeError ? "CHECK" : routeLoading ? "WAIT" : routeStatusKey.toUpperCase()}
+                {routeError ? t("urride.areaMap.pillCheck") : routeLoading ? t("urride.areaMap.pillWait") : routeStatusPill}
               </span>
             </div>
           ) : (
@@ -3106,12 +3131,12 @@ export default function NearbyAreaMap({
                     {routeSummaryLabel}
                   </h3>
                   <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">
-                    {routeInfo?.routePlan ? "Road ETA from current location through the passenger route." : `To: ${routeToLabel}`}
+                    {routeInfo?.routePlan ? t("urride.areaMap.roadEtaThroughRoute") : t("urride.areaMap.toLabel", { label: routeToLabel })}
                   </p>
                 </div>
 
                 <div className={`rounded-2xl px-3 py-2 text-xs font-black ${routeCardStatus.className}`}>
-                  {routeError ? "CHECK" : routeLoading ? "WAIT" : routeStatusKey.toUpperCase()}
+                  {routeError ? t("urride.areaMap.pillCheck") : routeLoading ? t("urride.areaMap.pillWait") : routeStatusPill}
                 </div>
               </div>
 
@@ -3138,7 +3163,7 @@ export default function NearbyAreaMap({
 
               {trafficAhead ? (
                 <div className="mt-3 rounded-2xl border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs font-bold text-yellow-800">
-                  <span className="block font-black">Traffic ahead near {trafficAhead.roadName || "this route"}</span>
+                  <span className="block font-black">{t("urride.areaMap.trafficAheadNear", { road: trafficAhead.roadName || t("urride.areaMap.taThisRoute") })}</span>
                   <span className="mt-1 block opacity-80">{trafficAhead.detail}</span>
                 </div>
               ) : null}
@@ -3151,17 +3176,17 @@ export default function NearbyAreaMap({
                     disabled={alternativeLoading}
                     className="h-10 rounded-2xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-800 transition hover:bg-slate-50 disabled:opacity-60"
                   >
-                    {alternativeLoading ? "Finding alternative route..." : "Find Alternative Route"}
+                    {alternativeLoading ? t("urride.areaMap.findingAlt") : t("urride.areaMap.findAlt")}
                   </button>
 
                   {alternativeRoute ? (
                     <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">
                       <div className="flex items-center justify-between gap-3">
                         <span>
-                          Alternative: {alternativeRoute.distance} - {alternativeRoute.duration}
+                          {t("urride.areaMap.altPrefix", { distance: alternativeRoute.distance, duration: alternativeRoute.duration })}
                         </span>
                         <span className={alternativeRoute.avoidsIssue ? "text-green-700" : "text-yellow-700"}>
-                          {alternativeRoute.avoidsIssue ? "Cleaner" : "Caution"}
+                          {alternativeRoute.avoidsIssue ? t("urride.areaMap.cleaner") : t("urride.areaMap.caution")}
                         </span>
                       </div>
                       <button
@@ -3169,7 +3194,7 @@ export default function NearbyAreaMap({
                         onClick={handleUseAlternativeRoute}
                         className="mt-2 h-9 w-full rounded-xl bg-slate-950 text-xs font-black text-white"
                       >
-                        Use Alternative
+                        {t("urride.areaMap.useAlt")}
                       </button>
                     </div>
                   ) : null}
@@ -3186,7 +3211,7 @@ export default function NearbyAreaMap({
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 shrink-0 rounded-full bg-green-600" />
                   <span>
-                    <strong className="text-slate-900">CURRENT LOCATION:</strong> {routeFromLabel}
+                    <strong className="text-slate-900">{t("urride.areaMap.currentLocationLabel")}</strong> {routeFromLabel}
                   </span>
                 </div>
 
@@ -3194,7 +3219,7 @@ export default function NearbyAreaMap({
                   <div className="flex items-start gap-2">
                     <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-emerald-600" />
                     <span className="line-clamp-2">
-                      <strong className="text-slate-900">PICK UP POINT / PASSENGER&apos;S LOCATION:</strong> {routePickupLabel}
+                      <strong className="text-slate-900">{t("urride.areaMap.pickupPointLabel")}</strong> {routePickupLabel}
                     </span>
                   </div>
                 ) : null}
@@ -3203,7 +3228,7 @@ export default function NearbyAreaMap({
                   <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-600" />
                   <span className="line-clamp-2">
                     <strong className="text-slate-900">
-                      {routeInfo?.routePlan ? "DROP OFF POINT / PASSENGER'S DESTINATION:" : "DESTINATION:"}
+                      {routeInfo?.routePlan ? t("urride.areaMap.dropoffPointLabel") : t("urride.areaMap.destinationLabel")}
                     </strong>{" "}
                     {routeToLabel}
                   </span>
@@ -3215,7 +3240,7 @@ export default function NearbyAreaMap({
                   {routeInfo.legs.map((leg, index) => (
                     <div key={`${index}-${leg.distanceMeters}`} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
                       <span className="block font-black text-slate-900">
-                        {index === 0 ? "Current location to pick up point" : "Pick up point to drop off point"}
+                        {index === 0 ? t("urride.areaMap.legFirst") : t("urride.areaMap.legSecond")}
                       </span>
                       <span className="mt-1 block">
                         {formatDistance(leg.distanceMeters)} - {formatDuration(leg.durationSeconds)}
@@ -3244,9 +3269,9 @@ function RouteHealthLegend({ activeKey }) {
   return (
     <div className="mt-3 grid grid-cols-3 gap-2">
       {[
-        ["correct", "Green", "bg-green-600"],
-        ["warning", "Yellow", "bg-yellow-400"],
-        ["wrong", "Red", "bg-red-600"],
+        ["correct", t("urride.areaMap.legendGreen"), "bg-green-600"],
+        ["warning", t("urride.areaMap.legendYellow"), "bg-yellow-400"],
+        ["wrong", t("urride.areaMap.legendRed"), "bg-red-600"],
       ].map(([key, label, colorClass]) => (
         <span
           key={key}

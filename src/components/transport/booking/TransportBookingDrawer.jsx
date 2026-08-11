@@ -40,6 +40,11 @@ import {
 } from "../../services/transportPricingService";
 import { getPassengerFleetFilterOptions } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
+import {
+  getBookingLocationInputValue,
+  normalizeBookingLocationPoint,
+  resolveBookingLocationPreferences,
+} from "./bookingLocationPreferences";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
 
@@ -82,24 +87,6 @@ function isFleetNearby(fleet) {
 
 function hasText(value) {
   return String(value || "").trim().length > 1;
-}
-
-function normalizeLocationPoint(place) {
-  const lat = Number(place?.lat ?? place?.latitude);
-  const lng = Number(place?.lng ?? place?.longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return {
-    ...place,
-    lat,
-    lng,
-    address: place.address || place.fullAddress || place.detectedAddress || place.street || place.placeName || place.name || "",
-    name: place.name || place.placeName || place.label || place.address || "Selected location",
-    searchQuery: place.searchQuery || place.fullAddress || place.address || place.street || place.placeName || place.name || "",
-  };
-}
-
-function getLocationInputValue(place) {
-  return String(place?.address || place?.fullAddress || place?.detectedAddress || place?.street || place?.placeName || place?.name || "").trim();
 }
 
 function getBookingRequirementMessage(form, mode) {
@@ -252,14 +239,14 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
     const nextSelection = selectionFromTarget(target);
     const draftForm = target?.draftForm || null;
-    const preferredPickup = normalizeLocationPoint(getNextTransportPlace("pickup"));
-    const preferredDropoff = normalizeLocationPoint(getNextTransportPlace("dropoff"));
-    const targetPickup = target?.pickup || target?.movement?.pickup || draftForm?.pickup || "";
-    const targetDropoff = target?.destination || target?.movement?.destination || draftForm?.dropoff || "";
-    const targetPickupPoint = normalizeLocationPoint(target?.pickupPoint || target?.movement?.pickupPoint) || draftForm?.pickupPoint || null;
-    const targetDropoffPoint = normalizeLocationPoint(target?.destinationPoint || target?.movement?.destinationPoint) || draftForm?.dropoffPoint || null;
-    const usePreferredPickup = !targetPickup && !targetPickupPoint;
-    const usePreferredDropoff = !targetDropoff && !targetDropoffPoint;
+    const preferredPickupPlace = getNextTransportPlace("pickup");
+    const preferredDropoffPlace = getNextTransportPlace("dropoff");
+    const preferredLocations = resolveBookingLocationPreferences({
+      target,
+      draftForm,
+      preferredPickupPlace,
+      preferredDropoffPlace,
+    });
     setSelection(nextSelection);
     setStatus("");
     setRouteEstimate(null);
@@ -268,10 +255,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     setForm((current) => ({
       ...current,
       ...(draftForm || {}),
-      pickup: targetPickup || (usePreferredPickup ? getLocationInputValue(preferredPickup) : ""),
-      dropoff: targetDropoff || (usePreferredDropoff ? getLocationInputValue(preferredDropoff) : ""),
-      pickupPoint: targetPickupPoint || (usePreferredPickup ? preferredPickup : null),
-      dropoffPoint: targetDropoffPoint || (usePreferredDropoff ? preferredDropoff : null),
+      ...preferredLocations,
       packageDescription: draftForm?.packageDescription || "",
       note: draftForm?.note || "",
     }));
@@ -408,19 +392,19 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
   function acceptBookingLocation(location) {
     const nextLocation = normalizeAreaLocation(location, areaPicker?.kind === "pickup" ? form.pickup : form.dropoff);
-    const nextPoint = normalizeLocationPoint(nextLocation);
+    const nextPoint = normalizeBookingLocationPoint(nextLocation);
     if (!nextPoint) return;
 
     setStatusSuccess(false);
     if (areaPicker?.kind === "pickup") {
       updateForm({
-        pickup: getLocationInputValue(nextPoint),
+        pickup: getBookingLocationInputValue(nextPoint),
         pickupPoint: nextPoint,
       });
       setStatus(t("urride.booking.pickupAdded", { address: nextPoint.address }));
     } else {
       updateForm({
-        dropoff: getLocationInputValue(nextPoint),
+        dropoff: getBookingLocationInputValue(nextPoint),
         dropoffPoint: nextPoint,
       });
       setStatus(t("urride.booking.dropoffAdded", { address: nextPoint.address }));
@@ -710,8 +694,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   center={searchCenter || form.dropoffPoint}
                   onChange={(value) => updateForm({ pickup: value, pickupPoint: null })}
                   onSelect={(place) => updateForm({
-                    pickup: getLocationInputValue(place),
-                    pickupPoint: normalizeLocationPoint(place),
+                    pickup: getBookingLocationInputValue(place),
+                    pickupPoint: normalizeBookingLocationPoint(place),
                   })}
                   onLocateMe={() => openBookingLocationPicker("pickup", "current")}
                   onDropPin={() => openBookingLocationPicker("pickup", "dropPin")}
@@ -726,8 +710,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   center={form.pickupPoint || searchCenter}
                   onChange={(value) => updateForm({ dropoff: value, dropoffPoint: null })}
                   onSelect={(place) => updateForm({
-                    dropoff: getLocationInputValue(place),
-                    dropoffPoint: normalizeLocationPoint(place),
+                    dropoff: getBookingLocationInputValue(place),
+                    dropoffPoint: normalizeBookingLocationPoint(place),
                   })}
                   onLocateMe={() => openBookingLocationPicker("dropoff", "current")}
                   onDropPin={() => openBookingLocationPicker("dropoff", "dropPin")}

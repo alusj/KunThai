@@ -251,6 +251,15 @@ function compactPublicId(value = "") {
 export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaved, onSaveExit, onViewOneKmPreview }) {
   useI18n();
   const addOperatorMode = mode === "addOperator";
+  const openingSource = existingCompany || null;
+  const openingCompany = openingSource?.company || openingSource;
+  const openingAddOperatorForm = addOperatorMode && openingCompany
+    ? {
+        ...createCompanyForm(),
+        ...openingCompany,
+        documents: openingCompany.documents || {},
+      }
+    : null;
   // Editing an existing company shows a single-screen accordion of the
   // registration steps (each with the current details + Edit) instead of
   // walking the wizard from the top.
@@ -258,16 +267,16 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const [openSection, setOpenSection] = useState(-1);
   const [step, setStep] = useState(() => (addOperatorMode ? 2 : 0));
   const [maxStepReached, setMaxStepReached] = useState(() => (addOperatorMode ? 2 : 0));
-  const [form, setForm] = useState(() => createCompanyForm());
-  const [fleets, setFleets] = useState(() => [createFleetDraft(0)]);
-  const [areaText, setAreaText] = useState("");
+  const [form, setForm] = useState(() => openingAddOperatorForm || createCompanyForm());
+  const [fleets, setFleets] = useState(() => [createFleetDraft(0, openingAddOperatorForm || {})]);
+  const [areaText, setAreaText] = useState(() => (openingAddOperatorForm?.operatingAreas || []).join(", "));
   const [status, setStatus] = useState("");
   const [statusTone, setStatusTone] = useState("info");
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [finishing, setFinishing] = useState(false);
-  const [initializing, setInitializing] = useState(true);
+  const [initializing, setInitializing] = useState(() => !addOperatorMode);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const [locationPickerMode, setLocationPickerMode] = useState(null);
   const [locationCautionOpen, setLocationCautionOpen] = useState(false);
@@ -317,11 +326,21 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   useEffect(() => {
     let alive = true;
 
+    // The company workspace already supplies everything needed to add an
+    // operator. Paint that screen immediately instead of showing a loader for
+    // a profile/draft fetch that this mode does not use.
+    if (addOperatorMode) {
+      setInitializing(false);
+      return () => {
+        alive = false;
+      };
+    }
+
     async function loadContext() {
       try {
         const [profile, draft] = await Promise.all([
           getOnboardingProfile().catch(() => null),
-          addOperatorMode ? Promise.resolve(null) : getTransportCompanyDraft().catch(() => null),
+          getTransportCompanyDraft().catch(() => null),
         ]);
         if (!alive) return;
 
@@ -335,15 +354,13 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             documents: company.documents || {},
           };
           setForm(nextForm);
-          setFleets(addOperatorMode
-            ? [createFleetDraft(0, nextForm)]
-            : sanitizeCompanyFleetsForCountry(
-                (source.fleets || [createFleetDraft(0, nextForm)]).length ? source.fleets : [createFleetDraft(0, nextForm)],
-                nextForm,
-              ));
+          setFleets(sanitizeCompanyFleetsForCountry(
+            (source.fleets || [createFleetDraft(0, nextForm)]).length ? source.fleets : [createFleetDraft(0, nextForm)],
+            nextForm,
+          ));
           setAreaText((company.operatingAreas || []).join(", "));
-          setStep(addOperatorMode ? 2 : source.step || 0);
-          setMaxStepReached(addOperatorMode ? 2 : source.maxStepReached || source.step || 0);
+          setStep(source.step || 0);
+          setMaxStepReached(source.maxStepReached || source.step || 0);
           return;
         }
 
