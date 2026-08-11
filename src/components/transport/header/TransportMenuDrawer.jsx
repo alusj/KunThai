@@ -153,7 +153,7 @@ function findMenuItem(screenId) {
   return menuSections.flatMap((section) => section.items).find((item) => item.id === screenId);
 }
 
-export default function TransportMenuDrawer({ open, onClose, onUseSavedPlace, onViewFleet, onOpenEmergencyArea }) {
+export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpenEmergencyArea }) {
   const { locale } = useI18n();
   const [activeScreen, setActiveScreen] = useState(null);
   const [supportSeed, setSupportSeed] = useState(null);
@@ -231,7 +231,7 @@ export default function TransportMenuDrawer({ open, onClose, onUseSavedPlace, on
     }
 
     if (screenId === "places") {
-      return <SavedPlacesPage onUseSavedPlace={onUseSavedPlace} />;
+      return <SavedPlacesPage />;
     }
 
     if (screenId === "wallet") {
@@ -650,7 +650,7 @@ function SavedPlaceMenuAction({ danger = false, icon, label, onClick }) {
   );
 }
 
-function SavedPlacesPage({ onUseSavedPlace }) {
+function SavedPlacesPage() {
   const { locale } = useI18n();
   const [places, setPlaces] = useState(() => getTransportSavedPlaces());
   const [place, setPlace] = useState(createEmptyPlace);
@@ -774,7 +774,6 @@ function SavedPlacesPage({ onUseSavedPlace }) {
     setActionMenuId("");
     selectTransportSavedPlace(nextPlace, kind);
     setMessage(t(kind === "dropoff" ? "urride.menu.places.placeSelectedDropoff" : "urride.menu.places.placeSelectedPickup", { label: getPlaceLabel(nextPlace) }));
-    onUseSavedPlace?.(nextPlace, kind);
   }
 
   async function sharePlace(nextPlace) {

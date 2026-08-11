@@ -110,7 +110,7 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
   return (
     <section
       aria-label={t("urmall.browse.promotedAria")}
-      className="sticky top-2 z-20 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-lg shadow-slate-900/10 ring-1 ring-slate-300/70"
+      className="sticky top-[calc(var(--urmall-sticky-header-height,0px)+0.5rem)] z-20 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-lg shadow-slate-900/10 ring-1 ring-slate-300/70 transition-[top] duration-300 ease-out"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

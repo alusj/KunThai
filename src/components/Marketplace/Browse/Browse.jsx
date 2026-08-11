@@ -1,6 +1,6 @@
 // src/components/Marketplace/Browse/Browse.jsx
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Search, X } from "lucide-react";
 import {
   addBuyerCartItem,
@@ -24,6 +24,8 @@ import { openPublicCodeResult } from "../../../Backend/services/publicCodeServic
 import PullToRefresh from "../../shared/PullToRefresh";
 import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
 import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
+import { rankSimilarMarketplaceProducts } from "../../../Backend/services/marketplace/marketplaceDiscovery";
+import { BUYER_ADDRESS_SELECTED_EVENT } from "../shared/buyerAddressPreferences";
 
 import BuyerDiscoveryBar from "./BuyerDiscoveryBar";
 import PromotedAdsCarousel from "./PromotedAdsCarousel";
@@ -43,7 +45,7 @@ const DEFAULT_FILTERS = {
   category: "all",
   location: "",
   delivery: "all",
-  sort: "newest",
+  sort: "nearby",
   minPrice: "",
   maxPrice: "",
 };
@@ -130,6 +132,10 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
   const catalogRef = useRef(catalog);
   const loadProductsRef = useRef(null);
   const codeLookup = usePublicCodeLookup(filters.search);
+  const relatedProducts = useMemo(
+    () => rankSimilarMarketplaceProducts(selectedProduct, catalog.newProducts, 8),
+    [catalog.newProducts, selectedProduct],
+  );
 
   useSilentRefresh(() => loadProductsRef.current?.(), { intervalMs: 60000 });
 
@@ -283,6 +289,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
     };
     const unsubscribe = subscribeBuyerMarketplaceProducts(refreshSilently);
     window.addEventListener("marketplace-products-updated", refreshSilently);
+    window.addEventListener(BUYER_ADDRESS_SELECTED_EVENT, refreshSilently);
     window.addEventListener("focus", refreshSilently);
 
     return () => {
@@ -290,6 +297,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
       window.clearTimeout(refreshTimer);
       unsubscribe?.();
       window.removeEventListener("marketplace-products-updated", refreshSilently);
+      window.removeEventListener(BUYER_ADDRESS_SELECTED_EVENT, refreshSilently);
       window.removeEventListener("focus", refreshSilently);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -619,6 +627,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
         }}
         onNotice={showNotice}
         saved={selectedProduct ? savedIds.has(selectedProduct.id) : false}
+        relatedProducts={relatedProducts}
+        relatedSavedIds={savedIds}
+        onRelatedProductSelect={openProduct}
       />
 
       <SellerProfileDrawer

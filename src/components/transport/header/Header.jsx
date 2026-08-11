@@ -23,7 +23,6 @@ export default function Header({
   onActivityChange,
   onNotificationCountChange,
   onRegisterFleet,
-  onUseSavedPlace,
   onViewFleet,
   onOpenEmergencyArea,
 }) {
@@ -151,10 +150,6 @@ export default function Header({
       <TransportMenuDrawer
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        onUseSavedPlace={(place, kind) => {
-          setMenuOpen(false);
-          onUseSavedPlace?.(place, kind);
-        }}
         onViewFleet={onViewFleet}
         onOpenEmergencyArea={onOpenEmergencyArea}
       />

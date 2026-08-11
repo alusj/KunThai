@@ -16,6 +16,7 @@ import {
   rankSearchResults,
 } from "./productSearch";
 import { fetchPromotedVerticalListings } from "./marketplaceVerticalService";
+import { rankMarketplaceProductsNearby } from "./marketplaceDiscovery";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -325,15 +326,60 @@ function applyProductFilters(query, filters = {}) {
   return nextQuery;
 }
 
-function sortProducts(products, sort) {
+function sortProducts(products, sort, buyerContext = {}) {
   const sortable = [...products];
 
+  if (sort === "nearby") return rankMarketplaceProductsNearby(sortable, buyerContext);
   if (sort === "price-low") return sortable.sort((a, b) => (a.discountPrice || a.price) - (b.discountPrice || b.price));
   if (sort === "price-high") return sortable.sort((a, b) => (b.discountPrice || b.price) - (a.discountPrice || a.price));
   if (sort === "popular") return sortable.sort((a, b) => b.sales + b.views - (a.sales + a.views));
   if (sort === "discount") return sortable.sort((a, b) => (b.price - (b.discountPrice || b.price)) - (a.price - (a.discountPrice || a.price)));
 
   return sortable.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+}
+
+function readLocalDiscoveryValue(key) {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(key) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function normalizeDiscoveryCoordinates(value = {}) {
+  const rawLatitude = value.coordinates?.latitude ?? value.coordinates?.lat ?? value.latitude ?? value.lat;
+  const rawLongitude = value.coordinates?.longitude ?? value.coordinates?.lng ?? value.longitude ?? value.lng;
+  if (rawLatitude === null || rawLatitude === undefined || rawLatitude === "" || rawLongitude === null || rawLongitude === undefined || rawLongitude === "") return null;
+  const latitude = Number(rawLatitude);
+  const longitude = Number(rawLongitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return { latitude, longitude };
+}
+
+// Default discovery never forces a permission prompt. It uses a chosen buyer
+// address first, then the privacy-safe cached location, and refreshes GPS only
+// when permission was already granted.
+async function getBuyerDiscoveryContext() {
+  const preferredAddress = readLocalDiscoveryValue("marketplace-buyer-address") || {};
+  const cachedLocation = readLocalDiscoveryValue("kunthai.buyerLocation.v1") || {};
+  let coordinates = normalizeDiscoveryCoordinates(preferredAddress) || normalizeDiscoveryCoordinates(cachedLocation);
+
+  if (!coordinates && typeof navigator !== "undefined" && navigator.permissions?.query) {
+    try {
+      const permission = await navigator.permissions.query({ name: "geolocation" });
+      if (permission.state === "granted") coordinates = await getBrowserPosition();
+    } catch {
+      // City/country fallback below keeps discovery useful.
+    }
+  }
+
+  return {
+    ...(coordinates || {}),
+    city: preferredAddress.city || cachedLocation.city || "",
+    country: preferredAddress.country || cachedLocation.country || "",
+    countryCode: preferredAddress.countryCode || cachedLocation.countryCode || getActiveCountryProfile().iso2,
+  };
 }
 
 function mapBuyerDeliveryAddress(row) {
@@ -546,8 +592,20 @@ function stableKey(value) {
 }
 
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
+  let localDiscoveryKey = "";
+  if (filters.sort === "nearby" && typeof window !== "undefined") {
+    try {
+      localDiscoveryKey = [
+        window.localStorage.getItem("marketplace-buyer-address") || "",
+        window.localStorage.getItem("kunthai.buyerLocation.v1") || "",
+      ].join("|");
+    } catch {
+      // Storage can be unavailable in strict privacy modes; country fallback
+      // still provides a stable discovery order.
+    }
+  }
   return cachedQuery(
-    `marketplace-products|${stableKey(filters)}`,
+    `marketplace-products|${stableKey(filters)}|${localDiscoveryKey}`,
     () => loadBuyerMarketplaceProducts(filters),
     BUYER_DISCOVERY_TTL_MS,
   );
@@ -555,6 +613,9 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
 
 async function loadBuyerMarketplaceProducts(filters = {}) {
   const searchTerm = String(filters.search || "").trim();
+  const buyerContext = filters.sort === "nearby" && !searchTerm
+    ? await getBuyerDiscoveryContext()
+    : {};
 
   async function loadScoped(effectiveFilters) {
     const data = await runCountryScopedProductListQuery({ filters: effectiveFilters });
@@ -587,13 +648,14 @@ async function loadBuyerMarketplaceProducts(filters = {}) {
   const useRelevance = Boolean(searchTerm) && !["price-low", "price-high", "discount"].includes(filters.sort);
   const products = useRelevance
     ? rankSearchResults(scopedItems, searchTerm)
-    : sortProducts(searchTerm ? rankSearchResults(scopedItems, searchTerm) : scopedItems, filters.sort);
+    : sortProducts(searchTerm ? rankSearchResults(scopedItems, searchTerm) : scopedItems, filters.sort, buyerContext);
 
   return {
     newProducts: products,
     discountedProducts: products.filter((product) => product.discountPrice && product.discountPrice < product.price),
-    highDemandProducts: searchTerm
+    highDemandProducts: searchTerm || filters.sort === "nearby"
       ? products
+          .filter((product) => product.views > 0 || product.sales > 0)
       : [...products]
           .filter((product) => product.views > 0 || product.sales > 0)
           .sort((a, b) => b.sales + b.views - (a.sales + a.views)),

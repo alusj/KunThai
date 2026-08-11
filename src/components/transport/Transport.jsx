@@ -48,25 +48,6 @@ const TRANSPORT_ACCOUNT_MEMORY = {
   companyAccounts: [],
 };
 
-function getSavedPlaceAddress(place = {}) {
-  return String(place.street || place.detectedAddress || place.placeName || "").trim();
-}
-
-function getSavedPlacePoint(place = {}) {
-  const lat = Number(place.coordinates?.latitude ?? place.coordinates?.lat ?? place.latitude ?? place.lat);
-  const lng = Number(place.coordinates?.longitude ?? place.coordinates?.lng ?? place.longitude ?? place.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  const address = getSavedPlaceAddress(place);
-  return {
-    ...place,
-    lat,
-    lng,
-    address,
-    name: place.placeName || place.customCategory || place.category || address || t("urride.menu.places.heading"),
-    searchQuery: address,
-  };
-}
-
 export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled }) {
   useI18n();
   const [registrationOpen, setRegistrationOpen] = useState(false);
@@ -358,22 +339,6 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     }
     if (guardGuestAction("book", "trip")) return;
     setBookingTarget(target);
-  }
-
-  function openSavedPlaceBooking(place, kind = "pickup") {
-    const address = getSavedPlaceAddress(place);
-    if (!address) {
-      showToast(t("urride.menu.places.needAddress"), "warning");
-      return;
-    }
-
-    const point = getSavedPlacePoint(place);
-    const baseTarget = {
-      selection: { mode: "topRated", fleetType: null, label: t("urride.booking.availableTransport") },
-    };
-    openBookingTarget(kind === "dropoff"
-      ? { ...baseTarget, destination: address, destinationPoint: point }
-      : { ...baseTarget, pickup: address, pickupPoint: point });
   }
 
   function handleBookVerificationFleet() {
@@ -1311,7 +1276,6 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         operatorLoading={operatorLoading}
         onNotificationCountChange={onNotificationCountChange}
         onActivityChange={setHeaderActivityOpen}
-        onUseSavedPlace={openSavedPlaceBooking}
         onViewFleet={setActiveFleetId}
         onOpenEmergencyArea={(searchType = "") => {
           openNearbyAreaRoute(null, {

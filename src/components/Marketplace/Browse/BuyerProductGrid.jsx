@@ -26,7 +26,7 @@ function ProductImage({ product }) {
   );
 }
 
-function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved, saved, buyerLocation }) {
+export function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved, saved, buyerLocation }) {
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
   // Context-aware, privacy-safe short area for the card (no house numbers). Uses
   // the seller's saved city/country/coords + derived local area vs the buyer's

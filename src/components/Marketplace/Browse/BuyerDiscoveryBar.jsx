@@ -10,6 +10,7 @@ import { addRecentMarketplaceSearch, getRecentMarketplaceSearches } from "../../
 import { useI18n } from "../../../i18n";
 
 const SORT_OPTIONS = [
+  { value: "nearby", labelKey: "urmall.browse.sortNearby" },
   { value: "newest", labelKey: "urmall.browse.sortNewest" },
   { value: "popular", labelKey: "urmall.browse.sortPopular" },
   { value: "price-low", labelKey: "urmall.browse.sortPriceLow" },
@@ -69,7 +70,7 @@ export default function BuyerDiscoveryBar({
       filters.delivery !== "all" ? filters.delivery === "delivery" ? t("urmall.browse.deliveryChip") : t("urmall.browse.pickupChip") : "",
       filters.minPrice ? t("urmall.browse.minLabel", { value: filters.minPrice }) : "",
       filters.maxPrice ? t("urmall.browse.maxLabel", { value: filters.maxPrice }) : "",
-      filters.sort !== "newest" ? t(SORT_OPTIONS.find((option) => option.value === filters.sort)?.labelKey || "") : "",
+      filters.sort !== "nearby" ? t(SORT_OPTIONS.find((option) => option.value === filters.sort)?.labelKey || "") : "",
     ].filter(Boolean),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filters],

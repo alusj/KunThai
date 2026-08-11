@@ -87,6 +87,8 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
   const sellerNotificationCount = sellerHeader.orderCount + sellerHeader.messageCount + sellerHeader.notificationCount;
   const totalNotificationCount = buyerNotificationState.totalCount + sellerNotificationCount;
   const businessCloseTimer = useRef(null);
+  const headerStackRef = useRef(null);
+  const [headerStackHeight, setHeaderStackHeight] = useState(0);
   // A vertical earns its own tab at MARKETPLACE_PARENT_TAB_MIN_ITEMS live items;
   // the whole row stays hidden (everything mixed under "All") until at least
   // two verticals qualify.
@@ -106,6 +108,24 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
     // component unmounts for the Area View.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const headerStack = headerStackRef.current;
+    if (!headerStack) {
+      setHeaderStackHeight(0);
+      return undefined;
+    }
+
+    const measure = () => setHeaderStackHeight(Math.ceil(headerStack.getBoundingClientRect().height));
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(headerStack);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [parentNavVisible, activeParent, productMode]);
 
   useEffect(() => {
     let alive = true;
@@ -256,9 +276,13 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
   }
 
   return (
-    <div className="w-full">
+    <div
+      className="w-full"
+      style={{ "--urmall-sticky-header-height": `${headerHidden ? 0 : headerStackHeight}px` }}
+    >
       {!productMode && (
         <div
+          ref={headerStackRef}
           className={`sticky top-0 z-30 transition-transform duration-300 ease-out ${
             headerHidden ? "-translate-y-full" : "translate-y-0"
           }`}

@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
 import { useI18n, t } from "../../../i18n";
+import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/buyerLocationContext";
+import { BuyerProductCard } from "./BuyerProductGrid";
 import {
   AddressAreaResolutionCard,
   AddressAreaStatusIcon,
@@ -583,8 +585,12 @@ export default function ProductDetailDrawer({
   showOrder = true,
   showReview = true,
   showSave = true,
+  relatedProducts = [],
+  relatedSavedIds = new Set(),
+  onRelatedProductSelect,
 }) {
   useI18n();
+  const buyerLocation = useBuyerLocation();
   const isBooking = actionMode === "booking";
   const [closing, setClosing] = useState(false);
   const closeTimerRef = useRef(null);
@@ -608,6 +614,13 @@ export default function ProductDetailDrawer({
   const [reviewEligibility, setReviewEligibility] = useState({ eligible: false, orderId: null, reason: "" });
   const [reviewEligibilityLoading, setReviewEligibilityLoading] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
+  const detailScrollRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    detailScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    ensureBuyerLocation();
+  }, [open, product?.id]);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -933,7 +946,7 @@ export default function ProductDetailDrawer({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-32 sm:p-5 sm:pb-28">
+        <div ref={detailScrollRef} className="min-h-0 flex-1 overflow-y-auto p-3 pb-32 sm:p-5 sm:pb-28">
           <div className="grid w-full gap-4 md:grid-cols-[0.9fr_1.1fr]">
             <div className="space-y-2.5">
               <Gallery product={product} onOpenImage={setActiveImageIndex} />
@@ -1094,6 +1107,27 @@ export default function ProductDetailDrawer({
               </div>
             </section>
           </div>
+          {relatedProducts.length ? (
+            <section className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3 sm:p-4">
+              <div className="mb-3">
+                <h3 className="text-lg font-black text-gray-950">{t("urmall.detail.similarNearYou")}</h3>
+                <p className="mt-0.5 text-sm font-semibold text-gray-500">{t("urmall.detail.similarNearYouHint")}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {relatedProducts.map((relatedProduct) => (
+                  <BuyerProductCard
+                    key={relatedProduct.id}
+                    product={relatedProduct}
+                    onProductSelect={onRelatedProductSelect}
+                    onAddToCart={onAddToCart}
+                    onToggleSaved={onToggleSaved}
+                    saved={relatedSavedIds.has(relatedProduct.id)}
+                    buyerLocation={buyerLocation}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <footer className="fixed inset-x-0 bottom-0 z-10 border-t border-gray-200 bg-white/95 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-12px_28px_rgba(15,23,42,0.08)] backdrop-blur">
