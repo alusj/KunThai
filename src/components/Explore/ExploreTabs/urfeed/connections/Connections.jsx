@@ -6,6 +6,8 @@
   Shows friends inside UrFeed
 */
 
+import { t } from "../../../../../i18n";
+
 export default function Connections() {
-  return <div>Your connections will appear here</div>;
+  return <div>{t("explore.yourConnectionsHere")}</div>;
 }

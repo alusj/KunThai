@@ -1,6 +1,12 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingTable } from "../explore/errors";
 import { calculateReadinessScore, getReadinessChecklist, readRegisteredBusiness } from "./sellerRegistrationService";
+import {
+  fetchHotelWorkspace,
+  fetchPropertyListings,
+  fetchRestaurantMenu,
+  getMarketplaceBusinessDay,
+} from "./marketplaceVerticalService";
 
 function getInitials(name) {
   return name
@@ -61,8 +67,21 @@ export async function fetchSellerOverview() {
   const verificationStatus = normalizeVerificationStatus(registeredBusiness.verificationStatus, hasDocuments);
   const verified = ["recommended", "verified"].includes(verificationStatus);
   const todayStart = startOfDay(new Date());
+  const businessKind = registeredBusiness.businessKind || "retail";
+  const verticalDay = getMarketplaceBusinessDay(registeredBusiness.location.countryIso);
+  const verticalWorkspacePromise = (businessKind === "restaurant"
+    ? fetchRestaurantMenu(registeredBusiness.id, verticalDay)
+    : businessKind === "hotel"
+      ? fetchHotelWorkspace(registeredBusiness.id)
+      : businessKind === "property_agent"
+        ? fetchPropertyListings(registeredBusiness.id)
+        : Promise.resolve(null))
+    .catch(() => (businessKind === "hotel" ? { images: [], rooms: [], videoUrl: "" } : businessKind === "retail" ? null : []));
 
-  const [ordersResult, messagesResult, productsResult, bookingsResult] = await Promise.all([
+  // Load the active vertical's listings beside the overview queries. Retail
+  // already reaches the dashboard with its product data warm; doing this in
+  // the same request phase removes the second loading step for other kinds.
+  const [ordersResult, messagesResult, productsResult, bookingsResult, verticalWorkspace] = await Promise.all([
     supabase
       .from("marketplace_orders")
       .select("*")
@@ -83,6 +102,7 @@ export async function fetchSellerOverview() {
       .select("id,listing_name,listing_type,buyer_name,phone,start_date,end_date,note,status,created_at")
       .eq("business_id", registeredBusiness.id)
       .order("created_at", { ascending: false }),
+    verticalWorkspacePromise,
   ]);
 
   if (ordersResult.error) throw new Error(ordersResult.error.message);
@@ -90,7 +110,6 @@ export async function fetchSellerOverview() {
   if (productsResult.error) throw new Error(productsResult.error.message);
   if (bookingsResult.error && !isMissingTable(bookingsResult.error)) throw new Error(bookingsResult.error.message);
 
-  const businessKind = registeredBusiness.businessKind || "retail";
   const orders = ordersResult.data || [];
   const messages = messagesResult.data || [];
   const products = productsResult.data || [];
@@ -189,5 +208,13 @@ export async function fetchSellerOverview() {
         })),
       },
     },
+    verticalWorkspace: verticalWorkspace === null
+      ? null
+      : {
+          businessId: registeredBusiness.id,
+          kind: businessKind,
+          day: businessKind === "restaurant" ? verticalDay : null,
+          data: verticalWorkspace,
+        },
   };
 }

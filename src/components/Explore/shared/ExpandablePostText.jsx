@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import LinkifiedText from "./LinkifiedText";
+import { t } from "../../../i18n";
 
 export default function ExpandablePostText({
   text = "",
@@ -59,7 +60,7 @@ export default function ExpandablePostText({
           onPointerDown={(event) => event.stopPropagation()}
           className={`kt-pressable mt-0.5 font-black ${controlClassName}`}
         >
-          {expanded ? "Show less" : "Read more"}
+          {expanded ? t("explore.showLess") : t("explore.readMore")}
         </button>
       ) : null}
     </div>

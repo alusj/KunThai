@@ -1233,11 +1233,21 @@
 
 .kt-image-viewer-shared {
   will-change: left, top, width, height, border-radius, transform;
-  transition-duration: 360ms;
+  transform: translateZ(0);
+  transition-duration: 370ms;
   transition-property: left, top, width, height, border-radius, transform;
   /* Gentle ease-out so pinch/double-tap zoom and the swipe-down spring-back
      glide instead of snapping. */
   transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Keep the source card continuously composited while its portal copy expands
+   and contracts. This avoids the one-frame light flash some mobile GPUs show
+   when handing the image back to the UrFeed layer. */
+.kt-image-viewer-shared,
+.kt-image-viewer-backdrop {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 @keyframes kt-toast-expand-in {

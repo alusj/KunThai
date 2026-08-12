@@ -4,6 +4,7 @@ import { CalendarClock, ExternalLink, MapPin, Navigation, Phone, X } from "lucid
 import { FaWhatsapp } from "react-icons/fa";
 
 import { recordExploreAdvertEvent } from "../../../Backend/services/exploreService";
+import { t } from "../../../i18n";
 import {
   formatAdvertSchedule,
   getAdvertPhoneHref,
@@ -46,8 +47,8 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
   const phoneHref = getAdvertPhoneHref(advert.phone);
   const whatsapp = normalizeAdvertWhatsApp(advert.whatsapp);
   const whatsAppMessage = advert.title
-    ? `Hi, I saw your "${advert.title}" advert on KunThai and I'm interested.`
-    : "Hi, I saw your advert on KunThai and I'm interested.";
+    ? t("explore.waMessageTitled", { title: advert.title })
+    : t("explore.waMessage");
   const whatsAppUrl = getAdvertWhatsAppUrl(advert.whatsapp, whatsAppMessage);
   const hasLocation = Boolean(String(advert.address || "").trim() && hasAdvertCoordinates(advert));
 
@@ -130,7 +131,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
             active={activeDetail === "location"}
             className={iconClass}
             icon={MapPin}
-            label="View advertisement location"
+            label={t("explore.advViewLocation")}
             onClick={(event) => toggleDetail("location", event)}
           />
         ) : null}
@@ -139,7 +140,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
             active={activeDetail === "schedule"}
             className={iconClass}
             icon={CalendarClock}
-            label="View advertisement date and time"
+            label={t("explore.advViewDateTime")}
             onClick={(event) => toggleDetail("schedule", event)}
           />
         ) : null}
@@ -148,7 +149,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
             active={activeDetail === "phone"}
             className={iconClass}
             icon={Phone}
-            label="View advertisement phone number"
+            label={t("explore.advViewPhone")}
             onClick={(event) => toggleDetail("phone", event)}
           />
         ) : null}
@@ -157,7 +158,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
             active={activeDetail === "whatsapp"}
             className={iconClass}
             icon={FaWhatsapp}
-            label="Chat with advertiser on WhatsApp"
+            label={t("explore.advChatWhatsapp")}
             onClick={(event) => toggleDetail("whatsapp", event)}
           />
         ) : null}
@@ -166,7 +167,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
             active={activeDetail === "website"}
             className={iconClass}
             icon={ExternalLink}
-            label="View advertisement website"
+            label={t("explore.advViewWebsite")}
             onClick={(event) => toggleDetail("website", event)}
           />
         ) : null}
@@ -179,7 +180,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
               style={floatingPosition}
               className={`${closing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} fixed z-[120] max-h-[min(70vh,420px)] overflow-y-auto rounded-[20px] border border-slate-200 bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/20`}
               role="dialog"
-              aria-label="Advertisement details"
+              aria-label={t("explore.advDetails")}
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >
@@ -187,18 +188,18 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
                     {activeDetail === "location"
-                      ? "Location"
+                      ? t("explore.detLocation")
                       : activeDetail === "schedule"
-                        ? "Date and time"
+                        ? t("explore.detDateTime")
                         : activeDetail === "phone"
-                          ? "Phone number"
+                          ? t("explore.detPhoneNumber")
                           : activeDetail === "whatsapp"
                             ? "WhatsApp"
-                            : "Website"}
+                            : t("explore.detWebsite")}
                   </p>
                   {activeDetail === "location" ? (
                     <p className="mt-1 kuntai-break text-sm font-bold leading-6 text-slate-700">
-                      {advert.address || "A map point is attached to this advertisement."}
+                      {advert.address || t("explore.mapPointAttached")}
                     </p>
                   ) : null}
                   {activeDetail === "schedule" ? (
@@ -218,7 +219,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                   type="button"
                   onClick={() => closeDetail()}
                   className="grid h-9 w-9 flex-none place-items-center rounded-full bg-slate-100 text-slate-600"
-                  aria-label="Close advertisement details"
+                  aria-label={t("explore.closeAdvDetails")}
                 >
                   <X size={16} />
                 </button>
@@ -234,7 +235,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                   className="kt-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white"
                 >
                   <Navigation size={16} strokeWidth={2.4} absoluteStrokeWidth />
-                  Open in Area View
+                  {t("explore.openAreaView")}
                 </button>
               ) : null}
 
@@ -247,7 +248,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                   className="kt-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
                 >
                   <ExternalLink size={16} strokeWidth={2.4} absoluteStrokeWidth />
-                  {advert.ctaLabel || "Visit website"}
+                  {advert.ctaLabel || t("explore.visitWebsite")}
                 </a>
               ) : null}
 
@@ -258,7 +259,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                   className="kt-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white"
                 >
                   <Phone size={16} strokeWidth={2.4} absoluteStrokeWidth />
-                  Call advertiser
+                  {t("explore.callAdvertiser")}
                 </a>
               ) : null}
 
@@ -271,7 +272,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
                   className="kt-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white"
                 >
                   <FaWhatsapp size={17} />
-                  Chat on WhatsApp
+                  {t("explore.chatOnWhatsapp")}
                 </a>
               ) : null}
             </section>,

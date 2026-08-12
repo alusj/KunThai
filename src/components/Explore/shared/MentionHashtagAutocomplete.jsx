@@ -2,6 +2,7 @@ import { HiOutlineAtSymbol, HiOutlineHashtag } from "react-icons/hi2";
 
 import { normalizeHashtag } from "../../../Backend/services/explore/hashtagService";
 import Avatar from "./Avatar";
+import { t } from "../../../i18n";
 
 // Popup panel; render inside a `relative` wrapper around the input. Pair with
 // useMentionHashtagAutocomplete from Backend/hooks.
@@ -16,18 +17,18 @@ export function MentionHashtagSuggestions({ trigger, results, loading, onSelect,
     <div
       className={`absolute inset-x-0 z-40 max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl shadow-slate-950/15 ${positionClass}`}
       role="listbox"
-      aria-label={isMention ? "Mention suggestions" : "Hashtag suggestions"}
+      aria-label={isMention ? t("explore.mentionSuggestions") : t("explore.hashtagSuggestions")}
     >
       <p className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
         {isMention ? <HiOutlineAtSymbol className="text-sm" /> : <HiOutlineHashtag className="text-sm" />}
-        {isMention ? "Mention someone" : "Saved hashtags"}
+        {isMention ? t("explore.mentionSomeone") : t("explore.savedHashtags")}
       </p>
       {loading ? (
-        <p className="px-3 py-2 text-xs font-bold text-slate-500">{isMention ? "Finding people..." : "Loading hashtags..."}</p>
+        <p className="px-3 py-2 text-xs font-bold text-slate-500">{isMention ? t("explore.findingPeople") : t("explore.loadingHashtags")}</p>
       ) : null}
       {!loading && !results.length ? (
         <p className="px-3 py-2 text-xs font-bold text-slate-500">
-          {isMention ? "No matching Explore profile." : `No saved hashtag yet — keep typing to create #${normalizeHashtag(trigger.query)}.`}
+          {isMention ? t("explore.noMatchingProfile") : t("explore.noSavedHashtag", { tag: normalizeHashtag(trigger.query) })}
         </p>
       ) : null}
       {!loading && results.map((item) => (
@@ -42,7 +43,7 @@ export function MentionHashtagSuggestions({ trigger, results, loading, onSelect,
         >
           {item.type === "people" ? (
             <>
-              <Avatar name={item.title || item.username || "Profile"} src={item.avatarUrl} size="sm" />
+              <Avatar name={item.title || item.username || t("explore.profileFallback")} src={item.avatarUrl} size="sm" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-black text-slate-950">{item.title}</span>
                 <span className="block truncate text-xs font-bold text-slate-500">@{item.username}</span>
@@ -55,7 +56,7 @@ export function MentionHashtagSuggestions({ trigger, results, loading, onSelect,
               </span>
               <span className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">#{item.tag}</span>
               <span className="flex-none rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-600">
-                {item.personalUsageCount || item.usageCount} use{(item.personalUsageCount || item.usageCount) === 1 ? "" : "s"}
+                {(item.personalUsageCount || item.usageCount) === 1 ? t("explore.usesOne", { n: item.personalUsageCount || item.usageCount }) : t("explore.usesMany", { n: item.personalUsageCount || item.usageCount })}
               </span>
             </>
           )}

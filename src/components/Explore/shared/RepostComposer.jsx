@@ -8,7 +8,6 @@ import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { showToast } from "../../../Backend/services/toastService";
 import { useI18n } from "../../../i18n";
 import Avatar from "../shared/Avatar";
-import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import RepostPreview from "./RepostPreview";
 
 const EXIT_MS = 280;
@@ -21,8 +20,6 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState("");
   const closeTimerRef = useRef(null);
-
-  useBodyScrollLock(true);
 
   function close() {
     if (submitting || closing) return;
@@ -51,14 +48,14 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
       setClosing(true);
       closeTimerRef.current = window.setTimeout(() => onClose?.(), EXIT_MS);
     } catch (submitError) {
-      setError(submitError.message || "Unable to repost right now.");
+      setError(submitError.message || t("explore.unableRepost"));
       setSubmitting(false);
     }
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[115] bg-slate-100">
-      <form onSubmit={submit} className={`${closing ? "kt-repost-composer-exit" : "kt-repost-composer-enter"} flex h-full min-h-0 flex-col bg-slate-100`}>
+    <div className="fixed inset-0 z-[115] h-dvh w-full overflow-hidden overscroll-none bg-slate-100 [contain:strict]">
+      <form onSubmit={submit} className={`${closing ? "kt-repost-composer-exit" : "kt-repost-composer-enter"} flex h-full min-h-0 transform-gpu flex-col bg-slate-100 [backface-visibility:hidden]`}>
         <header className="flex-none border-b border-slate-200 bg-white px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] shadow-sm">
           <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
             <button type="button" onClick={close} className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-100 text-slate-700" aria-label={t("post.closeRepost")}>
@@ -79,7 +76,7 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5">
           <div className="mx-auto max-w-2xl space-y-4">
             <div className="flex items-center gap-3 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
               <Avatar name={profile?.displayName || t("feed.profileFallback")} src={profile?.avatarUrl} />
@@ -110,7 +107,7 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
 
         <footer className="flex-none border-t border-slate-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
           <div className="mx-auto flex max-w-2xl gap-2">
-            {[{ value: "public", label: "Public" }, { value: "circle", label: "Circle" }].map((option) => (
+            {[{ value: "public", label: t("explore.visPublic") }, { value: "circle", label: t("explore.visCircle") }].map((option) => (
               <button
                 key={option.value}
                 type="button"

@@ -192,7 +192,7 @@ export default function BusinessAdmins({ onBack }) {
               autoCapitalize="characters"
               autoComplete="off"
               spellCheck={false}
-              aria-label="Business administrator KunThai ID"
+              aria-label={t("urmall.biz.admins.idAria")}
               className="h-12 min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-bold uppercase tracking-wide outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
             />
             <button

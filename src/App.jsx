@@ -19,7 +19,13 @@ import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
-import { captureVisibilityInviteFromLocation, finalizeStoredVisibilityInvite } from "./Backend/services/visibilityCreditService";
+import {
+  captureVisibilityInviteFromLocation,
+  clearFlutterwavePaymentReturn,
+  finalizeStoredVisibilityInvite,
+  readFlutterwavePaymentReturn,
+  verifyFlutterwavePaymentReturn,
+} from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
 import { haptics } from "./Backend/services/feedbackService";
 import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed, runConnectivityChecks } from "./Backend/services/networkService";
@@ -254,6 +260,7 @@ export default function App() {
   // ref so it survives the reveal effect re-running before the refreshed
   // profile metadata arrives, which otherwise fell back to Explore.
   const pendingLandingRef = useRef("");
+  const paymentReturnHandledRef = useRef(false);
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
   const appGestureRef = useRef(null);
@@ -265,6 +272,34 @@ export default function App() {
   useEffect(() => {
     captureVisibilityInviteFromLocation();
   }, []);
+
+  useEffect(() => {
+    const paymentReturn = readFlutterwavePaymentReturn();
+    if (!paymentReturn || !userId || guestSession || paymentReturnHandledRef.current) return;
+    paymentReturnHandledRef.current = true;
+
+    if (!["successful", "succeeded", "completed"].includes(paymentReturn.status)) {
+      clearFlutterwavePaymentReturn();
+      showToast("The card payment was not completed. No credits were added.", "warning", {
+        title: "Payment not completed",
+      });
+      return;
+    }
+
+    verifyFlutterwavePaymentReturn(paymentReturn)
+      .then((result) => {
+        window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
+        showToast(`${Number(result.credits || 0)} Visibility Credits were added to your balance.`, "success", {
+          title: "Payment confirmed",
+        });
+      })
+      .catch((error) => {
+        showToast(error.message || "KunThai could not verify this payment yet.", error.pending ? "warning" : "danger", {
+          title: error.pending ? "Payment processing" : "Payment verification",
+        });
+      })
+      .finally(() => clearFlutterwavePaymentReturn());
+  }, [guestSession, userId]);
 
   useEffect(() => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;

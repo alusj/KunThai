@@ -6,7 +6,6 @@ import { useExploreComments } from "../../../../../../Backend/hooks/useExploreCo
 import { endGuestVisit, isGuestMode } from "../../../../../../Backend/services/guestModeService";
 import { useI18n } from "../../../../../../i18n";
 import ErrorState from "../../../../shared/ErrorState";
-import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
 
@@ -22,8 +21,6 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   const sendPreviewTimerRef = useRef(null);
   const comments = useExploreComments(post?.id, currentUserId, post, open || rendered);
   const isSwip = Boolean(post?.video_url || String(post?.feed_scope || "").toLowerCase() === "swip");
-  useBodyScrollLock(rendered);
-
   useEffect(
     () => () => {
       window.clearTimeout(sendPreviewTimerRef.current);
@@ -68,7 +65,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   }
 
   function previewSend(payload) {
-    const text = String(payload?.body || "").trim() || (payload?.audio_url ? "Voice comment" : "");
+    const text = String(payload?.body || "").trim() || (payload?.audio_url ? t("explore.voiceComment") : "");
     if (!text) return;
 
     window.clearTimeout(sendPreviewTimerRef.current);
@@ -94,8 +91,8 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   }
 
   const shellClass = isSwip
-    ? "fixed inset-0 z-[1000] flex min-w-0 items-end justify-end sm:items-stretch"
-    : "fixed inset-0 z-[1000] flex min-w-0 items-end justify-center";
+    ? "fixed inset-0 z-[1000] flex h-dvh w-full min-w-0 items-end justify-end overflow-hidden overscroll-none [contain:strict] sm:items-stretch"
+    : "fixed inset-0 z-[1000] flex h-dvh w-full min-w-0 items-end justify-center overflow-hidden overscroll-none [contain:strict]";
   const panelMotionClass = isSwip
     ? closing ? "kt-comments-swip-exit" : "kt-comments-swip-enter"
     : closing ? "kt-comments-feed-exit" : "kt-comments-feed-enter";
@@ -108,11 +105,11 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     <div className={shellClass}>
       <button
         type="button"
-        className={`absolute inset-0 cursor-default bg-slate-950/45 backdrop-blur-sm ${backdropClass}`}
+        className={`absolute inset-0 touch-none cursor-default bg-slate-950/45 backdrop-blur-sm ${backdropClass}`}
         onClick={requestClose}
         aria-label={t("post.closeComments")}
       />
-      <section className={`relative z-10 flex ${panelSizeClass} min-w-0 flex-col overflow-hidden bg-white shadow-2xl ${panelMotionClass}`}>
+      <section className={`relative z-10 flex ${panelSizeClass} min-w-0 transform-gpu flex-col overflow-hidden bg-white shadow-2xl [backface-visibility:hidden] ${panelMotionClass}`}>
         <div className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{isSwip ? t("post.swipComments") : t("post.comments")}</p>
@@ -136,7 +133,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           </div>
         ) : null}
 
-        <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 kuntai-scrollbar-none">
+        <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 kuntai-scrollbar-none">
           {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
 
           {comments.loading && !comments.thread.length ? <CommentLoadingRows /> : null}

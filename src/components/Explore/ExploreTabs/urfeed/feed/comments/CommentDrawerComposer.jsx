@@ -125,7 +125,7 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
           type="button"
           onClick={toggleRecording}
           className={`kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl text-lg ${isRecording ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-600"}`}
-          aria-label={isRecording ? "Stop recording" : "Record voice comment"}
+          aria-label={isRecording ? t("explore.stopRecording") : t("explore.recordVoiceComment")}
         >
           <HiOutlineMicrophone />
         </button>

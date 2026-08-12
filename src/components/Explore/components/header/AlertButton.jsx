@@ -4,6 +4,7 @@
 // =====================================
 
 import { HiOutlineBellAlert } from "react-icons/hi2";
+import { t } from "../../../../i18n";
 
 export default function AlertButton({ onClick, count = 0, latestMessage = "" }) {
   return (
@@ -11,8 +12,8 @@ export default function AlertButton({ onClick, count = 0, latestMessage = "" }) 
       type="button"
       onClick={onClick}
       className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-xl text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
-      aria-label="Alerts"
-      title={latestMessage || "Notifications"}
+      aria-label={t("explore.alerts")}
+      title={latestMessage || t("explore.notifications")}
     >
       <HiOutlineBellAlert />
       {count > 0 ? (

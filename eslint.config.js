@@ -30,7 +30,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['api/**/*.js'],
+    files: ['api/**/*.js', 'server/**/*.js'],
     languageOptions: {
       globals: {
         ...globals.browser,

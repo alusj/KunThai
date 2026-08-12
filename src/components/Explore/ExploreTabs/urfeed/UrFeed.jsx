@@ -5,6 +5,7 @@ import { paceExploreAdvertPosts } from "../../../../Backend/services/exploreServ
 import PullToRefresh from "../../../shared/PullToRefresh";
 import FeedComposer from "./feed/components/FeedComposer";
 import FeedList from "./feed/FeedList";
+import { t } from "../../../../i18n";
 
 function feedActions(feed) {
   return {
@@ -30,7 +31,7 @@ export default function UrFeed({ profile, onViewProfile }) {
     () => {
       const combined = [
         ...feed.posts.map((post) => ({ ...post, contextLabel: "UrFeed" })),
-        ...circleFeed.posts.map((post) => ({ ...post, contextLabel: "From your circle" })),
+        ...circleFeed.posts.map((post) => ({ ...post, contextLabel: t("explore.fromCircle") })),
       ];
       const deduped = Array.from(new Map(combined.map((post) => [post.id, post])).values());
 
@@ -72,8 +73,8 @@ export default function UrFeed({ profile, onViewProfile }) {
         loadingMore={feed.loadingMore || circleFeed.loadingMore}
         currentUserId={profile?.userId}
         onViewProfile={onViewProfile}
-        emptyTitle="No posts yet"
-        emptyMessage="Feed posts and circle updates will appear here."
+        emptyTitle={t("explore.noPostsYet")}
+        emptyMessage={t("explore.feedEmptyMsg")}
         actionsByScope={{
           feed: feedActions(feed),
           connections: feedActions(circleFeed),

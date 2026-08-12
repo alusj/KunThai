@@ -138,8 +138,8 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
                   <MenuActionButton
                     key={space.spaceId}
                     icon={HiOutlineBuildingOffice2}
-                    label={space.displayName || "Space"}
-                    description={`${active ? "Currently active · " : ""}${space.categoryLabel || "A Space"} · ${space.memberRole || "member"}`}
+                    label={space.displayName || t("explore.spaceFallback")}
+                    description={`${active ? t("explore.spaceActivePrefix") : ""}${space.categoryLabel || t("explore.spaceDefault")} · ${space.memberRole || t("explore.spaceMember")}`}
                     tone={active ? "strong" : "default"}
                     onClick={() => {
                       if (space.membershipStatus === "pending") return;

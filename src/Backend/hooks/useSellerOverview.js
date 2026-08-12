@@ -8,6 +8,7 @@ const DEFAULT_OVERVIEW = {
   storeStatus: null,
   health: null,
   today: null,
+  verticalWorkspace: null,
 };
 
 const SELLER_OVERVIEW_MEMORY = {

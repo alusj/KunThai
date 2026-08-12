@@ -17,6 +17,64 @@ import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
 import SellerProfileDrawer from "./Browse/SellerProfileDrawer";
 
 const EMPTY = { restaurants: [], hotels: [], properties: [] };
+const VERTICAL_CATALOG_STORAGE_KEY = "kunthai.marketplace.verticalCatalog.v1";
+const VERTICAL_CATALOG_MEMORY = {
+  catalog: EMPTY,
+  loaded: false,
+  savedAt: 0,
+  inFlight: null,
+};
+
+function normalizeVerticalCatalog(catalog) {
+  return {
+    restaurants: Array.isArray(catalog?.restaurants) ? catalog.restaurants : [],
+    hotels: Array.isArray(catalog?.hotels) ? catalog.hotels : [],
+    properties: Array.isArray(catalog?.properties) ? catalog.properties : [],
+  };
+}
+
+// Keep the last complete vertical catalog available just like the retail
+// catalog. A fresh request always follows, but restaurant/hotel/property cards
+// no longer disappear while a category mounts or the shopper returns to UrMall.
+if (typeof localStorage !== "undefined") {
+  try {
+    const stored = JSON.parse(localStorage.getItem(VERTICAL_CATALOG_STORAGE_KEY) || "null");
+    if (stored?.loaded) {
+      VERTICAL_CATALOG_MEMORY.catalog = normalizeVerticalCatalog(stored.catalog);
+      VERTICAL_CATALOG_MEMORY.loaded = true;
+      VERTICAL_CATALOG_MEMORY.savedAt = Number(stored.savedAt || 0);
+    }
+  } catch {
+    // Persistent caching is an enhancement; in-memory caching still applies.
+  }
+}
+
+function rememberVerticalCatalog(catalog) {
+  const normalized = normalizeVerticalCatalog(catalog);
+  VERTICAL_CATALOG_MEMORY.catalog = normalized;
+  VERTICAL_CATALOG_MEMORY.loaded = true;
+  VERTICAL_CATALOG_MEMORY.savedAt = Date.now();
+  try {
+    localStorage.setItem(
+      VERTICAL_CATALOG_STORAGE_KEY,
+      JSON.stringify({ catalog: normalized, loaded: true, savedAt: VERTICAL_CATALOG_MEMORY.savedAt }),
+    );
+  } catch {
+    // Storage can be unavailable; the module cache still makes tab changes instant.
+  }
+  return normalized;
+}
+
+function requestVerticalCatalog() {
+  if (!VERTICAL_CATALOG_MEMORY.inFlight) {
+    VERTICAL_CATALOG_MEMORY.inFlight = fetchMarketplaceVerticalDiscovery()
+      .then(rememberVerticalCatalog)
+      .finally(() => {
+        VERTICAL_CATALOG_MEMORY.inFlight = null;
+      });
+  }
+  return VERTICAL_CATALOG_MEMORY.inFlight;
+}
 
 function money(value, currency = "") {
   return `${currency ? `${currency} ` : ""}${Number(value || 0).toLocaleString()}`;
@@ -150,8 +208,8 @@ function mapVerticalProduct({ item, type }) {
 
 export default function VerticalMarketplace({ mode = "all", onDetailChange, priorityType = null }) {
   useI18n();
-  const [catalog, setCatalog] = useState(EMPTY);
-  const [loading, setLoading] = useState(true);
+  const [catalog, setCatalog] = useState(() => VERTICAL_CATALOG_MEMORY.catalog);
+  const [loading, setLoading] = useState(() => !VERTICAL_CATALOG_MEMORY.loaded);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
   const [profileSeller, setProfileSeller] = useState(null);
@@ -198,16 +256,22 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
     }
   }
 
-  const loadCatalog = useCallback(async ({ initial = false } = {}) => {
-    if (initial) setLoading(true);
+  const loadCatalog = useCallback(async () => {
+    const hasCachedCatalog = VERTICAL_CATALOG_MEMORY.loaded;
+    if (hasCachedCatalog) {
+      setCatalog(VERTICAL_CATALOG_MEMORY.catalog);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     try {
-      const data = await fetchMarketplaceVerticalDiscovery();
+      const data = await requestVerticalCatalog();
       setCatalog(data);
       setError("");
     } catch (nextError) {
-      setError(nextError.message || t("urmall.vertical.loadFailed"));
+      setError(hasCachedCatalog ? "" : nextError.message || t("urmall.vertical.loadFailed"));
     } finally {
-      if (initial) setLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -218,7 +282,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
       window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => { if (active) loadCatalog(); }, 120);
     };
-    loadCatalog({ initial: true });
+    loadCatalog();
     const unsubscribe = subscribeMarketplaceVerticalDiscovery(refresh);
     window.addEventListener("marketplace-vertical-listing-updated", refresh);
     window.addEventListener("focus", refresh);

@@ -1,7 +1,9 @@
 import { createElement } from "react";
 import { HiOutlineSparkles } from "react-icons/hi2";
 
-export default function EmptyState({ title = "Nothing here yet", message = "Check back later.", icon = HiOutlineSparkles }) {
+import { t } from "../../../i18n";
+
+export default function EmptyState({ title = t("explore.emptyDefaultTitle"), message = t("explore.emptyDefaultMsg"), icon = HiOutlineSparkles }) {
   return (
     <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-2xl text-sky-700">

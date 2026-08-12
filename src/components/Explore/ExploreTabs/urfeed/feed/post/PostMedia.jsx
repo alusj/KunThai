@@ -6,10 +6,12 @@ import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 import { useI18n } from "../../../../../../i18n";
 import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { isAdvertPost } from "../../../../shared/advertUtils";
-import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import useImageViewerGestures from "../../../../../shared/useImageViewerGestures";
 
-const VIEWER_TRANSITION_MS = 340;
+// Keep the portal mounted slightly longer than the CSS shared-image transition.
+// Unmounting at 340ms while the 360ms zoom-back was still running caused the
+// final frame to cut and exposed the feed's scroll-lock correction underneath.
+const VIEWER_TRANSITION_MS = 390;
 
 function getContainedImageRect(image) {
   const viewportWidth = window.innerWidth;
@@ -85,7 +87,10 @@ export default function PostMedia({ post, imageOnly = false }) {
   });
 
   useBrowserBack(imagePreviewOpen, closeImagePreview, `image-preview-${post.id}`);
-  useBodyScrollLock(imagePreviewOpen);
+  // The fixed, touch-action:none viewer already owns every pointer/wheel event.
+  // Do not change html/body overflow here: root overflow locking collapses the
+  // window-scrolled UrFeed on mobile Safari and makes the dashboard jump when
+  // the shared-image close transition releases.
 
   useEffect(() => () => {
     stopAllExploreMedia();
@@ -159,7 +164,7 @@ export default function PostMedia({ post, imageOnly = false }) {
         <div className="max-w-full overflow-hidden px-4 pb-4">
           {imageStatus === "error" ? (
             <MediaFallback
-              label="Media unavailable"
+              label={t("explore.mediaUnavailable")}
               onRetry={() => {
                 setImageStatus("loading");
                 setImageRetryKey((value) => value + 1);
@@ -199,7 +204,7 @@ export default function PostMedia({ post, imageOnly = false }) {
         <div className="max-w-full overflow-hidden px-4 pb-4">
           {videoStatus === "error" ? (
             <MediaFallback
-              label="Video unavailable"
+              label={t("explore.videoUnavailable")}
               onRetry={() => {
                 setVideoStatus("loading");
                 setVideoRetryKey((value) => value + 1);
@@ -254,7 +259,7 @@ export default function PostMedia({ post, imageOnly = false }) {
         ? createPortal(
             <div
               ref={viewerGestures.viewportRef}
-              className="fixed inset-0 z-[1200] overflow-hidden"
+              className="fixed inset-0 z-[1200] h-dvh w-full overflow-hidden overscroll-none [contain:strict]"
               role="dialog"
               aria-modal="true"
               aria-label={t("post.fullScreenViewer")}
@@ -305,7 +310,7 @@ export default function PostMedia({ post, imageOnly = false }) {
                   setImageStatus("error");
                   closeImagePreview();
                 }}
-                className="kt-image-viewer-shared fixed z-10 select-none object-contain shadow-2xl"
+                className="kt-image-viewer-shared fixed z-10 select-none object-contain shadow-2xl [backface-visibility:hidden]"
                 style={{
                   left: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).left}px`,
                   top: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).top}px`,

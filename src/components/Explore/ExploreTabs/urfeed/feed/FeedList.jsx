@@ -100,7 +100,7 @@ export default function FeedList({
                 actorType: post.actor_type || "profile",
                 actorId: post.actor_id || post.user_id || "",
                 spaceId: post.space_id || (post.actor_type === "space" ? post.actor_id : ""),
-                displayName: post.author_name || "Profile",
+                displayName: post.author_name || t("explore.profileFallback"),
                 username: post.author_username || "",
                 avatarUrl: post.author_avatar_url || "",
                 accountType: post.actor_type === "space" ? "space" : "personal",
@@ -342,7 +342,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
                     onClick={() =>
                       onViewProfile?.({
                         userId: profile.user_id,
-                        displayName: profile.display_name || "Profile",
+                        displayName: profile.display_name || t("explore.profileFallback"),
                         username: profile.username || "",
                         avatarUrl: profile.avatar_url || "",
                         accountType: profile.account_type || "personal",

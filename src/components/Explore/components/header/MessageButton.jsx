@@ -4,22 +4,23 @@
 // =====================================
 
 import { HiOutlineChatBubbleLeftRight } from "react-icons/hi2";
+import { t } from "../../../../i18n";
 
 export default function MessageButton({ active = false, activity = "", count = 0, onClick }) {
   const title = activity
     ? activity === "recording"
-      ? "Someone is recording a voice note"
-      : "Someone is typing"
+      ? t("explore.someoneRecording")
+      : t("explore.someoneTyping")
     : active
-      ? "Messages active now"
-      : "Messages";
+      ? t("explore.messagesActiveNow")
+      : t("explore.messages");
 
   return (
     <button
       type="button"
       onClick={onClick}
       className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-xl text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
-      aria-label="Messages"
+      aria-label={t("explore.messages")}
       title={title}
     >
       <HiOutlineChatBubbleLeftRight />

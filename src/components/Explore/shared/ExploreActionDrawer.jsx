@@ -1,18 +1,17 @@
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
-import useBodyScrollLock from "../../shared/useBodyScrollLock";
-
 export default function ExploreActionDrawer({ children, closing = false, onClose, title = "Actions" }) {
-  useBodyScrollLock(true);
-
   return createPortal(
-    <div className="fixed inset-0 z-[105]" role="presentation">
+    <div
+      className="fixed inset-0 z-[105] h-dvh w-full overflow-hidden overscroll-none [contain:strict]"
+      role="presentation"
+    >
       <button
         type="button"
         aria-label={`Close ${title}`}
         onClick={onClose}
-        className={`absolute inset-0 bg-slate-950/35 backdrop-blur-[2px] ${
+        className={`absolute inset-0 touch-none bg-slate-950/35 backdrop-blur-[2px] ${
           closing ? "opacity-0 transition-opacity duration-200" : "opacity-100"
         }`}
       />
@@ -21,7 +20,7 @@ export default function ExploreActionDrawer({ children, closing = false, onClose
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`${closing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} fixed right-3 top-16 w-fit max-w-[90vw] sm:right-5`}
+        className={`${closing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} absolute right-3 top-16 max-h-[calc(100dvh-5rem)] w-fit max-w-[90vw] transform-gpu overflow-y-auto overscroll-contain [backface-visibility:hidden] [will-change:transform,opacity] sm:right-5`}
         onClick={(event) => event.stopPropagation()}
       >
         <button

@@ -132,13 +132,17 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
   const anyExploreOverlayVisible = menuOverlayVisible || leftDrawerOpen || composerOpen || headerOverlayOpen;
+  // The half-width Social drawer must not change the feed header's hidden state.
+  // Its backdrop already blocks scrolling, so preserving the current header
+  // position keeps the UrFeed dashboard visually frozen throughout the swipe.
+  const headerMotionBlocked = menuOverlayVisible || composerOpen || headerOverlayOpen;
   // Keep the Social drawer out of the shared body lock: locking sets the root to
   // overflow:hidden, which collapses the window-scrolled feed to the top on iOS
   // (jump on open, snap-back on close). Excluding it leaves the feed exactly
   // where it is and fully visible behind the drawer.
   const scrollLockActive = menuOverlayVisible || composerOpen || headerOverlayOpen;
   const navHidden = useScrollHidden({
-    enabled: active && !anyExploreOverlayVisible,
+    enabled: active && !headerMotionBlocked,
     threshold: 72,
     hideDistance: 72,
     showDistance: 52,
@@ -393,7 +397,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       })
       .catch((error) => {
         if (alive) {
-          setProfileError(error.message || "Unable to load your Explore profile.");
+          setProfileError(error.message || t("explore.unableLoadProfile"));
           setProfileOverride(null);
           setProfileFetched(true);
         }
@@ -707,7 +711,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (result.type === "people") {
       openViewedProfile({
         userId: result.userId || "",
-        displayName: result.title || "Profile",
+        displayName: result.title || t("explore.profileFallback"),
         username: result.username || "",
         avatarUrl: result.avatarUrl || "",
         accountType: result.accountType || "personal",
@@ -739,7 +743,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       ? {
         ...recipient,
         userId: recipient.ownerUserId || recipient.userId || "",
-        displayName: recipient.displayName || recipient.name || "Space",
+        displayName: recipient.displayName || recipient.name || t("explore.spaceFallback"),
         avatarUrl: recipient.avatarUrl || "",
       }
       : recipient;
@@ -1106,6 +1110,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       return;
     }
 
+    // Once Explore owns the horizontal gesture, stop the browser's native
+    // back/forward or rubber-band movement from shifting the page underneath.
+    if (event.cancelable) event.preventDefault();
     updateHorizontalDrag(gesture, deltaX);
   }
 
@@ -1535,11 +1542,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     </div>
     {leftDrawerOpen || drawerDragging || drawerClosing ? (
-      <div className="fixed inset-0 z-[75] flex h-screen w-screen overflow-hidden">
+      <div className="fixed inset-0 z-[75] flex h-dvh w-full overflow-hidden overscroll-none [contain:layout_paint]">
         <button
           type="button"
           ref={drawerBackdropRef}
-          aria-label="Close social menu"
+          aria-label={t("explore.closeSocialMenu")}
           className="absolute inset-0 touch-none bg-slate-950/30"
           style={drawerMountedByDrag && !leftDrawerOpen ? { opacity: 0 } : undefined}
           onClick={closeLeftDrawer}
@@ -1547,7 +1554,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         <aside
           ref={drawerAsideRef}
           style={drawerMountedByDrag && !leftDrawerOpen ? { transform: "translate3d(-100%, 0, 0)" } : undefined}
-          className={`${drawerMountedByDrag || drawerClosing ? "" : "kt-explore-stack-enter-left"} relative z-10 flex h-full w-[min(78vw,390px)] min-w-[260px] max-w-sm flex-col bg-white shadow-2xl`}
+          className={`${drawerMountedByDrag || drawerClosing ? "" : "kt-explore-stack-enter-left"} relative z-10 flex h-full w-[min(78vw,390px)] min-w-[260px] max-w-sm transform-gpu flex-col overscroll-contain bg-white shadow-2xl [backface-visibility:hidden] [will-change:transform]`}
         >
           <header className="border-b border-slate-200 px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -1555,13 +1562,13 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
                 type="button"
                 onClick={closeLeftDrawer}
                 className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-black text-slate-800 shadow-sm"
-                aria-label="Close menu"
+                aria-label={t("explore.closeMenu")}
               >
                 &larr;
               </button>
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">KunThai</p>
-                <h2 className="truncate text-lg font-semibold text-slate-950">Social Menu</h2>
+                <h2 className="truncate text-lg font-semibold text-slate-950">{t("explore.socialMenu")}</h2>
               </div>
             </div>
           </header>

@@ -8,6 +8,8 @@ export const VERIFIED_INVITE_CREDIT_REWARD = 5;
 export const MINIMUM_VISIBILITY_CREDITS = 5;
 export const MINIMUM_CREDIT_TRANSFER_BALANCE = 10;
 
+const FLUTTERWAVE_RETURN_PARAMS = ["kt_payment", "status", "tx_ref", "transaction_id"];
+
 export const VISIBILITY_BOOST_PACKAGES = [
   {
     id: "small",
@@ -187,6 +189,85 @@ export async function fetchVisibilityCreditWallet() {
   }
 
   return normalizeWallet(Array.isArray(wallet) ? wallet[0] : wallet, Array.isArray(invite) ? invite[0] : invite);
+}
+
+export async function fetchVisibilityCreditPackages() {
+  const { data, error } = await supabase
+    .from("visibility_credit_packages")
+    .select("id,credits,price_minor,currency,label,sort_order")
+    .eq("active", true)
+    .order("sort_order", { ascending: true })
+    .order("credits", { ascending: true });
+
+  if (error) {
+    if (isUnavailableVisibilityFeature(error)) return [];
+    throw new Error(error.message || "Unable to load credit packages.");
+  }
+
+  return (data || []).map((item) => ({
+    id: item.id,
+    credits: Number(item.credits || 0),
+    priceMinor: Number(item.price_minor || 0),
+    currency: String(item.currency || "USD").toUpperCase(),
+    label: item.label || "Visibility Credits",
+  }));
+}
+
+async function authenticatedPaymentRequest(path, body) {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data?.session?.access_token;
+  if (!accessToken) throw new Error("Sign in to buy Visibility Credits.");
+
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.ok) {
+    const error = new Error(result?.message || "Card payment is temporarily unavailable.");
+    error.pending = Boolean(result?.pending);
+    throw error;
+  }
+  return result;
+}
+
+export async function startFlutterwaveCardPurchase(packageId) {
+  const result = await authenticatedPaymentRequest("/api/flutterwave-create-payment", { packageId });
+  const checkoutUrl = String(result.checkoutUrl || "");
+  if (!checkoutUrl.startsWith("https://checkout.flutterwave.com/")) {
+    throw new Error("Flutterwave did not return a secure checkout link.");
+  }
+  return result;
+}
+
+export function readFlutterwavePaymentReturn() {
+  if (typeof window === "undefined") return null;
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("kt_payment") !== "flutterwave") return null;
+
+  return {
+    status: String(url.searchParams.get("status") || "").toLowerCase(),
+    txRef: url.searchParams.get("tx_ref") || "",
+    transactionId: url.searchParams.get("transaction_id") || "",
+  };
+}
+
+export function clearFlutterwavePaymentReturn() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  FLUTTERWAVE_RETURN_PARAMS.forEach((key) => url.searchParams.delete(key));
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+export async function verifyFlutterwavePaymentReturn(paymentReturn) {
+  if (!paymentReturn?.txRef || !paymentReturn?.transactionId) {
+    throw new Error("Flutterwave did not return complete payment details.");
+  }
+  return authenticatedPaymentRequest("/api/flutterwave-verify-payment", paymentReturn);
 }
 
 export async function lookupVisibilityCreditRecipient(kunThaiId = "") {

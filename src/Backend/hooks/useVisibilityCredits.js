@@ -67,6 +67,13 @@ export function useVisibilityCredits({ enabled = true } = {}) {
     };
   }, [enabled]);
 
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined") return undefined;
+    const handleCreditsUpdated = () => refresh();
+    window.addEventListener("kuntai-visibility-credits-updated", handleCreditsUpdated);
+    return () => window.removeEventListener("kuntai-visibility-credits-updated", handleCreditsUpdated);
+  }, [enabled, refresh]);
+
   const shareInvite = useCallback(async () => {
     const nextWallet = await shareVisibilityInviteLink();
     setWallet(nextWallet);

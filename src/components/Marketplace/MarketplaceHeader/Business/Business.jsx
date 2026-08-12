@@ -587,7 +587,11 @@ export default function Business({ onBack }) {
                 ) : null}
               </>
             ) : (
-              <VerticalSellerDashboard business={verticalBusiness} canManage={permissions.canAddProducts} />
+              <VerticalSellerDashboard
+                business={verticalBusiness}
+                canManage={permissions.canAddProducts}
+                initialWorkspace={sellerOverview.verticalWorkspace}
+              />
             )}
           </main>
         </div>

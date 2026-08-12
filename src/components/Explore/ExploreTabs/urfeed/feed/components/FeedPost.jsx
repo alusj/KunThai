@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { AtSign, Hash, MapPin, Megaphone } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
-import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import {
   createExploreNotification,
   getExploreAdvertReason,
@@ -129,7 +128,7 @@ export default function FeedPost({
         setMenuMessage(message);
       }
     } catch {
-      setMenuMessage("Action could not be completed");
+      setMenuMessage(t("explore.actionFailed"));
     }
   }
 
@@ -238,9 +237,7 @@ export default function FeedPost({
   return (
     <article
       id={`post-${post.id}`}
-      className={`kt-toast-expand-in relative w-full max-w-full min-w-0 rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${
-        optionsOpen ? "z-40 overflow-visible" : "overflow-hidden"
-      } ${deleting ? "kt-post-wipe-out" : ""}`}
+      className={`kt-toast-expand-in relative w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${deleting ? "kt-post-wipe-out" : ""}`}
     >
       <PostHeader
         post={post}
@@ -518,7 +515,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
           onClick={() => recordExploreAdvertEvent(post, "click", { surface: "urfeed" }).catch(() => false)}
           className="kt-pressable mt-3 flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
         >
-          {advert.ctaLabel || "Learn more"}
+          {advert.ctaLabel || t("explore.learnMore")}
         </a>
       ) : null}
       {!actionHref && profileAction ? (
@@ -528,7 +525,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
       ) : null}
       {!actionHref && followAction ? (
         <button type="button" onClick={onFollow} className="kt-pressable mt-3 flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-          {followed ? "Connected" : "Connect"}
+          {followed ? t("explore.connected") : t("explore.connect")}
         </button>
       ) : null}
     </section>
@@ -536,13 +533,11 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
 }
 
 function PostActionOverlay({ children, label, onClose, open }) {
-  useBodyScrollLock(open);
-
   if (!open) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[1100] flex items-end justify-center bg-slate-950/20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md sm:items-center"
+      className="fixed inset-0 z-[1100] flex h-dvh w-full items-end justify-center overflow-hidden overscroll-none bg-slate-950/20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md [contain:strict] sm:items-center"
       onClick={onClose}
       role="presentation"
     >
@@ -550,7 +545,7 @@ function PostActionOverlay({ children, label, onClose, open }) {
         aria-label={label}
         aria-modal="true"
         role="dialog"
-        className="kt-modal-enter max-h-[min(78dvh,680px)] w-full max-w-lg overflow-y-auto rounded-[26px] bg-white p-4 shadow-2xl ring-1 ring-slate-200/70"
+        className="kt-modal-enter max-h-[min(78dvh,680px)] w-full max-w-lg transform-gpu overflow-y-auto overscroll-contain rounded-[26px] bg-white p-4 shadow-2xl ring-1 ring-slate-200/70 [backface-visibility:hidden]"
         onClick={(event) => event.stopPropagation()}
       >
         {children}

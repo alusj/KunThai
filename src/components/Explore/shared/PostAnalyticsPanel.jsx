@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { buildPostInsights, fetchPostAnalytics } from "../../../Backend/services/explore/postAnalyticsService";
-import useBodyScrollLock from "../../shared/useBodyScrollLock";
+import { t } from "../../../i18n";
 
 const DONUT_COLORS = ["#0ea5e9", "#10b981", "#8b5cf6", "#f59e0b"];
 
@@ -70,10 +70,10 @@ function EngagementDonut({ analytics }) {
   const [drawn, setDrawn] = useState(false);
   const segments = useMemo(() => {
     const parts = [
-      { label: "Likes", value: analytics.likes },
-      { label: "Comments", value: analytics.comments },
-      { label: "Saves", value: analytics.saves },
-      { label: "Shares", value: analytics.shares },
+      { label: t("explore.anLikes"), value: analytics.likes },
+      { label: t("explore.anComments"), value: analytics.comments },
+      { label: t("explore.anSaves"), value: analytics.saves },
+      { label: t("explore.anShares"), value: analytics.shares },
     ];
     const total = parts.reduce((sum, part) => sum + part.value, 0);
     let offset = 0;
@@ -96,7 +96,7 @@ function EngagementDonut({ analytics }) {
 
   return (
     <div className="kt-fade-up rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm" style={{ animationDelay: "180ms" }}>
-      <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Engagement mix</h3>
+      <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">{t("explore.anEngagementMix")}</h3>
       <div className="mt-4 flex items-center gap-5">
         <div className="relative h-36 w-36 flex-none">
           <svg viewBox="0 0 42 42" className="h-full w-full -rotate-90">
@@ -120,7 +120,7 @@ function EngagementDonut({ analytics }) {
           <div className="absolute inset-0 grid place-items-center text-center">
             <div>
               <p className="text-2xl font-black tabular-nums text-slate-950">{total.toLocaleString()}</p>
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Reactions</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{t("explore.anReactions")}</p>
             </div>
           </div>
         </div>
@@ -142,12 +142,12 @@ function ReachFunnel({ analytics }) {
   const [grown, setGrown] = useState(false);
   const steps = useMemo(() => {
     const raw = [
-      { label: "Impressions", value: analytics.impressions, color: "#0ea5e9" },
-      { label: analytics.isVideo ? "Views" : "Opens", value: analytics.views, color: "#10b981" },
-      { label: "Reactions", value: analytics.engagements, color: "#8b5cf6" },
+      { label: t("explore.anImpressions"), value: analytics.impressions, color: "#0ea5e9" },
+      { label: analytics.isVideo ? t("explore.anViews") : t("explore.anOpens"), value: analytics.views, color: "#10b981" },
+      { label: t("explore.anReactions"), value: analytics.engagements, color: "#8b5cf6" },
     ];
     if (analytics.isVideo) {
-      raw.push({ label: "Watched to the end", value: analytics.completions, color: "#f59e0b" });
+      raw.push({ label: t("explore.anWatchedEnd"), value: analytics.completions, color: "#f59e0b" });
     }
     const max = Math.max(1, ...raw.map((step) => step.value));
     return raw.map((step) => ({ ...step, pct: Math.max(step.value > 0 ? 6 : 2, (step.value / max) * 100) }));
@@ -160,7 +160,7 @@ function ReachFunnel({ analytics }) {
 
   return (
     <div className="kt-fade-up rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm" style={{ animationDelay: "260ms" }}>
-      <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Journey through your {analytics.isVideo ? "video" : "post"}</h3>
+      <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">{analytics.isVideo ? t("explore.anJourneyVideo") : t("explore.anJourneyPost")}</h3>
       <div className="mt-4 space-y-3">
         {steps.map((step, index) => (
           <div key={step.label}>
@@ -207,8 +207,6 @@ export default function PostAnalyticsPanel({ post, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [closing, setClosing] = useState(false);
-  useBodyScrollLock(true);
-
   useEffect(() => {
     let alive = true;
 
@@ -216,10 +214,10 @@ export default function PostAnalyticsPanel({ post, onClose }) {
       .then((result) => {
         if (!alive) return;
         setAnalytics(result);
-        if (!result) setError("Insights are only available for your own posts.");
+        if (!result) setError(t("explore.anOwnPostsOnly"));
       })
       .catch((err) => {
-        if (alive) setError(err.message || "Unable to load insights.");
+        if (alive) setError(err.message || t("explore.anUnableLoad"));
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -252,31 +250,31 @@ export default function PostAnalyticsPanel({ post, onClose }) {
     : "";
 
   return createPortal(
-    <div className={`fixed inset-0 z-[1400] flex flex-col ${closing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} bg-slate-100`}>
+    <div className={`fixed inset-0 z-[1400] flex h-dvh w-full transform-gpu flex-col overflow-hidden overscroll-none [contain:strict] [backface-visibility:hidden] ${closing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} bg-slate-100`}>
       <header className="flex flex-none items-center gap-3 bg-[linear-gradient(120deg,#082f49_0%,#0f172a_55%,#132238_100%)] px-4 pb-5 pt-[calc(env(safe-area-inset-top)+1.1rem)] text-white">
         <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-white/10 text-sky-200">
           <BarChart3 size={20} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-300">
-            {post?.video_url ? "Swip insights" : "Post insights"}
+            {post?.video_url ? t("explore.anSwipInsights") : t("explore.anPostInsights")}
           </p>
           <h2 className="truncate text-xl font-black">
-            {String(post?.body || "").trim() || (post?.video_url ? "Your Swip video" : "Your post")}
+            {String(post?.body || "").trim() || (post?.video_url ? t("explore.anYourSwipVideo") : t("explore.anYourPost"))}
           </h2>
           {postedLabel ? <p className="mt-0.5 text-xs font-semibold text-slate-300">Published {postedLabel}</p> : null}
         </div>
         <button
           type="button"
           onClick={requestClose}
-          aria-label="Close insights"
+          aria-label={t("explore.anCloseInsights")}
           className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-white/10 text-white transition hover:bg-white/20"
         >
           <X size={19} />
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
         <div className="mx-auto w-full max-w-2xl space-y-4 pb-10">
           {loading ? (
             <div className="space-y-4">
@@ -290,18 +288,18 @@ export default function PostAnalyticsPanel({ post, onClose }) {
             </div>
           ) : error || !analytics ? (
             <div className="rounded-[24px] border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <p className="text-sm font-black text-slate-950">Insights unavailable</p>
+              <p className="text-sm font-black text-slate-950">{t("explore.anUnavailable")}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{error || "Try again in a moment."}</p>
             </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <StatTile icon={Eye} label={analytics.isVideo ? "Views" : "Opens"} value={analytics.views} tone="sky" delayMs={0} />
-                <StatTile icon={Radio} label="Impressions" value={analytics.impressions} tone="violet" delayMs={60} />
-                <StatTile icon={UsersRound} label="Reach" value={analytics.reach} tone="emerald" delayMs={120} />
-                <StatTile icon={Heart} label="Likes" value={analytics.likes} tone="amber" delayMs={180} />
-                <StatTile icon={MessageCircle} label="Comments" value={analytics.comments} tone="sky" delayMs={240} />
-                <StatTile icon={Bookmark} label="Saves" value={analytics.saves} tone="violet" delayMs={300} />
+                <StatTile icon={Eye} label={analytics.isVideo ? t("explore.anViews") : t("explore.anOpens")} value={analytics.views} tone="sky" delayMs={0} />
+                <StatTile icon={Radio} label={t("explore.anImpressions")} value={analytics.impressions} tone="violet" delayMs={60} />
+                <StatTile icon={UsersRound} label={t("explore.anReach")} value={analytics.reach} tone="emerald" delayMs={120} />
+                <StatTile icon={Heart} label={t("explore.anLikes")} value={analytics.likes} tone="amber" delayMs={180} />
+                <StatTile icon={MessageCircle} label={t("explore.anComments")} value={analytics.comments} tone="sky" delayMs={240} />
+                <StatTile icon={Bookmark} label={t("explore.anSaves")} value={analytics.saves} tone="violet" delayMs={300} />
               </div>
 
               {analytics.isVideo ? (
@@ -313,21 +311,21 @@ export default function PostAnalyticsPanel({ post, onClose }) {
                   </div>
                   <StatTile
                     icon={Share2}
-                    label="Completion"
+                    label={t("explore.anCompletion")}
                     value={Math.round(analytics.averageCompletion * 100)}
                     suffix="%"
                     tone="sky"
                     delayMs={180}
                   />
-                  <StatTile icon={Repeat2} label="Rewatches" value={analytics.rewatches} tone="violet" delayMs={240} />
+                  <StatTile icon={Repeat2} label={t("explore.anRewatches")} value={analytics.rewatches} tone="violet" delayMs={240} />
                 </div>
               ) : null}
 
               {analytics.advert ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <StatTile icon={MousePointerClick} label="Clicks" value={analytics.advert.clicks} tone="emerald" delayMs={80} />
-                  <StatTile icon={BarChart3} label="Click rate" value={analytics.advert.ctr} suffix="%" tone="sky" delayMs={140} />
-                  <StatTile icon={UsersRound} label="Profile visits" value={analytics.advert.profileVisits} tone="violet" delayMs={200} />
+                  <StatTile icon={MousePointerClick} label={t("explore.anClicks")} value={analytics.advert.clicks} tone="emerald" delayMs={80} />
+                  <StatTile icon={BarChart3} label={t("explore.anClickRate")} value={analytics.advert.ctr} suffix="%" tone="sky" delayMs={140} />
+                  <StatTile icon={UsersRound} label={t("explore.anProfileVisits")} value={analytics.advert.profileVisits} tone="violet" delayMs={200} />
                 </div>
               ) : null}
 
@@ -339,7 +337,7 @@ export default function PostAnalyticsPanel({ post, onClose }) {
                   <span className="grid h-9 w-9 place-items-center rounded-2xl bg-amber-50 text-amber-600">
                     <Lightbulb size={17} />
                   </span>
-                  <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Suggestions for you</h3>
+                  <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">{t("explore.anSuggestions")}</h3>
                 </div>
                 {insights.map((insight, index) => (
                   <article

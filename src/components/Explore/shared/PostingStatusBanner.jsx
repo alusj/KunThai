@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight, Minimize2, Share2 } from "lucide-react";
 
 import { postingStages } from "../ExploreTabs/urfeed/feed/composer/postReviewPipeline";
+import { t } from "../../../i18n";
 
 export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -21,21 +22,21 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
   const isActive = !isError && !isComplete;
   const activeIndex = Math.max(0, postingStages.findIndex((item) => item.key === notice.stage));
   const currentStage = postingStages[activeIndex] || postingStages[0];
-  const title = notice.title || (isError ? "Post not published" : isComplete ? "Post published" : isReviewing ? "Video review running" : "Publishing in background");
+  const title = notice.title || (isError ? t("explore.postNotPublished") : isComplete ? t("explore.postPublished") : isReviewing ? t("explore.videoReviewRunning") : t("explore.publishingBackground"));
   const stageMessages = {
-    preparing: "Locking your draft and preparing the upload.",
-    "uploading-media": "Uploading your original media securely before safety scanning.",
-    "text-scan": "Scanning text for policy violations and unsafe content.",
+    preparing: t("explore.stagePreparing"),
+    "uploading-media": t("explore.stageUploadingMedia"),
+    "text-scan": t("explore.stageTextScan"),
     "media-scan": isReviewing
-      ? "KunThai is checking the full uploaded video. You can keep using the app."
-      : "Scanning attached media for policy violations before it reaches the feed.",
-    publishing: "Publishing the approved post to Explore.",
-    syncing: "Syncing the new post into your feed.",
-    complete: "Your post is live on Explore.",
+      ? t("explore.stageMediaScanReview")
+      : t("explore.stageMediaScan"),
+    publishing: t("explore.stagePublishing"),
+    syncing: t("explore.stageSyncing"),
+    complete: t("explore.stageComplete"),
   };
-  const message = notice.message || stageMessages[notice.stage] || "Processing your post securely.";
+  const message = notice.message || stageMessages[notice.stage] || t("explore.processingSecurely");
   const showMessage = (isError || isComplete) && message;
-  const dismissLabel = isReviewing ? "Cancel video posting" : "Dismiss posting progress";
+  const dismissLabel = isReviewing ? t("explore.cancelVideoPosting") : t("explore.dismissPosting");
   const ringColor = isError ? "#e11d48" : isComplete ? "#059669" : "#0284c7";
 
   if (collapsed) {
@@ -43,7 +44,7 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
       <button
         type="button"
         onClick={() => setCollapsed(false)}
-        aria-label={`Show posting progress, currently ${progress} percent`}
+        aria-label={t("explore.showPostingProgress", { progress })}
         className="kt-toast-expand-in kt-pressable fixed right-3 top-3 z-[90] flex items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 py-1 pl-1 pr-2 shadow-xl shadow-slate-900/12 backdrop-blur-xl transition-transform hover:scale-105"
       >
         <span
@@ -84,7 +85,7 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
               <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${isError ? "text-rose-600" : isComplete ? "text-emerald-700" : "text-sky-700"}`}>
                 {title}
               </p>
-              <h3 className="mt-0.5 truncate text-sm font-black text-slate-950">{isError ? "Posting stopped" : currentStage.label}</h3>
+              <h3 className="mt-0.5 truncate text-sm font-black text-slate-950">{isError ? t("explore.postingStopped") : currentStage.label}</h3>
               {showMessage ? <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-slate-600">{message}</p> : null}
             </div>
           </div>
@@ -95,8 +96,8 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
             <button
               type="button"
               onClick={() => setCollapsed(true)}
-              aria-label="Minimize posting progress"
-              title="Minimize posting progress"
+              aria-label={t("explore.minimizePosting")}
+              title={t("explore.minimizePosting")}
               className="kt-pressable flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
             >
               <Minimize2 size={14} />
@@ -123,14 +124,14 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
             </div>
             {isComplete && onShareKunThai ? (
               <div className="mt-2 flex flex-col gap-2 rounded-2xl bg-emerald-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs font-black leading-5 text-emerald-900">Share KunThai to gain more visibility.</p>
+                <p className="text-xs font-black leading-5 text-emerald-900">{t("explore.shareKunThaiVisibility")}</p>
                 <button
                   type="button"
                   onClick={onShareKunThai}
                   className="kt-pressable inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-xs font-black text-white"
                 >
                   <Share2 size={14} />
-                  Share KunThai
+                  {t("explore.shareKunThai")}
                 </button>
               </div>
             ) : null}

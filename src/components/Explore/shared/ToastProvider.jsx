@@ -2,8 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineCheckCircle, HiOutlineExclamationTriangle, HiOutlineInformationCircle, HiOutlineXMark } from "react-icons/hi2";
 
 import { TOAST_EVENT } from "../../../Backend/services/toastService";
+import { useI18n, t } from "../../../i18n";
 
 const TOAST_EXIT_MS = 280;
+
+const TONE_TITLE_KEYS = {
+  info: "explore.toneUpdate",
+  success: "explore.toneDone",
+  warning: "explore.toneAttention",
+  danger: "explore.toneActionNeeded",
+  error: "explore.toneActionNeeded",
+};
 
 // Position a small pointer on the toast aimed at the control that triggered it.
 // Origin is the last pointer press in viewport coordinates; the toast stack is
@@ -55,6 +64,7 @@ const tones = {
 };
 
 export default function ToastProvider({ children }) {
+  useI18n();
   const [items, setItems] = useState([]);
   const timersRef = useRef(new Map());
 
@@ -128,7 +138,7 @@ export default function ToastProvider({ children }) {
                   <Icon className="text-xl" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{item.title || tone.title}</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{item.title || t(TONE_TITLE_KEYS[item.tone] || TONE_TITLE_KEYS.info)}</p>
                   <p className={`kuntai-break mt-1 text-sm font-black leading-5 text-slate-950 ${item.allowLongMessage ? "" : "line-clamp-2"}`}>
                     {item.message}
                   </p>
@@ -149,7 +159,7 @@ export default function ToastProvider({ children }) {
                   type="button"
                   onClick={() => dismissToast(item.id)}
                   className="flex h-9 w-9 flex-none items-center justify-center rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
-                  aria-label="Dismiss message"
+                  aria-label={t("explore.dismissMessage")}
                 >
                   <HiOutlineXMark />
                 </button>

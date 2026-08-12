@@ -34,16 +34,59 @@ import { useI18n, t } from "../../../../i18n";
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const dayLong = (index) => t(`urmall.biz.vert.dayLong${index}`);
 const dayShort = (index) => t(`urmall.biz.vert.dayShort${index}`);
+const SELLER_VERTICAL_STORAGE_KEY = "kunthai.marketplace.sellerVerticals.v1";
+const SELLER_VERTICAL_MEMORY = new Map();
+
+if (typeof localStorage !== "undefined") {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SELLER_VERTICAL_STORAGE_KEY) || "null");
+    Object.entries(stored?.entries || {}).forEach(([key, entry]) => {
+      if (entry && Object.prototype.hasOwnProperty.call(entry, "value")) {
+        SELLER_VERTICAL_MEMORY.set(key, entry);
+      }
+    });
+  } catch {
+    // The dashboard still works without persistent caching.
+  }
+}
+
+function readSellerVerticalCache(key, fallback) {
+  const entry = SELLER_VERTICAL_MEMORY.get(key);
+  return entry
+    ? { hasValue: true, value: entry.value }
+    : { hasValue: false, value: fallback };
+}
+
+function rememberSellerVerticalData(key, value) {
+  SELLER_VERTICAL_MEMORY.set(key, { value, savedAt: Date.now() });
+  try {
+    localStorage.setItem(
+      SELLER_VERTICAL_STORAGE_KEY,
+      JSON.stringify({ entries: Object.fromEntries(SELLER_VERTICAL_MEMORY) }),
+    );
+  } catch {
+    // In-memory caching still keeps category and business switches instant.
+  }
+  return value;
+}
 
 function notifyVerticalListingUpdated(businessId) {
   window.dispatchEvent(new CustomEvent("marketplace-vertical-listing-updated", { detail: { businessId } }));
 }
 
 function useVerticalActivity(businessId) {
-  const [activity, setActivity] = useState({ reviews: 0, messages: 0, orders: 0, bookings: 0, recentBookings: [] });
-  const load = useCallback(() => fetchVerticalBusinessActivity(businessId).then(setActivity).catch(() => null), [businessId]);
+  const emptyActivity = useMemo(() => ({ reviews: 0, messages: 0, orders: 0, bookings: 0, recentBookings: [] }), []);
+  const cacheKey = `activity:${businessId}`;
+  const [activity, setActivity] = useState(() => readSellerVerticalCache(cacheKey, emptyActivity).value);
+  const load = useCallback(() => fetchVerticalBusinessActivity(businessId)
+    .then((nextActivity) => {
+      setActivity(rememberSellerVerticalData(cacheKey, nextActivity));
+      return nextActivity;
+    })
+    .catch(() => null), [businessId, cacheKey]);
   useEffect(() => {
     let timer;
+    setActivity(readSellerVerticalCache(cacheKey, emptyActivity).value);
     const refresh = (event) => {
       if (event?.detail?.businessId && event.detail.businessId !== businessId) return;
       window.clearTimeout(timer);
@@ -57,16 +100,18 @@ function useVerticalActivity(businessId) {
       unsubscribe?.();
       window.removeEventListener("marketplace-vertical-activity-updated", refresh);
     };
-  }, [businessId, load]);
+  }, [businessId, cacheKey, emptyActivity, load]);
   return activity;
 }
 
-export default function VerticalSellerDashboard({ business, canManage = true }) {
+export default function VerticalSellerDashboard({ business, canManage = true, initialWorkspace = null }) {
   useI18n();
   if (!business?.id) return null;
-  if (business.kind === "restaurant") return <RestaurantDashboard business={business} canManage={canManage} />;
-  if (business.kind === "hotel") return <HotelDashboard business={business} canManage={canManage} />;
-  if (business.kind === "property_agent") return <PropertyDashboard business={business} canManage={canManage} />;
+  // The key makes same-category business switches hydrate from that business's
+  // own cache on the first render instead of briefly retaining the prior store.
+  if (business.kind === "restaurant") return <RestaurantDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
+  if (business.kind === "hotel") return <HotelDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
+  if (business.kind === "property_agent") return <PropertyDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
   return null;
 }
 
@@ -82,11 +127,17 @@ function WorkspaceShell({ children, icon: Icon, eyebrow, title, subtitle, stats 
   );
 }
 
-function RestaurantDashboard({ business, canManage = true }) {
+function RestaurantDashboard({ business, canManage = true, initialWorkspace = null }) {
   const today = getMarketplaceBusinessDay(business.countryIso);
   const [day, setDay] = useState(today);
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const menuCacheKey = `restaurant:${business.id}:${day}`;
+  const overviewMenu = initialWorkspace?.businessId === business.id && initialWorkspace.kind === "restaurant" && initialWorkspace.day === day
+    ? { hasValue: true, value: initialWorkspace.data || [] }
+    : null;
+  const initialMenuCache = overviewMenu || readSellerVerticalCache(menuCacheKey, []);
+  const overviewMenuRef = useRef(overviewMenu);
+  const [items, setItems] = useState(() => initialMenuCache.value);
+  const [loading, setLoading] = useState(() => !initialMenuCache.hasValue);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
@@ -96,9 +147,19 @@ function RestaurantDashboard({ business, canManage = true }) {
   const editingMeal = Boolean(form.id);
   const activity = useVerticalActivity(business.id);
   const load = useCallback(async () => {
-    setLoading(true);
-    try { setItems(await fetchRestaurantMenu(business.id, day)); } catch (error) { showToast(error.message, "danger"); } finally { setLoading(false); }
-  }, [business.id, day]);
+    const cached = overviewMenuRef.current || readSellerVerticalCache(menuCacheKey, []);
+    overviewMenuRef.current = null;
+    setItems(cached.value);
+    setLoading(!cached.hasValue);
+    try {
+      const nextItems = await fetchRestaurantMenu(business.id, day);
+      setItems(rememberSellerVerticalData(menuCacheKey, nextItems));
+    } catch (error) {
+      showToast(error.message, "danger");
+    } finally {
+      setLoading(false);
+    }
+  }, [business.id, day, menuCacheKey]);
   useEffect(() => { load(); }, [load]);
   const openNewMeal = useCallback(() => {
     setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
@@ -269,15 +330,28 @@ function PromoteToggleField({ form, setForm }) {
   );
 }
 
-function HotelDashboard({ business, canManage = true }) {
-  const [workspace, setWorkspace] = useState({ images: [], rooms: [], videoUrl: "" });
+function HotelDashboard({ business, canManage = true, initialWorkspace = null }) {
+  const hotelCacheKey = `hotel:${business.id}`;
+  const emptyWorkspace = useMemo(() => ({ images: [], rooms: [], videoUrl: "" }), []);
+  const overviewWorkspace = initialWorkspace?.businessId === business.id && initialWorkspace.kind === "hotel"
+    ? { hasValue: true, value: initialWorkspace.data || emptyWorkspace }
+    : null;
+  const overviewWorkspaceRef = useRef(overviewWorkspace);
+  const [workspace, setWorkspace] = useState(() => (overviewWorkspace || readSellerVerticalCache(hotelCacheKey, emptyWorkspace)).value);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
   const submissionLock = useRef(false);
   const [media, setMedia] = useState(createEmptyVerticalMedia);
   const activity = useVerticalActivity(business.id);
-  const load = useCallback(async () => setWorkspace(await fetchHotelWorkspace(business.id)), [business.id]);
+  const load = useCallback(async () => {
+    const cached = overviewWorkspaceRef.current || readSellerVerticalCache(hotelCacheKey, emptyWorkspace);
+    overviewWorkspaceRef.current = null;
+    setWorkspace(cached.value);
+    const nextWorkspace = await fetchHotelWorkspace(business.id);
+    setWorkspace(rememberSellerVerticalData(hotelCacheKey, nextWorkspace));
+    return nextWorkspace;
+  }, [business.id, emptyWorkspace, hotelCacheKey]);
   useEffect(() => { load().catch((error) => showToast(error.message, "danger")); }, [load]);
   useOpenVerticalEditor(() => setFormOpen(true), canManage);
 
@@ -314,8 +388,13 @@ function HotelDashboard({ business, canManage = true }) {
   );
 }
 
-function PropertyDashboard({ business, canManage = true }) {
-  const [listings, setListings] = useState([]);
+function PropertyDashboard({ business, canManage = true, initialWorkspace = null }) {
+  const propertyCacheKey = `property:${business.id}`;
+  const overviewListings = initialWorkspace?.businessId === business.id && initialWorkspace.kind === "property_agent"
+    ? { hasValue: true, value: initialWorkspace.data || [] }
+    : null;
+  const overviewListingsRef = useRef(overviewListings);
+  const [listings, setListings] = useState(() => (overviewListings || readSellerVerticalCache(propertyCacheKey, [])).value);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
@@ -324,7 +403,14 @@ function PropertyDashboard({ business, canManage = true }) {
   const [form, setForm] = useState({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, parking_spaces: 0, land_size: "", land_size_unit: "plots", floor_area: "", floor_area_unit: "sqm", rooms: 0, star_rating: "", address: "", city: business.location || "", latitude: "", longitude: "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
   const editingProperty = Boolean(form.id);
   const activity = useVerticalActivity(business.id);
-  const load = useCallback(async () => setListings(await fetchPropertyListings(business.id)), [business.id]);
+  const load = useCallback(async () => {
+    const cached = overviewListingsRef.current || readSellerVerticalCache(propertyCacheKey, []);
+    overviewListingsRef.current = null;
+    setListings(cached.value);
+    const nextListings = await fetchPropertyListings(business.id);
+    setListings(rememberSellerVerticalData(propertyCacheKey, nextListings));
+    return nextListings;
+  }, [business.id, propertyCacheKey]);
   useEffect(() => { load().catch((error) => showToast(error.message, "danger")); }, [load]);
   const openNewProperty = useCallback(() => {
     setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, parking_spaces: 0, land_size: "", land_size_unit: "plots", floor_area: "", floor_area_unit: "sqm", rooms: 0, star_rating: "", address: "", city: business.location || "", latitude: "", longitude: "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });

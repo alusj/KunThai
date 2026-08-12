@@ -1,10 +1,13 @@
 import {
   HiOutlineArchiveBox,
+  HiOutlineArrowLeft,
   HiOutlineArrowTopRightOnSquare,
   HiOutlineBuildingOffice2,
   HiOutlineCheckBadge,
   HiOutlineChatBubbleLeftRight,
   HiOutlineClipboardDocument,
+  HiOutlineCreditCard,
+  HiOutlineDevicePhoneMobile,
   HiOutlineEllipsisHorizontal,
   HiOutlineFlag,
   HiOutlineGift,
@@ -16,12 +19,16 @@ import {
   HiOutlineUserPlus,
   HiOutlineUserMinus,
 } from "react-icons/hi2";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
 import { getKunThaiPublicUserId } from "../../../../Backend/services/identityCodeService";
+import {
+  fetchVisibilityCreditPackages,
+  startFlutterwaveCardPurchase,
+} from "../../../../Backend/services/visibilityCreditService";
 import { t } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
 import Avatar from "../../shared/Avatar";
@@ -68,11 +75,19 @@ export default function ProfileHeaderCard({
   const [copiedPublicId, setCopiedPublicId] = useState(false);
   const [creditHelpOpen, setCreditHelpOpen] = useState(false);
   const [creditMenuOpen, setCreditMenuOpen] = useState(false);
+  const [creditMenuPlacement, setCreditMenuPlacement] = useState("bottom");
   const [shareCreditOpen, setShareCreditOpen] = useState(false);
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
+  const [buyCreditsMethod, setBuyCreditsMethod] = useState("");
+  const [creditPackages, setCreditPackages] = useState([]);
+  const [creditPackagesLoading, setCreditPackagesLoading] = useState(false);
+  const [cardCheckoutPackageId, setCardCheckoutPackageId] = useState("");
+  const [cardCheckoutError, setCardCheckoutError] = useState("");
   const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
   const menuRef = useRef(null);
   const creditMenuRef = useRef(null);
+  const creditMenuButtonRef = useRef(null);
+  const creditMenuPanelRef = useRef(null);
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
   const coverStyle = getCoverStyle(values.coverUrl);
   const publicUserId = getKunThaiPublicUserId(values);
@@ -106,6 +121,49 @@ export default function ProfileHeaderCard({
   }, [creditMenuOpen]);
 
   useEffect(() => {
+    if (!buyCreditsOpen || buyCreditsMethod !== "card") return undefined;
+    let active = true;
+    setCreditPackagesLoading(true);
+    setCardCheckoutError("");
+    fetchVisibilityCreditPackages()
+      .then((packages) => {
+        if (active) setCreditPackages(packages);
+      })
+      .catch((error) => {
+        if (active) setCardCheckoutError(error.message || "Unable to load credit packages.");
+      })
+      .finally(() => {
+        if (active) setCreditPackagesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [buyCreditsMethod, buyCreditsOpen]);
+
+  useLayoutEffect(() => {
+    if (!creditMenuOpen) return undefined;
+
+    function placeCreditMenu() {
+      const trigger = creditMenuButtonRef.current?.getBoundingClientRect();
+      const panel = creditMenuPanelRef.current?.getBoundingClientRect();
+      if (!trigger || !panel) return;
+
+      const edgeGap = 16;
+      const roomBelow = window.innerHeight - trigger.bottom - edgeGap;
+      const roomAbove = trigger.top - edgeGap;
+      setCreditMenuPlacement(panel.height > roomBelow && roomAbove > roomBelow ? "top" : "bottom");
+    }
+
+    placeCreditMenu();
+    window.addEventListener("resize", placeCreditMenu);
+    window.addEventListener("scroll", placeCreditMenu, true);
+    return () => {
+      window.removeEventListener("resize", placeCreditMenu);
+      window.removeEventListener("scroll", placeCreditMenu, true);
+    };
+  }, [creditMenuOpen]);
+
+  useEffect(() => {
     if (!publicIdHelpOpen && !creditHelpOpen && !creditMenuOpen) return undefined;
     function handleKeyDown(event) {
       if (event.key === "Escape") {
@@ -121,6 +179,30 @@ export default function ProfileHeaderCard({
   function runMenuAction(action) {
     setMenuOpen(false);
     action?.();
+  }
+
+  function openBuyCredits() {
+    setBuyCreditsMethod("");
+    setBuyCreditsOpen(true);
+  }
+
+  function closeBuyCredits() {
+    setBuyCreditsOpen(false);
+    setBuyCreditsMethod("");
+    setCardCheckoutPackageId("");
+    setCardCheckoutError("");
+  }
+
+  async function startCardCheckout(packageId) {
+    try {
+      setCardCheckoutPackageId(packageId);
+      setCardCheckoutError("");
+      const result = await startFlutterwaveCardPurchase(packageId);
+      window.location.assign(result.checkoutUrl);
+    } catch (error) {
+      setCardCheckoutPackageId("");
+      setCardCheckoutError(error.message || "Unable to open secure card checkout.");
+    }
   }
 
   async function copyPublicUserId() {
@@ -385,6 +467,7 @@ export default function ProfileHeaderCard({
                 </div>
                 <div ref={creditMenuRef} className="relative">
                   <motion.button
+                    ref={creditMenuButtonRef}
                     type="button"
                     onClick={() => setCreditMenuOpen((current) => !current)}
                     whileHover={{ scale: 1.08 }}
@@ -400,12 +483,15 @@ export default function ProfileHeaderCard({
                   <AnimatePresence>
                     {creditMenuOpen ? (
                       <motion.div
-                        initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                        ref={creditMenuPanelRef}
+                        initial={{ opacity: 0, y: creditMenuPlacement === "top" ? 8 : -8, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                        exit={{ opacity: 0, y: creditMenuPlacement === "top" ? 6 : -6, scale: 0.97 }}
                         transition={{ type: "spring", stiffness: 420, damping: 30 }}
                         role="menu"
-                        className="absolute right-0 top-full z-30 mt-2 w-60 overflow-hidden rounded-2xl border border-sky-100 bg-white p-2 text-sm font-semibold shadow-2xl shadow-slate-950/15"
+                        className={`absolute right-0 z-30 w-60 overflow-hidden rounded-2xl border border-sky-100 bg-white p-2 text-sm font-semibold shadow-2xl shadow-slate-950/15 ${
+                          creditMenuPlacement === "top" ? "bottom-full mb-2" : "top-full mt-2"
+                        }`}
                       >
                         <CreditMenuAction
                           icon={HiOutlineShare}
@@ -431,7 +517,7 @@ export default function ProfileHeaderCard({
                           helper="Add to your balance"
                           onClick={() => {
                             setCreditMenuOpen(false);
-                            setBuyCreditsOpen(true);
+                            openBuyCredits();
                           }}
                         />
                         <div className="my-1 border-t border-slate-100" />
@@ -481,33 +567,161 @@ export default function ProfileHeaderCard({
         </button>
       </CenteredModal>
 
-      <CenteredModal open={buyCreditsOpen} onClose={() => setBuyCreditsOpen(false)} labelledBy="buy-credits-title">
-        <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-white shadow-md shadow-sky-500/30">
-            <HiOutlineUserPlus className="text-2xl" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility Credits</p>
-            <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
-          </div>
-        </div>
-        <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
-          <p>{t("buyCredits.working")}</p>
-          <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">{t("buyCredits.earnInstead")}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setBuyCreditsOpen(false);
-            onShareCredits?.();
-          }}
-          className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
-        >
-          {t("buyCredits.shareInstead")}
-        </button>
-        <button type="button" onClick={() => setBuyCreditsOpen(false)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
-          {t("common.close")}
-        </button>
+      <CenteredModal open={buyCreditsOpen} onClose={closeBuyCredits} labelledBy="buy-credits-title">
+        <AnimatePresence mode="wait" initial={false}>
+          {!buyCreditsMethod ? (
+            <motion.div
+              key="buy-credit-methods"
+              initial={{ opacity: 0, x: -24, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -24, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-white shadow-md shadow-sky-500/30">
+                  <HiOutlineUserPlus className="text-2xl" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility Credits</p>
+                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">Choose how you would like to pay.</p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-3">
+                <PaymentMethodButton
+                  icon={HiOutlineCreditCard}
+                  label="Buy with credit card"
+                  helper="Pay securely with your bank card"
+                  onClick={() => setBuyCreditsMethod("card")}
+                />
+                <PaymentMethodButton
+                  icon={HiOutlineDevicePhoneMobile}
+                  label="Buy with mobile money"
+                  helper="Use your mobile money account"
+                  onClick={() => setBuyCreditsMethod("mobile-money")}
+                />
+              </div>
+              <button type="button" onClick={closeBuyCredits} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
+                {t("common.close")}
+              </button>
+            </motion.div>
+          ) : buyCreditsMethod === "card" ? (
+            <motion.div
+              key="buy-credit-card-packages"
+              initial={{ opacity: 0, x: 28, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            >
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBuyCreditsMethod("")}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
+                  aria-label="Choose another payment method"
+                >
+                  <HiOutlineArrowLeft />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Credit card</p>
+                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">Choose a credit package</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">You will complete payment securely on Flutterwave.</p>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {creditPackagesLoading ? (
+                  <div className="space-y-3" aria-label="Loading credit packages">
+                    {[1, 2, 3].map((item) => <div key={item} className="h-[74px] animate-pulse rounded-2xl bg-slate-100" />)}
+                  </div>
+                ) : creditPackages.length ? (
+                  creditPackages.map((item) => {
+                    const opening = cardCheckoutPackageId === item.id;
+                    return (
+                      <motion.button
+                        key={item.id}
+                        type="button"
+                        onClick={() => startCardCheckout(item.id)}
+                        disabled={Boolean(cardCheckoutPackageId)}
+                        whileHover={{ y: -2, scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="flex w-full items-center gap-3 rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 to-white p-4 text-left shadow-sm transition hover:border-sky-300 disabled:cursor-wait disabled:opacity-65"
+                      >
+                        <span className="grid h-11 min-w-11 shrink-0 place-items-center rounded-2xl bg-sky-700 px-2 text-sm font-black text-white">
+                          {item.credits}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-black text-slate-950">{item.label}</span>
+                          <span className="mt-0.5 block text-xs font-semibold text-slate-500">{item.credits} Visibility Credits</span>
+                        </span>
+                        <span className="shrink-0 text-sm font-black text-sky-800">
+                          {opening ? "Opening…" : formatPackagePrice(item)}
+                        </span>
+                      </motion.button>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold leading-6 text-amber-900">
+                    Card packages have not been priced yet. No payment can be started until approved packages are added.
+                  </div>
+                )}
+              </div>
+
+              {cardCheckoutError ? (
+                <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{cardCheckoutError}</p>
+              ) : null}
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
+                <HiOutlineCreditCard className="text-base text-sky-700" />
+                KunThai never receives or stores your card details.
+              </div>
+              <button type="button" onClick={closeBuyCredits} disabled={Boolean(cardCheckoutPackageId)} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">
+                {t("common.close")}
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={`buy-credit-notice-${buyCreditsMethod}`}
+              initial={{ opacity: 0, x: 28, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            >
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBuyCreditsMethod("")}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
+                  aria-label="Choose another payment method"
+                >
+                  <HiOutlineArrowLeft />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+                    {buyCreditsMethod === "card" ? "Credit card" : "Mobile money"}
+                  </p>
+                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
+                </div>
+              </div>
+              <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
+                <p>{t("buyCredits.working")}</p>
+                <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">{t("buyCredits.earnInstead")}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  closeBuyCredits();
+                  onShareCredits?.();
+                }}
+                className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+              >
+                {t("buyCredits.shareInstead")}
+              </button>
+              <button type="button" onClick={closeBuyCredits} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
+                {t("common.close")}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </CenteredModal>
 
       <CenteredModal open={creditHelpOpen} onClose={() => setCreditHelpOpen(false)} labelledBy="visibility-credit-help-title">
@@ -558,6 +772,41 @@ function CreditMenuAction({ helper = "", icon: Icon, label, onClick }) {
       </span>
     </button>
   );
+}
+
+function PaymentMethodButton({ helper, icon: Icon, label, onClick }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ y: -2, scale: 1.01 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 420, damping: 24 }}
+      className="flex w-full items-center gap-4 rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 to-white p-4 text-left shadow-sm transition hover:border-sky-300 hover:shadow-md"
+    >
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 text-2xl text-white shadow-md shadow-sky-500/20">
+        <Icon />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black text-slate-950">{label}</span>
+        <span className="mt-1 block text-xs font-semibold text-slate-500">{helper}</span>
+      </span>
+      <HiOutlineArrowTopRightOnSquare className="shrink-0 text-lg text-sky-700" />
+    </motion.button>
+  );
+}
+
+function formatPackagePrice(item) {
+  try {
+    const formatter = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: item.currency,
+    });
+    const digits = formatter.resolvedOptions().maximumFractionDigits;
+    return formatter.format(Number(item.priceMinor || 0) / (10 ** digits));
+  } catch {
+    return `${item.currency} ${Number(item.priceMinor || 0) / 100}`;
+  }
 }
 
 function StatTile({ label, loading, value }) {

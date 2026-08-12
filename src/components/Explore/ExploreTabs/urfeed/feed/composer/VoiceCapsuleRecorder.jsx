@@ -1,5 +1,7 @@
 import { HiOutlineMicrophone, HiOutlinePause, HiOutlinePlay, HiOutlineTrash, HiOutlineShieldCheck } from "react-icons/hi2";
 
+import { t } from "../../../../../../i18n";
+
 function formatTime(seconds = 0) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -27,7 +29,7 @@ export default function VoiceCapsuleRecorder({
             KunThai Voice Capsule
           </p>
           <h3 className="mt-1 text-base font-black">
-            {isRecording ? "Recording your voice" : audioPreview ? "Voice ready" : "Record a voice thought"}
+            {isRecording ? t("explore.recordingVoice") : audioPreview ? t("explore.voiceReady") : t("explore.recordVoiceThought")}
           </h3>
         </div>
 

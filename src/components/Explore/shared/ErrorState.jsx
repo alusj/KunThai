@@ -1,6 +1,8 @@
 import { HiOutlineExclamationTriangle } from "react-icons/hi2";
 
-export default function ErrorState({ message = "Something went wrong.", onRetry }) {
+import { t } from "../../../i18n";
+
+export default function ErrorState({ message = t("explore.errorDefault"), onRetry }) {
   return (
     <div className="rounded-[22px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm">
       <div className="flex items-start gap-3">
@@ -15,7 +17,7 @@ export default function ErrorState({ message = "Something went wrong.", onRetry 
               onClick={onRetry}
               className="mt-3 rounded-xl bg-white px-4 py-2 font-black text-rose-700 transition hover:bg-rose-100"
             >
-              Try again
+              {t("explore.tryAgain")}
             </button>
           )}
         </div>
