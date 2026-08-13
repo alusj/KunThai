@@ -1498,6 +1498,7 @@ export default function NearbyAreaMap({
   onMapInteractionEnd,
   recenterSignal = 0,
   measurementPreview = null,
+  viewTarget = null,
 }) {
   useI18n();
   const mapContainerRef = useRef(null);
@@ -1559,6 +1560,11 @@ export default function NearbyAreaMap({
   // the map slides underneath. A manual pan releases the lock; the recenter
   // button (recenterSignal) re-engages it.
   const followLockRef = useRef(true);
+  // "Place view" mode: the map is centred on a tapped location (e.g. a UrFeed
+  // post's location) rather than following the viewer. While active, the
+  // viewer's own GPS must not steal the camera.
+  const viewTargetActiveRef = useRef(false);
+  const viewTargetMarkerRef = useRef(null);
   // Tracks whether the marker is currently snapped to the route line, so the
   // snap can be released with hysteresis rather than flickering.
   const routeSnappedRef = useRef(false);
@@ -2214,7 +2220,12 @@ export default function NearbyAreaMap({
 
       publishHeadingUi(nextHeading);
 
-      if (headingMode === "compass" && userLocationRef.current && !routeCoordinatesRef.current.length) {
+      if (
+        headingMode === "compass" &&
+        userLocationRef.current &&
+        !routeCoordinatesRef.current.length &&
+        !viewTargetActiveRef.current
+      ) {
         applySmartCamera(userLocationRef.current, null);
       }
     }
@@ -2275,12 +2286,16 @@ export default function NearbyAreaMap({
         lastRawPositionRef.current = nextCenter;
         lastRawTimestampRef.current = Date.now();
         publishLocationToParent(nextCenter, { force: true });
-        mapRef.current?.easeTo({
-          center: [nextCenter.lng, nextCenter.lat],
-          zoom: 15,
-          duration: 520,
-          essential: true,
-        });
+        // In place-view mode the camera belongs to the tapped location, so the
+        // viewer's GPS updates the marker/position without recentering.
+        if (!viewTargetActiveRef.current) {
+          mapRef.current?.easeTo({
+            center: [nextCenter.lng, nextCenter.lat],
+            zoom: 15,
+            duration: 520,
+            essential: true,
+          });
+        }
 
         userMarkerRef.current?.setLngLat([nextCenter.lng, nextCenter.lat]);
       },
@@ -2312,6 +2327,43 @@ export default function NearbyAreaMap({
     applySmartCamera(current, selectedLocation, lastRouteSegmentIndexRef.current, { force: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recenter should run only when the user taps the recenter button.
   }, [recenterSignal]);
+
+  // Place-view: centre and pin a tapped location (e.g. a UrFeed post's
+  // location) instead of following the viewer. The viewer's GPS keeps updating
+  // the user marker/position, but the camera stays on the pinned place.
+  useEffect(() => {
+    const map = mapRef.current;
+    const point =
+      viewTarget && Number.isFinite(Number(viewTarget.lat)) && Number.isFinite(Number(viewTarget.lng))
+        ? { lat: Number(viewTarget.lat), lng: Number(viewTarget.lng) }
+        : null;
+
+    viewTargetActiveRef.current = Boolean(point);
+
+    viewTargetMarkerRef.current?.remove();
+    viewTargetMarkerRef.current = null;
+
+    if (!point || !map) return undefined;
+
+    // Release the traveller centre-lock so live GPS never drags the camera away
+    // from the pinned place.
+    followLockRef.current = false;
+
+    viewTargetMarkerRef.current = new maplibregl.Marker({
+      element: createLabeledMarker(t("urride.areaMap.markerLocation"), "#2563eb"),
+      anchor: "center",
+    })
+      .setLngLat([point.lng, point.lat])
+      .addTo(map);
+
+    map.flyTo({ center: [point.lng, point.lat], zoom: 15.5, essential: true });
+
+    return () => {
+      viewTargetMarkerRef.current?.remove();
+      viewTargetMarkerRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run when the pinned place changes or once the base map has drawn.
+  }, [viewTarget, mapTilesLoading]);
 
   useEffect(() => {
     routeInfoRef.current = routeInfo;

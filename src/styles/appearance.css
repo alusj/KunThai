@@ -556,3 +556,65 @@ html.dark .kt-urmall-search .bg-gray-950 {
 html.dark .kt-urmall-search .bg-gray-950:hover {
   background-color: #475569 !important;
 }
+
+/* Promotion planner — preserve the same visual hierarchy in both themes.
+ * The panel uses a custom light gradient, so the palette compatibility rules
+ * above cannot infer a dark equivalent from its Tailwind class alone. */
+html.dark .kt-promotion-panel {
+  border-color: rgb(52 211 153 / 0.28) !important;
+  background: linear-gradient(145deg, #08251f 0%, #0b1525 48%, #082231 100%) !important;
+  box-shadow: 0 18px 44px rgb(0 0 0 / 0.28) !important;
+}
+
+html.dark .kt-promotion-panel__header {
+  border-color: rgb(52 211 153 / 0.2) !important;
+}
+
+html.dark .kt-promotion-panel .kt-promotion-credit-metric,
+html.dark .kt-promotion-panel .kt-promotion-option,
+html.dark .kt-promotion-panel .kt-promotion-audience,
+html.dark .kt-promotion-panel .kt-promotion-rewards {
+  border-color: #29364a !important;
+  background-color: #111c30 !important;
+}
+
+html.dark .kt-promotion-panel .kt-promotion-credit-metric--selected {
+  border-color: rgb(52 211 153 / 0.45) !important;
+  background-color: #073d32 !important;
+}
+
+html.dark .kt-promotion-panel .kt-promotion-option--selected {
+  border-color: #34d399 !important;
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px rgb(5 150 105 / 0.2) !important;
+}
+
+html.dark .kt-promotion-panel .kt-promotion-audience--selected {
+  border-color: #34d399 !important;
+  background-color: #0b2f2a !important;
+  color: #6ee7b7 !important;
+  box-shadow: 0 12px 24px rgb(0 0 0 / 0.18) !important;
+}
+
+html.dark .kt-promotion-panel .kt-promotion-estimate--ready {
+  border-color: rgb(52 211 153 / 0.34) !important;
+  background-color: rgb(6 78 59 / 0.48) !important;
+}
+
+html.dark .kt-promotion-panel .kt-promotion-estimate--warning {
+  border-color: rgb(251 191 36 / 0.34) !important;
+  background-color: rgb(120 53 15 / 0.32) !important;
+}
+
+html.dark .kt-promotion-panel input {
+  border-color: #334155 !important;
+  background-color: #111c30 !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+
+html.dark .kt-promotion-panel button:focus-visible,
+html.dark .kt-promotion-panel input:focus-visible {
+  outline-color: rgb(52 211 153 / 0.72);
+}

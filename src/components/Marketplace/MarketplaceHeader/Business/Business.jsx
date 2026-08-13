@@ -16,6 +16,7 @@ import BusinessActivity from "./BusinessActivity/BusinessActivity";
 import BusinessCatalog from "./BusinessCatalog/BusinessCatalog";
 import SellerProductDetail from "./BusinessCatalog/SellerProductDetail";
 import ProductInsightsScreen from "./BusinessCatalog/ProductInsightsScreen";
+import ProductPromotionScreen from "./BusinessCatalog/ProductPromotionScreen";
 import BusinessPromotions from "./BusinessPromotions/BusinessPromotions";
 import CustomerCare from "./CustomerCare/CustomerCare";
 import MyBizDashboardHeader from "./MyBizDashboardHeader/MyBizDashboardHeader";
@@ -241,6 +242,12 @@ export default function Business({ onBack }) {
     openSellerScreen("productInsights");
   }
 
+  function openProductPromotion(product) {
+    if (!product) return;
+    setSelectedProduct(product);
+    openSellerScreen("productPromotion");
+  }
+
   async function openProductFromActivity(activity) {
     const product = await resolveSellerActivityProduct(activity);
     if (activity?.actionTarget === "seller-product-insights") {
@@ -378,6 +385,30 @@ export default function Business({ onBack }) {
         >
           <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
             <ProductInsightsScreen product={selectedProduct} />
+          </div>
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "productPromotion") {
+      return (
+        <SellerFullScreen
+          key="productPromotion"
+          eyebrow={t("urmall.biz.promo.kicker")}
+          title={selectedProduct?.name || t("urmall.biz.cat.promote")}
+          subtitle={t("urmall.biz.promo.plannerSubtitle")}
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <div className="kt-seller-screen-content mx-auto w-full max-w-3xl">
+            <ProductPromotionScreen
+              product={selectedProduct}
+              onPromoted={(settings) => {
+                goBackSellerScreen();
+                setToastMessage(`Promotion started with ${settings.promotionCredits} Visibility Credits.`);
+                window.setTimeout(() => setToastMessage(""), 4500);
+              }}
+            />
           </div>
         </SellerFullScreen>
       );
@@ -671,6 +702,7 @@ export default function Business({ onBack }) {
                   {effectiveTab === "store" ? (
                     <BusinessCatalog
                       mode="store"
+                      onPromoteProduct={openProductPromotion}
                       onViewInsights={openProductInsights}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {
@@ -682,6 +714,7 @@ export default function Business({ onBack }) {
                   {effectiveTab === "catalog" ? (
                     <BusinessCatalog
                       mode="catalog"
+                      onPromoteProduct={openProductPromotion}
                       onViewInsights={openProductInsights}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {
@@ -693,6 +726,7 @@ export default function Business({ onBack }) {
                   {effectiveTab === "drafts" ? (
                     <BusinessCatalog
                       mode="drafts"
+                      onPromoteProduct={openProductPromotion}
                       onViewInsights={openProductInsights}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {

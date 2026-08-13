@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
@@ -13,6 +13,7 @@ import { setNotificationSeenUser } from "./Backend/services/notificationSeenStor
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
+import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
@@ -29,6 +30,11 @@ import {
 import { showToast } from "./Backend/services/toastService";
 import { haptics } from "./Backend/services/feedbackService";
 import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed, runConnectivityChecks } from "./Backend/services/networkService";
+import {
+  markReturningUserActivity,
+  readReturningUserActivity,
+  shouldShowReturningUserIntro,
+} from "./Backend/services/returningUserIntroService";
 import supabase from "./Backend/lib/supabaseClient";
 import { t as i18nText } from "./i18n/index";
 
@@ -264,11 +270,52 @@ export default function App() {
   const paymentReturnHandledRef = useRef(false);
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
+  const [returningIntroOpen, setReturningIntroOpen] = useState(false);
   const appGestureRef = useRef(null);
   const pagePanelRef = useRef(null);
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
   setNotificationSeenUser(userId);
+
+  useLayoutEffect(() => {
+    setReturningIntroOpen(false);
+    if (!userId || guestSession || !onboardingComplete || twoFactorPending !== false) return undefined;
+
+    const now = Date.now();
+    if (shouldShowReturningUserIntro(userId, now)) {
+      setReturningIntroOpen(true);
+    }
+    markReturningUserActivity(userId, now);
+
+    let backgroundedAt = 0;
+
+    function markAway() {
+      backgroundedAt = Date.now();
+      markReturningUserActivity(userId, backgroundedAt);
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        markAway();
+        return;
+      }
+
+      const returnedAt = Date.now();
+      const lastActivity = backgroundedAt || readReturningUserActivity(userId);
+      if (shouldShowReturningUserIntro(userId, returnedAt, lastActivity)) {
+        setReturningIntroOpen(true);
+      }
+      markReturningUserActivity(userId, returnedAt);
+      backgroundedAt = 0;
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", markAway);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", markAway);
+    };
+  }, [guestSession, onboardingComplete, twoFactorPending, userId]);
 
   useEffect(() => {
     captureVisibilityInviteFromLocation();
@@ -370,7 +417,7 @@ export default function App() {
     finalizeStoredVisibilityInvite(userId)
       .then((result) => {
         if (result?.status === "credited" && Number(result.creditsAwarded || 0) > 0) {
-          showToast(i18nText("ui.literals.ka349b6ce7bf9"), "success", {
+          showToast(i18nText("ui.literals.k91f1a63c2e7b", { value0: result.inviterName || i18nText("ui.literals.k8df5482fdfac") }), "success", {
             title: i18nText("ui.literals.kc4f06bac9541"),
           });
         }
@@ -774,6 +821,7 @@ export default function App() {
         />
       ) : null}
       <NotificationBannerHost userId={userId} />
+      {returningIntroOpen ? <ReturningUserIntro onComplete={() => setReturningIntroOpen(false)} /> : null}
     </div>
   );
 }

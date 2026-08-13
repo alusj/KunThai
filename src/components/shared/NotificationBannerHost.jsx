@@ -17,11 +17,13 @@ import {
 } from "../../Backend/services/explore/realtimeService";
 import { readExploreSettings } from "../../Backend/services/explore/preferencesService";
 import { haptics, sounds } from "../../Backend/services/feedbackService";
+import supabase from "../../Backend/lib/supabaseClient";
 import { t as i18nText } from "../../i18n/index";
 
 const BANNER_EXIT_MS = 280;
 const BANNER_DURATION_MS = 6000;
 const PER_SOURCE_COOLDOWN_MS = 4000;
+const REFERRAL_NOTIFICATION_TYPES = new Set(["visibility_credit_reward", "visibility_invite_success"]);
 
 const NOTIFICATION_LABELS = {
   reaction: "liked your post",
@@ -174,11 +176,47 @@ export default function NotificationBannerHost({ userId = "" }) {
       });
     }
 
+    function handleReferralNotification(payload) {
+      const row = payload?.new;
+      if (!row?.id || row.user_id !== userId || row.status !== "unread") return;
+      if (!REFERRAL_NOTIFICATION_TYPES.has(row.notification_type)) return;
+      if (underCooldown(`referral:${row.notification_type}:${row.id}`)) return;
+
+      if (row.notification_type === "visibility_credit_reward") {
+        window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
+      }
+
+      haptics.light("explore");
+      sounds.notification("explore");
+      showNotificationBanner({
+        title: row.title || "Visibility Credits update",
+        body: row.body || "Your KunThai invite activity has been updated.",
+        tone: "activity",
+        contextKey: `referral-notification:${row.id}`,
+        openLabel: "View",
+        onOpen: () => requestExploreScreen("Notifications"),
+      });
+    }
+
     const unsubscribeMessages = subscribeToIncomingExploreMessages(userId, handleIncomingMessage);
     const unsubscribeNotifications = subscribeToExploreNotifications(userId, handleExploreNotification);
+    const referralChannel = supabase
+      .channel(`platform-referral-notifications-${userId}-${crypto.randomUUID()}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "platform_notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        handleReferralNotification,
+      )
+      .subscribe();
     return () => {
       unsubscribeMessages();
       unsubscribeNotifications();
+      supabase.removeChannel(referralChannel);
     };
   }, [userId]);
 

@@ -6,7 +6,9 @@ import {
   HiOutlineExclamationTriangle,
   HiOutlineHashtag,
   HiOutlineMapPin,
+  HiOutlineMinus,
   HiOutlinePaperAirplane,
+  HiOutlinePlus,
   HiOutlinePhoto,
   HiOutlineSparkles,
   HiOutlineTag,
@@ -424,6 +426,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     draft.primary_topic_slug || draft.media_meta?.primaryTopic?.slug || "",
   );
   const [composerDock, setComposerDock] = useState("bottom");
+  // Sheet height toggle: false keeps the original half-screen (50dvh); true
+  // maximises the dockable card to 75dvh via the +/- control.
+  const [composerExpanded, setComposerExpanded] = useState(false);
   // "sheet" is the half-screen dockable panel used by the in-feed composer
   // bar; "full" covers the whole screen and is used when a post type is
   // picked from the header create menu.
@@ -739,6 +744,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     composerCloseTimerRef.current = window.setTimeout(() => {
       setOpen(false);
       setComposerClosing(false);
+      // Reopen at the original half height rather than a lingering 75dvh.
+      setComposerExpanded(false);
       composerCloseTimerRef.current = null;
       const callback = composerAfterCloseRef.current;
       composerAfterCloseRef.current = null;
@@ -1911,7 +1918,7 @@ if (!isMobileVideoDevice) {
             className={`pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden bg-white shadow-2xl shadow-slate-950/25 ${
               composerDisplay === "full"
                 ? "h-full max-h-full max-w-none rounded-none pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
-                : `h-[50dvh] max-h-[50dvh] max-w-2xl border-2 border-sky-400/60 ${
+                : `${composerExpanded ? "h-[75dvh] max-h-[75dvh]" : "h-[50dvh] max-h-[50dvh]"} max-w-2xl border-2 border-sky-400/60 transition-[height,max-height] duration-[360ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
                     composerDock === "top" ? "rounded-b-[28px] rounded-t-[20px]" : "rounded-b-[20px] rounded-t-[28px]"
                   } sm:rounded-[28px]`
             } ${composerMotionClass} ${composerClosing ? "pointer-events-none" : ""}`}
@@ -1929,14 +1936,25 @@ if (!isMobileVideoDevice) {
               <div className="min-w-0 flex-1 text-center">
                 <h2 className="truncate text-sm font-black text-slate-950 sm:text-base">{isAdvertMode ? i18nText("ui.literals.ka1329a711dc6") : i18nText("ui.literals.k2864011414ba")}</h2>
                 {composerDisplay === "full" ? null : (
-                  <button
-                    type="button"
-                    onClick={moveComposerDock}
-                    className="mx-auto mt-0.5 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-black text-slate-500 transition hover:bg-slate-100"
-                  >
-                    <HiOutlineArrowsUpDown className="text-sm" />
-                    <span className="truncate">{composerDock === "bottom" ? i18nText("ui.literals.k0c70a9ec3cd7") : i18nText("ui.literals.k931805aa2760")}</span>
-                  </button>
+                  <div className="mx-auto mt-0.5 flex max-w-full items-center justify-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={moveComposerDock}
+                      aria-label={composerDock === "bottom" ? i18nText("ui.literals.k0c70a9ec3cd7") : i18nText("ui.literals.k931805aa2760")}
+                      className="inline-flex h-7 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-0 text-[11px] font-black text-slate-500 transition hover:bg-slate-100 max-sm:w-7 sm:px-2.5"
+                    >
+                      <HiOutlineArrowsUpDown className="text-sm" />
+                      <span className="hidden truncate sm:inline">{composerDock === "bottom" ? i18nText("ui.literals.k0c70a9ec3cd7") : i18nText("ui.literals.k931805aa2760")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setComposerExpanded((expanded) => !expanded)}
+                      aria-label={composerExpanded ? i18nText("ui.literals.kComposerShrink") : i18nText("ui.literals.kComposerExpand")}
+                      className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition hover:bg-slate-100"
+                    >
+                      {composerExpanded ? <HiOutlineMinus className="text-sm" /> : <HiOutlinePlus className="text-sm" />}
+                    </button>
+                  </div>
                 )}
               </div>
 

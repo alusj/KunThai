@@ -34,6 +34,10 @@ export default function useImageViewerGestures({
   const panRef = useRef({ x: 0, y: 0 });
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const gestureRef = useRef(null);
+  // Every pointer currently touching the stage, so a second finger can start a
+  // pinch instead of being ignored by the single-pointer drag path.
+  const pointersRef = useRef(new Map());
+  const pinchRef = useRef(null);
   const lastTapRef = useRef(0);
   const singleTapTimerRef = useRef(null);
   const onCloseRef = useRef(onClose);
@@ -81,6 +85,8 @@ export default function useImageViewerGestures({
     window.clearTimeout(singleTapTimerRef.current);
     lastTapRef.current = 0;
     gestureRef.current = null;
+    pointersRef.current.clear();
+    pinchRef.current = null;
     updateScale(1);
     updatePan({ x: 0, y: 0 });
     updateDrag({ x: 0, y: 0 });
@@ -122,9 +128,48 @@ export default function useImageViewerGestures({
     updatePan(nextScale === 1 ? { x: 0, y: 0 } : constrainPan(panRef.current, nextScale));
   }, [constrainPan, maxScale, updatePan, updateScale]);
 
+  // Snapshot the two-finger baseline: the pinch distance, the current scale,
+  // and the content point sitting under the finger midpoint. Rescaling later
+  // keeps that content point pinned under the fingers.
+  const beginPinch = useCallback(() => {
+    const [a, b] = [...pointersRef.current.values()];
+    if (!a || !b) return;
+    const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const startDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const image = imageRef.current;
+    const rect = image?.getBoundingClientRect();
+    // Scaling uses transform-origin center, so the on-screen center moves only
+    // with the pan — recover the rest center by subtracting the current pan.
+    const center = rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : midpoint;
+    pinchRef.current = {
+      startDist,
+      startScale: scaleRef.current,
+      restCenter: { x: center.x - panRef.current.x, y: center.y - panRef.current.y },
+      anchor: {
+        x: (midpoint.x - center.x) / scaleRef.current,
+        y: (midpoint.y - center.y) / scaleRef.current,
+      },
+    };
+  }, []);
+
   const handlePointerDown = useCallback((event) => {
     if (!enabled || (event.pointerType === "mouse" && event.button !== 0)) return;
     window.clearTimeout(singleTapTimerRef.current);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    // A second finger cancels any in-flight single-pointer drag and starts a
+    // pinch; a third or later finger is ignored.
+    if (pointersRef.current.size === 2) {
+      gestureRef.current = null;
+      setIsDragging(true);
+      beginPinch();
+      return;
+    }
+    if (pointersRef.current.size > 2) return;
+
     gestureRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -136,10 +181,32 @@ export default function useImageViewerGestures({
       axis: null,
       moved: false,
     };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }, [enabled]);
+  }, [beginPinch, enabled]);
 
   const handlePointerMove = useCallback((event) => {
+    if (pointersRef.current.has(event.pointerId)) {
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    // Two-finger pinch: rescale around the anchored content point and follow
+    // the midpoint so the fingers pan the image at the same time.
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      event.preventDefault();
+      setIsDragging(true);
+      const [a, b] = [...pointersRef.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const { startDist, startScale, restCenter, anchor } = pinchRef.current;
+      const nextScale = clamp(startScale * (dist / startDist), 1, maxScale);
+      const nextPan = {
+        x: midpoint.x - restCenter.x - anchor.x * nextScale,
+        y: midpoint.y - restCenter.y - anchor.y * nextScale,
+      };
+      updateScale(nextScale);
+      updatePan(constrainPan(nextPan, nextScale));
+      return;
+    }
+
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     const deltaX = event.clientX - gesture.startX;
@@ -178,14 +245,52 @@ export default function useImageViewerGestures({
       const followY = deltaY >= 0 ? deltaY : deltaY * 0.35;
       updateDrag({ x: deltaX * 0.2, y: followY });
     }
-  }, [constrainPan, dismissible, updateDrag, updatePan]);
+  }, [constrainPan, dismissible, maxScale, updateDrag, updatePan, updateScale]);
 
   const handlePointerUp = useCallback((event) => {
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    const wasPinching = Boolean(pinchRef.current);
+    pointersRef.current.delete(event.pointerId);
+
+    // Winding down a pinch. With two fingers still on the glass (a third lifted)
+    // re-anchor and keep pinching; with one left, hand it off to a pan gesture
+    // so the image keeps following it and the scale settles within bounds.
+    if (wasPinching) {
+      if (pointersRef.current.size >= 2) {
+        beginPinch();
+        return;
+      }
+      pinchRef.current = null;
+      setIsDragging(false);
+      if (scaleRef.current <= 1) {
+        updateScale(1);
+        updatePan({ x: 0, y: 0 });
+      } else {
+        updatePan(constrainPan(panRef.current));
+      }
+      const [entry] = [...pointersRef.current.entries()];
+      if (entry) {
+        const [pointerId, point] = entry;
+        gestureRef.current = {
+          pointerId,
+          startX: point.x,
+          startY: point.y,
+          startPan: panRef.current,
+          lastY: point.y,
+          lastTime: event.timeStamp || Date.now(),
+          velocityY: 0,
+          axis: null,
+          // Continuing from a pinch — never treat the lift as a tap.
+          moved: true,
+        };
+      }
+      return;
+    }
+
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     gestureRef.current = null;
     setIsDragging(false);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
 
     const deltaX = event.clientX - gesture.startX;
     const deltaY = event.clientY - gesture.startY;
@@ -234,9 +339,11 @@ export default function useImageViewerGestures({
         onCloseRef.current?.();
       }, DOUBLE_TAP_MS + 20);
     }
-  }, [dismissible, tapToClose, toggleZoomAt, updateDrag]);
+  }, [beginPinch, constrainPan, dismissible, tapToClose, toggleZoomAt, updateDrag, updatePan, updateScale]);
 
-  const handlePointerCancel = useCallback(() => {
+  const handlePointerCancel = useCallback((event) => {
+    pointersRef.current.delete(event?.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     gestureRef.current = null;
     setIsDragging(false);
     if (dismissible) updateDrag({ x: 0, y: 0 });

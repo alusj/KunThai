@@ -949,6 +949,14 @@ export default function NearbyAreaScreen({
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
   const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
+  // A tapped post/place location (no auto-route) is a "place view": the map
+  // should centre and pin the poster's coordinates, not follow the viewer's
+  // own GPS. Only engages when the destination carries real coordinates and we
+  // are not in a picker/preview mode.
+  const viewTarget = useMemo(() => {
+    if (autoRoute || isSpecialMode) return null;
+    return buildInitialMapDestination(initialDestination);
+  }, [autoRoute, initialDestination, isSpecialMode]);
   const resolvedPickerLabels = {
     historyKey: "area-view-location-picker",
     backLabel: t("urride.areaView.pickerBackLabel"),
@@ -2193,6 +2201,7 @@ export default function NearbyAreaScreen({
           onMapInteractionEnd={handleMapInteractionEnd}
           recenterSignal={recenterSignal}
           measurementPreview={oneKmMeasurementPreview}
+          viewTarget={viewTarget}
         >
           <div className="pointer-events-none absolute inset-0 z-10">
             {!isSpecialMode && !focusMode &&

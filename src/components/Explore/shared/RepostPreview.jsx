@@ -5,6 +5,7 @@ import { buildExploreRepostSnapshot } from "../../../Backend/services/explore/re
 import { openMentionContent } from "../../../Backend/services/explore/linkTokenService";
 import Avatar from "../shared/Avatar";
 import ExpandablePostText from "./ExpandablePostText";
+import ZoomableImage from "./ZoomableImage";
 import { t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 
@@ -60,7 +61,18 @@ export default function RepostPreview({ post, sourcePost = null, compact = false
           controlClassName="text-sky-700"
         />
       ) : null}
-      {source.imageUrl ? <img src={source.imageUrl} alt={t("explore.repostedMedia")} className="mt-3 aspect-[4/3] w-full object-cover" /> : null}
+      {source.imageUrl ? (
+        <ZoomableImage
+          src={source.imageUrl}
+          alt={t("explore.repostedMedia")}
+          interactive={!compact}
+          idKey={`repost-${source.sourcePostId || source.imageUrl}`}
+          wrapperClassName="mt-3"
+          buttonClassName="relative block aspect-[4/3] w-full overflow-hidden bg-slate-100 text-left disabled:cursor-default"
+          imgClassName="h-full w-full object-cover"
+          restRadius={0}
+        />
+      ) : null}
       {source.videoUrl ? <RepostSwipVideo compact={compact} source={source} /> : null}
       {source.audioUrl ? (
         <div className="p-4">

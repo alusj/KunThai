@@ -707,6 +707,7 @@ export async function promoteSellerProduct(product, options = {}) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("marketplace-products-updated"));
     window.dispatchEvent(new CustomEvent("marketplace-seller-notifications-updated"));
+    window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
   }
   return data;
 }

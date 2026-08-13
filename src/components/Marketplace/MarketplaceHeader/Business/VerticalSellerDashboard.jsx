@@ -19,7 +19,9 @@ import {
   subscribeVerticalBusinessActivity,
   toggleRestaurantMenuItem,
 } from "../../../../Backend/services/marketplace/marketplaceVerticalService";
-import { VISIBILITY_BOOST_PACKAGES, MINIMUM_VISIBILITY_CREDITS } from "../../../../Backend/services/visibilityCreditService";
+import {
+  assertVisibilityCreditsAvailable,
+} from "../../../../Backend/services/visibilityCreditService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { urMallShareToastOptions } from "../../../../Backend/services/shareCtaService";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
@@ -29,7 +31,9 @@ import VerticalMediaFields from "./VerticalMediaFields";
 import AddressLocationField from "../../../shared/AddressLocationField";
 import ListingUploadProgressCard from "../../shared/ListingUploadProgressCard";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
-import { uiText, useI18n, t } from "../../../../i18n";
+import { useI18n, t } from "../../../../i18n";
+import PromotionSetupPanel from "./Promotion/PromotionSetupPanel";
+import { normalizePromotionSettings } from "./Promotion/promotionSetup";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const dayLong = (index) => t(`urmall.biz.vert.dayLong${index}`);
@@ -197,12 +201,19 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
     setSubmitting(true);
     try {
       const wasEditing = editingMeal;
+      const promotionSettings = normalizePromotionSettings(form);
+      if (!wasEditing && form.promote) {
+        await assertVisibilityCreditsAvailable(promotionSettings.promotionCredits);
+      }
       const saved = await saveRestaurantMenuItem(business.id, { ...form, day_of_week: day }, setUploadStage);
       // Post & promote: boost the freshly created meal. Best-effort — the meal
       // is already saved, so a boost failure only shows a traceable warning.
       if (!wasEditing && form.promote && saved?.id) {
         try {
-          await promoteVerticalListing("meal", { id: saved.id, name: saved.name }, { credits: MINIMUM_VISIBILITY_CREDITS, audience: "countrywide" });
+          await promoteVerticalListing("meal", { id: saved.id, name: saved.name }, {
+            credits: promotionSettings.promotionCredits,
+            audience: promotionSettings.promotionAudience,
+          });
         } catch (promoError) {
           showToast(promoError.message || t("urmall.biz.vert.promoteFailed"), "danger");
         }
@@ -226,7 +237,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
         <div className="mt-5 grid gap-3 md:grid-cols-2">{loading ? <p className="text-sm font-bold text-gray-500">{t("urmall.biz.vert.loadingMenu")}</p> : items.map((item) => <MealCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editMeal(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); notifyVerticalListingUpdated(business.id); showToast(t("urmall.biz.vert.mealDeleted"), "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
         {!loading && !items.length ? <EmptyState text={t("urmall.biz.vert.noMeals", { day: dayLong(day) })} /> : null}
       </section>
-      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingMeal ? t("urmall.biz.vert.editMeal") : t("urmall.biz.vert.addMeal")} subtitle={t("urmall.biz.vert.dayMenu", { day: dayLong(day) })} formId="restaurant-meal-form" actionLabel={editingMeal ? t("urmall.biz.vert.saveChanges") : t("urmall.biz.vert.addMeal")} processingLabel={editingMeal ? t("urmall.biz.vert.saving") : t("urmall.biz.vert.adding")} processing={submitting} accentClass="bg-orange-600" uploadStage={uploadStage} uploadTitle={t("urmall.biz.vert.addingMeal")}>
+      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingMeal ? t("urmall.biz.vert.editMeal") : t("urmall.biz.vert.addMeal")} subtitle={t("urmall.biz.vert.dayMenu", { day: dayLong(day) })} formId="restaurant-meal-form" actionLabel={editingMeal ? t("urmall.biz.vert.saveChanges") : form.promote ? t("urmall.biz.pform.pubPromote") : t("urmall.biz.vert.addMeal")} processingLabel={editingMeal ? t("urmall.biz.vert.saving") : t("urmall.biz.vert.adding")} processing={submitting} accentClass="bg-orange-600" uploadStage={uploadStage} uploadTitle={t("urmall.biz.vert.addingMeal")}>
         <RestaurantForm formId="restaurant-meal-form" form={form} setForm={setForm} onSubmit={save} />
       </VerticalEditorSheet>
       {promoteItem ? <VerticalPromoteSheet listingType="meal" listing={promoteItem} onClose={() => setPromoteItem(null)} onPromoted={load} /> : null}
@@ -298,9 +309,8 @@ function AvailabilityField({ form, setForm }) {
   );
 }
 
-// "Post & promote" toggle shown on the create forms only. When on, the freshly
-// saved meal/property is boosted into the Sponsored slider (5 Visibility
-// Credits, country-wide) right after it saves.
+// "Post & promote" is shown on create forms only. Its expanded state uses the
+// same transparent budget and audience planner as retail product promotions.
 function PromoteToggleField({ form, setForm }) {
   if (form.id) return null;
   const on = Boolean(form.promote);
@@ -319,13 +329,26 @@ function PromoteToggleField({ form, setForm }) {
           role="switch"
           aria-checked={on}
           aria-label={t("urmall.biz.vert.promote")}
-          onClick={() => setForm({ ...form, promote: !on })}
+          onClick={() => setForm({
+            ...form,
+            promote: !on,
+            ...(!on ? normalizePromotionSettings(form) : {}),
+            ...(!on && Object.prototype.hasOwnProperty.call(form, "published") ? { published: true } : {}),
+          })}
           className={`relative h-7 w-12 shrink-0 rounded-full transition ${on ? "bg-emerald-600" : "bg-gray-300"}`}
         >
           <span className={`absolute top-0.5 grid h-6 w-6 place-items-center rounded-full bg-white shadow transition-all ${on ? "left-[1.375rem]" : "left-0.5"}`} />
         </button>
       </div>
-      {on ? <p className="mt-2 text-[11px] font-bold text-emerald-700">{t("urmall.biz.pform.selectedBoost", { n: MINIMUM_VISIBILITY_CREDITS })}</p> : null}
+      {on ? (
+        <div className="mt-4">
+          <PromotionSetupPanel
+            title={t("urmall.biz.promo.setupTitle")}
+            settings={form}
+            onChange={(nextSettings) => setForm({ ...form, ...nextSettings })}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -437,11 +460,18 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
     setSubmitting(true);
     try {
       const wasEditing = editingProperty;
+      const promotionSettings = normalizePromotionSettings(form);
+      if (!wasEditing && form.promote) {
+        await assertVisibilityCreditsAvailable(promotionSettings.promotionCredits);
+      }
       const saved = await savePropertyListing(business.id, form, setUploadStage);
       // Post & promote: boost the freshly created property (best-effort).
       if (!wasEditing && form.promote && saved?.id) {
         try {
-          await promoteVerticalListing("property", { id: saved.id, name: saved.title }, { credits: MINIMUM_VISIBILITY_CREDITS, audience: "countrywide" });
+          await promoteVerticalListing("property", { id: saved.id, name: saved.title }, {
+            credits: promotionSettings.promotionCredits,
+            audience: promotionSettings.promotionAudience,
+          });
         } catch (promoError) {
           showToast(promoError.message || t("urmall.biz.vert.promoteFailed"), "danger");
         }
@@ -465,7 +495,7 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
         {!listings.length ? <EmptyState text={t("urmall.biz.vert.propertyEmpty")} /> : null}
       </section>
       <BookingRequests bookings={activity.recentBookings} />
-      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingProperty ? t("urmall.biz.vert.editProperty") : t("urmall.biz.vert.addProperty")} subtitle={t("urmall.biz.vert.propertyListing")} formId="property-listing-form" actionLabel={editingProperty ? t("urmall.biz.vert.saveChanges") : t("urmall.biz.vert.addProperty")} processingLabel={editingProperty ? t("urmall.biz.vert.saving") : t("urmall.biz.vert.adding")} processing={submitting} accentClass="bg-violet-700" uploadStage={uploadStage} uploadTitle={t("urmall.biz.vert.addingProperty")}>
+      <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingProperty ? t("urmall.biz.vert.editProperty") : t("urmall.biz.vert.addProperty")} subtitle={t("urmall.biz.vert.propertyListing")} formId="property-listing-form" actionLabel={editingProperty ? t("urmall.biz.vert.saveChanges") : form.promote ? t("urmall.biz.pform.pubPromote") : t("urmall.biz.vert.addProperty")} processingLabel={editingProperty ? t("urmall.biz.vert.saving") : t("urmall.biz.vert.adding")} processing={submitting} accentClass="bg-violet-700" uploadStage={uploadStage} uploadTitle={t("urmall.biz.vert.addingProperty")}>
         <PropertyForm formId="property-listing-form" form={form} setForm={setForm} onSubmit={save} />
       </VerticalEditorSheet>
       {promoteItem ? <VerticalPromoteSheet listingType="property" listing={promoteItem} onClose={() => setPromoteItem(null)} onPromoted={load} /> : null}
@@ -564,7 +594,7 @@ function PropertyForm({ formId, form, setForm, onSubmit }) {
       <FormSectionLabel label={t("urmall.biz.vert.secDescription")} />
       <TextArea label={t("urmall.detail.description")} value={form.description} onChange={(value) => update({ description: value })} placeholder={propertyDescriptionPlaceholder(type)} />
       <VerticalMediaFields media={form} setMedia={setForm} accent="violet" noun="property" />
-      <CheckboxRow checked={form.published} onChange={(value) => update({ published: value })} label={t("urmall.biz.vert.publishToMarketplace")} />
+      <CheckboxRow checked={form.published} onChange={(value) => update({ published: value, ...(!value ? { promote: false } : {}) })} label={t("urmall.biz.vert.publishToMarketplace")} />
       <PromoteToggleField form={form} setForm={setForm} />
     </form>
   );
@@ -673,24 +703,24 @@ function SellerItemActions({ label, canManage = true, onDelete, onEdit, onPromot
 
   return <><button type="button" onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-slate-950/80 text-white shadow-lg backdrop-blur-md transition hover:bg-slate-950" aria-label={t("urmall.biz.vert.actionsFor", { label })}><MoreVertical size={19} /></button>{open ? createPortal(<div className="fixed inset-0 z-[1350]" role="presentation"><button type="button" aria-label={t("urmall.biz.vert.closeItemActions")} onClick={() => { setOpen(false); setConfirmDelete(false); }} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[1px]" /><section role="dialog" aria-modal="true" aria-label={t("urmall.biz.vert.actionsFor", { label })} className="kt-detail-zoom-enter absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 left-auto w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-white/70 bg-white p-1.5 shadow-2xl sm:right-4 sm:w-60"><div className="mb-0.5 flex items-center justify-between gap-2 px-2 py-1"><p className="truncate text-sm font-black text-gray-950">{label}</p><button type="button" onClick={() => setOpen(false)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.vert.closeActions")}><X size={15} /></button></div>{canManage && onEdit ? <button type="button" onClick={() => { setOpen(false); onEdit(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Pencil size={17} /> {t("urmall.biz.reg.edit")}</button> : null}<button type="button" onClick={copyLink} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Copy size={17} /> {t("urmall.biz.vert.copyLink")}</button><button type="button" onClick={share} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Share2 size={17} /> {t("urmall.biz.vert.share")}</button>{canManage && onPromote ? <button type="button" onClick={() => { setOpen(false); onPromote(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-emerald-700 hover:bg-emerald-50"><Rocket size={17} /> {t("urmall.biz.vert.promote")}</button> : null}{canManage ? (confirmDelete ? <div className="mt-1 rounded-xl bg-red-50 p-3"><p className="text-xs font-bold text-red-700">{t("urmall.biz.vert.deletePermanently")}</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg bg-white px-2 py-2 text-xs font-black text-gray-700">{t("urmall.biz.vert.cancel")}</button><button type="button" disabled={deleting} onClick={remove} className="rounded-lg bg-red-600 px-2 py-2 text-xs font-black text-white disabled:opacity-60">{deleting ? t("urmall.biz.vert.deleting") : t("urmall.biz.vert.delete")}</button></div></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-red-600 hover:bg-red-50"><Trash2 size={17} /> {t("urmall.biz.vert.delete")}</button>) : null}</section></div>, document.body) : null}</>;
 }
-// Compact boost sheet for meals & properties. Reuses the product promotion
-// audiences and the shared Visibility Credits wallet (credits are asserted and
-// spent server-side by promoteVerticalListing).
+// Meals and properties use the same promotion planner as retail products. The
+// actual credit assertion and spend still happen server-side.
 function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
   useBodyScrollLock(true);
-  const [credits, setCredits] = useState(MINIMUM_VISIBILITY_CREDITS);
-  const [audience, setAudience] = useState("countrywide");
+  const [settings, setSettings] = useState(() => normalizePromotionSettings({ audience: "recommended" }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const packages = VISIBILITY_BOOST_PACKAGES.filter((item) => item.id !== "custom");
   const name = listing?.name || listing?.title || "";
 
-  async function confirm() {
+  async function confirm(nextSettings) {
     if (submitting) return;
     setSubmitting(true);
     setError("");
     try {
-      await promoteVerticalListing(listingType, listing, { credits, audience });
+      await promoteVerticalListing(listingType, listing, {
+        credits: nextSettings.promotionCredits,
+        audience: nextSettings.promotionAudience,
+      });
       haptics.medium("marketplace");
       sounds.success("marketplace");
       showToast(t("urmall.biz.vert.promoteLive", { name }), "success", urMallShareToastOptions());
@@ -706,7 +736,7 @@ function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
   return createPortal(
     <div className="fixed inset-0 z-[1360]" role="presentation">
       <button type="button" aria-label={t("urmall.biz.vert.closeActions")} onClick={onClose} className="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px]" />
-      <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.vert.promoteTitle")} className="kt-detail-zoom-enter absolute inset-x-0 bottom-0 mx-auto max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-[28px] border border-white/70 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl">
+      <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.vert.promoteTitle")} className="kt-detail-zoom-enter absolute inset-x-0 bottom-0 mx-auto max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-[28px] border border-white/70 bg-white p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-600 text-white"><Rocket size={20} /></span>
@@ -717,38 +747,17 @@ function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
           </div>
           <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.vert.closeActions")}><X size={16} /></button>
         </div>
-        <p className="mt-3 text-sm font-semibold text-gray-500">{t("urmall.biz.vert.promoteSubtitle")}</p>
-
-        <p className="mt-4 text-sm font-black text-gray-800">{t("urmall.biz.vert.boostStrength")}</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-3">
-          {packages.map((item) => {
-            const selected = credits === item.credits;
-            return (
-              <button key={item.id} type="button" onClick={() => setCredits(item.credits)} className={`rounded-xl border p-3 text-left ${selected ? "border-emerald-600 bg-emerald-50 text-emerald-800 shadow-sm" : "border-gray-200 bg-white text-gray-700"}`}>
-                <span className="flex items-center justify-between gap-2"><span className="text-sm font-black">{uiText(item.label)}</span><span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-black text-gray-700">{item.credits}</span></span>
-              </button>
-            );
-          })}
+        <div className="mt-4">
+          <PromotionSetupPanel
+            title={t("urmall.biz.promo.setupTitle")}
+            settings={settings}
+            onChange={setSettings}
+            onConfirm={confirm}
+            confirmLabel={t("urmall.biz.vert.promoteConfirm")}
+            submitting={submitting}
+            error={error}
+          />
         </div>
-
-        <p className="mt-4 text-sm font-black text-gray-800">{t("urmall.biz.pform.promotionAudience")}</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {[{ id: "countrywide", labelKey: "audCountrywide", descKey: "audCountrywideDesc" }, { id: "nearby", labelKey: "audNearby", descKey: "audNearbyDesc" }].map((item) => {
-            const selected = audience === item.id;
-            return (
-              <button key={item.id} type="button" onClick={() => setAudience(item.id)} className={`rounded-xl border p-3 text-left ${selected ? "border-emerald-600 bg-emerald-50 text-emerald-800 shadow-sm" : "border-gray-200 bg-white text-gray-700"}`}>
-                <span className="block text-sm font-black">{t(`urmall.biz.pform.${item.labelKey}`)}</span>
-                <span className="mt-0.5 block text-xs font-semibold leading-4 text-gray-500">{t(`urmall.biz.pform.${item.descKey}`)}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {error ? <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
-
-        <button type="button" onClick={confirm} disabled={submitting} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-sm font-black text-white disabled:opacity-60">
-          {submitting ? <><LoaderCircle size={18} className="animate-spin" /> {t("urmall.biz.vert.promoting")}</> : <><Rocket size={18} /> {t("urmall.biz.vert.promoteConfirm")} · {t("urmall.biz.pform.selectedBoost", { n: credits })}</>}
-        </button>
       </section>
     </div>,
     document.body,

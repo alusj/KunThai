@@ -403,6 +403,8 @@ export async function promoteVerticalListing(listingType, listing, options = {})
     // their own event.
     window.dispatchEvent(new CustomEvent("marketplace-products-updated"));
     window.dispatchEvent(new CustomEvent("marketplace-vertical-listing-updated"));
+    window.dispatchEvent(new CustomEvent("marketplace-seller-notifications-updated"));
+    window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
   }
   return data;
 }

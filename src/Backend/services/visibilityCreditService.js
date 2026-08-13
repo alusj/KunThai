@@ -109,7 +109,7 @@ export function buildVisibilityInviteUrl(code = "") {
 export function buildVisibilityShareMessage(inviteUrl = "") {
   return [
     "Join me on KunThai.",
-    `Each verified invite helps me earn ${VERIFIED_INVITE_CREDIT_REWARD} Visibility Credits for adverts and UrMall boosts.`,
+    `When you verify your account and complete setup, I earn ${VERIFIED_INVITE_CREDIT_REWARD} Visibility Credits for adverts and UrMall boosts.`,
     inviteUrl,
   ].filter(Boolean).join("\n");
 }

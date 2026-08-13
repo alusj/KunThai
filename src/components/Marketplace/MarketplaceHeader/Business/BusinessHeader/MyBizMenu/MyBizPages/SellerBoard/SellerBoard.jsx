@@ -12,6 +12,7 @@ import {
 import { useState } from "react";
 
 import BusinessCatalog from "../../../../BusinessCatalog/BusinessCatalog";
+import ProductPromotionScreen from "../../../../BusinessCatalog/ProductPromotionScreen";
 import BusinessInsights from "../../../../BusinessInsights/BusinessInsights";
 import BusinessPromotions from "../../../../BusinessPromotions/BusinessPromotions";
 import BusinessStats from "../../../../BusinessStats/BusinessStats";
@@ -70,6 +71,7 @@ function SellerPolicyCenter({ onBack }) {
 export default function SellerBoard({ onBack }) {
   useI18n();
   const [currentView, setCurrentView] = useState("menu");
+  const [promotionProduct, setPromotionProduct] = useState(null);
 
   return (
     <div className="relative min-h-full bg-white">
@@ -118,7 +120,25 @@ export default function SellerBoard({ onBack }) {
           if (view === "products") {
             return (
               <BoardShell title={t("urmall.biz.board.items.productsT")} onBack={() => setCurrentView("menu")}>
-                <BusinessCatalog mode="store" />
+                <BusinessCatalog
+                  mode="store"
+                  onPromoteProduct={(product) => {
+                    setPromotionProduct(product);
+                    setCurrentView("productPromotion");
+                  }}
+                />
+              </BoardShell>
+            );
+          }
+          if (view === "productPromotion") {
+            return (
+              <BoardShell title={t("urmall.biz.cat.promote")} onBack={() => setCurrentView("products")}>
+                <div className="mx-auto max-w-3xl">
+                  <ProductPromotionScreen
+                    product={promotionProduct}
+                    onPromoted={() => setCurrentView("products")}
+                  />
+                </div>
               </BoardShell>
             );
           }

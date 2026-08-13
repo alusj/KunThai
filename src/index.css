@@ -683,6 +683,58 @@
   }
 }
 
+/* Brief returning-user splash, intentionally closer to the restrained launch
+   screens used by major social apps. It is mounted only after a long absence. */
+.kt-returning-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.kt-returning-intro__panel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #002a24;
+  transform: translate3d(0, 0, 0);
+}
+
+.kt-returning-intro__logo {
+  display: block;
+  width: clamp(10rem, 48vmin, 16rem);
+  height: auto;
+  border-radius: 24%;
+  object-fit: contain;
+  animation: kt-returning-logo-in 220ms ease-out both;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.kt-returning-intro--leaving {
+  pointer-events: none;
+}
+
+.kt-returning-intro--leaving .kt-returning-intro__panel {
+  animation: kt-returning-panel-drop 440ms cubic-bezier(0.55, 0.06, 0.82, 0.28) both;
+  will-change: transform;
+}
+
+@keyframes kt-returning-logo-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes kt-returning-panel-drop {
+  0% { transform: translate3d(0, 0, 0); }
+  18% { transform: translate3d(0, -0.8%, 0); }
+  100% { transform: translate3d(0, 105%, 0); }
+}
+
 @keyframes radarFloat {
   0%   { transform: translateY(0px); }
   50%  { transform: translateY(-12px); }
@@ -1074,12 +1126,12 @@
 }
 
 .kt-composer-sheet-move-up {
-  animation: kt-composer-sheet-move-up 340ms var(--kt-ease-emphasized) both;
+  animation: kt-composer-sheet-move-up 380ms var(--kt-ease-standard) both;
   transform-origin: top center;
 }
 
 .kt-composer-sheet-move-down {
-  animation: kt-composer-sheet-move-down 340ms var(--kt-ease-emphasized) both;
+  animation: kt-composer-sheet-move-down 380ms var(--kt-ease-standard) both;
   transform-origin: bottom center;
 }
 
@@ -1597,28 +1649,22 @@
   }
 }
 
+/* Percentage translate is relative to the card's own height, so the slide
+   stays a clean full-height travel whether the card is at 50dvh or 75dvh. */
 @keyframes kt-composer-sheet-move-up {
   from {
-    opacity: 0.92;
-    filter: blur(3px);
-    transform: translate3d(0, calc(50dvh + 1rem), 0) scale(0.985);
+    transform: translate3d(0, 100%, 0);
   }
   to {
-    opacity: 1;
-    filter: blur(0);
     transform: none;
   }
 }
 
 @keyframes kt-composer-sheet-move-down {
   from {
-    opacity: 0.92;
-    filter: blur(3px);
-    transform: translate3d(0, calc(-50dvh - 1rem), 0) scale(0.985);
+    transform: translate3d(0, -100%, 0);
   }
   to {
-    opacity: 1;
-    filter: blur(0);
     transform: none;
   }
 }
