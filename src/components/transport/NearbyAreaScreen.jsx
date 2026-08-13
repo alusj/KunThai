@@ -50,6 +50,7 @@ import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
 import { haptics } from "../../Backend/services/feedbackService";
 import { showToast } from "../../Backend/services/toastService";
 import { getNetworkStatus, subscribeToNetworkStatus, suppressGlobalNetworkToasts } from "../../Backend/services/networkService";
+import { cacheAreaViewData, readAreaViewCache } from "../../Backend/services/areaViewCacheService";
 import {
   locationCategories,
   locationStatusStyles,
@@ -886,13 +887,14 @@ export default function NearbyAreaScreen({
   backLabel = "Back to transport",
 }) {
   useI18n();
+  const [initialAreaCache] = useState(readAreaViewCache);
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
   const [moreCategoriesOpen, setMoreCategoriesOpen] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [mapCenter, setMapCenter] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
+  const [mapCenter, setMapCenter] = useState(() => initialAreaCache.position);
+  const [userLocation, setUserLocation] = useState(() => initialAreaCache.position);
   const [focusMode, setFocusMode] = useState(false);
   const [mapLocked, setMapLocked] = useState(false);
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
@@ -905,12 +907,12 @@ export default function NearbyAreaScreen({
   const [selectedSearchLocation, setSelectedSearchLocation] = useState(null);
   const [operatorRoutePlan, setOperatorRoutePlan] = useState(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
-  const [liveLocations, setLiveLocations] = useState([]);
-  const [liveOperators, setLiveOperators] = useState([]);
-  const [liveReports, setLiveReports] = useState([]);
-  const [trafficSnapshots, setTrafficSnapshots] = useState([]);
-  const [recentSearches, setRecentSearches] = useState([]);
-  const [weatherCache, setWeatherCache] = useState(null);
+  const [liveLocations, setLiveLocations] = useState(() => initialAreaCache.locations);
+  const [liveOperators, setLiveOperators] = useState(() => initialAreaCache.operators);
+  const [liveReports, setLiveReports] = useState(() => initialAreaCache.reports);
+  const [trafficSnapshots, setTrafficSnapshots] = useState(() => initialAreaCache.traffic);
+  const [recentSearches, setRecentSearches] = useState(() => initialAreaCache.recentSearches);
+  const [weatherCache, setWeatherCache] = useState(() => initialAreaCache.weather);
   const [locationReviewNotice, setLocationReviewNotice] = useState(null);
   const [addLocationDraft, setAddLocationDraft] = useState(createAddLocationDraft);
   const [addLocationMode, setAddLocationMode] = useState("form");
@@ -1215,6 +1217,21 @@ export default function NearbyAreaScreen({
       searchRequestRef.current += 1;
     };
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      cacheAreaViewData({
+        locations: liveLocations,
+        operators: liveOperators,
+        reports: liveReports,
+        traffic: trafficSnapshots,
+        recentSearches,
+        weather: weatherCache,
+      });
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [liveLocations, liveOperators, liveReports, recentSearches, trafficSnapshots, weatherCache]);
 
   // Area View leans heavily on the network (map tiles, search, routing), so it
   // gives the traveller a clear heads-up when the connection is missing or

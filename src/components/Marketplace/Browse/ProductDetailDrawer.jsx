@@ -163,6 +163,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label={t("urmall.detail.viewerAria")}
+      data-suppress-app-swipe="true"
     >
       <header className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
@@ -338,10 +339,14 @@ function Gallery({ product, onOpenImage }) {
       <button
         type="button"
         onClick={() => onOpenImage(activeIndex)}
-        onTouchStart={(event) => setTouchStartX(event.touches[0].clientX)}
+        onTouchStart={(event) => setTouchStartX(event.touches.length === 1 ? event.touches[0].clientX : null)}
+        onTouchMove={(event) => {
+          if (event.touches.length !== 1) setTouchStartX(null);
+        }}
         onTouchEnd={handleTouchEnd}
         className="block w-full touch-pan-y overflow-hidden rounded-lg bg-gray-100 text-left"
         aria-label={t("urmall.detail.viewImageFull", { name: product.name })}
+        data-suppress-app-swipe="true"
       >
         <img src={activeImage} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
       </button>

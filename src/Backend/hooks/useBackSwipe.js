@@ -30,7 +30,7 @@ export function useBackSwipe(active, onBack, options = {}) {
     function handleTouchStart(event) {
       const touch = event.touches?.[0];
 
-      if (!touch || isFormControl(event.target) || touch.clientX > settings.edgeWidth) {
+      if (event.touches?.length !== 1 || !touch || isFormControl(event.target) || touch.clientX > settings.edgeWidth) {
         gestureRef.current = null;
         return;
       }
@@ -46,6 +46,11 @@ export function useBackSwipe(active, onBack, options = {}) {
     function handleTouchMove(event) {
       const gesture = gestureRef.current;
       const touch = event.touches?.[0];
+
+      if (event.touches?.length !== 1) {
+        gestureRef.current = null;
+        return;
+      }
 
       if (!gesture?.tracking || !touch) {
         return;
@@ -66,6 +71,10 @@ export function useBackSwipe(active, onBack, options = {}) {
     function handleTouchEnd(event) {
       const gesture = gestureRef.current;
       gestureRef.current = null;
+
+      if (event.touches?.length) {
+        return;
+      }
 
       if (!gesture?.tracking) {
         return;

@@ -1,4 +1,9 @@
 const ROUTE_API_PATH = "/api/route-directions";
+const ROUTE_CACHE_KEY = "kunthai.areaView.routes.v1";
+const ROUTE_CACHE_TTL_MS = 30 * 60 * 1000;
+const APPROXIMATE_ROUTE_CACHE_TTL_MS = 3 * 60 * 1000;
+const ROUTE_CACHE_LIMIT = 16;
+const ROUTE_MEMORY = new Map();
 
 function hasValidPoint(point) {
   return Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng));
@@ -9,6 +14,55 @@ function normalizePoint(point) {
     lat: Number(point.lat),
     lng: Number(point.lng),
   };
+}
+
+function routeCacheKey(start, end) {
+  const pointKey = (point) => `${Number(point.lat).toFixed(4)},${Number(point.lng).toFixed(4)}`;
+  return `${pointKey(start)}>${pointKey(end)}`;
+}
+
+function readStoredRoutes() {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const value = JSON.parse(localStorage.getItem(ROUTE_CACHE_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function readCachedRoute(key) {
+  const memory = ROUTE_MEMORY.get(key);
+  if (memory && Date.now() - memory.savedAt <= memory.ttlMs) return memory.route;
+
+  const stored = readStoredRoutes().find((entry) => entry.key === key);
+  if (!stored || Date.now() - Number(stored.savedAt || 0) > Number(stored.ttlMs || ROUTE_CACHE_TTL_MS)) return null;
+  ROUTE_MEMORY.set(key, stored);
+  return stored.route || null;
+}
+
+function storeCachedRoute(key, route) {
+  if (!route?.geometry?.coordinates?.length) return route;
+  const entry = {
+    key,
+    route,
+    savedAt: Date.now(),
+    ttlMs: route.approximate ? APPROXIMATE_ROUTE_CACHE_TTL_MS : ROUTE_CACHE_TTL_MS,
+  };
+  ROUTE_MEMORY.set(key, entry);
+
+  if (typeof localStorage !== "undefined") {
+    try {
+      const next = [entry, ...readStoredRoutes().filter((item) => item.key !== key)]
+        .filter((item) => Date.now() - Number(item.savedAt || 0) <= Number(item.ttlMs || ROUTE_CACHE_TTL_MS))
+        .slice(0, ROUTE_CACHE_LIMIT);
+      localStorage.setItem(ROUTE_CACHE_KEY, JSON.stringify(next));
+    } catch {
+      // Routing still works through the network and in-memory cache.
+    }
+  }
+
+  return route;
 }
 
 function normalizeRouteFeature(feature) {
@@ -120,18 +174,21 @@ export async function getRouteBetweenPoints(start, end) {
 
   const normalizedStart = normalizePoint(start);
   const normalizedEnd = normalizePoint(end);
+  const cacheKey = routeCacheKey(normalizedStart, normalizedEnd);
+  const cachedRoute = readCachedRoute(cacheKey);
+  if (cachedRoute) return cachedRoute;
 
   const routeAttempts = [getRouteFromServer, getRouteFromOsrm];
 
   for (const attempt of routeAttempts) {
     try {
-      return await attempt(normalizedStart, normalizedEnd);
+      return storeCachedRoute(cacheKey, await attempt(normalizedStart, normalizedEnd));
     } catch (error) {
       console.warn("[KunThai Route Attempt Failed]", error);
     }
   }
 
-  return getApproximateRoute(normalizedStart, normalizedEnd);
+  return storeCachedRoute(cacheKey, getApproximateRoute(normalizedStart, normalizedEnd));
 }
 
 export async function getRouteThroughPoints(points = []) {

@@ -1,11 +1,15 @@
-import { createElement, useEffect, useState } from "react";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import {
   FiAlertCircle,
   FiBox,
   FiBriefcase,
   FiCheckCircle,
+  FiChevronLeft,
+  FiChevronRight,
   FiClock,
+  FiImage,
   FiMapPin,
+  FiMaximize2,
   FiNavigation,
   FiPhone,
   FiSend,
@@ -25,8 +29,11 @@ import {
 import { formatCountryMoney } from "../../data/globalCountryProfiles";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
+import useBodyScrollLock from "../shared/useBodyScrollLock";
+import useImageViewerGestures from "../shared/useImageViewerGestures";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
+import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
 
@@ -101,6 +108,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState("");
   const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [mediaViewer, setMediaViewer] = useState(null);
   const [reviewEligibility, setReviewEligibility] = useState({
     eligible: false,
     tripId: null,
@@ -216,8 +224,8 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f0fdf4_0%,#f8fafc_260px,#f8fafc_100%)]">
-      <header className="sticky top-0 z-30 border-b border-emerald-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-4">
+    <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-4">
         <div className="flex w-full items-center gap-3">
           <AppBackTab
             onBack={onBack}
@@ -236,16 +244,25 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
 
       <main className="grid w-full gap-4 px-3 py-4 sm:px-5 sm:py-5 xl:grid-cols-[minmax(0,1fr)_390px] 2xl:grid-cols-[minmax(0,1fr)_430px] 2xl:px-8">
         <section className="min-w-0 space-y-4">
-          <OperatorHeroCard
+          <OperatorIdentityCard
             contactPhone={contactPhone}
             fleet={fleet}
             isActive={isActive}
             onBook={openBookingRequest}
+            onOpenPhoto={() => fleet.operatorPhotoUrl && setMediaViewer({
+              images: [{ label: fleet.operatorName || t("urride.fleetProfile.transportOperator"), url: fleet.operatorPhotoUrl }],
+              index: 0,
+            })}
             onOpenReviews={() => setReviewsOpen(true)}
             onShowVerification={() => onShowVerification(fleet)}
             reviewAverage={reviewAverage}
             reviewCount={reviewCount}
             status={status}
+          />
+
+          <FleetMediaGallery
+            fleet={fleet}
+            onOpen={(index) => setMediaViewer({ images: fleet.photos, index })}
           />
 
           {fleet.isCompanyFleet ? (
@@ -270,45 +287,14 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
             </section>
           ) : null}
 
-          {fleet.photos?.length ? <FleetMediaGallery fleet={fleet} /> : null}
-
-          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <ProfileMetric
-              icon={FiStar}
-              label={t("urride.fleetProfile.ratingLabel")}
-              value={formatRating(reviewAverage)}
-              detail={t(reviewCount === 1 ? "urride.fleetProfile.reviewCountOne" : "urride.fleetProfile.reviewCount", { count: reviewCount || 0 })}
-              onClick={() => setReviewsOpen(true)}
-            />
-            <ProfileMetric
-              icon={FiTruck}
-              label={t("urride.fleetProfile.completedTrips")}
-              value={Number(fleet.trips || 0).toLocaleString()}
-              detail={t("urride.fleetProfile.completedTripsDetail")}
-            />
-            <ProfileMetric
-              icon={FiClock}
-              label={t("urride.fleetProfile.availability")}
-              value={isActive ? t("urride.fleetProfile.activeNow") : t("urride.fleetProfile.offline")}
-              detail={isActive ? t("urride.fleetProfile.readyForRequests") : fleet.lastActive}
-            />
-            <ProfileMetric
-              icon={FiShield}
-              label={t("urride.fleetProfile.verification")}
-              value={status.label || fleet.verificationStatus}
-              detail={status.shortText}
-              onClick={() => onShowVerification(fleet)}
-            />
-          </section>
-
           <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
             <VehicleCard fleet={fleet} />
             <PricingCard fleet={fleet} />
           </section>
 
-          <section className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-sm">
+          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
                 <FiShield size={21} />
               </span>
               <div>
@@ -320,8 +306,8 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
             </div>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {fleet.safety.map((item) => (
-                <div key={item} className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-3 text-sm font-bold text-emerald-950">
-                  <FiCheckCircle size={16} className="shrink-0 text-emerald-700" />
+                <div key={item} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-700">
+                  <FiCheckCircle size={16} className="shrink-0 text-blue-600" />
                   {item}
                 </div>
               ))}
@@ -343,7 +329,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
               <button
                 type="button"
                 onClick={openBookingRequest}
-                className="kt-touchable h-12 rounded-2xl bg-emerald-600 text-sm font-black text-white shadow-sm shadow-emerald-700/20 transition hover:bg-emerald-700"
+                className="kt-touchable h-12 rounded-2xl bg-blue-600 text-sm font-black text-white shadow-sm shadow-blue-700/20 transition hover:bg-blue-700"
               >
                 {fleet.serviceCategory === "Delivery" ? t("urride.fleetProfile.requestDelivery") : t("urride.fleetProfile.bookRide")}
               </button>
@@ -397,15 +383,22 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
         reviews={reviews}
         reviewsError={reviewsError}
       />
+      <ProfileMediaViewer
+        activeIndex={mediaViewer?.index ?? -1}
+        images={mediaViewer?.images || []}
+        onChange={(index) => setMediaViewer((current) => current ? { ...current, index } : current)}
+        onClose={() => setMediaViewer(null)}
+      />
     </div>
   );
 }
 
-function OperatorHeroCard({
+function OperatorIdentityCard({
   contactPhone,
   fleet,
   isActive,
   onBook,
+  onOpenPhoto,
   onOpenReviews,
   onShowVerification,
   reviewAverage,
@@ -415,17 +408,32 @@ function OperatorHeroCard({
   const initials = String(fleet.operatorName || fleet.fleetName || "O").slice(0, 1).toUpperCase();
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
-      <div className="bg-[linear-gradient(135deg,#064e3b,#047857_52%,#f59e0b)] p-4 text-white sm:p-5">
+    <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_55%),linear-gradient(180deg,rgba(148,163,184,0.10),transparent)]" />
+      <div className="relative p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-white/15 text-2xl font-black ring-1 ring-white/25">
-              {fleet.operatorPhotoUrl ? <img src={fleet.operatorPhotoUrl} alt={`${fleet.operatorName || t("urride.fleetProfile.transportOperator")} selfie`} className="h-full w-full object-cover" /> : initials}
-            </span>
+            <button
+              type="button"
+              onClick={onOpenPhoto}
+              disabled={!fleet.operatorPhotoUrl}
+              className="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.65rem] border border-slate-200 bg-slate-100 text-2xl font-black text-slate-700 shadow-sm disabled:cursor-default"
+              aria-label={fleet.operatorPhotoUrl ? t("urride.fleetProfile.openOperatorPhoto") : undefined}
+            >
+              {fleet.operatorPhotoUrl ? <img src={fleet.operatorPhotoUrl} alt={`${fleet.operatorName || t("urride.fleetProfile.transportOperator")} profile`} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : initials}
+              {fleet.operatorPhotoUrl ? (
+                <span className="absolute bottom-1.5 right-1.5 grid h-7 w-7 place-items-center rounded-full border border-white/70 bg-slate-950/80 text-white shadow-lg backdrop-blur">
+                  <FiMaximize2 size={13} />
+                </span>
+              ) : null}
+            </button>
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-100">{fleet.isCompanyFleet ? t("urride.fleetProfile.companyFleetOperator") : t("urride.fleetProfile.transportOperator")}</p>
-              <h2 className="mt-1 truncate text-2xl font-black">{fleet.operatorName || t("urride.fleetProfile.transportOperator")}</h2>
-              <p className="mt-1 truncate text-sm font-bold text-emerald-50">
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-700">{fleet.isCompanyFleet ? t("urride.fleetProfile.companyFleetOperator") : t("urride.fleetProfile.transportOperator")}</p>
+                <span className={`h-2 w-2 rounded-full ${isActive ? "bg-blue-500" : "bg-slate-300"}`} />
+              </div>
+              <h2 className="mt-1 truncate text-2xl font-black text-slate-950">{fleet.operatorName || t("urride.fleetProfile.transportOperator")}</h2>
+              <p className="mt-1 truncate text-sm font-bold text-slate-500">
                 {fleet.fleetName} - {fleet.displayType} - {fleet.plateNumber}
               </p>
             </div>
@@ -435,14 +443,12 @@ function OperatorHeroCard({
           </div>
         </div>
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-3">
+        <div className="mt-5 grid grid-cols-3 gap-2">
           <HeroStat label={t("urride.fleetProfile.heroRating")} value={formatRating(reviewAverage)} detail={t("urride.fleetProfile.heroReviews", { count: reviewCount || 0 })} />
           <HeroStat label={t("urride.fleetProfile.heroTrips")} value={fleet.trips || 0} detail={t("urride.fleetProfile.completed")} />
           <HeroStat label={t("urride.fleetProfile.heroStatus")} value={isActive ? t("urride.fleetProfile.active") : t("urride.fleetProfile.offline")} detail={isActive ? t("urride.fleetProfile.onlineNow") : fleet.lastActive} />
         </div>
-      </div>
-
-      <div className="grid gap-3 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5">
+        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
         <div className="grid gap-2 text-sm font-semibold text-slate-600 sm:grid-cols-2">
           <InfoLine icon={FiUser} text={fleet.operatorCity || t("urride.fleetProfile.cityNotAdded")} />
           <InfoLine icon={FiPhone} text={contactPhone || t("urride.fleetProfile.phoneNotAvailable")} />
@@ -454,7 +460,7 @@ function OperatorHeroCard({
             type="button"
             onClick={onBook}
             disabled={!isActive}
-            className="kt-touchable h-11 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-500"
+            className="kt-touchable h-11 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500"
           >
             {isActive ? t("urride.fleetProfile.requestFleetType") : t("urride.fleetProfile.fleetOffline")}
           </button>
@@ -467,35 +473,198 @@ function OperatorHeroCard({
           </button>
         </div>
       </div>
+      </div>
     </section>
   );
 }
 
-function FleetMediaGallery({ fleet }) {
+function FleetMediaGallery({ fleet, onOpen }) {
+  const photos = fleet.photos || [];
+
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{t("urride.fleetProfile.identityCheck")}</p>
-      <h2 className="mt-1 text-xl font-black text-slate-950">{t("urride.fleetProfile.confirmOperator")}</h2>
-      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("urride.fleetProfile.compareViews")}</p>
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {fleet.photos.map((photo) => (
-          <figure key={`${photo.label}-${photo.url}`} className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
-            <img src={photo.url} alt={`${fleet.fleetName} ${photo.label}`} className="aspect-[4/3] w-full object-cover" loading="lazy" />
-            <figcaption className="truncate px-3 py-2 text-xs font-black text-slate-600">{photo.label}</figcaption>
-          </figure>
-        ))}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.fleetProfile.fleetGalleryEyebrow")}</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">{t("urride.fleetProfile.fleetGalleryTitle")}</h2>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("urride.fleetProfile.compareViews")}</p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600">
+          <FiImage size={14} />
+          {photos.length}
+        </span>
       </div>
+
+      {photos.length ? (
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {photos.map((photo, index) => (
+            <button
+              key={`${photo.label}-${photo.url}`}
+              type="button"
+              onClick={() => onOpen?.(index)}
+              className={`group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-left shadow-sm ${
+                index === 0 ? "col-span-2 row-span-2" : "aspect-square"
+              }`}
+              aria-label={t("urride.fleetProfile.openFleetPhoto", { label: photo.label })}
+              data-suppress-app-swipe="true"
+            >
+              <img
+                src={photo.url}
+                alt={`${fleet.fleetName} ${photo.label}`}
+                className={`w-full object-cover transition duration-300 group-hover:scale-[1.03] ${index === 0 ? "aspect-[16/10] h-full min-h-52" : "h-full"}`}
+                loading={index === 0 ? "eager" : "lazy"}
+              />
+              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent px-3 pb-3 pt-8 text-white">
+                <span className="truncate text-xs font-black">{photo.label}</span>
+                <FiMaximize2 className="shrink-0" size={14} />
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-4 flex min-h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 text-center">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-500 shadow-sm">
+            <FiImage size={20} />
+          </span>
+          <p className="mt-3 text-sm font-black text-slate-800">{t("urride.fleetProfile.noFleetPhotos")}</p>
+          <p className="mt-1 max-w-sm text-xs font-semibold leading-5 text-slate-500">{t("urride.fleetProfile.noFleetPhotosBody")}</p>
+        </div>
+      )}
     </section>
   );
 }
 
 function HeroStat({ detail, label, value }) {
   return (
-    <div className="rounded-2xl bg-white/12 px-3 py-3 ring-1 ring-white/20">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100">{label}</p>
-      <p className="mt-1 text-xl font-black text-white">{value}</p>
-      <p className="mt-0.5 truncate text-xs font-bold text-emerald-50">{detail}</p>
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+      <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-base font-black text-slate-950 sm:text-xl">{value}</p>
+      <p className="mt-0.5 truncate text-[10px] font-bold text-slate-500 sm:text-xs">{detail}</p>
     </div>
+  );
+}
+
+function ProfileMediaViewer({ activeIndex, images, onChange, onClose }) {
+  const open = activeIndex >= 0 && images.length > 0;
+  const current = images[activeIndex] || images[0];
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const closeViewer = useCallback(() => closeRef.current?.(), []);
+  const move = useCallback((direction) => {
+    if (images.length < 2) return;
+    onChange?.((activeIndex + direction + images.length) % images.length);
+  }, [activeIndex, images.length, onChange]);
+  const gestures = useImageViewerGestures({
+    enabled: open,
+    onClose: closeViewer,
+    onSwipe: images.length > 1 ? move : undefined,
+    resetKey: `${current?.url || ""}-${activeIndex}`,
+    tapToClose: false,
+  });
+
+  useBrowserBack(open, closeViewer, "transport-public-fleet-media");
+  useBodyScrollLock(open);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function handleKeyDown(event) {
+      if (event.key === "Escape") closeViewer();
+      if (event.key === "ArrowLeft") move(-1);
+      if (event.key === "ArrowRight") move(1);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeViewer, move, open]);
+
+  if (!open) return null;
+
+  return (
+    <AppPortal>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("urride.fleetProfile.mediaViewer")}
+        className="fixed inset-0 z-[1500] flex h-dvh flex-col overflow-hidden bg-slate-950 text-white"
+        data-suppress-app-swipe="true"
+      >
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <button
+            type="button"
+            onClick={closeViewer}
+            className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/45 text-white shadow-xl backdrop-blur"
+            aria-label={t("urride.fleetProfile.closeMedia")}
+          >
+            <FiX size={22} />
+          </button>
+          <div className="min-w-0 rounded-2xl border border-white/10 bg-black/40 px-3 py-2 backdrop-blur">
+            <p className="truncate text-xs font-black">{current.label}</p>
+            <p className="mt-0.5 text-[10px] font-bold text-white/65">{t("urride.fleetProfile.imageCount", { index: activeIndex + 1, total: images.length })}</p>
+          </div>
+          <div className="ml-auto rounded-full border border-white/10 bg-black/40 px-3 py-2 text-[10px] font-black text-white/80 backdrop-blur">
+            {gestures.scale > 1 ? `${Math.round(gestures.scale * 100)}%` : t("urride.fleetProfile.pinchToZoom")}
+          </div>
+        </header>
+
+        <div
+          ref={gestures.viewportRef}
+          className="relative min-h-0 flex-1 overflow-hidden"
+          style={{ touchAction: "none" }}
+          {...gestures.stageHandlers}
+        >
+          <img
+            ref={gestures.imageRef}
+            src={current.url}
+            alt={current.label}
+            draggable="false"
+            className="absolute inset-0 m-auto max-h-full max-w-full select-none object-contain"
+            style={{
+              touchAction: "none",
+              transform: `translate3d(${gestures.pan.x}px, ${gestures.pan.y}px, 0) scale(${gestures.scale})`,
+              transformOrigin: "center",
+              transition: gestures.isDragging ? "none" : "transform 220ms ease-out",
+            }}
+          />
+          {images.length > 1 && gestures.scale <= 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => move(-1)}
+                className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/10 bg-black/35 text-white backdrop-blur"
+                aria-label={t("urride.fleetProfile.previousPhoto")}
+              >
+                <FiChevronLeft size={22} />
+              </button>
+              <button
+                type="button"
+                onClick={() => move(1)}
+                className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/10 bg-black/35 text-white backdrop-blur"
+                aria-label={t("urride.fleetProfile.nextPhoto")}
+              >
+                <FiChevronRight size={22} />
+              </button>
+            </>
+          ) : null}
+        </div>
+
+        {images.length > 1 ? (
+          <div className="border-t border-white/10 bg-black/30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+            <div className="flex justify-center gap-2 overflow-x-auto">
+              {images.map((image, index) => (
+                <button
+                  key={`${image.url}-${index}`}
+                  type="button"
+                  onClick={() => onChange?.(index)}
+                  className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 ${index === activeIndex ? "border-blue-400" : "border-white/15 opacity-65"}`}
+                  aria-label={t("urride.fleetProfile.openFleetPhoto", { label: image.label })}
+                >
+                  <img src={image.url} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </AppPortal>
   );
 }
 
@@ -547,13 +716,13 @@ function PricingCard({ fleet }) {
 
 function LocationCard({ fleet, fleetAreaDestination, isActive, onLocateArea }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
-      <div className="relative h-28 bg-emerald-50">
-        <div className="absolute inset-0 opacity-80 [background-image:linear-gradient(90deg,rgba(16,185,129,0.15)_1px,transparent_1px),linear-gradient(0deg,rgba(14,165,233,0.12)_1px,transparent_1px)] [background-size:24px_24px]" />
-        <div className="absolute left-8 top-8 h-3 w-3 rounded-full bg-emerald-700 ring-4 ring-white" />
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="relative h-28 bg-slate-100">
+        <div className="absolute inset-0 opacity-80 [background-image:linear-gradient(90deg,rgba(100,116,139,0.14)_1px,transparent_1px),linear-gradient(0deg,rgba(59,130,246,0.12)_1px,transparent_1px)] [background-size:24px_24px]" />
+        <div className="absolute left-8 top-8 h-3 w-3 rounded-full bg-blue-600 ring-4 ring-white" />
         <div className="absolute right-10 bottom-7 h-3 w-3 rounded-full bg-amber-500 ring-4 ring-white" />
-        <div className="absolute left-12 top-12 h-1 w-[68%] rotate-[-8deg] rounded-full bg-emerald-600" />
-        <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-emerald-800 shadow-sm">
+        <div className="absolute left-12 top-12 h-1 w-[68%] rotate-[-8deg] rounded-full bg-blue-500" />
+        <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-blue-800 shadow-sm">
           {t("urride.fleetProfile.areaView")}
         </div>
       </div>
@@ -577,7 +746,7 @@ function LocationCard({ fleet, fleetAreaDestination, isActive, onLocateArea }) {
           <button
             type="button"
             onClick={() => onLocateArea?.(fleetAreaDestination, { autoRoute: true })}
-            className="kt-touchable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-slate-950 px-4 text-sm font-black text-white shadow-sm shadow-slate-200/70 transition hover:bg-slate-900"
+            className="kt-touchable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-slate-950 px-4 text-sm font-black text-white shadow-sm shadow-slate-200/70 transition hover:bg-slate-900"
           >
             <FiNavigation size={18} />
             {t("urride.fleetProfile.locateArea")}
@@ -585,25 +754,6 @@ function LocationCard({ fleet, fleetAreaDestination, isActive, onLocateArea }) {
         ) : null}
       </div>
     </section>
-  );
-}
-
-function ProfileMetric({ detail, icon, label, onClick, value }) {
-  const Wrapper = onClick ? "button" : "div";
-
-  return (
-    <Wrapper
-      type={onClick ? "button" : undefined}
-      onClick={onClick}
-      className="rounded-3xl border border-white bg-white p-4 text-left shadow-sm ring-1 ring-slate-100 transition hover:ring-emerald-100"
-    >
-      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-        {createElement(icon, { size: 19 })}
-      </span>
-      <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
-      <p className="mt-0.5 text-xs font-bold leading-5 text-slate-500">{detail}</p>
-    </Wrapper>
   );
 }
 
@@ -684,7 +834,7 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewElig
         >
           <header className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-700">{t("urride.fleetProfile.reviews")}</p>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-700">{t("urride.fleetProfile.reviews")}</p>
               <h2 className="mt-1 text-2xl font-black text-slate-950">
                 {t(reviews.length === 1 ? "urride.fleetProfile.responseCountOne" : "urride.fleetProfile.responseCount", { count: reviews.length })}
               </h2>
@@ -732,7 +882,7 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewElig
                   </article>
                 ))}
                 {!reviewEligibility?.eligible ? (
-                  <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-900">
+                  <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-900">
                     {reviewEligibility?.reason}
                   </p>
                 ) : null}
@@ -748,7 +898,7 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewElig
             )}
             {status ? (
               <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${
-                statusSuccess ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
+                statusSuccess ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-800"
               }`}>
                 {status}
               </p>
@@ -778,13 +928,13 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewElig
                 onChange={(event) => setReviewText(event.target.value)}
                 rows={2}
                 placeholder={t("urride.fleetProfile.reviewPlaceholder")}
-                className="min-h-12 flex-1 resize-none rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-400 focus:bg-white"
+                className="min-h-12 flex-1 resize-none rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-blue-400 focus:bg-white"
               />
               <button
                 type="submit"
                 disabled={submitting || rating < 1}
                 className={`kt-touchable flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
-                  submitting || rating < 1 ? "bg-slate-100 text-slate-400" : "bg-emerald-600 text-white hover:bg-emerald-700"
+                  submitting || rating < 1 ? "bg-slate-100 text-slate-400" : "bg-blue-600 text-white hover:bg-blue-700"
                 }`}
                 aria-label={t("urride.fleetProfile.submitReview")}
               >

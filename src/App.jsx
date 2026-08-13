@@ -659,8 +659,25 @@ export default function App() {
     return "";
   }
 
+  function resetAppSwipePreview() {
+    const node = pagePanelRef.current;
+    if (!node) return;
+    node.style.transition = "transform 160ms ease-out";
+    node.style.transform = "translate3d(0, 0, 0)";
+    window.setTimeout(() => {
+      node.style.transition = "";
+      node.style.transform = "";
+    }, 190);
+  }
+
   function handleAppTouchStart(event) {
-    if (page === "explore" || bottomTabsHidden || event.touches.length !== 1) {
+    if (event.touches.length !== 1) {
+      appGestureRef.current = null;
+      resetAppSwipePreview();
+      return;
+    }
+
+    if (page === "explore" || bottomTabsHidden) {
       appGestureRef.current = null;
       return;
     }
@@ -668,7 +685,8 @@ export default function App() {
     const target = event.target;
     if (
       target?.closest?.("input, textarea, select, [contenteditable='true']") ||
-      target?.closest?.(".overflow-x-auto, .overflow-x-scroll")
+      target?.closest?.(".overflow-x-auto, .overflow-x-scroll") ||
+      target?.closest?.("[data-suppress-app-swipe]")
     ) {
       appGestureRef.current = null;
       return;
@@ -686,7 +704,14 @@ export default function App() {
 
   function handleAppTouchMove(event) {
     const gesture = appGestureRef.current;
-    if (!gesture || event.touches.length !== 1) {
+    if (event.touches.length !== 1) {
+      // A pinch may begin after a valid one-finger swipe start. Invalidate the
+      // whole sequence so lifting either finger can never commit a page change.
+      appGestureRef.current = null;
+      if (gesture) resetAppSwipePreview();
+      return;
+    }
+    if (!gesture) {
       return;
     }
 
@@ -718,9 +743,16 @@ export default function App() {
     }
   }
 
-  function handleAppTouchEnd() {
+  function handleAppTouchEnd(event) {
     const gesture = appGestureRef.current;
     appGestureRef.current = null;
+
+    // If another finger is still touching the screen, this release belongs to
+    // a multi-touch gesture—not to main navigation.
+    if (event?.touches?.length) {
+      resetAppSwipePreview();
+      return;
+    }
 
     if (!gesture || page === "explore" || bottomTabsHidden) {
       return;
@@ -771,6 +803,7 @@ export default function App() {
       onTouchEnd={handleAppTouchEnd}
       onTouchCancel={() => {
         appGestureRef.current = null;
+        resetAppSwipePreview();
       }}
     >
       <PageTransition active className="min-h-screen">

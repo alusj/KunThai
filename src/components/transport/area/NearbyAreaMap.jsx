@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { FiChevronDown, FiChevronUp } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiCrosshair } from "react-icons/fi";
 import {
   formatDistance,
   formatDuration,
@@ -10,6 +10,7 @@ import {
 } from "../../../Backend/services/routeService";
 import { showToast } from "../../../Backend/services/toastService";
 import { getNetworkStatus, subscribeToNetworkStatus } from "../../../Backend/services/networkService";
+import { cacheAreaViewPosition, readAreaViewCache } from "../../../Backend/services/areaViewCacheService";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
@@ -51,7 +52,6 @@ const ROUTE_STATUS = {
 };
 
 const GPS_SETTINGS = {
-  animationMs: 850,
   ignoreAccuracyAboveMeters: 140,
   lowAccuracyWarningMeters: 75,
   correctRouteMeters: 45,
@@ -59,14 +59,14 @@ const GPS_SETTINGS = {
   rerouteRouteMeters: 165,
   arrivalMeters: 34,
   rerouteCooldownMs: 7000,
-  rerouteConfirmMs: 850,
-  cameraThrottleMs: 1200,
+  rerouteConfirmMs: 8000,
+  cameraThrottleMs: 500,
   progressBacktrackSegments: 4,
-  ignoreTinyMoveMeters: 4.5,
+  ignoreTinyMoveMeters: 0.8,
   jumpDistanceMeters: 90,
-  maxHumanSpeedMetersPerSecond: 22,
-  parentPublishMeters: 35,
-  parentPublishMaxMs: 7000,
+  maxRoadSpeedMetersPerSecond: 55,
+  parentPublishMeters: 12,
+  parentPublishMaxMs: 3000,
   gpsUiThrottleMs: 1800,
   gpsUiAccuracyDeltaMeters: 8,
   headingUiThrottleMs: 700,
@@ -132,11 +132,14 @@ function projectPointOntoRouteSegment(position, startCoord, endCoord) {
   return { point, distance: distanceInMeters(position, point) };
 }
 
-function getNearestPointOnRoute(position, coordinates = []) {
+function getNearestPointOnRoute(position, coordinates = [], preferredSegmentIndex = null) {
   if (!position || coordinates.length < 2) return null;
 
   let best = null;
-  for (let index = 0; index < coordinates.length - 1; index += 1) {
+  const hasPreferredSegment = Number.isInteger(preferredSegmentIndex);
+  const startIndex = hasPreferredSegment ? Math.max(0, preferredSegmentIndex - 8) : 0;
+  const endIndex = hasPreferredSegment ? Math.min(coordinates.length - 2, preferredSegmentIndex + 80) : coordinates.length - 2;
+  for (let index = startIndex; index <= endIndex; index += 1) {
     const projection = projectPointOntoRouteSegment(position, coordinates[index], coordinates[index + 1]);
     if (!best || projection.distance < best.distance) {
       best = { ...projection, segmentIndex: index };
@@ -1104,20 +1107,61 @@ function getSmoothedPosition(previousPosition, nextPosition, elapsedMs = 1000) {
 
   if (distance <= GPS_SETTINGS.ignoreTinyMoveMeters) return previousPosition;
 
-  const elapsedSeconds = Math.max(elapsedMs / 1000, 0.8);
+  const elapsedSeconds = Math.max(elapsedMs / 1000, 0.2);
   const accuracy = Number(nextPosition.accuracy || 0);
-  const maxTrustedMove = Math.max(12, elapsedSeconds * 18 + accuracy * 0.45);
+  const maxTrustedMove = Math.max(16, elapsedSeconds * 24 + accuracy * 0.55);
   const stableTarget = clampPositionToward(previousPosition, nextPosition, maxTrustedMove);
   const stableDistance = distanceInMeters(previousPosition, stableTarget);
   const accuracyWeight = getAccuracyWeight(accuracy);
-  const movementWeight = stableDistance > 45 ? 0.5 : stableDistance > 18 ? 0.42 : accuracyWeight;
-  const smoothingPower = Math.min(0.62, Math.max(0.16, Math.min(accuracyWeight, movementWeight)));
+  const timeWeight = 1 - Math.exp(-elapsedMs / 420);
+  const movementWeight = stableDistance > 45 ? 0.92 : stableDistance > 18 ? 0.84 : stableDistance > 5 ? 0.72 : accuracyWeight + 0.22;
+  const smoothingPower = Math.min(0.94, Math.max(0.48, Math.max(timeWeight, movementWeight)));
 
   return {
     ...nextPosition,
     lat: lerp(previousPosition.lat, stableTarget.lat, smoothingPower),
     lng: lerp(previousPosition.lng, stableTarget.lng, smoothingPower),
   };
+}
+
+function getMarkerAnimationDuration(fromPosition, toPosition, elapsedMs = 1000) {
+  const distance = distanceInMeters(fromPosition, toPosition);
+  if (!Number.isFinite(distance) || distance >= 35) return 240;
+  if (distance >= 12) return 300;
+  return Math.max(180, Math.min(420, elapsedMs * 0.42));
+}
+
+function requestHighAccuracyRescuePosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Location is not available on this device."));
+      return;
+    }
+
+    let bestPosition = null;
+    let settled = false;
+    let watchId = null;
+    let timeoutId = null;
+    const finish = (position, error = null) => {
+      if (settled) return;
+      settled = true;
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (position) resolve(position);
+      else reject(error || new Error("Unable to confirm your current location."));
+    };
+
+    timeoutId = window.setTimeout(() => finish(bestPosition), 7000);
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const accuracy = Number(position.coords.accuracy || Infinity);
+        if (!bestPosition || accuracy < Number(bestPosition.coords.accuracy || Infinity)) bestPosition = position;
+        if (accuracy <= 25) finish(position);
+      },
+      (error) => finish(bestPosition, error),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 6500 },
+    );
+  });
 }
 
 function getMarkerPosition(marker, fallback) {
@@ -1453,7 +1497,7 @@ function clearAlternativeRouteLayer(map) {
   if (map.getSource("route-alternative")) map.removeSource("route-alternative");
 }
 
-function animateMarkerTo(marker, fromPosition, toPosition, duration = GPS_SETTINGS.animationMs, onFrame) {
+function animateMarkerTo(marker, fromPosition, toPosition, duration = 280, onFrame) {
   if (!marker || !fromPosition || !toPosition) return null;
 
   const startedAt = performance.now();
@@ -1501,6 +1545,8 @@ export default function NearbyAreaMap({
   viewTarget = null,
 }) {
   useI18n();
+  const initialAreaCacheRef = useRef(readAreaViewCache());
+  const initialCachedPosition = initialAreaCacheRef.current.position || DEFAULT_CENTER;
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
@@ -1511,8 +1557,8 @@ export default function NearbyAreaMap({
   const measurementLabelMarkerRef = useRef(null);
   const watchIdRef = useRef(null);
   const routeCoordinatesRef = useRef([]);
-  const smoothedPositionRef = useRef(null);
-  const markerRenderedPositionRef = useRef(null);
+  const smoothedPositionRef = useRef(initialCachedPosition);
+  const markerRenderedPositionRef = useRef(initialCachedPosition);
   const markerAnimationCancelRef = useRef(null);
   const lastRouteSegmentIndexRef = useRef(0);
   const operatorMarkersRef = useRef(new Map());
@@ -1534,9 +1580,9 @@ export default function NearbyAreaMap({
   const lastRerouteAtRef = useRef(0);
   const arrivalReachedRef = useRef(false);
   const lastCameraMoveRef = useRef(0);
-  const userLocationRef = useRef(null);
-  const lastRawPositionRef = useRef(null);
-  const lastRawTimestampRef = useRef(null);
+  const userLocationRef = useRef(initialCachedPosition);
+  const lastRawPositionRef = useRef(initialCachedPosition);
+  const lastRawTimestampRef = useRef(initialAreaCacheRef.current.position ? Date.now() : null);
   const headingRef = useRef(null);
   const smartCameraRef = useRef(true);
   const weatherCacheRef = useRef(weatherCache);
@@ -1546,6 +1592,8 @@ export default function NearbyAreaMap({
   const userInteractionIdleTimerRef = useRef(null);
   const lastParentLocationRef = useRef(null);
   const lastParentLocationAtRef = useRef(0);
+  const lastPositionCacheAtRef = useRef(0);
+  const rescueActiveRef = useRef(false);
   const gpsUiRef = useRef({ status: i18nText("ui.literals.kae9f5265e65f", { value0: DEFAULT_CENTER.label }), accuracy: null, time: 0 });
   const headingUiRef = useRef({ heading: null, time: 0 });
   const navigationDragRef = useRef(null);
@@ -1569,9 +1617,9 @@ export default function NearbyAreaMap({
   // snap can be released with hysteresis rather than flickering.
   const routeSnappedRef = useRef(false);
 
-  const [locationStatus, setLocationStatus] = useState(() => t("urride.areaMap.gpsShowing", { area: DEFAULT_CENTER.label }));
+  const [locationStatus, setLocationStatus] = useState(() => initialAreaCacheRef.current.position ? t("urride.areaMap.cachedAreaReady") : t("urride.areaMap.gpsShowing", { area: DEFAULT_CENTER.label }));
   const [deviceLocationState, setDeviceLocationState] = useState("checking");
-  const [userLocation, setUserLocation] = useState(null);
+  const [userLocation, setUserLocation] = useState(() => initialAreaCacheRef.current.position);
   const [routeInfo, setRouteInfo] = useState(null);
   const [routeError, setRouteError] = useState("");
   const [routeLoading, setRouteLoading] = useState(false);
@@ -1595,6 +1643,8 @@ export default function NearbyAreaMap({
   const [mapTilesLoading, setMapTilesLoading] = useState(true);
   const [mapBlocked, setMapBlocked] = useState("");
   const [mapReloadKey, setMapReloadKey] = useState(0);
+  const [rescueLoading, setRescueLoading] = useState(false);
+  const [rescueMessage, setRescueMessage] = useState("");
 
   const routeStatus = {
     ...ROUTE_STATUS[routeStatusKey],
@@ -1603,6 +1653,7 @@ export default function NearbyAreaMap({
   };
   const routeStatusPill = t(ROUTE_STATUS_PILL_KEYS[routeStatusKey] || ROUTE_STATUS_PILL_KEYS.correct);
   const showNavigationCard = Boolean(routeLoading || routeInfo || routeError);
+  const routeRecoveryNeeded = Boolean((routeStatusKey === "wrong" || routeError) && !arrivalReachedRef.current);
   const navigationCollapsed = navigationSnap === "collapsed";
   const routeDistanceLabel = routeInfo?.distance || (routeLoading ? t("urride.areaMap.findingRoute") : t("urride.areaMap.routeWord"));
   const routeDurationLabel = routeInfo?.duration || (routeError ? t("urride.areaMap.checkRoute") : "");
@@ -1803,7 +1854,7 @@ export default function NearbyAreaMap({
       zoom: Math.max(map.getZoom(), hasDestination ? 16.2 : 15.2),
       pitch: hasDestination || canUseHeading ? 58 : 35,
       bearing,
-      duration: options.duration ?? (options.force ? 520 : 720),
+      duration: options.duration ?? (options.force ? 420 : 480),
       essential: true,
     });
   }
@@ -1858,6 +1909,74 @@ export default function NearbyAreaMap({
       );
       setRerouteKey((value) => value + 1);
     }, GPS_SETTINGS.rerouteConfirmMs);
+  }
+
+  async function handleSaveMe() {
+    if (rescueLoading) return;
+    rescueActiveRef.current = true;
+    setRescueLoading(true);
+    setRescueMessage(t("urride.areaMap.saveMeLocating"));
+    clearPendingReroute();
+
+    try {
+      const position = await requestHighAccuracyRescuePosition();
+      const accuracy = Math.round(position.coords.accuracy || 0);
+      if (accuracy > GPS_SETTINGS.ignoreAccuracyAboveMeters) {
+        throw new Error(t("urride.areaMap.saveMeWeakGps", { m: accuracy }));
+      }
+
+      const freshPosition = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        label: t("urride.areaMap.liveCurrentLocation"),
+        accuracy,
+        heading: position.coords.heading,
+        speed: position.coords.speed,
+      };
+      const nearest = getNearestPointOnRoute(freshPosition, routeCoordinatesRef.current);
+      const effectiveDistance = nearest
+        ? Math.max(0, nearest.distance - accuracy * NAV_SNAP_SETTINGS.accuracyDiscount)
+        : Infinity;
+      const recoveredOnRoute = nearest && effectiveDistance <= GPS_SETTINGS.warningRouteMeters;
+      const markerTarget = recoveredOnRoute
+        ? { ...freshPosition, lat: nearest.point.lat, lng: nearest.point.lng }
+        : freshPosition;
+
+      cacheAreaViewPosition(freshPosition);
+      userLocationRef.current = freshPosition;
+      smoothedPositionRef.current = freshPosition;
+      lastRawPositionRef.current = freshPosition;
+      lastRawTimestampRef.current = Date.now();
+      markerRenderedPositionRef.current = markerTarget;
+      routeSnappedRef.current = Boolean(recoveredOnRoute);
+      userMarkerRef.current?.setLngLat([markerTarget.lng, markerTarget.lat]);
+      setUserLocation(freshPosition);
+      publishLocationToParent(freshPosition, { force: true });
+      publishGpsUi(t("urride.areaMap.gpsLive"), accuracy, { force: true });
+      followLockRef.current = true;
+      applySmartCamera(markerTarget, selectedLocation, nearest?.segmentIndex, { force: true, duration: 360 });
+
+      if (recoveredOnRoute) {
+        routeStatusRef.current = "correct";
+        setRouteStatusKey("correct");
+        setRouteLineColor(mapRef.current, ROUTE_STATUS.correct.color);
+        setNavigationSnap("collapsed");
+        setRescueMessage(t("urride.areaMap.saveMeRecovered"));
+      } else if (selectedLocation?.lat && selectedLocation?.lng) {
+        routeStatusRef.current = "wrong";
+        setRouteStatusKey("wrong");
+        setNavigationSnap("half");
+        setRescueMessage(t("urride.areaMap.saveMeRerouting"));
+        routeStartOverrideRef.current = freshPosition;
+        lastRerouteAtRef.current = Date.now();
+        setRerouteKey((value) => value + 1);
+      }
+    } catch (error) {
+      setRescueMessage(error.message || t("urride.areaMap.saveMeFailed"));
+    } finally {
+      rescueActiveRef.current = false;
+      setRescueLoading(false);
+    }
   }
 
   const routeCardStatus = routeError
@@ -2001,7 +2120,7 @@ export default function NearbyAreaMap({
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: getInitialMapStyle(),
-      center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
+      center: [initialCachedPosition.lng, initialCachedPosition.lat],
       zoom: 13,
       pitch: 35,
       bearing: 0,
@@ -2096,9 +2215,9 @@ export default function NearbyAreaMap({
       element: createLiveUserMarker(),
       anchor: "center",
     })
-      .setLngLat([DEFAULT_CENTER.lng, DEFAULT_CENTER.lat])
+      .setLngLat([initialCachedPosition.lng, initialCachedPosition.lat])
       .addTo(map);
-    markerRenderedPositionRef.current = DEFAULT_CENTER;
+    markerRenderedPositionRef.current = initialCachedPosition;
 
     const operatorAnimations = operatorAnimationCancelRef.current;
     const operatorMarkers = operatorMarkersRef.current;
@@ -2159,7 +2278,7 @@ export default function NearbyAreaMap({
       watchIdRef.current = null;
       markerRenderedPositionRef.current = null;
     };
-  }, [onMapReady]);
+  }, [initialCachedPosition, onMapReady]);
 
   // Manual/automatic base-map recovery: re-applies the map style so tiles are
   // re-fetched. Runs when the user taps "Retry map" or when the connection is
@@ -2278,6 +2397,7 @@ export default function NearbyAreaMap({
           accuracy,
         };
 
+        cacheAreaViewPosition(nextCenter);
         publishGpsUi(t("urride.areaMap.gpsUsingArea"), accuracy, { force: true });
         setUserLocation(nextCenter);
         userLocationRef.current = nextCenter;
@@ -2301,19 +2421,27 @@ export default function NearbyAreaMap({
       },
       () => {
         setDeviceLocationState("unavailable");
-        publishGpsUi(t("urride.areaMap.gpsShowing", { area: DEFAULT_CENTER.label }), null, { force: true });
-        setUserLocation(DEFAULT_CENTER);
-        userLocationRef.current = DEFAULT_CENTER;
-        smoothedPositionRef.current = DEFAULT_CENTER;
-        markerRenderedPositionRef.current = DEFAULT_CENTER;
-        lastRawPositionRef.current = DEFAULT_CENTER;
+        const fallbackCenter = initialAreaCacheRef.current.position || DEFAULT_CENTER;
+        publishGpsUi(
+          initialAreaCacheRef.current.position
+            ? t("urride.areaMap.cachedAreaReady")
+            : t("urride.areaMap.gpsShowing", { area: DEFAULT_CENTER.label }),
+          fallbackCenter.accuracy,
+          { force: true },
+        );
+        setUserLocation(fallbackCenter);
+        userLocationRef.current = fallbackCenter;
+        smoothedPositionRef.current = fallbackCenter;
+        markerRenderedPositionRef.current = fallbackCenter;
+        lastRawPositionRef.current = fallbackCenter;
         lastRawTimestampRef.current = Date.now();
-        publishLocationToParent(DEFAULT_CENTER, { force: true });
+        userMarkerRef.current?.setLngLat([fallbackCenter.lng, fallbackCenter.lat]);
+        publishLocationToParent(fallbackCenter, { force: true });
       },
       {
         enableHighAccuracy: true,
         timeout: 8000,
-        maximumAge: 60000,
+        maximumAge: 15000,
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial geolocation publishes through refs; rerunning on every helper recreation would duplicate GPS work.
@@ -2362,7 +2490,6 @@ export default function NearbyAreaMap({
       viewTargetMarkerRef.current?.remove();
       viewTargetMarkerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run when the pinned place changes or once the base map has drawn.
   }, [viewTarget, mapTilesLoading]);
 
   useEffect(() => {
@@ -2487,6 +2614,7 @@ export default function NearbyAreaMap({
       const map = mapRef.current;
 
       setRouteError("");
+      setRescueMessage("");
       setRouteLoading(true);
       setRouteInfo({
         from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
@@ -2647,6 +2775,7 @@ export default function NearbyAreaMap({
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
+        if (rescueActiveRef.current) return;
         setDeviceLocationState("ready");
         const accuracy = Math.round(position.coords.accuracy || 0);
 
@@ -2681,7 +2810,7 @@ export default function NearbyAreaMap({
 
           if (
             rawDistance > GPS_SETTINGS.jumpDistanceMeters &&
-            rawSpeed > GPS_SETTINGS.maxHumanSpeedMetersPerSecond
+            rawSpeed > GPS_SETTINGS.maxRoadSpeedMetersPerSecond
           ) {
             publishGpsUi(t("urride.areaMap.gpsJump", { m: accuracy }), accuracy);
             return;
@@ -2705,12 +2834,16 @@ export default function NearbyAreaMap({
 
         lastRawPositionRef.current = rawLivePosition;
         lastRawTimestampRef.current = now;
+        if (now - lastPositionCacheAtRef.current >= 4000) {
+          cacheAreaViewPosition(rawLivePosition);
+          lastPositionCacheAtRef.current = now;
+        }
 
         const previousSmoothedPosition = smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
         const livePosition = getSmoothedPosition(previousSmoothedPosition, rawLivePosition, elapsedMs);
         const movedMeters = distanceInMeters(previousSmoothedPosition, livePosition);
 
-        if (movedMeters <= GPS_SETTINGS.ignoreTinyMoveMeters) {
+        if (movedMeters <= GPS_SETTINGS.ignoreTinyMoveMeters && instantSpeed < 0.45) {
           publishGpsUi(null, accuracy);
           return;
         }
@@ -2729,7 +2862,7 @@ export default function NearbyAreaMap({
         // drifting beside it. The true position still drives logic below.
         const routeCoordinates = routeCoordinatesRef.current;
         const nearestOnRoute = routeCoordinates.length
-          ? getNearestPointOnRoute(livePosition, routeCoordinates)
+          ? getNearestPointOnRoute(rawLivePosition, routeCoordinates, lastRouteSegmentIndexRef.current)
           : null;
         const effectiveRouteDistance = nearestOnRoute
           ? Math.max(0, nearestOnRoute.distance - accuracy * NAV_SNAP_SETTINGS.accuracyDiscount)
@@ -2756,7 +2889,7 @@ export default function NearbyAreaMap({
           userMarkerRef.current,
           markerStartPosition,
           markerTarget,
-          GPS_SETTINGS.animationMs,
+          getMarkerAnimationDuration(markerStartPosition, markerTarget, elapsedMs),
           (renderedPosition) => {
             markerRenderedPositionRef.current = renderedPosition;
           },
@@ -2776,7 +2909,7 @@ export default function NearbyAreaMap({
             segmentIndex: nearestOnRoute?.segmentIndex ?? 0,
           };
           const distanceToDestination = selectedLocation?.lat
-            ? distanceInMeters(livePosition, selectedLocation)
+            ? distanceInMeters(rawLivePosition, selectedLocation)
             : Infinity;
 
           if (distanceToDestination <= GPS_SETTINGS.arrivalMeters && !arrivalReachedRef.current) {
@@ -2803,7 +2936,7 @@ export default function NearbyAreaMap({
           // Count the remaining distance and ETA down as the traveller
           // progresses along the drawn route.
           const remainingMeters = getRemainingRouteMeters(
-            livePosition,
+            markerTarget,
             routeCoordinatesRef.current,
             nearestRouteInfo.segmentIndex,
           );
@@ -2836,12 +2969,13 @@ export default function NearbyAreaMap({
           if (nextStatusKey === "correct" || effectiveRouteDistance <= GPS_SETTINGS.warningRouteMeters) {
             clearPendingReroute();
           } else if (effectiveRouteDistance >= GPS_SETTINGS.rerouteRouteMeters) {
-            scheduleRerouteFrom(livePosition, effectiveRouteDistance);
+            scheduleRerouteFrom(rawLivePosition, effectiveRouteDistance);
           }
 
           setRouteLineColor(mapRef.current, ROUTE_STATUS[nextStatusKey].color);
           if (nextStatusKey === "correct") {
             setNavigationSnap("collapsed");
+            setRescueMessage("");
           } else {
             setNavigationSnap("half");
           }
@@ -2864,7 +2998,7 @@ export default function NearbyAreaMap({
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 2000,
+        maximumAge: 500,
         timeout: 12000,
       },
     );
@@ -3192,6 +3326,23 @@ export default function NearbyAreaMap({
               }`}>
                 {routeCardStatus.message}
               </p>
+
+              {routeRecoveryNeeded ? (
+                <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3">
+                  <p className="text-xs font-bold leading-5 text-red-700">
+                    {rescueMessage || t("urride.areaMap.saveMeHint")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSaveMe}
+                    disabled={rescueLoading}
+                    className="kt-pressable mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 text-sm font-black uppercase tracking-[0.12em] text-white shadow-lg shadow-red-600/20 transition hover:bg-red-700 disabled:opacity-60"
+                  >
+                    <FiCrosshair className={rescueLoading ? "animate-spin" : ""} />
+                    {rescueLoading ? t("urride.areaMap.saveMeSearching") : t("urride.areaMap.saveMe")}
+                  </button>
+                </div>
+              ) : null}
 
               <RouteHealthLegend activeKey={routeError || routeLoading ? "" : routeStatusKey} />
 

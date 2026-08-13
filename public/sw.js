@@ -1,9 +1,28 @@
 /*
  * KunThai service worker: push notifications only.
- * No fetch caching on purpose — the app stays served live by the host, so a
- * stale cache can never break deployments. This worker exists to receive Web
- * Push events in the background and route notification taps back into the app.
+ * App code stays network-only so a stale cache can never break deployments.
+ * Area View map tiles are the narrow exception: caching immutable tile images
+ * makes recently travelled areas redraw immediately on weak connections.
  */
+
+const AREA_TILE_CACHE = "kunthai-area-tiles-v1";
+const AREA_TILE_CACHE_LIMIT = 280;
+
+function isAreaTileRequest(request) {
+  if (request.method !== "GET") return false;
+  try {
+    const url = new URL(request.url);
+    return url.hostname === "tile.openstreetmap.org" || url.hostname.endsWith(".tile.openstreetmap.org") || url.hostname === "api.maptiler.com";
+  } catch {
+    return false;
+  }
+}
+
+async function trimAreaTileCache(cache) {
+  const keys = await cache.keys();
+  if (keys.length <= AREA_TILE_CACHE_LIMIT) return;
+  await Promise.all(keys.slice(0, keys.length - AREA_TILE_CACHE_LIMIT).map((key) => cache.delete(key)));
+}
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -11,6 +30,22 @@ self.addEventListener("install", () => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("fetch", (event) => {
+  if (!isAreaTileRequest(event.request)) return;
+
+  event.respondWith((async () => {
+    const cache = await caches.open(AREA_TILE_CACHE);
+    const cached = await cache.match(event.request);
+    if (cached) return cached;
+
+    const response = await fetch(event.request);
+    if (response?.ok || response?.type === "opaque") {
+      event.waitUntil(cache.put(event.request, response.clone()).then(() => trimAreaTileCache(cache)));
+    }
+    return response;
+  })());
 });
 
 self.addEventListener("push", (event) => {
