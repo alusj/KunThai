@@ -18,6 +18,7 @@ import {
 
 import { buildPostInsights, fetchPostAnalytics } from "../../../Backend/services/explore/postAnalyticsService";
 import { t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 const DONUT_COLORS = ["#0ea5e9", "#10b981", "#8b5cf6", "#f59e0b"];
 
@@ -262,7 +263,7 @@ export default function PostAnalyticsPanel({ post, onClose }) {
           <h2 className="truncate text-xl font-black">
             {String(post?.body || "").trim() || (post?.video_url ? t("explore.anYourSwipVideo") : t("explore.anYourPost"))}
           </h2>
-          {postedLabel ? <p className="mt-0.5 text-xs font-semibold text-slate-300">Published {postedLabel}</p> : null}
+          {postedLabel ? <p className="mt-0.5 text-xs font-semibold text-slate-300">{i18nText("ui.literals.k483bf2075c12")} {postedLabel}</p> : null}
         </div>
         <button
           type="button"
@@ -289,7 +290,7 @@ export default function PostAnalyticsPanel({ post, onClose }) {
           ) : error || !analytics ? (
             <div className="rounded-[24px] border border-slate-200 bg-white p-6 text-center shadow-sm">
               <p className="text-sm font-black text-slate-950">{t("explore.anUnavailable")}</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{error || "Try again in a moment."}</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{error || i18nText("ui.literals.k288edef357b4")}</p>
             </div>
           ) : (
             <>
@@ -307,7 +308,7 @@ export default function PostAnalyticsPanel({ post, onClose }) {
                   <div className="kt-fade-up rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm" style={{ animationDelay: "120ms" }}>
                     <span className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><Timer size={18} /></span>
                     <p className="mt-3 text-2xl font-black tabular-nums text-slate-950">{formatWatchTime(analytics.watchTimeSeconds)}</p>
-                    <p className="mt-0.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Total watch time</p>
+                    <p className="mt-0.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{i18nText("ui.literals.k912d458cd17b")}</p>
                   </div>
                   <StatTile
                     icon={Share2}

@@ -1,5 +1,6 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import {
+  BarChart3,
   Eye,
   Megaphone,
   MoreHorizontal,
@@ -45,7 +46,7 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
   ].filter(Boolean).join(" - ");
   const menuActionCount = isDraft
     ? 4
-    : 4 + (isCatalog ? 1 : 0) + (needsRestock ? 1 : 0) + (!isCatalog ? 1 : 0);
+    : 5 + (isCatalog ? 1 : 0) + (needsRestock ? 1 : 0) + (!isCatalog ? 1 : 0);
 
   const clearMenuTimer = useCallback(() => {
     if (menuTimerRef.current) {
@@ -251,6 +252,7 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
               ) : (
                 <>
                   <MenuAction icon={Eye} label={t("urmall.biz.cat.viewProduct")} onClick={() => runAction("view-product")} />
+                  <MenuAction icon={BarChart3} label={t("urmall.biz.intel.insightsTab")} onClick={() => runAction("insights")} />
                   {isCatalog ? (
                     <MenuAction icon={Share2} label={t("urmall.biz.cat.shareLink")} onClick={() => runAction("share")} />
                   ) : null}

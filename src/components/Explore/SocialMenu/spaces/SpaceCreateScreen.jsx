@@ -9,6 +9,7 @@ import {
 import { showToast } from "../../../../Backend/services/toastService";
 import { scrollToFirstBlockingFieldSoon } from "../../../shared/formValidationNavigation";
 import Avatar from "../../shared/Avatar";
+import { t as i18nText } from "../../../../i18n/index";
 
 const INITIAL_FORM = {
   name: "",
@@ -75,7 +76,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
     try {
       updateField(field, await fileToDataUrl(file));
     } catch (error) {
-      setFeedback(error.message || "Unable to load image.");
+      setFeedback(error.message || i18nText("ui.literals.k46fb4c1c6a09"));
     } finally {
       event.target.value = "";
     }
@@ -98,11 +99,11 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
         ...form,
         slug: suggestedSlug,
       });
-      showToast(`${created.displayName} Space created.`, "success");
+      showToast(i18nText("ui.literals.k451e8fbf008a", { value0: created.displayName }), "success");
       onCreated?.(created);
       setForm(INITIAL_FORM);
     } catch (error) {
-      setFeedback(error.message || "Unable to create this Space.");
+      setFeedback(error.message || i18nText("ui.literals.kfc2284587edd"));
     } finally {
       setSaving(false);
     }
@@ -113,7 +114,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
       {!hideHeader ? (
         <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Explore</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">Create Space</h2>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">{i18nText("ui.literals.kb50606b40277")}</h2>
         </div>
       ) : null}
 
@@ -134,13 +135,13 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
             className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-2xl bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow-sm"
           >
             <HiOutlinePhoto />
-            Cover
+            {i18nText("ui.literals.k8b656a5dd9d5")}
           </button>
           <button
             type="button"
             onClick={() => avatarInputRef.current?.click()}
             className="absolute bottom-3 left-3 rounded-full bg-white p-1 shadow-sm ring-4 ring-white/80"
-            aria-label="Choose Space profile picture"
+            aria-label={i18nText("ui.literals.k3259c1700363")}
           >
             <Avatar name={form.name || "Space"} src={form.avatarUrl} size="lg" />
           </button>
@@ -153,37 +154,37 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
             <HiOutlineBuildingOffice2 />
           </span>
           <div className="min-w-0">
-            <p className="text-lg font-black text-slate-950">Space identity</p>
+            <p className="text-lg font-black text-slate-950">{i18nText("ui.literals.k362b25c1e9e6")}</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              Create a managed identity for a business, organization, school, community, creator, or public team.
+              {i18nText("ui.literals.kd10cb3816775")}
             </p>
           </div>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <Field label="Space name" error={fieldErrors.name}>
+          <Field label={i18nText("ui.literals.k28f9e0c55be1")} error={fieldErrors.name}>
             <input
               value={form.name}
               onChange={(event) => updateField("name", event.target.value)}
               maxLength={80}
-              placeholder="Sierra Universal Promoters"
+              placeholder={i18nText("ui.literals.ka54e5aa76994")}
               aria-invalid={fieldErrors.name ? "true" : undefined}
               className={`h-12 w-full rounded-2xl border bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200 ${fieldErrors.name ? "border-rose-300" : "border-transparent"}`}
             />
           </Field>
-          <Field label="Handle">
+          <Field label={i18nText("ui.literals.kc0392b2b1c47")}>
             <div className="flex h-12 items-center rounded-2xl bg-slate-100 px-4 focus-within:ring-2 focus-within:ring-sky-200">
               <span className="text-sm font-black text-slate-400">@</span>
               <input
                 value={form.slug}
                 onChange={(event) => updateField("slug", normalizeSpaceSlug(event.target.value))}
-                placeholder={suggestedSlug || "space-handle"}
+                placeholder={suggestedSlug || i18nText("ui.literals.k0d766b9585da")}
                 className="min-w-0 flex-1 bg-transparent pl-1 text-sm font-bold text-slate-900 outline-none"
               />
             </div>
-            {suggestedSlug ? <p className="mt-1 text-xs font-bold text-slate-400">Public handle: @{suggestedSlug}</p> : null}
+            {suggestedSlug ? <p className="mt-1 text-xs font-bold text-slate-400">{i18nText("ui.literals.k1875a2080ace")}{suggestedSlug}</p> : null}
           </Field>
-          <Field label="Type">
+          <Field label={i18nText("ui.literals.k3deb74565196")}>
             <select
               value={form.category}
               onChange={(event) => updateField("category", event.target.value)}
@@ -194,27 +195,27 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               ))}
             </select>
           </Field>
-          <Field label="Location">
+          <Field label={i18nText("ui.literals.kd219c68101f5")}>
             <input
               value={form.location}
               onChange={(event) => updateField("location", event.target.value)}
               maxLength={120}
-              placeholder="Freetown, Sierra Leone"
+              placeholder={i18nText("ui.literals.k6fb4e27edc8d")}
               className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
             />
           </Field>
-          <Field label="Contact email" error={fieldErrors.email}>
+          <Field label={i18nText("ui.literals.k726a1ceebd2e")} error={fieldErrors.email}>
             <input
               value={form.email}
               onChange={(event) => updateField("email", event.target.value)}
               type="email"
               maxLength={120}
-              placeholder="team@example.com"
+              placeholder={i18nText("ui.literals.k5c9394b3c020")}
               aria-invalid={fieldErrors.email ? "true" : undefined}
               className={`h-12 w-full rounded-2xl border bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200 ${fieldErrors.email ? "border-rose-300" : "border-transparent"}`}
             />
           </Field>
-          <Field label="Phone">
+          <Field label={i18nText("ui.literals.k77064d526523")}>
             <input
               value={form.phone}
               onChange={(event) => updateField("phone", event.target.value)}
@@ -223,7 +224,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
             />
           </Field>
-          <Field label="Website" error={fieldErrors.websiteUrl}>
+          <Field label={i18nText("ui.literals.k2e8a57cc5c47")} error={fieldErrors.websiteUrl}>
             <input
               value={form.websiteUrl}
               onChange={(event) => updateField("websiteUrl", event.target.value)}
@@ -235,13 +236,13 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
           </Field>
         </div>
 
-        <Field label="Bio" className="mt-4">
+        <Field label={i18nText("ui.literals.kb31fc969b488")} className="mt-4">
           <textarea
             value={form.bio}
             onChange={(event) => updateField("bio", event.target.value)}
             maxLength={280}
             rows={4}
-            placeholder="What should people know about this Space?"
+            placeholder={i18nText("ui.literals.k41aac5cc1c5e")}
             className="w-full resize-none rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold leading-6 text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
           />
         </Field>
@@ -250,7 +251,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
           <div className="flex items-start gap-3">
             <HiOutlineSparkles className="mt-0.5 flex-none text-xl text-sky-700" />
             <p className="text-sm font-semibold leading-6 text-slate-700">
-              KunThai will create your owner role and default departments automatically. You can invite administrators, moderators, editors, customer support, and analysts after the Space exists.
+              {i18nText("ui.literals.k1fe95917c190")}
             </p>
           </div>
         </div>
@@ -262,7 +263,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
           disabled={saving}
           className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
-          {saving ? "Creating Space" : "Create Space"}
+          {saving ? i18nText("ui.literals.k8bf6e4dcce63") : i18nText("ui.literals.kb50606b40277")}
         </button>
       </form>
     </div>

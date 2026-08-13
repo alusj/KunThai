@@ -622,6 +622,65 @@
     overflow-wrap: anywhere;
     word-break: break-word;
   }
+
+  .kt-seller-action-menu-enter {
+    animation: kt-seller-action-menu-enter 300ms var(--kt-ease-emphasized) both;
+    transform-origin: top right;
+  }
+
+  .kt-seller-action-item {
+    animation: kt-seller-action-item 320ms var(--kt-ease-emphasized) both;
+  }
+
+  .kt-seller-screen-content {
+    animation: kt-seller-screen-content 420ms var(--kt-ease-emphasized) 80ms both;
+  }
+
+  .kt-seller-detail-swap {
+    animation: kt-seller-detail-swap 280ms var(--kt-ease-emphasized) both;
+  }
+
+  .kt-catalog-insight-hero {
+    animation: kt-catalog-insight-hero 420ms var(--kt-ease-emphasized) both;
+  }
+
+  .kt-catalog-insight-tile,
+  .kt-catalog-insight-section {
+    animation: kt-catalog-insight-rise 440ms var(--kt-ease-emphasized) both;
+  }
+
+  .kt-catalog-insight-bar {
+    animation: kt-catalog-insight-bar 820ms var(--kt-ease-emphasized) both;
+    transform-origin: left center;
+    width: var(--kt-insight-width, 0%);
+  }
+
+  .kt-catalog-mini-bar {
+    animation: kt-catalog-mini-bar 620ms var(--kt-ease-emphasized) both;
+    height: var(--kt-mini-height, 0%);
+    transform-origin: bottom center;
+  }
+
+  .kt-intelligence-metric {
+    animation: kt-intelligence-metric-enter 360ms var(--kt-ease-emphasized) both;
+  }
+
+  .kt-intelligence-icon-active {
+    animation: kt-intelligence-icon-active 520ms var(--kt-ease-emphasized) both;
+  }
+
+  .kt-intelligence-active-glow {
+    animation: kt-intelligence-active-glow 420ms var(--kt-ease-standard) both;
+  }
+
+  .kt-intelligence-progress {
+    animation: kt-intelligence-progress 520ms var(--kt-ease-emphasized) both;
+    transform-origin: left center;
+  }
+
+  .kt-intelligence-row {
+    animation: kt-intelligence-row 340ms var(--kt-ease-emphasized) both;
+  }
 }
 
 @keyframes radarFloat {
@@ -1239,6 +1298,126 @@
   /* Gentle ease-out so pinch/double-tap zoom and the swipe-down spring-back
      glide instead of snapping. */
   transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@keyframes kt-seller-action-menu-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-seller-action-item {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-seller-screen-content {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-seller-detail-swap {
+  from {
+    opacity: 0;
+    transform: translate3d(8px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-catalog-insight-hero {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-catalog-insight-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-catalog-insight-bar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes kt-catalog-mini-bar {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes kt-intelligence-metric-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 0, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kt-intelligence-icon-active {
+  0% { transform: scale(0.82) rotate(-8deg); }
+  65% { transform: scale(1.12) rotate(4deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+@keyframes kt-intelligence-active-glow {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes kt-intelligence-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes kt-intelligence-row {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Keep the source card continuously composited while its portal copy expands

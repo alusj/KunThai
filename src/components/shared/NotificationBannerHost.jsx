@@ -17,6 +17,7 @@ import {
 } from "../../Backend/services/explore/realtimeService";
 import { readExploreSettings } from "../../Backend/services/explore/preferencesService";
 import { haptics, sounds } from "../../Backend/services/feedbackService";
+import { t as i18nText } from "../../i18n/index";
 
 const BANNER_EXIT_MS = 280;
 const BANNER_DURATION_MS = 6000;
@@ -187,7 +188,7 @@ export default function NotificationBannerHost({ userId = "" }) {
     <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1300] flex flex-col items-center gap-2 px-3 sm:top-5">
       {items.map((item) => {
         const Icon = item.tone === "message" ? HiOutlineChatBubbleLeftRight : HiOutlineBellAlert;
-        const motionClass = item.leaving ? "kt-toast-collapse-out" : "kt-toast-expand-in";
+        const motionClass = item.leaving ? i18nText("ui.literals.k13bd821f82c9") : i18nText("ui.literals.k4745c745e373");
         return (
           <div
             key={item.id}
@@ -221,7 +222,7 @@ export default function NotificationBannerHost({ userId = "" }) {
               type="button"
               onClick={() => dismissBanner(item.id)}
               className="m-2 flex h-9 w-9 flex-none items-center justify-center self-start rounded-2xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
-              aria-label="Dismiss notification"
+              aria-label={i18nText("ui.literals.kdc83cd803134")}
             >
               <HiOutlineXMark />
             </button>

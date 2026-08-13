@@ -79,7 +79,7 @@ export default function TodaySummaryCard({ today }) {
         ))}
       </div>
 
-      <div className="mt-4">
+      <div key={activeItem.key} className="kt-seller-detail-swap mt-4">
         <TodaySummaryPanel item={activeItem} />
       </div>
     </section>

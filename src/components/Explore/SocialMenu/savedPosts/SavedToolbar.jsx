@@ -1,4 +1,5 @@
 import { HiOutlineFolderPlus, HiOutlineMagnifyingGlass } from "react-icons/hi2";
+import { t as i18nText } from "../../../../i18n/index";
 
 export default function SavedToolbar({ query, onCreateCollection, onQueryChange }) {
   return (
@@ -9,7 +10,7 @@ export default function SavedToolbar({ query, onCreateCollection, onQueryChange 
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Search your saved posts and videos..."
+            placeholder={i18nText("ui.literals.k58b5cec7a5a2")}
             className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
           />
         </div>
@@ -17,7 +18,7 @@ export default function SavedToolbar({ query, onCreateCollection, onQueryChange 
           type="button"
           onClick={onCreateCollection}
           className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-xl text-white"
-          aria-label="Create collection"
+          aria-label={i18nText("ui.literals.kbe9ad140f5c9")}
         >
           <HiOutlineFolderPlus />
         </button>

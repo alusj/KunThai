@@ -6,6 +6,7 @@ import {
   getKunThaiAccountEmailHint,
   sendKunThaiAccountVerificationLink,
 } from "../../Backend/services/accountIdentityService";
+import { t as i18nText } from "../../i18n/index";
 
 const VERIFICATION_SENT_MESSAGE =
   "We sent a secure verification link to your email. Open it to continue.";
@@ -60,13 +61,13 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
       const match = await findKunThaiAccount({ email, phone, country });
 
       if (!match) {
-        setError("We could not match that email and phone number. Check the details and try again.");
+        setError(i18nText("ui.literals.k89198b035307"));
         return;
       }
 
       setAccount(match);
     } catch (lookupError) {
-      setError(lookupError.message || "We could not securely look up this account.");
+      setError(lookupError.message || i18nText("ui.literals.kb8ef41c84939"));
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
       await sendKunThaiAccountVerificationLink(email, redirectTo);
       setSent(true);
     } catch (sendError) {
-      setError(sendError.message || "We could not send the verification link.");
+      setError(sendError.message || i18nText("ui.literals.k2b5a126eb050"));
     } finally {
       setLoading(false);
     }
@@ -117,12 +118,12 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
             className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-950"
           >
             <ArrowLeft size={18} aria-hidden="true" />
-            Back
+            {i18nText("ui.literals.kb52b36b7269f")}
           </button>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close account recovery"
+            aria-label={i18nText("ui.literals.k3aa886dd2357")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
           >
             <X size={18} aria-hidden="true" />
@@ -134,7 +135,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
             {sent ? <Mail size={24} aria-hidden="true" /> : <ShieldCheck size={24} aria-hidden="true" />}
           </div>
           <h2 id="find-account-title" className="mt-4 text-2xl font-bold text-slate-950">
-            {sent ? "Check your email" : "Find my account"}
+            {sent ? i18nText("ui.literals.kfab9f40578d8") : i18nText("ui.literals.ke396727d1931")}
           </h2>
 
           {sent ? (
@@ -144,19 +145,19 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
           ) : account ? (
             <div className="mt-4 space-y-4">
               <p className="text-sm leading-6 text-slate-600">
-                We found a matching account. Only masked details are shown until you verify ownership.
+                {i18nText("ui.literals.k13f1fbfaf6e9")}
               </p>
               <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50 px-4">
                 <div className="flex items-center justify-between gap-4 py-3">
-                  <dt className="text-sm text-slate-500">Name</dt>
+                  <dt className="text-sm text-slate-500">{i18nText("ui.literals.k709a23220f2c")}</dt>
                   <dd className="text-right text-sm font-semibold text-slate-900">{account.maskedName}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-4 py-3">
-                  <dt className="text-sm text-slate-500">Email</dt>
+                  <dt className="text-sm text-slate-500">{i18nText("ui.literals.k84add5b29527")}</dt>
                   <dd className="min-w-0 break-all text-right text-sm font-semibold text-slate-900">{account.maskedEmail}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-4 py-3">
-                  <dt className="text-sm text-slate-500">Phone</dt>
+                  <dt className="text-sm text-slate-500">{i18nText("ui.literals.k77064d526523")}</dt>
                   <dd className="text-right text-sm font-semibold text-slate-900">{account.maskedPhone}</dd>
                 </div>
               </dl>
@@ -164,22 +165,22 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
           ) : (
             <form onSubmit={handleLookup} className="mt-4 space-y-4">
               <p className="text-sm leading-6 text-slate-600">
-                Use the hint below, then enter the full email to verify the match.
+                {i18nText("ui.literals.kb41bf1120292")}
               </p>
               <div className="flex items-center justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-                <span className="text-sm font-semibold text-blue-700">Email hint</span>
+                <span className="text-sm font-semibold text-blue-700">{i18nText("ui.literals.k7737ec20784a")}</span>
                 <span className="min-w-0 break-all text-right text-sm font-bold text-slate-950" aria-live="polite">
-                  {hintLoading ? "Loading..." : emailHint || "Not available"}
+                  {hintLoading ? i18nText("ui.literals.kb04ba49f8486") : emailHint || i18nText("ui.literals.kd1a17af19f53")}
                 </span>
               </div>
               <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-slate-700">Connected email</span>
+                <span className="mb-2 block text-sm font-semibold text-slate-700">{i18nText("ui.literals.kfd426d062a52")}</span>
                 <input
                   ref={emailRef}
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Enter the full email"
+                  placeholder={i18nText("ui.literals.k8b31ed1b1de5")}
                   autoComplete="email"
                   required
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -190,7 +191,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
                 disabled={loading}
                 className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
               >
-                {loading ? "Checking securely..." : "Find my account"}
+                {loading ? i18nText("ui.literals.kbaf575c3ba2d") : i18nText("ui.literals.ke396727d1931")}
               </button>
             </form>
           )}
@@ -208,7 +209,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
               disabled={loading}
               className="mt-5 w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Sending link..." : "Send verification link"}
+              {loading ? i18nText("ui.literals.k0351c1e78f60") : i18nText("ui.literals.k1b86a4b58062")}
             </button>
           ) : null}
 
@@ -218,7 +219,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
             disabled={loading}
             className="mt-3 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
           >
-            Try another number
+            {i18nText("ui.literals.ka5f935c2a695")}
           </button>
         </div>
       </section>

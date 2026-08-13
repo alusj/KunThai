@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineCheckBadge, HiOutlineEllipsisHorizontal, HiOutlineNoSymbol, HiOutlineUserMinus, HiOutlineUsers } from "react-icons/hi2";
 
 import Avatar from "../../../shared/Avatar";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function ConnectionCard({ user, mode = "discover", onBlock, onFollow, onRemove, onViewProfile }) {
   const isFollowing = Boolean(user.isFollowing);
@@ -32,7 +33,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
   return (
     <article className={`relative overflow-visible rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${menuOpen ? "z-[60]" : "z-0"}`}>
       <div className="flex items-start gap-4">
-        <button type="button" onClick={onViewProfile} className="flex-none" aria-label={`View ${user.name}`}>
+        <button type="button" onClick={onViewProfile} className="flex-none" aria-label={i18nText("ui.literals.keaf4bde1e0e2", { value0: user.name })}>
           <Avatar name={user.name} src={user.avatar_url} size="md" />
         </button>
 
@@ -46,7 +47,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
               type="button"
               onClick={() => setMenuOpen((current) => !current)}
               className="flex h-10 w-10 flex-none items-center justify-center rounded-2xl bg-slate-100 text-2xl text-slate-700 hover:bg-slate-200"
-              aria-label={`Open actions for ${user.name}`}
+              aria-label={i18nText("ui.literals.ka6a6ae2566b8", { value0: user.name })}
               aria-expanded={menuOpen}
             >
               <HiOutlineEllipsisHorizontal />
@@ -59,7 +60,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
                   onClick={() => runMenuAction(onViewProfile)}
                   className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                 >
-                  View profile
+                  {i18nText("ui.literals.kb98795a246f0")}
                 </button>
                 {isFollowing ? (
                   <button
@@ -68,7 +69,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineUserMinus className="text-lg" />
-                    Remove connection
+                    {i18nText("ui.literals.k7312a31a2c88")}
                   </button>
                 ) : null}
                 {mode !== "discover" ? (
@@ -78,7 +79,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineUserMinus className="text-lg" />
-                    Remove from list
+                    {i18nText("ui.literals.k23a97691b4e6")}
                   </button>
                 ) : null}
                 <button
@@ -87,7 +88,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
                   className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-rose-700 hover:bg-rose-50"
                 >
                   <HiOutlineNoSymbol className="text-lg" />
-                  Block account
+                  {i18nText("ui.literals.kaef4b8d3f374")}
                 </button>
               </div>
             ) : null}
@@ -97,7 +98,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
           </button>
           {isSpace ? (
             <span className="mt-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-sky-700">
-              A Space
+              {i18nText("ui.literals.k85da38276a71")}
             </span>
           ) : null}
           {user.bio ? <p className="mt-2 line-clamp-2 text-base font-semibold leading-7 text-slate-600">{user.bio}</p> : null}
@@ -108,7 +109,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
             {user.mutual_count ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-slate-600">
                 <HiOutlineUsers />
-                {user.mutual_count} mutual
+                {user.mutual_count} {i18nText("ui.literals.k410e5f4f25f6")}
               </span>
             ) : null}
           </div>
@@ -122,7 +123,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
             onClick={onFollow}
             className="h-12 w-full rounded-2xl bg-slate-950 px-4 text-base font-black text-white transition hover:bg-slate-800"
           >
-            Connect
+            {i18nText("ui.literals.kb65463cb6a42")}
           </button>
         ) : null}
       </div>

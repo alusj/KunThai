@@ -1,4 +1,5 @@
 import { ArrowRight, Clock3, LogOut, ShieldOff } from "lucide-react";
+import { t as i18nText } from "../../i18n/index";
 
 export default function AccountRestrictionNotice({ control, availablePage, onOpenAvailablePage, onSignOut }) {
   const banned = control.status === "banned";
@@ -10,13 +11,13 @@ export default function AccountRestrictionNotice({ control, availablePage, onOpe
       <section className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
         <span className="grid h-12 w-12 place-items-center rounded-lg bg-red-50 text-red-700"><ShieldOff size={24} /></span>
         <h1 className="mt-5 text-2xl font-black text-zinc-950">{title}</h1>
-        <p className="mt-3 text-sm font-medium leading-6 text-zinc-600">{control.reason || "KunThai placed an administrative restriction on this account."}</p>
-        {control.expires_at ? <p className="mt-4 flex items-center gap-2 text-sm font-bold text-zinc-700"><Clock3 size={17} className="text-zinc-400" /> Review date: {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(control.expires_at))}</p> : null}
+        <p className="mt-3 text-sm font-medium leading-6 text-zinc-600">{control.reason || i18nText("ui.literals.kc5ff82232366")}</p>
+        {control.expires_at ? <p className="mt-4 flex items-center gap-2 text-sm font-bold text-zinc-700"><Clock3 size={17} className="text-zinc-400" /> {i18nText("ui.literals.ka777fff12198")} {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(control.expires_at))}</p> : null}
         <div className="mt-7 grid gap-2 sm:grid-cols-2">
-          {availablePage ? <button type="button" onClick={onOpenAvailablePage} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800">Open {availablePage === "marketplace" ? "UrMall" : availablePage} <ArrowRight size={17} /></button> : null}
-          <button type="button" onClick={onSignOut} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-700 hover:bg-zinc-50"><LogOut size={17} /> Sign out</button>
+          {availablePage ? <button type="button" onClick={onOpenAvailablePage} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800">{i18nText("ui.literals.kcf9b77061f7b")} {availablePage === "marketplace" ? "UrMall" : availablePage} <ArrowRight size={17} /></button> : null}
+          <button type="button" onClick={onSignOut} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-700 hover:bg-zinc-50"><LogOut size={17} /> {i18nText("ui.literals.kdc1649a16c14")}</button>
         </div>
-        <p className="mt-6 text-xs font-semibold leading-5 text-zinc-500">Contact KunThai Support to request a review or appeal this decision.</p>
+        <p className="mt-6 text-xs font-semibold leading-5 text-zinc-500">{i18nText("ui.literals.k547d517ee68e")}</p>
       </section>
     </main>
   );

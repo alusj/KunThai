@@ -7,6 +7,7 @@ import AdvertMetaActions from "../../../shared/AdvertMetaActions";
 import Avatar from "../../../shared/Avatar";
 import ExpandablePostText from "../../../shared/ExpandablePostText";
 import { getAdvertMeta, getPostTitle, isAdvertPost } from "../../../shared/advertUtils";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function SwipCaption({ categoryLabel, contextLabel, post, onViewProfile }) {
   const { t } = useI18n();
@@ -49,7 +50,7 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
               {post.verified ? <HiOutlineCheckBadge className="flex-none text-sky-300" /> : null}
             </span>
             <span className="block truncate text-[13px] font-black text-white/75">
-              @{post.author_username || "user"} &middot; {formatRelativeTime(post.created_at)}
+              @{post.author_username || i18nText("ui.literals.k12dea96fec20")} &middot; {formatRelativeTime(post.created_at)}
             </span>
           </span>
         </button>
@@ -83,7 +84,7 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
             ) : null}
 
             <div className="flex min-w-0 items-center gap-2">
-              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{contextLabel || "Suggested"}</span>
+              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{contextLabel || i18nText("ui.literals.k7fcd8d44c6f2")}</span>
               {categoryLabel ? (
                 <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{categoryLabel}</span>
               ) : null}

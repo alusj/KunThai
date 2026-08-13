@@ -30,6 +30,7 @@ import { showToast } from "./Backend/services/toastService";
 import { haptics } from "./Backend/services/feedbackService";
 import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed, runConnectivityChecks } from "./Backend/services/networkService";
 import supabase from "./Backend/lib/supabaseClient";
+import { t as i18nText } from "./i18n/index";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
@@ -199,12 +200,12 @@ function AppLoading({ page = "explore" }) {
         {showPatienceNotice ? (
           <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
             <p className="text-sm font-black text-slate-950">
-              {offline ? "Network unavailable" : networkFault ? "Network unstable" : "Still getting things ready"}
+              {offline ? i18nText("ui.literals.k78bc44dac752") : networkFault ? i18nText("ui.literals.k5668eeef0e08") : i18nText("ui.literals.k28f19756579e")}
             </p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
               {networkFault
-                ? "KunThai will continue automatically when the connection improves."
-                : "This is taking a little longer than usual — hang tight."}
+                ? i18nText("ui.literals.k4955eabca5a9")
+                : i18nText("ui.literals.ke92c26e43495")}
             </p>
           </div>
         ) : null}
@@ -219,7 +220,7 @@ function AppLoading({ page = "explore" }) {
         ) : null}
         {!navigator.onLine ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-            Showing cached {page} layout while the connection recovers.
+            {i18nText("ui.literals.kd1d9af29fa05")} {page} {i18nText("ui.literals.k0ba189b0877f")}
           </div>
         ) : null}
       </div>
@@ -280,8 +281,8 @@ export default function App() {
 
     if (!["successful", "succeeded", "completed"].includes(paymentReturn.status)) {
       clearFlutterwavePaymentReturn();
-      showToast("The card payment was not completed. No credits were added.", "warning", {
-        title: "Payment not completed",
+      showToast(i18nText("ui.literals.k84d8affea148"), "warning", {
+        title: i18nText("ui.literals.k21fd7cb6e40c"),
       });
       return;
     }
@@ -289,12 +290,12 @@ export default function App() {
     verifyFlutterwavePaymentReturn(paymentReturn)
       .then((result) => {
         window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
-        showToast(`${Number(result.credits || 0)} Visibility Credits were added to your balance.`, "success", {
-          title: "Payment confirmed",
+        showToast(i18nText("ui.literals.kb17e3e2167e5", { value0: Number(result.credits || 0) }), "success", {
+          title: i18nText("ui.literals.k43a3f3cba1c4"),
         });
       })
       .catch((error) => {
-        showToast(error.message || "KunThai could not verify this payment yet.", error.pending ? "warning" : "danger", {
+        showToast(error.message || i18nText("ui.literals.k2d184a7f2980"), error.pending ? "warning" : "danger", {
           title: error.pending ? "Payment processing" : "Payment verification",
         });
       })
@@ -320,20 +321,20 @@ export default function App() {
       }
 
       if (!online && (initial || previousOnline)) {
-        showToast("Network unavailable.", "warning", {
-          title: "Network update",
+        showToast(i18nText("ui.literals.k5c9fe986a7bd"), "warning", {
+          title: i18nText("ui.literals.kd589e58dce1b"),
           duration: 2800,
           origin: false,
         });
       } else if (online && previousOnline === false) {
-        showToast("Network restored.", "success", {
-          title: "Network update",
+        showToast(i18nText("ui.literals.k44b2cd5f7f58"), "success", {
+          title: i18nText("ui.literals.kd589e58dce1b"),
           duration: 2600,
           origin: false,
         });
       } else if (unstable && (initial || !previousUnstable)) {
-        showToast("Network unstable.", "warning", {
-          title: "Network update",
+        showToast(i18nText("ui.literals.k131cd2aeb63b"), "warning", {
+          title: i18nText("ui.literals.kd589e58dce1b"),
           duration: 2800,
           origin: false,
         });
@@ -369,8 +370,8 @@ export default function App() {
     finalizeStoredVisibilityInvite(userId)
       .then((result) => {
         if (result?.status === "credited" && Number(result.creditsAwarded || 0) > 0) {
-          showToast("Your inviter received Visibility Credits.", "success", {
-            title: "Invite verified",
+          showToast(i18nText("ui.literals.ka349b6ce7bf9"), "success", {
+            title: i18nText("ui.literals.kc4f06bac9541"),
           });
         }
       })
@@ -522,7 +523,7 @@ export default function App() {
   // login screen, onboarding, or the app - so show a plain backdrop rather than
   // the app skeleton, which never matches the login or onboarding screens.
   if (loading) {
-    return <div className="min-h-screen bg-slate-100" aria-label="Loading KunThai" />;
+    return <div className="min-h-screen bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />;
   }
 
   if (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal) {
@@ -532,7 +533,7 @@ export default function App() {
       return (
         <div
           className="min-h-screen bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)]"
-          aria-label="Loading KunThai onboarding"
+          aria-label={i18nText("ui.literals.k1467547ea632")}
         />
       );
     }
@@ -914,10 +915,10 @@ function ScreenshotVoicePrompt({ page }) {
           <span className="min-w-0">
             <span className="flex items-center gap-1.5 text-sm font-black">
               <HiOutlineLightBulb className="text-base text-sky-200" />
-              Add to Your Voice
+              {i18nText("ui.literals.k8443fc46e9fd")}
             </span>
             <span className="mt-0.5 block truncate text-xs font-bold text-slate-300">
-              Attach the screenshot and tell KunThai what happened.
+              {i18nText("ui.literals.kd47362fc1297")}
             </span>
           </span>
         </button>
@@ -925,7 +926,7 @@ function ScreenshotVoicePrompt({ page }) {
           type="button"
           onClick={dismiss}
           className="grid h-11 w-11 flex-none place-items-center rounded-[18px] bg-slate-100 text-slate-600 hover:bg-slate-200"
-          aria-label="Dismiss screenshot prompt"
+          aria-label={i18nText("ui.literals.kd9371b9a4bd2")}
         >
           <HiOutlineXMark className="text-xl" />
         </button>

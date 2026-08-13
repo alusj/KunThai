@@ -3,6 +3,7 @@ import { LogIn, ShieldAlert, X } from "lucide-react";
 
 import { endGuestVisit, GUEST_GATE_EVENT } from "../../Backend/services/guestModeService";
 import AppPortal from "./AppPortal";
+import { t as i18nText } from "../../i18n/index";
 
 const AUTO_HIDE_MS = 9000;
 
@@ -35,7 +36,7 @@ export default function GuestGateCard() {
       <div className="pointer-events-none fixed inset-0 z-[1500] flex items-center justify-center px-4">
         <section
           role="alertdialog"
-          aria-label="Sign in to continue"
+          aria-label={i18nText("ui.literals.k9a78430145b2")}
           className="kt-toast-expand-in pointer-events-auto w-full max-w-md overflow-hidden rounded-[26px] border border-orange-300 bg-white shadow-2xl shadow-orange-950/25"
         >
           <div className="h-1.5 bg-gradient-to-r from-orange-500 via-rose-500 to-red-600" />
@@ -46,16 +47,16 @@ export default function GuestGateCard() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-black text-slate-950">
-                Sign in required before you {gate.reaction} this {gate.target}.
+                {i18nText("ui.literals.k680cd62a49ab")} {gate.reaction} {i18nText("ui.literals.kc2543fff3bfa")} {gate.target}.
               </p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                Guest mode is view-only. To post, comment, message, shop, or book, use a real KunThai account.
+                {i18nText("ui.literals.kb8209c20919a")}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setGate(null)}
-              aria-label="Dismiss"
+              aria-label={i18nText("ui.literals.k70afe9eff3f2")}
               className="kt-touchable grid h-9 w-9 flex-none place-items-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
             >
               <X size={16} />
@@ -68,7 +69,7 @@ export default function GuestGateCard() {
               onClick={() => setGate(null)}
               className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700"
             >
-              Keep browsing
+              {i18nText("ui.literals.k07d18c380e22")}
             </button>
             <button
               type="button"
@@ -80,7 +81,7 @@ export default function GuestGateCard() {
               className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-lg shadow-orange-900/25 transition hover:bg-orange-600 disabled:opacity-60"
             >
               <LogIn size={17} />
-              {leaving ? "Opening..." : "Sign in to continue"}
+              {leaving ? i18nText("ui.literals.k3337b7fd28ce") : i18nText("ui.literals.k9a78430145b2")}
             </button>
           </div>
         </section>

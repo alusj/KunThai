@@ -15,6 +15,7 @@ import { ensureBuyerLocation, useBuyerLocation } from "../../Backend/utils/buyer
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
 import SellerProfileDrawer from "./Browse/SellerProfileDrawer";
+import { t as i18nText } from "../../i18n/index";
 
 const EMPTY = { restaurants: [], hotels: [], properties: [] };
 const VERTICAL_CATALOG_STORAGE_KEY = "kunthai.marketplace.verticalCatalog.v1";
@@ -532,7 +533,7 @@ function PropertyCard({ item, onClick }) {
       <h3 className="line-clamp-2 text-[13px] font-black leading-[1.05rem] text-gray-950">{item.title}</h3>
       <p className="text-base font-black text-gray-950">
         {money(item.price, item.currency)}
-        {item.purpose === "rent" ? <span className="text-[11px] font-bold text-gray-400">/{item.rent_period || "month"}</span> : null}
+        {item.purpose === "rent" ? <span className="text-[11px] font-bold text-gray-400">/{item.rent_period || i18nText("ui.literals.k021710fa7866")}</span> : null}
       </p>
       <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
         <CardInfoRow icon={MapPin}>{verticalCardLocation(item, buyerLocation) || item.address}</CardInfoRow>

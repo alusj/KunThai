@@ -2,6 +2,7 @@ import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import DiscoverList from "./DiscoverList";
 import ImportContactsPanel from "./ImportContactsPanel";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function Discover({ connectionState, onViewProfile }) {
   const { items = [], loading = false, error = "", blockUser, followUser, removeUser, reload } = connectionState || {};
@@ -18,7 +19,7 @@ export default function Discover({ connectionState, onViewProfile }) {
     return (
       <>
         <ImportContactsPanel onFollow={followUser} onViewProfile={onViewProfile} />
-        <EmptyState title="No suggestions yet" message="Explore will suggest people and brands for you here." />
+        <EmptyState title={i18nText("ui.literals.k274b8df4761d")} message={i18nText("ui.literals.k523bcdc17445")} />
       </>
     );
   }

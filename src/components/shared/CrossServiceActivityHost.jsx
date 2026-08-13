@@ -8,6 +8,7 @@ import {
   subscribeNotificationSeen,
 } from "../../Backend/services/notificationSeenStore";
 import { showKunThaiSystemNotification } from "../../Backend/services/pushService";
+import { t as i18nText } from "../../i18n/index";
 
 const ACTIVITY_REFRESH_MS = 20_000;
 const EMPTY_ACTIVITY = {
@@ -175,22 +176,22 @@ export default function CrossServiceActivityHost({
 
         if (previous.initialized) {
           announceActivity({
-            title: "URMALL UPDATE",
-            body: "You have a new order.",
+            title: i18nText("ui.literals.kb27663c8d970"),
+            body: i18nText("ui.literals.k27e7dc4c1d6f"),
             item: firstNewItem(nextState.sellerOrderItems, previous.sellerOrderItems),
             page: "marketplace",
             source: "orders",
           });
           announceActivity({
-            title: "URMALL UPDATE",
-            body: "You have a new message.",
+            title: i18nText("ui.literals.kb27663c8d970"),
+            body: i18nText("ui.literals.k509789d18404"),
             item: firstNewItem(nextState.messageItems, previous.messageItems),
             page: "marketplace",
             source: "messages",
           });
           announceActivity({
-            title: "URMALL UPDATE",
-            body: "You have a new notification.",
+            title: i18nText("ui.literals.kb27663c8d970"),
+            body: i18nText("ui.literals.k8b400f126918"),
             item: firstNewItem(nextState.notificationItems, previous.notificationItems),
             page: "marketplace",
             source: "notifications",
@@ -249,15 +250,15 @@ export default function CrossServiceActivityHost({
 
         if (previous.initialized) {
           announceActivity({
-            title: "URRIDE UPDATE",
-            body: "You have a new booking.",
+            title: i18nText("ui.literals.kd72dbe16af0c"),
+            body: i18nText("ui.literals.kace42db22b36"),
             item: firstNewItem(nextState.bookingItems, previous.bookingItems),
             page: "transport",
             source: "bookings",
           });
           announceActivity({
-            title: "URRIDE UPDATE",
-            body: "You have a new notification.",
+            title: i18nText("ui.literals.kd72dbe16af0c"),
+            body: i18nText("ui.literals.k8b400f126918"),
             item: firstNewItem(nextState.notificationItems, previous.notificationItems),
             page: "transport",
             source: "notifications",

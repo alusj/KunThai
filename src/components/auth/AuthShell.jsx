@@ -1,4 +1,5 @@
 import { Compass, ShoppingBag, CarFront, ShieldCheck } from "lucide-react";
+import { t as i18nText, uiText } from "../../i18n/index";
 
 const defaultPanels = [
   {
@@ -38,14 +39,13 @@ export default function AuthShell({
         <section className="hidden rounded-[32px] border border-white/10 bg-white/[0.05] p-8 shadow-[0_28px_100px_rgba(0,0,0,0.35)] backdrop-blur-xl lg:block">
           <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.34em] text-sky-100">
             <ShieldCheck size={14} />
-            Cross-platform onboarding
+            {i18nText("ui.literals.k6df1acfd4aff")}
           </p>
           <h2 className="mt-6 max-w-xl text-5xl font-semibold leading-[1.02] tracking-[-0.05em] text-white">
-            One account for Explore, Marketplace, and Transport.
+            {i18nText("ui.literals.kfb57725746e0")}
           </h2>
           <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
-            KunThai should feel like one connected platform from the first minute. This onboarding prepares profile,
-            preferences, and default entry points so the app feels intentional across every surface.
+            {i18nText("ui.literals.k64ce09337c97")}
           </p>
 
           <div className="mt-10 grid gap-4">
@@ -60,8 +60,8 @@ export default function AuthShell({
                     <Icon size={20} />
                   </div>
                   <div>
-                    <p className="text-base font-semibold text-white">{panel.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-300">{panel.body}</p>
+                    <p className="text-base font-semibold text-white">{uiText(panel.title)}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">{uiText(panel.body)}</p>
                   </div>
                 </div>
               );

@@ -230,7 +230,7 @@ export default function SellerIntelligence() {
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <SellerIntelligenceMetric
             key={item.key}
             icon={item.icon}
@@ -238,12 +238,13 @@ export default function SellerIntelligence() {
             value={item.value}
             tone={item.tone}
             active={activeItem.key === item.key}
+            delayMs={index * 70}
             onClick={() => setActiveKey(item.key)}
           />
         ))}
       </div>
 
-      <div className="mt-4">
+      <div key={activeItem.key} className="kt-seller-detail-swap mt-4">
         <SellerIntelligencePanel item={activeItem} />
       </div>
     </section>

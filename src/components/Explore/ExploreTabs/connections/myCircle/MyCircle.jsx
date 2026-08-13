@@ -1,6 +1,7 @@
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import MyCircleList from "./MyCircleList";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function MyCircle({ connectionState, kind = "mycircle", onViewProfile }) {
   const { items = [], loading = false, error = "", blockUser, followUser, removeUser, reload } = connectionState || {};
@@ -16,8 +17,8 @@ export default function MyCircle({ connectionState, kind = "mycircle", onViewPro
   if (!items.length) {
     return (
       <EmptyState
-        title={kind === "followers" ? "No connections yet" : "No connections yet"}
-        message={kind === "followers" ? "People who connect with you will appear here." : "People and Spaces you connect with will appear here."}
+        title={kind === "followers" ? i18nText("ui.literals.k5bb01e901421") : i18nText("ui.literals.k5bb01e901421")}
+        message={kind === "followers" ? i18nText("ui.literals.k2ff004b5c1ad") : i18nText("ui.literals.k7b869c3e17ab")}
       />
     );
   }

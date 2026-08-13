@@ -11,6 +11,7 @@ import { useI18n } from "../../../../../i18n";
 import Avatar from "../../../shared/Avatar";
 import EmptyState from "../../../shared/EmptyState";
 import FeedPost from "./components/FeedPost";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function FeedList({
   posts,
@@ -353,7 +354,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
                     <Avatar name={profile.display_name || profile.username} src={profile.avatar_url} size="sm" />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-black text-slate-950">{profile.display_name || t("feed.profileFallback")}</span>
-                      <span className="block truncate text-xs font-bold text-slate-500">@{profile.username || "user"}</span>
+                      <span className="block truncate text-xs font-bold text-slate-500">@{profile.username || i18nText("ui.literals.k12dea96fec20")}</span>
                     </span>
                   </button>
                   <button

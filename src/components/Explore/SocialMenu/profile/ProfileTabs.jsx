@@ -3,7 +3,7 @@ import { useI18n } from "../../../../i18n";
 export default function ProfileTabs({ active, editable, onChange }) {
   const { t } = useI18n();
   const tabs = [
-    { id: "feed", label: "Feed" },
+    { id: "feed", label: t("profile.tabFeed") },
     { id: "swip", label: "Swip" },
     ...(editable
       ? [

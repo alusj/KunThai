@@ -5,6 +5,7 @@ import { shareUrMallLink } from "../../../Backend/services/shareCtaService";
 import { getProductCardLocation, buildCardSellerLocation } from "../../../Backend/utils/productCardLocation";
 import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/buyerLocationContext";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 function ProductImage({ product }) {
   if (product.imageUrl) {
@@ -126,7 +127,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
           <div className="min-w-0">
             <span className="inline-flex items-center gap-1 text-[11px] font-black text-amber-600">
               <Star size={12} fill="currentColor" />
-              {product.reviewCount ? `${product.rating.toFixed(1)} (${product.reviewCount})` : product.sales > 0 ? t("urmall.browse.soldN", { count: product.sales }) : t("urmall.browse.ratingNew")}
+              {product.reviewCount ? i18nText("ui.literals.kc189e8bc98e6", { value0: product.rating.toFixed(1), value1: product.reviewCount }) : product.sales > 0 ? t("urmall.browse.soldN", { count: product.sales }) : t("urmall.browse.ratingNew")}
             </span>
             <p className="truncate text-[10px] font-bold text-gray-400">{t("urmall.browse.inStock", { count: product.stock })}</p>
           </div>

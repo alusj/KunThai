@@ -5,6 +5,7 @@ import { createSellerVerificationRequest } from "../../../../../../../../../Back
 import { readRegisteredBusiness } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
+import { t as i18nText } from "../../../../../../../../../i18n/index";
 
 export default function VerificationCenter({ onBack }) {
   useI18n();
@@ -52,7 +53,7 @@ export default function VerificationCenter({ onBack }) {
                 {t("urmall.biz.board.verify.currentStatus")}
               </p>
               <h1 className="mt-2 text-2xl font-black text-gray-950">
-                {business?.verificationStatus || "pending"}
+                {business?.verificationStatus || i18nText("ui.literals.ke22586930a5b")}
               </h1>
               <p className="mt-2 text-sm font-semibold leading-6 text-emerald-950/75">
                 {t("urmall.biz.board.verify.hint")}

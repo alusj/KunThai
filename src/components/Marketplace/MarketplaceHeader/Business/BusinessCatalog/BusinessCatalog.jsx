@@ -5,7 +5,7 @@ import ProductManagementList from "./ProductManagementList";
 import ProductSummaryGrid from "./ProductSummaryGrid";
 import TopSellingProducts from "./TopSellingProducts";
 
-export default function BusinessCatalog({ mode = "store", onEditProduct, onViewProduct }) {
+export default function BusinessCatalog({ mode = "store", onEditProduct, onViewInsights, onViewProduct }) {
   useI18n();
   const {
     summary,
@@ -86,6 +86,10 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onViewP
             }
             if (action === "edit-listing") {
               onEditProduct?.(product);
+              return;
+            }
+            if (action === "insights") {
+              onViewInsights?.(product);
               return;
             }
             handleProductAction(product, action);

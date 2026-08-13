@@ -1,4 +1,5 @@
 import AppBackTab from "../../../shared/AppBackTab";
+import { t as i18nText } from "../../../../i18n/index";
 
 export default function SocialScreenHeader({ eyebrow = "Explore", subtitle = "", title, onBack }) {
   return (
@@ -7,7 +8,7 @@ export default function SocialScreenHeader({ eyebrow = "Explore", subtitle = "",
         {onBack ? (
           <AppBackTab
             onBack={onBack}
-            label="Back to Explore"
+            label={i18nText("ui.literals.k38824a3d1818")}
             historyKey="explore-shared-header"
             className="mt-0.5 flex-none"
             useHistoryLayer={false}

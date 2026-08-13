@@ -19,6 +19,7 @@ import {
 
 import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import { t as i18nText, uiText } from "../../../../i18n/index";
 
 const FUTURE_INTEREST_KEY = "kunthai.explore.futureFeatureInterest";
 
@@ -209,10 +210,10 @@ export default function FutureFeaturesScreen({ hideHeader = false, onOpenYourVoi
       const next = new Set(current);
       if (next.has(feature.id)) {
         next.delete(feature.id);
-        showToast(`${feature.title} removed from your interest list.`, "info");
+        showToast(i18nText("ui.literals.k49f54a297249", { value0: uiText(feature.title) }), "info");
       } else {
         next.add(feature.id);
-        showToast(`${feature.title} added to your interest list.`, "success");
+        showToast(i18nText("ui.literals.k3c409abcde01", { value0: uiText(feature.title) }), "success");
       }
       return next;
     });
@@ -222,17 +223,17 @@ export default function FutureFeaturesScreen({ hideHeader = false, onOpenYourVoi
     onOpenYourVoice?.({
       feedbackType: "idea",
       category: "explore",
-      title: feature ? `Future feature idea: ${feature.title}` : "Future feature idea",
+      title: feature ? i18nText("ui.literals.k972872bfd923", { value0: uiText(feature.title) }) : i18nText("ui.literals.k87df4bd03c64"),
       message: feature
-        ? `I am interested in ${feature.title}. My suggestion is: `
-        : "I have an idea for a future KunThai feature: ",
-      currentScreen: "Explore / Future Features",
+        ? i18nText("ui.literals.k05e9ea9738d6", { value0: uiText(feature.title) })
+        : i18nText("ui.literals.k6dec4b186455"),
+      currentScreen: i18nText("ui.literals.kb8124385f5c7"),
     });
   }
 
   return (
     <div>
-      {!hideHeader ? <SocialScreenHeader title="Future Features" subtitle="Explore planned KunThai ideas and mark what matters to you." /> : null}
+      {!hideHeader ? <SocialScreenHeader title={i18nText("ui.literals.k9d759a435368")} subtitle={i18nText("ui.literals.kcdc716a2026e")} /> : null}
 
       <div className="w-full space-y-5 px-4 py-4 sm:px-6 lg:px-8">
         <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
@@ -241,22 +242,22 @@ export default function FutureFeaturesScreen({ hideHeader = false, onOpenYourVoi
               <span className="grid h-14 w-14 place-items-center rounded-[20px] bg-slate-950 text-white">
                 <HiOutlineRocketLaunch className="text-3xl" />
               </span>
-              <p className="mt-4 text-xs font-black uppercase tracking-[0.2em] text-sky-700">KunThai roadmap</p>
-              <h3 className="mt-2 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">Advanced tools for creators, Spaces, businesses, and communities.</h3>
-              <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">These features are not live yet. This screen helps users discover what is coming and lets KunThai learn which tools people care about most.</p>
+              <p className="mt-4 text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.k9bd1d9ea4aa0")}</p>
+              <h3 className="mt-2 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">{i18nText("ui.literals.kab649ac326f1")}</h3>
+              <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">{i18nText("ui.literals.ka54a6404dffd")}</p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:w-80">
-              <RoadmapStat label="Features listed" value={allFeatures.length} />
-              <RoadmapStat label="Marked interest" value={interest.size} />
+              <RoadmapStat label={i18nText("ui.literals.kb0491b9810d8")} value={allFeatures.length} />
+              <RoadmapStat label={i18nText("ui.literals.k3f4277a00242")} value={interest.size} />
             </div>
           </div>
         </section>
 
         <section className="flex gap-2 overflow-x-auto rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm kuntai-scrollbar-none">
-          <FilterButton active={activeGroup === "all"} label="All" onClick={() => setActiveGroup("all")} />
+          <FilterButton active={activeGroup === "all"} label={i18nText("ui.literals.k6a72085653e4")} onClick={() => setActiveGroup("all")} />
           {featureGroups.map((group) => (
-            <FilterButton key={group.id} active={activeGroup === group.id} label={group.label} onClick={() => setActiveGroup(group.id)} />
+            <FilterButton key={group.id} active={activeGroup === group.id} label={uiText(group.label)} onClick={() => setActiveGroup(group.id)} />
           ))}
         </section>
 
@@ -281,8 +282,8 @@ export default function FutureFeaturesScreen({ hideHeader = false, onOpenYourVoi
             <HiOutlineLightBulb className="text-2xl" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-base font-black text-slate-950">Suggest another future feature</span>
-            <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">Open Your Voice with a product idea draft ready to send.</span>
+            <span className="block text-base font-black text-slate-950">{i18nText("ui.literals.kd3d2cc6ca281")}</span>
+            <span className="mt-1 block text-sm font-semibold leading-6 text-slate-600">{i18nText("ui.literals.k8a3195eda745")}</span>
           </span>
         </button>
       </div>
@@ -324,19 +325,19 @@ function FeatureCard({ feature, interested, onIdea, onToggle }) {
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-lg font-black text-slate-950">{feature.title}</h4>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">{feature.status}</span>
+              <h4 className="text-lg font-black text-slate-950">{uiText(feature.title)}</h4>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">{uiText(feature.status)}</span>
             </div>
-            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-sky-700">{feature.group}</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-sky-700">{uiText(feature.group)}</p>
           </div>
         </div>
       </div>
 
-      <p className="mt-4 text-sm font-semibold leading-7 text-slate-600">{feature.summary}</p>
+      <p className="mt-4 text-sm font-semibold leading-7 text-slate-600">{uiText(feature.summary)}</p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {feature.details.map((detail) => (
-          <span key={detail} className="rounded-full bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">{detail}</span>
+          <span key={detail} className="rounded-full bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">{uiText(detail)}</span>
         ))}
       </div>
 
@@ -347,7 +348,7 @@ function FeatureCard({ feature, interested, onIdea, onToggle }) {
           className={`flex h-11 items-center justify-center gap-2 rounded-2xl text-sm font-black transition ${interested ? "bg-emerald-700 text-white" : "bg-slate-950 text-white hover:bg-slate-800"}`}
         >
           <HiOutlineCheckCircle className="text-xl" />
-          {interested ? "Interested" : "I want this"}
+          {interested ? i18nText("ui.literals.kedb70a525e92") : i18nText("ui.literals.ke728c77a9d2b")}
         </button>
         <button
           type="button"
@@ -355,7 +356,7 @@ function FeatureCard({ feature, interested, onIdea, onToggle }) {
           className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 transition hover:bg-sky-50 hover:text-sky-800"
         >
           <HiOutlineLightBulb className="text-xl" />
-          Send idea
+          {i18nText("ui.literals.kf966126f85e7")}
         </button>
       </div>
     </article>

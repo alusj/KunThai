@@ -42,6 +42,7 @@ import {
   getPersonalServiceCategoryOptions,
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 // Stored enum values stay English; display localized via urride.fleetEdit.enum.
 const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends only", "Night service"];
@@ -753,7 +754,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {questions.map((question) => {
-                  const questionError = fieldErrors[`answer-${question.key}`];
+                  const questionError = fieldErrors[i18nText("ui.literals.k00387e1fb423", { value0: question.key })];
                   return (
                   <label key={question.key} data-field-error={questionError ? "true" : undefined} className={`block rounded-2xl border p-4 ${questionError ? "border-red-200 bg-red-50" : "border-gray-100"}`}>
                     <span className="text-sm font-semibold text-gray-900">{t(question.labelKey)}</span>

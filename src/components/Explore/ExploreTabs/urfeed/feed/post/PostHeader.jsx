@@ -3,6 +3,7 @@ import { HiOutlineEllipsisHorizontal } from "react-icons/hi2";
 import { formatRelativeTime } from "../../../../../../Backend/services/exploreService";
 import { useI18n } from "../../../../../../i18n";
 import Avatar from "../../../../shared/Avatar";
+import { t as i18nText } from "../../../../../../i18n/index";
 
 export default function PostHeader({ post, isOwner, followed, onFollow, onOptions, onViewProfile }) {
   const { t } = useI18n();
@@ -40,7 +41,7 @@ export default function PostHeader({ post, isOwner, followed, onFollow, onOption
               {post.author_name || t("feed.profileFallback")}
             </span>
             <span className="mt-0.5 block max-w-full truncate text-[13px] font-bold text-slate-500">
-              @{post.author_username || "user"} - {formatRelativeTime(post.created_at)}
+              @{post.author_username || i18nText("ui.literals.k12dea96fec20")} - {formatRelativeTime(post.created_at)}
             </span>
           </span>
         </button>

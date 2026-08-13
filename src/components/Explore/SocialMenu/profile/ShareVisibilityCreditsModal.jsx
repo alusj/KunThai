@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   HiOutlineArrowRight,
   HiOutlineCheckCircle,
@@ -8,6 +8,7 @@ import {
 } from "react-icons/hi2";
 
 import { MINIMUM_CREDIT_TRANSFER_BALANCE } from "../../../../Backend/services/visibilityCreditService";
+import { useI18n } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
 import KunThaiIdHelpButton from "../../../shared/KunThaiIdHelpButton";
 import Avatar from "../../shared/Avatar";
@@ -23,6 +24,7 @@ export default function ShareVisibilityCreditsModal({
   onTransfer,
   open,
 }) {
+  const { t } = useI18n();
   const [kunThaiId, setKunThaiId] = useState("");
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState(EMPTY_RECIPIENT);
@@ -36,12 +38,12 @@ export default function ShareVisibilityCreditsModal({
   const amountValid = numericAmount > 0 && numericAmount <= numericBalance;
   const canSubmit = canAccessTransfer && recipient && amountValid && !submitting;
 
-  const amountMessage = useMemo(() => {
+  const amountMessage = (() => {
     if (!amount) return "";
-    if (!Number.isFinite(numericAmount) || numericAmount < 1) return "Enter at least 1 credit.";
-    if (numericAmount > numericBalance) return `You only have ${numericBalance} credits available.`;
-    return `${numericBalance - numericAmount} credits will remain after sharing.`;
-  }, [amount, numericAmount, numericBalance]);
+    if (!Number.isFinite(numericAmount) || numericAmount < 1) return t("profile.enterAtLeastOneCredit");
+    if (numericAmount > numericBalance) return t("profile.onlyCreditsAvailable", { count: numericBalance });
+    return t("profile.creditsRemain", { count: numericBalance - numericAmount });
+  })();
 
   useEffect(() => {
     if (!open) return;
@@ -96,12 +98,12 @@ export default function ShareVisibilityCreditsModal({
       } catch (error) {
         if (requestIdRef.current !== requestId) return;
         setLookupState("error");
-        setMessage(error.message || "Unable to check that KunThai ID.");
+        setMessage(error.message || t("profile.unableCheckId"));
       }
     }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [canAccessTransfer, currentUserId, kunThaiId, onLookup, open]);
+  }, [canAccessTransfer, currentUserId, kunThaiId, onLookup, open, t]);
 
   async function submitTransfer(event) {
     event.preventDefault();
@@ -113,7 +115,7 @@ export default function ShareVisibilityCreditsModal({
       await onTransfer?.(recipient.publicId || kunThaiId, numericAmount);
       onClose?.();
     } catch (error) {
-      setMessage(error.message || "Unable to share Visibility Credits.");
+      setMessage(error.message || t("profile.unableShareCredits"));
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +128,7 @@ export default function ShareVisibilityCreditsModal({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-100">Visibility Credits</p>
-              <h2 id="share-visibility-credits-title" className="mt-1 text-xl font-black">Share credit</h2>
+              <h2 id="share-visibility-credits-title" className="mt-1 text-xl font-black">{t("profile.shareCredit")}</h2>
             </div>
             <motion.div
               initial={{ scale: 0.7, rotate: -8 }}
@@ -135,7 +137,7 @@ export default function ShareVisibilityCreditsModal({
               className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-right shadow-lg backdrop-blur"
             >
               <span className="block text-2xl font-black leading-none">{loading ? "…" : numericBalance}</span>
-              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-sky-100">Total credits</span>
+              <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-sky-100">{t("profile.totalCredits")}</span>
             </motion.div>
           </div>
         </div>
@@ -146,16 +148,16 @@ export default function ShareVisibilityCreditsModal({
             animate={{ opacity: 1, y: 0 }}
             className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4"
           >
-            <p className="text-sm font-black text-amber-950">You need more than {MINIMUM_CREDIT_TRANSFER_BALANCE} credits to share.</p>
+            <p className="text-sm font-black text-amber-950">{t("profile.needMoreCredits", { count: MINIMUM_CREDIT_TRANSFER_BALANCE })}</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-              Your balance is safe. Earn or buy more credits, then return here to share them with another KunThai user.
+              {t("profile.balanceSafe")}
             </p>
           </motion.div>
         ) : (
           <>
             <div className="mt-5 flex min-h-8 items-center justify-between gap-3">
               <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-600" htmlFor="credit-recipient-id">
-                Recipient KunThai ID
+                {t("profile.recipientId")}
               </label>
               <KunThaiIdHelpButton subject="credit recipient" tone="sky" />
             </div>
@@ -178,7 +180,7 @@ export default function ShareVisibilityCreditsModal({
                 {lookupState === "loading" ? (
                   <motion.div key="loading" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
                     <span className="h-9 w-9 animate-pulse rounded-full bg-slate-200" />
-                    <span className="text-xs font-bold text-slate-500">Finding this KunThai user…</span>
+                    <span className="text-xs font-bold text-slate-500">{t("profile.findingUser")}</span>
                   </motion.div>
                 ) : null}
                 {lookupState === "found" && recipient ? (
@@ -194,10 +196,10 @@ export default function ShareVisibilityCreditsModal({
                 {["missing", "self", "error"].includes(lookupState) ? (
                   <motion.p key={lookupState} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700">
                     {lookupState === "self"
-                      ? "Use another user's KunThai ID — you cannot share credits with yourself."
+                      ? t("profile.cannotShareWithSelf")
                       : lookupState === "missing"
-                        ? "No KunThai user was found with that ID."
-                        : message || "Unable to check that KunThai ID."}
+                        ? t("profile.noUserFound")
+                        : message || t("profile.unableCheckId")}
                   </motion.p>
                 ) : null}
               </AnimatePresence>
@@ -207,7 +209,7 @@ export default function ShareVisibilityCreditsModal({
               {recipient ? (
                 <motion.div initial={{ opacity: 0, height: 0, y: 8 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                   <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-600" htmlFor="credit-transfer-amount">
-                    Credits to share
+                    {t("profile.creditsToShare")}
                   </label>
                   <div className="mt-2 flex items-center gap-2">
                     <input
@@ -223,7 +225,7 @@ export default function ShareVisibilityCreditsModal({
                       className="h-12 min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-lg font-black text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
                     />
                     <button type="button" onClick={() => setAmount(String(numericBalance))} className="h-12 rounded-2xl bg-sky-50 px-4 text-xs font-black text-sky-700 transition hover:bg-sky-100">
-                      Max
+                      {t("profile.max")}
                     </button>
                   </div>
                   {amountMessage ? <p className={`mt-2 text-xs font-bold ${amountValid ? "text-slate-500" : "text-rose-600"}`}>{amountMessage}</p> : null}
@@ -237,7 +239,7 @@ export default function ShareVisibilityCreditsModal({
 
         <div className="mt-5 flex gap-2">
           <button type="button" onClick={onClose} disabled={submitting} className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">
-            Cancel
+            {t("common.cancel")}
           </button>
           {canAccessTransfer ? (
             <motion.button
@@ -246,7 +248,7 @@ export default function ShareVisibilityCreditsModal({
               disabled={!canSubmit}
               className="inline-flex h-12 flex-[1.5] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-lg shadow-slate-950/15 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {submitting ? "Sharing…" : "Share credits"}
+              {submitting ? t("profile.sharingCredits") : t("profile.shareCredits")}
               {submitting ? <HiOutlinePaperAirplane className="animate-pulse" /> : <HiOutlineArrowRight />}
             </motion.button>
           ) : null}

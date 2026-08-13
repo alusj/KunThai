@@ -24,6 +24,7 @@ import { useAppearanceMode } from "../../../../contexts/appearanceContext";
 import { useI18n } from "../../../../i18n";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import TwoFactorSection from "./TwoFactorSection";
+import { t as i18nText } from "../../../../i18n/index";
 
 function Toggle({ active, label, onChange }) {
   return (
@@ -34,7 +35,7 @@ function Toggle({ active, label, onChange }) {
         active ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"
       }`}
     >
-      {label || (active ? "On" : "Off")}
+      {label || (active ? i18nText("ui.literals.ke0049a66519c") : i18nText("ui.literals.ke3de5ab0ca4c"))}
     </button>
   );
 }

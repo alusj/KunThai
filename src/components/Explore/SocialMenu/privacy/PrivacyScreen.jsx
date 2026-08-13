@@ -22,6 +22,7 @@ import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import { t as i18nText } from "../../../../i18n/index";
 
 function SettingRow({ children, description, icon, title }) {
   return (
@@ -83,15 +84,15 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
       if (deactivatedAt) {
         await setAccountDeactivated(false);
         setDeactivatedAt(null);
-        showToast("Your account is active and visible again.", "success");
+        showToast(i18nText("ui.literals.k2bcda242c49f"), "success");
       } else {
         await setAccountDeactivated(true);
         setDeactivatedAt(new Date().toISOString());
-        showToast("Your account is deactivated. Other users now see it as unavailable.", "success");
+        showToast(i18nText("ui.literals.kacb70498f4c0"), "success");
       }
       setConfirmAction(null);
     } catch (error) {
-      showToast(error.message || "Unable to update your account status.", "danger");
+      showToast(error.message || i18nText("ui.literals.k078af38fd646"), "danger");
     } finally {
       setAccountActionBusy(false);
     }
@@ -119,79 +120,79 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
       await deleteKunThaiAccount();
       window.location.replace("/");
     } catch (error) {
-      showToast(error.message || "Unable to delete your account.", "danger");
+      showToast(error.message || i18nText("ui.literals.k49c6cc37553d"), "danger");
       setAccountActionBusy(false);
     }
   }
 
   return (
     <div>
-      {!hideHeader ? <SocialScreenHeader title="Privacy Center" subtitle="Manage audiences, messages, activity, blocks, and data choices." /> : null}
+      {!hideHeader ? <SocialScreenHeader title={i18nText("ui.literals.k8a88f051eace")} subtitle={i18nText("ui.literals.kcc99607b778a")} /> : null}
 
       <div className="w-full space-y-6 px-4 py-4 sm:px-6 lg:px-8">
         <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Privacy Center</p>
-          <h3 className="mt-1 text-2xl font-black text-slate-950">Your account, your boundaries</h3>
-          <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-slate-600">Choose how people reach you, what appears publicly, and which data features you want to review.</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k8a88f051eace")}</p>
+          <h3 className="mt-1 text-2xl font-black text-slate-950">{i18nText("ui.literals.k93bfda2b33fa")}</h3>
+          <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-slate-600">{i18nText("ui.literals.k5f9180c9af34")}</p>
           {safety.feedback ? <p className="mt-3 text-sm font-black text-sky-700">{safety.feedback}</p> : null}
         </div>
 
-        <PrivacySection title="Account privacy" description="Set the starting audience for new content and conversations.">
-          <SettingRow icon={HiOutlineEye} title="Account and post privacy" description="Choose the audience selected by default when creating new posts.">
+        <PrivacySection title={i18nText("ui.literals.k091d4c78276b")} description={i18nText("ui.literals.k8f05835c1467")}>
+          <SettingRow icon={HiOutlineEye} title={i18nText("ui.literals.k40f6f2e90515")} description={i18nText("ui.literals.k08da3d6bd599")}>
             <select
               value={settings.defaultPostPrivacy}
               onChange={(event) => safety.updatePrivacySettings({ defaultPostPrivacy: event.target.value })}
               className="h-11 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none"
             >
-              <option value="public">Public</option>
-              <option value="circle">Circle</option>
-              <option value="private">Private</option>
+              <option value="public">{i18nText("ui.literals.kdc5eb704bbca")}</option>
+              <option value="circle">{i18nText("ui.literals.k1cc7820a08e2")}</option>
+              <option value="private">{i18nText("ui.literals.k237dfa0a21c8")}</option>
             </select>
           </SettingRow>
 
-          <SettingRow icon={HiOutlineChatBubbleLeftRight} title="Message privacy" description="Control who should be allowed to start conversations with you.">
+          <SettingRow icon={HiOutlineChatBubbleLeftRight} title={i18nText("ui.literals.k51515a6a5a92")} description={i18nText("ui.literals.keb2f97b117bc")}>
             <select
               value={settings.allowMessages}
               onChange={(event) => safety.updatePrivacySettings({ allowMessages: event.target.value })}
               className="h-11 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none"
             >
-              <option value="everyone">Everyone</option>
-              <option value="followers">Connections</option>
-              <option value="none">No one</option>
+              <option value="everyone">{i18nText("ui.literals.kc756f6af1f03")}</option>
+              <option value="followers">{i18nText("ui.literals.k8f3509b64e0e")}</option>
+              <option value="none">{i18nText("ui.literals.k41c06c15c761")}</option>
             </select>
           </SettingRow>
         </PrivacySection>
 
-        <PrivacySection title="Participation visibility" description="Decide how your name and activity appear in social spaces.">
-          <SettingRow icon={HiOutlineShieldCheck} title="Mentions" description="Allow people to mention you in comments and posts.">
+        <PrivacySection title={i18nText("ui.literals.k8a4c2de98d1f")} description={i18nText("ui.literals.k6c764d158a93")}>
+          <SettingRow icon={HiOutlineShieldCheck} title={i18nText("ui.literals.k85e12bc6f2e5")} description={i18nText("ui.literals.kd2efa777d4a8")}>
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ allowMentions: !settings.allowMentions })}
               className={`h-11 rounded-2xl px-4 text-sm font-black ${settings.allowMentions ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}
             >
-              {settings.allowMentions ? "Allowed" : "Off"}
+              {settings.allowMentions ? i18nText("ui.literals.k77c7b4909d39") : i18nText("ui.literals.ke3de5ab0ca4c")}
             </button>
           </SettingRow>
 
-          <SettingRow icon={HiOutlineBolt} title="Activity visibility" description="Show likes, connections, and recent social actions on your profile activity surfaces.">
+          <SettingRow icon={HiOutlineBolt} title={i18nText("ui.literals.k43c17b69d1b3")} description={i18nText("ui.literals.k98fdae836f80")}>
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ showActivity: !settings.showActivity })}
               className={`h-11 rounded-2xl px-4 text-sm font-black ${settings.showActivity ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}
             >
-              {settings.showActivity ? "Visible" : "Hidden"}
+              {settings.showActivity ? i18nText("ui.literals.k1fe59390acc1") : i18nText("ui.literals.kd4c2792a7245")}
             </button>
           </SettingRow>
         </PrivacySection>
 
-        <PrivacySection title="Content protection" description="Use filtering controls to reduce unwanted or risky content.">
-          <SettingRow icon={HiOutlineShieldCheck} title="Sensitive content filter" description="Hide posts that may contain flagged or abusive language.">
+        <PrivacySection title={i18nText("ui.literals.kadcb9ee56b82")} description={i18nText("ui.literals.k4d5bf0f625dd")}>
+          <SettingRow icon={HiOutlineShieldCheck} title={i18nText("ui.literals.kf72d7a12b0bc")} description={i18nText("ui.literals.k94ff7b873940")}>
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ filterSensitiveContent: !settings.filterSensitiveContent })}
               className={`h-11 rounded-2xl px-4 text-sm font-black ${settings.filterSensitiveContent ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}
             >
-              {settings.filterSensitiveContent ? "On" : "Off"}
+              {settings.filterSensitiveContent ? i18nText("ui.literals.ke0049a66519c") : i18nText("ui.literals.ke3de5ab0ca4c")}
             </button>
           </SettingRow>
         </PrivacySection>
@@ -199,17 +200,17 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
         <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
             <HiOutlineUserMinus className="text-xl text-rose-600" />
-            <h3 className="text-base font-black text-slate-950">Blocked users</h3>
+            <h3 className="text-base font-black text-slate-950">{i18nText("ui.literals.k80a67a2e8dba")}</h3>
           </div>
           {!blockedUsers.length ? (
-            <EmptyState title="No blocked users" message="Accounts you block from profiles or connections will appear here." />
+            <EmptyState title={i18nText("ui.literals.k647401e7b5bc")} message={i18nText("ui.literals.kaadf01de5edd")} />
           ) : (
             <div className="space-y-2">
               {blockedUsers.map((userId) => (
                 <div key={userId} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
                   <span className="truncate text-sm font-bold text-slate-700">{userId}</span>
                   <button type="button" onClick={() => safety.unblockUser(userId)} className="text-sm font-black text-sky-700">
-                    Unblock
+                    {i18nText("ui.literals.k12aabd251c42")}
                   </button>
                 </div>
               ))}
@@ -217,10 +218,10 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
           )}
         </section>
 
-        <PrivacySection title="Data permissions" description="Review optional device access and understand how each permission is used.">
+        <PrivacySection title={i18nText("ui.literals.k16d8c526323a")} description={i18nText("ui.literals.k1d1e01daac94")}>
           <button type="button" onClick={onOpenPermissions} className="flex items-start gap-3 rounded-[24px] border border-slate-200 bg-white p-4 text-left shadow-sm">
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineCircleStack className="text-2xl" /></span>
-            <span><span className="block text-base font-black text-slate-950">Review permissions</span><span className="mt-1 block text-sm font-semibold leading-6 text-slate-500">Camera, microphone, optional location, notifications, and contact access status.</span></span>
+            <span><span className="block text-base font-black text-slate-950">{i18nText("ui.literals.kdee17ecaf273")}</span><span className="mt-1 block text-sm font-semibold leading-6 text-slate-500">{i18nText("ui.literals.k591b7f98d731")}</span></span>
           </button>
         </PrivacySection>
 
@@ -254,7 +255,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
                 {deactivatedAt ? t("privacy.reactivateSubtitle") : t("privacy.deactivateSubtitle")}
               </span>
               {deactivatedAt ? (
-                <span className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-amber-700">Deactivated</span>
+                <span className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-amber-700">{i18nText("ui.literals.k314a1adcc8b5")}</span>
               ) : null}
             </span>
           </button>

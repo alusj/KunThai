@@ -58,6 +58,7 @@ import { getOnboardingProfile } from "../../../Backend/services/onboardingServic
 import { submitTransportSupportTicket } from "../../services/bookingService";
 import TransportCautionCard from "../shared/TransportCautionCard";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
 
@@ -876,7 +877,7 @@ function SavedPlacesPage() {
         <div className="space-y-2">
           <p className="text-sm font-black text-gray-950">{t("urride.menu.places.heading")}</p>
           {places.map((item) => {
-            const actionKey = item.id || `${item.category}-${item.street || item.detectedAddress || "place"}`;
+            const actionKey = item.id || i18nText("ui.literals.kea623b454821", { value0: item.category, value1: item.street || item.detectedAddress || i18nText("ui.literals.k9da8f1fa7d3a") });
 
             const menuOpen = actionMenuId === actionKey;
 
@@ -1608,9 +1609,9 @@ function TransportSettingsPage() {
             onChange={(event) => updateSettings({ language: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
-            <option value="English">English</option>
-            <option value="Krio">Krio</option>
-            <option value="French">Français</option>
+            <option value="English">{i18nText("ui.literals.k649df08a448e")}</option>
+            <option value="Krio">{i18nText("ui.literals.k9d10e253d08d")}</option>
+            <option value="French">{i18nText("ui.literals.k2ca514ebd7c3")}</option>
           </select>
         </label>
 

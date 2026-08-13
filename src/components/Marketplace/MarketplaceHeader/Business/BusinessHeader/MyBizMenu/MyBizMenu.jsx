@@ -29,6 +29,7 @@ import Privacy from "./MyBizPages/HelpSupport/Legal/Privacy";
 import Payments from "./MyBizPages/PaymentsPayouts/Payments";
 import ProfileSettings from "./MyBizPages/ProfileSettings/ProfileSettings";
 import SellerBoard from "./MyBizPages/SellerBoard/SellerBoard";
+import { t as i18nText } from "../../../../../../i18n/index";
 
 const SELLER_MENU_ANIMATION_MS = 360;
 
@@ -353,7 +354,7 @@ export default function MyBizMenu({
               {t("urmall.biz.menu.deleteConfirm", { name: businessToDelete.identity?.businessName || t("urmall.biz.menu.thisBusiness") })}
             </h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              {t("urmall.biz.menu.deleteWarning", { kind: String(businessToDelete.businessKind || "business").replaceAll("_", " ") })}
+              {t("urmall.biz.menu.deleteWarning", { kind: String(businessToDelete.businessKind || i18nText("ui.literals.k6a577a7743f4")).replaceAll("_", " ") })}
             </p>
             <label className="mt-4 block">
               <span className="text-xs font-black uppercase text-slate-500">{t("urmall.biz.menu.reason")}</span>

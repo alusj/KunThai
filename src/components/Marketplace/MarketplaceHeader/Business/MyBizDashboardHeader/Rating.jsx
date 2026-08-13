@@ -1,4 +1,5 @@
-// src/components/Marketplace/Business/MyBizDashboardHeader/Rating.jsx
+
+import { t as i18nText } from "../../../../../i18n/index";// src/components/Marketplace/Business/MyBizDashboardHeader/Rating.jsx
 
 export default function Rating() {
   return (
@@ -10,7 +11,7 @@ export default function Rating() {
       </span>
 
       <span className="text-sm text-gray-500">
-        (23 reviews)
+        {i18nText("ui.literals.kf20925a0e6e3")}
       </span>
     </div>
   );

@@ -12,6 +12,7 @@ import {
 
 import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
 import { useI18n } from "../../../../i18n";
+import { t as i18nText } from "../../../../i18n/index";
 
 function formatRecordingTime(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -95,7 +96,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
       setSending(false);
 
       if (result?.ok === false) {
-        setNotice(result.error || "Message could not be sent. Please try again.");
+        setNotice(result.error || i18nText("ui.literals.k18783806e157"));
         return;
       }
 
@@ -104,7 +105,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
       setAttachment(null);
     } catch {
       setSending(false);
-      setNotice("Message could not be sent. Please try again.");
+      setNotice(i18nText("ui.literals.k18783806e157"));
     }
   }
 
@@ -124,7 +125,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
     if (!file) return;
 
     if (!file.type?.startsWith("image/")) {
-      setNotice("Please select an image file.");
+      setNotice(i18nText("ui.literals.k464676a1f42d"));
       return;
     }
 
@@ -134,7 +135,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
       setNotice("");
       onActivity?.("active");
     } catch (error) {
-      setNotice(error.message || "Unable to prepare this image.");
+      setNotice(error.message || i18nText("ui.literals.kf4d43d3e6dbf"));
     }
   }
 
@@ -149,7 +150,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
     if (!allowVoiceNotes) return;
 
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setNotice("Voice recording is not supported in this browser.");
+      setNotice(i18nText("ui.literals.k703ac149a63c"));
       return;
     }
 
@@ -176,16 +177,16 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
         onActivity?.("active");
 
         if (!blob.size) {
-          setNotice("No voice note was captured.");
+          setNotice(i18nText("ui.literals.k3b51ce823349"));
           return;
         }
 
         try {
           const mediaUrl = await readFileAsDataUrl(blob);
-          setAttachment({ type: "audio", mediaUrl, label: `Voice note ${formatRecordingTime(recordingSecondsRef.current)}` });
+          setAttachment({ type: "audio", mediaUrl, label: i18nText("ui.literals.kccf1da9ab56b", { value0: formatRecordingTime(recordingSecondsRef.current) }) });
           setNotice("");
         } catch {
-          setNotice("Unable to prepare this voice note.");
+          setNotice(i18nText("ui.literals.kf58cd926600e"));
         }
       });
 
@@ -197,7 +198,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
       onActivity?.("recording");
       recorder.start();
     } catch {
-      setNotice("Microphone permission is needed to record a voice message.");
+      setNotice(i18nText("ui.literals.k616aa6d808cc"));
       onActivity?.("active");
     }
   }
@@ -217,10 +218,10 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
     try {
       const result = await onAction?.(action);
       if (result?.ok === false) {
-        setNotice(result.error || "This action could not be completed.");
+        setNotice(result.error || i18nText("ui.literals.k18f909a27edd"));
       }
     } catch (error) {
-      setNotice(error?.message || "This action could not be completed.");
+      setNotice(error?.message || i18nText("ui.literals.k18f909a27edd"));
     }
   }
 
@@ -232,7 +233,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
         <div className="mb-2 flex items-center justify-between rounded-2xl bg-rose-50 px-3 py-2 text-sm font-black text-rose-700">
           <span className="inline-flex items-center gap-2">
             <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-rose-600" />
-            Recording voice note
+            {i18nText("ui.literals.k409a42143265")}
           </span>
           <span>{formatRecordingTime(recordingSeconds)}</span>
         </div>

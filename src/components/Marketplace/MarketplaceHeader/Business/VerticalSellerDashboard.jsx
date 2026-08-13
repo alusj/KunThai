@@ -29,7 +29,7 @@ import VerticalMediaFields from "./VerticalMediaFields";
 import AddressLocationField from "../../../shared/AddressLocationField";
 import ListingUploadProgressCard from "../../shared/ListingUploadProgressCard";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
-import { useI18n, t } from "../../../../i18n";
+import { uiText, useI18n, t } from "../../../../i18n";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const dayLong = (index) => t(`urmall.biz.vert.dayLong${index}`);
@@ -725,7 +725,7 @@ function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
             const selected = credits === item.credits;
             return (
               <button key={item.id} type="button" onClick={() => setCredits(item.credits)} className={`rounded-xl border p-3 text-left ${selected ? "border-emerald-600 bg-emerald-50 text-emerald-800 shadow-sm" : "border-gray-200 bg-white text-gray-700"}`}>
-                <span className="flex items-center justify-between gap-2"><span className="text-sm font-black">{item.label}</span><span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-black text-gray-700">{item.credits}</span></span>
+                <span className="flex items-center justify-between gap-2"><span className="text-sm font-black">{uiText(item.label)}</span><span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-black text-gray-700">{item.credits}</span></span>
               </button>
             );
           })}

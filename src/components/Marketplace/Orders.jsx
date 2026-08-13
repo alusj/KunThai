@@ -17,6 +17,7 @@ import {
   markNotificationsSeen,
 } from "../../Backend/services/notificationSeenStore";
 import AppBackTab from "../shared/AppBackTab";
+import { t as i18nText } from "../../i18n/index";
 
 const BUYER_ORDER_SCOPE = "urmall:buyer:orders";
 
@@ -145,7 +146,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
   async function cancelOrder(order) {
     try {
       await cancelBuyerOrder(order.id);
-      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: "cancelled" } : item)));
+      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: i18nText("ui.literals.k8761d26fb8d6") } : item)));
       setNotice(t("urmall.orders.cancelled"));
     } catch (err) {
       setNotice(err.message || t("urmall.orders.cancelFailed"));
@@ -271,7 +272,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
               return (
                 <div className="mt-3 space-y-1 rounded-lg border border-gray-100 bg-gray-50/60 p-3">
                   {fulfillment ? (
-                    <p className="text-[11px] font-black uppercase text-gray-500">{fulfillment}{details.addressLabel ? ` | ${t("urmall.detail.addressLabel", { label: details.addressLabel })}` : ""}</p>
+                    <p className="text-[11px] font-black uppercase text-gray-500">{fulfillment}{details.addressLabel ? i18nText("ui.literals.k1c5da69e6e3b", { value0: t("urmall.detail.addressLabel", { label: details.addressLabel }) }) : ""}</p>
                   ) : null}
                   {address ? (
                     <p className="flex items-start gap-1.5 text-xs font-bold text-gray-700">

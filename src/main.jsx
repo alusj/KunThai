@@ -9,6 +9,7 @@ import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
 import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
 import { registerKunThaiServiceWorker } from "./Backend/services/pushService.js";
 import { initCountryConfig } from "./Backend/services/countryConfigService.js";
+import { t as i18nText } from "./i18n/index";
 
 registerKunThaiServiceWorker();
 initCountryConfig();
@@ -25,7 +26,7 @@ function RootApplication() {
 
   if (isAdminPath) {
     return (
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-100 text-sm font-bold text-zinc-600">Opening KunThai Admin…</div>}>
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-100 text-sm font-bold text-zinc-600">{i18nText("ui.literals.kb23c1e4f1dc3")}</div>}>
         <AdminApp />
       </Suspense>
     );
@@ -33,7 +34,7 @@ function RootApplication() {
 
   if (publicPolicyId || isPolicyCenterPath) {
     return (
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm font-bold text-slate-600">Opening KunThai policies…</div>}>
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm font-bold text-slate-600">{i18nText("ui.literals.kde99f5ae7e28")}</div>}>
         <PublicPolicyPage initialPolicyId={publicPolicyId} />
       </Suspense>
     );
@@ -88,18 +89,18 @@ class AppErrorBoundary extends Component {
       return (
         <div className="flex min-h-screen items-center justify-center bg-slate-100 p-5">
           <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
-            <h1 className="text-base font-black text-slate-950">KunThai is recovering</h1>
+            <h1 className="text-base font-black text-slate-950">{i18nText("ui.literals.kc1e191c89198")}</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               {chunkFailure
-                ? "Your connection may have dropped while KunThai was loading an app file. Reload once when the network is stable."
-                : "Something failed while loading this screen. Try again, or reload if the problem continues."}
+                ? i18nText("ui.literals.k17269be9c941")
+                : i18nText("ui.literals.k3c98c95829ee")}
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <button type="button" onClick={this.retry} className="h-11 rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-700 hover:bg-slate-50">
-                Try again
+                {i18nText("ui.literals.k042c862e4467")}
               </button>
               <button type="button" onClick={this.reload} className="h-11 rounded-xl bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800">
-                Reload app
+                {i18nText("ui.literals.kb33983286b20")}
               </button>
             </div>
           </div>

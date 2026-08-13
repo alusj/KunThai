@@ -10,6 +10,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { shouldSkipBrowserVideoProcessing } from "./composerUtils";
+import { t } from "../../../../../../i18n";
+import { t as i18nText } from "../../../../../../i18n/index";
 
 const MAX_THUMBNAIL_FRAMES = 4;
 
@@ -19,7 +21,7 @@ function RemoveButton({ onClick }) {
       type="button"
       onClick={onClick}
       className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm"
-      aria-label="Remove media"
+      aria-label={t("explore.removeMedia")}
     >
       <HiOutlineXMark />
     </button>
@@ -320,7 +322,7 @@ export default function MediaPreview({
           />
           <RemoveButton onClick={onRemoveVideo} />
           <div className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-slate-800">
-            Swip clip ready
+            {i18nText("ui.literals.k538067318035")}
           </div>
         </div>
       ) : null}
@@ -334,11 +336,11 @@ export default function MediaPreview({
               disabled={trimmingVideo}
               className="kt-pressable h-11 rounded-full border border-white/30 bg-white/10 px-4 text-base font-black text-white shadow-lg shadow-black/30 backdrop-blur disabled:opacity-50"
             >
-              Cancel
+              {i18nText("ui.literals.k77dfd2135f4d")}
             </button>
 
             <div className="pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top)+42px)] -translate-x-1/2 text-center">
-              <p className="text-sm font-black uppercase tracking-[0.22em] text-white/55">Video</p>
+              <p className="text-sm font-black uppercase tracking-[0.22em] text-white/55">{i18nText("ui.literals.kbc17c1f0179a")}</p>
             </div>
 
             <button
@@ -347,7 +349,7 @@ export default function MediaPreview({
               disabled={trimmingVideo || clipTooLong}
               className="kt-pressable inline-flex h-11 items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 text-base font-black text-white shadow-lg shadow-black/30 backdrop-blur disabled:text-white/45"
             >
-              {trimmingVideo ? "Preparing" : "Done"}
+              {trimmingVideo ? t("explore.preparing") : t("explore.mpDone")}
               {!trimmingVideo ? <HiOutlineCheck className="text-lg" /> : null}
             </button>
           </div>
@@ -378,7 +380,7 @@ export default function MediaPreview({
                 type="button"
                 onClick={toggleSound}
                 className="kt-pressable grid h-14 w-14 place-items-center rounded-full border border-white/25 bg-black/35 text-3xl shadow-xl backdrop-blur"
-                aria-label={soundOn ? "Mute preview" : "Unmute preview"}
+                aria-label={soundOn ? t("explore.mutePreview") : t("explore.unmutePreview")}
               >
                 {soundOn ? <HiOutlineSpeakerWave /> : <HiOutlineSpeakerXMark />}
               </button>
@@ -387,7 +389,7 @@ export default function MediaPreview({
             <div className={`absolute bottom-[calc(env(safe-area-inset-bottom)+112px)] left-5 rounded-full px-3 py-1 text-xs font-black backdrop-blur ${
               clipTooLong ? "bg-rose-500/25 text-rose-100" : "bg-white/12 text-white/85"
             }`}>
-              {formatTime(safeTrimStart)} to {formatTime(clipEnd)} | {formatTime(clipSeconds)} / max {formatTime(maxVideoSeconds)}
+              {formatTime(safeTrimStart)} {i18nText("ui.literals.k4374aaee247f")} {formatTime(clipEnd)} | {formatTime(clipSeconds)} {i18nText("ui.literals.k836d15055001")} {formatTime(maxVideoSeconds)}
             </div>
           </div>
 
@@ -400,8 +402,7 @@ export default function MediaPreview({
 
             {clipTooLong ? (
               <div className="rounded-2xl border border-rose-400/40 bg-rose-500/15 px-4 py-3 text-sm font-bold text-rose-100">
-                Your selection is {formatTime(clipSeconds)} — keep it {formatTime(maxVideoSeconds)} or less. Drag a handle
-                inwards from the left or the right to shorten it.
+                {i18nText("ui.literals.kba6173068e57")} {formatTime(clipSeconds)} {i18nText("ui.literals.k91cf30b53754")} {formatTime(maxVideoSeconds)} {i18nText("ui.literals.k981b27ab2234")}
               </div>
             ) : null}
 
@@ -410,7 +411,7 @@ export default function MediaPreview({
                 type="button"
                 onClick={togglePendingPreview}
                 className="kt-pressable grid h-14 w-14 flex-none place-items-center rounded-lg bg-white/20 text-3xl text-white"
-                aria-label={playing ? "Pause preview" : "Play preview"}
+                aria-label={playing ? t("explore.pausePreview") : t("explore.playPreview")}
               >
                 {playing ? <HiOutlinePause /> : <HiOutlinePlay />}
               </button>
@@ -451,7 +452,7 @@ export default function MediaPreview({
                   onPointerUp={endDrag}
                   onPointerCancel={endDrag}
                   role="slider"
-                  aria-label="Move selected clip"
+                  aria-label={t("explore.moveClip")}
                   aria-valuemin={0}
                   aria-valuemax={safeDuration}
                   aria-valuenow={safeTrimStart}
@@ -463,7 +464,7 @@ export default function MediaPreview({
                     onPointerUp={endDrag}
                     onPointerCancel={endDrag}
                     className="absolute -left-4 top-1/2 h-14 w-8 -translate-y-1/2 touch-none rounded-full bg-white shadow-lg"
-                    aria-label="Drag clip start"
+                    aria-label={i18nText("ui.literals.ke1fb5218933c")}
                   />
                   <button
                     type="button"
@@ -472,7 +473,7 @@ export default function MediaPreview({
                     onPointerUp={endDrag}
                     onPointerCancel={endDrag}
                     className="absolute -right-4 top-1/2 h-14 w-8 -translate-y-1/2 touch-none rounded-full bg-white shadow-lg"
-                    aria-label="Drag clip end"
+                    aria-label={i18nText("ui.literals.k8a0c637863ce")}
                   />
                   <span className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/70 bg-white/20" />
                 </div>
@@ -481,10 +482,10 @@ export default function MediaPreview({
 
             <div className="grid grid-cols-2 gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-white/60">
               <div className="rounded-full border border-white/15 bg-white/10 px-3 py-2">
-                Start {formatTime(safeTrimStart)}
+                {i18nText("ui.literals.k952f375412e8")} {formatTime(safeTrimStart)}
               </div>
               <div className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-right">
-                End {formatTime(clipEnd)}
+                {i18nText("ui.literals.ka2bb9d34b8a1")} {formatTime(clipEnd)}
               </div>
             </div>
 
@@ -511,7 +512,7 @@ export default function MediaPreview({
 
       {audioPreview ? (
         <div className="relative rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-          <p className="mb-2 text-sm font-bold text-slate-900">Voice note</p>
+          <p className="mb-2 text-sm font-bold text-slate-900">{i18nText("ui.literals.kddc07a6c1316")}</p>
           <audio controls src={audioPreview} onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)} className="h-10 w-full" />
           <RemoveButton onClick={onRemoveAudio} />
         </div>

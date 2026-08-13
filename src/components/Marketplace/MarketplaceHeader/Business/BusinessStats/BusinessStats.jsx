@@ -156,35 +156,37 @@ export default function BusinessStats({ initialView = "revenue" }) {
         </div>
       </div>
 
-      {activeView === "revenue" ? (
-        <>
-          <RevenueMetrics revenue={revenue} />
+      <div key={activeView} className="kt-seller-detail-swap space-y-4">
+        {activeView === "revenue" ? (
+          <>
+            <RevenueMetrics revenue={revenue} />
 
-          <div className="grid gap-3 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <SalesMetricCard
-              icon={ShoppingBag}
-              label={t("urmall.biz.stats.avgOrderValue")}
-              value={formatCurrency(averageOrderValue)}
-              helper={t("urmall.biz.stats.avgOrderValueHelper")}
+            <div className="grid gap-3 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <SalesMetricCard
+                icon={ShoppingBag}
+                label={t("urmall.biz.stats.avgOrderValue")}
+                value={formatCurrency(averageOrderValue)}
+                helper={t("urmall.biz.stats.avgOrderValueHelper")}
+              />
+              <BestSalesWindowCard window={bestSalesWindow} />
+            </div>
+          </>
+        ) : null}
+
+        {feedback ? <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{feedback}</p> : null}
+
+        {activeView === "orders" ? (
+          <div className="space-y-4">
+            <OrderStatusGrid orders={orders} />
+            <SellerOrderQueue
+              orders={visibleOrders}
+              onStatusChange={changeOrderStatus}
+              onDelete={removeOrder}
+              onLocate={locateOrder}
             />
-            <BestSalesWindowCard window={bestSalesWindow} />
           </div>
-        </>
-      ) : null}
-
-      {feedback ? <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{feedback}</p> : null}
-
-      {activeView === "orders" ? (
-        <div className="space-y-4">
-          <OrderStatusGrid orders={orders} />
-          <SellerOrderQueue
-            orders={visibleOrders}
-            onStatusChange={changeOrderStatus}
-            onDelete={removeOrder}
-            onLocate={locateOrder}
-          />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </section>
   );
 }

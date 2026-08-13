@@ -1,6 +1,7 @@
 import { BadgeCheck, Bike, ShoppingBag, UserRound } from "lucide-react";
 
 import { CODE_SURFACE_LABELS } from "../../Backend/services/publicCodeService";
+import { t as i18nText } from "../../i18n/index";
 
 const KIND_ICONS = { kunthai: UserRound, urmall: ShoppingBag, urride: Bike };
 
@@ -14,7 +15,7 @@ export default function PublicCodeResultCard({ lookup, surface, onOpen }) {
   if (pending) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
-        Looking up this KunThai ID...
+        {i18nText("ui.literals.ke3bf6e6bb0e2")}
       </div>
     );
   }
@@ -22,7 +23,7 @@ export default function PublicCodeResultCard({ lookup, surface, onOpen }) {
   if (!result) {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-        No {CODE_SURFACE_LABELS[kind] || "KunThai"} account matches this ID. Check the code and try again.
+        {i18nText("ui.literals.k816c52fd2bdd")} {CODE_SURFACE_LABELS[kind] || "KunThai"} {i18nText("ui.literals.k78e0660c534d")}
       </div>
     );
   }

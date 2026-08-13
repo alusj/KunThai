@@ -1,4 +1,5 @@
-export default function Modal({ open, title, children, onClose }) {
+
+import { t as i18nText } from "../../../i18n/index";export default function Modal({ open, title, children, onClose }) {
   if (!open) {
     return null;
   }
@@ -14,7 +15,7 @@ export default function Modal({ open, title, children, onClose }) {
             onClick={onClose}
             className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700"
           >
-            Close
+            {i18nText("ui.literals.kbbfa773e5a63")}
           </button>
         </div>
         <div className="mt-4">{children}</div>

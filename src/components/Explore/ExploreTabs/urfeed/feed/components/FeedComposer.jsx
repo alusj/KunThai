@@ -59,6 +59,7 @@ import {
   MINIMUM_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
 } from "../../../../../../Backend/services/visibilityCreditService";
+import { t as i18nText } from "../../../../../../i18n/index";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
@@ -302,9 +303,9 @@ function VideoLimitNotice() {
         <HiOutlineExclamationTriangle className="text-xl" />
       </span>
       <div className="min-w-0">
-        <p className="text-sm font-black">Video requirements</p>
+        <p className="text-sm font-black">{i18nText("ui.literals.kbb597c878c4a")}</p>
         <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">
-          Explore accepts videos up to {MAX_VIDEO_SECONDS} seconds and under {MAX_EXPLORE_VIDEO_MB}MB. Use MP4, MOV, or WebM for the most reliable upload.
+          {i18nText("ui.literals.k748ee7c9d7d2")} {MAX_VIDEO_SECONDS} {i18nText("ui.literals.k670a4c7dbda8")} {MAX_EXPLORE_VIDEO_MB}{i18nText("ui.literals.kfb71709f94c7")}
         </p>
       </div>
     </div>
@@ -329,12 +330,12 @@ function MediaPickerCallout({ refNode, type, onPick }) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black text-slate-950">
-            {isVideo ? "Add a video" : "Add a photo"}
+            {isVideo ? i18nText("ui.literals.k1954c26eee2f") : i18nText("ui.literals.k67b2f988c992")}
           </p>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
             {isVideo
-              ? "Choose a short Swip-ready video, then trim it before posting."
-              : "Choose a photo from this device and preview it before posting."}
+              ? i18nText("ui.literals.kf98e69a85341")
+              : i18nText("ui.literals.k57619ccb8138")}
           </p>
         </div>
       </div>
@@ -346,7 +347,7 @@ function MediaPickerCallout({ refNode, type, onPick }) {
         }`}
       >
         <Icon className="text-lg" />
-        {isVideo ? "Choose video" : "Choose photo"}
+        {isVideo ? i18nText("ui.literals.k547ac09ad6cd") : i18nText("ui.literals.k4a7eded8ed3a")}
       </button>
     </div>
   );
@@ -782,7 +783,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     if (type === "advert" && !isFeatureAvailable("adverts", profile?.countryCode || profile?.country || {})) {
       showToast(getUnavailableFeatureMessage("adverts", profile?.countryCode || profile?.country || {}), "info", {
-        title: "Advertising unavailable",
+        title: i18nText("ui.literals.k6e9c5f193c1f"),
       });
       return;
     }
@@ -823,7 +824,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     if (type === "voice") {
       if (hasVideoAttachment) {
-        setFeedback("Remove the Swip video before adding a voice note.");
+        setFeedback(i18nText("ui.literals.k1dc42531e8f5"));
         return;
       }
       resetComposerToolPanels();
@@ -848,9 +849,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (file.size > MAX_EXPLORE_VIDEO_BYTES) {
       setOversizedVideoFile(file);
       showToast(
-        `Your video is ${formatVideoFileSize(file.size)} — over the ${MAX_EXPLORE_VIDEO_MB}MB Explore limit. Trim the part you want to keep instead.`,
+        i18nText("ui.literals.k053042183f66", { value0: formatVideoFileSize(file.size), value1: MAX_EXPLORE_VIDEO_MB }),
         "info",
-        { title: "Trim your video", duration: 6200 },
+        { title: i18nText("ui.literals.k25866d0c0f6e"), duration: 6200 },
       );
       return;
     }
@@ -873,7 +874,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     // 15-second window to publish.
     setFeedback(
       duration > MAX_VIDEO_SECONDS
-        ? `Your video is ${formatVideoSeconds(duration)} long. Drag the handles to choose up to ${MAX_VIDEO_SECONDS} seconds.`
+        ? i18nText("ui.literals.k25df5f7aee32", { value0: formatVideoSeconds(duration), value1: MAX_VIDEO_SECONDS })
         : "",
     );
     setTrimError("");
@@ -929,10 +930,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       const videoSpecError = error.name === "VideoSpecError";
       setFeedback("");
       if (videoSpecError) {
-        setVideoNotice({ title: "Video needs adjustment", message });
+        setVideoNotice({ title: i18nText("ui.literals.k9243985fcda8"), message });
       } else {
         showToast(message, "danger", {
-          title: "Media not added",
+          title: i18nText("ui.literals.ke248170a3849"),
           duration: 6200,
         });
       }
@@ -1018,7 +1019,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setVideoTrimStart(safeStart);
       setVideoTrimEnd(safeEnd);
       clearAudioState();
-      setFeedback(`Swip clip ready: ${clipSeconds.toFixed(1)}s selected.`);
+      setFeedback(i18nText("ui.literals.kd59c47ab5c49", { value0: clipSeconds.toFixed(1) }));
       return sourcePreview;
     } catch (error) {
       if (trimRequestRef.current === 0) return "";
@@ -1046,7 +1047,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAttachmentMode("voice");
 
     if (hasVideoAttachment) {
-      setFeedback("Remove the Swip video before adding a voice note.");
+      setFeedback(i18nText("ui.literals.k1dc42531e8f5"));
       return;
     }
 
@@ -1059,7 +1060,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
 
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setFeedback("Voice notes are not supported on this device.");
+      setFeedback(i18nText("ui.literals.k7182e1db5d3a"));
       return;
     }
 
@@ -1100,7 +1101,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           }));
           setFeedback("");
         } catch (error) {
-          setFeedback(error.message || "Unable to save voice note.");
+          setFeedback(error.message || i18nText("ui.literals.k1c586584698d"));
         } finally {
           setIsRecording(false);
           setRecordingPaused(false);
@@ -1114,9 +1115,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       setRecordingPaused(false);
       setRecordingSeconds(0);
       startRecordingTimer();
-      setFeedback("Recording voice note...");
+      setFeedback(i18nText("ui.literals.k9562768f373f"));
     } catch (error) {
-      setFeedback(error.message || "Unable to access microphone.");
+      setFeedback(error.message || i18nText("ui.literals.k6080e69708d6"));
       setIsRecording(false);
       setRecordingPaused(false);
       stopRecordingTimer();
@@ -1252,7 +1253,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     if (type === "voice") {
       if (hasVideoAttachment) {
-        setFeedback("Remove the Swip video before adding a voice note.");
+        setFeedback(i18nText("ui.literals.k1dc42531e8f5"));
         return;
       }
       setAttachmentMode("voice");
@@ -1319,7 +1320,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             label: advertForm.title || "Advert location",
             address: advertForm.address || "Use Locate Me or Drop Pin to choose the advert location.",
             type: "advert-location",
-            status: "private",
+            status: i18nText("ui.literals.ke80721793c24"),
           },
           mode: "businessLocationPicker",
           onLocationPicked: (location = {}) => {
@@ -1380,7 +1381,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             label: mediaMeta.location?.label || "Post location",
             address: mediaMeta.location?.address || "Use Locate Me or Drop Pin to tag this post.",
             type: "post-location",
-            status: "private",
+            status: i18nText("ui.literals.ke80721793c24"),
           },
           mode: "businessLocationPicker",
           onLocationPicked: (location = {}) => {
@@ -1484,7 +1485,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (!canSubmit) {
       showComposer();
       if (!isAdvertMode) setAttachmentMode("text");
-      setFeedback(isAdvertMode ? "Add an advert title, message, link, location, image, or video." : "Add text, an image, a video, or a voice note.");
+      setFeedback(isAdvertMode ? i18nText("ui.literals.k72606edfa25b") : i18nText("ui.literals.kddd21eed526a"));
       return;
     }
 
@@ -1561,10 +1562,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "UrFeed" } }));
 
       publishPostingUpdate({
-        status: "posting",
+        status: i18nText("ui.literals.k77f0dc34eb53"),
         stage: "preparing",
         progress: 5,
-        message: "Securing your draft before publishing.",
+        message: i18nText("ui.literals.k08106a54365f"),
       });
 
       let videoFrameDataUrls = [];
@@ -1616,7 +1617,7 @@ if (!isMobileVideoDevice) {
           setPostingStage("uploading-media");
           setPostingProgress(24);
           publishPostingUpdate({
-            status: "posting",
+            status: i18nText("ui.literals.k77f0dc34eb53"),
             stage: "uploading-media",
             progress: 24,
             message: CONTENT_MODERATION_ENABLED
@@ -1626,10 +1627,10 @@ if (!isMobileVideoDevice) {
           uploadedReviewVideoUrl = await uploadVideoWithProgress(originalVideoFileRef.current, (progress) => {
             setPostingProgress(progress);
             publishPostingUpdate({
-              status: "posting",
+              status: i18nText("ui.literals.k77f0dc34eb53"),
               stage: "uploading-media",
               progress,
-              message: "Uploading media securely. Larger videos can take a little longer.",
+              message: i18nText("ui.literals.k7020c2243106"),
             });
           });
         }
@@ -1660,7 +1661,7 @@ if (!isMobileVideoDevice) {
           setPostingStage(stage);
           setPostingProgress(progress);
           publishPostingUpdate({
-            status: "posting",
+            status: i18nText("ui.literals.k77f0dc34eb53"),
             stage,
             progress,
             message: stage === "media-scan" && postDraft.video_url
@@ -1676,11 +1677,11 @@ if (!isMobileVideoDevice) {
           setPostingStage("syncing");
           setPostingProgress(76);
           publishPostingUpdate({
-            status: "reviewing",
+            status: i18nText("ui.literals.k7cd4341e2d7a"),
             stage: "media-scan",
             progress: 76,
             persistent: true,
-            message: "Your video is uploaded. KunThai is finishing the full safety review in the background.",
+            message: i18nText("ui.literals.k135811cefc5f"),
           });
 
           const pendingResult = await onSubmit?.({
@@ -1726,7 +1727,7 @@ if (!isMobileVideoDevice) {
               videoSize: uploadedVideoSize,
               progress: 80,
               nextRunAt: Date.now() + 24_000,
-              message: "Your video is uploaded. KunThai is checking the full file in the background.",
+              message: i18nText("ui.literals.k3b5369214b38"),
             });
             closeComposer({ afterClose: resetComposer });
             return;
@@ -1738,7 +1739,7 @@ if (!isMobileVideoDevice) {
           setPostingProgress(0);
           showComposer();
           setFeedback(pendingMessage);
-          publishPostingUpdate({ status: "error", progress: 0, message: pendingMessage });
+          publishPostingUpdate({ status: i18nText("ui.literals.k11f9578d05e6"), progress: 0, message: pendingMessage });
           return;
         }
 
@@ -1747,7 +1748,7 @@ if (!isMobileVideoDevice) {
         setPostingProgress(0);
         showComposer();
         setFeedback(review.reason);
-        publishPostingUpdate({ status: "error", progress: 0, message: review.reason });
+        publishPostingUpdate({ status: i18nText("ui.literals.k11f9578d05e6"), progress: 0, message: review.reason });
         return;
       }
 
@@ -1755,7 +1756,7 @@ if (!isMobileVideoDevice) {
 
       setPostingStage("syncing");
       setPostingProgress(92);
-      publishPostingUpdate({ status: "posting", stage: "syncing", progress: 92 });
+      publishPostingUpdate({ status: i18nText("ui.literals.k77f0dc34eb53"), stage: "syncing", progress: 92 });
 
       const result = await onSubmit?.({
         video_trim_start: postDraft.mediaMeta?.videoTrimStart || 0,
@@ -1800,7 +1801,7 @@ if (!isMobileVideoDevice) {
         }));
 
         publishPostingUpdate({
-          status: "complete",
+          status: i18nText("ui.literals.k0737c22d3bfa"),
           stage: "complete",
           progress: 100,
           postId: publishedPostId,
@@ -1818,7 +1819,7 @@ if (!isMobileVideoDevice) {
       setPostingProgress(0);
       showComposer();
       setFeedback(message);
-      publishPostingUpdate({ status: "error", progress: 0, message });
+      publishPostingUpdate({ status: i18nText("ui.literals.k11f9578d05e6"), progress: 0, message });
     } catch (error) {
       await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
       const message = friendlyPublishError(
@@ -1829,7 +1830,7 @@ if (!isMobileVideoDevice) {
       setPostingProgress(0);
       showComposer();
       setFeedback(message);
-      publishPostingUpdate({ status: "error", progress: 0, message });
+      publishPostingUpdate({ status: i18nText("ui.literals.k11f9578d05e6"), progress: 0, message });
     }
   }
 
@@ -1853,7 +1854,7 @@ if (!isMobileVideoDevice) {
           onComplete={(trimmedFile) => {
             setOversizedVideoFile(null);
             processVideoFile(trimmedFile).catch((error) => {
-              showToast(error.message || "Unable to use the trimmed clip.", "danger", { title: "Media not added" });
+              showToast(error.message || i18nText("ui.literals.kc79794ed8fef"), "danger", { title: i18nText("ui.literals.ke248170a3849") });
             });
           }}
         />
@@ -1863,7 +1864,7 @@ if (!isMobileVideoDevice) {
         <div className="pointer-events-none fixed inset-0 z-[90] flex items-center justify-center px-4">
           <section
             role="alertdialog"
-            aria-label="Video caution"
+            aria-label={i18nText("ui.literals.k5e6f37432cdc")}
             className="kt-route-transition pointer-events-auto w-full max-w-md rounded-[24px] border border-amber-200 bg-white p-4 shadow-2xl shadow-slate-950/20"
           >
             <div className="flex items-start gap-3">
@@ -1881,7 +1882,7 @@ if (!isMobileVideoDevice) {
                 onClick={() => setVideoNotice(null)}
                 className="h-10 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800"
               >
-                Got it
+                {i18nText("ui.literals.k5b8027fa0e81")}
               </button>
             </div>
           </section>
@@ -1906,7 +1907,7 @@ if (!isMobileVideoDevice) {
           <form
             onSubmit={handleSubmit}
             role="dialog"
-            aria-label={isAdvertMode ? "Create advertisement" : "Create Explore post"}
+            aria-label={isAdvertMode ? i18nText("ui.literals.kb229a493759b") : i18nText("ui.literals.kfb3b119fb73c")}
             className={`pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden bg-white shadow-2xl shadow-slate-950/25 ${
               composerDisplay === "full"
                 ? "h-full max-h-full max-w-none rounded-none pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
@@ -1919,14 +1920,14 @@ if (!isMobileVideoDevice) {
               <button
                 type="button"
                 onClick={() => closeComposer()}
-                aria-label="Cancel"
+                aria-label={i18nText("ui.literals.k77dfd2135f4d")}
                 className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full border border-slate-300 text-slate-700 transition hover:bg-slate-100"
               >
                 <HiOutlineXMark className="text-xl" />
               </button>
 
               <div className="min-w-0 flex-1 text-center">
-                <h2 className="truncate text-sm font-black text-slate-950 sm:text-base">{isAdvertMode ? "Advertisement" : "Explore Post"}</h2>
+                <h2 className="truncate text-sm font-black text-slate-950 sm:text-base">{isAdvertMode ? i18nText("ui.literals.ka1329a711dc6") : i18nText("ui.literals.k2864011414ba")}</h2>
                 {composerDisplay === "full" ? null : (
                   <button
                     type="button"
@@ -1934,7 +1935,7 @@ if (!isMobileVideoDevice) {
                     className="mx-auto mt-0.5 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-black text-slate-500 transition hover:bg-slate-100"
                   >
                     <HiOutlineArrowsUpDown className="text-sm" />
-                    <span className="truncate">{composerDock === "bottom" ? "Move top" : "Move bottom"}</span>
+                    <span className="truncate">{composerDock === "bottom" ? i18nText("ui.literals.k0c70a9ec3cd7") : i18nText("ui.literals.k931805aa2760")}</span>
                   </button>
                 )}
               </div>
@@ -1945,7 +1946,7 @@ if (!isMobileVideoDevice) {
                 className="inline-flex h-10 min-w-[4.75rem] flex-none items-center justify-center gap-1.5 rounded-2xl bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:hover:bg-slate-200"
               >
                 <HiOutlinePaperAirplane className="text-base" />
-                {postingStage ? "Posting" : isAdvertMode ? "Advert" : "Post"}
+                {postingStage ? i18nText("ui.literals.kb5bb5e2a722d") : isAdvertMode ? i18nText("ui.literals.k031332b6e435") : i18nText("ui.literals.k7858ac3ff633")}
               </button>
             </div>
 
@@ -1953,8 +1954,8 @@ if (!isMobileVideoDevice) {
               <div className="flex items-center gap-3">
                 <Avatar name={profile?.displayName || "KunThai"} src={profile?.avatarUrl} size="md" />
                 <div className="min-w-0">
-                  <p className="truncate text-base font-black text-slate-950">{profile?.displayName || "Profile"}</p>
-                  <p className="truncate text-sm font-semibold text-slate-500">@{profile?.username || "user"}</p>
+                  <p className="truncate text-base font-black text-slate-950">{profile?.displayName || i18nText("ui.literals.kff4fc0276e96")}</p>
+                  <p className="truncate text-sm font-semibold text-slate-500">@{profile?.username || i18nText("ui.literals.k12dea96fec20")}</p>
                 </div>
               </div>
 
@@ -1977,7 +1978,7 @@ if (!isMobileVideoDevice) {
                 {!isAdvertMode ? (
                   <label className="mb-4 block border-b border-slate-200 pb-4">
                     <span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                      <span>Post title</span>
+                      <span>{i18nText("ui.literals.ka1cf7235e7ac")}</span>
                       <span>{postTitle.length}/{MAX_POST_TITLE_LENGTH}</span>
                     </span>
                     <input
@@ -1987,7 +1988,7 @@ if (!isMobileVideoDevice) {
                         setPostTitle(event.target.value.slice(0, MAX_POST_TITLE_LENGTH));
                         setFeedback("");
                       }}
-                      placeholder="Give your post a short title"
+                      placeholder={i18nText("ui.literals.k339d70639f12")}
                       className="mt-2 h-11 w-full bg-transparent text-lg font-black text-slate-950 outline-none placeholder:text-slate-400"
                     />
                   </label>
@@ -1995,7 +1996,7 @@ if (!isMobileVideoDevice) {
 
                 <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                   <HiOutlineSparkles />
-                  {isAdvertMode ? "Advert message" : "Say it your way"}
+                  {isAdvertMode ? i18nText("ui.literals.kdd6abeb58ed1") : i18nText("ui.literals.k237000e69a9e")}
                 </div>
 
                 <textarea
@@ -2003,7 +2004,7 @@ if (!isMobileVideoDevice) {
                   value={value}
                   onChange={handleComposerTextChange}
                   autoFocus={!isAdvertMode && attachmentMode === "text"}
-                  placeholder={isAdvertMode ? "Describe the offer, role, benefit, schedule, or announcement..." : "Write a thought, tag someone with @name, or add #topics..."}
+                  placeholder={isAdvertMode ? i18nText("ui.literals.k72de600888e0") : i18nText("ui.literals.ka244e4a7b0d2")}
                   className={`w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 ${
                     isAdvertMode ? "min-h-[96px] sm:min-h-[130px]" : "min-h-[112px] sm:min-h-[150px]"
                   }`}
@@ -2017,7 +2018,7 @@ if (!isMobileVideoDevice) {
                         mentionPickerOpen ? "bg-violet-600 text-white" : "bg-white text-violet-700 shadow-sm ring-1 ring-violet-100 hover:bg-violet-50"
                       }`}
                     >
-                      <HiOutlineAtSymbol className="text-base" /> Mention
+                      <HiOutlineAtSymbol className="text-base" /> {i18nText("ui.literals.k512580218163")}
                     </button>
                     <button
                       type="button"
@@ -2026,7 +2027,7 @@ if (!isMobileVideoDevice) {
                         tagPickerOpen ? "bg-sky-700 text-white" : "bg-white text-sky-700 shadow-sm ring-1 ring-sky-100 hover:bg-sky-50"
                       }`}
                     >
-                      <HiOutlineHashtag className="text-base" /> Hashtag
+                      <HiOutlineHashtag className="text-base" /> {i18nText("ui.literals.k2e3ebf747ff8")}
                     </button>
                     <button
                       type="button"
@@ -2035,7 +2036,7 @@ if (!isMobileVideoDevice) {
                         topicPickerOpen ? "bg-emerald-700 text-white" : "bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 hover:bg-emerald-50"
                       }`}
                     >
-                      <HiOutlineTag className="flex-none text-base" /> <span className="truncate">{selectedPrimaryTopic?.name || "Topic"}</span>
+                      <HiOutlineTag className="flex-none text-base" /> <span className="truncate">{selectedPrimaryTopic?.name || i18nText("ui.literals.k7e13bd176f89")}</span>
                     </button>
                   </div>
                 ) : null}
@@ -2046,14 +2047,14 @@ if (!isMobileVideoDevice) {
                 <div className="rounded-[24px] border border-emerald-100 bg-emerald-50/70 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
-                      <HiOutlineTag className="text-base" /> Primary topic
+                      <HiOutlineTag className="text-base" /> {i18nText("ui.literals.kf006b468fd06")}
                     </div>
                     {primaryTopicSlug ? (
-                      <button type="button" onClick={() => setPrimaryTopicSlug("")} className="text-xs font-black text-slate-500">Clear</button>
+                      <button type="button" onClick={() => setPrimaryTopicSlug("")} className="text-xs font-black text-slate-500">{i18nText("ui.literals.k719ea396ad92")}</button>
                     ) : null}
                   </div>
-                  <p className="mt-2 text-xs font-semibold text-slate-500">Choose one topic that best describes this post. Hashtags stay separate.</p>
-                  {topicsLoading ? <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">Loading topics...</p> : null}
+                  <p className="mt-2 text-xs font-semibold text-slate-500">{i18nText("ui.literals.kf926c0fb8f0f")}</p>
+                  {topicsLoading ? <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">{i18nText("ui.literals.k039ccb135c12")}</p> : null}
                   <div className="mt-3 max-h-56 overflow-y-auto">
                     {Array.from(new Set(topics.map((topic) => topic.category))).map((topicCategory) => (
                       <div key={topicCategory} className="mb-4 last:mb-0">
@@ -2100,9 +2101,9 @@ if (!isMobileVideoDevice) {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-sky-700">
                       <HiOutlineHashtag className="text-base" />
-                      Saved topics
+                      {i18nText("ui.literals.k66ec3413ed27")}
                     </div>
-                    <span className="text-[11px] font-bold text-slate-500">Choose one or create yours</span>
+                    <span className="text-[11px] font-bold text-slate-500">{i18nText("ui.literals.kb54364d2f8ab")}</span>
                   </div>
                   <div className="mt-3 flex gap-2">
                     <input
@@ -2115,7 +2116,7 @@ if (!isMobileVideoDevice) {
                         }
                       }}
                       autoFocus
-                      placeholder="Type a hashtag"
+                      placeholder={i18nText("ui.literals.k57eeecfa7fb3")}
                       className="h-11 min-w-0 flex-1 rounded-2xl border border-sky-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-sky-300"
                     />
                     <button
@@ -2124,12 +2125,12 @@ if (!isMobileVideoDevice) {
                       disabled={!tagDraft.trim()}
                       className="h-11 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {normalizedTagDraft && !visibleHashtagSuggestions.some((item) => item.tag === normalizedTagDraft) ? `Create #${normalizedTagDraft}` : "Add"}
+                      {normalizedTagDraft && !visibleHashtagSuggestions.some((item) => item.tag === normalizedTagDraft) ? i18nText("ui.literals.k739262f57539", { value0: normalizedTagDraft }) : i18nText("ui.literals.k61cc55aa0453")}
                     </button>
                   </div>
                   <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
                     {hashtagSuggestionsLoading ? (
-                      <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">Loading saved hashtags...</p>
+                      <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">{i18nText("ui.literals.k5513dbf0eec3")}</p>
                     ) : null}
                     {!hashtagSuggestionsLoading && visibleHashtagSuggestions.map((item) => (
                       <button
@@ -2140,17 +2141,17 @@ if (!isMobileVideoDevice) {
                       >
                         <span className="truncate text-sm font-black text-slate-900">#{item.tag}</span>
                         <span className="flex-none rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">
-                          {item.saved && item.personalUsageCount ? `${item.personalUsageCount} your use${item.personalUsageCount === 1 ? "" : "s"}` : `${item.usageCount} use${item.usageCount === 1 ? "" : "s"}`}
+                          {item.saved && item.personalUsageCount ? i18nText("ui.literals.kc2bc87f7bb40", { value0: item.personalUsageCount, value1: item.personalUsageCount === 1 ? "" : "s" }) : i18nText("ui.literals.k4f25315bbbe5", { value0: item.usageCount, value1: item.usageCount === 1 ? "" : "s" })}
                         </span>
                       </button>
                     ))}
                     {!hashtagSuggestionsLoading && !visibleHashtagSuggestions.length ? (
                       <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">
-                        {normalizedTagDraft ? `No saved #${normalizedTagDraft} yet. Create it above.` : "Your published hashtags will be saved here with their use count."}
+                        {normalizedTagDraft ? i18nText("ui.literals.kf67cc6b93476", { value0: normalizedTagDraft }) : i18nText("ui.literals.k87cdd863fa1f")}
                       </p>
                     ) : null}
                   </div>
-                  <p className="mt-2 text-xs font-semibold text-slate-500">Typing # in your post opens this list automatically.</p>
+                  <p className="mt-2 text-xs font-semibold text-slate-500">{i18nText("ui.literals.k2500fd296cf8")}</p>
                 </div>
               ) : null}
 
@@ -2158,20 +2159,20 @@ if (!isMobileVideoDevice) {
                 <div className="rounded-[24px] border border-violet-100 bg-violet-50/70 p-4">
                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-violet-700">
                     <HiOutlineAtSymbol className="text-base" />
-                    Mention someone
+                    {i18nText("ui.literals.kc9aea155862e")}
                   </div>
                   <input
                     value={mentionQuery}
                     onChange={(event) => setMentionQuery(event.target.value.replace(/^@/, ""))}
                     autoFocus
-                    placeholder="Search by name or username"
+                    placeholder={i18nText("ui.literals.k9c923df6528e")}
                     className="mt-3 h-11 w-full rounded-2xl border border-violet-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-violet-300"
                   />
                   <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
-                    {mentionLoading ? <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">Finding people...</p> : null}
+                    {mentionLoading ? <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">{i18nText("ui.literals.k06f00244d1dd")}</p> : null}
                     {!mentionLoading && !mentionResults.length ? (
                       <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">
-                        {mentionQuery.trim() ? "No matching Explore profile." : "People you follow will appear here — or search by name."}
+                        {mentionQuery.trim() ? i18nText("ui.literals.ka8ba71cefabb") : i18nText("ui.literals.k8177be324231")}
                       </p>
                     ) : null}
                     {mentionResults.map((result) => (
@@ -2189,7 +2190,7 @@ if (!isMobileVideoDevice) {
                       </button>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs font-semibold text-slate-500">The selected person will receive a mention notification when this post is published.</p>
+                  <p className="mt-2 text-xs font-semibold text-slate-500">{i18nText("ui.literals.kb456bd766c5b")}</p>
                 </div>
               ) : null}
 
@@ -2199,7 +2200,7 @@ if (!isMobileVideoDevice) {
                     <HiOutlineMapPin className="text-xl" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Post location</p>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{i18nText("ui.literals.ke58280f33b41")}</p>
                     <p className="truncate text-sm font-bold text-slate-800">{mediaMeta.location.label || mediaMeta.location.address}</p>
                   </div>
                   <button
@@ -2209,7 +2210,7 @@ if (!isMobileVideoDevice) {
                       return rest;
                     })}
                     className="grid h-9 w-9 flex-none place-items-center rounded-2xl bg-white text-slate-500"
-                    aria-label="Remove post location"
+                    aria-label={i18nText("ui.literals.kb2eddbccc7c2")}
                   >
                     <HiOutlineXMark />
                   </button>

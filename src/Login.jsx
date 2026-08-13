@@ -39,6 +39,7 @@ import {
   PHONE_ALREADY_LINKED_MESSAGE,
 } from "./Backend/services/accountIdentityService";
 import FindAccountModal from "./components/auth/FindAccountModal";
+import { t as i18nText } from "./i18n/index";
 
 function AuthMessage({ tone = "info", children }) {
   const tones = {
@@ -106,7 +107,7 @@ function CountryPicker({ country, onCountryChange, compact = false }) {
           <Globe2 className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
         )}
         <span className={compact ? "sr-only" : "min-w-0 flex-1 truncate"}>
-          {country ? `${country.iso2} - ${country.name}` : t("auth.chooseCountry")}
+          {country ? i18nText("ui.literals.kc6d23992c795", { value0: country.iso2, value1: country.name }) : t("auth.chooseCountry")}
         </span>
         {compact ? (
           <span className="shrink-0 text-sm font-semibold text-slate-900">

@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, PackageCheck, Store } from "lucide-react";
 
 import { useI18n, t } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function BusinessSellerEntryAnimation({ show }) {
   useI18n();
@@ -70,7 +71,7 @@ export default function BusinessSellerEntryAnimation({ show }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 80 }}
               >
-                KunThai UrMall
+                {i18nText("ui.literals.k136711231f90")}
               </motion.p>
 
               <motion.h2

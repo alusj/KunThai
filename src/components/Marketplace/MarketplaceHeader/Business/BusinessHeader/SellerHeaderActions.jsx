@@ -18,8 +18,6 @@ export default function SellerHeaderActions({
   showMessages = true,
 }) {
   useI18n();
-  const hasNotifications = Number(notificationCount || 0) > 0;
-
   return (
     <div className="flex items-center gap-2">
       {showAddProduct ?
@@ -46,14 +44,12 @@ export default function SellerHeaderActions({
           onClick={onMessages}
         />
       : null}
-      {hasNotifications ? (
-          <HeaderActionButton
-            icon={Bell}
-            label={t("urmall.biz.header.alerts")}
-            badge={notificationCount}
-            onClick={onAlerts}
-          />
-      ) : null}
+      <HeaderActionButton
+        icon={Bell}
+        label={t("urmall.biz.header.alerts")}
+        badge={notificationCount}
+        onClick={onAlerts}
+      />
       <button
         type="button"
         onClick={onMenu}

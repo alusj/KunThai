@@ -1,5 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { fetchSellerAttentionItems } from "./sellerAttentionService";
+import { fetchSellerActivities } from "./sellerActivityService";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 
 const SELLER_HEADER_STATE = {
@@ -23,7 +24,7 @@ export async function fetchSellerHeaderState() {
     const business = await readRegisteredBusiness();
     if (!business?.id) return SELLER_HEADER_STATE;
 
-    const [ordersResult, messagesResult, attentionItems] = await Promise.all([
+    const [ordersResult, messagesResult, attentionItems, activityItems] = await Promise.all([
       supabase
         .from("marketplace_orders")
         .select("id,status,created_at")
@@ -40,6 +41,7 @@ export async function fetchSellerHeaderState() {
         .order("created_at", { ascending: false })
         .limit(30),
       fetchSellerAttentionItems().catch(() => []),
+      fetchSellerActivities().catch(() => []),
     ]);
 
     const orderItems = (ordersResult.data || []).map((order) => ({
@@ -58,11 +60,17 @@ export async function fetchSellerHeaderState() {
       unread: true,
       created_at: message.created_at || null,
     }));
-    const notificationItems = (attentionItems || []).map((item) => ({
+    const attentionNotificationItems = (attentionItems || []).map((item) => ({
       id: `seller-alert:${item.id}`,
       unread: true,
       created_at: item.updated_at || item.updatedAt || item.created_at || item.createdAt || null,
     }));
+    const activityNotificationItems = (activityItems || []).map((item) => ({
+      id: `seller-activity:${item.id}`,
+      unread: true,
+      created_at: item.createdAt || null,
+    }));
+    const notificationItems = [...attentionNotificationItems, ...activityNotificationItems];
 
     return {
       ...SELLER_HEADER_STATE,
@@ -82,7 +90,7 @@ export async function subscribeSellerHeaderChanges(onChange) {
   const business = await readRegisteredBusiness();
   if (!business?.id) return () => {};
   const channel = supabase.channel(`marketplace-seller-header-${business.id}-${crypto.randomUUID()}`);
-  ["marketplace_orders", "marketplace_customer_messages"].forEach((table) => {
+  ["marketplace_orders", "marketplace_customer_messages", "marketplace_activities", "marketplace_promotions"].forEach((table) => {
     channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `business_id=eq.${business.id}` }, onChange);
   });
   channel.subscribe();

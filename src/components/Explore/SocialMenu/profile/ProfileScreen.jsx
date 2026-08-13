@@ -38,15 +38,15 @@ function fileToDataUrl(file) {
   });
 }
 
-function shareProfile(values) {
+function shareProfile(values, t) {
   const url = new URL(window.location.href);
   const identity = getProfileIdentity(values);
   url.hash = identity.type === SPACE_IDENTITY_TYPE
     ? `space-${values.spaceId || values.username || identity.id || "space"}`
     : `profile-${values.userId || values.username || "user"}`;
   const data = {
-    title: `${values.displayName || "Profile"} on KunThai`,
-    text: values.bio || `View @${values.username || "user"} on KunThai Explore`,
+    title: t("profile.shareTitle", { name: values.displayName || t("feed.profileFallback") }),
+    text: values.bio || t("profile.shareText", { username: values.username || t("post.userFallback") }),
     url: url.toString(),
   };
 
@@ -127,8 +127,8 @@ export default function ProfileScreen({
 
     try {
       updateField("avatarUrl", await fileToDataUrl(file));
-    } catch (error) {
-      setFeedback(error.message || "Unable to load image.");
+    } catch {
+      setFeedback(t("profile.unableLoadImage"));
     } finally {
       event.target.value = "";
     }
@@ -140,8 +140,8 @@ export default function ProfileScreen({
 
     try {
       updateField("coverUrl", await fileToDataUrl(file));
-    } catch (error) {
-      setFeedback(error.message || "Unable to load cover image.");
+    } catch {
+      setFeedback(t("profile.unableLoadCover"));
     } finally {
       event.target.value = "";
     }
@@ -160,10 +160,10 @@ export default function ProfileScreen({
       setValues(updated);
       onProfileUpdate?.(updated);
       setEditing(false);
-      setFeedback(updated.avatarWarning || (isSpace ? "Space updated." : "Profile updated."));
-      showToast(isSpace ? "Space updated." : "Profile updated.", "success");
+      setFeedback(updated.avatarWarning || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
+      showToast(isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated"), "success");
     } catch (error) {
-      setFeedback(error.message || "Unable to update profile.");
+      setFeedback(error.message || t("profile.unableUpdateProfile"));
     } finally {
       setSaving(false);
     }
@@ -184,21 +184,21 @@ export default function ProfileScreen({
 
   async function handleShare() {
     try {
-      await shareProfile(values);
-      setFeedback("Profile link ready.");
-      showToast("Profile link ready.", "success");
+      await shareProfile(values, t);
+      setFeedback(t("profile.profileLinkReady"));
+      showToast(t("profile.profileLinkReady"), "success");
     } catch {
-      setFeedback("Unable to share profile.");
+      setFeedback(t("profile.unableShareProfile"));
     }
   }
 
   async function handleShareCredits() {
     try {
       await credits.shareInvite();
-      setFeedback("Invite link ready.");
-      showToast("Invite link ready.", "success", { title: "Visibility Credits" });
+      setFeedback(t("profile.inviteLinkReady"));
+      showToast(t("profile.inviteLinkReady"), "success", { title: "Visibility Credits" });
     } catch (error) {
-      const message = error.message || "Unable to share invite link.";
+      const message = error.message || t("profile.unableShareInvite");
       setFeedback(message);
       showToast(message, "danger");
     }
@@ -207,13 +207,13 @@ export default function ProfileScreen({
   async function handleTransferCredits(kunThaiId, amount) {
     try {
       const result = await credits.transfer(kunThaiId, amount);
-      const recipientName = result?.recipientName || "the recipient";
-      const message = `${Number(result?.amount || amount)} Visibility Credits shared with ${recipientName}.`;
+      const recipientName = result?.recipientName || t("profile.recipientFallback");
+      const message = t("profile.creditsSharedWith", { amount: Number(result?.amount || amount), name: recipientName });
       setFeedback(message);
-      showToast(message, "success", { title: "Credits shared" });
+      showToast(message, "success", { title: t("profile.creditsShared") });
       return result;
     } catch (error) {
-      const message = error.message || "Unable to share Visibility Credits.";
+      const message = error.message || t("profile.unableShareCredits");
       setFeedback(message);
       showToast(message, "danger");
       throw error;
@@ -225,28 +225,28 @@ export default function ProfileScreen({
     if (isSpace) {
       try {
         await blockExploreIdentity(profileIdentity, "blocked from Space profile");
-        setFeedback("Space blocked.");
-        showToast("Space blocked.", "success");
+        setFeedback(t("profile.spaceBlocked"));
+        showToast(t("profile.spaceBlocked"), "success");
       } catch (error) {
-        const message = error.message || "Unable to block this Space.";
+        const message = error.message || t("profile.unableBlockSpace");
         setFeedback(message);
         showToast(message, "danger");
       }
       return;
     }
     safety.blockUser(values.userId, "blocked from profile");
-    setFeedback("Profile blocked.");
+    setFeedback(t("profile.profileBlocked"));
   }
 
   async function reportProfile() {
     if (isSpace) {
       try {
         const result = await reportExploreSpace(values.spaceId || profileIdentity.id);
-        const message = result.alreadyReported ? "You already reported this Space." : "Space report sent for review.";
+        const message = result.alreadyReported ? t("profile.spaceAlreadyReported") : t("profile.spaceReportSent");
         setFeedback(message);
         showToast(message, "success");
       } catch (error) {
-        const message = error.message || "Unable to send this Space report.";
+        const message = error.message || t("profile.unableReportSpace");
         setFeedback(message);
         showToast(message, "danger");
       }
@@ -254,11 +254,11 @@ export default function ProfileScreen({
     }
     try {
       const result = await reportExploreProfile(values.userId);
-      const message = result.alreadyReported ? "You already reported this profile." : "Profile report sent for review.";
+      const message = result.alreadyReported ? t("profile.profileAlreadyReported") : t("profile.profileReportSent");
       setFeedback(message);
       showToast(message, "success");
     } catch (error) {
-      const message = error.message || "Unable to send this profile report.";
+      const message = error.message || t("profile.unableReportProfile");
       setFeedback(message);
       showToast(message, "danger");
     }
@@ -268,11 +268,11 @@ export default function ProfileScreen({
     try {
       const result = await respondExploreSpaceInvite(space, accept);
       onSpaceInviteResponse?.(space, result, accept);
-      const message = accept ? "Space invitation accepted." : "Space invitation declined.";
+      const message = accept ? t("profile.spaceInviteAccepted") : t("profile.spaceInviteDeclined");
       setFeedback(message);
       showToast(message, "success");
     } catch (error) {
-      const message = error.message || "Unable to respond to this Space invitation.";
+      const message = error.message || t("profile.unableRespondSpaceInvite");
       setFeedback(message);
       showToast(message, "danger");
     }

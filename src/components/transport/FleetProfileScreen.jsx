@@ -28,6 +28,7 @@ import AppPortal from "../shared/AppPortal";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 import { useI18n, t } from "../../i18n";
+import { t as i18nText } from "../../i18n/index";
 
 function cleanAreaText(value) {
   const text = String(value || "").trim();
@@ -52,7 +53,7 @@ function buildFleetAreaDestination(fleet) {
     address: areaText,
     category: fleet.serviceCategory || "Operator",
     status: fleet.verificationStatus || "community",
-    description: `${fleet.fleetName} service area for ${fleet.displayType || "transport"}.`,
+    description: i18nText("ui.literals.ka5780fafd96f", { value0: fleet.fleetName, value1: fleet.displayType || "transport" }),
     searchQuery: areaText,
     fleetId: fleet.id,
     operatorId: fleet.operatorId,

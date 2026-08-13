@@ -14,6 +14,7 @@ import {
   switchToRememberedSocialAccount,
 } from "../../../../Backend/services/sessionService";
 import { useI18n } from "../../../../i18n";
+import { t as i18nText } from "../../../../i18n/index";
 
 function getIdentifier(account = {}) {
   return account.identifier || account.email || account.phone || "";
@@ -68,16 +69,16 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
         setStatus(t("switchAccount.sessionExpired"));
       }
     } catch (error) {
-      setStatus(error.message || "Unable to switch account right now.");
+      setStatus(error.message || i18nText("ui.literals.k435fff56c883"));
     }
   }
 
   async function signOut() {
     try {
-      setStatus("Signing out...");
+      setStatus(i18nText("ui.literals.kb9412f771503"));
       await signOutSocialSession();
     } catch (error) {
-      setStatus(error.message || "Unable to sign out right now.");
+      setStatus(error.message || i18nText("ui.literals.k2719ccab4f15"));
     }
   }
 
@@ -104,11 +105,11 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
                   <AccountAvatar account={account} active={active} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="truncate text-base font-black text-slate-950">{account.displayName || "KunThai account"}</h4>
+                      <h4 className="truncate text-base font-black text-slate-950">{account.displayName || i18nText("ui.literals.k429f137f06dc")}</h4>
                       {active ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
                           <HiOutlineCheckCircle />
-                          Active
+                          {i18nText("ui.literals.ka733b809d2f1")}
                         </span>
                       ) : instant ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">
@@ -118,7 +119,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
                     </div>
                     <p className="mt-1 flex items-center gap-2 truncate text-sm font-semibold text-slate-500">
                       {String(account.provider || "").includes("phone") ? <HiOutlineDevicePhoneMobile /> : <HiOutlineEnvelope />}
-                      <span className="truncate">{identifier || account.provider || "Saved account"}</span>
+                      <span className="truncate">{identifier || account.provider || i18nText("ui.literals.k662f38e3b5c7")}</span>
                     </p>
                   </div>
                 </div>

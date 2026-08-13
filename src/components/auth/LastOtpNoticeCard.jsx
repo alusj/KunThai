@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import { ShieldAlert } from "lucide-react";
+import { t as i18nText } from "../../i18n/index";
 
 // Centered floating caution shown right after the SECOND OTP is sent (account
 // creation or password recovery). That second code is the last one allowed for
@@ -11,7 +12,7 @@ export default function LastOtpNoticeCard({ open, onCancel, onVerify }) {
     <div className="fixed inset-0 z-[1500] flex items-center justify-center px-4" role="presentation">
       <button
         type="button"
-        aria-label="Close OTP notice"
+        aria-label={i18nText("ui.literals.ke25974094562")}
         onClick={onCancel}
         className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px]"
       />
@@ -28,16 +29,15 @@ export default function LastOtpNoticeCard({ open, onCancel, onVerify }) {
               <ShieldAlert size={24} />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-700">Final OTP sent</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-700">{i18nText("ui.literals.kcc60a435f75d")}</p>
               <h2 id="last-otp-title" className="mt-1 text-xl font-black leading-tight text-slate-950">
-                Stay close to your device
+                {i18nText("ui.literals.k1de3aaec205c")}
               </h2>
             </div>
           </div>
 
           <p className="mt-3 text-sm font-bold leading-6 text-slate-700">
-            Please be sure to be around your device. This is the last OTP for today - a new code can only be
-            requested after 72 hours. Enter the code as soon as it arrives.
+            {i18nText("ui.literals.k956bb6294954")}
           </p>
 
           <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -46,14 +46,14 @@ export default function LastOtpNoticeCard({ open, onCancel, onVerify }) {
               onClick={onCancel}
               className="kt-pressable h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 transition hover:bg-slate-200"
             >
-              Cancel
+              {i18nText("ui.literals.k77dfd2135f4d")}
             </button>
             <button
               type="button"
               onClick={onVerify}
               className="kt-pressable h-12 rounded-2xl bg-amber-500 text-sm font-black text-white shadow-lg shadow-amber-900/25 transition hover:bg-amber-600"
             >
-              Verify code
+              {i18nText("ui.literals.k91a22c282e11")}
             </button>
           </div>
         </div>

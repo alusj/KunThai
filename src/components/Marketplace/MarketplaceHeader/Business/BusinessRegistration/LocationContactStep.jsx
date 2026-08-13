@@ -21,6 +21,7 @@ import {
   GLOBAL_COUNTRY_PROFILES,
 } from "../../../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
 
 function toOptionalCoordinate(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -235,7 +236,7 @@ export default function LocationContactStep({ registration }) {
             type="email"
             value={form.location.email}
             onChange={(event) => updateSection("location", { email: event.target.value })}
-            placeholder="business@example.com"
+            placeholder={i18nText("ui.literals.k465417316164")}
             autoComplete="email"
           />
         </RegistrationField>

@@ -35,6 +35,7 @@ import { guardGuestAction } from "../../Backend/services/guestModeService";
 import { subscribeNotificationSeen } from "../../Backend/services/notificationSeenStore";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
+import { t as i18nText } from "../../i18n/index";
 
 // Session-lived cache of the operator/company accounts, mirroring UrMall's
 // SELLER_HEADER_MEMORY. Re-entering UrRide then paints the header from this
@@ -438,7 +439,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       // company fleet right away; identity documents remain an optional later step.
       const operatorRecord = await ensureInvitedOperatorProfile(invite).catch(() => null);
       const updatedInvite = await respondToOperatorInvite(invite, {
-        status: "accepted",
+        status: i18nText("ui.literals.k51c817ab85e3"),
         operatorId: operatorRecord?.id || operatorAccount?.id || invite.operatorId,
         userId: operatorRecord?.user_id || operatorAccount?.userId || invite.userId,
         documents: {
@@ -472,7 +473,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     try {
       const reuseNotice = t("urride.transport.status.reuseNotice");
       await respondToOperatorInvite(documentReuseInvite, {
-        status: "accepted",
+        status: i18nText("ui.literals.k51c817ab85e3"),
         documents: {
           reuseNotice,
           reusedExistingDocuments: true,
@@ -492,7 +493,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     try {
       setOperatorInviteStatus("");
       const rejectedInvite = await respondToOperatorInvite(invite, {
-        status: "rejected",
+        status: i18nText("ui.literals.k1f087a5954f6"),
         documents: {
           rejectedAt: new Date().toISOString(),
         },
@@ -513,7 +514,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     if (!invite) return;
     try {
       const completedInvite = await respondToOperatorInvite(invite, {
-        status: "accepted",
+        status: i18nText("ui.literals.k51c817ab85e3"),
         documents: {
           operatorAcknowledgedAt: new Date().toISOString(),
         },
@@ -537,7 +538,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
 
       const updatedInvite = await respondToOperatorInvite(invite, {
-        status: "accepted",
+        status: i18nText("ui.literals.k51c817ab85e3"),
         operatorId: savedSubmission.operator?.id || refreshedAccount?.id || operatorAccount?.id || invite.operatorId,
         userId: savedSubmission.operator?.user_id || refreshedAccount?.userId || operatorAccount?.userId || invite.userId,
         verificationStatus: refreshedAccount?.verificationStatus || savedSubmission.operator?.verification_status || operatorAccount?.verificationStatus || "pending",
@@ -566,7 +567,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     if (registrationInvite) {
       try {
         await updateOperatorCompanyInvite(registrationInvite, {
-          status: "accepted",
+          status: i18nText("ui.literals.k51c817ab85e3"),
           operatorId: account?.id,
           userId: account?.userId,
           verificationStatus: account?.verificationStatus || "pending",

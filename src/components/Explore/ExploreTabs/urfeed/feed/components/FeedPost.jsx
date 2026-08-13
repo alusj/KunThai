@@ -33,6 +33,7 @@ import PostAnalyticsPanel from "../../../../shared/PostAnalyticsPanel";
 import RepostPreview from "../../../../shared/RepostPreview";
 import { contentHasModerationFlags } from "../../../../../../Backend/services/explore/safetyService";
 import { readExploreSettings } from "../../../../../../Backend/services/explore/preferencesService";
+import { t as i18nText } from "../../../../../../i18n/index";
 
 // `value` is the canonical English category stored/submitted to the safety
 // backend; `key` resolves the translated label shown to the reader.
@@ -224,7 +225,7 @@ export default function FeedPost({
           lat: postLocation.lat,
           lng: postLocation.lng,
           type: "post-location",
-          status: "public",
+          status: i18nText("ui.literals.k61c9b2b17db7"),
         },
         // Transport's area-view back handler matches "explore-" prefixed
         // returnTo values; this is what routes the user back to the feed.
@@ -351,7 +352,7 @@ export default function FeedPost({
               className="kt-pressable inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-2xl bg-emerald-50 px-3 text-left text-xs font-black text-emerald-700"
             >
               <MapPin size={14} strokeWidth={2.5} className="flex-none" />
-              <span className="truncate">{postLocation.label || postLocation.address || "Post location"}</span>
+              <span className="truncate">{postLocation.label || postLocation.address || i18nText("ui.literals.ke58280f33b41")}</span>
             </button>
           ) : null}
         </div>
@@ -520,7 +521,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
       ) : null}
       {!actionHref && profileAction ? (
         <button type="button" onClick={onViewProfile} className="kt-pressable mt-3 flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-          View profile
+          {i18nText("ui.literals.kb98795a246f0")}
         </button>
       ) : null}
       {!actionHref && followAction ? (

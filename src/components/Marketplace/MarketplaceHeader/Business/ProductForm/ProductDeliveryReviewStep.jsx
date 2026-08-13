@@ -7,6 +7,7 @@ import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductToggle from "./ProductToggle";
 import { useI18n, t } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function ProductDeliveryReviewStep({ productForm }) {
   useI18n();
@@ -80,7 +81,7 @@ export default function ProductDeliveryReviewStep({ productForm }) {
           {form.pricing.publishStatus === "promoted" ? (
             <>
               <p>{t("urmall.biz.pform.rowPromoCredits", { n: promotionCredits })}</p>
-              <p>{t("urmall.biz.pform.rowPromoAudience", { value: form.pricing.promotionAudience || "countrywide" })}</p>
+              <p>{t("urmall.biz.pform.rowPromoAudience", { value: form.pricing.promotionAudience || i18nText("ui.literals.kd2e6e5f60e8d") })}</p>
               <p>{t(estimatedPromotionDays === 1 ? "urmall.biz.pform.rowWindowOne" : "urmall.biz.pform.rowWindowMany", { n: estimatedPromotionDays })}</p>
             </>
           ) : null}

@@ -10,6 +10,7 @@ import {
 } from "react-icons/hi2";
 
 import { createUserCareFeedback, validateUserCareAttachment } from "../../Backend/services/explore/userCareService";
+import { t as i18nText } from "../../i18n/index";
 
 const FEEDBACK_TYPES = [
   ["idea", "Idea"],
@@ -33,7 +34,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
   const [form, setForm] = useState(() => ({
     feedbackType: "bug",
     category: CATEGORIES.includes(category) ? category : "other",
-    title: `${currentScreen} screenshot feedback`,
+    title: i18nText("ui.literals.k1013e848df99", { value0: currentScreen }),
     message: "",
   }));
   const [screenshot, setScreenshot] = useState(null);
@@ -111,7 +112,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
   async function startRecording() {
     setFeedback("");
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setFeedback("Voice recording is not available in this browser. You can still send text or a screenshot.");
+      setFeedback(i18nText("ui.literals.kfa226b11524b"));
       return;
     }
 
@@ -153,10 +154,10 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
       const permissionBlocked = ["NotAllowedError", "PermissionDeniedError", "SecurityError"].includes(error?.name);
       const deviceMissing = ["NotFoundError", "DevicesNotFoundError"].includes(error?.name);
       setFeedback(permissionBlocked
-        ? "Microphone access is blocked. Allow microphone access for KunThai in your browser settings, then tap Record again."
+        ? i18nText("ui.literals.k9ab192988c2c")
         : deviceMissing
-          ? "No microphone was found on this device. You can still send text or a screenshot."
-          : "KunThai could not start voice recording. Close other apps using the microphone, then try again.");
+          ? i18nText("ui.literals.k56bb80ad529f")
+          : i18nText("ui.literals.k7b72fe78afd1"));
     }
   }
 
@@ -165,15 +166,15 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
     const title = form.title.trim();
     const message = form.message.trim();
     if (!title) {
-      setFeedback("Add a title for your feedback.");
+      setFeedback(i18nText("ui.literals.kdeed2dda1aae"));
       return;
     }
     if (!message && !screenshot && !voiceNote) {
-      setFeedback("Add a message, screenshot, or voice note.");
+      setFeedback(i18nText("ui.literals.k5408b8bd2b69"));
       return;
     }
     if (!navigator.onLine) {
-      setFeedback("You are offline. Reconnect before sending feedback.");
+      setFeedback(i18nText("ui.literals.kc96504d16779"));
       return;
     }
 
@@ -183,7 +184,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
       await createUserCareFeedback({ ...form, title, message, screenshot, voiceNote, currentScreen });
       setSent(true);
     } catch (error) {
-      setFeedback(error.message || "Unable to send this feedback right now.");
+      setFeedback(error.message || i18nText("ui.literals.k5b75435c2c92"));
     } finally {
       setSending(false);
     }
@@ -193,21 +194,21 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
     <div className="fixed inset-0 z-[1360] flex items-end justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center sm:pb-0">
       <button
         type="button"
-        aria-label="Close Your Voice card"
+        aria-label={i18nText("ui.literals.ka4fd93cee736")}
         onClick={onClose}
         className="absolute inset-0 cursor-default border-0 bg-slate-950/35 p-0 backdrop-blur-[2px]"
       />
       <section
         role="dialog"
         aria-modal="true"
-        aria-label="Send feedback to KunThai"
+        aria-label={i18nText("ui.literals.ke501430b70a5")}
         className="kt-toast-expand-in relative max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-[26px] border border-sky-100 bg-white p-4 shadow-2xl shadow-slate-950/25"
       >
         <button
           type="button"
           onClick={onClose}
           className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
-          aria-label="Cancel feedback"
+          aria-label={i18nText("ui.literals.k2149646cf4c1")}
         >
           <HiOutlineXMark className="text-xl" />
         </button>
@@ -215,16 +216,16 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
         <div className="pl-12">
           <p className="flex items-center gap-1.5 text-sm font-black text-slate-950">
             <HiOutlineLightBulb className="text-base text-sky-500" />
-            Add to Your Voice
+            {i18nText("ui.literals.k8443fc46e9fd")}
           </p>
           <p className="mt-0.5 text-xs font-bold text-slate-500">
-            Share an idea, problem, screenshot, or voice note — you stay on {currentScreen}.
+            {i18nText("ui.literals.k4ff928b94caa")} {currentScreen}.
           </p>
         </div>
 
         {sent ? (
           <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
-            Sent to KunThai. Thank you — you can follow replies in Your Voice.
+            {i18nText("ui.literals.k1698aeb3246b")}
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">
@@ -234,7 +235,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
 
             <div className="grid grid-cols-2 gap-2">
               <label className="block">
-                <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Feedback type</span>
+                <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{i18nText("ui.literals.kff2f042bfcce")}</span>
                 <select
                   value={form.feedbackType}
                   onChange={(event) => updateForm({ feedbackType: event.target.value })}
@@ -246,7 +247,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Category</span>
+                <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{i18nText("ui.literals.ka3c686e711e4")}</span>
                 <select
                   value={form.category}
                   onChange={(event) => updateForm({ category: event.target.value })}
@@ -260,25 +261,25 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
             </div>
 
             <label className="block">
-              <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Title · {form.title.length}/120</span>
+              <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{i18nText("ui.literals.k24e12bcfc626")} {form.title.length}/120</span>
               <input
                 maxLength={120}
                 value={form.title}
                 onChange={(event) => updateForm({ title: event.target.value })}
-                placeholder="What would you like KunThai to know?"
+                placeholder={i18nText("ui.literals.kafdd67cba974")}
                 className="h-11 w-full rounded-2xl bg-slate-100 px-3 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Message · {form.message.length}/2000</span>
+              <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{i18nText("ui.literals.k8f32e2754f3f")} {form.message.length}/2000</span>
               <textarea
                 maxLength={2000}
                 value={form.message}
                 onChange={(event) => updateForm({ message: event.target.value })}
                 rows={3}
                 autoFocus
-                placeholder="Describe the idea, problem, or complaint..."
+                placeholder={i18nText("ui.literals.k95c77483a8ce")}
                 className="w-full resize-none rounded-2xl bg-slate-100 px-3 py-3 text-sm font-bold leading-6 text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
               />
             </label>
@@ -290,7 +291,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
                 className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-2 text-center transition ${
                   screenshot ? "border-sky-300 bg-sky-50" : "border-dashed border-sky-300 bg-white hover:bg-sky-50"
                 }`}
-                aria-label={screenshot ? "Replace screenshot" : "Attach screenshot"}
+                aria-label={screenshot ? i18nText("ui.literals.kd66871ffd8e9") : i18nText("ui.literals.k5c4e7b7a7b55")}
               >
                 {screenshotPreview ? (
                   <img src={screenshotPreview} alt="Attached screenshot" className="h-10 w-14 rounded-lg object-cover" />
@@ -298,9 +299,9 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
                   <HiOutlineCamera className="text-xl text-sky-600" />
                 )}
                 <span className="w-full truncate text-[11px] font-black text-slate-800">
-                  {screenshot ? screenshot.name : "Attach screenshot"}
+                  {screenshot ? screenshot.name : i18nText("ui.literals.k5c4e7b7a7b55")}
                 </span>
-                {!screenshot ? <span className="text-[10px] font-bold text-slate-400">PNG, JPG, WebP · max 5MB</span> : null}
+                {!screenshot ? <span className="text-[10px] font-bold text-slate-400">{i18nText("ui.literals.k7bf6a130fb8c")}</span> : null}
               </button>
 
               <button
@@ -313,7 +314,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
                       ? "border-sky-300 bg-sky-50"
                       : "border-dashed border-sky-300 bg-white hover:bg-sky-50"
                 }`}
-                aria-label={recording ? "Stop recording" : voiceNote ? "Replace voice note" : "Record voice note"}
+                aria-label={recording ? i18nText("ui.literals.kee0d9dc8eb5e") : voiceNote ? i18nText("ui.literals.k93557e23abf9") : i18nText("ui.literals.kbab099dc9744")}
               >
                 {recording ? (
                   <HiOutlineStopCircle className="text-xl text-rose-600" />
@@ -321,9 +322,9 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
                   <HiOutlineMicrophone className="text-xl text-sky-600" />
                 )}
                 <span className="w-full truncate text-[11px] font-black text-slate-800">
-                  {recording ? `Recording ${recordingSeconds}s / 60s` : voiceNote ? voiceNote.name : "Record voice note"}
+                  {recording ? i18nText("ui.literals.kd47cdb226f44", { value0: recordingSeconds }) : voiceNote ? voiceNote.name : i18nText("ui.literals.kbab099dc9744")}
                 </span>
-                {!recording && !voiceNote ? <span className="text-[10px] font-bold text-slate-400">Optional · max 60s</span> : null}
+                {!recording && !voiceNote ? <span className="text-[10px] font-bold text-slate-400">{i18nText("ui.literals.kacf861325c42")}</span> : null}
               </button>
             </div>
 
@@ -338,18 +339,18 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
                     }}
                     className="text-[11px] font-black text-rose-600"
                   >
-                    Remove screenshot
+                    {i18nText("ui.literals.k05315c08fe33")}
                   </button>
                 ) : null}
                 {voiceNote ? (
                   <button type="button" onClick={() => setVoiceNote(null)} className="text-[11px] font-black text-rose-600">
-                    Remove voice note
+                    {i18nText("ui.literals.ke0a0a04362a8")}
                   </button>
                 ) : null}
               </div>
             ) : null}
 
-            <p className="rounded-2xl bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-500">Screen context: {currentScreen}</p>
+            <p className="rounded-2xl bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-500">{i18nText("ui.literals.k3676bb0b4170")} {currentScreen}</p>
 
             <input
               ref={fileInputRef}
@@ -365,7 +366,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-50"
             >
               <HiOutlinePaperAirplane className="text-base" />
-              {sending ? "Sending privately..." : "Send to KunThai"}
+              {sending ? i18nText("ui.literals.kd3c78a10f7c4") : i18nText("ui.literals.k5b341f5ba850")}
             </button>
           </form>
         )}

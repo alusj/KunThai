@@ -1,4 +1,5 @@
-export default function NotificationAction({ followed, onFollowBack, type }) {
+
+import { t as i18nText } from "../../../../../i18n/index";export default function NotificationAction({ followed, onFollowBack, type }) {
   if (type === "follow" || type === "connect") {
     return (
       <button
@@ -9,7 +10,7 @@ export default function NotificationAction({ followed, onFollowBack, type }) {
           followed ? "bg-slate-100 text-slate-400" : "bg-sky-600 text-white active:scale-95"
         }`}
       >
-        {followed ? "Connected" : "Connect back"}
+        {followed ? i18nText("ui.literals.kc2f9b7b4897f") : i18nText("ui.literals.k2232147192be")}
       </button>
     );
   }

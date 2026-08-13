@@ -18,6 +18,10 @@ export default function ProductInlineActions({ product, onAction }) {
         onClick={() => onAction?.(product, "edit-listing")}
       />
       <ProductActionButton
+        label={t("urmall.biz.intel.insightsTab")}
+        onClick={() => onAction?.(product, "insights")}
+      />
+      <ProductActionButton
         label={t("urmall.biz.cat.promote")}
         onClick={() => onAction?.(product, "promote")}
       />

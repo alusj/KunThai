@@ -57,6 +57,7 @@ import {
 } from "../services/nearbyAreaService";
 import EmergencySheet from "../emergency/EmergencySheet";
 import { useI18n, t } from "../../i18n";
+import { t as i18nText } from "../../i18n/index";
 
 const CATEGORY_LABEL_KEYS = {
   All: "urride.areaView.catAll",
@@ -138,27 +139,19 @@ const ONE_KM_ROUTE_BEARINGS = [0, 45, 90, 135, 180, 225, 270, 315];
 const emergencySearchActions = {
   hospital: {
     query: "hospital",
-    label: "Hospital",
     addCategory: "Hospital / Clinic",
-    description: "Nearest hospital or clinic found from Area View search. Confirm details before travelling.",
   },
   police: {
     query: "police station",
-    label: "Police station",
     addCategory: "Police",
-    description: "Nearest police station found from Area View search. Confirm details before travelling.",
   },
   pharmacy: {
     query: "pharmacy",
-    label: "Pharmacy",
     addCategory: "Pharmacy",
-    description: "Nearest pharmacy found from Area View search. Confirm details before travelling.",
   },
   fire: {
     query: "fire station",
-    label: "Fire station",
     addCategory: "Fire Station",
-    description: "Nearest fire service location found from Area View search. Confirm details before travelling.",
   },
 };
 
@@ -518,7 +511,7 @@ function buildStraightOneKmPreview(origin) {
   if (!destination) return null;
 
   return {
-    label: "1 KM",
+    label: i18nText("ui.literals.k2c5a55ff33d4"),
     routeMode: "straight",
     distanceMeters: ONE_KM_PREVIEW_METERS,
     origin: {
@@ -577,7 +570,7 @@ function clipRouteToOneKilometre(origin, route) {
       clippedCoordinates.push(pointToCoordinate(destination));
 
       return {
-        label: "1 KM",
+        label: i18nText("ui.literals.k2c5a55ff33d4"),
         routeMode: "road",
         distanceMeters: ONE_KM_PREVIEW_METERS,
         routeDistanceMeters: route.distanceMeters || travelledMeters + segmentMeters,
@@ -858,7 +851,7 @@ function buildOperatorTrafficSignals(operators = []) {
       source: "operators",
       roadName: "",
       areaName: "Live operator movement",
-      message: `${cluster.length} nearby operators moving slowly`,
+      message: i18nText("ui.literals.k314679313007", { value0: cluster.length }),
       averageSpeedMps: avgSpeed,
       confidenceScore: Math.min(0.9, 0.48 + cluster.length * 0.08),
       lat: center.lat,
@@ -1054,8 +1047,8 @@ export default function NearbyAreaScreen({
     setAddLocationMode("form");
     setAddLocationStatus(
       hasCategoryHint
-        ? `Use Locate Me or Drop Pin so this ${categoryLabel} can be reviewed with an exact map point.`
-        : "Use Locate Me or Drop Pin so the new location can be reviewed with an exact map point.",
+        ? i18nText("ui.literals.kc42b75ebc533", { value0: categoryLabel })
+        : i18nText("ui.literals.k53a08974dd66"),
     );
     setAddLocationLocateCautionOpen(false);
     setAddLocationBusy(false);
@@ -1833,7 +1826,7 @@ export default function NearbyAreaScreen({
         setAddLocationMode("form");
         setFocusMode(false);
         setAddLocationStatus(
-          `Device GPS could not confirm your exact position, so KunThai used the selected map point. ${fallbackStatus ? `${fallbackStatus}. ` : ""}Use Drop Pin if you need to move it.`,
+          i18nText("ui.literals.ked4f01084842", { value0: fallbackStatus ? `${fallbackStatus}. ` : "" }),
         );
       } else {
         setAddLocationStatus(getFriendlyLocationError(error));
@@ -1913,7 +1906,7 @@ export default function NearbyAreaScreen({
         name: submitted.name || addLocationDraft.name,
         category: submitted.category || category,
         type: submitted.type || category,
-        status: "community",
+        status: i18nText("ui.literals.k418b03c91215"),
         visibility: "pending",
         description: submitted.description || addLocationDraft.description || "Submitted for KunThai review.",
         distance: submitted.address || addLocationDraft.address || "Submitted for review",
@@ -1977,8 +1970,8 @@ export default function NearbyAreaScreen({
   const handleEmergencyNearbySearch = useCallback(async (type) => {
     const action = emergencySearchActions[type] || {
       query: String(type || "").trim(),
-      label: "Emergency location",
-      description: "Nearby emergency location found from Area View search. Confirm details before travelling.",
+      label: i18nText("ui.literals.k0266095aee39"),
+      description: i18nText("ui.literals.k1de83cecea6f"),
     };
     const query = action.query || String(type || "").trim();
 
@@ -2610,7 +2603,7 @@ function BusinessLocationPickerChrome({
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center">
           <div className="relative h-24 w-24">
             <div className="absolute left-1/2 top-0 -translate-x-1/2 rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white shadow-xl">
-              PIN
+              {i18nText("ui.literals.k3adadd31e712")}
             </div>
             <FiMapPin className="absolute left-1/2 top-8 -translate-x-1/2 text-blue-600 drop-shadow-xl" size={44} />
             <div className="absolute left-1/2 top-[4.7rem] h-3 w-3 -translate-x-1/2 rounded-full bg-blue-600/40" />

@@ -1,6 +1,7 @@
 import { HiOutlineCheck, HiOutlineFolder } from "react-icons/hi2";
 
 import { itemIsInCollection } from "../../../../Backend/services/explore/savedService";
+import { t as i18nText } from "../../../../i18n/index";
 
 export default function CollectionPicker({ collections, onToggle, postId }) {
   if (!collections.length) {
@@ -9,7 +10,7 @@ export default function CollectionPicker({ collections, onToggle, postId }) {
 
   return (
     <div className="mb-3 rounded-[20px] border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Collections</p>
+      <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">{i18nText("ui.literals.k4bbb632f02fd")}</p>
       <div className="flex flex-wrap gap-2">
         {collections.map((collection) => {
           const active = itemIsInCollection(collection, postId);

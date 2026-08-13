@@ -21,6 +21,7 @@ import { isAdvertPost } from "../../../shared/advertUtils";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 import VideoProgress from "./VideoProgress";
+import { t as i18nText } from "../../../../../i18n/index";
 
 const MAX_SWIP_SECONDS = 15;
 
@@ -482,7 +483,7 @@ export default function VideoCard({
       }
       setDeleteOpen(false);
     } catch (error) {
-      setMessage(error.message || "Unable to delete video.");
+      setMessage(error.message || i18nText("ui.literals.k0a3558c86a73"));
     } finally {
       setDeleting(false);
     }
@@ -717,7 +718,7 @@ export default function VideoCard({
         loop={false}
         onError={() => {
           setVideoLoading(false);
-          setMediaError("Video could not load yet. It may still be uploading.");
+          setMediaError(i18nText("ui.literals.kb17dd3bd9917"));
           onMediaUnavailable?.();
         }}
         onCanPlay={() => {
@@ -787,7 +788,7 @@ export default function VideoCard({
           onPointerDown={(event) => event.stopPropagation()}
           className="absolute right-4 top-20 z-20 rounded-full border border-white/15 bg-slate-950/35 px-3 py-2 text-xs font-black text-white shadow-2xl backdrop-blur-md"
         >
-          Restore display
+          {i18nText("ui.literals.k40251d5b05ca")}
         </button>
       )}
 

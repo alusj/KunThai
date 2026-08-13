@@ -4,8 +4,10 @@
 // =====================================
 
 import { HiOutlineBars3 } from "react-icons/hi2";
+import { useI18n } from "../../../../i18n";
 
 export default function MenuButton({ onClick }) {
+  const { t } = useI18n();
   return (
     <button
       onClick={onClick}

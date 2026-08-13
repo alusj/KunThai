@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   dismissSellerActivity,
@@ -16,6 +16,23 @@ export function useSellerActivities() {
   const [loading, setLoading] = useState(() => !SELLER_ACTIVITIES_MEMORY.loaded);
   const [refreshing, setRefreshing] = useState(false);
 
+  const loadActivities = useCallback((isActive = () => true, quiet = false) => {
+    if (!quiet && !SELLER_ACTIVITIES_MEMORY.loaded) setLoading(true);
+    return fetchSellerActivities()
+      .then((nextActivities) => {
+        SELLER_ACTIVITIES_MEMORY.loaded = true;
+        SELLER_ACTIVITIES_MEMORY.activities = Array.isArray(nextActivities) ? nextActivities : [];
+        SELLER_ACTIVITIES_MEMORY.savedAt = Date.now();
+        if (isActive()) setActivities(SELLER_ACTIVITIES_MEMORY.activities);
+      })
+      .finally(() => {
+        if (isActive()) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      });
+  }, []);
+
   useEffect(() => {
     let active = true;
     const hasCachedActivities = SELLER_ACTIVITIES_MEMORY.loaded;
@@ -29,27 +46,16 @@ export function useSellerActivities() {
       setRefreshing(false);
     }
 
-    fetchSellerActivities()
-      .then((nextActivities) => {
-        SELLER_ACTIVITIES_MEMORY.loaded = true;
-        SELLER_ACTIVITIES_MEMORY.activities = Array.isArray(nextActivities) ? nextActivities : [];
-        SELLER_ACTIVITIES_MEMORY.savedAt = Date.now();
-        if (active) {
-          setActivities(SELLER_ACTIVITIES_MEMORY.activities);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      });
+    loadActivities(() => active).catch(() => {});
+
+    const refresh = () => loadActivities(() => active, true).catch(() => {});
+    window.addEventListener("marketplace-seller-notifications-updated", refresh);
 
     return () => {
       active = false;
+      window.removeEventListener("marketplace-seller-notifications-updated", refresh);
     };
-  }, []);
+  }, [loadActivities]);
 
   function updateActivities(updater) {
     setActivities((current) => {

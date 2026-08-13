@@ -44,6 +44,7 @@ import { normalizeCoordinates } from "../../../Backend/utils/coordinates";
 import { haversineKm, distanceBand, resolveDistanceLabel } from "../../../Backend/utils/distance";
 import { cleanAddressString } from "../../../Backend/utils/geoAddress";
 import { isCoordinatePlausibleForCountry } from "../../../Backend/utils/coordinatePlausibility";
+import { t as i18nText } from "../../../i18n/index";
 
 function StarRatingInput({ value, onChange }) {
   return (
@@ -210,7 +211,7 @@ function getStoreStatus(seller) {
 
   return {
     label: open ? t("urmall.seller.openNow") : t("urmall.seller.closedNow"),
-    detail: `${formatClock(openTime)} - ${formatClock(closeTime)}`,
+    detail: i18nText("ui.literals.kc6d23992c795", { value0: formatClock(openTime), value1: formatClock(closeTime) }),
     open,
     neutral: false,
   };

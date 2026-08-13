@@ -8,11 +8,12 @@ import {
 
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import { t as i18nText } from "../../../../i18n/index";
 
 function Toggle({ active, onChange }) {
   return (
     <button type="button" role="switch" aria-checked={active} onClick={() => onChange(!active)} className={`h-11 min-w-20 rounded-2xl px-4 text-sm font-black ${active ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}>
-      {active ? "On" : "Off"}
+      {active ? i18nText("ui.literals.ke0049a66519c") : i18nText("ui.literals.ke3de5ab0ca4c")}
     </button>
   );
 }
@@ -35,34 +36,34 @@ export default function DataMobileUseScreen({ hideHeader = false }) {
 
   return (
     <div>
-      {!hideHeader ? <SocialScreenHeader title="Data & Mobile Use" subtitle="Choose how Explore handles media, bandwidth, and temporary device data." /> : null}
+      {!hideHeader ? <SocialScreenHeader title={i18nText("ui.literals.k4851f7738edc")} subtitle={i18nText("ui.literals.k66bb44ac7ea3")} /> : null}
 
       <div className="w-full space-y-6 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Mobile controls</p>
-          <h3 className="mt-2 text-2xl font-black text-slate-950">Balance media and connectivity</h3>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">These controls use the same saved Explore preferences as Settings, so changes stay consistent across both screens.</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.kc36c996818eb")}</p>
+          <h3 className="mt-2 text-2xl font-black text-slate-950">{i18nText("ui.literals.kb5254c8bd4f4")}</h3>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{i18nText("ui.literals.k9caa5321a133")}</p>
           {feedback ? <p className="mt-3 text-sm font-black text-sky-700">{feedback}</p> : null}
         </section>
 
         <section className="grid gap-3 lg:grid-cols-2">
-          <DataRow icon={HiOutlineSignal} title="Use less mobile data" description="Prefer lighter media behavior when your connection is limited.">
+          <DataRow icon={HiOutlineSignal} title={i18nText("ui.literals.kb96aa8e9a92a")} description={i18nText("ui.literals.kafe9f3a8d62b")}>
             <Toggle active={video.reduceData} onChange={(value) => updateSection("video", { reduceData: value })} />
           </DataRow>
-          <DataRow icon={HiOutlineFilm} title="Autoplay Swip" description="Start the active video automatically while browsing Swip.">
+          <DataRow icon={HiOutlineFilm} title={i18nText("ui.literals.kf984bd77586e")} description={i18nText("ui.literals.k44d3fd0a86a0")}>
             <Toggle active={video.autoplay} onChange={(value) => updateSection("video", { autoplay: value })} />
           </DataRow>
-          <DataRow icon={HiOutlineSpeakerWave} title="Start with sound" description="Choose the preferred sound state when Swip begins playback.">
+          <DataRow icon={HiOutlineSpeakerWave} title={i18nText("ui.literals.k852ed2593e28")} description={i18nText("ui.literals.kd5fe1510e61f")}>
             <Toggle active={!video.defaultMuted} onChange={(value) => updateSection("video", { defaultMuted: !value })} />
           </DataRow>
-          <DataRow icon={HiOutlineCircleStack} title="Temporary Explore data" description="Clear drafts, recent searches, posting notices, and temporary screen state.">
-            <button type="button" onClick={clearCache} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700"><HiOutlineArrowPath /> Clear cache</button>
+          <DataRow icon={HiOutlineCircleStack} title={i18nText("ui.literals.kb0fea8410b50")} description={i18nText("ui.literals.kec86adf3452a")}>
+            <button type="button" onClick={clearCache} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700"><HiOutlineArrowPath /> {i18nText("ui.literals.k22bc1a4e0718")}</button>
           </DataRow>
         </section>
 
         <section className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-          <h3 className="text-base font-black text-slate-950">Downloads and offline use</h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Saved media and offline collections are not enabled in this first version. KunThai will show storage impact before adding them.</p>
+          <h3 className="text-base font-black text-slate-950">{i18nText("ui.literals.kdce9176e5708")}</h3>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{i18nText("ui.literals.k03dcbd106ab0")}</p>
         </section>
 
         {/* Future backend: add measured bandwidth modes, download preferences, cache size reporting, and offline collection sync. */}

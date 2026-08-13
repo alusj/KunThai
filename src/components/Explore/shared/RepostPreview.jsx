@@ -6,6 +6,7 @@ import { openMentionContent } from "../../../Backend/services/explore/linkTokenS
 import Avatar from "../shared/Avatar";
 import ExpandablePostText from "./ExpandablePostText";
 import { t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 export default function RepostPreview({ post, sourcePost = null, compact = false }) {
   const source = sourcePost ? buildExploreRepostSnapshot(sourcePost) : post?.media_meta?.repost || post?.mediaMeta?.repost;
@@ -198,7 +199,7 @@ function RepostSwipVideo({ compact, source }) {
       />
       {!compact ? (
         <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-slate-950/60 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur-md">
-          Swip · tap to watch
+          {i18nText("ui.literals.k97284f962449")}
         </span>
       ) : null}
       {compact && !playing ? (
@@ -211,7 +212,7 @@ function RepostSwipVideo({ compact, source }) {
       <button
         type="button"
         onClick={toggleMute}
-        aria-label={muted ? "Unmute Swip preview" : "Mute Swip preview"}
+        aria-label={muted ? i18nText("ui.literals.k7c1744e3d2db") : i18nText("ui.literals.ka9de434fa984")}
         className="kt-pressable absolute bottom-3 right-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-slate-950/60 text-white shadow-xl backdrop-blur-md"
       >
         {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}

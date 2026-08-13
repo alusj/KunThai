@@ -33,6 +33,7 @@ import { t } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
 import Avatar from "../../shared/Avatar";
 import ShareVisibilityCreditsModal from "./ShareVisibilityCreditsModal";
+import { t as i18nText } from "../../../../i18n/index";
 
 const platformIcons = {
   facebook: FaFacebookF,
@@ -130,7 +131,7 @@ export default function ProfileHeaderCard({
         if (active) setCreditPackages(packages);
       })
       .catch((error) => {
-        if (active) setCardCheckoutError(error.message || "Unable to load credit packages.");
+        if (active) setCardCheckoutError(error.message || t("profile.unableLoadCreditPackages"));
       })
       .finally(() => {
         if (active) setCreditPackagesLoading(false);
@@ -201,7 +202,7 @@ export default function ProfileHeaderCard({
       window.location.assign(result.checkoutUrl);
     } catch (error) {
       setCardCheckoutPackageId("");
-      setCardCheckoutError(error.message || "Unable to open secure card checkout.");
+      setCardCheckoutError(error.message || t("profile.unableOpenCardCheckout"));
     }
   }
 
@@ -227,7 +228,7 @@ export default function ProfileHeaderCard({
                 onClick={() => onCoverPreset?.(preset)}
                 className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold capitalize text-slate-700 shadow-sm backdrop-blur"
               >
-                {preset}
+                {t(`profile.coverPreset${preset[0].toUpperCase()}${preset.slice(1)}`)}
               </button>
             ))}
             <button
@@ -235,7 +236,7 @@ export default function ProfileHeaderCard({
               onClick={() => coverInputRef.current?.click()}
               className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white shadow-sm"
             >
-              Upload cover
+              {t("profile.uploadCover")}
             </button>
           </div>
         ) : null}
@@ -247,7 +248,7 @@ export default function ProfileHeaderCard({
               type="button"
               onClick={() => editable && editing && fileInputRef.current?.click()}
               className="inline-flex rounded-full bg-white p-1 shadow-sm ring-4 ring-white"
-              aria-label={editable && editing ? "Change profile image" : "Profile image"}
+              aria-label={editable && editing ? t("profile.changeProfileImage") : t("profile.profileImage")}
             >
               <Avatar name={values.displayName} src={values.avatarUrl} size="lg" />
             </button>
@@ -258,7 +259,7 @@ export default function ProfileHeaderCard({
                 className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600"
               >
                 <HiOutlinePhoto />
-                Photo
+                {t("profile.photo")}
               </button>
             ) : null}
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarChange} className="hidden" />
@@ -276,8 +277,8 @@ export default function ProfileHeaderCard({
                       href={/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`}
                       target="_blank"
                       rel="noreferrer"
-                      title={link.label || "Social profile"}
-                      aria-label={link.label || "Social profile"}
+                      title={link.label || t("profile.socialProfile")}
+                      aria-label={link.label || t("profile.socialProfile")}
                       className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-lg text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
                     >
                       <Icon />
@@ -474,7 +475,7 @@ export default function ProfileHeaderCard({
                     whileTap={{ scale: 0.92 }}
                     transition={{ type: "spring", stiffness: 400, damping: 18 }}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 text-xl text-white shadow-md shadow-sky-500/30"
-                    aria-label="Open Visibility Credit actions"
+                    aria-label={t("profile.openCreditActions")}
                     aria-expanded={creditMenuOpen}
                     aria-haspopup="menu"
                   >
@@ -495,8 +496,8 @@ export default function ProfileHeaderCard({
                       >
                         <CreditMenuAction
                           icon={HiOutlineShare}
-                          label="Share KunThai"
-                          helper="Invite someone to join"
+                          label={t("profile.shareKunThai")}
+                          helper={t("profile.inviteSomeone")}
                           onClick={() => {
                             setCreditMenuOpen(false);
                             onShareCredits?.();
@@ -504,8 +505,8 @@ export default function ProfileHeaderCard({
                         />
                         <CreditMenuAction
                           icon={HiOutlineGift}
-                          label="Share credit"
-                          helper="Send credits by KunThai ID"
+                          label={t("profile.shareCredit")}
+                          helper={t("profile.sendCreditsById")}
                           onClick={() => {
                             setCreditMenuOpen(false);
                             setShareCreditOpen(true);
@@ -514,7 +515,7 @@ export default function ProfileHeaderCard({
                         <CreditMenuAction
                           icon={HiOutlineUserPlus}
                           label={t("buyCredits.button")}
-                          helper="Add to your balance"
+                          helper={t("profile.addToBalance")}
                           onClick={() => {
                             setCreditMenuOpen(false);
                             openBuyCredits();
@@ -523,7 +524,7 @@ export default function ProfileHeaderCard({
                         <div className="my-1 border-t border-slate-100" />
                         <CreditMenuAction
                           icon={HiOutlineInformationCircle}
-                          label="About credits"
+                          label={t("profile.aboutCreditsAction")}
                           onClick={() => {
                             setCreditMenuOpen(false);
                             setCreditHelpOpen(true);
@@ -539,7 +540,7 @@ export default function ProfileHeaderCard({
           {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
 
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
-            <StatTile label="Feed" value={stats?.feed} loading={loadingStats} />
+            <StatTile label={t("profile.tabFeed")} value={stats?.feed} loading={loadingStats} />
             <StatTile label="Swip" value={stats?.swip} loading={loadingStats} />
             <StatTile label={t("profile.statConnections")} value={stats?.followers} loading={loadingStats} />
             <StatTile label={isSpace ? t("profile.statTeam") : t("profile.statConnected")} value={isSpace ? stats?.team : stats?.following} loading={loadingStats} />
@@ -584,20 +585,20 @@ export default function ProfileHeaderCard({
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility Credits</p>
                   <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">Choose how you would like to pay.</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{t("profile.choosePaymentMethod")}</p>
                 </div>
               </div>
               <div className="mt-5 space-y-3">
                 <PaymentMethodButton
                   icon={HiOutlineCreditCard}
-                  label="Buy with credit card"
-                  helper="Pay securely with your bank card"
+                  label={t("profile.buyWithCard")}
+                  helper={t("profile.paySecurelyByCard")}
                   onClick={() => setBuyCreditsMethod("card")}
                 />
                 <PaymentMethodButton
                   icon={HiOutlineDevicePhoneMobile}
-                  label="Buy with mobile money"
-                  helper="Use your mobile money account"
+                  label={t("profile.buyWithMobileMoney")}
+                  helper={t("profile.useMobileMoney")}
                   onClick={() => setBuyCreditsMethod("mobile-money")}
                 />
               </div>
@@ -618,20 +619,20 @@ export default function ProfileHeaderCard({
                   type="button"
                   onClick={() => setBuyCreditsMethod("")}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
-                  aria-label="Choose another payment method"
+                  aria-label={t("profile.chooseAnotherPaymentMethod")}
                 >
                   <HiOutlineArrowLeft />
                 </button>
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Credit card</p>
-                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">Choose a credit package</h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">You will complete payment securely on Flutterwave.</p>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.creditCard")}</p>
+                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("profile.chooseCreditPackage")}</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{t("profile.completeOnFlutterwave")}</p>
                 </div>
               </div>
 
               <div className="mt-5 space-y-3">
                 {creditPackagesLoading ? (
-                  <div className="space-y-3" aria-label="Loading credit packages">
+                  <div className="space-y-3" aria-label={t("profile.loadingCreditPackages")}>
                     {[1, 2, 3].map((item) => <div key={item} className="h-[74px] animate-pulse rounded-2xl bg-slate-100" />)}
                   </div>
                 ) : creditPackages.length ? (
@@ -652,17 +653,17 @@ export default function ProfileHeaderCard({
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-black text-slate-950">{item.label}</span>
-                          <span className="mt-0.5 block text-xs font-semibold text-slate-500">{item.credits} Visibility Credits</span>
+                          <span className="mt-0.5 block text-xs font-semibold text-slate-500">{t("profile.creditCount", { count: item.credits })}</span>
                         </span>
                         <span className="shrink-0 text-sm font-black text-sky-800">
-                          {opening ? "Opening…" : formatPackagePrice(item)}
+                          {opening ? t("profile.openingCheckout") : formatPackagePrice(item)}
                         </span>
                       </motion.button>
                     );
                   })
                 ) : (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold leading-6 text-amber-900">
-                    Card packages have not been priced yet. No payment can be started until approved packages are added.
+                    {t("profile.creditPackagesUnavailable")}
                   </div>
                 )}
               </div>
@@ -672,7 +673,7 @@ export default function ProfileHeaderCard({
               ) : null}
               <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
                 <HiOutlineCreditCard className="text-base text-sky-700" />
-                KunThai never receives or stores your card details.
+                {t("profile.cardDetailsPrivacy")}
               </div>
               <button type="button" onClick={closeBuyCredits} disabled={Boolean(cardCheckoutPackageId)} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">
                 {t("common.close")}
@@ -691,13 +692,13 @@ export default function ProfileHeaderCard({
                   type="button"
                   onClick={() => setBuyCreditsMethod("")}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
-                  aria-label="Choose another payment method"
+                  aria-label={t("profile.chooseAnotherPaymentMethod")}
                 >
                   <HiOutlineArrowLeft />
                 </button>
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
-                    {buyCreditsMethod === "card" ? "Credit card" : "Mobile money"}
+                    {buyCreditsMethod === "card" ? t("profile.creditCard") : t("profile.mobileMoney")}
                   </p>
                   <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
                 </div>
@@ -813,7 +814,7 @@ function StatTile({ label, loading, value }) {
   return (
     <div className="rounded-2xl bg-slate-50 px-3 py-2">
       {loading ? (
-        <div className="mx-auto h-6 w-8 animate-pulse rounded-full bg-slate-200" aria-label={`${label} loading`} />
+        <div className="mx-auto h-6 w-8 animate-pulse rounded-full bg-slate-200" aria-label={i18nText("ui.literals.k4360a33c8dc2", { value0: label })} />
       ) : (
         <p className="text-lg font-black text-slate-950">{Number(value || 0)}</p>
       )}

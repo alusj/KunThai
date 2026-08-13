@@ -9,6 +9,7 @@ import {
 
 import { submitPublicPrivacyRequest } from "../../Backend/services/publicPrivacyRequestService";
 import { legalConfig } from "../../config/legalConfig";
+import { t as i18nText } from "../../i18n/index";
 
 const EMPTY_FORM = {
   fullName: "",
@@ -58,11 +59,11 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
     setError("");
 
     if (!form.accountEmail.trim() && !form.accountPhone.trim()) {
-      setError("Enter the email address or phone number connected to your KunThai account.");
+      setError(i18nText("ui.literals.k2993549da5bd"));
       return;
     }
     if (!form.confirmed) {
-      setError("Confirm that you own, or are authorized to act for, this account.");
+      setError(i18nText("ui.literals.ka18d150563c3"));
       return;
     }
 
@@ -80,7 +81,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
       });
       setReceipt(result);
     } catch (submitError) {
-      setError(submitError.message || "KunThai could not submit your request right now.");
+      setError(submitError.message || i18nText("ui.literals.k2d70d1b8ad29"));
     } finally {
       setBusy(false);
     }
@@ -91,7 +92,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 px-4 py-6" role="presentation">
-      <button type="button" aria-label="Close request form" onClick={() => !busy && onClose?.()} className="absolute inset-0 cursor-default" />
+      <button type="button" aria-label={i18nText("ui.literals.k4b3176e647d1")} onClick={() => !busy && onClose?.()} className="absolute inset-0 cursor-default" />
       <section
         role="dialog"
         aria-modal="true"
@@ -103,7 +104,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
           onClick={onClose}
           disabled={busy}
           className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-200"
-          aria-label="Close"
+          aria-label={i18nText("ui.literals.kbbfa773e5a63")}
         >
           <HiOutlineXMark className="text-xl" />
         </button>
@@ -113,18 +114,18 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
             <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
               <HiOutlineCheckCircle className="text-4xl" />
             </span>
-            <h2 id={titleId} className="mt-5 text-2xl font-black text-slate-950 dark:text-white">Request received</h2>
+            <h2 id={titleId} className="mt-5 text-2xl font-black text-slate-950 dark:text-white">{i18nText("ui.literals.kd5656f0ed572")}</h2>
             <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-              KunThai has recorded your {isDeletion ? "account deletion" : "data access"} request. Keep this reference for follow-up.
+              {i18nText("ui.literals.k8ab0e2d2fce2")} {isDeletion ? i18nText("ui.literals.k0c759066f86c") : i18nText("ui.literals.k855f632a1ffa")} {i18nText("ui.literals.k3cd2720e660e")}
             </p>
             <p className="mx-auto mt-4 w-fit rounded-2xl bg-slate-100 px-5 py-3 font-mono text-base font-black tracking-wide text-slate-950 dark:bg-slate-800 dark:text-white">
               {receipt.reference}
             </p>
             <p className="mt-4 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-              We may contact you to verify ownership before releasing data or deleting an account.
+              {i18nText("ui.literals.kb03c2ed8f2aa")}
             </p>
             <button type="button" onClick={onClose} className="mt-6 h-12 rounded-2xl bg-slate-950 px-6 text-sm font-black text-white hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500">
-              Done
+              {i18nText("ui.literals.ke9b450d14bc2")}
             </button>
           </div>
         ) : (
@@ -133,20 +134,20 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
               {isDeletion ? <HiOutlineTrash className="text-3xl" /> : <HiOutlineCircleStack className="text-3xl" />}
             </div>
             <h2 id={titleId} className="mt-4 pr-12 text-2xl font-black text-slate-950 dark:text-white">
-              {isDeletion ? "Request account deletion" : "Request a copy of your data"}
+              {isDeletion ? i18nText("ui.literals.k08caa3db9ffd") : i18nText("ui.literals.k935eec6f03bb")}
             </h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
               {isDeletion
-                ? "Submit this form even if you no longer have the app. After ownership checks, eligible account data will be deleted or anonymized, subject to disclosed legal and safety retention."
-                : "Tell us which KunThai account is yours. We will verify ownership before preparing or releasing personal data."}
+                ? i18nText("ui.literals.k1fa9325b45d9")
+                : i18nText("ui.literals.k666105519041")}
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div className="absolute -left-[10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
-                <label>Website<input tabIndex={-1} autoComplete="off" value={form.website} onChange={(event) => update("website", event.target.value)} /></label>
+                <label>{i18nText("ui.literals.k2e8a57cc5c47")}<input tabIndex={-1} autoComplete="off" value={form.website} onChange={(event) => update("website", event.target.value)} /></label>
               </div>
 
-              <RequestField label="Full name" required>
+              <RequestField label={i18nText("ui.literals.keeb692087d62")} required>
                 <input
                   required
                   autoComplete="name"
@@ -157,7 +158,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
               </RequestField>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <RequestField label="Account email" hint="Enter this or the account phone number.">
+                <RequestField label={i18nText("ui.literals.kd705c691c087")} hint="Enter this or the account phone number.">
                   <input
                     type="email"
                     autoComplete="email"
@@ -166,7 +167,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-sky-950"
                   />
                 </RequestField>
-                <RequestField label="Account phone" hint="Include the international country code.">
+                <RequestField label={i18nText("ui.literals.kecc68a263411")} hint="Include the international country code.">
                   <input
                     type="tel"
                     autoComplete="tel"
@@ -178,7 +179,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
                 </RequestField>
               </div>
 
-              <RequestField label="Country or region">
+              <RequestField label={i18nText("ui.literals.k9127196a6d29")}>
                 <input
                   autoComplete="country-name"
                   value={form.country}
@@ -187,7 +188,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
                 />
               </RequestField>
 
-              <RequestField label={isDeletion ? "Anything we should know?" : "Data or date range requested"} hint="Do not include passwords or one-time codes.">
+              <RequestField label={isDeletion ? i18nText("ui.literals.k11149163ec7f") : i18nText("ui.literals.keeb19db0d05d")} hint="Do not include passwords or one-time codes.">
                 <textarea
                   rows={4}
                   maxLength={2000}
@@ -205,7 +206,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
                   className="mt-1 h-5 w-5 rounded border-slate-300 text-sky-700 focus:ring-sky-500"
                 />
                 <span className="text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
-                  I confirm that I own this account or am legally authorized to make this request. I understand KunThai must verify identity before acting.
+                  {i18nText("ui.literals.k06ab2563f4e9")}
                 </span>
               </label>
 
@@ -213,14 +214,14 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
 
               <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
                 <a href={mailHref} className="inline-flex items-center gap-2 text-sm font-black text-sky-700 hover:text-sky-800 dark:text-sky-300">
-                  <HiOutlineShieldCheck className="text-xl" /> Email privacy support
+                  <HiOutlineShieldCheck className="text-xl" /> {i18nText("ui.literals.kda4e266147b2")}
                 </a>
                 <button
                   type="submit"
                   disabled={busy}
                   className={`h-12 rounded-2xl px-6 text-sm font-black text-white transition disabled:cursor-wait disabled:opacity-60 ${isDeletion ? "bg-rose-600 hover:bg-rose-700" : "bg-sky-700 hover:bg-sky-800"}`}
                 >
-                  {busy ? "Submitting…" : "Submit request"}
+                  {busy ? i18nText("ui.literals.k25bdf9860e96") : i18nText("ui.literals.k8a9051c61379")}
                 </button>
               </div>
             </form>

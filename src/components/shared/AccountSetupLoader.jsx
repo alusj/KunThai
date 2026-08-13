@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { ShieldCheck, Sparkles, Store, Truck } from "lucide-react";
+import { t as i18nText } from "../../i18n/index";
 
 // Full-screen "we are setting up your account" experience shown while a UrMall
 // or UrRide registration is saving and the dashboard is being prepared. It
@@ -102,7 +103,7 @@ export default function AccountSetupLoader({ open, sector = "urmall" }) {
             </div>
 
             <p className="mt-7 text-xs font-black uppercase tracking-[0.28em] text-white/60">{config.label}</p>
-            <h2 className="mt-1 text-2xl font-black text-white">Almost there</h2>
+            <h2 className="mt-1 text-2xl font-black text-white">{i18nText("ui.literals.k005287e2bca1")}</h2>
 
             <div className="mt-5 h-8 w-full overflow-hidden">
               <AnimatePresence mode="wait">
@@ -130,7 +131,7 @@ export default function AccountSetupLoader({ open, sector = "urmall" }) {
             </div>
 
             <p className="mt-5 text-xs font-semibold leading-5 text-white/50">
-              Please keep this screen open. Your dashboard opens the moment everything is ready.
+              {i18nText("ui.literals.k2ce331b1a2fc")}
             </p>
           </motion.div>
         </motion.div>

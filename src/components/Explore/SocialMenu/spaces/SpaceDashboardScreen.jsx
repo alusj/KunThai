@@ -35,6 +35,7 @@ import { showToast } from "../../../../Backend/services/toastService";
 import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
 import KunThaiIdHelpButton from "../../../shared/KunThaiIdHelpButton";
+import { t as i18nText } from "../../../../i18n/index";
 
 const INVITE_INITIAL = {
   kunthaiId: "",
@@ -66,7 +67,7 @@ export default function SpaceDashboardScreen({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invite, setInvite] = useState(INVITE_INITIAL);
   const [savingInvite, setSavingInvite] = useState(false);
-  const [inviteLookup, setInviteLookup] = useState({ status: "idle", name: "", message: "" });
+  const [inviteLookup, setInviteLookup] = useState({ status: i18nText("ui.literals.k1adbcc344b31"), name: "", message: "" });
   const [busyAction, setBusyAction] = useState("");
   const menuRef = useRef(null);
   const manageTeam = canManageTeam(space);
@@ -93,7 +94,7 @@ export default function SpaceDashboardScreen({
           setDepartments(departmentRows);
         }
       } catch (error) {
-        if (alive) setFeedback(error.message || "Unable to load Space team.");
+        if (alive) setFeedback(error.message || i18nText("ui.literals.k69ebed906fb7"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -156,7 +157,7 @@ export default function SpaceDashboardScreen({
   async function shareSpace() {
     const url = getSpaceUrl();
     const shareData = {
-      title: `${space.displayName || "Space"} on KunThai`,
+      title: i18nText("ui.literals.k383a4e679b44", { value0: space.displayName || "Space" }),
       text: space.bio || `Connect with @${space.username || "space"} on KunThai Explore`,
       url,
     };
@@ -167,40 +168,40 @@ export default function SpaceDashboardScreen({
     }
 
     await writeClipboard(url);
-    showToast("Space link copied.", "success");
+    showToast(i18nText("ui.literals.k7590b20d3a81"), "success");
   }
 
   async function copySpaceLink() {
     await writeClipboard(getSpaceUrl());
-    showToast("Space link copied.", "success");
+    showToast(i18nText("ui.literals.k7590b20d3a81"), "success");
   }
 
   async function copySpaceHandle() {
     await writeClipboard(space.username ? `@${space.username}` : space.displayName || "Space");
-    showToast("Space handle copied.", "success");
+    showToast(i18nText("ui.literals.kbbb4a1bda5cb"), "success");
   }
 
   async function toggleSpaceStatus() {
     const nextStatus = space.status === "paused" ? "active" : "paused";
     const updated = await updateExploreSpaceStatus(space.spaceId, nextStatus);
     onSpaceUpdated?.(updated);
-    showToast(nextStatus === "paused" ? "Space paused." : "Space reactivated.", "success");
+    showToast(nextStatus === "paused" ? i18nText("ui.literals.k453afb3387cc") : i18nText("ui.literals.kfff27083fbb3"), "success");
   }
 
   async function leaveSpace() {
-    const confirmed = window.confirm(`Leave ${space.displayName || "this Space"}? You will lose access to its dashboard until you are invited again.`);
+    const confirmed = window.confirm(i18nText("ui.literals.k1b61aa6f825c", { value0: space.displayName || "this Space" }));
     if (!confirmed) return;
     await leaveExploreSpace(space.spaceId);
     onSpaceRemoved?.(space);
-    showToast("You left the Space.", "success");
+    showToast(i18nText("ui.literals.kd3a45d03936f"), "success");
   }
 
   async function deleteSpace() {
-    const confirmed = window.confirm(`Delete ${space.displayName || "this Space"}? It will be removed from discovery and team dashboards.`);
+    const confirmed = window.confirm(i18nText("ui.literals.kd730fa14b309", { value0: space.displayName || "this Space" }));
     if (!confirmed) return;
     await deleteExploreSpace(space.spaceId);
     onSpaceRemoved?.(space);
-    showToast("Space deleted.", "success");
+    showToast(i18nText("ui.literals.k44e1941bbb1d"), "success");
   }
 
   function setInviteRole(role) {
@@ -225,27 +226,27 @@ export default function SpaceDashboardScreen({
   useEffect(() => {
     const code = String(invite.kunthaiId || "").trim();
     if (!code) {
-      setInviteLookup({ status: "idle", name: "", message: "" });
+      setInviteLookup({ status: i18nText("ui.literals.k1adbcc344b31"), name: "", message: "" });
       return undefined;
     }
     if (detectPublicCodeKind(code) !== "kunthai") {
-      setInviteLookup({ status: "invalid", name: "", message: "Enter a KunThai ID that starts with KTU." });
+      setInviteLookup({ status: i18nText("ui.literals.k81f344a7686a"), name: "", message: i18nText("ui.literals.kf9f1334b2e12") });
       return undefined;
     }
 
     let alive = true;
-    setInviteLookup({ status: "checking", name: "", message: "Checking this KunThai ID..." });
+    setInviteLookup({ status: i18nText("ui.literals.k28cfb479fbfa"), name: "", message: i18nText("ui.literals.kbb7beca612f9") });
     const timer = window.setTimeout(async () => {
       try {
         const result = await resolvePublicCode(code);
         if (!alive) return;
         if (result?.userId) {
-          setInviteLookup({ status: "found", name: result.title || "KunThai member", message: "" });
+          setInviteLookup({ status: i18nText("ui.literals.k2739bb260ce4"), name: result.title || "KunThai member", message: "" });
         } else {
-          setInviteLookup({ status: "notFound", name: "", message: "No KunThai account matches this ID." });
+          setInviteLookup({ status: "notFound", name: "", message: i18nText("ui.literals.k5cbfe2afa764") });
         }
       } catch {
-        if (alive) setInviteLookup({ status: "notFound", name: "", message: "Unable to check this ID right now." });
+        if (alive) setInviteLookup({ status: "notFound", name: "", message: i18nText("ui.literals.kb50907521924") });
       }
     }, 320);
 
@@ -265,10 +266,10 @@ export default function SpaceDashboardScreen({
       setMembers((current) => [created, ...current.filter((member) => member.id !== created.id)]);
       setInvite(INVITE_INITIAL);
       setInviteOpen(false);
-      showToast("Space team invitation sent.", "success");
+      showToast(i18nText("ui.literals.k8891f9f7e891"), "success");
     } catch (error) {
-      setFeedback(error.message || "Unable to invite this member.");
-      showToast(error.message || "Unable to invite this member.", "danger");
+      setFeedback(error.message || i18nText("ui.literals.k077d6829745d"));
+      showToast(error.message || i18nText("ui.literals.k077d6829745d"), "danger");
     } finally {
       setSavingInvite(false);
     }
@@ -281,9 +282,9 @@ export default function SpaceDashboardScreen({
         currentRole: member.role,
       });
       setMembers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-      showToast("Team member updated.", "success");
+      showToast(i18nText("ui.literals.k07fed9d9b325"), "success");
     } catch (error) {
-      showToast(error.message || "Unable to update this member.", "danger");
+      showToast(error.message || i18nText("ui.literals.ke599ffc2a9ed"), "danger");
     }
   }
 
@@ -291,14 +292,14 @@ export default function SpaceDashboardScreen({
     try {
       const removed = await removeExploreSpaceMember(member.id);
       setMembers((current) => current.filter((item) => item.id !== removed.id));
-      showToast("Team member removed.", "success");
+      showToast(i18nText("ui.literals.k58c478a9139e"), "success");
     } catch (error) {
-      showToast(error.message || "Unable to remove this member.", "danger");
+      showToast(error.message || i18nText("ui.literals.k91824074dedf"), "danger");
     }
   }
 
   if (!space?.spaceId) {
-    return <EmptyState title="No Space selected" message="Choose a Space from your profile to open its dashboard." />;
+    return <EmptyState title={i18nText("ui.literals.k36c742c56be4")} message={i18nText("ui.literals.k6d2cc3e947cb")} />;
   }
 
   return (
@@ -307,12 +308,12 @@ export default function SpaceDashboardScreen({
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={personalProfile?.displayName} src={personalProfile?.avatarUrl} size="sm" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-slate-950">{personalProfile?.displayName || "Your profile"}</p>
-            <p className="truncate text-xs font-bold text-slate-500">Personal profile minimized while this Space is active</p>
+            <p className="truncate text-sm font-black text-slate-950">{personalProfile?.displayName || i18nText("ui.literals.kc1c9cbe6993c")}</p>
+            <p className="truncate text-xs font-bold text-slate-500">{i18nText("ui.literals.k4a600015c2e1")}</p>
           </div>
         </div>
         <button type="button" onClick={() => onSwitchProfile?.()} className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-          Switch back
+          {i18nText("ui.literals.kc480264d9d16")}
         </button>
       </section>
 
@@ -321,9 +322,9 @@ export default function SpaceDashboardScreen({
           <div className="flex min-w-0 items-center gap-4">
             <Avatar name={space.displayName} src={space.avatarUrl} size="lg" />
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Space dashboard</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k8e816a3bc9ca")}</p>
               <h2 className="mt-1 truncate text-2xl font-black text-slate-950">{space.displayName}</h2>
-              <p className="mt-1 truncate text-sm font-bold text-slate-500">@{space.username || "space"} · {space.categoryLabel || "A Space"} · {space.memberRole || "member"}</p>
+              <p className="mt-1 truncate text-sm font-bold text-slate-500">@{space.username || i18nText("ui.literals.k0803df4ff165")} · {space.categoryLabel || i18nText("ui.literals.k85da38276a71")} · {space.memberRole || i18nText("ui.literals.k6467baa3b187")}</p>
             </div>
           </div>
 
@@ -332,32 +333,32 @@ export default function SpaceDashboardScreen({
               type="button"
               onClick={() => setActionOpen((current) => !current)}
               className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
-              aria-label="Open Space dashboard actions"
+              aria-label={i18nText("ui.literals.k41ee3ef1eb6d")}
             >
               <HiOutlineEllipsisHorizontal />
             </button>
             {actionOpen ? (
               <div className="absolute right-0 top-full z-20 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-sm font-black shadow-xl">
-                <ActionMenuButton icon={HiOutlineEye} label="View Space profile" onClick={() => { setActionOpen(false); onOpenProfile?.(); }} />
-                <ActionMenuButton icon={HiOutlineChatBubbleLeftRight} label="Messages" onClick={() => { setActionOpen(false); onOpenMessages?.(); }} />
-                <ActionMenuButton icon={HiOutlineBellAlert} label="Notifications" onClick={() => { setActionOpen(false); onOpenNotifications?.(); }} />
+                <ActionMenuButton icon={HiOutlineEye} label={i18nText("ui.literals.k9bac7cd4522b")} onClick={() => { setActionOpen(false); onOpenProfile?.(); }} />
+                <ActionMenuButton icon={HiOutlineChatBubbleLeftRight} label={i18nText("ui.literals.kf1702b468627")} onClick={() => { setActionOpen(false); onOpenMessages?.(); }} />
+                <ActionMenuButton icon={HiOutlineBellAlert} label={i18nText("ui.literals.k753a22b2eb61")} onClick={() => { setActionOpen(false); onOpenNotifications?.(); }} />
                 <MenuDivider />
-                <ActionMenuButton icon={HiOutlineArrowTopRightOnSquare} label="Share Space" onClick={() => runSpaceAction("share", shareSpace)} disabled={Boolean(busyAction)} />
-                <ActionMenuButton icon={HiOutlineClipboardDocument} label="Copy Space link" onClick={() => runSpaceAction("copy-link", copySpaceLink)} disabled={Boolean(busyAction)} />
-                <ActionMenuButton icon={HiOutlineClipboardDocument} label="Copy @handle" onClick={() => runSpaceAction("copy-handle", copySpaceHandle)} disabled={Boolean(busyAction)} />
+                <ActionMenuButton icon={HiOutlineArrowTopRightOnSquare} label={i18nText("ui.literals.kc1b1acd75d2a")} onClick={() => runSpaceAction("share", shareSpace)} disabled={Boolean(busyAction)} />
+                <ActionMenuButton icon={HiOutlineClipboardDocument} label={i18nText("ui.literals.k87f6b3e56531")} onClick={() => runSpaceAction("copy-link", copySpaceLink)} disabled={Boolean(busyAction)} />
+                <ActionMenuButton icon={HiOutlineClipboardDocument} label={i18nText("ui.literals.kf52fae16aaff")} onClick={() => runSpaceAction("copy-handle", copySpaceHandle)} disabled={Boolean(busyAction)} />
                 {manageTeam ? (
                   <>
                     <MenuDivider />
-                    <ActionMenuButton icon={HiOutlinePlus} label="Add team member" onClick={() => { setInviteOpen(true); setActionOpen(false); }} />
+                    <ActionMenuButton icon={HiOutlinePlus} label={i18nText("ui.literals.kdcdef30768ba")} onClick={() => { setInviteOpen(true); setActionOpen(false); }} />
                   </>
                 ) : null}
                 {canEditSpace ? (
-                  <ActionMenuButton icon={HiOutlinePencilSquare} label="Edit Space" onClick={() => { setActionOpen(false); onOpenEdit?.(); }} />
+                  <ActionMenuButton icon={HiOutlinePencilSquare} label={i18nText("ui.literals.kd4ba413cc57e")} onClick={() => { setActionOpen(false); onOpenEdit?.(); }} />
                 ) : null}
                 {canChangeStatus ? (
                   <ActionMenuButton
                     icon={space.status === "paused" ? HiOutlinePlayCircle : HiOutlinePauseCircle}
-                    label={space.status === "paused" ? "Reactivate Space" : "Pause Space"}
+                    label={space.status === "paused" ? i18nText("ui.literals.kd1c123937ea2") : i18nText("ui.literals.kb4745cbe8974")}
                     onClick={() => runSpaceAction("status", toggleSpaceStatus)}
                     disabled={Boolean(busyAction)}
                   />
@@ -365,13 +366,13 @@ export default function SpaceDashboardScreen({
                 {!isOwner ? (
                   <>
                     <MenuDivider />
-                    <ActionMenuButton icon={HiOutlineArrowRightOnRectangle} label="Leave Space" onClick={() => runSpaceAction("leave", leaveSpace)} tone="danger" disabled={Boolean(busyAction)} />
+                    <ActionMenuButton icon={HiOutlineArrowRightOnRectangle} label={i18nText("ui.literals.k0754220ef676")} onClick={() => runSpaceAction("leave", leaveSpace)} tone="danger" disabled={Boolean(busyAction)} />
                   </>
                 ) : null}
                 {isOwner ? (
                   <>
                     <MenuDivider />
-                    <ActionMenuButton icon={HiOutlineTrash} label="Delete Space" onClick={() => runSpaceAction("delete", deleteSpace)} tone="danger" disabled={Boolean(busyAction)} />
+                    <ActionMenuButton icon={HiOutlineTrash} label={i18nText("ui.literals.k365b660df399")} onClick={() => runSpaceAction("delete", deleteSpace)} tone="danger" disabled={Boolean(busyAction)} />
                   </>
                 ) : null}
               </div>
@@ -380,10 +381,10 @@ export default function SpaceDashboardScreen({
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Metric label="Feed" value={stats?.feed || 0} />
+          <Metric label={i18nText("ui.literals.kff1928e5d29b")} value={stats?.feed || 0} />
           <Metric label="Swip" value={stats?.swip || 0} />
-          <Metric label="Connections" value={stats?.followers || 0} />
-          <Metric label="Team" value={members.filter((member) => member.status === "active").length} />
+          <Metric label={i18nText("ui.literals.k8f3509b64e0e")} value={stats?.followers || 0} />
+          <Metric label={i18nText("ui.literals.k218887269ad5")} value={members.filter((member) => member.status === "active").length} />
         </div>
 
         {feedback && !inviteOpen ? <p className="mt-4 text-sm font-bold text-rose-600">{feedback}</p> : null}
@@ -393,17 +394,17 @@ export default function SpaceDashboardScreen({
         <form onSubmit={submitInvite} className="rounded-[28px] border border-sky-100 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Team invitation</p>
-              <h3 className="mt-1 text-xl font-black text-slate-950">Add team member</h3>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.kea6339dfe385")}</p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">{i18nText("ui.literals.kdcdef30768ba")}</h3>
             </div>
             <button type="button" onClick={() => setInviteOpen(false)} className="h-10 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700">
-              Close
+              {i18nText("ui.literals.kbbfa773e5a63")}
             </button>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <Field label="KunThai ID" action={<KunThaiIdHelpButton subject="team member" tone="sky" />}>
-              <input value={invite.kunthaiId} onChange={(event) => setInvite((current) => ({ ...current, kunthaiId: event.target.value.toUpperCase() }))} placeholder="KTU-XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" spellCheck={false} aria-label="Team member KunThai ID" className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold uppercase tracking-wide text-slate-900 outline-none transition focus:bg-white focus:ring-4 focus:ring-sky-100" />
+              <input value={invite.kunthaiId} onChange={(event) => setInvite((current) => ({ ...current, kunthaiId: event.target.value.toUpperCase() }))} placeholder="KTU-XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" spellCheck={false} aria-label={i18nText("ui.literals.k77243a6fff0d")} className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold uppercase tracking-wide text-slate-900 outline-none transition focus:bg-white focus:ring-4 focus:ring-sky-100" />
               {inviteLookup.status === "found" ? (
                 <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-black text-emerald-600">✓ {inviteLookup.name}</p>
               ) : inviteLookup.status === "checking" ? (
@@ -412,14 +413,14 @@ export default function SpaceDashboardScreen({
                 <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-bold text-rose-600">{inviteLookup.message}</p>
               ) : null}
             </Field>
-            <Field label="Role">
+            <Field label={i18nText("ui.literals.kc3f104d13657")}>
               <select value={invite.role} onChange={(event) => setInviteRole(event.target.value)} className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none">
                 {SPACE_ROLES.filter((role) => role.id !== "owner").map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
               </select>
             </Field>
-            <Field label="Department">
+            <Field label={i18nText("ui.literals.kdb40106a4051")}>
               <select value={invite.departmentId} onChange={(event) => setInvite((current) => ({ ...current, departmentId: event.target.value }))} className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none">
-                <option value="">No department</option>
+                <option value="">{i18nText("ui.literals.k71b96c4a6c1e")}</option>
                 {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
               </select>
             </Field>
@@ -429,7 +430,7 @@ export default function SpaceDashboardScreen({
 
           {feedback ? <p className="mt-3 text-sm font-bold text-rose-600">{feedback}</p> : null}
           <button type="submit" disabled={savingInvite || inviteLookup.status !== "found"} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 text-sm font-black text-white disabled:bg-slate-300">
-            {savingInvite ? "Sending invitation" : "Send invitation"}
+            {savingInvite ? i18nText("ui.literals.k69b0298ac2e1") : i18nText("ui.literals.kabb6cb2d460a")}
           </button>
         </form>
       ) : null}
@@ -438,13 +439,13 @@ export default function SpaceDashboardScreen({
         <div className="mb-4 flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineUsers /></span>
           <div>
-            <h3 className="text-lg font-black text-slate-950">Team</h3>
-            <p className="text-sm font-semibold text-slate-500">Members and their assigned responsibilities.</p>
+            <h3 className="text-lg font-black text-slate-950">{i18nText("ui.literals.k218887269ad5")}</h3>
+            <p className="text-sm font-semibold text-slate-500">{i18nText("ui.literals.kfe80d7fc2c05")}</p>
           </div>
         </div>
 
-        {loading ? <p className="text-sm font-bold text-slate-500">Loading team...</p> : null}
-        {!loading && !members.length ? <EmptyState title="No team members yet" message="Invite trusted people with their KunThai ID." /> : null}
+        {loading ? <p className="text-sm font-bold text-slate-500">{i18nText("ui.literals.kd5e4b7e1dc4e")}</p> : null}
+        {!loading && !members.length ? <EmptyState title={i18nText("ui.literals.k19c467e9da23")} message={i18nText("ui.literals.k1237e9277750")} /> : null}
         <div className="space-y-3">
           {members.map((member) => (
             <MemberRow key={member.id} canManage={manageTeam} member={member} onRemove={removeMember} onUpdate={updateMember} />
@@ -559,9 +560,9 @@ function MemberRow({ canManage, member, onRemove, onUpdate }) {
         {canManage && member.role !== "owner" ? (
           <div className="flex gap-2">
             <button type="button" onClick={() => setEditing((current) => !current)} className="h-10 rounded-2xl bg-white px-3 text-xs font-black text-slate-700">
-              {editing ? "Close" : "Edit"}
+              {editing ? i18nText("ui.literals.kbbfa773e5a63") : i18nText("ui.literals.k5301648dcf6b")}
             </button>
-            <button type="button" onClick={() => onRemove(member)} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-700" aria-label="Remove team member">
+            <button type="button" onClick={() => onRemove(member)} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-700" aria-label={i18nText("ui.literals.k3ebbe90bf87b")}>
               <HiOutlineUserMinus />
             </button>
           </div>
@@ -570,7 +571,7 @@ function MemberRow({ canManage, member, onRemove, onUpdate }) {
 
       {editing ? (
         <div className="mt-4">
-          <Field label="Role">
+          <Field label={i18nText("ui.literals.kc3f104d13657")}>
             <select
               value={draft.role}
               onChange={(event) => {
@@ -588,7 +589,7 @@ function MemberRow({ canManage, member, onRemove, onUpdate }) {
           </Field>
           <ResponsibilityGrid values={draft.responsibilities} onToggle={toggle} />
           <button type="button" onClick={() => { onUpdate(member, draft); setEditing(false); }} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">
-            Save responsibilities
+            {i18nText("ui.literals.k3ba77987ef9c")}
           </button>
         </div>
       ) : (

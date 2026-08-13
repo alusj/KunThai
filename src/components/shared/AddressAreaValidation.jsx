@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, LocateFixed, Loader2, MapPin, ShieldCheck, X, XCircle } from "lucide-react";
 import { searchLocations } from "../../Backend/services/locationSearchService";
+import { t as i18nText } from "../../i18n/index";
 
 function coordinateValue(point, keys) {
   for (const key of keys) {
@@ -51,7 +52,7 @@ function pointKey(point) {
 
 export function useAddressAreaValidation(address, options = {}) {
   const { center = null, enabled = true, selectedPoint = null, minLength = 3 } = options;
-  const [state, setState] = useState({ status: "idle", result: null, message: "" });
+  const [state, setState] = useState({ status: i18nText("ui.literals.k1adbcc344b31"), result: null, message: "" });
 
   const centerKey = useMemo(() => pointKey(center), [center]);
   const selectedLocation = useMemo(
@@ -74,9 +75,9 @@ export function useAddressAreaValidation(address, options = {}) {
         }
 
         return {
-          status: "found",
+          status: i18nText("ui.literals.k2739bb260ce4"),
           result: selectedLocation,
-          message: "Location found in Area View.",
+          message: i18nText("ui.literals.k2833807d52ee"),
         };
       });
 
@@ -91,7 +92,7 @@ export function useAddressAreaValidation(address, options = {}) {
           return current;
         }
 
-        return { status: "idle", result: null, message: "" };
+        return { status: i18nText("ui.literals.k1adbcc344b31"), result: null, message: "" };
       });
 
       return undefined;
@@ -106,9 +107,9 @@ export function useAddressAreaValidation(address, options = {}) {
         }
 
         return {
-          status: "searching",
+          status: i18nText("ui.literals.kde94f8210cfd"),
           result: null,
-          message: "Checking Area View...",
+          message: i18nText("ui.literals.kb68b07a479c7"),
         };
       });
 
@@ -132,9 +133,9 @@ export function useAddressAreaValidation(address, options = {}) {
             }
 
             return {
-              status: "found",
+              status: i18nText("ui.literals.k2739bb260ce4"),
               result: match,
-              message: "Location found in Area View.",
+              message: i18nText("ui.literals.k2833807d52ee"),
             };
           });
 
@@ -153,7 +154,7 @@ export function useAddressAreaValidation(address, options = {}) {
           return {
             status: "notFound",
             result: null,
-            message: "Location unknown or unfindable in Area View.",
+            message: i18nText("ui.literals.k1a4f4e6fcfd4"),
           };
         });
       } catch {
@@ -171,7 +172,7 @@ export function useAddressAreaValidation(address, options = {}) {
           return {
             status: "notFound",
             result: null,
-            message: "Location unknown or unfindable in Area View.",
+            message: i18nText("ui.literals.k1a4f4e6fcfd4"),
           };
         });
       }
@@ -285,15 +286,15 @@ export function AddressAccuracyCaution({
 
 export function AddressAreaStatusIcon({ status, className = "" }) {
   if (status === "searching") {
-    return <Loader2 className={`animate-spin text-slate-400 ${className}`} size={18} aria-label="Checking Area View" />;
+    return <Loader2 className={`animate-spin text-slate-400 ${className}`} size={18} aria-label={i18nText("ui.literals.k94ed9d492785")} />;
   }
 
   if (status === "found") {
-    return <CheckCircle2 className={`text-emerald-600 ${className}`} size={18} aria-label="Location found" />;
+    return <CheckCircle2 className={`text-emerald-600 ${className}`} size={18} aria-label={i18nText("ui.literals.k3a6c8de09e65")} />;
   }
 
   if (status === "notFound") {
-    return <XCircle className={`text-rose-600 ${className}`} size={18} aria-label="Location unknown" />;
+    return <XCircle className={`text-rose-600 ${className}`} size={18} aria-label={i18nText("ui.literals.k7dd3e67390bd")} />;
   }
 
   return null;
@@ -328,8 +329,8 @@ export function AddressAreaResolutionCard({
         <AddressAreaStatusIcon status={status} className="mt-0.5 shrink-0" />
         <span>
           {isSearching
-            ? "Checking Area View for this address..."
-            : "Location found in Area View. You can continue or refine it with a pin if needed."}
+            ? i18nText("ui.literals.kf54264f3a3b8")
+            : i18nText("ui.literals.k904512f639d7")}
         </span>
       </div>
     );
@@ -340,9 +341,9 @@ export function AddressAreaResolutionCard({
       <div className="flex items-start gap-2">
         <XCircle className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" size={18} />
         <div className="min-w-0">
-          <p className="text-sm font-black text-rose-950 dark:text-rose-200">Location unknown or unfindable</p>
+          <p className="text-sm font-black text-rose-950 dark:text-rose-200">{i18nText("ui.literals.kfad0ee12627d")}</p>
           <p className="mt-1 text-xs font-semibold leading-5 text-rose-800 dark:text-rose-300/90">
-            Area View could not match this address. Please allow us to locate you so we can get your exact location, or drop a pin manually.
+            {i18nText("ui.literals.k407662402308")}
           </p>
         </div>
       </div>

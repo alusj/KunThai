@@ -10,6 +10,7 @@ import {
 } from "react-icons/hi2";
 
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import { t as i18nText } from "../../../../i18n/index";
 
 const safetyGuides = [
   ["Content and conversations", "Use post, profile, comment, and message tools to report abuse, scams, threats, or impersonation.", HiOutlineChatBubbleLeftRight],
@@ -22,14 +23,14 @@ const safetyGuides = [
 export default function SafetyCenterScreen({ hideHeader = false, onOpenPrivacy, onOpenReport, onOpenTerms }) {
   return (
     <div>
-      {!hideHeader ? <SocialScreenHeader title="Safety Center" subtitle="Practical guidance for safer social, marketplace, transport, and money use." /> : null}
+      {!hideHeader ? <SocialScreenHeader title={i18nText("ui.literals.kb6247600888a")} subtitle={i18nText("ui.literals.k75f210c87343")} /> : null}
 
       <div className="w-full space-y-6 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-[28px] border border-sky-100 bg-gradient-to-br from-sky-700 to-sky-800 p-5 text-white shadow-sm lg:p-6">
           <HiOutlineShieldCheck className="text-4xl" />
-          <p className="mt-4 text-xs font-black uppercase tracking-[0.2em] text-sky-100">Safer choices across KunThai</p>
-          <h3 className="mt-2 text-2xl font-black">Notice, pause, verify, report</h3>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-sky-100">Use visible account details, official service records, and KunThai reporting tools when something does not feel right.</p>
+          <p className="mt-4 text-xs font-black uppercase tracking-[0.2em] text-sky-100">{i18nText("ui.literals.k68be8f112993")}</p>
+          <h3 className="mt-2 text-2xl font-black">{i18nText("ui.literals.k5572af8aa12f")}</h3>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-sky-100">{i18nText("ui.literals.k3e2f3685b106")}</p>
         </section>
 
         <section className="grid gap-3 lg:grid-cols-2">
@@ -43,14 +44,14 @@ export default function SafetyCenterScreen({ hideHeader = false, onOpenPrivacy, 
         </section>
 
         <section className="grid gap-3 md:grid-cols-3">
-          <button type="button" onClick={onOpenReport} className="rounded-[22px] bg-sky-700 p-5 text-left text-white"><HiOutlineFlag className="text-2xl" /><p className="mt-3 font-black">Report a problem</p><p className="mt-1 text-sm font-semibold text-sky-100">Send details to support.</p></button>
-          <button type="button" onClick={onOpenPrivacy} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm"><HiOutlineShieldCheck className="text-2xl text-sky-700" /><p className="mt-3 font-black text-slate-950">Privacy Center</p><p className="mt-1 text-sm font-semibold text-slate-500">Review controls and blocks.</p></button>
-          <button type="button" onClick={onOpenTerms} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm"><HiOutlineExclamationTriangle className="text-2xl text-sky-700" /><p className="mt-3 font-black text-slate-950">Safety policies</p><p className="mt-1 text-sm font-semibold text-slate-500">Read the rules for services.</p></button>
+          <button type="button" onClick={onOpenReport} className="rounded-[22px] bg-sky-700 p-5 text-left text-white"><HiOutlineFlag className="text-2xl" /><p className="mt-3 font-black">{i18nText("ui.literals.k24f3f52de52e")}</p><p className="mt-1 text-sm font-semibold text-sky-100">{i18nText("ui.literals.k7ba72ddc81ea")}</p></button>
+          <button type="button" onClick={onOpenPrivacy} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm"><HiOutlineShieldCheck className="text-2xl text-sky-700" /><p className="mt-3 font-black text-slate-950">{i18nText("ui.literals.k8a88f051eace")}</p><p className="mt-1 text-sm font-semibold text-slate-500">{i18nText("ui.literals.k3a753e98f83c")}</p></button>
+          <button type="button" onClick={onOpenTerms} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm"><HiOutlineExclamationTriangle className="text-2xl text-sky-700" /><p className="mt-3 font-black text-slate-950">{i18nText("ui.literals.kf2a82997453c")}</p><p className="mt-1 text-sm font-semibold text-slate-500">{i18nText("ui.literals.k670f037507cd")}</p></button>
         </section>
 
         <section className="rounded-[24px] border border-rose-100 bg-rose-50 p-5">
-          <h3 className="text-base font-black text-rose-950">Immediate danger</h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-rose-800">KunThai support is not an emergency service. Contact the appropriate local emergency service when someone faces immediate harm.</p>
+          <h3 className="text-base font-black text-rose-950">{i18nText("ui.literals.k4393aa0f57c0")}</h3>
+          <p className="mt-1 text-sm font-semibold leading-6 text-rose-800">{i18nText("ui.literals.k07c71eae506e")}</p>
         </section>
 
         {/* Future backend: add report status, appeal entry points, trusted transaction education, and region-aware emergency guidance. */}

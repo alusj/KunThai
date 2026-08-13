@@ -55,6 +55,7 @@ import {
   getCompanyServiceCategoryOptions,
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 const steps = [
   { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
@@ -210,7 +211,7 @@ function createFleetDraft(index = 0, context = {}) {
     documents: {},
     safetyAnswers: createSafetyAnswers(fleetType),
     operators: [],
-    status: "pending_review",
+    status: i18nText("ui.literals.kc183a023083e"),
   };
 }
 
@@ -510,7 +511,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       name: operator.name,
       city: operator.city,
       verificationStatus: operator.verificationStatus,
-      status: "pending",
+      status: i18nText("ui.literals.ke22586930a5b"),
       documents: {},
       createdAt: new Date().toISOString(),
     };
@@ -1553,7 +1554,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
             className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black uppercase tracking-wide outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
           />
         </div>
-        {errors[`${fleet.localId}-operators`] ? <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{errors[`${fleet.localId}-operators`]}</p> : null}
+        {errors[i18nText("ui.literals.k5c30e91aa380", { value0: fleet.localId })] ? <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{errors[i18nText("ui.literals.k5c30e91aa380", { value0: fleet.localId })]}</p> : null}
         {lookupStatus ? (
           <p aria-live="polite" className={`mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupStatus.includes("not found") || lookupStatus.includes("Unable") ? "text-rose-700" : "text-slate-600"}`}>
             {lookupStatus}
@@ -1621,7 +1622,7 @@ function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {questions.map((question) => {
-          const error = errors[`${fleet.localId}-safety-${question.key}`];
+          const error = errors[i18nText("ui.literals.k708f2ea56851", { value0: fleet.localId, value1: question.key })];
           return (
           <label key={question.key} data-field-error={error ? "true" : undefined} className={`rounded-2xl border bg-white p-3 ${error ? "border-rose-200" : "border-amber-100"}`}>
             <span className="text-sm font-bold text-slate-800">{t(question.labelKey)}</span>

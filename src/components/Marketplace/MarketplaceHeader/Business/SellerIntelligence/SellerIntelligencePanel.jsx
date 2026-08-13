@@ -16,10 +16,11 @@ export default function SellerIntelligencePanel({ item }) {
 
       {rows.length ? (
         <div className="mt-4 grid gap-2 md:grid-cols-2">
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <div
               key={row.id}
-              className="rounded-lg border border-gray-200 bg-white p-3"
+              className="kt-intelligence-row rounded-xl border border-gray-200 bg-white p-3"
+              style={{ animationDelay: `${80 + index * 45}ms` }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

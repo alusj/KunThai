@@ -8,6 +8,7 @@ import {
   getTwoFactorState,
   startTotpEnrollment,
 } from "../../../../Backend/services/twoFactorService";
+import { t as i18nText } from "../../../../i18n/index";
 
 function qrImageSource(qrCode = "") {
   if (!qrCode) return "";
@@ -32,7 +33,7 @@ export default function TwoFactorSection() {
       setState(await getTwoFactorState());
       setError("");
     } catch (nextError) {
-      setError(nextError.message || "Unable to load two-step verification.");
+      setError(nextError.message || i18nText("ui.literals.kfd2b3dcbf810"));
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export default function TwoFactorSection() {
       setEnrollment(await startTotpEnrollment());
       setConfirmCode("");
     } catch (nextError) {
-      setError(nextError.message || "Unable to start two-step verification.");
+      setError(nextError.message || i18nText("ui.literals.kc7a08bbb154f"));
     } finally {
       setBusy(false);
     }
@@ -66,11 +67,11 @@ export default function TwoFactorSection() {
       setEnrollment(null);
       setConfirmCode("");
       await refresh();
-      showToast("Two-step verification is on. Your authenticator code is now required at sign in.", "success", {
-        title: "Account protected",
+      showToast(i18nText("ui.literals.k18a3c5fcf9db"), "success", {
+        title: i18nText("ui.literals.k913949913e4f"),
       });
     } catch (nextError) {
-      setError(nextError.message || "Unable to confirm the authenticator code.");
+      setError(nextError.message || i18nText("ui.literals.k45ada43c3cbd"));
     } finally {
       setBusy(false);
     }
@@ -83,11 +84,11 @@ export default function TwoFactorSection() {
       await disableTwoFactor(state.factorId);
       setDisableConfirmOpen(false);
       await refresh();
-      showToast("Two-step verification is off. Only your password protects sign in now.", "warning", {
-        title: "Protection removed",
+      showToast(i18nText("ui.literals.k327b72c9d85f"), "warning", {
+        title: i18nText("ui.literals.k9aa7b67861a3"),
       });
     } catch (nextError) {
-      setError(nextError.message || "Unable to turn off two-step verification.");
+      setError(nextError.message || i18nText("ui.literals.k5e3bbec6b0cf"));
     } finally {
       setBusy(false);
     }
@@ -95,7 +96,7 @@ export default function TwoFactorSection() {
 
   function copySecret() {
     navigator.clipboard?.writeText(enrollment?.secret || "");
-    showToast("Setup key copied. Paste it into your authenticator app.", "success");
+    showToast(i18nText("ui.literals.k6a9687895105"), "success");
   }
 
   return (
@@ -105,15 +106,15 @@ export default function TwoFactorSection() {
           <HiOutlineShieldCheck className="text-2xl" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-base font-black text-slate-950">Two-step verification</p>
+          <p className="text-base font-black text-slate-950">{i18nText("ui.literals.k2a0b5e8fabe4")}</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
             {state.enabled
-              ? "On. Signing in needs your password plus a 6-digit code from your authenticator app."
-              : "Add a second step at sign in: your password plus a code from an authenticator app such as Google Authenticator or Authy."}
+              ? i18nText("ui.literals.k01ced6fb0af4")
+              : i18nText("ui.literals.kcf2cede9d6d7")}
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black uppercase ${state.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-          {loading ? "..." : state.enabled ? "On" : "Off"}
+          {loading ? "..." : state.enabled ? i18nText("ui.literals.ke0049a66519c") : i18nText("ui.literals.ke3de5ab0ca4c")}
         </span>
       </div>
 
@@ -128,13 +129,13 @@ export default function TwoFactorSection() {
           disabled={busy}
           className="mt-4 h-12 w-full rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-60"
         >
-          {busy ? "Preparing..." : "Turn on two-step verification"}
+          {busy ? i18nText("ui.literals.kf440b52bcf7a") : i18nText("ui.literals.kdd2dc62e0ebf")}
         </button>
       ) : null}
 
       {enrollment ? (
         <form onSubmit={handleConfirmEnrollment} className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-          <p className="text-sm font-black text-slate-950">1. Scan this code with your authenticator app</p>
+          <p className="text-sm font-black text-slate-950">{i18nText("ui.literals.k6033bf87fb0f")}</p>
           {enrollment.qrCode ? (
             <img
               src={qrImageSource(enrollment.qrCode)}
@@ -148,16 +149,16 @@ export default function TwoFactorSection() {
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-3 py-2.5 text-xs font-black text-emerald-800"
           >
             <HiOutlineClipboard className="text-base" />
-            Can't scan? Copy the setup key
+            {i18nText("ui.literals.k920702f233a3")}
           </button>
 
-          <p className="mt-4 text-sm font-black text-slate-950">2. Enter the 6-digit code the app shows</p>
+          <p className="mt-4 text-sm font-black text-slate-950">{i18nText("ui.literals.k52c972ef8f83")}</p>
           <input
             type="text"
             inputMode="numeric"
             value={confirmCode}
             onChange={(event) => setConfirmCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="6-digit code"
+            placeholder={i18nText("ui.literals.k0c52ea2c403b")}
             className="mt-2 w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-center text-lg font-black tracking-[0.4em] text-slate-900 outline-none placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal placeholder:text-slate-400 focus:border-emerald-500"
           />
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -170,14 +171,14 @@ export default function TwoFactorSection() {
               disabled={busy}
               className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60"
             >
-              Cancel
+              {i18nText("ui.literals.k77dfd2135f4d")}
             </button>
             <button
               type="submit"
               disabled={busy || confirmCode.length < 6}
               className="h-11 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white disabled:opacity-60"
             >
-              {busy ? "Confirming..." : "Confirm and turn on"}
+              {busy ? i18nText("ui.literals.ka4f306ad0906") : i18nText("ui.literals.kb743192071a2")}
             </button>
           </div>
         </form>
@@ -187,7 +188,7 @@ export default function TwoFactorSection() {
         disableConfirmOpen ? (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm font-bold leading-6 text-amber-900">
-              Turning this off removes the authenticator step. Anyone with your password could sign in.
+              {i18nText("ui.literals.kde54d4ddaa47")}
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <button
@@ -196,7 +197,7 @@ export default function TwoFactorSection() {
                 disabled={busy}
                 className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60"
               >
-                Keep it on
+                {i18nText("ui.literals.k04a35b3eda1f")}
               </button>
               <button
                 type="button"
@@ -204,7 +205,7 @@ export default function TwoFactorSection() {
                 disabled={busy}
                 className="h-11 rounded-2xl bg-amber-600 px-4 text-sm font-black text-white disabled:opacity-60"
               >
-                {busy ? "Turning off..." : "Turn off"}
+                {busy ? i18nText("ui.literals.k1832d5b379c2") : i18nText("ui.literals.k8807c2b3fd0f")}
               </button>
             </div>
           </div>
@@ -214,7 +215,7 @@ export default function TwoFactorSection() {
             onClick={() => setDisableConfirmOpen(true)}
             className="mt-4 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
           >
-            Turn off two-step verification
+            {i18nText("ui.literals.k716c8cca48cf")}
           </button>
         )
       ) : null}

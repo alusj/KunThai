@@ -10,23 +10,24 @@ export default function HealthScoreCard({ health, onEditProfile }) {
   const complete = Number(health.score || 0) >= 100 || missingItems.length === 0;
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className="relative overflow-hidden rounded-[24px] border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-emerald-100/60 blur-3xl" aria-hidden="true" />
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-bold text-gray-500">{health.label}</p>
+        <div className="relative">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{health.label}</p>
           <p className="mt-1 text-3xl font-black text-gray-950">
             {health.score}%
           </p>
         </div>
 
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-sm font-black text-gray-900">
-          {health.score}
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50 text-sm font-black text-emerald-800 shadow-sm">
+          {health.score}%
         </div>
       </div>
 
-      <div className="mt-4 h-2 rounded-full bg-gray-100">
+      <div className="relative mt-4 h-2 overflow-hidden rounded-full bg-gray-100">
         <div
-          className="h-2 rounded-full bg-emerald-500"
+          className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-[width] duration-700 ease-out"
           style={{ width: `${health.score}%` }}
         />
       </div>
@@ -44,14 +45,15 @@ export default function HealthScoreCard({ health, onEditProfile }) {
           }
           setExpanded((current) => !current);
         }}
-        className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
+        aria-expanded={!complete ? expanded : undefined}
+        className="relative mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md"
       >
         {complete ? t("urmall.biz.dash.reviewSetup") : expanded ? t("urmall.biz.dash.hideMissing") : t("urmall.biz.dash.viewMissing", { count: missingItems.length })}
-        <ChevronRight size={16} />
+        <ChevronRight size={16} className={`transition-transform duration-300 ${expanded ? "rotate-90" : ""}`} />
       </button>
 
       {expanded && !complete ? (
-        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <div className="kt-seller-detail-swap mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
           <p className="text-xs font-black uppercase tracking-wide text-gray-500">
             {t("urmall.biz.dash.missingDetails")}
           </p>

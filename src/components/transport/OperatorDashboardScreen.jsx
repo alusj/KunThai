@@ -65,6 +65,7 @@ import {
   getElapsedTripSeconds,
 } from "./live/liveTripMetricUtils";
 import { useI18n, t } from "../../i18n";
+import { t as i18nText } from "../../i18n/index";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -262,7 +263,7 @@ export default function OperatorDashboardScreen({
         address: cleanText,
         category: kind === "home-base" ? "Home Base" : "Operating Area",
         status: verificationStatus,
-        description: `${fleetName} ${kind === "home-base" ? "home base" : "operating area"} for live navigation.`,
+        description: i18nText("ui.literals.k3aba9ef993d5", { value0: fleetName, value1: kind === "home-base" ? "home base" : "operating area" }),
         searchQuery: cleanText,
         fleetId: account?.fleetId || null,
         operatorId: account?.id || null,
@@ -278,7 +279,7 @@ export default function OperatorDashboardScreen({
       id: `trip-${passenger.id}-pickup`,
       type: "transport-trip-pickup",
       name: "Pick up point",
-      label: "Pick up point",
+      label: i18nText("ui.literals.k6883c94f9e9e"),
       address: passenger.pickup,
       searchQuery: passenger.pickup,
       ...passenger.pickupPoint,
@@ -287,7 +288,7 @@ export default function OperatorDashboardScreen({
       id: `trip-${passenger.id}-dropoff`,
       type: "transport-trip-dropoff",
       name: "Drop off point",
-      label: "Drop off point",
+      label: i18nText("ui.literals.k1a49f380b563"),
       address: passenger.destination,
       searchQuery: passenger.destination,
       ...passenger.destinationPoint,
@@ -299,8 +300,8 @@ export default function OperatorDashboardScreen({
         id: `operator-trip-route-${passenger.id}`,
         type: "operator-trip-route",
         category: "Passenger destination",
-        status: "community",
-        description: `Operator route to ${passenger.name}'s pickup point and destination.`,
+        status: i18nText("ui.literals.k418b03c91215"),
+        description: i18nText("ui.literals.k2311b2d73068", { value0: passenger.name }),
         routePlan: {
           id: passenger.id,
           passengerName: passenger.name,

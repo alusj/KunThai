@@ -10,6 +10,7 @@ import {
 } from "../../../../../Backend/services/contactMatchService";
 import Avatar from "../../../shared/Avatar";
 import { useI18n } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
 
 // Facebook-style "find your contacts" surface. Matched accounts render inline as
 // connect cards. Browsers cannot silently read the whole address book, so on
@@ -153,7 +154,7 @@ export default function ImportContactsPanel({ onFollow, onViewProfile }) {
                             connected.has(match.userId) ? "bg-slate-100 text-slate-400" : "bg-slate-950 text-white"
                           }`}
                         >
-                          {connected.has(match.userId) ? t("switchAccount.active") : "Connect"}
+                          {connected.has(match.userId) ? t("switchAccount.active") : i18nText("ui.literals.kb65463cb6a42")}
                         </motion.button>
                       </motion.div>
                     ))

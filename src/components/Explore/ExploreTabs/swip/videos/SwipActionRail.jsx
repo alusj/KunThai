@@ -6,6 +6,7 @@ import {
   HiOutlineArrowsPointingIn,
   HiOutlineHandThumbUp,
 } from "react-icons/hi2";
+import { t as i18nText } from "../../../../../i18n/index";
 
 function RailButton({ active, children, label, title, onClick, danger = false, emphasis = "tap" }) {
   const [tapped, setTapped] = useState(false);
@@ -31,7 +32,7 @@ function RailButton({ active, children, label, title, onClick, danger = false, e
       onClick={handleClick}
       onPointerDown={(event) => event.stopPropagation()}
       className={`kt-pressable group flex w-9 flex-col items-center gap-0.5 text-white xs:w-10 ${danger ? "text-rose-100" : ""}`}
-      aria-label={title || String(label || "Swip action")}
+      aria-label={title || String(label || i18nText("ui.literals.k4845338f6866"))}
       title={title}
     >
       <span
@@ -71,19 +72,19 @@ export default function SwipActionRail({
     <div
       className="absolute bottom-28 right-2 z-20 flex flex-col items-center gap-1 rounded-full border border-white/18 bg-black/18 px-1 py-1.5 shadow-xl backdrop-blur-sm xs:right-3 xs:gap-1.5 xs:px-1.5 xs:py-2 sm:right-5"
     >
-      <RailButton active={liked} emphasis="like" label={post.likes_count ?? 0} title="Like" onClick={onLike}>
+      <RailButton active={liked} emphasis="like" label={post.likes_count ?? 0} title={i18nText("ui.literals.kc7e02c95fe85")} onClick={onLike}>
         <HiOutlineHandThumbUp />
       </RailButton>
-      <RailButton label={post.comments_count ?? 0} title="Comments" onClick={onComment}>
+      <RailButton label={post.comments_count ?? 0} title={i18nText("ui.literals.kfce06e20e5f7")} onClick={onComment}>
         <HiOutlineChatBubbleOvalLeft />
       </RailButton>
-      <RailButton active={saved} label={post.saves_count ?? 0} title={saved ? "Saved" : "Save"} onClick={onSave}>
+      <RailButton active={saved} label={post.saves_count ?? 0} title={saved ? i18nText("ui.literals.kc0ae8f6ea841") : i18nText("ui.literals.kefc007a393f6")} onClick={onSave}>
         <HiOutlineBookmark />
       </RailButton>
-      <RailButton label="" title={fullscreen ? "Exit full screen" : "Full screen"} onClick={onFullscreen}>
+      <RailButton label="" title={fullscreen ? i18nText("ui.literals.k3d9afdaad40f") : i18nText("ui.literals.kd15f886d60b1")} onClick={onFullscreen}>
         {fullscreen ? <HiOutlineArrowsPointingIn /> : <HiOutlineArrowsPointingOut />}
       </RailButton>
-      <RailButton label="" title="More Swip actions" onClick={onMore}>
+      <RailButton label="" title={i18nText("ui.literals.kddc244fe9cf1")} onClick={onMore}>
         <span className="text-xl font-black leading-none xs:text-2xl">...</span>
       </RailButton>
     </div>

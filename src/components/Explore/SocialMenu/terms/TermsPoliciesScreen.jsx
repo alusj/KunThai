@@ -27,6 +27,7 @@ import {
 } from "../../../../data/policies";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import PublicPrivacyRequestDialog from "../../../public/PublicPrivacyRequestDialog";
+import { t as i18nText } from "../../../../i18n/index";
 
 const iconMap = {
   banknotes: HiOutlineBanknotes,
@@ -124,7 +125,7 @@ function CategoryIcon({ icon }) {
 function MetadataPill({ label, value }) {
   return (
     <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 shadow-sm">
-      {label}: {value || "Pending"}
+      {label}: {value || i18nText("ui.literals.k96f608c16cef")}
     </span>
   );
 }
@@ -132,12 +133,12 @@ function MetadataPill({ label, value }) {
 function PolicySearch({ query, onChange }) {
   return (
     <label className="relative block">
-      <span className="sr-only">Search policies</span>
+      <span className="sr-only">{i18nText("ui.literals.k8105a5e4e7dd")}</span>
       <HiOutlineMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-slate-400" />
       <input
         value={query}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Search policies"
+        placeholder={i18nText("ui.literals.k8105a5e4e7dd")}
         className="h-14 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-12 text-sm font-black text-slate-950 shadow-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
       />
       {query ? (
@@ -145,7 +146,7 @@ function PolicySearch({ query, onChange }) {
           type="button"
           onClick={() => onChange("")}
           className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
-          aria-label="Clear policy search"
+          aria-label={i18nText("ui.literals.k2a3aa6c18e42")}
         >
           <HiOutlineXMark className="text-xl" />
         </button>
@@ -179,9 +180,9 @@ function SearchResults({ query, results, onOpen }) {
   if (!results.length) {
     return (
       <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-black text-slate-950">No policy result found</p>
+        <p className="text-sm font-black text-slate-950">{i18nText("ui.literals.k7dec5d0fc998")}</p>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-          Try words like privacy, transport, emergency, Swip, seller, refund, report, or deletion.
+          {i18nText("ui.literals.k364f9820395e")}
         </p>
       </section>
     );
@@ -191,8 +192,8 @@ function SearchResults({ query, results, onOpen }) {
     <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Search results</p>
-          <h3 className="mt-1 text-lg font-black text-slate-950">{results.length} matching polic{results.length === 1 ? "y" : "ies"}</h3>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k0144dae8fb18")}</p>
+          <h3 className="mt-1 text-lg font-black text-slate-950">{results.length} {i18nText("ui.literals.kbdd1a2bdf3c2")}{results.length === 1 ? "y" : i18nText("ui.literals.kbac544f46726")}</h3>
         </div>
       </div>
       <div className="grid gap-3">
@@ -208,12 +209,12 @@ function SearchResults({ query, results, onOpen }) {
                     onClick={() => onOpen(policy.slug, section.id)}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-xs font-bold text-slate-600 transition hover:border-sky-200 hover:text-sky-700"
                   >
-                    Jump to {section.title}
+                    {i18nText("ui.literals.kcfd6869bbed1")} {section.title}
                   </button>
                 ))}
               </div>
             ) : titleMatch ? (
-              <p className="mt-2 pl-2 text-xs font-bold text-slate-500 sm:pl-12">Matched by policy title or summary.</p>
+              <p className="mt-2 pl-2 text-xs font-bold text-slate-500 sm:pl-12">{i18nText("ui.literals.kad96eab981fd")}</p>
             ) : null}
           </article>
         ))}
@@ -246,7 +247,7 @@ function PolicyCategoryCard({ category, onOpen }) {
           >
             <span className="min-w-0">
               <span className="block truncate text-sm font-black text-slate-900">{policy.shortTitle || policy.title}</span>
-              <span className="mt-0.5 block truncate text-xs font-bold text-slate-500">{policy.status === "conditional" ? "Conditional" : `Version ${policy.version}`}</span>
+              <span className="mt-0.5 block truncate text-xs font-bold text-slate-500">{policy.status === "conditional" ? i18nText("ui.literals.kc3accb895f00") : i18nText("ui.literals.k3d170043f7ed", { value0: policy.version })}</span>
             </span>
             <HiOutlineChevronRight className="shrink-0 text-lg text-slate-400 transition group-hover:translate-x-1 group-hover:text-sky-700" />
           </button>
@@ -267,15 +268,15 @@ function PolicyCenterHome({ onOpen }) {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Explore</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Policy Center</h1>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{i18nText("ui.literals.k176ded55d96d")}</h1>
             <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-              Understand how KunThai works, what we expect from users, and how we protect the community.
+              {i18nText("ui.literals.k6d28e7a3f05c")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <MetadataPill label="Version" value={legalConfig.policyVersion} />
-            <MetadataPill label="Effective" value={legalConfig.effectiveDate} />
-            <MetadataPill label="Last updated" value={legalConfig.lastUpdated} />
+            <MetadataPill label={i18nText("ui.literals.k2da600bf9404")} value={legalConfig.policyVersion} />
+            <MetadataPill label={i18nText("ui.literals.kb034605d102e")} value={legalConfig.effectiveDate} />
+            <MetadataPill label={i18nText("ui.literals.k583c9e23574a")} value={legalConfig.lastUpdated} />
           </div>
         </div>
         <div className="mt-5">
@@ -289,7 +290,7 @@ function PolicyCenterHome({ onOpen }) {
         <>
           <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Frequently accessed</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k6b27a0518074")}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {frequentPolicies.map((policy) => (
                   <PolicyListItem key={policy.id} policy={policy} onOpen={onOpen} />
@@ -299,13 +300,13 @@ function PolicyCenterHome({ onOpen }) {
 
             <aside className="rounded-[24px] border border-amber-100 bg-amber-50 p-5 text-amber-950 shadow-sm">
               <HiOutlineExclamationTriangle className="text-3xl text-amber-700" />
-              <h2 className="mt-3 text-lg font-black">Service-specific policies</h2>
+              <h2 className="mt-3 text-lg font-black">{i18nText("ui.literals.kb840f35e2dea")}</h2>
               <p className="mt-2 text-sm font-bold leading-6">
-                Some policies apply only to services that are available for your account, country, role, or business type. Conditional services are marked clearly.
+                {i18nText("ui.literals.k44491de37bcb")}
               </p>
               {import.meta.env.DEV && unresolvedLegalFields.length ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-white/70 p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Needs legal confirmation</p>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">{i18nText("ui.literals.kf2f12daa22fb")}</p>
                   <p className="mt-1 text-sm font-bold leading-6">
                     {unresolvedLegalFields.map(([label]) => label).join(", ")}.
                   </p>
@@ -322,7 +323,7 @@ function PolicyCenterHome({ onOpen }) {
 
           <section className="grid gap-4 lg:grid-cols-2">
             <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">What changed</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k7e4b91991b86")}</p>
               {policyChangelog.map((entry) => (
                 <div key={entry.id} className="mt-4 rounded-2xl bg-slate-50 p-4">
                   <div className="flex flex-wrap items-center gap-2">
@@ -335,17 +336,17 @@ function PolicyCenterHome({ onOpen }) {
             </article>
 
             <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Help and privacy requests</p>
-              <h2 className="mt-2 text-lg font-black text-slate-950">Need support with a policy?</h2>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k8bd537ab4236")}</p>
+              <h2 className="mt-2 text-lg font-black text-slate-950">{i18nText("ui.literals.k7c9c87da7f94")}</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                Use Help Center inside KunThai for support, reports, account access, privacy questions, data requests, and deletion guidance.
+                {i18nText("ui.literals.kb56848461c6e")}
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <button type="button" onClick={() => onOpen("privacy")} className="h-11 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white">
-                  Privacy Policy
+                  {i18nText("ui.literals.k9db108ba6b7f")}
                 </button>
                 <button type="button" onClick={() => onOpen("reporting-appeals")} className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-700">
-                  Reports and appeals
+                  {i18nText("ui.literals.k208b4c929076")}
                 </button>
               </div>
             </article>
@@ -354,7 +355,7 @@ function PolicyCenterHome({ onOpen }) {
       ) : null}
 
       <footer className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-sm font-semibold leading-6 text-slate-500 shadow-sm">
-        Policy Center version {legalConfig.policyVersion}. Effective date: {legalConfig.effectiveDate}. Last updated: {legalConfig.lastUpdated}.
+        {i18nText("ui.literals.kbb4366479387")} {legalConfig.policyVersion}{i18nText("ui.literals.k6cd7f0b32975")} {legalConfig.effectiveDate}{i18nText("ui.literals.ke51e9310fdf6")} {legalConfig.lastUpdated}.
       </footer>
     </main>
   );
@@ -363,18 +364,18 @@ function PolicyCenterHome({ onOpen }) {
 function PolicyMetadata({ policy }) {
   return (
     <div className="mt-4 flex flex-wrap gap-2">
-      <MetadataPill label="Version" value={policy.version} />
-      <MetadataPill label="Effective" value={policy.effectiveDate} />
-      <MetadataPill label="Last updated" value={policy.lastUpdated} />
-      <MetadataPill label="Status" value={policy.status === "conditional" ? "Conditional" : "Current"} />
+      <MetadataPill label={i18nText("ui.literals.k2da600bf9404")} value={policy.version} />
+      <MetadataPill label={i18nText("ui.literals.kb034605d102e")} value={policy.effectiveDate} />
+      <MetadataPill label={i18nText("ui.literals.k583c9e23574a")} value={policy.lastUpdated} />
+      <MetadataPill label={i18nText("ui.literals.kbae7d5be7082")} value={policy.status === "conditional" ? "Conditional" : "Current"} />
     </div>
   );
 }
 
 function PolicyTableOfContents({ sections, onJump }) {
   return (
-    <nav className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm" aria-label="Policy sections">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Contents</p>
+    <nav className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm" aria-label={i18nText("ui.literals.k227c57f873b0")}>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{i18nText("ui.literals.kf5cbdf6bfb51")}</p>
       <div className="mt-3 grid gap-2">
         {sections.map((section) => (
           <button
@@ -424,10 +425,10 @@ function PolicySection({ section }) {
           {paragraph}
         </p>
       ))}
-      <TextList title="Key points" items={section.bullets} />
-      <TextList title="Allowed" items={section.allowed} tone="green" />
-      <TextList title="Not allowed" items={section.prohibited} tone="red" />
-      <TextList title="Examples" items={section.examples} />
+      <TextList title={i18nText("ui.literals.k5d1855a1eaac")} items={section.bullets} />
+      <TextList title={i18nText("ui.literals.k77c7b4909d39")} items={section.allowed} tone="green" />
+      <TextList title={i18nText("ui.literals.ke0315131a0a7")} items={section.prohibited} tone="red" />
+      <TextList title={i18nText("ui.literals.keb01bf04c9a0")} items={section.examples} />
       {(section.callouts || []).map((callout) => (
         <p key={callout} className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
           {callout}
@@ -471,7 +472,7 @@ function PolicyActions({ actions = [], onOpenHelp, onOpenPrivacy, onOpenReport, 
 
   return (
     <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Actions</p>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.kc3cd636a585b")}</p>
       <div className="mt-3 grid gap-2">
         {actions.map((action) => (
           <button
@@ -494,7 +495,7 @@ function RelatedPolicies({ ids = [], onOpen }) {
 
   return (
     <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Related policies</p>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k62b8c4f8dafd")}</p>
       <div className="mt-3 grid gap-2">
         {policies.map((policy) => (
           <button
@@ -553,7 +554,7 @@ function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpe
         className="mb-4 inline-flex h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-sky-100"
       >
         <HiOutlineArrowLeft className="text-xl" />
-        Back to Policy Center
+        {i18nText("ui.literals.k142f14211573")}
       </button>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -564,7 +565,7 @@ function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpe
                 <HiOutlineScale className="text-3xl" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Policy Center</p>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.k176ded55d96d")}</p>
                 <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{policy.title}</h1>
                 <p className="mt-3 text-base font-semibold leading-7 text-slate-600">{policy.summary}</p>
                 <PolicyMetadata policy={policy} />
@@ -573,7 +574,7 @@ function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpe
           </header>
 
           <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Who this applies to</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k4f3c406088a5")}</p>
             <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">{policy.audience}</p>
             <p className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-bold leading-6 text-slate-600">
               {policy.appliesWhen}
@@ -603,7 +604,7 @@ function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpe
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-white shadow-xl"
-          aria-label="Scroll to top"
+          aria-label={i18nText("ui.literals.kf077108ed196")}
         >
           <HiOutlineArrowUp className="text-xl" />
         </button>
@@ -669,7 +670,7 @@ export default function TermsPoliciesScreen({
 
   return (
     <div>
-      {!hideHeader ? <SocialScreenHeader title="Policy Center" subtitle="Rules, privacy, safety, marketplace, transport, and transparency." /> : null}
+      {!hideHeader ? <SocialScreenHeader title={i18nText("ui.literals.k176ded55d96d")} subtitle={i18nText("ui.literals.k5b5db17fc7e6")} /> : null}
       <PolicyCenterHome onOpen={openPolicy} />
     </div>
   );

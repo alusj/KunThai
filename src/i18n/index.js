@@ -107,6 +107,17 @@ export function t(key, vars = null) {
   return text;
 }
 
+const UI_LITERAL_KEY_BY_SOURCE = new Map(
+  Object.entries(TRANSLATIONS.en?.ui?.literals || {}).map(([key, value]) => [value, key]),
+);
+
+// Translate English source text held in module-level configuration objects.
+// The lookup happens at render time so changing locale updates immediately.
+export function uiText(source, vars = null) {
+  const key = UI_LITERAL_KEY_BY_SOURCE.get(source);
+  return key ? t(`ui.literals.${key}`, vars) : source;
+}
+
 function subscribe(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);

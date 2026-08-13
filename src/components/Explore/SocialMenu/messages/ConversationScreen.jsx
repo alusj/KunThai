@@ -10,6 +10,7 @@ import { readExploreSettings } from "../../../../Backend/services/explore/prefer
 import { useI18n } from "../../../../i18n";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
+import { t as i18nText } from "../../../../i18n/index";
 
 const TYPING_FRESH_MS = 12000;
 const PRESENCE_FRESH_MS = 45000;
@@ -117,12 +118,12 @@ export default function ConversationScreen({ conversation, currentUserId, messag
   return (
     <section className="flex h-dvh min-w-0 flex-col overflow-hidden bg-white">
       <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
-        <AppBackTab onBack={onBack} label="Back to inbox" historyKey="explore-conversation" />
+        <AppBackTab onBack={onBack} label={i18nText("ui.literals.k0050d622ebf2")} historyKey="explore-conversation" />
         <button
           type="button"
           onClick={openPeerProfile}
           className="kt-pressable relative flex-none rounded-full"
-          aria-label={`View ${user.displayName || "this user"}'s profile`}
+          aria-label={i18nText("ui.literals.ka7236c84a99b", { value0: user.displayName || i18nText("ui.literals.ka0fbee4e8361") })}
         >
           <Avatar name={user.displayName} src={user.avatarUrl} size="sm" />
           {presenceLabel ? (
@@ -131,7 +132,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
         </button>
         <button type="button" onClick={openPeerProfile} className="kt-pressable min-w-0 rounded-lg text-left">
           <p className="block max-w-full truncate text-left text-sm font-black text-slate-950">
-            {user.displayName || "Profile"}
+            {user.displayName || i18nText("ui.literals.kff4fc0276e96")}
           </p>
           {presenceLabel ? (
             <p
@@ -142,7 +143,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
             </p>
           ) : (
             <p className="block max-w-full truncate text-left text-xs font-bold text-slate-500">
-              @{user.username || "user"}
+              @{user.username || i18nText("ui.literals.k12dea96fec20")}
             </p>
           )}
         </button>

@@ -10,7 +10,8 @@ import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductToggle from "./ProductToggle";
 import { getCountryCurrencyCode } from "../../../../../data/globalCountryProfiles";
-import { useI18n, t } from "../../../../../i18n";
+import { uiText, useI18n, t } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
 
 const PROMOTION_AUDIENCES = [
   { id: "countrywide", labelKey: "audCountrywide", descKey: "audCountrywideDesc" },
@@ -104,7 +105,7 @@ export default function ProductPricingStep({ productForm }) {
           <ProductFormInput
             value={form.pricing.sku}
             onChange={(event) => updateSection("pricing", { sku: event.target.value })}
-            placeholder="Example: JAY-HEADPHONE-001"
+            placeholder={i18nText("ui.literals.kea34e011807f")}
           />
           <p className="mt-2 text-xs font-bold leading-5 text-gray-500">
             {t("urmall.biz.pform.productCodeHelper")}
@@ -182,12 +183,12 @@ export default function ProductPricingStep({ productForm }) {
                   }`}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-black">{item.label}</span>
+                    <span className="text-sm font-black">{uiText(item.label)}</span>
                     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-black text-gray-700">
                       {item.id === "custom" ? t("urmall.biz.pform.any") : item.credits}
                     </span>
                   </span>
-                  <span className="mt-1 block text-xs font-semibold leading-5 text-gray-500">{item.helper}</span>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-gray-500">{uiText(item.helper)}</span>
                 </button>
               );
             })}
@@ -227,7 +228,7 @@ export default function ProductPricingStep({ productForm }) {
             <p className="text-sm font-black text-gray-800">{t("urmall.biz.pform.promotionAudience")}</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
               {PROMOTION_AUDIENCES.map((item) => {
-                const selected = (form.pricing.promotionAudience || "countrywide") === item.id;
+                const selected = (form.pricing.promotionAudience || i18nText("ui.literals.kd2e6e5f60e8d")) === item.id;
                 return (
                   <button
                     key={item.id}

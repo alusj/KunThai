@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ClipboardCopy, HelpCircle, Search, ShieldCheck } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
+import { useI18n } from "../../i18n";
 import CenteredModal from "./CenteredModal";
 
 const TONES = {
@@ -11,9 +12,18 @@ const TONES = {
 };
 
 export default function KunThaiIdHelpButton({ subject = "person", tone = "blue", className = "" }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const toneClass = TONES[tone] || TONES.blue;
+  const subjectKey = {
+    "business administrator": "businessAdmin",
+    "credit recipient": "creditRecipient",
+    operator: "operator",
+    person: "person",
+    "team member": "teamMember",
+  }[subject] || "person";
+  const subjectLabel = t(`profile.idSubject${subjectKey[0].toUpperCase()}${subjectKey.slice(1)}`);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -33,8 +43,8 @@ export default function KunThaiIdHelpButton({ subject = "person", tone = "blue",
         whileTap={{ scale: 0.9 }}
         transition={{ type: "spring", stiffness: 420, damping: 18 }}
         className={`grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br text-sm font-black text-white shadow-md ${toneClass} ${className}`}
-        aria-label="How to find and use a KunThai ID"
-        title="How to use a KunThai ID"
+        aria-label={t("profile.idHelpAria")}
+        title={t("profile.idHelpTitle")}
       >
         ?
       </motion.button>
@@ -50,22 +60,22 @@ export default function KunThaiIdHelpButton({ subject = "person", tone = "blue",
             <HelpCircle size={23} />
           </motion.span>
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">KunThai ID guide</p>
-            <h2 id={titleId} className="mt-1 text-xl font-black text-slate-950">Find and add the {subject}</h2>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("profile.idGuide")}</p>
+            <h2 id={titleId} className="mt-1 text-xl font-black text-slate-950">{t("profile.idFindAdd", { subject: subjectLabel })}</h2>
           </div>
         </div>
 
         <div className="mt-5 space-y-3">
-          <HelpStep icon={Search} number="1" title={`Open the ${subject}'s Explore profile`} body="Ask them to open their profile, or find their profile in Explore." />
-          <HelpStep icon={ClipboardCopy} number="2" title="Copy the KunThai ID" body="Tap the copy icon beside the KTU-XXXX-XXXX-XXXX code on their profile." />
-          <HelpStep icon={ShieldCheck} number="3" title="Paste it and wait for confirmation" body="Return here and paste the complete code. KunThai checks it automatically and displays the account name." />
+          <HelpStep icon={Search} number="1" title={t("profile.idStep1Title", { subject: subjectLabel })} body={t("profile.idStep1Body")} />
+          <HelpStep icon={ClipboardCopy} number="2" title={t("profile.idStep2Title")} body={t("profile.idStep2Body")} />
+          <HelpStep icon={ShieldCheck} number="3" title={t("profile.idStep3Title")} body={t("profile.idStep3Body")} />
         </div>
 
         <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
-          Confirm the displayed name before continuing. A KunThai ID is safe to share; never ask for the person's password or sign-in code.
+          {t("profile.idConfirmSafety")}
         </p>
         <button type="button" onClick={() => setOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
-          Got it
+          {t("profile.understood")}
         </button>
       </CenteredModal>
     </>

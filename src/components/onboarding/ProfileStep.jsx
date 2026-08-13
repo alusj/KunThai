@@ -18,6 +18,7 @@ import CenteredModal from "../shared/CenteredModal";
 import OnboardingFrame from "./OnboardingFrame";
 import { scrollToFirstBlockingFieldSoon } from "../shared/formValidationNavigation";
 import { useI18n, t } from "../../i18n";
+import { t as i18nText } from "../../i18n/index";
 
 // KunThai's minimum age to hold an account.
 const MINIMUM_AGE = 13;
@@ -323,7 +324,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 <InlineFieldError message={fieldErrors.phone} />
               ) : (
                 <span className={`mt-2 block text-xs font-semibold ${phoneValidation.valid || !values.phone ? "text-slate-500" : "text-rose-600"}`}>
-                  {phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
+                  {phoneValidation.valid ? i18nText("ui.literals.k23576fc890bc", { value0: countryProfile.name, value1: countryProfile.dialCode, value2: countryProfile.placeholder }) : phoneValidation.message}
                 </span>
               )}
               {phoneConflict ? (
@@ -452,7 +453,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
             </div>
 
             <p className="mt-5 text-xl font-semibold">{previewName}</p>
-            <p className="mt-1 text-sm text-slate-300">{values.username ? `@${values.username}` : t("onboarding.profile.usernamePlaceholder")}</p>
+            <p className="mt-1 text-sm text-slate-300">{values.username ? i18nText("ui.literals.k92e5f8fb700e", { value0: values.username }) : t("onboarding.profile.usernamePlaceholder")}</p>
 
             <div className="mt-5 space-y-3 text-sm text-slate-300">
               <p className="flex items-center gap-2">

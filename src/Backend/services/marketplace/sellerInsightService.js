@@ -62,3 +62,60 @@ export async function fetchSellerInsights() {
     },
   };
 }
+
+export async function fetchSellerProductInsights(product) {
+  const business = await readRegisteredBusiness();
+  if (!business?.id || !product?.id) return null;
+
+  const [productResult, promotionsResult] = await Promise.all([
+    supabase
+      .from("marketplace_products")
+      .select("id,name,views,sales,revenue,stock,status,main_image_url")
+      .eq("business_id", business.id)
+      .eq("id", product.id)
+      .maybeSingle(),
+    supabase
+      .from("marketplace_promotions")
+      .select("*")
+      .eq("business_id", business.id)
+      .eq("product_id", product.id)
+      .order("created_at", { ascending: false })
+      .limit(12),
+  ]);
+
+  const latestProduct = productResult.data || {};
+  const source = {
+    ...product,
+    name: latestProduct.name || product.name,
+    views: latestProduct.views ?? product.views,
+    sales: latestProduct.sales ?? product.sales,
+    revenue: latestProduct.revenue ?? product.revenue,
+    stock: latestProduct.stock ?? product.stock,
+    status: latestProduct.status || product.status,
+    mainImageUrl: latestProduct.main_image_url || product.mainImageUrl,
+  };
+  const promotions = promotionsResult.error ? [] : (promotionsResult.data || []);
+  const now = Date.now();
+  const views = Number(source.views || 0);
+  const sales = Number(source.sales || 0);
+  const activePromotion = promotions.find((promotion) => {
+    const endsAt = promotion.ends_at ? new Date(promotion.ends_at).getTime() : Infinity;
+    return promotion.status === "active" && endsAt > now;
+  }) || null;
+  const latestPromotion = promotions[0] || null;
+
+  return {
+    product: source,
+    views,
+    sales,
+    revenue: Number(source.revenue || 0),
+    stock: Number(source.stock || 0),
+    conversionRate: views ? Math.min(100, (sales / views) * 100) : 0,
+    promotionViews: promotions.reduce((sum, promotion) => sum + Number(promotion.views || 0), 0),
+    promotionOrders: promotions.reduce((sum, promotion) => sum + Number(promotion.orders || 0), 0),
+    promotionRevenue: promotions.reduce((sum, promotion) => sum + Number(promotion.revenue || 0), 0),
+    promotionCount: promotions.length,
+    activePromotion,
+    latestPromotion,
+  };
+}

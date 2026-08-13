@@ -4,6 +4,7 @@ import { Globe2 } from "lucide-react";
 import FlagIcon from "../FlagIcon";
 import { GLOBAL_COUNTRY_CODES } from "../../data/globalCountryCodes";
 import { storeCountryContext } from "../../data/globalCountryProfiles";
+import { t as i18nText } from "../../i18n/index";
 
 // The same country picker style used by phone sign-in: flag + dial code beside
 // the number field, dropdown with every dialing profile. Used by onboarding and
@@ -35,7 +36,7 @@ function CountryPickerButton({ country, onCountryChange }) {
         type="button"
         onClick={() => setOpen((current) => !current)}
         className="flex h-full min-h-full w-full items-center justify-center gap-2 rounded-[20px] border border-slate-200 bg-slate-50 px-3 text-left text-sm font-semibold text-slate-900 outline-none transition hover:bg-slate-100 focus:border-sky-400"
-        aria-label="Choose country"
+        aria-label={i18nText("ui.literals.kda7024e2e316")}
       >
         {country ? (
           <FlagIcon code={country.iso2} className="h-5 w-7 shrink-0 rounded-[4px]" />
@@ -43,7 +44,7 @@ function CountryPickerButton({ country, onCountryChange }) {
           <Globe2 className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
         )}
         <span className="shrink-0 text-sm font-semibold text-slate-900">
-          {country?.dialCode || "Country"}
+          {country?.dialCode || i18nText("ui.literals.kd523ebbd1014")}
         </span>
         <svg
           className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
@@ -107,7 +108,7 @@ export default function PhoneCountryField({
         inputMode="tel"
         value={phone}
         onChange={(event) => onPhoneChange(event.target.value)}
-        placeholder={country ? placeholder : "Choose country first"}
+        placeholder={country ? placeholder : i18nText("ui.literals.k07be7c544463")}
         disabled={!country}
         aria-invalid={invalid ? "true" : undefined}
         className={`min-w-0 flex-1 rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 disabled:cursor-not-allowed disabled:opacity-60 ${

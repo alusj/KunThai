@@ -3,6 +3,7 @@ import { Compass, ShoppingBag, CarFront } from "lucide-react";
 import OnboardingFrame from "./OnboardingFrame";
 import { findExploreTopic } from "../../data/exploreTopics";
 import { useI18n, t } from "../../i18n";
+import { t as i18nText } from "../../i18n/index";
 
 const surfaceMap = {
   explore: { labelKey: "onboarding.welcome.exploreT", icon: Compass },
@@ -37,7 +38,7 @@ export default function ReadyStep({ values, saving, error, onBack, onFinish }) {
             )}
             <div>
               <p className="text-2xl font-semibold text-slate-950">{profileName || t("onboarding.ready.newUser")}</p>
-              <p className="mt-2 text-sm text-slate-600">{values.username ? `@${values.username}` : t("onboarding.ready.usernamePlaceholder")}</p>
+              <p className="mt-2 text-sm text-slate-600">{values.username ? i18nText("ui.literals.k92e5f8fb700e", { value0: values.username }) : t("onboarding.ready.usernamePlaceholder")}</p>
             </div>
           </div>
           <p className="mt-5 text-sm text-slate-600">

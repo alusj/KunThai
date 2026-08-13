@@ -1,6 +1,7 @@
 import { HiOutlineMicrophone, HiOutlinePause, HiOutlinePlay, HiOutlineTrash, HiOutlineShieldCheck } from "react-icons/hi2";
 
 import { t } from "../../../../../../i18n";
+import { t as i18nText } from "../../../../../../i18n/index";
 
 function formatTime(seconds = 0) {
   const mins = Math.floor(seconds / 60);
@@ -26,7 +27,7 @@ export default function VoiceCapsuleRecorder({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">
-            KunThai Voice Capsule
+            {i18nText("ui.literals.k0eed5d69e607")}
           </p>
           <h3 className="mt-1 text-base font-black">
             {isRecording ? t("explore.recordingVoice") : audioPreview ? t("explore.voiceReady") : t("explore.recordVoiceThought")}
@@ -59,7 +60,7 @@ export default function VoiceCapsuleRecorder({
         </span>
 
         <span className="text-xs font-bold text-sky-200">
-          Ready to publish when you are
+          {i18nText("ui.literals.k0afc8e5eb418")}
         </span>
       </div>
 
@@ -76,7 +77,7 @@ export default function VoiceCapsuleRecorder({
           >
             <span className="inline-flex items-center gap-2">
               <HiOutlineMicrophone />
-              Start Capsule
+              {i18nText("ui.literals.ked90a0ec0170")}
             </span>
           </button>
         ) : (
@@ -85,7 +86,7 @@ export default function VoiceCapsuleRecorder({
             onClick={onStop}
             className="col-span-2 h-12 rounded-2xl bg-emerald-400 text-sm font-black text-slate-950"
           >
-            Save Voice
+            {i18nText("ui.literals.kc6f7f44e5b6b")}
           </button>
         )}
 

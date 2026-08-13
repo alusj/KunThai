@@ -28,6 +28,7 @@ import { useI18n } from "../../../../i18n";
 
 import MenuSection from "./menu/MenuSection";
 import MenuActionButton from "./menu/MenuActionButton";
+import { t as i18nText } from "../../../../i18n/index";
 
 // Each item is [navigationTarget, i18nKey, icon]; label/description resolve from
 // the `menu.items.<i18nKey>Label / Description` translation keys at render time.
@@ -139,7 +140,7 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
                     key={space.spaceId}
                     icon={HiOutlineBuildingOffice2}
                     label={space.displayName || t("explore.spaceFallback")}
-                    description={`${active ? t("explore.spaceActivePrefix") : ""}${space.categoryLabel || t("explore.spaceDefault")} · ${space.memberRole || t("explore.spaceMember")}`}
+                    description={i18nText("ui.literals.k46d33b4835b6", { value0: active ? t("explore.spaceActivePrefix") : "", value1: space.categoryLabel || t("explore.spaceDefault"), value2: space.memberRole || t("explore.spaceMember") })}
                     tone={active ? "strong" : "default"}
                     onClick={() => {
                       if (space.membershipStatus === "pending") return;

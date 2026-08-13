@@ -3,6 +3,7 @@ import { HiOutlineCheckCircle, HiOutlineExclamationTriangle, HiOutlineInformatio
 
 import { TOAST_EVENT } from "../../../Backend/services/toastService";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 const TOAST_EXIT_MS = 280;
 
@@ -33,31 +34,26 @@ function getToastArrow(origin) {
 const tones = {
   info: {
     icon: HiOutlineInformationCircle,
-    title: "Update",
     accentClass: "from-sky-500 to-blue-600",
     iconClass: "bg-sky-50 text-sky-700 ring-sky-100",
   },
   success: {
     icon: HiOutlineCheckCircle,
-    title: "Done",
     accentClass: "from-emerald-500 to-teal-600",
     iconClass: "bg-emerald-50 text-emerald-700 ring-emerald-100",
   },
   warning: {
     icon: HiOutlineExclamationTriangle,
-    title: "Attention",
     accentClass: "from-amber-400 to-orange-500",
     iconClass: "bg-amber-50 text-amber-700 ring-amber-100",
   },
   danger: {
     icon: HiOutlineExclamationTriangle,
-    title: "Action needed",
     accentClass: "from-rose-500 to-red-600",
     iconClass: "bg-rose-50 text-rose-700 ring-rose-100",
   },
   error: {
     icon: HiOutlineExclamationTriangle,
-    title: "Action needed",
     accentClass: "from-rose-500 to-red-600",
     iconClass: "bg-rose-50 text-rose-700 ring-rose-100",
   },
@@ -112,9 +108,9 @@ export default function ToastProvider({ children }) {
           const Icon = tone.icon;
           const motionClass = item.leaving
             ? item.anchor === "notification"
-              ? "kt-toast-collapse-notification"
-              : "kt-toast-collapse-out"
-            : "kt-toast-expand-in";
+              ? i18nText("ui.literals.k1c49913150c6")
+              : i18nText("ui.literals.k13bd821f82c9")
+            : i18nText("ui.literals.k4745c745e373");
           const arrow = index === 0 ? getToastArrow(item.origin) : null;
           return (
             <div

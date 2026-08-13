@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pause, Play, Scissors, X } from "lucide-react";
+import { t as i18nText } from "../../i18n/index";
 
 const MIN_CLIP_SECONDS = 1;
 // Recording bitrate is capped so a full clip stays below the upload limit
@@ -107,7 +108,7 @@ export default function VideoTrimmerScreen({
       if (Number.isFinite(video.duration) && video.duration > 0) {
         applyDuration(video.duration);
       } else {
-        setError("Unable to read this video's length for trimming.");
+        setError(i18nText("ui.literals.k9f2e49a7c376"));
       }
     };
     video.currentTime = Number.MAX_SAFE_INTEGER;
@@ -184,7 +185,7 @@ export default function VideoTrimmerScreen({
     video
       .play()
       .then(() => setPreviewing(true))
-      .catch(() => setError("Unable to play this video for preview."));
+      .catch(() => setError(i18nText("ui.literals.k2a391210ebee")));
   }
 
   function handleTimeUpdate(event) {
@@ -201,12 +202,12 @@ export default function VideoTrimmerScreen({
     if (!video || trimming || !ready) return;
 
     if (clipTooLong) {
-      setError(`Keep the selection at ${maxSeconds} seconds or less.`);
+      setError(i18nText("ui.literals.k95b847aafc04", { value0: maxSeconds }));
       return;
     }
 
     if (typeof video.captureStream !== "function" || typeof MediaRecorder === "undefined") {
-      setError("Trimming is not supported in this browser. Please trim the video on your device and upload it again.");
+      setError(i18nText("ui.literals.k2ce862fd1561"));
       return;
     }
 
@@ -320,7 +321,7 @@ export default function VideoTrimmerScreen({
       const trimmedFile = new File([blob], trimmedFileName(file.name, outputType), { type: outputType });
       onComplete?.(trimmedFile, { durationSeconds: selectionSeconds });
     } catch (trimError) {
-      setError(trimError.message || "Unable to trim this video. Please try again.");
+      setError(trimError.message || i18nText("ui.literals.k4588413b0525"));
     } finally {
       videoRef.current?.pause();
       setTrimming(false);
@@ -348,7 +349,7 @@ export default function VideoTrimmerScreen({
           }}
           disabled={trimming}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-40"
-          aria-label="Close trim screen"
+          aria-label={i18nText("ui.literals.kf915a9fd71bc")}
         >
           <X size={20} />
         </button>
@@ -371,8 +372,8 @@ export default function VideoTrimmerScreen({
         <div className="mx-auto w-full max-w-3xl space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-black text-white/80">
             <span>
-              Selected: <span className={clipTooLong ? "text-red-400" : "text-emerald-400"}>{formatClock(clipSeconds)}</span>
-              {" "}of {formatClock(duration)}
+              {i18nText("ui.literals.k2e0844789cb4")} <span className={clipTooLong ? "text-red-400" : "text-emerald-400"}>{formatClock(clipSeconds)}</span>
+              {" "}{i18nText("ui.literals.kde04fa0e29f9")} {formatClock(duration)}
             </span>
             <span>
               {formatClock(range.start)} → {formatClock(range.end)}
@@ -396,7 +397,7 @@ export default function VideoTrimmerScreen({
             />
             <button
               type="button"
-              aria-label="Trim from the left"
+              aria-label={i18nText("ui.literals.keb724bcc15e9")}
               onPointerDown={(event) => startHandleDrag("start", event)}
               className="absolute inset-y-0 z-10 -ml-3.5 flex w-7 cursor-ew-resize items-center justify-center"
               style={{ left: `${startPercent}%` }}
@@ -405,7 +406,7 @@ export default function VideoTrimmerScreen({
             </button>
             <button
               type="button"
-              aria-label="Trim from the right"
+              aria-label={i18nText("ui.literals.k82dbc194d356")}
               onPointerDown={(event) => startHandleDrag("end", event)}
               className="absolute inset-y-0 z-10 -ml-3.5 flex w-7 cursor-ew-resize items-center justify-center"
               style={{ left: `${endPercent}%` }}
@@ -415,14 +416,12 @@ export default function VideoTrimmerScreen({
           </div>
 
           <p className="text-xs font-bold text-white/60">
-            Drag either handle freely to trim from the left or the right. Keep the clip {maxSeconds} seconds
-            or less and under {maxMb} MB.
+            {i18nText("ui.literals.kf3da77566424")} {maxSeconds} {i18nText("ui.literals.k4f608aaaa98c")} {maxMb} {i18nText("ui.literals.kc8f32141664d")}
           </p>
 
           {clipTooLong ? (
             <p className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs font-black text-red-300">
-              Your selection is {formatClock(clipSeconds)} and we are only accepting a video that is {maxSeconds} seconds
-              or less for now. Move a handle inwards to shorten it.
+              {i18nText("ui.literals.kba6173068e57")} {formatClock(clipSeconds)} {i18nText("ui.literals.ka464e664ba7c")} {maxSeconds} {i18nText("ui.literals.k323803b870cd")}
             </p>
           ) : null}
 
@@ -436,7 +435,7 @@ export default function VideoTrimmerScreen({
                 <div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${Math.round(trimProgress * 100)}%` }} />
               </div>
               <p className="text-xs font-black text-emerald-300">
-                Trimming your clip... {Math.round(trimProgress * 100)}%. Keep this screen open.
+                {i18nText("ui.literals.kd62acee1d690")} {Math.round(trimProgress * 100)}{i18nText("ui.literals.k8fa0da413cce")}
               </p>
             </div>
           ) : null}
@@ -449,7 +448,7 @@ export default function VideoTrimmerScreen({
               className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-black text-white transition hover:bg-white/20 disabled:opacity-40"
             >
               {previewing ? <Pause size={17} /> : <Play size={17} />}
-              {previewing ? "Pause preview" : "Preview selection"}
+              {previewing ? i18nText("ui.literals.k805180fb9380") : i18nText("ui.literals.k562661b11701")}
             </button>
             <button
               type="button"
@@ -458,7 +457,7 @@ export default function VideoTrimmerScreen({
               className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-black text-gray-950 transition hover:bg-emerald-400 disabled:opacity-40"
             >
               <Scissors size={17} />
-              {trimming ? "Trimming..." : "Trim and use this clip"}
+              {trimming ? i18nText("ui.literals.k910f870e3c2b") : i18nText("ui.literals.kd3faed5cd101")}
             </button>
           </div>
         </div>

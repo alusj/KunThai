@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { SPACE_IDENTITY_TYPE, getProfileIdentity, updateExploreProfile, updateExploreSpace } from "../../../../Backend/services/exploreService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { useI18n } from "../../../../i18n";
 import ProfileEditForm from "./ProfileEditForm";
 import ProfileHeaderCard from "./ProfileHeaderCard";
 
@@ -20,6 +21,7 @@ export default function ProfileEditScreen({
   onProfileUpdate,
   profile,
 }) {
+  const { t } = useI18n();
   const [values, setValues] = useState(profile || {});
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -44,7 +46,7 @@ export default function ProfileEditScreen({
     try {
       updateField("avatarUrl", await fileToDataUrl(file));
     } catch (error) {
-      setFeedback(error.message || "Unable to load image.");
+      setFeedback(error.message || t("profile.unableLoadImage"));
     } finally {
       event.target.value = "";
     }
@@ -57,7 +59,7 @@ export default function ProfileEditScreen({
     try {
       updateField("coverUrl", await fileToDataUrl(file));
     } catch (error) {
-      setFeedback(error.message || "Unable to load cover image.");
+      setFeedback(error.message || t("profile.unableLoadCover"));
     } finally {
       event.target.value = "";
     }
@@ -75,10 +77,10 @@ export default function ProfileEditScreen({
         });
       setValues(updated);
       onProfileUpdate?.(updated);
-      setFeedback(updated.avatarWarning || (isSpace ? "Space updated." : "Profile updated."));
-      showToast(isSpace ? "Space updated." : "Profile updated.", "success");
+      setFeedback(updated.avatarWarning || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
+      showToast(isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated"), "success");
     } catch (error) {
-      setFeedback(error.message || "Unable to update profile.");
+      setFeedback(error.message || t("profile.unableUpdateProfile"));
     } finally {
       setSaving(false);
     }
@@ -116,7 +118,7 @@ export default function ProfileEditScreen({
           disabled={saving}
           className="h-12 w-full rounded-2xl bg-slate-950 text-sm font-black text-white shadow-sm disabled:bg-slate-300"
         >
-          {saving ? "Saving profile" : "Save profile"}
+          {saving ? t("profile.savingProfile") : t("profile.saveProfile")}
         </button>
       </div>
     </div>

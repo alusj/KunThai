@@ -15,9 +15,12 @@ import BusinessAttention from "./BusinessAttention/BusinessAttention";
 import BusinessActivity from "./BusinessActivity/BusinessActivity";
 import BusinessCatalog from "./BusinessCatalog/BusinessCatalog";
 import SellerProductDetail from "./BusinessCatalog/SellerProductDetail";
+import ProductInsightsScreen from "./BusinessCatalog/ProductInsightsScreen";
 import BusinessPromotions from "./BusinessPromotions/BusinessPromotions";
 import CustomerCare from "./CustomerCare/CustomerCare";
 import MyBizDashboardHeader from "./MyBizDashboardHeader/MyBizDashboardHeader";
+import TodaySummaryCard from "./MyBizDashboardHeader/TodaySummaryCard";
+import SellerIntelligence from "./SellerIntelligence/SellerIntelligence";
 import BusinessStats from "./BusinessStats/BusinessStats";
 import AddProductForm from "./ProductForm/AddProductForm";
 import SellerWorkspaceTabs from "./SellerWorkspaceTabs";
@@ -95,7 +98,7 @@ export default function Business({ onBack }) {
   const sellerOverview = useSellerOverview({ enabled: hasBusiness });
   const [activeScreen, setActiveScreen] = useState("dashboard");
   const [, setScreenHistory] = useState([]);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("store");
   const [toastMessage, setToastMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuInitialScreen, setMenuInitialScreen] = useState(null);
@@ -232,8 +235,18 @@ export default function Business({ onBack }) {
     openSellerScreen("productDetail");
   }
 
+  function openProductInsights(product) {
+    if (!product) return;
+    setSelectedProduct(product);
+    openSellerScreen("productInsights");
+  }
+
   async function openProductFromActivity(activity) {
     const product = await resolveSellerActivityProduct(activity);
+    if (activity?.actionTarget === "seller-product-insights") {
+      openProductInsights(product);
+      return;
+    }
     openSellerProductDetail(product);
   }
 
@@ -349,6 +362,114 @@ export default function Business({ onBack }) {
           open={screenPanelOpen}
         >
           <BusinessStats initialView="orders" />
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "productInsights") {
+      return (
+        <SellerFullScreen
+          key="productInsights"
+          eyebrow={`${t("urmall.biz.cat.productKicker")} ${t("urmall.biz.intel.insightsTab")}`}
+          title={selectedProduct?.name || t("urmall.biz.intel.insightsTab")}
+          subtitle={t("urmall.biz.ins.subtitle")}
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
+            <ProductInsightsScreen product={selectedProduct} />
+          </div>
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "todaySummary") {
+      return (
+        <SellerFullScreen
+          key="todaySummary"
+          eyebrow={sellerOverview.business?.name}
+          title={t("urmall.biz.dash.todaySummary")}
+          subtitle={t("urmall.biz.dash.liveSnapshot")}
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
+            <TodaySummaryCard today={sellerOverview.today} />
+          </div>
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "sellerIntelligence") {
+      return (
+        <SellerFullScreen
+          key="sellerIntelligence"
+          eyebrow={sellerOverview.business?.name}
+          title={t("urmall.biz.intel.title")}
+          subtitle={t("urmall.biz.intel.subtitle")}
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
+            <SellerIntelligence />
+          </div>
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "overview") {
+      return (
+        <SellerFullScreen
+          key="overview"
+          eyebrow={sellerOverview.business?.name}
+          title={t("urmall.biz.dash.tabOverview")}
+          subtitle={t("urmall.biz.actv.subtitle")}
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <div className="kt-seller-screen-content mx-auto w-full max-w-5xl space-y-5">
+            <BusinessAttention
+              onAction={(item) => {
+                if (item.id === "add-first-product") openSellerScreen("addProduct");
+                if (item.type === "profile") openSellerScreen("editBusiness");
+              }}
+            />
+            <BusinessActivity onViewProduct={openProductFromActivity} />
+          </div>
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "sales") {
+      return (
+        <SellerFullScreen
+          key="sales"
+          eyebrow={sellerOverview.business?.name}
+          title={t("urmall.biz.stats.salesOrders")}
+          subtitle={t("urmall.biz.stats.salesOrdersDesc")}
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
+            <BusinessStats />
+          </div>
+        </SellerFullScreen>
+      );
+    }
+
+    if (visibleScreen === "promotions") {
+      return (
+        <SellerFullScreen
+          key="promotions"
+          eyebrow={sellerOverview.business?.name}
+          title={t("urmall.biz.board.items.promotionsT")}
+          subtitle={t("urmall.biz.board.items.promotionsD")}
+          onBack={goBackSellerScreen}
+          open={screenPanelOpen}
+        >
+          <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
+            <BusinessPromotions />
+          </div>
         </SellerFullScreen>
       );
     }
@@ -480,7 +601,7 @@ export default function Business({ onBack }) {
               setSwitchingBusiness(true);
             }
             await setActiveRegisteredBusiness(businessId);
-            setActiveTab("overview");
+            setActiveTab("store");
             // The "switched" toast is announced once the switch overlay closes
             // (see the switchingBusiness effect), so it never sits behind the
             // animation.
@@ -525,7 +646,11 @@ export default function Business({ onBack }) {
         <div>
           <main className="space-y-6">
             {permissions.canAccessDashboard ? (
-              <MyBizDashboardHeader onEditProfile={openProfileEditor} overview={sellerOverview} />
+              <MyBizDashboardHeader
+                onEditProfile={openProfileEditor}
+                onOpenSection={businessKind === "retail" ? openSellerScreen : undefined}
+                overview={sellerOverview}
+              />
             ) : null}
 
             {permissions.isAdmin ? (
@@ -542,49 +667,41 @@ export default function Business({ onBack }) {
                 {allowedTabs.length ? (
                   <SellerWorkspaceTabs activeTab={effectiveTab} onTabChange={setActiveTab} allowedTabs={allowedTabs} />
                 ) : null}
-                {effectiveTab === "overview" ? (
-                  <>
-                    <BusinessAttention
-                      onAction={(item) => {
-                        if (item.id === "add-first-product") openSellerScreen("addProduct");
-                        if (item.type === "payout") setActiveTab("overview");
-                        if (item.type === "profile") setActiveTab("overview");
-                      }}
-                    />
-                    <BusinessPromotions />
-                  </>
-                ) : null}
-                {effectiveTab === "sales" ? <BusinessStats /> : null}
-                {effectiveTab === "store" ? (
+                <div key={effectiveTab} className="kt-seller-detail-swap">
+                  {effectiveTab === "store" ? (
                     <BusinessCatalog
                       mode="store"
+                      onViewInsights={openProductInsights}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {
                         setEditingProduct(product);
                         openSellerScreen("addProduct");
                     }}
                   />
-                ) : null}
-                {effectiveTab === "catalog" ? (
+                  ) : null}
+                  {effectiveTab === "catalog" ? (
                     <BusinessCatalog
                       mode="catalog"
+                      onViewInsights={openProductInsights}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {
                         setEditingProduct(product);
                         openSellerScreen("addProduct");
                     }}
                   />
-                ) : null}
-                {effectiveTab === "drafts" ? (
+                  ) : null}
+                  {effectiveTab === "drafts" ? (
                     <BusinessCatalog
                       mode="drafts"
+                      onViewInsights={openProductInsights}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {
                         setEditingProduct(product);
                         openSellerScreen("addProduct");
                     }}
                   />
-                ) : null}
+                  ) : null}
+                </div>
               </>
             ) : (
               <VerticalSellerDashboard

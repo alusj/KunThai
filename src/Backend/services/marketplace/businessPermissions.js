@@ -33,11 +33,11 @@ export function getBusinessPermissions(business) {
   };
 }
 
-// The workspace tabs an owner/admin may see, given their permissions. Order is
-// preserved so the first entry can be used as a safe default tab.
+// The landing workspace stays focused on listings. Dashboard intelligence,
+// sales, and promotions live behind the profile action menu instead of adding
+// more tabs to the seller's primary workspace.
 export function getAllowedWorkspaceTabs(permissions) {
   const tabs = [];
-  if (permissions.canAccessDashboard) tabs.push("overview", "sales");
   if (permissions.canAddProducts) tabs.push("store", "catalog", "drafts");
   return tabs;
 }

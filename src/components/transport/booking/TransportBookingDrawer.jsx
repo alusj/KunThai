@@ -45,6 +45,7 @@ import {
   normalizeBookingLocationPoint,
   resolveBookingLocationPreferences,
 } from "./bookingLocationPreferences";
+import { t as i18nText } from "../../../i18n/index";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
 
@@ -427,7 +428,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       label: areaPoint?.label || areaPoint?.name || areaText,
       address: areaPoint?.address || areaText,
       category: kind === "pickup" ? "Pickup" : "Destination",
-      status: "community",
+      status: i18nText("ui.literals.k418b03c91215"),
       description:
         kind === "pickup"
           ? t("urride.booking.pickupAreaDescription")

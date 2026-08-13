@@ -7,6 +7,7 @@ import { useI18n } from "../../../../../../i18n";
 import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { isAdvertPost } from "../../../../shared/advertUtils";
 import useImageViewerGestures from "../../../../../shared/useImageViewerGestures";
+import { t as i18nText } from "../../../../../../i18n/index";
 
 // Keep the portal mounted slightly longer than the CSS shared-image transition.
 // Unmounting at 340ms while the 360ms zoom-back was still running caused the
@@ -360,7 +361,7 @@ function MediaFallback({ label, onRetry }) {
         className="kt-pressable mt-3 inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-black text-slate-700"
       >
         <HiOutlineArrowPath />
-        Retry
+        {i18nText("ui.literals.k9f5cd8a2e880")}
       </button>
     </div>
   );

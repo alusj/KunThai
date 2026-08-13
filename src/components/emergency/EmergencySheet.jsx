@@ -12,6 +12,7 @@ import {
 import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { getCountryProfile } from "../../data/globalCountryProfiles";
 import FlagIcon from "../FlagIcon";
+import { t as i18nText, uiText } from "../../i18n/index";
 
 const nearbyActions = [
   {
@@ -49,7 +50,7 @@ function NumbersList({ numbers }) {
   const safeNumbers = Array.isArray(numbers) ? numbers.filter(Boolean) : [];
 
   if (!safeNumbers.length) {
-    return <span className="text-sm font-bold text-slate-400">No number listed</span>;
+    return <span className="text-sm font-bold text-slate-400">{i18nText("ui.literals.kd4b640cff262")}</span>;
   }
 
   return (
@@ -89,7 +90,7 @@ function CallButton({ icon, label, numbers }) {
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-lg transition ${
             telHref ? "bg-red-600 text-white shadow-red-900/20 active:scale-95" : "pointer-events-none bg-slate-200 text-slate-400"
           }`}
-          aria-label={primaryNumber ? `Call ${label} at ${primaryNumber}` : `${label} number unavailable`}
+          aria-label={primaryNumber ? i18nText("ui.literals.ke2e0271c2342", { value0: label, value1: primaryNumber }) : i18nText("ui.literals.k755ac806fbcb", { value0: label })}
         >
           <Phone size={21} />
         </a>
@@ -136,7 +137,7 @@ export default function EmergencySheet({
       <button
         type="button"
         className="absolute inset-0 cursor-default"
-        aria-label="Close KunThai SOS"
+        aria-label={i18nText("ui.literals.kd55e3e3df664")}
         onClick={onClose}
       />
 
@@ -152,13 +153,13 @@ export default function EmergencySheet({
           <div className="rounded-[26px] border border-red-200/60 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 p-4 text-white shadow-sm shadow-red-950/20">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-wide text-red-100">Emergency numbers</p>
+                <p className="text-xs font-black uppercase tracking-wide text-red-100">{i18nText("ui.literals.kfe68bfdf2623")}</p>
                 <h2 id="kuntai-sos-title" className="mt-1 text-xl font-black leading-tight text-white">
-                  Call for help
+                  {i18nText("ui.literals.kfa3a83b1b97e")}
                 </h2>
                 <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-red-50">
                   {showCountryFlag ? <FlagIcon code={normalizedCountryCode} className="h-5 w-7 shrink-0 rounded-[4px] ring-1 ring-white/60" /> : null}
-                  {detectingCountry ? countryLabel : `Emergency services for ${emergency.country}`}
+                  {detectingCountry ? countryLabel : i18nText("ui.literals.k87cc952b10fe", { value0: emergency.country })}
                 </p>
               </div>
 
@@ -166,7 +167,7 @@ export default function EmergencySheet({
                 type="button"
                 onClick={onClose}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 active:scale-95"
-                aria-label="Close emergency numbers"
+                aria-label={i18nText("ui.literals.keae0d6d3af1a")}
               >
                 <X size={21} />
               </button>
@@ -175,9 +176,9 @@ export default function EmergencySheet({
 
           {showBorderConfirm ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-black text-amber-900">Confirm your country</p>
+              <p className="text-sm font-black text-amber-900">{i18nText("ui.literals.kd99a8db391a8")}</p>
               <p className="mt-1 text-xs font-bold leading-5 text-amber-800">
-                We detected that you may be near an international border. Please confirm the country you are currently in — emergency numbers must match your real location.
+                {i18nText("ui.literals.k57274c82e495")}
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
@@ -186,7 +187,7 @@ export default function EmergencySheet({
                   className="flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 active:scale-[0.98]"
                 >
                   {showCountryFlag ? <FlagIcon code={normalizedCountryCode} className="h-4 w-6 rounded-[3px]" /> : null}
-                  I am in {emergency.country}
+                  {i18nText("ui.literals.k73ff74c7986f")} {emergency.country}
                 </button>
                 {alternativeName ? (
                   <button
@@ -195,7 +196,7 @@ export default function EmergencySheet({
                     className="flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 active:scale-[0.98]"
                   >
                     <FlagIcon code={alternativeIso} className="h-4 w-6 rounded-[3px]" />
-                    I am in {alternativeName}
+                    {i18nText("ui.literals.k73ff74c7986f")} {alternativeName}
                   </button>
                 ) : null}
               </div>
@@ -204,29 +205,29 @@ export default function EmergencySheet({
 
           {hasVerifiedNumbers ? (
             <div className="mt-4 grid gap-3">
-              {emergency.national?.length ? <CallButton icon={<Siren size={22} />} label="National Emergency" numbers={emergency.national} /> : null}
-              <CallButton icon={<ShieldAlert size={22} />} label="Police" numbers={emergency.police} />
-              <CallButton icon={<HeartPulse size={22} />} label="Ambulance / Medical" numbers={emergency.ambulance} />
-              <CallButton icon={<Flame size={22} />} label="Fire Force" numbers={emergency.fire} />
+              {emergency.national?.length ? <CallButton icon={<Siren size={22} />} label={i18nText("ui.literals.kb5185d8e4eb9")} numbers={emergency.national} /> : null}
+              <CallButton icon={<ShieldAlert size={22} />} label={i18nText("ui.literals.ka5dfc157da97")} numbers={emergency.police} />
+              <CallButton icon={<HeartPulse size={22} />} label={i18nText("ui.literals.k02ee832399c7")} numbers={emergency.ambulance} />
+              <CallButton icon={<Flame size={22} />} label={i18nText("ui.literals.k45f8530ec4ff")} numbers={emergency.fire} />
             </div>
           ) : (
             <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-sm font-black text-slate-900">Verified numbers unavailable</p>
+              <p className="text-sm font-black text-slate-900">{i18nText("ui.literals.kadcad60392d1")}</p>
               <p className="mt-1 text-xs font-bold leading-5 text-slate-600">
-                Verified emergency information is not currently available for this country. Contact local authorities or use your device&apos;s emergency calling feature. Do not rely on numbers from a neighbouring country.
+                {i18nText("ui.literals.k8885896c62a8")}
               </p>
             </div>
           )}
 
           <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900">
-            Emergency numbers may vary by network or region. Try another listed number if one fails.
-            {emergency.notes ? ` ${emergency.notes}` : ""}
+            {i18nText("ui.literals.k5821cfbdbbf0")}
+            {emergency.notes ? i18nText("ui.literals.k677fe3d59813", { value0: emergency.notes }) : ""}
           </p>
 
           <div className="mt-4">
             <div className="mb-2 flex items-center gap-2 text-sm font-black text-slate-900">
               <MapPin size={17} className="text-red-600" />
-              Nearby emergency search
+              {i18nText("ui.literals.keb9fdc89b772")}
             </div>
             <div className="grid grid-cols-2 gap-3">
               {nearbyActions.map((action) => {
@@ -241,8 +242,8 @@ export default function EmergencySheet({
                     <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white">
                       <Icon size={19} />
                     </span>
-                    <span className="mt-3 block text-sm font-black leading-tight text-slate-950">{action.label}</span>
-                    <span className="mt-1 block text-xs font-bold leading-4 text-slate-500">{action.description}</span>
+                    <span className="mt-3 block text-sm font-black leading-tight text-slate-950">{uiText(action.label)}</span>
+                    <span className="mt-1 block text-xs font-bold leading-4 text-slate-500">{uiText(action.description)}</span>
                   </button>
                 );
               })}

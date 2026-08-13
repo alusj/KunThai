@@ -13,6 +13,7 @@ import { ScreenSlideTransition } from "../../shared/motion";
 import TransportEntryAnimation from "./TransportEntryAnimation";
 import TransportCautionCard from "../shared/TransportCautionCard";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 const OPTIONS = [
   {
@@ -183,7 +184,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
             </div>
 
             <p className="mt-4 text-xs font-black uppercase tracking-wide text-emerald-700">
-              KunThai UrRide
+              {i18nText("ui.literals.k0f94bf6c2394")}
             </p>
 
             <h2 className="mt-2 text-2xl font-black text-slate-950">

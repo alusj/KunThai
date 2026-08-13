@@ -16,7 +16,7 @@ export default function SavedFilters({ active, collections, onChange }) {
             active === item.id ? "bg-slate-950 text-white" : "bg-white text-slate-600 shadow-sm hover:bg-slate-50"
           }`}
         >
-          {item.label}
+          {uiText(item.label)}
         </button>
       ))}
       {collections.map((collection) => (
@@ -34,3 +34,4 @@ export default function SavedFilters({ active, collections, onChange }) {
     </div>
   );
 }
+import { uiText } from "../../../../i18n";

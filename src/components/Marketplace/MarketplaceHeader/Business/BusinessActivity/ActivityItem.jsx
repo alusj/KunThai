@@ -26,7 +26,7 @@ export default function ActivityItem({ actionBusy = false, activity, dismissing 
               {activity.description}
             </p>
           </div>
-          <ActivityStatusBadge status={activity.status} onDone={handleDone} />
+          <ActivityStatusBadge status={activity.status} onDone={activity.dismissible === false ? null : handleDone} />
         </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

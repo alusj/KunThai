@@ -1,4 +1,5 @@
 import { useI18n, t } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function LiveBusinessPreview({ form, readinessScore }) {
   useI18n();
@@ -17,7 +18,7 @@ export default function LiveBusinessPreview({ form, readinessScore }) {
         <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
           <div className="flex gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gray-900 text-sm font-black text-white">
-              {form.identity.logoName ? t("urmall.biz.reg.logoBadge") : "KT"}
+              {form.identity.logoName ? t("urmall.biz.reg.logoBadge") : i18nText("ui.literals.k396d913df2b5")}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-lg font-black text-gray-950">{name}</h3>

@@ -7,6 +7,7 @@ import {
   saveUserTopicFollows,
 } from "../../../../Backend/services/explore/topicService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import { t as i18nText } from "../../../../i18n/index";
 
 const ALL_CATEGORIES = "All topics";
 
@@ -64,9 +65,9 @@ export default function InterestsScreen({ hideHeader = false }) {
     setFeedback("");
     try {
       const result = await saveUserTopicFollows(selected, { source: "settings" });
-      setFeedback(result.synced ? "Your topic choices are saved." : "Saved on this device. KunThai will sync them when the service is available.");
+      setFeedback(result.synced ? i18nText("ui.literals.kac83087cc173") : i18nText("ui.literals.k807996e9cec8"));
     } catch (error) {
-      setFeedback(error.message || "Your topic choices could not be saved right now.");
+      setFeedback(error.message || i18nText("ui.literals.ka5657796c5db"));
     } finally {
       setSaving(false);
     }
@@ -75,7 +76,7 @@ export default function InterestsScreen({ hideHeader = false }) {
   return (
     <div>
       {!hideHeader ? (
-        <SocialScreenHeader title="Interests" subtitle="Choose topics you enjoy without limiting what Explore can show you." />
+        <SocialScreenHeader title={i18nText("ui.literals.k3fc547328759")} subtitle={i18nText("ui.literals.ke06e3dc96d04")} />
       ) : null}
 
       <div className="w-full space-y-5 px-4 py-4 sm:px-6 lg:px-8">
@@ -85,10 +86,10 @@ export default function InterestsScreen({ hideHeader = false }) {
               <HiOutlineSparkles className="text-2xl" />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Your Explore interests</p>
-              <h3 className="mt-1 text-2xl font-black text-slate-950">Guide discovery, don’t restrict it</h3>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.k44ba84943105")}</p>
+              <h3 className="mt-1 text-2xl font-black text-slate-950">{i18nText("ui.literals.kd7da97eac638")}</h3>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                Selected topics are private and provide a light personalization signal. Connected accounts, nearby posts, freshness, and fair discovery still remain active.
+                {i18nText("ui.literals.kf30e9d0fd03f")}
               </p>
             </div>
           </div>
@@ -100,7 +101,7 @@ export default function InterestsScreen({ hideHeader = false }) {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search topics"
+              placeholder={i18nText("ui.literals.k5f20fc8cbd1e")}
               className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400"
             />
           </label>
@@ -116,13 +117,13 @@ export default function InterestsScreen({ hideHeader = false }) {
         <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-base font-black text-slate-950">Topics</p>
-              <p className="mt-1 text-sm font-semibold text-slate-500">Choose any number—or none.</p>
+              <p className="text-base font-black text-slate-950">{i18nText("ui.literals.k07e4f9c27860")}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{i18nText("ui.literals.k191e634b9266")}</p>
             </div>
-            <span className="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-black text-sky-700">{selected.length} selected</span>
+            <span className="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-black text-sky-700">{selected.length} {i18nText("ui.literals.k835f3b50e337")}</span>
           </div>
 
-          {loading ? <p className="mt-5 text-sm font-bold text-slate-500">Loading topics...</p> : null}
+          {loading ? <p className="mt-5 text-sm font-bold text-slate-500">{i18nText("ui.literals.k039ccb135c12")}</p> : null}
           {!loading ? (
             <div className="mt-5 flex flex-wrap gap-2">
               {visibleTopics.map((topic) => {
@@ -145,7 +146,7 @@ export default function InterestsScreen({ hideHeader = false }) {
               })}
             </div>
           ) : null}
-          {!loading && !visibleTopics.length ? <p className="mt-5 text-sm font-bold text-slate-500">No topics match this search.</p> : null}
+          {!loading && !visibleTopics.length ? <p className="mt-5 text-sm font-bold text-slate-500">{i18nText("ui.literals.k5f5d075858c7")}</p> : null}
         </section>
 
         {feedback ? <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-800" role="status">{feedback}</p> : null}
@@ -155,11 +156,11 @@ export default function InterestsScreen({ hideHeader = false }) {
             type="button"
             onClick={() => {
               setSelected([]);
-              setFeedback("Choose Save to confirm the reset.");
+              setFeedback(i18nText("ui.literals.ka111d31a4621"));
             }}
             className="h-12 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 shadow-sm"
           >
-            Reset choices
+            {i18nText("ui.literals.k6aa76acd63a4")}
           </button>
           <button
             type="button"
@@ -167,7 +168,7 @@ export default function InterestsScreen({ hideHeader = false }) {
             disabled={saving}
             className="h-12 rounded-2xl bg-slate-950 px-6 text-sm font-black text-white disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save interests"}
+            {saving ? i18nText("ui.literals.kae7e887517b0") : i18nText("ui.literals.k9554542662ab")}
           </button>
         </div>
       </div>

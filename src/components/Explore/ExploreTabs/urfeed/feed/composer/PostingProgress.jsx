@@ -1,6 +1,7 @@
 import { HiOutlineCheckCircle, HiOutlineShieldCheck } from "react-icons/hi2";
 
 import { postingStages } from "./postReviewPipeline";
+import { t as i18nText } from "../../../../../../i18n/index";
 
 export default function PostingProgress({ progress = 0, stage = "preparing" }) {
   const activeIndex = Math.max(0, postingStages.findIndex((item) => item.key === stage));
@@ -12,8 +13,8 @@ export default function PostingProgress({ progress = 0, stage = "preparing" }) {
           <HiOutlineShieldCheck />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-slate-950">{postingStages[activeIndex]?.label || "Reviewing post"}</p>
-          <p className="text-xs font-bold text-sky-700">{progress}% complete</p>
+          <p className="text-sm font-black text-slate-950">{postingStages[activeIndex]?.label || i18nText("ui.literals.k58e57b33cbd6")}</p>
+          <p className="text-xs font-bold text-sky-700">{progress}{i18nText("ui.literals.kdfdcd775c1cc")}</p>
         </div>
       </div>
 

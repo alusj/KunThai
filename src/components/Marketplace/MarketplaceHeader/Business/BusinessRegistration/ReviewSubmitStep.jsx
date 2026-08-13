@@ -3,6 +3,7 @@ import {
   getUrMallDocumentRequirements,
 } from "../../../../../data/globalDocumentRequirements";
 import { useI18n, t } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
 
 export default function ReviewSubmitStep({ registration }) {
   useI18n();
@@ -26,7 +27,7 @@ export default function ReviewSubmitStep({ registration }) {
       </section>
 
       <SummaryCard title={t("urmall.biz.reg.sumIdentity")} onEdit={() => goToStep(0)}>
-        <p className="font-black capitalize">{String(form.identity.businessKind || "retail").replaceAll("_", " ")}</p>
+        <p className="font-black capitalize">{String(form.identity.businessKind || i18nText("ui.literals.k46bb7e3c2f0d")).replaceAll("_", " ")}</p>
         <p>{form.identity.businessName}</p>
         <p>{form.identity.categories.join(", ")}</p>
         <p>{form.identity.description}</p>

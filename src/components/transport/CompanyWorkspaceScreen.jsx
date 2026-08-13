@@ -67,6 +67,7 @@ import {
   stopOperatorLiveLocation,
   syncOperatorLiveBookedState,
 } from "../services/operatorLiveLocationService";
+import { t as i18nText } from "../../i18n/index";
 
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -498,7 +499,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       id: `company-trip-${trip.id}-pickup`,
       type: "transport-trip-pickup",
       name: "Pick up point",
-      label: "Pick up point",
+      label: i18nText("ui.literals.k6883c94f9e9e"),
       address: trip.pickup,
       searchQuery: trip.pickup,
       ...(trip.raw?.pickup_latitude != null ? {
@@ -510,7 +511,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       id: `company-trip-${trip.id}-dropoff`,
       type: "transport-trip-dropoff",
       name: "Drop off point",
-      label: "Drop off point",
+      label: i18nText("ui.literals.k1a49f380b563"),
       address: trip.destination,
       searchQuery: trip.destination,
       ...(trip.raw?.destination_latitude != null ? {
@@ -524,7 +525,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       id: `company-operator-trip-route-${trip.id}`,
       type: "operator-trip-route",
       category: "Passenger destination",
-      description: `Company operator route for ${trip.name || trip.passengerName || "passenger"}.`,
+      description: i18nText("ui.literals.k38d621c50d1e", { value0: trip.name || trip.passengerName || "passenger" }),
       routePlan: {
         id: trip.id,
         passengerName: trip.name || trip.passengerName,
@@ -774,7 +775,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
                 <p className="text-xs font-black uppercase tracking-wide text-blue-700">{company.companyCode}</p>
                 <h2 className="mt-1 text-3xl font-black leading-tight text-slate-950">{company.companyName}</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  {company.companyType} - {company.city || t("urride.companyWs.cityNotAdded")} {company.address ? `- ${company.address}` : ""}
+                  {company.companyType} - {company.city || t("urride.companyWs.cityNotAdded")} {company.address ? i18nText("ui.literals.k36fd66a72e47", { value0: company.address }) : ""}
                 </p>
               </div>
               <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
@@ -1214,7 +1215,7 @@ function CompanyProfilePanel({ company }) {
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">{company.companyCode}</p>
         <h3 className="mt-2 text-3xl font-black leading-tight text-slate-950">{company.companyName}</h3>
         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-          {company.companyType} - {company.city || t("urride.companyWs.cityNotAdded")} {company.address ? `- ${company.address}` : ""}
+          {company.companyType} - {company.city || t("urride.companyWs.cityNotAdded")} {company.address ? i18nText("ui.literals.k36fd66a72e47", { value0: company.address }) : ""}
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <ProfileFact label={t("urride.companyWs.factOwnerId")} value={company.ownerPublicId || t("urride.companyWs.notSet")} />
@@ -1795,7 +1796,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-black uppercase tracking-wide ${suspended ? "text-amber-700" : "text-emerald-700"}`}>
-                    {suspended ? t("urride.companyWs.serviceSuspended") : roleLabel(operator.memberRole || "operator")}
+                    {suspended ? t("urride.companyWs.serviceSuspended") : roleLabel(operator.memberRole || i18nText("ui.literals.kfe96dd39756a"))}
                   </p>
                   <h3 className="mt-1 truncate text-lg font-black text-slate-950">{operator.name}</h3>
                   <p className="mt-1 truncate text-sm font-semibold text-slate-500">{operator.publicId}</p>
@@ -2494,7 +2495,7 @@ function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
         </p>
         <div className="grid gap-3">
           {Object.keys(COMPANY_OPERATOR_ROLES).map((role) => {
-            const selected = (operator?.memberRole || "operator") === role;
+            const selected = (operator?.memberRole || i18nText("ui.literals.kfe96dd39756a")) === role;
             return (
               <button
                 key={role}

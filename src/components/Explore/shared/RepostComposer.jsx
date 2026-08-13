@@ -9,6 +9,7 @@ import { showToast } from "../../../Backend/services/toastService";
 import { useI18n } from "../../../i18n";
 import Avatar from "../shared/Avatar";
 import RepostPreview from "./RepostPreview";
+import { t as i18nText } from "../../../i18n/index";
 
 const EXIT_MS = 280;
 
@@ -43,7 +44,7 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
 
     try {
       const created = await createExploreRepost(sourcePost, { commentary, privacy });
-      showToast("Repost published to UrFeed.", "success", { title: "Reposted" });
+      showToast(i18nText("ui.literals.k55c8a595e72e"), "success", { title: i18nText("ui.literals.k0c3053e49f81") });
       onSuccess?.(created);
       setClosing(true);
       closeTimerRef.current = window.setTimeout(() => onClose?.(), EXIT_MS);
@@ -82,7 +83,7 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
               <Avatar name={profile?.displayName || t("feed.profileFallback")} src={profile?.avatarUrl} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black text-slate-950">{profile?.displayName || t("post.yourProfile")}</p>
-                <p className="truncate text-xs font-bold text-slate-500">@{profile?.username || "user"}</p>
+                <p className="truncate text-xs font-bold text-slate-500">@{profile?.username || i18nText("ui.literals.k12dea96fec20")}</p>
               </div>
               <Repeat2 className="text-sky-700" size={20} />
             </div>

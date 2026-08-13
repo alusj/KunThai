@@ -7,6 +7,7 @@ import {
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
+import { t as i18nText } from "../../../../../../../../../i18n/index";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
@@ -151,7 +152,7 @@ export default function EditProfile({ onBack }) {
                   {business?.identity?.businessName || t("urmall.biz.profile.sellerProfileFallback")}
                 </p>
                 <p className="text-xs font-semibold text-gray-500">
-                  {t("urmall.biz.profile.verificationSuffix", { status: business?.verificationStatus || "pending" })}
+                  {t("urmall.biz.profile.verificationSuffix", { status: business?.verificationStatus || i18nText("ui.literals.ke22586930a5b") })}
                 </p>
               </div>
 

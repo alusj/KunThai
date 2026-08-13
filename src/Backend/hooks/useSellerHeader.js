@@ -116,11 +116,13 @@ export function useSellerHeader() {
     window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
     window.addEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
     window.addEventListener("marketplace-orders-updated", handleMessagesUpdated);
+    window.addEventListener("marketplace-seller-notifications-updated", handleMessagesUpdated);
     window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     return () => {
       window.removeEventListener("marketplace-message-sent", handleMessagesUpdated);
       window.removeEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
       window.removeEventListener("marketplace-orders-updated", handleMessagesUpdated);
+      window.removeEventListener("marketplace-seller-notifications-updated", handleMessagesUpdated);
       window.removeEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     };
   }, []);

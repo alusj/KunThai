@@ -19,6 +19,11 @@ function withTimeout(promise, message, timeoutMs = 60000) {
   ]);
 }
 
+function notifySellerNotificationsUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("marketplace-seller-notifications-updated"));
+}
+
 export const INITIAL_PRODUCT_FORM = {
   basics: {
     name: "",
@@ -464,6 +469,7 @@ export async function submitSellerProduct(form, onProgress) {
     "Activity logging timed out.",
     8000,
   ).catch(() => {});
+  notifySellerNotificationsUpdated();
 
   const savedProduct = normalizeSellerProduct(data) || {};
   if (!savedProduct.id && promotedProductId) savedProduct.id = promotedProductId;
@@ -590,6 +596,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
     "Activity logging timed out.",
     8000,
   ).catch(() => {});
+  notifySellerNotificationsUpdated();
 
   return {
     ...(normalizeSellerProduct(data) || {}),
@@ -615,6 +622,48 @@ export async function updateSellerProduct(productId, patch) {
     .maybeSingle();
 
   if (error) throw new Error(error.message);
+
+  const productName = data?.name || "Product";
+  let title = "Product updated";
+  let description = `${productName} was updated.`;
+  let status = "completed";
+  let meta = "Catalog update";
+
+  if (Object.prototype.hasOwnProperty.call(patch, "stock")) {
+    title = "Product stock updated";
+    description = `${productName} now has ${Number(patch.stock || 0)} unit${Number(patch.stock || 0) === 1 ? "" : "s"} in stock.`;
+    meta = "Inventory";
+  } else if (Object.prototype.hasOwnProperty.call(patch, "price")) {
+    title = "Product price updated";
+    description = `${productName} has a new selling price.`;
+    meta = "Pricing";
+  } else if (patch.status === "paused") {
+    title = "Product paused";
+    description = `${productName} is hidden from active selling until you resume it.`;
+    status = "warning";
+    meta = "Listing paused";
+  } else if (patch.status === "active" && patch.published_at) {
+    title = "Product published";
+    description = `${productName} is now live in your catalog.`;
+    meta = "Published";
+  } else if (patch.status === "active") {
+    title = "Product resumed";
+    description = `${productName} is active and visible to buyers again.`;
+    meta = "Listing active";
+  }
+
+  insertMarketplaceActivity({
+    business_id: business.id,
+    product_id: productId,
+    activity_type: "product",
+    title,
+    description,
+    status,
+    meta,
+    action_label: "View product",
+    action_target: "seller-product-detail",
+  }).catch(() => {});
+  notifySellerNotificationsUpdated();
   return data;
 }
 
@@ -657,6 +706,7 @@ export async function promoteSellerProduct(product, options = {}) {
   if (error) throw new Error(`${error.message} (code: PROMO_RPC)`);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("marketplace-products-updated"));
+    window.dispatchEvent(new CustomEvent("marketplace-seller-notifications-updated"));
   }
   return data;
 }

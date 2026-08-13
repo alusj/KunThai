@@ -12,6 +12,7 @@ import { showToast } from "../../../Backend/services/toastService";
 import { getNetworkStatus, subscribeToNetworkStatus } from "../../../Backend/services/networkService";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
 
 const ROUTE_STATUS_LABEL_KEYS = {
   correct: "urride.areaMap.rsCorrectLabel",
@@ -36,20 +37,14 @@ const DEFAULT_CENTER = defaultCountryProfile.mapCenter;
 
 const ROUTE_STATUS = {
   correct: {
-    label: "On recommended route",
-    message: "You are moving correctly on the recommended route.",
     color: "#16a34a",
     className: "bg-green-100 text-green-700",
   },
   warning: {
-    label: "Slightly off route",
-    message: "You are slightly away from the recommended route. Slow down and check the green line before continuing.",
     color: "#eab308",
     className: "bg-yellow-100 text-yellow-700",
   },
   wrong: {
-    label: "Wrong route detected",
-    message: "Wrong direction or far from the recommended route. KunThai is checking a safer route to the destination.",
     color: "#dc2626",
     className: "bg-red-100 text-red-700",
   },
@@ -569,14 +564,14 @@ function getLiveFleetMarkerConfig(operator) {
   const booked = Boolean(operator?.booked || String(operator?.status || "").toLowerCase() === "busy");
   const type = String(operator?.type || "bike").toLowerCase();
   const fallback = {
-    label: "Fleet",
+    label: i18nText("ui.literals.ke1991511907c"),
     bg: booked ? "#f97316" : "#0f172a",
     svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h14M6.5 16l1.4-5.2c.3-.9 1-1.5 2-1.5h4.2c1 0 1.8.6 2 1.5L17.5 16"/><circle cx="7.5" cy="19" r="1.5"/><circle cx="16.5" cy="19" r="1.5"/></svg>',
   };
 
   const byType = {
     bike: {
-      label: "Bike",
+      label: i18nText("ui.literals.k3a12a2c6c506"),
       bg: booked ? "#f97316" : "#16a34a",
       svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="2.6"/><circle cx="18" cy="17" r="2.6"/><path d="M7 17l3-7h3l2.5 4H18l-2-5h2.4l1.1 2.2M10 10H7.5M12.8 10l-2.4 7"/></svg>',
     },
@@ -819,7 +814,7 @@ function getLiveTrafficInsight(trafficSnapshots = [], route, routeStatusKey) {
 
 function LegacyWeatherMessage(currentWeather) {
   if (!currentWeather) {
-    return { label: "Weather checking", detail: "Live weather will appear shortly", className: "bg-slate-100 text-slate-600" };
+    return { label: i18nText("ui.literals.ka9ca9bc45ff5"), detail: i18nText("ui.literals.kec9c9e54e919"), className: "bg-slate-100 text-slate-600" };
   }
 
   const code = Number(currentWeather.weather_code ?? currentWeather.weathercode ?? 0);
@@ -829,14 +824,14 @@ function LegacyWeatherMessage(currentWeather) {
   const isFog = [45, 48].includes(code);
 
   if (isRain) {
-    return { label: `${temperature}°C • Rain risk`, detail: `Riders may move slower. Wind ${wind} km/h`, className: "bg-blue-100 text-blue-700" };
+    return { label: i18nText("ui.literals.k70777836253d", { value0: temperature }), detail: i18nText("ui.literals.k0cca300c1dc1", { value0: wind }), className: "bg-blue-100 text-blue-700" };
   }
 
   if (isFog) {
-    return { label: `${temperature}°C • Low visibility`, detail: `Use extra caution. Wind ${wind} km/h`, className: "bg-yellow-100 text-yellow-700" };
+    return { label: i18nText("ui.literals.k952da1b8c612", { value0: temperature }), detail: i18nText("ui.literals.kc39c99da1caa", { value0: wind }), className: "bg-yellow-100 text-yellow-700" };
   }
 
-  return { label: `${temperature}°C • Weather clear`, detail: `Good travel condition. Wind ${wind} km/h`, className: "bg-sky-100 text-sky-700" };
+  return { label: i18nText("ui.literals.kbb29b730f2fc", { value0: temperature }), detail: i18nText("ui.literals.k3b16e375b09e", { value0: wind }), className: "bg-sky-100 text-sky-700" };
 }
 
 function getSmartWeatherMessage(currentWeather) {
@@ -1550,7 +1545,7 @@ export default function NearbyAreaMap({
   const userInteractionIdleTimerRef = useRef(null);
   const lastParentLocationRef = useRef(null);
   const lastParentLocationAtRef = useRef(0);
-  const gpsUiRef = useRef({ status: `Showing ${DEFAULT_CENTER.label}`, accuracy: null, time: 0 });
+  const gpsUiRef = useRef({ status: i18nText("ui.literals.kae9f5265e65f", { value0: DEFAULT_CENTER.label }), accuracy: null, time: 0 });
   const headingUiRef = useRef({ heading: null, time: 0 });
   const navigationDragRef = useRef(null);
   // Live-ETA state kept in refs so the GPS watcher can update the direction
@@ -1840,7 +1835,7 @@ export default function NearbyAreaMap({
     if (rerouteTimerRef.current || now - lastRerouteAtRef.current < GPS_SETTINGS.rerouteCooldownMs) return;
 
     setNavigationSnap("half");
-    setLocationStatus(`Off route - checking better route (${Math.round(distanceFromRoute)}m)`);
+    setLocationStatus(i18nText("ui.literals.k45a626c3d212", { value0: Math.round(distanceFromRoute) }));
 
     rerouteTimerRef.current = window.setTimeout(() => {
       rerouteTimerRef.current = null;
@@ -2249,7 +2244,7 @@ export default function NearbyAreaMap({
   useEffect(() => {
     if (!navigator.geolocation) {
       setDeviceLocationState("unavailable");
-      publishGpsUi(`Showing ${DEFAULT_CENTER.label}`, null, { force: true });
+      publishGpsUi(i18nText("ui.literals.kae9f5265e65f", { value0: DEFAULT_CENTER.label }), null, { force: true });
       setUserLocation(DEFAULT_CENTER);
       userLocationRef.current = DEFAULT_CENTER;
       smoothedPositionRef.current = DEFAULT_CENTER;
@@ -3046,7 +3041,7 @@ export default function NearbyAreaMap({
       {!focusMode && (
         <div className="pointer-events-none absolute left-3 top-28 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow sm:left-5 sm:top-28">
           {locationStatus}
-          {gpsAccuracy ? <span className="ml-2 text-slate-400">GPS {gpsAccuracy}m</span> : null}
+          {gpsAccuracy ? <span className="ml-2 text-slate-400">{i18nText("ui.literals.k1776fa32f23e")} {gpsAccuracy}m</span> : null}
         </div>
       )}
 
