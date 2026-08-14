@@ -21,6 +21,7 @@ import { collectKunThaiDataExport, downloadDataExport } from "../../../../Backen
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
+import Avatar from "../../shared/Avatar";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText } from "../../../../i18n/index";
 
@@ -57,7 +58,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
   const { t } = useI18n();
   const safety = useTrustSafety();
   const settings = safety.privacySettings;
-  const blockedUsers = Array.from(safety.blockedUsers);
+  const blockedAccounts = safety.blockedAccounts;
   const [deactivatedAt, setDeactivatedAt] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [accountActionBusy, setAccountActionBusy] = useState(false);
@@ -142,6 +143,8 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             <select
               value={settings.defaultPostPrivacy}
               onChange={(event) => safety.updatePrivacySettings({ defaultPostPrivacy: event.target.value })}
+              disabled={safety.updatingSettings.has("defaultPostPrivacy")}
+              aria-label={i18nText("ui.literals.k40f6f2e90515")}
               className="h-11 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none"
             >
               <option value="public">{i18nText("ui.literals.kdc5eb704bbca")}</option>
@@ -154,6 +157,8 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             <select
               value={settings.allowMessages}
               onChange={(event) => safety.updatePrivacySettings({ allowMessages: event.target.value })}
+              disabled={safety.updatingSettings.has("allowMessages")}
+              aria-label={i18nText("ui.literals.k51515a6a5a92")}
               className="h-11 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none"
             >
               <option value="everyone">{i18nText("ui.literals.kc756f6af1f03")}</option>
@@ -168,6 +173,8 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ allowMentions: !settings.allowMentions })}
+              disabled={safety.updatingSettings.has("allowMentions")}
+              aria-pressed={settings.allowMentions}
               className={`h-11 rounded-2xl px-4 text-sm font-black ${settings.allowMentions ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}
             >
               {settings.allowMentions ? i18nText("ui.literals.k77c7b4909d39") : i18nText("ui.literals.ke3de5ab0ca4c")}
@@ -178,6 +185,8 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ showActivity: !settings.showActivity })}
+              disabled={safety.updatingSettings.has("showActivity")}
+              aria-pressed={settings.showActivity}
               className={`h-11 rounded-2xl px-4 text-sm font-black ${settings.showActivity ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}
             >
               {settings.showActivity ? i18nText("ui.literals.k1fe59390acc1") : i18nText("ui.literals.kd4c2792a7245")}
@@ -190,6 +199,8 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ filterSensitiveContent: !settings.filterSensitiveContent })}
+              disabled={safety.updatingSettings.has("filterSensitiveContent")}
+              aria-pressed={settings.filterSensitiveContent}
               className={`h-11 rounded-2xl px-4 text-sm font-black ${settings.filterSensitiveContent ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}
             >
               {settings.filterSensitiveContent ? i18nText("ui.literals.ke0049a66519c") : i18nText("ui.literals.ke3de5ab0ca4c")}
@@ -202,18 +213,33 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             <HiOutlineUserMinus className="text-xl text-rose-600" />
             <h3 className="text-base font-black text-slate-950">{i18nText("ui.literals.k80a67a2e8dba")}</h3>
           </div>
-          {!blockedUsers.length ? (
+          {safety.blockedAccountsLoading ? (
+            <div className="space-y-2" aria-label="Loading blocked accounts">
+              {[1, 2].map((item) => <div key={item} className="h-14 animate-pulse rounded-2xl bg-slate-100" />)}
+            </div>
+          ) : !blockedAccounts.length ? (
             <EmptyState title={i18nText("ui.literals.k647401e7b5bc")} message={i18nText("ui.literals.kaadf01de5edd")} />
           ) : (
             <div className="space-y-2">
-              {blockedUsers.map((userId) => (
-                <div key={userId} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
-                  <span className="truncate text-sm font-bold text-slate-700">{userId}</span>
-                  <button type="button" onClick={() => safety.unblockUser(userId)} className="text-sm font-black text-sky-700">
-                    {i18nText("ui.literals.k12aabd251c42")}
+              {blockedAccounts.map((account) => {
+                const unblocking = safety.unblockingUsers.has(account.key);
+                return (
+                <div key={account.key} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5">
+                  <Avatar name={account.name} src={account.avatarUrl} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-black text-slate-800">{account.name}</span>
+                    <span className="block truncate text-xs font-semibold text-slate-500">{account.username}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => safety.unblockUser(account)}
+                    disabled={unblocking}
+                    className="rounded-xl px-2 py-2 text-sm font-black text-sky-700 transition hover:bg-sky-50 disabled:text-slate-400"
+                  >
+                    {unblocking ? t("common.working") : i18nText("ui.literals.k12aabd251c42")}
                   </button>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </section>

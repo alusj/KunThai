@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   rankMarketplaceProductsNearby,
   rankSimilarMarketplaceProducts,
+  rankSimilarVerticalListings,
 } from "./marketplaceDiscovery.js";
 
 function product(id, overrides = {}) {
@@ -53,4 +54,39 @@ test("similar recommendations favor category, brand and price while excluding th
 
   const ranked = rankSimilarMarketplaceProducts(current, [unrelated, current, categoryMatch, closeMatch]);
   assert.deepEqual(ranked.map((item) => item.id), ["close", "category", "unrelated"]);
+});
+
+test("restaurant recommendations stay within restaurant inventory and favor nearby meals", () => {
+  const current = product("meal-current", { verticalType: "restaurant", category: "Restaurant meal", name: "Jollof rice" });
+  const nearbyMeal = product("meal-near", {
+    verticalType: "restaurant",
+    category: "Restaurant meal",
+    name: "Chicken jollof rice",
+    seller: { id: "restaurant-near", latitude: 8.48, longitude: -13.23, countryCode: "SL" },
+  });
+  const farMeal = product("meal-far", {
+    verticalType: "restaurant",
+    category: "Restaurant meal",
+    name: "Jollof platter",
+    seller: { id: "restaurant-far", latitude: 9.5, longitude: -12, countryCode: "SL" },
+  });
+  const property = product("property", { verticalType: "property", category: "Property for rent" });
+
+  const ranked = rankSimilarVerticalListings(
+    current,
+    [property, farMeal, current, nearbyMeal],
+    { latitude: 8.484, longitude: -13.234, countryCode: "SL" },
+  );
+
+  assert.deepEqual(ranked.map((item) => item.id), ["meal-near", "meal-far"]);
+});
+
+test("property recommendations never include meals or retail products", () => {
+  const current = product("property-current", { verticalType: "property", category: "Property for rent" });
+  const property = product("property-match", { verticalType: "property", category: "Property for rent" });
+  const meal = product("meal", { verticalType: "restaurant", category: "Restaurant meal" });
+  const retail = product("retail", { category: "Electronics" });
+
+  const ranked = rankSimilarVerticalListings(current, [meal, retail, property]);
+  assert.deepEqual(ranked.map((item) => item.id), ["property-match"]);
 });

@@ -909,6 +909,15 @@ export function setExploreMessageActivity(conversationId, userId, activity = "ac
   }
 }
 
+export async function hideCurrentExploreMessageActivity() {
+  const { data } = await supabase.auth.getUser();
+  const userId = data?.user?.id || "";
+  if (!userId) return;
+
+  const activity = Object.values(readObject(MESSAGE_ACTIVITY_KEY)).filter((item) => item.userId === userId);
+  activity.forEach((item) => setExploreMessageActivity(item.conversationId, userId, "offline"));
+}
+
 export function subscribeToExploreMessageActivity(conversationId) {
   const key = String(conversationId || "");
   if (!key) return () => {};

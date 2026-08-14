@@ -1,5 +1,5 @@
 import { Fragment, useEffect } from "react";
-import { BadgeCheck, Heart, MapPin, PackageSearch, Share2, ShoppingCart, Star, Truck } from "lucide-react";
+import { ArrowRight, BadgeCheck, Heart, MapPin, PackageSearch, Share2, ShoppingCart, Star, Truck } from "lucide-react";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { shareUrMallLink } from "../../../Backend/services/shareCtaService";
 import { getProductCardLocation, buildCardSellerLocation } from "../../../Backend/utils/productCardLocation";
@@ -29,6 +29,14 @@ function ProductImage({ product }) {
 
 export function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved, saved, buyerLocation }) {
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
+  const isVertical = Boolean(product.isVertical && product.verticalType);
+  const verticalLabel = product.badgePrimary || (
+    product.verticalType === "restaurant"
+      ? t("urmall.vertical.catRestaurant")
+      : product.verticalType === "hotel"
+        ? t("urmall.vertical.catHotel")
+        : t("urmall.vertical.catProperty")
+  );
   // Context-aware, privacy-safe short area for the card (no house numbers). Uses
   // the seller's saved city/country/coords + derived local area vs the buyer's
   // city — never the full raw address.
@@ -69,7 +77,15 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         <ProductImage product={product} />
         <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
-          <span className="rounded-md bg-slate-950/95 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white">{t("urmall.browse.retail")}</span>
+          <span className={`rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white ${
+            product.verticalType === "restaurant"
+              ? "bg-orange-600"
+              : product.verticalType === "hotel"
+                ? "bg-blue-600"
+                : product.verticalType === "property"
+                  ? "bg-violet-700"
+                  : "bg-slate-950/95"
+          }`}>{isVertical ? verticalLabel : t("urmall.browse.retail")}</span>
           {hasDiscount ? <span className="rounded-md bg-red-600 px-2 py-1 text-[11px] font-black uppercase text-white">-{discountPercent}%</span> : null}
         </div>
         {verifiedSeller ? (
@@ -78,7 +94,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
             {t("urmall.browse.verified")}
           </span>
         ) : null}
-        <button
+        {onToggleSaved ? <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
@@ -90,7 +106,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
           aria-label={saved ? t("urmall.browse.unsave", { name: product.name }) : t("urmall.browse.save", { name: product.name })}
         >
           <Heart size={16} fill={saved ? "currentColor" : "none"} />
-        </button>
+        </button> : null}
       </div>
 
       <div className="space-y-1 p-2">
@@ -99,7 +115,9 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
             {product.name}
           </h3>
           <p className="mt-0.5 truncate text-[11px] font-semibold text-gray-500">
-            {t("urmall.browse.retailMeta", { category: product.category, seller: product.seller?.name || t("urmall.browse.sellerFallback") })}
+            {isVertical
+              ? `${product.category} | ${product.seller?.name || t("urmall.browse.sellerFallback")}`
+              : t("urmall.browse.retailMeta", { category: product.category, seller: product.seller?.name || t("urmall.browse.sellerFallback") })}
           </p>
         </div>
 
@@ -118,7 +136,15 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
           <span className="flex min-w-0 items-center gap-1.5 leading-5">
             <Truck size={13} className="shrink-0 text-emerald-600" />
             <span className="truncate">
-              {product.deliveryAvailable ? product.deliveryTime || t("urmall.browse.deliveryAvailable") : product.pickupAvailable ? t("urmall.browse.pickupAvailable") : t("urmall.browse.askSeller")}
+              {product.verticalType === "hotel"
+                ? t("urmall.vertical.serviceHotelDates")
+                : product.verticalType === "property"
+                  ? t("urmall.vertical.servicePropertyViewing")
+                  : product.deliveryAvailable
+                    ? product.deliveryTime || t("urmall.browse.deliveryAvailable")
+                    : product.pickupAvailable
+                      ? t("urmall.browse.pickupAvailable")
+                      : t("urmall.browse.askSeller")}
             </span>
           </span>
         </div>
@@ -129,18 +155,19 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
               <Star size={12} fill="currentColor" />
               {product.reviewCount ? i18nText("ui.literals.kc189e8bc98e6", { value0: product.rating.toFixed(1), value1: product.reviewCount }) : product.sales > 0 ? t("urmall.browse.soldN", { count: product.sales }) : t("urmall.browse.ratingNew")}
             </span>
-            <p className="truncate text-[10px] font-bold text-gray-400">{t("urmall.browse.inStock", { count: product.stock })}</p>
+            {!isVertical ? <p className="truncate text-[10px] font-bold text-gray-400">{t("urmall.browse.inStock", { count: product.stock })}</p> : null}
           </div>
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onAddToCart?.(product);
+              if (onAddToCart) onAddToCart(product);
+              else onProductSelect?.(product);
             }}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-950 text-white transition hover:bg-emerald-700"
-            aria-label={t("urmall.browse.addToCartAria", { name: product.name })}
+            aria-label={onAddToCart ? t("urmall.browse.addToCartAria", { name: product.name }) : product.name}
           >
-            <ShoppingCart size={15} />
+            {onAddToCart ? <ShoppingCart size={15} /> : <ArrowRight size={15} />}
           </button>
         </div>
       </div>

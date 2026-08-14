@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { FiMapPin, FiStar } from "react-icons/fi";
 import { formatCountryMoney } from "../../../data/globalCountryProfiles";
 import { fetchTransportFleets, getTransportFleets } from "../../services/transportFleetService";
+import {
+  readTransportDashboardSnapshot,
+  writeTransportDashboardSnapshot,
+} from "../../services/transportDashboardCacheService";
 import VerificationBadge from "../verification/VerificationBadge";
 import VerificationDetailsModal from "../verification/VerificationDetailsModal";
 import { verificationStatuses } from "../verification/verificationStatus";
@@ -41,17 +45,25 @@ export default function NearbyOperators({
   onViewFleet,
   onOpenBooking,
   onReportConcern,
+  cacheScope = {},
 }) {
   useI18n();
   const [activeOperator, setActiveOperator] = useState(null);
+  const cacheUserId = cacheScope.userId || "";
+  const cacheCountryIso = cacheScope.countryIso || "";
+  const scopedCache = { userId: cacheUserId, countryIso: cacheCountryIso };
+  const cachedOperators = readTransportDashboardSnapshot(scopedCache)?.operators || [];
+  const rememberedOperators = getTransportFleets({
+    mode: filters?.mode || "topRated",
+    fleetType: filters?.fleetType || null,
+  });
   const initialOperators = applyOperatorFilters(
-    getTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null }),
+    rememberedOperators.length ? rememberedOperators : cachedOperators,
     filters,
     destination,
   ).slice(0, 6);
   const [operators, setOperators] = useState(() => initialOperators);
   const [loading, setLoading] = useState(() => initialOperators.length === 0);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const operatorsRef = useRef(operators);
 
@@ -61,8 +73,15 @@ export default function NearbyOperators({
 
   useEffect(() => {
     let alive = true;
+    const effectCacheScope = { userId: cacheUserId, countryIso: cacheCountryIso };
+    const rememberedItems = getTransportFleets({
+      mode: filters?.mode || "topRated",
+      fleetType: filters?.fleetType || null,
+    });
     const localOperators = applyOperatorFilters(
-      getTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null }),
+      rememberedItems.length
+        ? rememberedItems
+        : readTransportDashboardSnapshot(effectCacheScope)?.operators || [],
       filters,
       destination,
     ).slice(0, 6);
@@ -74,16 +93,23 @@ export default function NearbyOperators({
     }
     if (hasExistingOperators) {
       setLoading(false);
-      setRefreshing(true);
     } else {
       setLoading(true);
-      setRefreshing(false);
     }
     setError("");
 
     fetchTransportFleets({ mode: filters?.mode || "topRated", fleetType: filters?.fleetType || null, includeOffline: false })
       .then((items) => {
-        if (alive) setOperators(applyOperatorFilters(items, filters, destination).slice(0, 6));
+        if (alive) {
+          if (!items.length && hasExistingOperators && typeof navigator !== "undefined" && !navigator.onLine) {
+            return;
+          }
+          const visibleItems = applyOperatorFilters(items, filters, destination).slice(0, 6);
+          setOperators(visibleItems);
+          if ((filters?.mode || "topRated") === "topRated" && !filters?.fleetType) {
+            writeTransportDashboardSnapshot(effectCacheScope, { operators: visibleItems });
+          }
+        }
       })
       .catch((err) => {
         if (alive) {
@@ -96,14 +122,13 @@ export default function NearbyOperators({
       .finally(() => {
         if (alive) {
           setLoading(false);
-          setRefreshing(false);
         }
       });
 
     return () => {
       alive = false;
     };
-  }, [destination, filters]);
+  }, [cacheCountryIso, cacheUserId, destination, filters]);
 
   return (
     <section className="mt-5">
@@ -127,11 +152,6 @@ export default function NearbyOperators({
         <EmptyState title={t("urride.operators.emptyTitle")} body={t("urride.operators.emptyBody")} />
       ) : (
       <>
-      {refreshing ? (
-        <p className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
-          {t("urride.operators.refreshing")}
-        </p>
-      ) : null}
       <div className="grid gap-3 lg:grid-cols-3 2xl:grid-cols-6">
         {operators.map((operator) => {
           const status = verificationStatuses[operator.verificationStatus];

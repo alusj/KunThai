@@ -3,11 +3,18 @@ import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
 import { guardGuestAction } from "../guestModeService";
 import { isMissingTable } from "./errors";
 import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getIdentityKey, normalizeIdentityTarget } from "./identityService";
+import {
+  getBlockedIdentityStorageKeys,
+  normalizeBlockedIdentityValues,
+} from "./safetyIdentityUtils.js";
+
+export { normalizeBlockedIdentityValues } from "./safetyIdentityUtils.js";
 
 const BLOCKED_USERS_KEY = "explore-blocked-users";
 const PRIVACY_SETTINGS_KEY = "explore-privacy-settings";
 const PRIVACY_TABLE = "explore_user_privacy_settings";
 const ACTION_LIMIT_KEY = "explore-safety-actions";
+export const PRIVACY_SETTINGS_EVENT = "kuntai-explore-privacy-settings-updated";
 
 const DEFAULT_PRIVACY_SETTINGS = {
   defaultPostPrivacy: "public",
@@ -87,9 +94,51 @@ export function blockUserLocally(userId) {
 
 export function unblockUserLocally(userId) {
   const next = readBlockedUsers();
-  next.delete(userId);
+  getBlockedIdentityStorageKeys(userId).forEach((key) => next.delete(key));
   writeBlockedUsers(next);
   return next;
+}
+
+export async function fetchBlockedAccountSummaries(values = []) {
+  const identities = normalizeBlockedIdentityValues(values);
+  const profileIds = identities.filter((identity) => identity.type === PROFILE_IDENTITY_TYPE).map((identity) => identity.id);
+  const spaceIds = identities.filter((identity) => identity.type === SPACE_IDENTITY_TYPE).map((identity) => identity.id);
+
+  const [profileResult, spaceResult] = await Promise.all([
+    profileIds.length
+      ? supabase.from("explore_profiles").select("user_id, display_name, username, avatar_url, account_type").in("user_id", profileIds)
+      : Promise.resolve({ data: [], error: null }),
+    spaceIds.length
+      ? supabase.from("explore_spaces").select("id, name, slug, avatar_url, category").in("id", spaceIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const profiles = new Map((profileResult.error ? [] : profileResult.data || []).map((profile) => [profile.user_id, profile]));
+  const spaces = new Map((spaceResult.error ? [] : spaceResult.data || []).map((space) => [space.id, space]));
+
+  return identities.map((identity) => {
+    if (identity.type === SPACE_IDENTITY_TYPE) {
+      const space = spaces.get(identity.id);
+      return {
+        ...identity,
+        name: space?.name || "Unavailable Space",
+        username: space?.slug ? `@${space.slug}` : "Space",
+        avatarUrl: space?.avatar_url || "",
+        accountType: space?.category || "Space",
+        unavailable: !space,
+      };
+    }
+
+    const profile = profiles.get(identity.id);
+    return {
+      ...identity,
+      name: profile?.display_name || (profile?.username ? `@${profile.username}` : "Deleted or unavailable account"),
+      username: profile?.username ? `@${profile.username}` : profile ? "Explore account" : "Account unavailable",
+      avatarUrl: profile?.avatar_url || "",
+      accountType: profile?.account_type || "Personal account",
+      unavailable: !profile,
+    };
+  });
 }
 
 export async function blockExploreUser(targetUserId, reason = "blocked from Explore") {
@@ -293,6 +342,9 @@ export function readPrivacySettings() {
 export function writePrivacySettings(settings) {
   const next = { ...DEFAULT_PRIVACY_SETTINGS, ...settings };
   localStorage.setItem(PRIVACY_SETTINGS_KEY, JSON.stringify(next));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(PRIVACY_SETTINGS_EVENT, { detail: next }));
+  }
   return next;
 }
 

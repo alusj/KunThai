@@ -13,6 +13,34 @@ import {
   isFleetAllowedForTransportMode,
   isFleetTypeAvailableForService,
 } from "../../data/globalTransportCapabilities";
+import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
+
+const TRANSPORT_FLEET_MEMORY = new Map();
+
+function fleetSelectionKey(selection = {}) {
+  const selectionCountry =
+    selection.countryIso || selection.country_iso || selection.country || selection.countryCode || "";
+  const countryIso = normalizeCountryIso(selectionCountry) || getActiveCountryProfile(selectionCountry).iso2 || "unknown";
+  const crossBorder = selection.crossBorder
+    ? `${normalizeCountryIso(selection.crossBorder.originIso)}-${normalizeCountryIso(selection.crossBorder.destinationIso)}`
+    : "local";
+
+  return [
+    countryIso,
+    crossBorder,
+    selection.mode || "topRated",
+    selection.fleetType || "all",
+    selection.includeOffline === true ? "all-statuses" : "online",
+  ].join(":");
+}
+
+function rememberTransportFleets(key, fleets) {
+  TRANSPORT_FLEET_MEMORY.set(key, Array.isArray(fleets) ? fleets : []);
+  if (TRANSPORT_FLEET_MEMORY.size > 16) {
+    TRANSPORT_FLEET_MEMORY.delete(TRANSPORT_FLEET_MEMORY.keys().next().value);
+  }
+  return fleets;
+}
 
 export function subscribeToFleetUpdates(callback) {
   const channel = supabase
@@ -27,9 +55,11 @@ export function subscribeToFleetUpdates(callback) {
       },
       async () => {
         try {
+          invalidateCache("transport-fleets:");
           const fleets = await fetchTransportFleets({
             mode: "topRated",
             fleetType: null,
+            forceRefresh: true,
           });
 
           callback?.(fleets);
@@ -312,11 +342,16 @@ function sortFleets(fleets, mode) {
   });
 }
 
-export function getTransportFleets() {
-  return [];
+export function getTransportFleets(selection = { mode: "topRated", fleetType: null }) {
+  return TRANSPORT_FLEET_MEMORY.get(fleetSelectionKey(selection)) || [];
 }
 
-export function getTransportFleetById() {
+export function getTransportFleetById(id) {
+  if (!id) return null;
+  for (const fleets of TRANSPORT_FLEET_MEMORY.values()) {
+    const fleet = fleets.find((item) => item.id === id);
+    if (fleet) return fleet;
+  }
   return null;
 }
 
@@ -383,7 +418,7 @@ async function fetchCrossBorderFleets(route, selection) {
   );
 }
 
-export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
+async function fetchTransportFleetsUncached(selection = { mode: "topRated", fleetType: null }) {
   const includeOffline = selection.includeOffline === true;
   const selectionCountry =
     selection.countryIso || selection.country_iso || selection.country || selection.countryCode || "";
@@ -429,6 +464,16 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
       passengerVisibilityFilters(fleet, selection, includeOffline),
     ),
     selection.mode,
+  );
+}
+
+export async function fetchTransportFleets(selection = { mode: "topRated", fleetType: null }) {
+  const key = fleetSelectionKey(selection);
+  return cachedQuery(
+    `transport-fleets:${key}`,
+    () => fetchTransportFleetsUncached(selection).then((fleets) => rememberTransportFleets(key, fleets)),
+    20_000,
+    { force: selection.forceRefresh === true },
   );
 }
 

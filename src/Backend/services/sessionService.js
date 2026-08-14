@@ -160,6 +160,12 @@ function clearSocialSessionCache() {
   SOCIAL_CACHE_KEYS.forEach((key) => {
     localStorage.removeItem(key);
   });
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith("kuntai.transport.dashboard.v1:")) {
+      localStorage.removeItem(key);
+    }
+  }
 }
 
 const SESSION_CONTINUITY_KEY = "kuntai-session-continuity";

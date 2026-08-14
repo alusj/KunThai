@@ -34,7 +34,7 @@ function resolvePresenceLabel(peerActivity) {
   if (age < TYPING_FRESH_MS && peerActivity.activity === "recording" && settings.allowVoiceNotes) {
     return "recording voice…";
   }
-  if (age < PRESENCE_FRESH_MS && settings.showActiveStatus) {
+  if (age < PRESENCE_FRESH_MS && settings.showActiveStatus && ["active", "typing", "recording"].includes(peerActivity.activity)) {
     return "online";
   }
   return "";

@@ -194,3 +194,17 @@ export function rankSimilarMarketplaceProducts(product, candidates = [], limit =
 
   return [...selected, ...overflow].slice(0, limit);
 }
+
+// Restaurant, hotel and property inventory lives outside the retail product
+// table. Keep recommendations inside the open vertical, apply the same nearby
+// ordering first, then reuse the shared similarity/quality ranking.
+export function rankSimilarVerticalListings(product, candidates = [], buyerContext = {}, limit = 8) {
+  const verticalType = normalizeText(product?.verticalType);
+  if (!verticalType) return [];
+
+  const sameVertical = candidates.filter(
+    (candidate) => normalizeText(candidate?.verticalType) === verticalType,
+  );
+  const nearby = rankMarketplaceProductsNearby(sameVertical, buyerContext || {});
+  return rankSimilarMarketplaceProducts(product, nearby, limit);
+}

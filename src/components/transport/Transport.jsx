@@ -49,7 +49,7 @@ const TRANSPORT_ACCOUNT_MEMORY = {
   companyAccounts: [],
 };
 
-export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled }) {
+export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled, userId = "" }) {
   useI18n();
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
@@ -1325,6 +1325,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         onReject={rejectOperatorCompanyInvite}
       />
       <Body
+        userId={userId}
         onSelectFleetType={(mode, fleetType, label) => {
           setRouteDirection("forward");
           setFleetSelection({ mode, fleetType, label, includeOffline: true });

@@ -11,12 +11,20 @@ import TopRated from "./TopRated";
 import TourHistory from "./TourHistory";
 import Favorite from "./Favorite";
 import NearbyOperators from "./NearbyOperators";
-import { fetchActiveTrips, fetchSavedOperators } from "../../services/passengerTransportService";
+import {
+  fetchActiveTripCount,
+  fetchSavedOperatorCount,
+} from "../../services/passengerTransportService";
 import { t } from "../../../i18n";
+import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import {
   fetchTransportFleets,
   subscribeToFleetUpdates,
 } from "../../services/transportFleetService";
+import {
+  readTransportDashboardSnapshot,
+  writeTransportDashboardSnapshot,
+} from "../../services/transportDashboardCacheService";
 //import Radar from "./Radar";
 
 export default function Body({
@@ -28,39 +36,58 @@ export default function Body({
   onViewFleet,
   onOpenBooking,
   onReportConcern,
+  userId = "",
 }) {
+  const countryIso = getActiveCountryProfile().iso2 || "";
+  const initialSnapshot = readTransportDashboardSnapshot({ userId, countryIso });
   const [movementFilters, setMovementFilters] = useState({
     mode: "topRated",
     fleetType: null,
     activeOnly: true,
     verifiedOnly: false,
   });
-  const [summary, setSummary] = useState({
-    loading: true,
-    topRatedCount: 0,
-    activeTripsCount: 0,
-    savedOperatorsCount: 0,
-  });
+  const [summary, setSummary] = useState(() => ({
+    loading: !initialSnapshot?.summary,
+    topRatedCount: initialSnapshot?.summary?.topRatedCount || 0,
+    activeTripsCount: initialSnapshot?.summary?.activeTripsCount || 0,
+    savedOperatorsCount: initialSnapshot?.summary?.savedOperatorsCount || 0,
+  }));
 
   useEffect(() => {
     let alive = true;
+    const scope = { userId, countryIso };
+    const cachedSnapshot = readTransportDashboardSnapshot(scope);
+
+    setSummary({
+      loading: !cachedSnapshot?.summary,
+      topRatedCount: cachedSnapshot?.summary?.topRatedCount || 0,
+      activeTripsCount: cachedSnapshot?.summary?.activeTripsCount || 0,
+      savedOperatorsCount: cachedSnapshot?.summary?.savedOperatorsCount || 0,
+    });
+
+    function commitSummary(update) {
+      if (!alive) return;
+      setSummary((current) => {
+        const next = typeof update === "function" ? update(current) : update;
+        writeTransportDashboardSnapshot(scope, { summary: next });
+        return next;
+      });
+    }
 
     async function loadSummary() {
       try {
-        const [fleets, trips, saved] = await Promise.all([
+        const [fleets, activeTripsCount, savedOperatorsCount] = await Promise.all([
           fetchTransportFleets({ mode: "topRated", fleetType: null, includeOffline: false }),
-          fetchActiveTrips(),
-          fetchSavedOperators(),
+          fetchActiveTripCount(),
+          fetchSavedOperatorCount(),
         ]);
 
-        if (alive) {
-          setSummary({
-            loading: false,
-            topRatedCount: fleets.length,
-            activeTripsCount: trips.length,
-            savedOperatorsCount: saved.length,
-          });
-        }
+        commitSummary({
+          loading: false,
+          topRatedCount: fleets.length,
+          activeTripsCount,
+          savedOperatorsCount,
+        });
       } catch {
         if (alive) {
           setSummary((current) => ({ ...current, loading: false }));
@@ -68,33 +95,44 @@ export default function Body({
       }
     }
 
-       loadSummary();
-
-    const unsubscribe = subscribeToFleetUpdates(async (fleets) => {
+    async function refreshPassengerCounts() {
       try {
-        const [trips, saved] = await Promise.all([
-          fetchActiveTrips(),
-          fetchSavedOperators(),
+        const [activeTripsCount, savedOperatorsCount] = await Promise.all([
+          fetchActiveTripCount({ force: true }),
+          fetchSavedOperatorCount({ force: true }),
         ]);
-
-        if (alive) {
-          setSummary({
-            loading: false,
-            topRatedCount: fleets.length,
-            activeTripsCount: trips.length,
-            savedOperatorsCount: saved.length,
-          });
-        }
-      } catch (error) {
-        console.error(error);
+        commitSummary((current) => ({
+          ...current,
+          loading: false,
+          activeTripsCount,
+          savedOperatorsCount,
+        }));
+      } catch {
+        // A background refresh must never replace a usable cached snapshot.
       }
+    }
+
+    loadSummary();
+
+    const unsubscribe = subscribeToFleetUpdates((fleets) => {
+      commitSummary((current) => ({
+        ...current,
+        loading: false,
+        topRatedCount: fleets.length,
+      }));
     });
+    window.addEventListener("transport-trip-updated", refreshPassengerCounts);
+    window.addEventListener("transport-booking-created", refreshPassengerCounts);
+    window.addEventListener("transport-saved-operator-updated", refreshPassengerCounts);
 
     return () => {
       alive = false;
       unsubscribe?.();
+      window.removeEventListener("transport-trip-updated", refreshPassengerCounts);
+      window.removeEventListener("transport-booking-created", refreshPassengerCounts);
+      window.removeEventListener("transport-saved-operator-updated", refreshPassengerCounts);
     };
-  }, []);
+  }, [countryIso, userId]);
 
   function updateMovementFilters(patch) {
     setMovementFilters((current) => ({ ...current, ...patch }));
@@ -139,6 +177,7 @@ export default function Body({
       </div>
 
       <NearbyOperators
+        cacheScope={{ userId, countryIso }}
         filters={movementFilters}
         destination=""
         pickup=""

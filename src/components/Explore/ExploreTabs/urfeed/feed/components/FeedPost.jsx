@@ -31,7 +31,11 @@ import {
 import RepostComposer from "../../../../shared/RepostComposer";
 import PostAnalyticsPanel from "../../../../shared/PostAnalyticsPanel";
 import RepostPreview from "../../../../shared/RepostPreview";
-import { contentHasModerationFlags } from "../../../../../../Backend/services/explore/safetyService";
+import {
+  contentHasModerationFlags,
+  PRIVACY_SETTINGS_EVENT,
+  readPrivacySettings,
+} from "../../../../../../Backend/services/explore/safetyService";
 import { readExploreSettings } from "../../../../../../Backend/services/explore/preferencesService";
 import { t as i18nText } from "../../../../../../i18n/index";
 
@@ -84,12 +88,14 @@ export default function FeedPost({
   const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
   const [sensitiveRevealed, setSensitiveRevealed] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [, setPrivacyRevision] = useState(0);
   const optionsTimerRef = useRef(null);
   // "Warnings" in Settings → Feed: flagged wording hides the post content
   // behind a warning until the reader chooses to view it.
   const sensitiveGateActive =
     !isOwner &&
     !sensitiveRevealed &&
+    readPrivacySettings().filterSensitiveContent !== false &&
     readExploreSettings().feed.showSensitiveWarnings !== false &&
     contentHasModerationFlags(post.body || "").length > 0;
   const advert = getAdvertMeta(post);
@@ -109,6 +115,12 @@ export default function FeedPost({
   useBrowserBack(optionsOpen, () => closeOptions(), `post-options-${post.id}`);
 
   useEffect(() => () => window.clearTimeout(optionsTimerRef.current), []);
+
+  useEffect(() => {
+    const refreshPrivacy = () => setPrivacyRevision((value) => value + 1);
+    window.addEventListener(PRIVACY_SETTINGS_EVENT, refreshPrivacy);
+    return () => window.removeEventListener(PRIVACY_SETTINGS_EVENT, refreshPrivacy);
+  }, []);
 
   useEffect(() => {
     function handleOpenPostComments(event) {

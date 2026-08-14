@@ -836,6 +836,7 @@ export default function App() {
                 onActivityChange={setTransportActivityOpen}
                 areaViewRequest={transportAreaRequest}
                 onAreaViewRequestHandled={setTransportAreaRequest}
+                userId={userId}
                 active
               />
             </section>

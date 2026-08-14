@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { formatCountryMoney, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { fetchTransportFleetById } from "./transportFleetService";
 
@@ -238,6 +239,27 @@ export async function fetchActiveTrips() {
   return Promise.all((data || []).map((trip) => mapTrip(trip, contacts.get(trip.id))));
 }
 
+export async function fetchActiveTripCount({ force = false } = {}) {
+  const passengerId = await getCurrentPassengerId();
+  if (!passengerId) return 0;
+
+  return cachedQuery(
+    `transport-dashboard:active-trip-count:${passengerId}`,
+    async () => {
+      const { count, error } = await supabase
+        .from("transport_trips")
+        .select("id", { count: "exact", head: true })
+        .eq("passenger_id", passengerId)
+        .in("status", pendingTripStatuses);
+
+      if (error) throw error;
+      return Number(count || 0);
+    },
+    20_000,
+    { force },
+  );
+}
+
 export async function fetchPassengerTrips() {
   const passengerId = await getCurrentPassengerId();
   if (!passengerId) return [];
@@ -299,4 +321,28 @@ export async function fetchSavedOperators() {
       fleet,
     };
   }).filter((saved) => saved.fleet);
+}
+
+export async function fetchSavedOperatorCount({ force = false } = {}) {
+  const passengerId = await getCurrentPassengerId();
+  if (!passengerId) return 0;
+
+  return cachedQuery(
+    `transport-dashboard:saved-operator-count:${passengerId}`,
+    async () => {
+      const { count, error } = await supabase
+        .from("transport_saved_operators")
+        .select("id", { count: "exact", head: true })
+        .eq("passenger_id", passengerId);
+
+      if (error) throw error;
+      return Number(count || 0);
+    },
+    30_000,
+    { force },
+  );
+}
+
+export function invalidateTransportPassengerDashboardCache() {
+  invalidateCache("transport-dashboard:");
 }
