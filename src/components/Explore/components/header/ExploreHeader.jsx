@@ -39,7 +39,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
   const [createOpen, setCreateOpen] = useState(false);
   const [createClosing, setCreateClosing] = useState(false);
   const [bellBadgeCount, setBellBadgeCount] = useState(0);
-  const { notifications } = useExploreNotifications();
+  const { notifications } = useExploreNotifications(currentProfile?.userId || "");
   const messageStatus = useExploreMessageStatus(currentProfile?.userId || "");
   const latestMessage = useMemo(
   () =>

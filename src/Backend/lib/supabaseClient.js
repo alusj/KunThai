@@ -12,6 +12,11 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     persistSession: true,
+    // PKCE is required so OAuth returns an authorization `code` we can exchange
+    // for a session on native (Capacitor) via the custom-scheme deep link.
+    // On the web, `detectSessionInUrl` still exchanges the code automatically,
+    // so the existing browser flow is preserved.
+    flowType: "pkce",
   },
 });
 

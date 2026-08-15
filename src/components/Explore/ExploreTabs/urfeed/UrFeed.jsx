@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { paceExploreAdvertPosts } from "../../../../Backend/services/exploreService";
@@ -24,9 +24,24 @@ function feedActions(feed) {
   };
 }
 
-export default function UrFeed({ profile, onViewProfile }) {
+export default function UrFeed({ active = true, focusRequest = null, profile, onViewProfile }) {
   const feed = useExploreFeed("feed");
   const circleFeed = useExploreFeed("connections");
+  const handledFocusKeyRef = useRef("");
+
+  useEffect(() => {
+    const focusedPost = focusRequest?.post;
+    if (!focusedPost?.id) return;
+
+    if (focusedPost.feed_scope === "connections") {
+      circleFeed.includePost(focusedPost);
+    } else {
+      feed.includePost(focusedPost);
+    }
+    // The request key is the deliberate insertion trigger. Feed hook objects
+    // are recreated as their state changes and must not replay this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.key, focusRequest?.post]);
   const posts = useMemo(
     () => {
       const combined = [
@@ -55,6 +70,39 @@ export default function UrFeed({ profile, onViewProfile }) {
     },
     [feed.posts, circleFeed.posts, profile?.userId],
   );
+
+  useEffect(() => {
+    const requestKey = focusRequest?.key || "";
+    const postId = focusRequest?.postId || "";
+    if (!active || !requestKey || !postId || handledFocusKeyRef.current === requestKey) return undefined;
+    if (!posts.some((post) => post.id === postId)) return undefined;
+
+    // Wait until the notification screen and tab transition have released
+    // their scroll restoration. A deterministic jump is more reliable than a
+    // long smooth scroll whose destination shifts as media finishes laying out.
+    const focusTimer = window.setTimeout(() => {
+      const node = document.getElementById(`post-${postId}`);
+      if (!node) return;
+
+      handledFocusKeyRef.current = requestKey;
+      node.scrollIntoView({ behavior: "auto", block: "center" });
+      node.classList.remove("kt-notification-post-focus");
+      void node.offsetWidth;
+      node.classList.add("kt-notification-post-focus");
+
+      window.setTimeout(() => {
+        node.scrollIntoView({ behavior: "auto", block: "center" });
+        if (focusRequest.openComments) {
+          window.dispatchEvent(new CustomEvent("explore-open-post-comments", {
+            detail: { postId, commentId: focusRequest.commentId || "" },
+          }));
+        }
+      }, 120);
+      window.setTimeout(() => node.classList.remove("kt-notification-post-focus"), 2200);
+    }, 420);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [active, focusRequest, posts]);
 
   return (
     <PullToRefresh onRefresh={() => Promise.all([feed.reload(), circleFeed.reload()])}>

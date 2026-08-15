@@ -1187,6 +1187,20 @@ export function useExploreFeed(scope = "feed") {
     removePostFromAllCaches(postId);
   }
 
+  function includePost(post) {
+    if (!post?.id || !postBelongsInScope(post, scope) || !isLocallyVisiblePost(post)) {
+      return false;
+    }
+
+    setPosts((current) => {
+      const nextPosts = mergePosts([post], current);
+      writeStoredPosts(scope, nextPosts);
+      writeFeedMemory(scope, { posts: nextPosts });
+      return nextPosts;
+    });
+    return true;
+  }
+
   async function reportPost(postId, reasonValue = "") {
     if (!canRunSafetyAction("report-post")) {
       setError("You are reporting too quickly. Please slow down for a moment.");
@@ -1276,6 +1290,7 @@ export function useExploreFeed(scope = "feed") {
     deletePost,
     hidePost,
     muteAdvertiser,
+    includePost,
     dismissPostLocally,
     reportPost(...args) {
       if (guardGuestAction("report", guestGateTarget)) return Promise.resolve(false);

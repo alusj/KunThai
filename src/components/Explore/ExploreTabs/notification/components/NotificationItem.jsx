@@ -56,7 +56,6 @@ function getMessage(item) {
 
 function getPriorityPill(priority) {
   if (priority === "high") return "Now";
-  if (priority === "medium") return "Quiet";
   return "";
 }
 

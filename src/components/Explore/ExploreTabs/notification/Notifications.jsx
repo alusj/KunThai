@@ -19,7 +19,7 @@ import NotificationsList from "./list/NotificationsList";
 
 export default function Notifications({ currentUserId, onOpenNotification }) {
   const { t } = useI18n();
-  const { notifications, unreadCount, loading, loadingMore, hasMore, error, loadMore, markRead, markAllRead } = useExploreNotifications();
+  const { notifications, unreadCount, loading, loadingMore, hasMore, error, loadMore, markRead, markAllRead } = useExploreNotifications(currentUserId);
   const follows = useExploreFollows(currentUserId);
   const preferences = useExplorePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -57,9 +57,11 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
     });
   }
 
-  async function openNotification(item) {
+  function openNotification(item) {
     const groupedItems = Array.isArray(item.groupedItems) ? item.groupedItems : [item];
-    await Promise.all(groupedItems.filter((notification) => !notification.read).map((notification) => markRead(notification.id)));
+    // markRead is optimistic, so navigation should begin on the same tap rather
+    // than waiting for a mobile network round-trip.
+    Promise.all(groupedItems.filter((notification) => !notification.read).map((notification) => markRead(notification.id))).catch(() => {});
     onOpenNotification?.(item);
   }
 

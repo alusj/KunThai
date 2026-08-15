@@ -5,13 +5,13 @@ import ErrorState from "../../shared/ErrorState";
 import NotificationsList from "../../ExploreTabs/notification/list/NotificationsList";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 
-export default function ActivityScreen({ hideHeader = false, onOpenNotification }) {
+export default function ActivityScreen({ currentUserId = "", hideHeader = false, onOpenNotification }) {
   const { t } = useI18n();
-  const { notifications, error, markRead } = useExploreNotifications();
+  const { notifications, error, markRead } = useExploreNotifications(currentUserId);
 
-  async function openNotification(item) {
+  function openNotification(item) {
     const groupedItems = Array.isArray(item.groupedItems) ? item.groupedItems : [item];
-    await Promise.all(groupedItems.filter((notification) => !notification.read).map((notification) => markRead(notification.id)));
+    Promise.all(groupedItems.filter((notification) => !notification.read).map((notification) => markRead(notification.id))).catch(() => {});
     onOpenNotification?.(item);
   }
 

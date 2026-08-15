@@ -359,6 +359,34 @@ export async function fetchExplorePosts(scope = "feed", options = {}) {
   return hydratePostActionCounts(visiblePosts);
 }
 
+// Notification and search deep-links must be able to resolve a post that is
+// older than the first paginated feed window. Keep the same moderation and
+// privacy checks as the regular feed so a stale notification can never reveal
+// content the current account is no longer allowed to see.
+export async function fetchExplorePostById(postId) {
+  const normalizedPostId = String(postId || "").trim();
+  if (!normalizedPostId) return null;
+
+  const context = await getCurrentUserContext();
+  const { data, error } = await supabase
+    .from("explore_posts")
+    .select("*")
+    .eq("id", normalizedPostId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
+
+  if (!data || !isExplorePostVisibleInFeed(data) || !canCurrentUserViewPost(data, context)) {
+    return null;
+  }
+
+  const [hydratedPost] = await hydratePostActionCounts([data]);
+  return hydratedPost || data;
+}
+
 export async function fetchCurrentUserRecentExplorePosts(scope = "feed", options = {}) {
   const userId = await getCurrentUserId();
   if (!userId) return [];

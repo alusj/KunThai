@@ -12,6 +12,7 @@ export {
   createExplorePost,
   deleteExplorePost,
   fetchCurrentUserRecentExplorePosts,
+  fetchExplorePostById,
   fetchExplorePostCounts,
   fetchExplorePosts,
   isExplorePostVisibleInFeed,
@@ -102,7 +103,60 @@ function readStoredNotifications() {
 }
 
 function writeStoredNotifications(items) {
-  localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(items));
+  try {
+    localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    // Mobile Safari can deny or exhaust storage. Notifications still work from
+    // the network and the in-memory hook cache in that case.
+  }
+}
+
+const NOTIFICATION_CACHE_RETENTION_MS = 10 * 24 * 60 * 60 * 1000;
+const NOTIFICATION_CACHE_META_KEY = `${NOTIFICATION_STORAGE_KEY}:meta`;
+
+export function hasCachedExploreNotifications(userId) {
+  const normalizedUserId = String(userId || "").trim();
+  if (!normalizedUserId) return false;
+
+  try {
+    const meta = JSON.parse(localStorage.getItem(NOTIFICATION_CACHE_META_KEY) || "null");
+    return meta?.userId === normalizedUserId && Date.now() - Number(meta.savedAt || 0) <= NOTIFICATION_CACHE_RETENTION_MS;
+  } catch {
+    return false;
+  }
+}
+
+export function readCachedExploreNotifications(userId) {
+  const normalizedUserId = String(userId || "").trim();
+  if (!normalizedUserId) return [];
+
+  const cutoff = Date.now() - NOTIFICATION_CACHE_RETENTION_MS;
+  return readStoredNotifications()
+    .map(normalizeNotification)
+    .filter((item) => {
+      const createdAt = new Date(item.created_at || 0).getTime();
+      return item.user_id === normalizedUserId && Number.isFinite(createdAt) && createdAt >= cutoff;
+    })
+    .sort((first, second) => new Date(second.created_at || 0) - new Date(first.created_at || 0));
+}
+
+export function cacheExploreNotifications(items, userId) {
+  const normalizedUserId = String(userId || "").trim();
+  if (!normalizedUserId) return [];
+
+  const safeItems = mergeNotifications([], Array.isArray(items) ? items : [])
+    .filter((item) => item.user_id === normalizedUserId)
+    .slice(0, 60);
+  writeStoredNotifications(safeItems);
+  try {
+    localStorage.setItem(NOTIFICATION_CACHE_META_KEY, JSON.stringify({
+      userId: normalizedUserId,
+      savedAt: Date.now(),
+    }));
+  } catch {
+    // The cache is opportunistic; storage-denied browsers keep memory state.
+  }
+  return safeItems;
 }
 
 function normalizeNotification(item) {
@@ -570,7 +624,7 @@ export async function fetchExploreNotifications(options = {}) {
   const currentUserId = await getCurrentUserId();
   const limit = Number.isFinite(options.limit) ? options.limit : 100;
   const before = options.before || "";
-  const retentionCutoff = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+  const retentionCutoff = new Date(Date.now() - NOTIFICATION_CACHE_RETENTION_MS).toISOString();
   const storedNotifications = readStoredNotifications()
     .map(normalizeNotification)
     .filter((item) => (!currentUserId || item.user_id === currentUserId) && String(item.created_at || "") >= retentionCutoff);

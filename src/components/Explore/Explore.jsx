@@ -8,6 +8,7 @@ import { useScrollHidden } from "../../Backend/hooks/useScrollHidden";
 import {
   buildExploreProfileFromUser,
   ensureExploreProfile,
+  fetchExplorePostById,
   fetchExploreProfile,
   fetchExploreSpace,
   fetchMyExploreSpaces,
@@ -26,6 +27,8 @@ import {
 } from "../../Backend/services/explore/postingProgressService";
 import { cancelPendingVideoReviewJob, resumePendingVideoReviewJobs } from "../../Backend/services/explore/videoReviewService";
 import { EXPLORE_SETTINGS_EVENT, readExploreSettings } from "../../Backend/services/explore/preferencesService";
+import { getExplorePostTargetTab } from "../../Backend/services/explore/notificationTargetService";
+import { showToast } from "../../Backend/services/toastService";
 import { useI18n } from "../../i18n";
 
 // Pages (PARENT TAB CONTENT)
@@ -104,6 +107,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [swipPreviewTarget, setSwipPreviewTarget] = useState("");
+  const [postFocusRequest, setPostFocusRequest] = useState(null);
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
   const [drawerDragging, setDrawerDragging] = useState(false);
   const [drawerMountedByDrag, setDrawerMountedByDrag] = useState(false);
@@ -123,12 +127,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const stackCleanupTimerRef = useRef(null);
   const postingNoticeClearTimerRef = useRef(null);
   const switchExploreTabRef = useRef(null);
+  const openPostTargetRef = useRef(null);
+  const postFocusRequestKeyRef = useRef("");
   const authenticatedUserRef = useRef(user);
   authenticatedUserRef.current = user;
   const exploreNav = useExploreNavigation(MENU_SCREENS);
   const { t } = useI18n();
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   switchExploreTabRef.current = switchExploreTab;
+  openPostTargetRef.current = openExplorePostTarget;
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
   const anyExploreOverlayVisible = menuOverlayVisible || leftDrawerOpen || composerOpen || headerOverlayOpen;
@@ -411,33 +418,20 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     return () => {
       alive = false;
     };
-  }, [authLoading, user?.id]);
+  }, [authLoading, t, user?.id]);
 
   useEffect(() => {
     function handleOpenTab(event) {
       const tab = event.detail?.tab;
       if (tab) {
-        if (tab === "Swip" && event.detail?.postId) {
-          setSwipPreviewTarget(String(event.detail.postId));
-        } else if (tab !== "Swip") {
+        if (event.detail?.postId) {
+          openPostTargetRef.current?.(event.detail.postId, { tabHint: tab, closeMenus: false });
+          return;
+        }
+        if (tab !== "Swip") {
           setSwipPreviewTarget("");
         }
         exploreNav.setActiveTab(tab);
-
-        if (event.detail?.postId && tab === "UrFeed") {
-          const postId = String(event.detail.postId);
-          const focusPublishedPost = (attempt = 0) => {
-            window.setTimeout(() => {
-              const node = document.getElementById(`post-${postId}`);
-              if (node) {
-                node.scrollIntoView({ behavior: "smooth", block: "center" });
-              } else if (attempt < 12) {
-                focusPublishedPost(attempt + 1);
-              }
-            }, attempt ? 220 : 260);
-          };
-          focusPublishedPost();
-        }
       }
     }
 
@@ -668,39 +662,61 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (notification?.post_id) {
       const mediaType = String(notification.media_type || "").toLowerCase();
       const targetTab = mediaType.includes("video") || mediaType.includes("swip") ? "Swip" : "UrFeed";
-      const currentIndex = EXPLORE_TAB_ORDER.indexOf(activeTab);
-      const nextIndex = EXPLORE_TAB_ORDER.indexOf(targetTab);
-      setTabSlideDirection(nextIndex >= currentIndex ? "forward" : "backward");
-      exploreNav.setActiveTab(targetTab);
-      scrollToNotificationPost(notification.post_id, 0, {
+      openExplorePostTarget(notification.post_id, {
+        tabHint: targetTab,
         openComments: COMMENT_TARGET_NOTIFICATION_TYPES.has(notification.type),
         commentId: notification.comment_id || notification.target_id || "",
       });
     }
   }
 
-  function scrollToNotificationPost(postId, attempt = 0, options = {}) {
-    window.setTimeout(() => {
-      const node = document.getElementById(`post-${postId}`);
-      if (node) {
-        node.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (options.openComments) {
-          window.setTimeout(() => {
-            window.dispatchEvent(new CustomEvent("explore-open-post-comments", {
-              detail: {
-                postId,
-                commentId: options.commentId || "",
-              },
-            }));
-          }, 180);
-        }
+  async function openExplorePostTarget(postId, options = {}) {
+    const normalizedPostId = String(postId || "").trim();
+    if (!normalizedPostId) return;
+
+    const tabHint = options.tabHint === "Swip" ? "Swip" : "UrFeed";
+    const requestKey = `${normalizedPostId}:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+    postFocusRequestKeyRef.current = requestKey;
+    setSwipPreviewTarget("");
+    setPostFocusRequest({
+      key: requestKey,
+      postId: normalizedPostId,
+      post: null,
+      tab: tabHint,
+      openComments: Boolean(options.openComments),
+      commentId: options.commentId || "",
+    });
+
+    if (options.closeMenus !== false) exploreNav.closeMenuScreens();
+    switchExploreTabRef.current?.(tabHint);
+
+    try {
+      const post = await fetchExplorePostById(normalizedPostId);
+      if (postFocusRequestKeyRef.current !== requestKey) return;
+
+      if (!post) {
+        setPostFocusRequest(null);
+        showToast(t("notifications.postUnavailable"), "warning");
         return;
       }
 
-      if (attempt < 12) {
-        scrollToNotificationPost(postId, attempt + 1, options);
+      const actualTab = getExplorePostTargetTab(post);
+      if (actualTab !== tabHint) switchExploreTabRef.current?.(actualTab);
+      setPostFocusRequest((current) => current?.key === requestKey
+        ? { ...current, post, tab: actualTab }
+        : current);
+    } catch {
+      if (postFocusRequestKeyRef.current !== requestKey) return;
+      const targetNode = document.getElementById(`post-${normalizedPostId}`);
+      if (targetNode) {
+        const cachedTab = tabPanelRefs.current.Swip?.contains(targetNode) ? "Swip" : "UrFeed";
+        if (cachedTab !== tabHint) switchExploreTabRef.current?.(cachedTab);
+        setPostFocusRequest((current) => current?.key === requestKey ? { ...current, tab: cachedTab } : current);
+      } else {
+        setPostFocusRequest(null);
+        showToast(t("notifications.postOpenError"), "warning");
       }
-    }, attempt ? 220 : 260);
+    }
   }
 
   function openSearchResult(result) {
@@ -720,18 +736,14 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (result.type === "hashtag") {
-      exploreNav.setActiveTab(result.targetType === "swip" ? "Swip" : "UrFeed");
       if (result.postId) {
-        scrollToNotificationPost(result.postId);
+        openExplorePostTarget(result.postId, { tabHint: result.targetType === "swip" ? "Swip" : "UrFeed" });
       }
       return;
     }
 
     if (result.postId) {
-      exploreNav.setActiveTab(result.type === "swip" ? "Swip" : "UrFeed");
-      setTimeout(() => {
-        document.getElementById(`post-${result.postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 250);
+      openExplorePostTarget(result.postId, { tabHint: result.type === "swip" ? "Swip" : "UrFeed" });
     }
   }
 
@@ -1275,7 +1287,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (screenKey === "Activity") {
-      return <ActivityScreen hideHeader onOpenNotification={openNotificationTarget} />;
+      return <ActivityScreen currentUserId={currentUserId} hideHeader onOpenNotification={openNotificationTarget} />;
     }
 
     if (screenKey === "Notifications") {
@@ -1506,6 +1518,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       className={getExploreTabPanelClass("UrFeed")}
     >
       <UrFeed
+        active={active && activeTab === "UrFeed" && !menuOverlayVisible}
+        focusRequest={postFocusRequest?.tab === "UrFeed" ? postFocusRequest : null}
         profile={profile}
         onViewProfile={openViewedProfile}
       />
@@ -1517,9 +1531,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       className={getExploreTabPanelClass("Swip")}
     >
       <Swip
-        active={active && activeTab === "Swip"}
+        active={active && activeTab === "Swip" && !menuOverlayVisible}
         currentUserId={profile.userId}
-        focusPostId={swipPreviewTarget}
+        focusPostId={postFocusRequest?.tab === "Swip" ? postFocusRequest.postId : swipPreviewTarget}
+        focusPost={postFocusRequest?.tab === "Swip" ? postFocusRequest.post : null}
+        focusRequest={postFocusRequest?.tab === "Swip" ? postFocusRequest : null}
         onReturnToRepost={swipPreviewTarget ? returnFromRepostedSwip : undefined}
         profile={profile}
         onViewProfile={openViewedProfile}

@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 
 import supabase from "../lib/supabaseClient";
 import {
+  cacheExploreNotifications,
   fetchExploreNotifications,
   formatRelativeTime,
+  hasCachedExploreNotifications,
   markAllExploreNotificationsRead,
   markExploreNotificationRead,
   NOTIFICATION_EVENT,
+  readCachedExploreNotifications,
 } from "../services/exploreService";
 import { EXPLORE_SETTINGS_EVENT, readExploreSettings } from "../services/explore/preferencesService";
 import { EXPLORE_NOTIFICATION_SEEN_SCOPE, markNotificationsSeen } from "../services/notificationSeenStore";
@@ -37,7 +40,9 @@ function normalizeNotification(item) {
     priority: item.priority || (HIGH_PRIORITY_TYPES.has(item.type) ? "high" : MEDIUM_PRIORITY_TYPES.has(item.type) ? "medium" : "normal"),
     category: item.category || getCategory(item.notification_type || item.type),
     group_key: item.group_key || `${item.notification_type || item.type || "system"}:${item.post_id || item.comment_id || item.target_id || item.media_type || "account"}`,
-    time_label: item.time_label || formatRelativeTime(item.created_at),
+    // Recalculate cached relative time on every hydration so a persisted "2m"
+    // label cannot remain stale after the user returns hours later.
+    time_label: item.created_at ? formatRelativeTime(item.created_at) : item.time_label || "",
   };
 }
 
@@ -81,6 +86,9 @@ function storeNotificationMemory(items, userId = NOTIFICATIONS_MEMORY.userId) {
   NOTIFICATIONS_MEMORY.items = next;
   NOTIFICATIONS_MEMORY.savedAt = Date.now();
   NOTIFICATIONS_MEMORY.userId = userId || "";
+  if (NOTIFICATIONS_MEMORY.userId) {
+    cacheExploreNotifications(next, NOTIFICATIONS_MEMORY.userId);
+  }
   return next;
 }
 
@@ -88,9 +96,15 @@ function visibleNotifications(items = NOTIFICATIONS_MEMORY.items) {
   return items.filter(notificationEnabled);
 }
 
-export function useExploreNotifications() {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+function readInitialNotifications(userId) {
+  const cachedItems = readCachedExploreNotifications(userId);
+  if (!cachedItems.length) return [];
+  return visibleNotifications(storeNotificationMemory(cachedItems, userId));
+}
+
+export function useExploreNotifications(requestedUserId = "") {
+  const [notifications, setNotifications] = useState(() => readInitialNotifications(requestedUserId));
+  const [loading, setLoading] = useState(() => !hasCachedExploreNotifications(requestedUserId));
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState("");
@@ -98,16 +112,37 @@ export function useExploreNotifications() {
   useEffect(() => {
     let active = true;
     let channel = null;
-    let currentUserId = "";
+    let currentUserId = requestedUserId || "";
+    let servingCachedItems = false;
+
+    const immediateCache = readCachedExploreNotifications(currentUserId);
+    const hasImmediateCache = hasCachedExploreNotifications(currentUserId) || immediateCache.length > 0;
+    if (hasImmediateCache) {
+      const storedItems = storeNotificationMemory(immediateCache, currentUserId);
+      setNotifications(visibleNotifications(storedItems));
+      setLoading(false);
+      servingCachedItems = true;
+    } else {
+      setNotifications([]);
+      setLoading(true);
+    }
 
     async function load() {
       try {
         const { data: authData } = await supabase.auth.getUser();
-        const loadUserId = authData?.user?.id || "";
-        const hasCachedItems = NOTIFICATIONS_MEMORY.userId === loadUserId && Boolean(NOTIFICATIONS_MEMORY.items?.length);
+        const loadUserId = requestedUserId || authData?.user?.id || "";
+        currentUserId = loadUserId;
+        const persistedItems = readCachedExploreNotifications(loadUserId);
+        const hasCachedItems = hasCachedExploreNotifications(loadUserId) || Boolean(persistedItems.length) || (
+          NOTIFICATIONS_MEMORY.userId === loadUserId && Boolean(NOTIFICATIONS_MEMORY.items?.length)
+        );
         if (hasCachedItems) {
-          setNotifications(visibleNotifications());
+          const storedItems = persistedItems.length
+            ? storeNotificationMemory(persistedItems, loadUserId)
+            : NOTIFICATIONS_MEMORY.items;
+          setNotifications(visibleNotifications(storedItems));
           setLoading(false);
+          servingCachedItems = true;
         }
 
         if (!hasCachedItems) {
@@ -122,7 +157,9 @@ export function useExploreNotifications() {
         }
       } catch (err) {
         if (active) {
-          setError(err.message || "Unable to load notifications.");
+          // Stale-while-revalidate: cached notifications remain usable offline
+          // without replacing the whole screen with an avoidable error state.
+          setError(servingCachedItems ? "" : err.message || "Unable to load notifications.");
         }
       } finally {
         if (active) {
@@ -138,7 +175,7 @@ export function useExploreNotifications() {
         return;
       }
 
-      currentUserId = data.user.id;
+      currentUserId = requestedUserId || data.user.id;
       channel = supabase
         .channel(`explore-notifications-${currentUserId}`)
         .on(
@@ -246,7 +283,7 @@ export function useExploreNotifications() {
         supabase.removeChannel(channel);
       }
     };
-  }, []);
+  }, [requestedUserId]);
 
   async function loadMore() {
     const lastItem = notifications[notifications.length - 1];

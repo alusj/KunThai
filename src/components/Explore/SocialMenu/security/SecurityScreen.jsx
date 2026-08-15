@@ -18,6 +18,7 @@ import {
 } from "../../../../Backend/services/biometricService";
 import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import LinkedAccountsSection from "./LinkedAccountsSection";
 import { t as i18nText, uiText } from "../../../../i18n/index";
 
 const securityItems = [
@@ -151,6 +152,8 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
             );
           })}
         </section>
+
+        <LinkedAccountsSection currentUserId={currentUserId} />
 
         <section className="rounded-[24px] border border-sky-100 bg-white p-5 shadow-sm">
           <div className="flex items-start gap-3">

@@ -12,6 +12,7 @@ import { clearExploreScreenStack } from "./Backend/services/explore/navigationSe
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
+import { initNativeOAuth } from "./Backend/services/nativeOAuthService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
@@ -518,6 +519,14 @@ export default function App() {
     const timeout = window.setTimeout(() => setOnboardingReveal(null), 900);
     return () => window.clearTimeout(timeout);
   }, [onboardingComplete, onboardingReveal]);
+
+  // Bind the native OAuth deep-link handlers once for the whole app session
+  // (no-op on the web). Registering here — not in Login — means the callback is
+  // still handled if the OS terminated the app while the provider browser was
+  // open and relaunched it through app.kunthai.mobile://auth/callback.
+  useEffect(() => {
+    initNativeOAuth();
+  }, []);
 
   useEffect(() => {
     function cleanupMedia() {

@@ -38,6 +38,11 @@ import {
   isPhoneAlreadyLinkedError,
   PHONE_ALREADY_LINKED_MESSAGE,
 } from "./Backend/services/accountIdentityService";
+import {
+  isNativePlatform,
+  OAUTH_SETTLED_EVENT,
+  startNativeOAuth,
+} from "./Backend/services/nativeOAuthService";
 import FindAccountModal from "./components/auth/FindAccountModal";
 import { t as i18nText } from "./i18n/index";
 
@@ -372,6 +377,25 @@ export default function Login() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Native OAuth completes asynchronously through the deep-link callback. This
+  // listener releases the provider button and surfaces provider/cancel errors;
+  // on success the auth-state change routes away from Login on its own.
+  useEffect(() => {
+    function handleOAuthSettled(event) {
+      const detail = event.detail || {};
+      setProviderLoading("");
+      if (detail.status === "error") {
+        clearOAuthFlow();
+        setError(detail.message || t("auth.errUnableSignIn"));
+      } else if (detail.status === "cancelled") {
+        clearOAuthFlow();
+      }
+    }
+
+    window.addEventListener(OAUTH_SETTLED_EVENT, handleOAuthSettled);
+    return () => window.removeEventListener(OAUTH_SETTLED_EVENT, handleOAuthSettled);
+  }, [t]);
+
   function resetMessages() {
     setError("");
     setMessage("");
@@ -408,6 +432,14 @@ export default function Login() {
       setProviderLoading(provider);
       rememberOAuthFlow(provider, intent);
 
+      if (isNativePlatform()) {
+        // Native: open the provider in the system browser. The deep-link
+        // callback establishes the session; the settled-event listener above
+        // clears this loading state (success, cancel, or error).
+        await startNativeOAuth({ provider, intent });
+        return;
+      }
+
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -421,10 +453,10 @@ export default function Login() {
       if (authError) {
         throw authError;
       }
+      // Web redirects the page to the provider; nothing else runs here.
     } catch (err) {
       clearOAuthFlow();
       setError(err.message || t("auth.errContinueProvider", { provider }));
-    } finally {
       setProviderLoading("");
     }
   }

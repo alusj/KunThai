@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes kt-notification-post-focus {
+  0%, 100% {
+    outline-color: rgb(14 165 233 / 0);
+    box-shadow: 0 0 0 0 rgb(14 165 233 / 0);
+  }
+  22%, 72% {
+    outline-color: rgb(14 165 233 / 0.9);
+    box-shadow: 0 0 0 5px rgb(14 165 233 / 0.18), 0 16px 42px rgb(2 132 199 / 0.18);
+  }
+}
+
+.kt-notification-post-focus {
+  outline: 3px solid transparent;
+  outline-offset: -3px;
+  animation: kt-notification-post-focus 1.8s var(--kt-ease-emphasized, ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kt-notification-post-focus {
+    animation: none;
+    outline-color: rgb(14 165 233 / 0.9);
+    box-shadow: 0 0 0 5px rgb(14 165 233 / 0.18);
+  }
+}
+
 @layer base {
   :root {
     --kt-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);

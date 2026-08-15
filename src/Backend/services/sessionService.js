@@ -6,6 +6,7 @@ const SOCIAL_CACHE_KEYS = [
   "explore-saved-posts",
   "explore-hidden-posts",
   "explore-notifications-cache",
+  "explore-notifications-cache:meta",
   "explore-posts-feed",
   "explore-posts-connections",
 ];

@@ -328,7 +328,7 @@ export default function ProfileScreen({
     if (postTab === "feed") return renderFeedPosts();
     if (postTab === "swip") return renderSwipPosts();
     if (postTab === "saved" && editable) return <SavedPostsScreen currentUserId={currentUserId} hideHeader />;
-    if (postTab === "activity" && editable) return <ActivityScreen hideHeader onOpenNotification={onOpenNotification} />;
+    if (postTab === "activity" && editable) return <ActivityScreen currentUserId={currentUserId} hideHeader onOpenNotification={onOpenNotification} />;
     return null;
   }
 

@@ -15,10 +15,14 @@ import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipP
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
 
-export default function All({ active = true, currentUserId = "", focusPostId = "", onlyUserId = "", onReturnToRepost, onViewProfile, profile }) {
+export default function All({ active = true, currentUserId = "", focusPostId = "", focusPost = null, focusRequest = null, onlyUserId = "", onReturnToRepost, onViewProfile, profile }) {
   const { t } = useI18n();
   const feed = useExploreFeed("swip");
-  const videos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
+  const feedVideos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
+  const focusedVideos = getSwipVideos(focusPost ? [focusPost] : [], onlyUserId).filter(isRenderableSwipPost);
+  const videos = focusedVideos.length && !feedVideos.some((post) => post.id === focusedVideos[0].id)
+    ? [focusedVideos[0], ...feedVideos]
+    : feedVideos;
   const focusedVideoIndex = focusPostId ? videos.findIndex((post) => post.id === focusPostId) : -1;
   const [activeIndex, setActiveIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -28,6 +32,14 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   const wheelUnlockTimerRef = useRef(null);
   const wheelDeltaRef = useRef(0);
   const scrollPlayTimerRef = useRef(null);
+  const handledFocusKeyRef = useRef("");
+
+  useEffect(() => {
+    if (focusPost?.id) feed.includePost(focusPost);
+    // focusRequest.key is the intentional insertion trigger; the feed hook
+    // object changes as it stores the post and should not replay this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.key, focusPost]);
 
   useBrowserBack(fullscreen, () => setFullscreen(false), "swip-fullscreen");
 
@@ -130,16 +142,34 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
 
   useEffect(() => {
     if (!active || focusedVideoIndex < 0) return undefined;
+    const requestKey = focusRequest?.key || "";
+    if (requestKey && handledFocusKeyRef.current === requestKey) return undefined;
     const timer = window.setTimeout(() => {
       const node = itemRefs.current[focusedVideoIndex];
       if (!node) return;
       stopAllExploreMedia(null, { muteVideos: false });
       setActiveIndex(focusedVideoIndex);
-      node.scrollIntoView({ behavior: "smooth", block: "start" });
+      node.scrollIntoView({ behavior: requestKey ? "auto" : "smooth", block: "start" });
+      if (requestKey) {
+        handledFocusKeyRef.current = requestKey;
+        const postNode = document.getElementById(`post-${focusPostId}`);
+        postNode?.classList.remove("kt-notification-post-focus");
+        if (postNode) void postNode.offsetWidth;
+        postNode?.classList.add("kt-notification-post-focus");
+        window.setTimeout(() => {
+          node.scrollIntoView({ behavior: "auto", block: "start" });
+          if (focusRequest?.openComments) {
+            window.dispatchEvent(new CustomEvent("explore-open-post-comments", {
+              detail: { postId: focusPostId, commentId: focusRequest.commentId || "" },
+            }));
+          }
+        }, 120);
+        window.setTimeout(() => postNode?.classList.remove("kt-notification-post-focus"), 2200);
+      }
       requestSwipActivePlay(160, true);
-    }, 80);
+    }, requestKey ? 420 : 80);
     return () => window.clearTimeout(timer);
-  }, [active, focusedVideoIndex, requestSwipActivePlay]);
+  }, [active, focusPostId, focusRequest, focusedVideoIndex, requestSwipActivePlay]);
 
  function handleWheel(event) {
   if (event.cancelable) {

@@ -723,6 +723,8 @@ export const TRANSLATIONS = {
       emptyMessage: "When people interact with you, you'll see it here.",
       loading: "Loading...",
       loadMore: "Load more",
+      postUnavailable: "This post is no longer available. It may have been removed or its visibility changed.",
+      postOpenError: "We couldn't open that post. Check your connection and try again.",
       toastMarkAllError: "Unable to mark notifications as read.",
       toastMarkedAll: "All Explore notifications marked as read.",
       on: "On",
