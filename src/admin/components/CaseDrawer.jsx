@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, ClipboardCheck, ExternalLink, FileAudio, FileText, FileVideo, Image as ImageIcon, LoaderCircle, MessageSquareText, RotateCcw, ShieldCheck, ShieldOff, SlidersHorizontal, UserRoundCheck, X } from "lucide-react";
 import { ADMIN_SECTORS, CASE_DECISIONS, CASE_STATUSES, formatCaseNumber, formatDateTime, formatRelativeTime, titleCase } from "../adminConfig";
+import { ACCOUNT_CONTROL_REASON_SUGGESTIONS, INTERNAL_NOTE_SUGGESTIONS, applyCaseContext, getDecisionReasonSuggestions } from "../adminTextSuggestions";
 import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseTypeLabel, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
+import SuggestedTextSelect from "./SuggestedTextSelect";
 import { showToast } from "../../Backend/services/toastService";
 
 export default function CaseDrawer({ item, access, onClose, onUpdated }) {
@@ -355,6 +357,9 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
                           </div>
                         </fieldset>
                       ) : null}
+                      <div className="mt-3">
+                        <SuggestedTextSelect label="Suggested account access reasons" suggestions={ACCOUNT_CONTROL_REASON_SUGGESTIONS} onSelect={(text) => setAccountForm((current) => ({ ...current, reason: text }))} />
+                      </div>
                       <textarea value={accountForm.reason} onChange={(event) => setAccountForm((current) => ({ ...current, reason: event.target.value }))} rows={2} placeholder="Required account access reason" className="mt-3 w-full resize-none rounded-lg border border-zinc-300 bg-white p-2.5 text-sm font-medium text-zinc-900 focus:border-emerald-600 focus:outline-none" />
                       <div className="mt-2 flex justify-end gap-2">
                         <button type="button" disabled={busy} onClick={() => setAccountFormOpen(false)} className="h-9 rounded-lg px-3 text-xs font-black text-zinc-600 hover:bg-white disabled:opacity-50">Cancel</button>
@@ -380,6 +385,9 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
                     {busy === "decision" ? <LoaderCircle className="animate-spin" size={17} /> : <CheckCircle2 size={17} />} Apply decision
                   </button>
                 </div>
+                <div className="mt-3">
+                  <SuggestedTextSelect label={`Suggested ${CASE_DECISIONS.find((entry) => entry.key === decision)?.label?.toLowerCase() || "decision"} reasons`} suggestions={getDecisionReasonSuggestions(decision)} onSelect={(text) => setReason(applyCaseContext(text, item))} />
+                </div>
                 <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="Required decision reason" className="mt-3 w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium text-zinc-900 focus:border-emerald-600 focus:outline-none" />
               </div>
             </section>
@@ -389,7 +397,8 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
             <h3 className="text-sm font-black text-zinc-950">Internal notes</h3>
             {canManage ? (
               <div className="mt-4">
-                <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} placeholder="Add context for the next administrator" className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium text-zinc-900 focus:border-emerald-600 focus:outline-none" />
+                <SuggestedTextSelect label="Suggested internal notes" suggestions={INTERNAL_NOTE_SUGGESTIONS} onSelect={setNote} />
+                <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} placeholder="Add context for the next administrator" className="mt-3 w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium text-zinc-900 focus:border-emerald-600 focus:outline-none" />
                 <button type="button" disabled={busy || !note.trim()} onClick={saveNote} className="mt-2 inline-flex h-10 items-center gap-2 rounded-lg border border-zinc-300 px-3 text-sm font-black text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
                   {busy === "note" ? <LoaderCircle className="animate-spin" size={16} /> : <MessageSquareText size={16} />} Add note
                 </button>

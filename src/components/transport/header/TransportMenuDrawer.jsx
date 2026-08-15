@@ -263,7 +263,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
     <div
       aria-hidden={!open}
       inert={open ? undefined : "true"}
-      className={`fixed inset-0 z-[1200] overflow-hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+      className={`kt-mobile-screen fixed inset-0 z-[1200] overflow-hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
     >
       <button
         type="button"
@@ -278,13 +278,13 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
       <aside
         aria-hidden={Boolean(visibleScreen)}
         inert={visibleScreen ? "true" : undefined}
-        className={`absolute right-0 top-0 flex h-full w-full max-w-md transform flex-col bg-gray-50 shadow-2xl transition-transform duration-300 ${
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex w-full max-w-md transform flex-col overflow-hidden bg-gray-50 shadow-2xl transition-transform duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <PassengerMenuHeader title={t("urride.menu.passengerMenu")} showBack={false} onClose={closeDrawer} />
 
-        <div className="flex-1 overflow-y-auto pb-6">
+        <div className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto">
           <PassengerSummaryCard onOpenWallet={() => setActiveScreen("wallet")} />
 
           <div className="space-y-5 px-4 pt-5">
@@ -311,7 +311,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
       {visibleScreen ? (
         <SlidePanel
           action={screenAction}
-          className="bg-white"
+          className="kt-safe-screen bg-white"
           zIndex={10}
         >
           <PassengerMenuPageHeader
@@ -322,7 +322,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
               setSupportSeed(null);
             }}
           />
-          <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 pt-4 sm:px-6 lg:px-8">
             {renderActiveScreen(visibleScreen)}
           </div>
         </SlidePanel>

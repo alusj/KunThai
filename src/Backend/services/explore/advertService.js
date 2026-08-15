@@ -133,7 +133,14 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
     throw error;
   }
 
-  return (Array.isArray(data) ? data[0] : data) || null;
+  const campaign = (Array.isArray(data) ? data[0] : data) || null;
+  if (campaign && typeof window !== "undefined") {
+    // The RPC atomically spends the campaign's Visibility Credits. Refresh
+    // every wallet surface immediately so the composer/profile never displays
+    // the pre-launch balance after a successful advert publish.
+    window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
+  }
+  return campaign;
 }
 
 export async function fetchRecommendedExploreAds(surface = "urfeed", options = {}) {

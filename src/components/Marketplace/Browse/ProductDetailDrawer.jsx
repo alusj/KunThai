@@ -159,11 +159,12 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
 
   return createPortal(
     <div
-      className={`${closing ? "kt-media-zoom-exit" : "kt-media-zoom-enter"} fixed inset-0 z-[1500] flex h-dvh flex-col overflow-hidden bg-slate-950 text-white`}
+      className={`${closing ? "kt-media-zoom-exit" : "kt-media-zoom-enter"} kt-mobile-screen fixed inset-0 z-[1500] flex flex-col overflow-hidden bg-slate-950 text-white`}
       role="dialog"
       aria-modal="true"
       aria-label={t("urmall.detail.viewerAria")}
       data-suppress-app-swipe="true"
+      data-gesture-lock="product-image-viewer"
     >
       <header className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
@@ -347,6 +348,7 @@ function Gallery({ product, onOpenImage }) {
         className="block w-full touch-pan-y overflow-hidden rounded-lg bg-gray-100 text-left"
         aria-label={t("urmall.detail.viewImageFull", { name: product.name })}
         data-suppress-app-swipe="true"
+        data-gesture-lock="product-gallery"
       >
         <img src={activeImage} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
       </button>
@@ -938,7 +940,7 @@ export default function ProductDetailDrawer({
   return createPortal(
     <>
       <div className={`fixed inset-0 z-[55] bg-black/40 ${closing ? "kt-detail-backdrop-exit" : ""}`} onClick={requestClose} />
-      <aside className={`${closing ? "kt-detail-zoom-exit" : "kt-detail-zoom-enter"} fixed inset-0 z-[999] flex h-dvh w-screen flex-col bg-white`}>
+      <aside className={`${closing ? "kt-detail-zoom-exit" : "kt-detail-zoom-enter"} kt-urmall-screen-panel fixed inset-0 z-[999] flex w-screen flex-col bg-white`} data-back-swipe-scope>
         <header className="flex h-16 items-center gap-3 border-b border-gray-200 px-4">
           <AppBackTab
             onBack={requestClose}

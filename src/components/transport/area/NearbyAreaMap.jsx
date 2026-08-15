@@ -211,6 +211,7 @@ function getMapTilerStyleUrl(styleId = MAPTILER_STYLE_ID) {
 }
 
 function getInitialMapStyle() {
+  if (!getNetworkStatus().online) return osmRasterStyle;
   return getMapTilerStyleUrl() || osmRasterStyle;
 }
 
@@ -1525,6 +1526,7 @@ function animateMarkerTo(marker, fromPosition, toPosition, duration = 280, onFra
 }
 
 export default function NearbyAreaMap({
+  active = true,
   children,
   onLocationResolved,
   onMapReady,
@@ -2766,6 +2768,13 @@ export default function NearbyAreaMap({
   }, [deviceLocationState, routePlan, selectedLocation, rerouteKey]);
 
   useEffect(() => {
+    if (!active) {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation?.clearWatch?.(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      return undefined;
+    }
     if (!navigator.geolocation || !mapRef.current) return;
 
     if (watchIdRef.current !== null) {
@@ -3010,7 +3019,13 @@ export default function NearbyAreaMap({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the GPS watcher stays stable except when user-facing navigation modes change.
-  }, [focusMode, headingMode, onLocationResolved, routePlan, selectedLocation]);
+  }, [active, focusMode, headingMode, onLocationResolved, routePlan, selectedLocation]);
+
+  useEffect(() => {
+    if (!active || !mapRef.current) return undefined;
+    const frame = window.requestAnimationFrame(() => mapRef.current?.resize?.());
+    return () => window.cancelAnimationFrame(frame);
+  }, [active]);
 
   useEffect(() => {
     weatherCacheRef.current = weatherCache;
@@ -3182,7 +3197,7 @@ export default function NearbyAreaMap({
 
 
   return (
-    <div className="nearby-area-map absolute inset-0 bg-slate-900" style={{ touchAction: "pan-x pan-y", overscrollBehavior: "none" }}>
+    <div className="nearby-area-map absolute inset-0 bg-slate-900" style={{ touchAction: "pan-x pan-y", overscrollBehavior: "none" }} data-map-gesture-surface data-gesture-lock="map">
       <div
         ref={mapContainerRef}
         className="absolute inset-0 h-full w-full"

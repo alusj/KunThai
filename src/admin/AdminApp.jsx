@@ -9,6 +9,7 @@ import { enableAdminPreview, getAdminAccess, getAdminCases, getCaseSearchText, g
 import AdminShell from "./components/AdminShell";
 import CaseDrawer from "./components/CaseDrawer";
 import ActionHistoryView from "./views/ActionHistoryView";
+import UsersView from "./views/UsersView";
 import {
   AnalyticsView,
   AuditView,
@@ -19,7 +20,6 @@ import {
   SectorView,
   SettingsView,
   TeamView,
-  UsersView,
 } from "./views/AdminViews";
 
 function LoadingScreen({ message = "Opening the admin workspace…" }) {

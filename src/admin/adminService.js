@@ -13,6 +13,12 @@ import {
 } from "./adminPreviewData";
 
 const previewDelay = (value) => new Promise((resolve) => window.setTimeout(() => resolve(structuredClone(value)), 120));
+const previewCreditWallets = new Map([
+  ["user-1", { user_id: "user-1", balance: 35, lifetime_earned: 50, lifetime_spent: 15 }],
+  ["user-2", { user_id: "user-2", balance: 12, lifetime_earned: 32, lifetime_spent: 20 }],
+  ["user-3", { user_id: "user-3", balance: 5, lifetime_earned: 5, lifetime_spent: 0 }],
+]);
+const previewCreditTransactions = new Map();
 const GENERAL_COUNTRY_KEY = "__general__";
 const COUNTRY_PROFILES_BY_ISO = new Map(GLOBAL_COUNTRY_PROFILES.map((profile) => [profile.iso2, profile]));
 export const ADMIN_ACTIVITY_REFRESH_EVENT = "kunthai-admin-activity-refresh";
@@ -706,12 +712,88 @@ export async function addCaseNote(caseId, body, visibility = "internal") {
   return runAdminMutation(async () => unwrap(await supabase.rpc("admin_add_case_note", { case_uuid: caseId, note_body: body, note_visibility: visibility }), "Unable to add the note."), { action: "case.note_added", caseId });
 }
 
-export async function searchAdminUsers(search = "") {
+export async function searchAdminUsers(input = "") {
+  const options = typeof input === "string" ? { search: input } : (input || {});
+  const search = String(options.search || "").trim();
+  const wantsPage = typeof input === "object" && input !== null;
   if (isAdminPreview()) {
     const value = search.toLowerCase();
-    return previewDelay(previewUsers.filter((item) => !value || `${item.display_name} ${item.email} ${item.phone} ${item.username}`.toLowerCase().includes(value)));
+    let rows = previewUsers.filter((item) => !value || `${item.display_name} ${item.email} ${item.phone} ${item.username}`.toLowerCase().includes(value));
+    if (options.status && options.status !== "all") rows = rows.filter((item) => (item.account_status || "active") === options.status);
+    if (options.accountType && options.accountType !== "all") rows = rows.filter((item) => (item.account_type || "personal") === options.accountType);
+    if (options.sort === "oldest") rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    else if (options.sort === "name") rows.sort((a, b) => (a.display_name || "").localeCompare(b.display_name || ""));
+    else if (options.sort === "last_active") rows.sort((a, b) => new Date(b.last_sign_in_at || b.created_at) - new Date(a.last_sign_in_at || a.created_at));
+    else rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const total = rows.length;
+    const offset = Math.max(0, Number(options.offset) || 0);
+    const limit = Math.max(1, Math.min(Number(options.limit) || 50, 100));
+    rows = rows.slice(offset, offset + limit).map((item) => ({ ...item, total_count: total }));
+    return previewDelay(wantsPage ? { rows, total } : rows);
   }
-  return unwrap(await supabase.rpc("admin_search_users", { search_text: search, result_limit: 50 }), "Unable to search users.") || [];
+  const result = await supabase.rpc("admin_search_users_v2", {
+    search_text: search,
+    account_status_filter: options.status && options.status !== "all" ? options.status : null,
+    account_type_filter: options.accountType && options.accountType !== "all" ? options.accountType : null,
+    sort_key: options.sort || "newest",
+    result_limit: Math.max(1, Math.min(Number(options.limit) || 50, 100)),
+    result_offset: Math.max(0, Number(options.offset) || 0),
+  });
+  if (!result.error) {
+    const rows = result.data || [];
+    const total = Number(rows[0]?.total_count || 0);
+    return wantsPage ? { rows, total } : rows;
+  }
+  const fallbackRows = unwrap(await supabase.rpc("admin_search_users", { search_text: search, result_limit: 100 }), "Unable to search users.") || [];
+  return wantsPage ? { rows: fallbackRows, total: fallbackRows.length } : fallbackRows;
+}
+
+export async function getAdminUserWorkspace(userId) {
+  if (!userId) return null;
+  if (isAdminPreview()) {
+    const user = previewUsers.find((item) => item.user_id === userId) || previewUsers[0];
+    const wallet = previewCreditWallets.get(userId) || { user_id: userId, balance: 0, lifetime_earned: 0, lifetime_spent: 0 };
+    const transactions = previewCreditTransactions.get(userId) || [
+      { id: `preview-credit-${userId}`, user_id: userId, amount: wallet.lifetime_earned || 0, balance_after: wallet.balance || 0, transaction_type: "invite_reward", surface: "platform", metadata: { reason: "Verified invite rewards" }, created_at: new Date(Date.now() - 36e5 * 72).toISOString() },
+    ];
+    const cases = previewCases.filter((item) => item.subject_user_id === userId || item.reporter_user_id === userId);
+    const content = [
+      { id: `preview-post-${userId}`, surface: "explore", type: "post", title: `${user.display_name || "User"}'s latest post`, summary: "A recent Explore post available to administrators with the appropriate scope.", status: "published", media_url: null, created_at: new Date(Date.now() - 36e5 * 8).toISOString() },
+      ...(user.account_type === "business" ? [{ id: `preview-product-${userId}`, surface: "marketplace", type: "product", title: "Featured marketplace product", summary: "An active UrMall product listing associated with this account.", status: "active", media_url: null, created_at: new Date(Date.now() - 36e5 * 22).toISOString() }] : []),
+      ...(user.account_type === "operator" ? [{ id: `preview-operator-${userId}`, surface: "transport", type: "operator", title: user.display_name, summary: "Verified transport operator profile and fleet workspace.", status: "verified", media_url: null, created_at: user.created_at }] : []),
+    ];
+    return previewDelay({
+      user: { ...user, email_verified: true, phone_verified: Boolean(user.phone), profile_verified: user.account_type !== "personal", last_sign_in_at: new Date(Date.now() - 36e5 * 3).toISOString(), restricted_sectors: user.account_status === "warned" ? ["all"] : [] },
+      wallet,
+      transactions,
+      cases,
+      content,
+      audit: previewAudit.filter((item) => item.resource_id === userId || item.resource_type === "user"),
+      summary: { content_count: content.length, case_count: cases.length, open_case_count: cases.filter((item) => !["resolved", "closed"].includes(item.status)).length },
+    });
+  }
+  return unwrap(await supabase.rpc("admin_get_user_workspace", { target_user_id: userId }), "Unable to load this user workspace.");
+}
+
+export async function grantAdminVisibilityCredits(input) {
+  const requestId = input.requestId || crypto.randomUUID();
+  if (isAdminPreview()) {
+    return runAdminMutation(() => previewDelay((() => {
+      const amount = Math.max(1, Math.min(Number(input.amount) || 0, 1000));
+      const previous = previewCreditWallets.get(input.userId) || { user_id: input.userId, balance: 0, lifetime_earned: 0, lifetime_spent: 0 };
+      const wallet = { ...previous, balance: previous.balance + amount, lifetime_earned: previous.lifetime_earned + amount, updated_at: new Date().toISOString() };
+      previewCreditWallets.set(input.userId, wallet);
+      const transaction = { id: requestId, user_id: input.userId, amount, balance_after: wallet.balance, transaction_type: "admin_adjustment", surface: "platform", reference_type: "admin_credit_grant", reference_id: requestId, metadata: { reason: input.reason, adminGrant: true }, created_at: new Date().toISOString() };
+      previewCreditTransactions.set(input.userId, [transaction, ...(previewCreditTransactions.get(input.userId) || [])]);
+      return { status: "granted", amount, wallet, transaction };
+    })()), { action: "visibility_credit.granted", userId: input.userId });
+  }
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_grant_visibility_credits", {
+    target_user_id: input.userId,
+    credit_amount: Number(input.amount),
+    grant_reason: input.reason,
+    grant_request_id: requestId,
+  }), "Unable to grant Visibility Credits."), { action: "visibility_credit.granted", userId: input.userId });
 }
 
 export async function setAdminUserStatus(input) {

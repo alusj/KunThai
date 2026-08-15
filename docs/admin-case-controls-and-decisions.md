@@ -39,6 +39,16 @@ Use the narrowest suitable role and sector. Verification officers should handle 
 - Audit log: immutable record of admin decisions, access changes, approvals, undo events, and settings changes.
 - Settings: high-impact feature flags.
 
+### User workspace
+
+Every row in **Users** has a permission-aware three-dot action menu. Read-only roles can inspect the user overview, available content, linked cases, and Visibility Credit history. Roles with the relevant permissions can also open account controls, create a targeted notification campaign, or grant Visibility Credits.
+
+The user workspace keeps related operations together in six tabs: Overview, Content, Cases, Credits, Account, and History. Search, account-status and account-type filters, sorting, and server-side pagination are available on the directory page.
+
+Visibility Credit grants require `visibility_credits.manage`, authority level 3, a specific reason, and confirmation. Finance Officers, Operations Leads, Chief Admins, and Super Admins receive this permission. A normal grant is limited to 100 credits; grants from 101 through 1000 require a Super Admin. The user receives a notification, the wallet ledger receives an `admin_adjustment` transaction, and the immutable audit log records the administrator, amount, target, before/after wallet state, and reason. Administrators cannot grant credits to their own account.
+
+Quick impersonation, password changes, session revocation, and account deletion are intentionally not included in the row menu. Use dedicated security and case workflows for those actions.
+
 ## Queue and Case Table Controls
 
 - `Refresh`: reloads dashboard summary and latest cases.
@@ -117,6 +127,10 @@ The current decision options are:
 - `Request information`: moves the case to `waiting_information` and keeps it unresolved.
 
 Every decision requires a reason. If the reason field is empty, the decision button is disabled.
+
+The decision reason and Internal notes fields include an editable suggestion library. Choose a relevant suggestion from the field above the text area, then tailor the inserted wording to the evidence and circumstances of the case. Suggested text is a drafting aid; the administrator remains responsible for an accurate, specific record.
+
+Notification title and message fields use the same workflow. Choosing a suggestion fills the editable field without sending or publishing anything. Review placeholders such as `[date]`, `[feature name]`, and `[required action]` before saving a campaign.
 
 ## Decision Effects
 

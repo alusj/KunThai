@@ -357,7 +357,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
   ];
 
   return (
-    <ScreenSlideTransition screenKey="transport-fleet-editor" className="min-h-dvh bg-gray-50">
+    <ScreenSlideTransition screenKey="transport-fleet-editor" className="kt-mobile-viewport kt-safe-screen bg-gray-50" data-back-swipe-scope>
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 lg:px-8">
         <div className="flex w-full items-center gap-3">
           <AppBackTab

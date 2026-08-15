@@ -11,7 +11,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useSellerSales } from "../../../../../Backend/hooks/useSellerSales";
 import { deleteSellerOrder, updateSellerOrderStatus } from "../../../../../Backend/services/marketplace/sellerSalesService";
@@ -19,6 +19,8 @@ import { storeSellerOrdersAreaViewReturn } from "../../../../../Backend/services
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { formatOrderFulfillment, parseOrderDeliveryDetails } from "../../../../../Backend/utils/orderDeliveryDetails";
 import { useI18n, t } from "../../../../../i18n";
+import { useBackSwipe } from "../../../../../Backend/hooks/useBackSwipe";
+import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import BestSalesWindowCard from "./BestSalesWindowCard";
 import OrderStatusGrid from "./OrderStatusGrid";
 import RevenueMetrics from "./RevenueMetrics";
@@ -365,6 +367,9 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
   const [openMenuId, setOpenMenuId] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) || null;
+  const closeSelectedOrder = useCallback(() => setSelectedOrderId(""), []);
+  const requestCloseSelectedOrder = useBrowserBack(Boolean(selectedOrder), closeSelectedOrder, "seller-order-detail");
+  const orderDetailSwipeRef = useBackSwipe(Boolean(selectedOrder), requestCloseSelectedOrder, { minDistance: 58, maxVerticalDrift: 92 });
 
   // A deleted or updated order list can leave the sheet pointing at nothing.
   useEffect(() => {
@@ -396,7 +401,7 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
   }
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <section ref={orderDetailSwipeRef} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h4 className="text-lg font-black text-gray-950">{t("urmall.biz.stats.orderQueue")}</h4>
@@ -468,7 +473,7 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
       {selectedOrder ? (
         <SellerOrderDetailSheet
           order={selectedOrder}
-          onClose={() => setSelectedOrderId("")}
+          onClose={requestCloseSelectedOrder}
           onStatusChange={(order, status) => onStatusChange?.(order, status)}
           onDelete={(order) => {
             setSelectedOrderId("");

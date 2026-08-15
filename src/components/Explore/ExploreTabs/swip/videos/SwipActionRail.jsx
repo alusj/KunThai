@@ -70,7 +70,8 @@ export default function SwipActionRail({
 }) {
   return (
     <div
-      className="absolute bottom-28 right-2 z-20 flex flex-col items-center gap-1 rounded-full border border-white/18 bg-black/18 px-1 py-1.5 shadow-xl backdrop-blur-sm xs:right-3 xs:gap-1.5 xs:px-1.5 xs:py-2 sm:right-5"
+      className="absolute bottom-[calc(var(--kt-safe-area-bottom)+7rem)] right-[max(0.5rem,var(--kt-safe-area-right))] z-20 flex flex-col items-center gap-1 rounded-full border border-white/18 bg-black/18 px-1 py-1.5 shadow-xl backdrop-blur-sm xs:gap-1.5 xs:px-1.5 xs:py-2 sm:right-5"
+      data-gesture-lock="swip-actions"
     >
       <RailButton active={liked} emphasis="like" label={post.likes_count ?? 0} title={i18nText("ui.literals.kc7e02c95fe85")} onClick={onLike}>
         <HiOutlineHandThumbUp />

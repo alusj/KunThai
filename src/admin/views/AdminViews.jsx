@@ -24,7 +24,8 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { ADMIN_ROLES, ADMIN_SECTORS, formatDateTime, formatRelativeTime, titleCase } from "../adminConfig";
+import { ADMIN_ROLES, ADMIN_SECTORS, formatDateTime, titleCase } from "../adminConfig";
+import { NOTIFICATION_MESSAGE_SUGGESTIONS, NOTIFICATION_TITLE_SUGGESTIONS } from "../adminTextSuggestions";
 import {
   approveNotificationCampaign,
   createNotificationCampaign,
@@ -37,11 +38,12 @@ import {
   grantAdminAccess,
   publishNotificationCampaign,
   revokeAdminAccess,
-  searchAdminUsers,
-  setAdminUserStatus,
   updateFeatureFlag,
 } from "../adminService";
 import CaseTable from "../components/CaseTable";
+import SuggestedTextSelect from "../components/SuggestedTextSelect";
+
+export { default as UsersView } from "./UsersView";
 
 export function PageHeading({ eyebrow, title, description, action }) {
   return (
@@ -212,72 +214,6 @@ export function SectorView({ sector, cases, onOpenCase }) {
   );
 }
 
-export function UsersView({ access }) {
-  const [search, setSearch] = useState("");
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [control, setControl] = useState({ status: "warned", reason: "", sectors: ["all"], expiresAt: "" });
-  const canManage = access.permissions.includes("users.manage");
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      searchAdminUsers(search).then(setUsers).catch((nextError) => setError(nextError.message)).finally(() => setLoading(false));
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
-  async function saveControl(event) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const updated = await setAdminUserStatus({ userId: selectedUser.user_id, ...control });
-      setUsers((current) => current.map((item) => item.user_id === selectedUser.user_id ? {
-        ...item,
-        account_status: updated.status,
-        status_reason: updated.reason,
-        status_expires_at: updated.expires_at,
-      } : item));
-      setSelectedUser(null);
-      setControl({ status: "warned", reason: "", sectors: ["all"], expiresAt: "" });
-    } catch (nextError) {
-      setError(nextError.message || "Unable to update this account.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <>
-      <PageHeading eyebrow="Platform directory" title="Users" description="Find a KunThai identity and see its platform account type. Sensitive actions remain case-based and audited." />
-      <label className="relative mb-4 block max-w-2xl"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, username, email, or phone" className="h-11 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-3 text-sm font-semibold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" /></label>
-      <div className="overflow-hidden border-y border-zinc-200 bg-white sm:rounded-lg sm:border">
-        {loading ? <div className="flex items-center gap-2 px-5 py-10 text-sm font-semibold text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> Loading users…</div> : null}
-        {!loading ? users.map((item) => (
-          <article key={item.user_id} className="flex flex-col gap-3 border-b border-zinc-100 px-4 py-4 last:border-0 sm:flex-row sm:items-center">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-zinc-100 text-sm font-black text-zinc-700">{(item.display_name || item.email || "U").slice(0, 1).toUpperCase()}</span>
-            <div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-zinc-950">{item.display_name || "Unnamed account"}</p><p className="mt-1 truncate text-xs font-medium text-zinc-500">{item.email || item.phone || "No contact information"} {item.username ? `· @${item.username}` : ""}</p></div>
-            <div className="flex flex-wrap gap-1.5"><span className="w-fit rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-700">{titleCase(item.account_type)}</span><span className={`w-fit rounded-full px-2 py-1 text-[11px] font-black ${item.account_status === "active" ? "bg-emerald-50 text-emerald-800" : item.account_status === "warned" ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-700"}`}>{titleCase(item.account_status || "active")}</span></div>
-            <span className="text-xs font-semibold text-zinc-400">Joined {formatRelativeTime(item.created_at)}</span>
-            {canManage ? <button type="button" title="Manage account status" onClick={() => { setSelectedUser(item); setControl({ status: item.account_status || "warned", reason: item.status_reason || "", sectors: ["all"], expiresAt: "" }); }} className="grid h-9 w-9 place-items-center rounded-md border border-zinc-200 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950"><ShieldCheck size={17} /></button> : null}
-          </article>
-        )) : null}
-        {!loading && !users.length ? <div className="px-5 py-12 text-center text-sm font-semibold text-zinc-500">No matching users.</div> : null}
-      </div>
-      {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
-      {selectedUser ? <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"><button type="button" aria-label="Close account controls" onClick={() => setSelectedUser(null)} className="absolute inset-0 bg-zinc-950/50" /><form onSubmit={saveControl} className="relative w-full max-w-lg rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-emerald-700">Account control</p><h2 className="mt-1 text-xl font-black text-zinc-950">{selectedUser.display_name || selectedUser.email}</h2><p className="mt-1 text-xs font-semibold text-zinc-500">{selectedUser.email}</p></div><button type="button" title="Close" onClick={() => setSelectedUser(null)} className="grid h-9 w-9 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100"><X size={19} /></button></div>
-        <div className="mt-5 space-y-4"><label className="block"><span className="mb-1.5 block text-sm font-bold">Status</span><select value={control.status} onChange={(event) => setControl((current) => ({ ...current, status: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-bold"><option value="active">Active</option><option value="warned">Warned</option><option value="restricted">Restricted</option><option value="suspended">Suspended</option><option value="banned">Banned</option></select></label>
-          {control.status === "restricted" ? <fieldset><legend className="text-sm font-bold">Restricted sectors</legend><div className="mt-2 grid grid-cols-2 gap-2">{ADMIN_SECTORS.map((sector) => <label key={sector.value} className="flex h-10 items-center gap-2 rounded-lg border border-zinc-200 px-3 text-sm font-semibold"><input type="checkbox" checked={control.sectors.includes(sector.value)} onChange={() => setControl((current) => { if (sector.value === "all") return { ...current, sectors: ["all"] }; const withoutAll = current.sectors.filter((item) => item !== "all"); const sectors = withoutAll.includes(sector.value) ? withoutAll.filter((item) => item !== sector.value) : [...withoutAll, sector.value]; return { ...current, sectors: sectors.length ? sectors : ["all"] }; })} className="accent-emerald-700" />{sector.label}</label>)}</div></fieldset> : null}
-          <label className="block"><span className="mb-1.5 block text-sm font-bold">Expires (optional)</span><input type="datetime-local" value={control.expiresAt} onChange={(event) => setControl((current) => ({ ...current, expiresAt: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">Required reason</span><textarea required rows={3} value={control.reason} onChange={(event) => setControl((current) => ({ ...current, reason: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label></div>
-        <button type="submit" disabled={busy} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white disabled:opacity-50">{busy ? <LoaderCircle className="animate-spin" size={17} /> : <ShieldCheck size={17} />} Apply account status</button></form></div> : null}
-    </>
-  );
-}
-
 export function NotificationsView({ access }) {
   const [campaigns, setCampaigns] = useState([]);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -335,7 +271,15 @@ export function NotificationsView({ access }) {
 
       {composerOpen ? (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"><button type="button" aria-label="Close composer" className="absolute inset-0 bg-zinc-950/50" onClick={() => setComposerOpen(false)} /><form onSubmit={create} className="relative w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase text-emerald-700">Notification campaign</p><h2 className="mt-1 text-xl font-black text-zinc-950">Compose message</h2></div><button type="button" title="Close" onClick={() => setComposerOpen(false)} className="grid h-9 w-9 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100"><X size={19} /></button></div>
-          <div className="mt-5 space-y-4"><label className="block"><span className="mb-1.5 block text-sm font-bold">Title</span><input required value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">Message</span><textarea required rows={4} value={form.body} onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label>
+          <div className="mt-5 space-y-4">
+            <div className="space-y-3">
+              <SuggestedTextSelect label="Suggested notification titles" suggestions={NOTIFICATION_TITLE_SUGGESTIONS} onSelect={(text) => setForm((current) => ({ ...current, title: text }))} />
+              <label className="block"><span className="mb-1.5 block text-sm font-bold">Title</span><input required value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label>
+            </div>
+            <div className="space-y-3">
+              <SuggestedTextSelect label="Suggested notification messages" suggestions={NOTIFICATION_MESSAGE_SUGGESTIONS} onSelect={(text) => setForm((current) => ({ ...current, body: text }))} />
+              <label className="block"><span className="mb-1.5 block text-sm font-bold">Message</span><textarea required rows={4} value={form.body} onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label>
+            </div>
             <div className="grid gap-3 sm:grid-cols-3"><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Sector</span><select value={form.sector} onChange={(event) => setForm((current) => ({ ...current, sector: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="platform">Platform</option><option value="explore">Explore</option><option value="marketplace">UrMall</option><option value="transport">Transport</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Audience</span><select value={form.audience} onChange={(event) => setForm((current) => ({ ...current, audience: event.target.value, audienceValue: "" }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="all">All users</option><option value="sector_users">Sector users</option><option value="specific_users">Specific users</option><option value="region">Region</option><option value="account_type">Account type</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Priority</span><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div>
             {form.audience === "specific_users" ? <label className="block"><span className="mb-1.5 block text-sm font-bold">User emails</span><input required value={form.audienceValue} onChange={(event) => setForm((current) => ({ ...current, audienceValue: event.target.value }))} placeholder="first@example.com, second@example.com" className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label> : null}
             {form.audience === "region" ? <label className="block"><span className="mb-1.5 block text-sm font-bold">Country or city</span><input required value={form.audienceValue} onChange={(event) => setForm((current) => ({ ...current, audienceValue: event.target.value }))} placeholder="Sierra Leone" className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label> : null}

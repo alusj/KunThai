@@ -13,6 +13,17 @@
   }
 }
 
+@keyframes kt-message-composer-focus {
+  from {
+    opacity: 0.86;
+    transform: translate3d(0, 7px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 .kt-notification-post-focus {
   outline: 3px solid transparent;
   outline-offset: -3px;
@@ -25,12 +36,25 @@
     outline-color: rgb(14 165 233 / 0.9);
     box-shadow: 0 0 0 5px rgb(14 165 233 / 0.18);
   }
+
+  .kt-message-composer[data-focused="true"] .kt-message-composer-row {
+    animation: none;
+  }
 }
 
 @layer base {
   :root {
     --kt-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
     --kt-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    /* Capacitor 8 injects --safe-area-inset-* on Android WebViews whose CSS
+       env() values are unreliable. iOS and ordinary browsers use env(). */
+    --kt-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --kt-safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+    --kt-safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    --kt-safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+    --kt-visual-viewport-height: 100dvh;
+    --kt-visual-viewport-top: 0px;
+    --kt-keyboard-height: 0px;
   }
 
   html,
@@ -39,6 +63,7 @@
     width: 100%;
     max-width: 100%;
     height: 100%;
+    min-height: 100%;
     min-width: 0;
     margin: 0;
     padding: 0;
@@ -48,7 +73,14 @@
   }
 
   html {
+    height: 100%;
     position: relative;
+  }
+
+  body,
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   * {
@@ -122,6 +154,83 @@
 }
 
 @layer utilities {
+  .kt-mobile-viewport {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .kt-mobile-screen {
+    height: 100vh;
+    height: 100dvh;
+    height: var(--kt-visual-viewport-height, 100dvh);
+    max-height: var(--kt-visual-viewport-height, 100dvh);
+  }
+
+  .kt-safe-screen {
+    box-sizing: border-box;
+    padding-top: var(--kt-safe-area-top);
+    padding-right: var(--kt-safe-area-right);
+    padding-left: var(--kt-safe-area-left);
+  }
+
+  .kt-safe-scroll-bottom {
+    padding-bottom: calc(var(--kt-safe-area-bottom) + 1rem);
+  }
+
+  .kt-safe-screen > header.sticky {
+    top: var(--kt-safe-area-top);
+  }
+
+  .kt-safe-inline {
+    padding-right: max(0.5rem, var(--kt-safe-area-right));
+    padding-left: max(0.5rem, var(--kt-safe-area-left));
+  }
+
+  .kt-safe-composer {
+    padding-bottom: calc(var(--kt-safe-area-bottom) + 0.75rem);
+  }
+
+  .kt-conversation-screen {
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    contain: layout paint;
+  }
+
+  .kt-message-thread {
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-padding-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .kt-message-composer {
+    position: relative;
+    z-index: 20;
+    flex: none;
+    padding-bottom: max(1rem, calc(var(--kt-safe-area-bottom) + 0.625rem));
+    transform: translateZ(0);
+    transition: padding-bottom 220ms var(--kt-ease-standard), box-shadow 220ms var(--kt-ease-standard);
+  }
+
+  html[data-kt-keyboard-open="true"] .kt-message-composer {
+    padding-bottom: 0.5rem;
+  }
+
+  .kt-message-composer-row {
+    transform: translate3d(0, 0, 0);
+    transform-origin: center bottom;
+  }
+
+  .kt-message-composer[data-focused="true"] .kt-message-composer-row {
+    animation: kt-message-composer-focus 240ms var(--kt-ease-emphasized) both;
+  }
+
   .kuntai-card {
     @apply rounded-[24px] border border-slate-200 bg-white shadow-sm;
   }
@@ -140,8 +249,8 @@
   .kt-premium-header-grid {
     grid-template-columns: auto minmax(4.25rem, 1fr) auto;
     gap: 0.35rem;
-    min-height: calc(3.75rem + env(safe-area-inset-top));
-    padding: calc(0.35rem + env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-left)) 0.35rem max(0.5rem, env(safe-area-inset-right));
+    min-height: calc(3.75rem + var(--kt-safe-area-top));
+    padding: calc(0.35rem + var(--kt-safe-area-top)) max(0.5rem, var(--kt-safe-area-left)) 0.35rem max(0.5rem, var(--kt-safe-area-right));
     overflow: visible;
   }
 
@@ -407,6 +516,14 @@
   }
 
   .kt-urmall-screen-panel {
+    box-sizing: border-box;
+    height: 100vh;
+    height: 100dvh;
+    height: var(--kt-visual-viewport-height, 100dvh);
+    max-height: var(--kt-visual-viewport-height, 100dvh);
+    padding-top: var(--kt-safe-area-top);
+    padding-right: var(--kt-safe-area-right);
+    padding-left: var(--kt-safe-area-left);
     transition-duration: 280ms;
     transition-property: transform;
     transition-timing-function: var(--kt-ease-emphasized);
@@ -595,8 +712,8 @@
   @media (min-width: 390px) {
     .kt-premium-header-grid {
       gap: 0.5rem;
-      min-height: calc(4rem + env(safe-area-inset-top));
-      padding: calc(0.5rem + env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-left)) 0.5rem max(0.75rem, env(safe-area-inset-right));
+      min-height: calc(4rem + var(--kt-safe-area-top));
+      padding: calc(0.5rem + var(--kt-safe-area-top)) max(0.75rem, var(--kt-safe-area-left)) 0.5rem max(0.75rem, var(--kt-safe-area-right));
     }
 
     .kt-premium-header-side {
@@ -640,7 +757,13 @@
   }
 
   .kuntai-safe-bottom {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-bottom: max(1rem, var(--kt-safe-area-bottom));
+  }
+
+
+  .kt-explore-screen-panel {
+    height: 100% !important;
+    max-height: 100% !important;
   }
 
   .kuntai-break {

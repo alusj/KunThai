@@ -32,7 +32,9 @@ import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import { resolveSellerActivityProduct } from "../../../../Backend/services/marketplace/sellerProductService";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
 import { useSellerOverview } from "../../../../Backend/hooks/useSellerOverview";
+import { useNavigationStack } from "../../../../Backend/hooks/useNavigationStack";
 import { useEffect, useRef, useState } from "react";
+import { useBrowserBack } from "../../../../Backend/hooks/useBrowserBack";
 import AppBackTab from "../../../shared/AppBackTab";
 import AppPortal from "../../../shared/AppPortal";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
@@ -65,7 +67,7 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
       <section
         aria-hidden={!open}
         inert={open ? undefined : "true"}
-        className={`kt-urmall-screen-panel fixed inset-0 z-[1150] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50 shadow-2xl ${
+        className={`kt-urmall-screen-panel fixed inset-0 z-[1150] flex w-screen flex-col overflow-hidden bg-gray-50 shadow-2xl ${
           animationClass
         }`}
       >
@@ -97,8 +99,8 @@ export default function Business({ onBack }) {
   useI18n();
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
   const sellerOverview = useSellerOverview({ enabled: hasBusiness });
-  const [activeScreen, setActiveScreen] = useState("dashboard");
-  const [, setScreenHistory] = useState([]);
+  const sellerNavigation = useNavigationStack("dashboard");
+  const activeScreen = sellerNavigation.current.screen;
   const [activeTab, setActiveTab] = useState("store");
   const [toastMessage, setToastMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -114,6 +116,14 @@ export default function Business({ onBack }) {
   const switchTargetRef = useRef(null);
   const pendingSwitchToastRef = useRef(false);
   const sellerScreenTimerRef = useRef(null);
+  const popSellerScreen = sellerNavigation.pop;
+  const pushSellerScreen = sellerNavigation.push;
+  const sellerCurrentEntry = sellerNavigation.current;
+  const goBackSellerScreen = useBrowserBack(
+    sellerNavigation.canPop,
+    popSellerScreen,
+    `marketplace-seller-${sellerNavigation.entries.length}-${activeScreen}`,
+  );
 
   // Keeps the switch animation up until the newly selected business AND its
   // dashboard data have loaded, so the seller never sees the empty skeleton
@@ -152,8 +162,8 @@ export default function Business({ onBack }) {
   // screen the seller left from.
   useEffect(() => {
     if (!consumeSellerOrdersAreaViewReturn()) return;
-    setActiveScreen("orders");
-  }, []);
+    pushSellerScreen({ screen: "orders", state: { restoredFromAreaView: true } });
+  }, [pushSellerScreen]);
 
   useEffect(() => {
     if (!hasBusiness) return undefined;
@@ -202,6 +212,12 @@ export default function Business({ onBack }) {
     return () => window.clearTimeout(timer);
   }, [dashboardReveal]);
 
+  useEffect(() => {
+    const entryState = sellerCurrentEntry.state;
+    if (entryState?.activeTab) setActiveTab(entryState.activeTab);
+    if (entryState?.selectedProduct) setSelectedProduct(entryState.selectedProduct);
+  }, [sellerCurrentEntry]);
+
   function openProfileEditor() {
     setMenuOpen(false);
     openSellerScreen("editBusiness");
@@ -213,16 +229,21 @@ export default function Business({ onBack }) {
     setMenuOpen(true);
   }
 
-  function openSellerScreen(screen) {
+  function openSellerScreen(screen, options = {}) {
     if (activeScreen === screen) return;
-
-    setScreenHistory((history) => [...history, activeScreen]);
-    setActiveScreen(screen);
+    sellerNavigation.push({
+      screen,
+      params: options.params || (selectedProduct?.id ? { productId: selectedProduct.id } : {}),
+      state: {
+        activeTab,
+        ...(selectedProduct ? { selectedProduct } : {}),
+        ...(options.state || {}),
+      },
+    });
   }
 
   function replaceSellerScreen(screen) {
-    setScreenHistory([]);
-    setActiveScreen(screen);
+    sellerNavigation.reset({ screen, state: { activeTab } });
   }
 
   function openSellerProductDetail(product) {
@@ -233,19 +254,19 @@ export default function Business({ onBack }) {
     }
 
     setSelectedProduct(product);
-    openSellerScreen("productDetail");
+    openSellerScreen("productDetail", { params: { productId: product.id }, state: { selectedProduct: product } });
   }
 
   function openProductInsights(product) {
     if (!product) return;
     setSelectedProduct(product);
-    openSellerScreen("productInsights");
+    openSellerScreen("productInsights", { params: { productId: product.id }, state: { selectedProduct: product } });
   }
 
   function openProductPromotion(product) {
     if (!product) return;
     setSelectedProduct(product);
-    openSellerScreen("productPromotion");
+    openSellerScreen("productPromotion", { params: { productId: product.id }, state: { selectedProduct: product } });
   }
 
   async function openProductFromActivity(activity) {
@@ -255,14 +276,6 @@ export default function Business({ onBack }) {
       return;
     }
     openSellerProductDetail(product);
-  }
-
-  function goBackSellerScreen() {
-    setScreenHistory((history) => {
-      const previousScreen = history.at(-1) || "dashboard";
-      setActiveScreen(previousScreen);
-      return history.slice(0, -1);
-    });
   }
 
   function renderSellerScreen() {
@@ -566,7 +579,7 @@ export default function Business({ onBack }) {
     // plus the dashboard cards — stands in for the real layout instead of a
     // "Opening dashboard" line.
     return (
-      <div className={`${dashboardRevealClass} min-h-screen bg-gray-50`} style={dashboardRevealStyle} aria-busy="true">
+      <div className={`${dashboardRevealClass} kt-mobile-viewport kt-safe-screen bg-gray-50`} style={dashboardRevealStyle} aria-busy="true">
         <SellerDashboardSkeleton />
       </div>
     );
@@ -582,7 +595,7 @@ export default function Business({ onBack }) {
   const primaryActionLabel = businessKind === "restaurant" ? t("urmall.biz.dash.addMeal") : businessKind === "hotel" ? t("urmall.biz.dash.addHotel") : businessKind === "property_agent" ? t("urmall.biz.dash.addProperty") : t("urmall.biz.header.addProduct");
 
   return (
-    <div className={`${dashboardRevealClass} min-h-screen bg-gray-50`} style={dashboardRevealStyle}>
+    <div className={`${dashboardRevealClass} kt-mobile-viewport kt-safe-screen bg-gray-50`} style={dashboardRevealStyle}>
       <ProductSuccessToast message={toastMessage} onClose={() => setToastMessage("")} />
 
       {/* =========================

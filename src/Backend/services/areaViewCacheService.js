@@ -1,6 +1,8 @@
 const AREA_VIEW_CACHE_KEY = "kunthai.areaView.cache.v2";
 const POSITION_MAX_AGE_MS = 10 * 60 * 1000;
 const AREA_DATA_MAX_AGE_MS = 3 * 60 * 1000;
+const OFFLINE_POSITION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const OFFLINE_AREA_DATA_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function validPoint(point) {
   return Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng));
@@ -16,22 +18,31 @@ function readRawCache() {
   }
 }
 
-export function readAreaViewCache() {
+export function readAreaViewCache(options = {}) {
   const cache = readRawCache();
   const now = Date.now();
-  const position = validPoint(cache.position) && now - Number(cache.positionSavedAt || 0) <= POSITION_MAX_AGE_MS
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  const allowStale = options.allowStale ?? offline;
+  const positionAge = now - Number(cache.positionSavedAt || 0);
+  const dataAge = now - Number(cache.dataSavedAt || 0);
+  const positionUsable = positionAge <= POSITION_MAX_AGE_MS
+    || (allowStale && positionAge <= OFFLINE_POSITION_MAX_AGE_MS);
+  const dataUsable = dataAge <= AREA_DATA_MAX_AGE_MS
+    || (allowStale && dataAge <= OFFLINE_AREA_DATA_MAX_AGE_MS);
+  const position = validPoint(cache.position) && positionUsable
     ? cache.position
     : null;
-  const dataFresh = now - Number(cache.dataSavedAt || 0) <= AREA_DATA_MAX_AGE_MS;
 
   return {
     position,
-    locations: dataFresh && Array.isArray(cache.locations) ? cache.locations : [],
-    operators: dataFresh && Array.isArray(cache.operators) ? cache.operators : [],
-    reports: dataFresh && Array.isArray(cache.reports) ? cache.reports : [],
-    traffic: dataFresh && Array.isArray(cache.traffic) ? cache.traffic : [],
+    locations: dataUsable && Array.isArray(cache.locations) ? cache.locations : [],
+    operators: dataUsable && Array.isArray(cache.operators) ? cache.operators : [],
+    reports: dataUsable && Array.isArray(cache.reports) ? cache.reports : [],
+    traffic: dataUsable && Array.isArray(cache.traffic) ? cache.traffic : [],
     recentSearches: Array.isArray(cache.recentSearches) ? cache.recentSearches.slice(0, 20) : [],
-    weather: dataFresh && cache.weather ? cache.weather : null,
+    weather: dataUsable && cache.weather ? cache.weather : null,
+    stale: Boolean(allowStale && dataUsable && dataAge > AREA_DATA_MAX_AGE_MS),
+    savedAt: Number(cache.dataSavedAt || 0) || null,
   };
 }
 

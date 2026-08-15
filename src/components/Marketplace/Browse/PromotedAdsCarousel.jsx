@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchPromotedMarketplaceProducts } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import {
+  fetchPromotedMarketplaceProducts,
+  readCachedPromotedMarketplaceProducts,
+} from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { useI18n } from "../../../i18n";
 
 const SLIDE_INTERVAL_MS = 4500;
@@ -22,7 +25,10 @@ const SLIDE_TRANSITION = "transform 620ms cubic-bezier(0.22, 1, 0.36, 1)";
 // never bubble up to the app-level page swipe (Explore / UrRide).
 export default function PromotedAdsCarousel({ onProductSelect }) {
   const { t } = useI18n();
-  const [ads, setAds] = useState([]);
+  const [ads, setAds] = useState(() => (
+    readCachedPromotedMarketplaceProducts().filter((product) => product.imageUrl)
+  ));
+  const [loading, setLoading] = useState(() => ads.length === 0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [dragPx, setDragPx] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -35,20 +41,38 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
   const canSlide = maxIndex > 0;
   const itemBasis = useMemo(() => `${100 / perView}%`, [perView]);
 
-  const loadAds = useCallback(async () => {
+  const loadAds = useCallback(async (force = false) => {
     try {
-      const products = await fetchPromotedMarketplaceProducts();
+      const products = await fetchPromotedMarketplaceProducts(12, { force });
       setAds(products.filter((product) => product.imageUrl));
     } catch {
-      setAds([]);
+      // Keep the last known sponsored cards on weak/offline connections.
+      setAds((current) => current.length
+        ? current
+        : readCachedPromotedMarketplaceProducts(12, { allowStale: true }).filter((product) => product.imageUrl));
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadAds();
-    window.addEventListener("marketplace-products-updated", loadAds);
-    return () => window.removeEventListener("marketplace-products-updated", loadAds);
+    const handleProductsUpdated = () => loadAds(true);
+    window.addEventListener("marketplace-products-updated", handleProductsUpdated);
+    return () => window.removeEventListener("marketplace-products-updated", handleProductsUpdated);
   }, [loadAds]);
+
+  useEffect(() => {
+    // Decode the first cards before the carousel advances to them. This warms
+    // the browser/native HTTP cache as soon as cached promotion metadata exists.
+    ads.slice(0, 6).forEach((product, index) => {
+      const image = new Image();
+      image.decoding = "async";
+      if (index < 2) image.fetchPriority = "high";
+      image.src = product.imageUrl;
+      image.decode?.().catch(() => {});
+    });
+  }, [ads]);
 
   useEffect(() => {
     setActiveIndex((current) => Math.min(current, maxIndex));
@@ -62,7 +86,23 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
     return () => window.clearInterval(timer);
   }, [canSlide, maxIndex, paused]);
 
-  if (!ads.length) return null;
+  if (!ads.length && !loading) return null;
+
+  if (!ads.length) {
+    return (
+      <section
+        aria-label={t("urmall.browse.promotedAria")}
+        aria-busy="true"
+        className="sticky top-[calc(var(--urmall-sticky-header-height,0px)+0.5rem)] z-20 overflow-hidden rounded-2xl border border-gray-200 bg-slate-200 shadow-lg shadow-slate-900/10 ring-1 ring-slate-300/70"
+      >
+        <div className="relative aspect-[21/9] w-full animate-pulse overflow-hidden bg-gradient-to-br from-slate-300 via-slate-200 to-slate-300 sm:aspect-[3/1]">
+          <span className="absolute left-3 top-3 rounded-full bg-slate-950/55 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+            {t("urmall.browse.sponsored")}
+          </span>
+        </div>
+      </section>
+    );
+  }
 
   function goTo(index) {
     setActiveIndex(Math.min(Math.max(index, 0), maxIndex));
@@ -118,6 +158,7 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
     >
       <div ref={viewportRef} className="relative aspect-[21/9] w-full sm:aspect-[3/1]">
         <div
+          data-gesture-lock="promoted-products-carousel"
           className="flex h-full"
           style={{
             transform: `translate3d(calc(-${baseShiftPercent}% + ${dragPx}px), 0, 0)`,
@@ -125,7 +166,7 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
             touchAction: "pan-y",
           }}
         >
-          {ads.map((product) => (
+          {ads.map((product, index) => (
             <div key={product.id} className="h-full shrink-0 px-0.5" style={{ flexBasis: itemBasis, maxWidth: itemBasis }}>
               <button
                 type="button"
@@ -136,7 +177,9 @@ export default function PromotedAdsCarousel({ onProductSelect }) {
                 <img
                   src={product.imageUrl}
                   alt=""
-                  loading="lazy"
+                  loading={index < Math.max(2, perView + 1) ? "eager" : "lazy"}
+                  fetchPriority={index < 2 ? "high" : "auto"}
+                  decoding="async"
                   draggable={false}
                   className="h-full w-full select-none object-cover"
                 />

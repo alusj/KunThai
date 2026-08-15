@@ -9,6 +9,7 @@ import {
 import { formatMessageTime } from "../../Backend/utils/formatMessageTime";
 import { useI18n, t } from "../../i18n";
 import AppBackTab from "../shared/AppBackTab";
+import { useKeyboardAwareConversation } from "../../Backend/hooks/useKeyboardAwareConversation";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -19,7 +20,7 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function Messages({ compact = false, onBack, onProductOpen }) {
+export default function Messages({ onBack, onProductOpen }) {
   useI18n();
   const [messages, setMessages] = useState([]);
   const [activeId, setActiveId] = useState("");
@@ -35,6 +36,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
   const [echoes, setEchoes] = useState([]);
   const transitionTimerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const threadScrollRef = useRef(null);
   const threadEndRef = useRef(null);
 
   const activeMessage = useMemo(
@@ -53,6 +55,11 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
       .map((echo) => echo.message);
     return [...serverMessages, ...pending].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }, [echoes, visibleMessage]);
+  const keyboard = useKeyboardAwareConversation({
+    activeKey: visibleMessage?.id || "",
+    itemCount: threadMessages.length,
+    threadRef: threadScrollRef,
+  });
 
   async function loadMessages({ silent = false } = {}) {
     if (!silent) setLoading(true);
@@ -102,10 +109,6 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
       }
     };
   }, []);
-
-  useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ block: "end" });
-  }, [threadMessages.length, activeId]);
 
   function clearTransitionTimer() {
     if (transitionTimerRef.current) {
@@ -242,6 +245,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
         aria-hidden={Boolean(visibleMessage)}
         inert={visibleMessage ? "true" : undefined}
         className="absolute inset-0 flex flex-col bg-gray-50"
+        data-back-swipe-scope
       >
         <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
           <AppBackTab onBack={onBack} label={t("urmall.shell.backToUrMall")} historyKey="urmall-messages" useHistoryLayer={false} />
@@ -309,7 +313,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
     const canSend = Boolean(draft.trim() || attachment) && !sending;
 
     return (
-      <section className={`absolute inset-0 z-10 flex flex-col bg-gray-50 ${panelClass}`}>
+      <section className={`kt-conversation-screen absolute inset-0 z-10 flex flex-col bg-gray-50 ${panelClass}`} data-back-swipe-scope>
         <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
           <AppBackTab
             onBack={closeConversation}
@@ -327,7 +331,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
+        <div ref={threadScrollRef} className="kt-message-thread px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex min-h-full w-full flex-col gap-3">
             {threadMessages.map((item) => {
               const fromBuyer = item.from === "buyer";
@@ -357,7 +361,11 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
 
         {sendError ? <p className="mx-4 shrink-0 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700 sm:mx-6 lg:mx-8">{sendError}</p> : null}
 
-        <form onSubmit={sendReply} className="shrink-0 border-t border-gray-200 bg-white p-3">
+        <form
+          onSubmit={sendReply}
+          className="kt-message-composer border-t border-gray-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
+          data-focused={keyboard.focused ? "true" : "false"}
+        >
           {attachment ? (
             <div className="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
               <img src={attachment.dataUrl} alt={t("urmall.messages.selectedAttachmentAlt")} className="h-12 w-12 rounded-lg object-cover" />
@@ -372,7 +380,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
               </button>
             </div>
           ) : null}
-          <div className="flex w-full gap-2">
+          <div className="kt-message-composer-row flex w-full gap-2">
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
             <button
               type="button"
@@ -385,8 +393,13 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
+              onPointerDown={keyboard.handleInputPointerDown}
+              onFocus={keyboard.handleInputFocus}
+              onBlur={keyboard.handleInputBlur}
               placeholder={t("urmall.messages.typeMessage")}
-              className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500"
+              enterKeyHint="send"
+              autoComplete="off"
+              className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
             />
             <button
               type="submit"
@@ -403,7 +416,7 @@ export default function Messages({ compact = false, onBack, onProductOpen }) {
   }
 
   return (
-    <main className={`relative min-h-0 overflow-hidden bg-gray-50 ${compact ? "h-full" : "h-dvh"}`}>
+    <main className="relative h-full min-h-0 overflow-hidden bg-gray-50">
       {renderListScreen()}
       {renderConversationScreen(visibleMessage)}
     </main>

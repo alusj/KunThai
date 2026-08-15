@@ -1,99 +1,8 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 import { ChevronLeft } from "lucide-react";
 
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
-
-const SWIPE_DEFAULTS = {
-  edgeWidth: 180,
-  minDistance: 64,
-  maxVerticalDrift: 80,
-};
-
-function isFormControl(target) {
-  return Boolean(target?.closest?.("input, textarea, select, [contenteditable='true']"));
-}
-
-function useBackTabSwipe(active, onBack, options = {}) {
-  const gestureRef = useRef(null);
-  const onBackRef = useRef(onBack);
-  const settings = { ...SWIPE_DEFAULTS, ...options };
-
-  useEffect(() => {
-    onBackRef.current = onBack;
-  }, [onBack]);
-
-  useEffect(() => {
-    if (!active || typeof window === "undefined") {
-      return undefined;
-    }
-
-    function handleTouchStart(event) {
-      const touch = event.touches?.[0];
-
-      if (!touch || isFormControl(event.target) || touch.clientX > settings.edgeWidth) {
-        gestureRef.current = null;
-        return;
-      }
-
-      gestureRef.current = {
-        startX: touch.clientX,
-        startY: touch.clientY,
-        tracking: true,
-      };
-    }
-
-    function handleTouchMove(event) {
-      const gesture = gestureRef.current;
-      const touch = event.touches?.[0];
-
-      if (!gesture?.tracking || !touch) {
-        return;
-      }
-
-      const deltaX = touch.clientX - gesture.startX;
-      const deltaY = touch.clientY - gesture.startY;
-      const horizontalIntent = Math.abs(deltaX) > 16 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
-
-      if (horizontalIntent) {
-        event.preventDefault();
-      }
-    }
-
-    function handleTouchEnd(event) {
-      const gesture = gestureRef.current;
-      gestureRef.current = null;
-
-      if (!gesture?.tracking) {
-        return;
-      }
-
-      const touch = event.changedTouches?.[0];
-
-      if (!touch) {
-        return;
-      }
-
-      const deltaX = touch.clientX - gesture.startX;
-      const deltaY = Math.abs(touch.clientY - gesture.startY);
-
-      if (deltaX >= settings.minDistance && deltaY <= settings.maxVerticalDrift) {
-        onBackRef.current?.();
-      }
-    }
-
-    window.addEventListener("touchstart", handleTouchStart, { passive: true });
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    window.addEventListener("touchend", handleTouchEnd, { passive: true });
-    window.addEventListener("touchcancel", handleTouchEnd, { passive: true });
-
-    return () => {
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleTouchEnd);
-      window.removeEventListener("touchcancel", handleTouchEnd);
-    };
-  }, [active, settings.edgeWidth, settings.maxVerticalDrift, settings.minDistance]);
-}
+import { useBackSwipeRegistration } from "../../Backend/hooks/useBackSwipe";
 
 export default function AppBackTab({
   onBack,
@@ -116,19 +25,19 @@ export default function AppBackTab({
     onBack?.();
   }, [goBack, onBack, useHistoryLayer]);
 
-  const handleSwipeBack = useCallback(() => {
-    onBack?.();
-  }, [onBack]);
+  const handleSwipeBack = handleBack;
 
-  useBackTabSwipe(Boolean(onBack && enableSwipe), handleSwipeBack, swipeOptions);
+  const swipeRegistrationRef = useBackSwipeRegistration(Boolean(onBack && enableSwipe), handleSwipeBack, swipeOptions);
 
   if (!onBack) return null;
 
   return (
     <button
+      ref={swipeRegistrationRef}
       type="button"
       onClick={handleBack}
       aria-label={label}
+      data-back-swipe-control="true"
       className={`kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-transparent bg-transparent text-slate-900 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${className}`}
       style={style}
     >

@@ -269,7 +269,7 @@ export default function BusinessAdmins({ onBack }) {
       {actionAdmin ? (
         <div className="fixed inset-0 z-[1400]" role="presentation">
           <button type="button" aria-label={t("urmall.biz.admins.closeActionsOverlay")} onClick={() => setActionAdmin(null)} className="absolute inset-0 bg-slate-950/40" />
-          <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.admins.actionsFor", { name: actionAdmin.adminName })} className="kt-toast-expand-in absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] mx-auto max-w-sm rounded-[24px] bg-white p-3 shadow-2xl">
+          <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.admins.actionsFor", { name: actionAdmin.adminName })} className="kt-toast-expand-in absolute inset-x-4 bottom-[max(1rem,var(--kt-safe-area-bottom))] mx-auto max-w-sm rounded-[24px] bg-white p-3 shadow-2xl">
             <div className="flex items-center justify-between gap-3 px-2 py-1">
               <p className="truncate text-sm font-black text-gray-950">{actionAdmin.adminName}</p>
               <button type="button" onClick={() => setActionAdmin(null)} className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.admins.closeActions")}><X size={16} /></button>

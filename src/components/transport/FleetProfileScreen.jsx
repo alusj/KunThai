@@ -224,7 +224,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="kt-mobile-viewport kt-safe-screen bg-slate-50" data-back-swipe-scope>
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-4">
         <div className="flex w-full items-center gap-3">
           <AppBackTab

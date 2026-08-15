@@ -553,7 +553,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   return (
     <ScreenSlideTransition
       screenKey="transport-solo-registration-form"
-      className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-dvh bg-gray-50 [transform:translateZ(0)]`}
+      className={`${finishing ? "kt-onboarding-collapse-out" : ""} kt-mobile-viewport kt-safe-screen bg-gray-50 [transform:translateZ(0)]`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
       <AccountSetupLoader open={submitting || finishing} sector="urride" />

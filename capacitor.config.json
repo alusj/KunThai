@@ -1,5 +1,21 @@
 {
   "appId": "app.kunthai.mobile",
   "appName": "KunThai",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DEFAULT",
+      "hidden": false,
+      "animation": "NONE"
+    },
+    "Keyboard": {
+      "resize": "native",
+      "resizeOnFullScreen": true,
+      "autoBackdropColor": "auto"
+    }
+  }
 }

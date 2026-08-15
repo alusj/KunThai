@@ -10,6 +10,7 @@ import {
 import { formatMessageTime } from "../../../../../Backend/utils/formatMessageTime";
 import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
+import { useKeyboardAwareConversation } from "../../../../../Backend/hooks/useKeyboardAwareConversation";
 
 const CONVERSATION_TRANSITION_MS = 360;
 
@@ -37,6 +38,7 @@ export default function CustomerCare({ onBack } = {}) {
   const [echoes, setEchoes] = useState([]);
   const transitionTimerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const threadScrollRef = useRef(null);
   const threadEndRef = useRef(null);
   const standalone = Boolean(onBack);
 
@@ -55,6 +57,11 @@ export default function CustomerCare({ onBack } = {}) {
       .map((echo) => echo.message);
     return [...serverMessages, ...pending].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }, [echoes, visibleConversation]);
+  const keyboard = useKeyboardAwareConversation({
+    activeKey: visibleConversation?.id || "",
+    itemCount: threadMessages.length,
+    threadRef: threadScrollRef,
+  });
 
   useEffect(() => {
     return () => {
@@ -85,10 +92,6 @@ export default function CustomerCare({ onBack } = {}) {
       unsubscribe?.();
     };
   }, [reload]);
-
-  useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ block: "end" });
-  }, [threadMessages.length, activeId]);
 
   function clearTransitionTimer() {
     if (transitionTimerRef.current) {
@@ -133,7 +136,7 @@ export default function CustomerCare({ onBack } = {}) {
 
   if (loading) {
     return (
-      <section className={standalone ? "flex h-dvh flex-col bg-gray-50" : "rounded-xl border border-gray-200 bg-white p-5 shadow-sm"} aria-busy="true">
+      <section className={standalone ? "flex h-full flex-col bg-gray-50" : "rounded-xl border border-gray-200 bg-white p-5 shadow-sm"} aria-busy="true">
         {renderListHeader()}
         <div className={standalone ? "min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8" : ""}>
           <div className={standalone ? "rounded-xl border border-gray-200 bg-white p-5 shadow-sm" : ""}>
@@ -244,7 +247,7 @@ export default function CustomerCare({ onBack } = {}) {
     const canSend = Boolean(reply.trim() || attachment) && !sending;
 
     return (
-      <section className={`absolute inset-0 z-10 flex flex-col bg-gray-50 ${panelClass}`}>
+      <section className={`kt-conversation-screen absolute inset-0 z-10 flex flex-col bg-gray-50 ${panelClass}`} data-back-swipe-scope>
         <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
           <AppBackTab
             onBack={closeConversation}
@@ -261,7 +264,7 @@ export default function CustomerCare({ onBack } = {}) {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
+        <div ref={threadScrollRef} className="kt-message-thread space-y-3 px-4 py-4 sm:px-6 lg:px-8">
           {threadMessages.map((message) => {
             const fromSeller = message.from === "seller";
 
@@ -289,7 +292,11 @@ export default function CustomerCare({ onBack } = {}) {
 
         {sendError && <p className="mx-4 shrink-0 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700 sm:mx-6 lg:mx-8">{sendError}</p>}
 
-        <form onSubmit={sendReply} className="shrink-0 border-t border-gray-200 bg-white p-3">
+        <form
+          onSubmit={sendReply}
+          className="kt-message-composer border-t border-gray-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
+          data-focused={keyboard.focused ? "true" : "false"}
+        >
           {attachment ? (
             <div className="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
               <img src={attachment.dataUrl} alt={t("urmall.biz.care.selectedAttachment")} className="h-12 w-12 rounded-lg object-cover" />
@@ -304,7 +311,7 @@ export default function CustomerCare({ onBack } = {}) {
               </button>
             </div>
           ) : null}
-          <div className="flex w-full gap-2">
+          <div className="kt-message-composer-row flex w-full gap-2">
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
             <button
               type="button"
@@ -317,8 +324,13 @@ export default function CustomerCare({ onBack } = {}) {
             <input
               value={reply}
               onChange={(event) => setReply(event.target.value)}
+              onPointerDown={keyboard.handleInputPointerDown}
+              onFocus={keyboard.handleInputFocus}
+              onBlur={keyboard.handleInputBlur}
               placeholder={t("urmall.biz.care.replyPlaceholder")}
-              className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500"
+              enterKeyHint="send"
+              autoComplete="off"
+              className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
             />
             <button
               type="submit"
@@ -335,7 +347,13 @@ export default function CustomerCare({ onBack } = {}) {
   }
 
   return (
-    <section className={`relative overflow-hidden bg-gray-50 ${standalone ? "h-dvh" : "min-h-[calc(100dvh-9rem)]"}`}>
+    <section className={`relative overflow-hidden overscroll-none bg-gray-50 ${
+      visibleConversation && !standalone
+        ? "kt-mobile-screen kt-safe-screen fixed inset-0 z-[1300]"
+        : standalone
+          ? "h-full"
+          : "min-h-[calc(100dvh-9rem)]"
+    }`}>
       <section
         aria-hidden={Boolean(visibleConversation)}
         inert={visibleConversation ? "true" : undefined}

@@ -30,6 +30,7 @@ import {
 } from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
 import { haptics } from "./Backend/services/feedbackService";
+import { canStartNavigationGesture, navigationGesturesLocked } from "./Backend/services/gestureArbitration";
 import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed, runConnectivityChecks } from "./Backend/services/networkService";
 import {
   markReturningUserActivity,
@@ -197,7 +198,7 @@ function AppLoading({ page = "explore" }) {
   const networkFault = offline || connectivityFault;
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="kt-mobile-viewport bg-slate-100">
       {/* A neutral header bar stands in for the real header. The old EXPLORE /
           URMALL / URRIDE title pill was removed — it only labelled the wait
           without representing any real UI. */}
@@ -256,6 +257,7 @@ export default function App() {
     // visited page wins over the visit-frequency preference here.
     return getMainPageFromHash(window.location.hash) || readLastMainPage();
   });
+  const [transportMounted, setTransportMounted] = useState(() => page === "transport");
   const [mainPageDirection, setMainPageDirection] = useState("forward");
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState(readStoredMarketplaceNav);
@@ -277,6 +279,10 @@ export default function App() {
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
   setNotificationSeenUser(userId);
+
+  useEffect(() => {
+    if (page === "transport") setTransportMounted(true);
+  }, [page]);
 
   useLayoutEffect(() => {
     setReturningIntroOpen(false);
@@ -579,7 +585,7 @@ export default function App() {
   // login screen, onboarding, or the app - so show a plain backdrop rather than
   // the app skeleton, which never matches the login or onboarding screens.
   if (loading) {
-    return <div className="min-h-screen bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />;
+    return <div className="kt-mobile-viewport bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />;
   }
 
   if (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal) {
@@ -588,7 +594,7 @@ export default function App() {
     if (!user.user_metadata?.onboarding_complete) {
       return (
         <div
-          className="min-h-screen bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)]"
+          className="kt-mobile-viewport bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)]"
           aria-label={i18nText("ui.literals.k1467547ea632")}
         />
       );
@@ -691,12 +697,7 @@ export default function App() {
       return;
     }
 
-    const target = event.target;
-    if (
-      target?.closest?.("input, textarea, select, [contenteditable='true']") ||
-      target?.closest?.(".overflow-x-auto, .overflow-x-scroll") ||
-      target?.closest?.("[data-suppress-app-swipe]")
-    ) {
+    if (!canStartNavigationGesture(event.target)) {
       appGestureRef.current = null;
       return;
     }
@@ -713,7 +714,7 @@ export default function App() {
 
   function handleAppTouchMove(event) {
     const gesture = appGestureRef.current;
-    if (event.touches.length !== 1) {
+    if (event.touches.length !== 1 || navigationGesturesLocked()) {
       // A pinch may begin after a valid one-finger swipe start. Invalidate the
       // whole sequence so lifting either finger can never commit a page change.
       appGestureRef.current = null;
@@ -763,7 +764,7 @@ export default function App() {
       return;
     }
 
-    if (!gesture || page === "explore" || bottomTabsHidden) {
+    if (!gesture || page === "explore" || bottomTabsHidden || navigationGesturesLocked()) {
       return;
     }
 
@@ -802,7 +803,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen w-full max-w-full overflow-x-clip bg-slate-100 ${onboardingReveal ? "kt-main-grow-from-onboarding" : ""}`}
+      className={`kt-mobile-viewport w-full max-w-full overflow-x-clip bg-slate-100 ${onboardingReveal ? "kt-main-grow-from-onboarding" : ""}`}
       style={onboardingReveal ? {
         "--kt-transition-x": onboardingReveal.x,
         "--kt-transition-y": onboardingReveal.y,
@@ -815,7 +816,7 @@ export default function App() {
         resetAppSwipePreview();
       }}
     >
-      <PageTransition active className="min-h-screen">
+      <PageTransition active className="kt-mobile-viewport">
         <Suspense fallback={<AppLoading page={page} />}>
           {page === "explore" ? (
             <section className={pagePanelClass("explore")} aria-hidden={false}>
@@ -839,14 +840,19 @@ export default function App() {
             </section>
           ) : null}
 
-          {page === "transport" ? (
-            <section ref={pagePanelRef} className={pagePanelClass("transport")} aria-hidden={false}>
+          {transportMounted ? (
+            <section
+              ref={page === "transport" ? pagePanelRef : null}
+              className={pagePanelClass("transport")}
+              aria-hidden={page !== "transport"}
+              inert={page === "transport" ? undefined : "true"}
+            >
               <Transport
                 onActivityChange={setTransportActivityOpen}
                 areaViewRequest={transportAreaRequest}
                 onAreaViewRequestHandled={setTransportAreaRequest}
                 userId={userId}
-                active
+                active={page === "transport"}
               />
             </section>
           ) : null}

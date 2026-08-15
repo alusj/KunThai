@@ -33,6 +33,9 @@ import { HiOutlineCheckCircle } from "react-icons/hi2";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
 import { useI18n, t } from "../../i18n";
+import { useNavigationStack } from "../../Backend/hooks/useNavigationStack";
+import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
+import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
 import {
@@ -123,7 +126,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const [companyTabOpen, setCompanyTabOpen] = useState(false);
   const [companyTabDirection, setCompanyTabDirection] = useState("forward");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeMenuScreen, setActiveMenuScreen] = useState(null);
+  const companyNavigation = useNavigationStack("dashboard");
+  const activeMenuScreen = companyNavigation.current.screen === "dashboard" ? null : companyNavigation.current.screen;
   const [operatorAction, setOperatorAction] = useState(null);
   const [responsibilityOperator, setResponsibilityOperator] = useState(null);
   const [removeOperator, setRemoveOperator] = useState(null);
@@ -143,6 +147,12 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const [localStatus, setLocalStatus] = useState("");
   const [, setSeenVersion] = useState(0);
   const menuActionTimerRef = useRef(null);
+  const popCompanyMenuScreen = companyNavigation.pop;
+  const goBackCompanyMenuScreen = useBrowserBack(
+    companyNavigation.canPop,
+    popCompanyMenuScreen,
+    `transport-company-${companyNavigation.entries.length}-${activeMenuScreen || "dashboard"}`,
+  );
   const { visibleKey: visibleMenuScreen, action: menuScreenAction } = useSlidePanel(activeMenuScreen);
   const fleets = company?.fleets || [];
   const requests = fleets.flatMap((fleet) =>
@@ -604,7 +614,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   }
 
   function openMenuScreen(screenId) {
-    runAfterDrawerClose(() => setActiveMenuScreen(screenId));
+    runAfterDrawerClose(() => companyNavigation.push({ screen: screenId, state: { activeTab } }));
   }
 
   function openCompanyEditor() {
@@ -653,7 +663,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="kt-mobile-viewport kt-safe-screen bg-slate-50" data-back-swipe-scope>
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-8">
         <div className="flex items-center gap-3">
           <AppBackTab
@@ -842,7 +852,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               company={company}
               fleets={fleets}
               item={visibleMenuItem}
-              onBack={() => setActiveMenuScreen(null)}
+              onBack={goBackCompanyMenuScreen}
               onEdit={access.isOwner ? openCompanyEditor : undefined}
               onOpenOperatorDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
               canManageOperators={canManageOperators}
@@ -1035,6 +1045,8 @@ function useDrawerTransition(open, duration = DRAWER_TRANSITION_MS) {
 
 function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNavigate }) {
   const { rendered, panelOpen } = useDrawerTransition(open);
+  const requestClose = useBrowserBack(rendered, onClose, "transport-company-menu-drawer");
+  const drawerSwipeRef = useBackSwipe(rendered, requestClose, { minDistance: 58, maxVerticalDrift: 92 });
 
   useEffect(() => {
     if (!rendered || typeof document === "undefined") return undefined;
@@ -1050,19 +1062,23 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
   return (
     <AppPortal>
       <div
+        ref={drawerSwipeRef}
         aria-hidden={!open}
+        data-local-back-swipe="true"
         className="fixed inset-0 z-[1220]"
       >
         <button
           type="button"
           aria-label={t("urride.companyWs.closeMenuAria")}
-          onClick={onClose}
+          onClick={requestClose}
           className={`absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-sm transition-opacity duration-300 ${
             panelOpen ? "opacity-100" : "opacity-0"
           }`}
         />
         <aside
-          className={`absolute right-0 top-0 flex h-dvh w-[min(92vw,430px)] flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ease-[var(--kt-ease-emphasized)] ${
+          role="dialog"
+          aria-modal="true"
+          className={`kt-mobile-screen kt-safe-screen absolute right-0 top-0 flex w-[min(92vw,430px)] flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ease-[var(--kt-ease-emphasized)] ${
             panelOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -1078,7 +1094,7 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
               </div>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={requestClose}
                 aria-label={t("urride.companyWs.closeMenu")}
                 className="kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-700 transition hover:bg-slate-100"
               >
@@ -1169,8 +1185,8 @@ function FleetHqMenuScreen({
 }) {
   return (
     <AppPortal>
-      <div className="fixed inset-0 z-[1240] h-dvh w-screen overflow-hidden bg-slate-50">
-        <SlidePanel action={action} className="bg-slate-50">
+      <div className="kt-mobile-screen kt-safe-screen fixed inset-0 z-[1240] w-screen overflow-hidden bg-slate-50" data-back-swipe-scope>
+        <SlidePanel action={action} className="kt-safe-screen bg-slate-50">
           <header className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-8">
             <div className="flex items-center gap-3">
               <AppBackTab
@@ -2088,7 +2104,7 @@ function FleetHqFullScreen({ children, label, onClose, open }) {
     <AppPortal>
       <section
         aria-label={label}
-        className={`${panelOpen ? "kt-toast-expand-in" : "kt-toast-collapse-out"} fixed inset-0 z-[1320] flex h-dvh w-screen flex-col overflow-hidden bg-white`}
+        className={`${panelOpen ? "kt-toast-expand-in" : "kt-toast-collapse-out"} kt-mobile-screen kt-safe-screen fixed inset-0 z-[1320] flex w-screen flex-col overflow-hidden bg-white`}
       >
         {children}
       </section>
@@ -2098,7 +2114,7 @@ function FleetHqFullScreen({ children, label, onClose, open }) {
 
 function FleetHqFullScreenHeader({ eyebrow, icon, label, onBack, rightAction = null, title }) {
   return (
-    <header className="kt-header-glass flex flex-none items-start gap-3 border-b border-slate-100 px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] shadow-sm">
+    <header className="kt-header-glass flex flex-none items-start gap-3 border-b border-slate-100 px-4 py-4 shadow-sm">
       <AppBackTab
         onBack={onBack}
         label={label}

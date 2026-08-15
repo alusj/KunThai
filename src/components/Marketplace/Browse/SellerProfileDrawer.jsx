@@ -981,7 +981,7 @@ export default function SellerProfileDrawer({
   return createPortal(
     <>
       <div className="fixed inset-0 z-[55] bg-black/40" onClick={onClose} />
-      <aside className="kt-page-fade-slide fixed inset-0 z-[999] flex h-dvh w-screen flex-col overflow-hidden bg-gray-50">
+      <aside className="kt-page-fade-slide kt-urmall-screen-panel fixed inset-0 z-[999] flex w-screen flex-col overflow-hidden bg-gray-50">
         <header className="flex h-16 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 shadow-sm">
           <AppBackTab onBack={onClose} label={t("urmall.detail.backToProduct")} historyKey="marketplace-seller-profile" />
           <div className="min-w-0">
@@ -990,7 +990,7 @@ export default function SellerProfileDrawer({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-5 lg:px-8">
+        <div className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 pt-4 sm:px-5 lg:px-8">
           <div className="mx-auto w-full max-w-5xl space-y-4 overflow-x-hidden">
             <section className="w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <button

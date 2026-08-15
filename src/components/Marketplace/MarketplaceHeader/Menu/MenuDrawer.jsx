@@ -1003,7 +1003,7 @@ export default function MenuDrawer({ open, onClose }) {
       <div
         aria-hidden={!open}
         inert={open ? undefined : "true"}
-        className={`kt-urmall-screen-panel fixed inset-0 z-[1200] flex h-dvh w-screen transform flex-col bg-white shadow-2xl ${
+        className={`kt-urmall-screen-panel fixed inset-0 z-[1200] flex w-screen transform flex-col overflow-hidden bg-white shadow-2xl ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -1020,7 +1020,7 @@ export default function MenuDrawer({ open, onClose }) {
               </div>
             </div>
 
-            <nav className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+            <nav className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 pt-4 sm:px-6 lg:px-8">
               <div className="grid gap-3 lg:grid-cols-2">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
@@ -1051,7 +1051,7 @@ export default function MenuDrawer({ open, onClose }) {
         </div>
 
         {visibleActive ? (
-          <SlidePanel action={activeAction} className="bg-gray-50">
+          <SlidePanel action={activeAction} className="kt-safe-screen bg-gray-50">
             <div className="kt-header-glass flex h-16 items-center gap-3 px-3 sm:px-4">
               <AppBackTab onBack={() => setActive(null)} label={t("urmall.menu.backToBuyerMenu")} historyKey="urmall-buyer-menu-item" useHistoryLayer={false} />
               <div className="min-w-0">
@@ -1059,7 +1059,7 @@ export default function MenuDrawer({ open, onClose }) {
                 <h3 className="truncate text-lg font-black text-gray-950">{activeTitle}</h3>
               </div>
             </div>
-            <section className="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4 sm:px-6 lg:px-8">
+            <section className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 pt-4 sm:px-6 lg:px-8">
               {renderActiveContent(visibleActive)}
             </section>
           </SlidePanel>

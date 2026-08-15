@@ -7,6 +7,7 @@ import {
   subscribeToExploreMessageActivity,
 } from "../../../../Backend/services/explore/messageService";
 import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
+import { useKeyboardAwareConversation } from "../../../../Backend/hooks/useKeyboardAwareConversation";
 import { useI18n } from "../../../../i18n";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
@@ -97,6 +98,11 @@ export default function ConversationScreen({ conversation, currentUserId, messag
     : "";
   const presenceLabel = usePeerPresence(conversation?.id, user.userId, onActivity);
   const typingIndicator = presenceLabel === "typing…" || presenceLabel === "recording voice…";
+  const keyboard = useKeyboardAwareConversation({
+    activeKey: conversation?.id || "",
+    itemCount: messages.length,
+    threadRef: messagesRef,
+  });
 
   function openPeerProfile() {
     if (!onViewProfile) return;
@@ -109,14 +115,8 @@ export default function ConversationScreen({ conversation, currentUserId, messag
     });
   }
 
-  useEffect(() => {
-    const node = messagesRef.current;
-    if (!node) return;
-    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
-  }, [messages.length]);
-
   return (
-    <section className="flex h-dvh min-w-0 flex-col overflow-hidden bg-white">
+    <section className="kt-conversation-screen flex min-w-0 flex-col bg-white" data-back-swipe-scope>
       <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
         <AppBackTab onBack={onBack} label={i18nText("ui.literals.k0050d622ebf2")} historyKey="explore-conversation" />
         <button
@@ -149,7 +149,7 @@ export default function ConversationScreen({ conversation, currentUserId, messag
         </button>
       </div>
 
-      <div ref={messagesRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
+      <div ref={messagesRef} className="kt-message-thread space-y-3 bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
         {!messages.length ? (
           <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center">
             <p className="text-sm font-black text-slate-950">{t("messages.startConversation")}</p>
@@ -171,7 +171,15 @@ export default function ConversationScreen({ conversation, currentUserId, messag
         ))}
       </div>
 
-      <MessageComposer onAction={onAction} onActivity={onActivity} onSend={onSend} />
+      <MessageComposer
+        focused={keyboard.focused}
+        onAction={onAction}
+        onActivity={onActivity}
+        onInputBlur={keyboard.handleInputBlur}
+        onInputFocus={keyboard.handleInputFocus}
+        onInputPointerDown={keyboard.handleInputPointerDown}
+        onSend={onSend}
+      />
     </section>
   );
 }

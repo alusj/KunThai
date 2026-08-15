@@ -1,43 +1,61 @@
 import { useCallback, useEffect, useRef } from "react";
 
+const browserBackLayers = new Set();
+let browserBackListening = false;
+let currentBrowserLayerKey = null;
+let nextBrowserLayerId = 1;
+
+function readLayerKey(state = window.history.state) {
+  return state?.kuntaiBackLayer || null;
+}
+
+function handleSharedPopState(event) {
+  const exitedLayerKey = currentBrowserLayerKey;
+  currentBrowserLayerKey = readLayerKey(event.state);
+  if (!exitedLayerKey || exitedLayerKey === currentBrowserLayerKey) return;
+
+  const exitedLayer = Array.from(browserBackLayers).find((entry) => entry.stateKey === exitedLayerKey);
+  if (!exitedLayer || exitedLayer.handled) return;
+  exitedLayer.handled = true;
+  exitedLayer.onBackRef.current?.();
+}
+
+function startBrowserBackCoordinator() {
+  if (browserBackListening || typeof window === "undefined") return;
+  browserBackListening = true;
+  currentBrowserLayerKey = readLayerKey();
+  window.addEventListener("popstate", handleSharedPopState);
+}
+
+function stopBrowserBackCoordinatorIfIdle() {
+  if (!browserBackListening || browserBackLayers.size) return;
+  browserBackListening = false;
+  currentBrowserLayerKey = null;
+  window.removeEventListener("popstate", handleSharedPopState);
+}
+
 export function useBrowserBack(active, onBack, key = "kuntai-layer") {
   const onBackRef = useRef(onBack);
   const stateKeyRef = useRef(null);
-  const handledRef = useRef(false);
+
+  onBackRef.current = onBack;
 
   useEffect(() => {
-    onBackRef.current = onBack;
-  }, [onBack]);
+    if (!active) return undefined;
 
-  useEffect(() => {
-    if (!active) {
-      return undefined;
-    }
-
-    const stateKey = `${key}-${Date.now()}`;
+    const stateKey = `${key}-${Date.now()}-${nextBrowserLayerId++}`;
     stateKeyRef.current = stateKey;
-    handledRef.current = false;
+    const entry = { handled: false, onBackRef, stateKey };
+    browserBackLayers.add(entry);
+    startBrowserBackCoordinator();
     window.history.pushState({ kuntaiBackLayer: stateKey }, "", window.location.href);
-
-    function handlePopState(event) {
-      if (event.state?.kuntaiBackLayer === stateKey) {
-        return;
-      }
-
-      if (handledRef.current) {
-        return;
-      }
-
-      handledRef.current = true;
-      onBackRef.current?.();
-    }
-
-    window.addEventListener("popstate", handlePopState);
+    currentBrowserLayerKey = stateKey;
     return () => {
-      window.removeEventListener("popstate", handlePopState);
+      browserBackLayers.delete(entry);
       if (stateKeyRef.current === stateKey) {
         stateKeyRef.current = null;
       }
+      stopBrowserBackCoordinatorIfIdle();
     };
   }, [active, key]);
 

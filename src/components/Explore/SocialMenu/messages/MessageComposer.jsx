@@ -29,7 +29,7 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function MessageComposer({ onAction, onActivity, onSend }) {
+export default function MessageComposer({ focused = false, onAction, onActivity, onInputBlur, onInputFocus, onInputPointerDown, onSend }) {
   const { t } = useI18n();
   const messageSettings = readExploreSettings().messages;
   const showTypingStatus = messageSettings.showTypingStatus !== false;
@@ -228,7 +228,11 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
   const canSend = Boolean(value.trim() || attachment) && !sending && !recording;
 
   return (
-    <form onSubmit={submit} className="relative border-t border-slate-200 bg-white p-3">
+    <form
+      onSubmit={submit}
+      className="kt-message-composer border-t border-slate-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
+      data-focused={focused ? "true" : "false"}
+    >
       {recording ? (
         <div className="mb-2 flex items-center justify-between rounded-2xl bg-rose-50 px-3 py-2 text-sm font-black text-rose-700">
           <span className="inline-flex items-center gap-2">
@@ -289,7 +293,7 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
         </div>
       ) : null}
 
-      <div className="flex items-center gap-2">
+      <div className="kt-message-composer-row flex items-center gap-2">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
       <button
         type="button"
@@ -302,8 +306,13 @@ export default function MessageComposer({ onAction, onActivity, onSend }) {
       <input
         value={value}
         onChange={(event) => updateValue(event.target.value)}
+        onPointerDown={onInputPointerDown}
+        onFocus={onInputFocus}
+        onBlur={onInputBlur}
         placeholder={t("messages.writeMessage")}
-        className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none"
+        enterKeyHint="send"
+        autoComplete="off"
+        className="h-11 min-w-0 flex-1 rounded-2xl border border-transparent bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-sky-300 focus:bg-white focus:ring-4 focus:ring-sky-100"
       />
       {allowVoiceNotes ? (
         <button

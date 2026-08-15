@@ -10,9 +10,11 @@ import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
 import { registerKunThaiServiceWorker } from "./Backend/services/pushService.js";
 import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
+import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
 
 registerKunThaiServiceWorker();
 initCountryConfig();
+installMobileViewportVariables();
 
 const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
 const PublicPolicyPage = lazy(() => import("./components/public/PublicPolicyPage.jsx"));

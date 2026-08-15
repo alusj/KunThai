@@ -23,7 +23,7 @@ export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = 
 
   return (
     // bg-white/[0.52] (not /50) dodges the dark-mode compat layer's !important remap so the dark: variants can win.
-    <div className="border-y border-white/70 bg-white/[0.52] px-2 py-2 shadow-sm backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40 dark:border-slate-800/80 dark:bg-slate-950/70 dark:supports-[backdrop-filter]:bg-slate-950/60">
+    <div className="kt-safe-inline border-y border-white/70 bg-white/[0.52] py-2 shadow-sm backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40 dark:border-slate-800/80 dark:bg-slate-950/70 dark:supports-[backdrop-filter]:bg-slate-950/60">
       <div
         className={`relative grid w-full grid-cols-3 gap-1 rounded-[24px] border border-white/80 bg-white/55 p-1 ring-1 ring-slate-950/5 dark:border-slate-700/60 dark:bg-slate-900/70 dark:ring-white/10 ${
           slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"

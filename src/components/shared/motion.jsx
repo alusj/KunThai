@@ -38,11 +38,11 @@ export function StepScrollTransition({ children, className = "", direction = "fo
   );
 }
 
-export function ScreenSlideTransition({ children, className = "", direction = "forward", screenKey, style }) {
+export function ScreenSlideTransition({ children, className = "", direction = "forward", screenKey, style, ...props }) {
   const slideClass = direction === "backward" ? "kt-screen-slide-backward" : "kt-screen-slide-forward";
 
   return (
-    <div key={screenKey} className={`${slideClass} ${className}`} style={style}>
+    <div key={screenKey} className={`${slideClass} ${className}`} style={style} {...props}>
       {children}
     </div>
   );

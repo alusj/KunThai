@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { acquireGestureLock, suppressNavigationGestures } from "../../Backend/services/gestureArbitration";
+
 const DOUBLE_TAP_MS = 280;
 const DRAG_THRESHOLD_PX = 7;
 const SWIPE_THRESHOLD_PX = 48;
@@ -96,6 +98,12 @@ export default function useImageViewerGestures({
   useEffect(() => {
     resetTransform();
   }, [enabled, resetKey, resetTransform]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const releaseLock = acquireGestureLock("image-viewer");
+    return () => releaseLock({ suppressMs: 380 });
+  }, [enabled]);
 
   useEffect(() => () => window.clearTimeout(singleTapTimerRef.current), []);
 
@@ -248,7 +256,6 @@ export default function useImageViewerGestures({
   }, [constrainPan, dismissible, maxScale, updateDrag, updatePan, updateScale]);
 
   const handlePointerUp = useCallback((event) => {
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
     const wasPinching = Boolean(pinchRef.current);
     pointersRef.current.delete(event.pointerId);
 
@@ -321,7 +328,10 @@ export default function useImageViewerGestures({
       onSwipeRef.current(deltaX > 0 ? -1 : 1);
       return;
     }
-    if (gesture.moved) return;
+    if (gesture.moved) {
+      suppressNavigationGestures(320);
+      return;
+    }
 
     const now = Date.now();
     if (lastTapRef.current && now - lastTapRef.current <= DOUBLE_TAP_MS) {
@@ -342,12 +352,25 @@ export default function useImageViewerGestures({
   }, [beginPinch, constrainPan, dismissible, tapToClose, toggleZoomAt, updateDrag, updatePan, updateScale]);
 
   const handlePointerCancel = useCallback((event) => {
-    pointersRef.current.delete(event?.pointerId);
-    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (event?.pointerId != null && !pointersRef.current.has(event.pointerId)) return;
+    const viewport = viewportRef.current;
+    const pointerIds = [...pointersRef.current.keys()];
+    pointersRef.current.clear();
+    for (const pointerId of pointerIds) {
+      if (viewport?.hasPointerCapture?.(pointerId)) viewport.releasePointerCapture?.(pointerId);
+    }
+    pinchRef.current = null;
     gestureRef.current = null;
     setIsDragging(false);
     if (dismissible) updateDrag({ x: 0, y: 0 });
-  }, [dismissible, updateDrag]);
+    if (scaleRef.current <= 1) {
+      updateScale(1);
+      updatePan({ x: 0, y: 0 });
+    } else {
+      updatePan(constrainPan(panRef.current));
+    }
+    suppressNavigationGestures(380);
+  }, [constrainPan, dismissible, updateDrag, updatePan, updateScale]);
 
   const handleWheel = useCallback((event) => {
     if (!enabled) return;
@@ -372,6 +395,7 @@ export default function useImageViewerGestures({
     stageHandlers: {
       onPointerCancel: handlePointerCancel,
       onPointerDown: handlePointerDown,
+      onLostPointerCapture: handlePointerCancel,
       onPointerMove: handlePointerMove,
       onPointerUp: handlePointerUp,
       onWheel: handleWheel,

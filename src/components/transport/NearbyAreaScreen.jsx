@@ -875,6 +875,7 @@ function buildTrafficIntelligence({ snapshots = [], reports = [], operators = []
 
 
 export default function NearbyAreaScreen({
+  active = true,
   onBack,
   onDone,
   onLocationPicked,
@@ -887,7 +888,7 @@ export default function NearbyAreaScreen({
   backLabel = "Back to transport",
 }) {
   useI18n();
-  const [initialAreaCache] = useState(readAreaViewCache);
+  const [initialAreaCache] = useState(() => readAreaViewCache({ allowStale: !getNetworkStatus().online }));
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);
@@ -1238,7 +1239,7 @@ export default function NearbyAreaScreen({
   // weak, and confirms when it recovers. Only meaningful transitions toast, so
   // the card is not spammed while the connection stays steady.
   useEffect(() => {
-    if (isSpecialMode) return undefined;
+    if (!active || isSpecialMode) return undefined;
 
     // While Area View is mounted, its contextual toasts replace the global
     // App-shell network toast so the traveller never sees both at once.
@@ -1284,7 +1285,7 @@ export default function NearbyAreaScreen({
       unsubscribe();
       releaseGlobalSuppression();
     };
-  }, [isSpecialMode]);
+  }, [active, isSpecialMode]);
 
   useEffect(() => {
     if (!isBusinessLocationPicker) return;
@@ -1572,6 +1573,7 @@ export default function NearbyAreaScreen({
   }, [autoRoute, initialDestination, initialDestinationKey, mapInstance]);
 
   useEffect(() => {
+    if (!active) return undefined;
     let mounted = true;
 
     async function loadLiveAreaData() {
@@ -1583,10 +1585,13 @@ export default function NearbyAreaScreen({
         radiusKm: LIVE_AREA_RADIUS_KM,
         countryIso: getActiveCountryProfile().iso2,
       };
-      let results = null;
+      if (!getNetworkStatus().online) {
+        weatherPositionRef.current = initialWeatherPosition;
+        liveAreaPositionRef.current = initialWeatherPosition;
+        return;
+      }
 
-      try {
-        results = await Promise.all([
+      const results = await Promise.allSettled([
           getApprovedNearbyLocations(areaOptions),
           getActiveTransportOperators(areaOptions),
           getActiveAreaReports(areaOptions),
@@ -1595,19 +1600,23 @@ export default function NearbyAreaScreen({
           getWeatherCacheNearArea(initialWeatherPosition),
           getMyNearbyAreaLocationReviews(),
         ]);
-      } catch {
-        results = [[], [], [], [], [], null, []];
-      }
 
       if (!mounted) return;
-      const [locations, operators, reports, traffic, history, weather, reviews] = results;
-      setLiveLocations(locations);
-      publishLiveOperators(operators);
-      setLiveReports(reports);
-      setTrafficSnapshots(traffic);
-      setRecentSearches(history);
-      setWeatherCache(weather);
-      publishLocationReviewNotices(reviews);
+      const fulfilled = (index) => results[index]?.status === "fulfilled" ? results[index].value : undefined;
+      const locations = fulfilled(0);
+      const operators = fulfilled(1);
+      const reports = fulfilled(2);
+      const traffic = fulfilled(3);
+      const history = fulfilled(4);
+      const weather = fulfilled(5);
+      const reviews = fulfilled(6);
+      if (Array.isArray(locations)) setLiveLocations(locations);
+      if (operators !== undefined) publishLiveOperators(operators);
+      if (Array.isArray(reports)) setLiveReports(reports);
+      if (Array.isArray(traffic)) setTrafficSnapshots(traffic);
+      if (Array.isArray(history)) setRecentSearches(history);
+      if (weather !== undefined) setWeatherCache(weather);
+      if (Array.isArray(reviews)) publishLocationReviewNotices(reviews);
       weatherPositionRef.current = initialWeatherPosition;
       liveAreaPositionRef.current = initialWeatherPosition;
       lastLiveAreaRefreshAtRef.current = Date.now();
@@ -1637,20 +1646,23 @@ export default function NearbyAreaScreen({
       unsubscribe?.();
       unsubscribeReviews?.();
     };
-  }, [publishLiveOperators, publishLocationReviewNotices]);
+  }, [active, publishLiveOperators, publishLocationReviewNotices]);
 
   useEffect(() => {
+    if (!active) return undefined;
     const expiryTimer = window.setInterval(() => {
       setLiveReports((items) => items.filter((item) => isFutureOrMissing(item.expiresAt)));
       setTrafficSnapshots((items) => items.filter((item) => isFutureOrMissing(item.expiresAt)));
     }, 60000);
 
     return () => window.clearInterval(expiryTimer);
-  }, []);
+  }, [active]);
 
   useEffect(() => {
+    if (!active) return undefined;
     const nextPosition = normalizePosition(mapCenter);
     if (!nextPosition) return;
+    if (!getNetworkStatus().online) return undefined;
 
     const previousWeatherPosition = weatherPositionRef.current;
     const movedMeters = distanceInMeters(previousWeatherPosition, nextPosition);
@@ -1713,7 +1725,7 @@ export default function NearbyAreaScreen({
         weatherRefreshTimerRef.current = null;
       }
     };
-  }, [mapCenter, publishLiveOperators]);
+  }, [active, mapCenter, publishLiveOperators]);
 
   useEffect(() => {
     const requestId = searchRequestRef.current + 1;
@@ -2199,9 +2211,10 @@ export default function NearbyAreaScreen({
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <section className="relative min-h-screen overflow-hidden">
+    <div className="kt-mobile-screen kt-safe-screen overflow-hidden bg-slate-950 text-white" data-back-swipe-scope>
+      <section className="relative h-full overflow-hidden">
         <NearbyAreaMap
+          active={active}
           onLocationResolved={handleMapLocationResolved}
           onMapReady={setMapInstance}
           selectedLocation={isSpecialMode ? null : selectedSearchLocation}

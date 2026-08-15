@@ -582,6 +582,10 @@ async function applyClientProductScopes(products, filters = {}) {
 // session, but the UI re-fetches it on every tab switch and re-mount. A short cache
 // lets those repeats reuse one download instead of re-pulling the product list.
 const BUYER_DISCOVERY_TTL_MS = 30000;
+const PROMOTED_DISCOVERY_STORAGE_PREFIX = "kunthai.urmall.promoted.v2";
+const PROMOTED_DISCOVERY_FRESH_MS = 30 * 60 * 1000;
+const PROMOTED_DISCOVERY_OFFLINE_MAX_MS = 7 * 24 * 60 * 60 * 1000;
+const PROMOTED_DISCOVERY_MEMORY = new Map();
 
 function stableKey(value) {
   try {
@@ -589,6 +593,50 @@ function stableKey(value) {
   } catch {
     return String(value);
   }
+}
+
+function promotedDiscoveryKey(limit = 12) {
+  const normalizedLimit = Math.max(1, Math.min(Number(limit) || 12, 24));
+  return `${PROMOTED_DISCOVERY_STORAGE_PREFIX}|${getActiveCountryProfile().iso2}|${normalizedLimit}`;
+}
+
+function rememberPromotedMarketplaceProducts(limit, products) {
+  const key = promotedDiscoveryKey(limit);
+  const entry = {
+    products: Array.isArray(products) ? products : [],
+    savedAt: Date.now(),
+  };
+  PROMOTED_DISCOVERY_MEMORY.set(key, entry);
+  if (typeof localStorage === "undefined") return entry.products;
+  try {
+    localStorage.setItem(key, JSON.stringify(entry));
+  } catch {
+    // The in-memory copy still prevents a carousel delay during this session.
+  }
+  return entry.products;
+}
+
+// Synchronous stale-while-revalidate snapshot for the Sponsored carousel. The
+// component can paint this before Supabase responds, then refresh it in the
+// background. A longer stale window is accepted only while offline.
+export function readCachedPromotedMarketplaceProducts(limit = 12, options = {}) {
+  const key = promotedDiscoveryKey(limit);
+  let entry = PROMOTED_DISCOVERY_MEMORY.get(key) || null;
+  if (!entry && typeof localStorage !== "undefined") {
+    try {
+      entry = JSON.parse(localStorage.getItem(key) || "null");
+      if (entry) PROMOTED_DISCOVERY_MEMORY.set(key, entry);
+    } catch {
+      entry = null;
+    }
+  }
+
+  if (!entry || !Array.isArray(entry.products)) return [];
+  const age = Date.now() - Number(entry.savedAt || 0);
+  const offline = options.allowStale === true
+    || (typeof navigator !== "undefined" && navigator.onLine === false);
+  const maxAge = offline ? PROMOTED_DISCOVERY_OFFLINE_MAX_MS : PROMOTED_DISCOVERY_FRESH_MS;
+  return age >= 0 && age <= maxAge ? entry.products.slice(0, limit) : [];
 }
 
 export async function fetchBuyerMarketplaceProducts(filters = {}) {
@@ -668,12 +716,14 @@ async function loadBuyerMarketplaceProducts(filters = {}) {
 
 // Active promotion rows power the advert slider. When a boost ends, the product
 // leaves this surface even if an older product flag is still true.
-export async function fetchPromotedMarketplaceProducts(limit = 12) {
-  return cachedQuery(
+export async function fetchPromotedMarketplaceProducts(limit = 12, options = {}) {
+  const products = await cachedQuery(
     `marketplace-promoted|${getActiveCountryProfile().iso2}|${limit}`,
     () => loadAllPromotedListings(limit),
     BUYER_DISCOVERY_TTL_MS,
+    { force: options.force === true },
   );
+  return rememberPromotedMarketplaceProducts(limit, products);
 }
 
 // The Sponsored slider now carries retail products AND promoted meals /

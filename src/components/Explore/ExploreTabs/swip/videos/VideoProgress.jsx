@@ -20,7 +20,7 @@ export default function VideoProgress({ currentTime = 0, duration = 15, onSeek }
   }
 
   return (
-    <div className="absolute inset-x-0 bottom-0 z-30 px-4 pb-2 text-white sm:px-5" onClick={stopVideoToggle}>
+    <div className="absolute inset-x-0 bottom-0 z-30 px-4 pb-[calc(var(--kt-safe-area-bottom)+0.5rem)] text-white sm:px-5" onClick={stopVideoToggle} data-gesture-lock="video-scrubber">
       <div className="mb-1 flex items-center justify-between text-[11px] font-black tabular-nums text-white/90 drop-shadow">
         <span>{formatTime(safeCurrent)}</span>
         <span>{formatTime(safeDuration)}</span>
@@ -49,7 +49,7 @@ export default function VideoProgress({ currentTime = 0, duration = 15, onSeek }
         onTouchEnd={stopVideoToggle}
         onTouchMove={stopVideoToggle}
         onTouchStart={stopVideoToggle}
-        className="absolute inset-x-4 bottom-0 h-8 cursor-pointer touch-none appearance-none bg-transparent opacity-0 sm:inset-x-5"
+        className="absolute inset-x-4 bottom-[var(--kt-safe-area-bottom)] h-8 cursor-pointer touch-none appearance-none bg-transparent opacity-0 sm:inset-x-5"
       />
     </div>
   );

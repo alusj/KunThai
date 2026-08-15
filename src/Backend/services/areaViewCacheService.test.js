@@ -65,3 +65,23 @@ test("Area View ignores stale position and live-area data", () => {
 
   delete globalThis.localStorage;
 });
+
+test("Area View can restore recent offline data after the live freshness window", () => {
+  globalThis.localStorage = createStorage();
+  const savedAt = Date.now() - (10 * 60 * 1000);
+  globalThis.localStorage.setItem("kunthai.areaView.cache.v2", JSON.stringify({
+    position: { lat: 8.484, lng: -13.234 },
+    positionSavedAt: savedAt,
+    locations: [{ id: "offline-location" }],
+    operators: [{ id: "offline-operator" }],
+    dataSavedAt: savedAt,
+  }));
+
+  const cache = readAreaViewCache({ allowStale: true });
+  assert.equal(cache.position.lat, 8.484);
+  assert.equal(cache.locations[0].id, "offline-location");
+  assert.equal(cache.operators[0].id, "offline-operator");
+  assert.equal(cache.stale, true);
+
+  delete globalThis.localStorage;
+});

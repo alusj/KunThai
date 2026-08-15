@@ -9,8 +9,6 @@ import {
   ShoppingBag,
   Truck,
 } from "lucide-react";
-import { useState } from "react";
-
 import BusinessCatalog from "../../../../BusinessCatalog/BusinessCatalog";
 import ProductPromotionScreen from "../../../../BusinessCatalog/ProductPromotionScreen";
 import BusinessInsights from "../../../../BusinessInsights/BusinessInsights";
@@ -18,6 +16,8 @@ import BusinessPromotions from "../../../../BusinessPromotions/BusinessPromotion
 import BusinessStats from "../../../../BusinessStats/BusinessStats";
 import CustomerCare from "../../../../CustomerCare/CustomerCare";
 import { useI18n, t } from "../../../../../../../../i18n";
+import { useBrowserBack } from "../../../../../../../../Backend/hooks/useBrowserBack";
+import { useNavigationStack } from "../../../../../../../../Backend/hooks/useNavigationStack";
 import SellerArticlePage from "../SellerArticlePage";
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
 import SellerSubPagePanel from "../SellerSubPagePanel";
@@ -70,11 +70,23 @@ function SellerPolicyCenter({ onBack }) {
 
 export default function SellerBoard({ onBack }) {
   useI18n();
-  const [currentView, setCurrentView] = useState("menu");
-  const [promotionProduct, setPromotionProduct] = useState(null);
+  const boardNavigation = useNavigationStack("menu");
+  const currentView = boardNavigation.current.screen;
+  const promotionProduct = boardNavigation.current.state.promotionProduct || null;
+  const popBoardView = boardNavigation.pop;
+  const goBackBoardView = useBrowserBack(
+    boardNavigation.canPop,
+    popBoardView,
+    `marketplace-seller-board-${boardNavigation.entries.length}-${currentView}`,
+  );
+
+  function openBoardView(screen, state = {}) {
+    if (!screen || screen === currentView) return;
+    boardNavigation.push({ screen, state });
+  }
 
   return (
-    <div className="relative min-h-full bg-white">
+    <div className="relative min-h-full bg-white" data-back-swipe-scope>
       <SellerMenuPageHeader title={t("urmall.biz.menu.boardTitle")} onBack={onBack} />
       <div className="space-y-5 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-2xl border border-gray-200 bg-gray-950 p-5 text-white shadow-sm">
@@ -94,7 +106,7 @@ export default function SellerBoard({ onBack }) {
               icon={item.icon}
               title={t(`urmall.biz.board.items.${item.titleKey}`)}
               description={t(`urmall.biz.board.items.${item.descKey}`)}
-              onClick={() => setCurrentView(item.key)}
+              onClick={() => openBoardView(item.key)}
             />
           ))}
         </section>
@@ -102,29 +114,28 @@ export default function SellerBoard({ onBack }) {
 
       <SellerSubPagePanel currentView={currentView}>
         {(view) => {
-          if (view === "verification") return <VerificationCenter onBack={() => setCurrentView("menu")} />;
+          if (view === "verification") return <VerificationCenter onBack={goBackBoardView} />;
           if (view === "orders") {
             return (
-              <BoardShell title={t("urmall.biz.board.items.ordersT")} onBack={() => setCurrentView("menu")}>
+              <BoardShell title={t("urmall.biz.board.items.ordersT")} onBack={goBackBoardView}>
                 <BusinessStats initialView="orders" />
               </BoardShell>
             );
           }
           if (view === "messages") {
             return (
-              <BoardShell title={t("urmall.biz.board.items.messagesT")} onBack={() => setCurrentView("menu")}>
+              <BoardShell title={t("urmall.biz.board.items.messagesT")} onBack={goBackBoardView}>
                 <CustomerCare />
               </BoardShell>
             );
           }
           if (view === "products") {
             return (
-              <BoardShell title={t("urmall.biz.board.items.productsT")} onBack={() => setCurrentView("menu")}>
+              <BoardShell title={t("urmall.biz.board.items.productsT")} onBack={goBackBoardView}>
                 <BusinessCatalog
                   mode="store"
                   onPromoteProduct={(product) => {
-                    setPromotionProduct(product);
-                    setCurrentView("productPromotion");
+                    openBoardView("productPromotion", { promotionProduct: product });
                   }}
                 />
               </BoardShell>
@@ -132,33 +143,33 @@ export default function SellerBoard({ onBack }) {
           }
           if (view === "productPromotion") {
             return (
-              <BoardShell title={t("urmall.biz.cat.promote")} onBack={() => setCurrentView("products")}>
+              <BoardShell title={t("urmall.biz.cat.promote")} onBack={goBackBoardView}>
                 <div className="mx-auto max-w-3xl">
                   <ProductPromotionScreen
                     product={promotionProduct}
-                    onPromoted={() => setCurrentView("products")}
+                    onPromoted={goBackBoardView}
                   />
                 </div>
               </BoardShell>
             );
           }
-          if (view === "delivery") return <DeliverySettings onBack={() => setCurrentView("menu")} />;
+          if (view === "delivery") return <DeliverySettings onBack={goBackBoardView} />;
           if (view === "promotions") {
             return (
-              <BoardShell title={t("urmall.biz.board.items.promotionsT")} onBack={() => setCurrentView("menu")}>
+              <BoardShell title={t("urmall.biz.board.items.promotionsT")} onBack={goBackBoardView}>
                 <BusinessPromotions />
               </BoardShell>
             );
           }
           if (view === "performance") {
             return (
-              <BoardShell title={t("urmall.biz.board.items.performanceT")} onBack={() => setCurrentView("menu")}>
+              <BoardShell title={t("urmall.biz.board.items.performanceT")} onBack={goBackBoardView}>
                 <BusinessInsights />
               </BoardShell>
             );
           }
-          if (view === "reports") return <DisputesReports onBack={() => setCurrentView("menu")} />;
-          if (view === "policy") return <SellerPolicyCenter onBack={() => setCurrentView("menu")} />;
+          if (view === "reports") return <DisputesReports onBack={goBackBoardView} />;
+          if (view === "policy") return <SellerPolicyCenter onBack={goBackBoardView} />;
           return null;
         }}
       </SellerSubPagePanel>

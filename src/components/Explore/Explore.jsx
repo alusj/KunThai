@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 //import { useAuth } from "../../Backend/hooks/useAuth";
 import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
+import { canStartNavigationGesture, navigationGesturesLocked } from "../../Backend/services/gestureArbitration";
 import { useExploreNavigation } from "../../Backend/hooks/useExploreNavigation";
 import { useScrollHidden } from "../../Backend/hooks/useScrollHidden";
 import {
@@ -171,6 +172,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, {
     edgeWidth: Math.min(280, Math.max(160, Math.round(window.innerWidth * 0.45))),
     minDistance: 58,
+    minFlingDistance: 58,
     maxVerticalDrift: 92,
   });
 
@@ -1061,14 +1063,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       return;
     }
 
-    const target = event.target;
-    if (
-      target?.closest?.("input, textarea, select, [contenteditable='true']") ||
-      target?.closest?.(".overflow-x-auto, .overflow-x-scroll") ||
-      // Elements that own their own horizontal swipe (e.g. the suggested-accounts
-      // carousel) must not drag the whole Explore tab strip.
-      target?.closest?.("[data-suppress-tab-swipe]")
-    ) {
+    // Inputs, horizontal scrollers, media controls, maps, and explicitly locked
+    // surfaces own their gesture from touch-down through release.
+    if (!canStartNavigationGesture(event.target)) {
       exploreGestureRef.current = null;
       return;
     }
@@ -1092,7 +1089,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
   function handleExploreTouchMove(event) {
     const gesture = exploreGestureRef.current;
-    if (!gesture || event.touches.length !== 1) {
+    if (!gesture || event.touches.length !== 1 || navigationGesturesLocked()) {
+      if (navigationGesturesLocked()) cancelHorizontalDrag();
       return;
     }
 
@@ -1132,7 +1130,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     const gesture = exploreGestureRef.current;
     exploreGestureRef.current = null;
 
-    if (!gesture || gesture.axis !== "x" || !gesture.mode) {
+    if (!gesture || navigationGesturesLocked() || gesture.axis !== "x" || !gesture.mode) {
       return;
     }
 
@@ -1441,7 +1439,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         <section
           key={`${screenKey}-${index}`}
           aria-hidden={!active || exiting}
-          className={`kt-urmall-screen-panel absolute inset-0 flex h-full w-full transform flex-col bg-slate-100 shadow-2xl ${
+          className={`kt-urmall-screen-panel kt-explore-screen-panel absolute inset-0 flex w-full transform flex-col bg-slate-100 shadow-2xl ${
             placementClass
           } ${motionClass} ${active && !exiting ? "pointer-events-auto" : "pointer-events-none"}`}
           style={{ zIndex: index + 1 }}
@@ -1453,7 +1451,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
               onBack={active || exiting ? (active ? goBackFullScreen : () => {}) : undefined}
             />
           )}
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className={`relative min-h-0 flex-1 ${screenKey === "Messages" ? "overflow-hidden" : "overflow-y-auto"}`}>
             {renderMenuScreen(screenKey)}
           </div>
         </section>
@@ -1464,7 +1462,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   return (
     <>
     <div
-      className={`block min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
+      className={`kt-mobile-viewport block w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
       style={{ "--explore-top-chrome-height": `${topChromeHeight}px` }}
       onTouchStart={handleExploreTouchStart}
       onTouchMove={handleExploreTouchMove}
@@ -1478,7 +1476,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       ========================= */}
       <div
         ref={topChromeRef}
-        className={`sticky top-0 z-30 overflow-hidden bg-slate-100/95 backdrop-blur transition-[max-height,opacity,transform] duration-300 ease-out ${
+        className={`sticky top-0 z-30 overflow-hidden bg-slate-100/95 backdrop-blur transition-[max-height,opacity,transform] duration-300 ease-out ${isSwipTab ? "pt-[var(--kt-safe-area-top)]" : ""} ${
           navHidden ? "max-h-0 -translate-y-2 opacity-0 pointer-events-none" : "max-h-56 translate-y-0 opacity-100"
         }`}
       >
@@ -1606,7 +1604,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     {menuOverlayVisible ? (
       <div
         ref={fullScreenSwipeRef}
-        className="fixed inset-0 z-[80] h-screen min-h-screen w-full max-w-full touch-pan-y overscroll-x-none overflow-hidden bg-transparent kuntai-safe-bottom"
+        data-local-back-swipe="true"
+        className={`kt-mobile-screen fixed inset-0 z-[80] w-full max-w-full touch-pan-y overscroll-x-none overflow-hidden bg-transparent ${
+          messageConversationActive ? "" : "kuntai-safe-bottom"
+        }`}
       >
         {renderMenuStack()}
       </div>

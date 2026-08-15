@@ -43,10 +43,10 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
   }
 
   return (
-    <div>
-      {!hideHeader ? <SocialScreenHeader title={t("messages.headerTitle")} subtitle={t("messages.headerSubtitle")} /> : null}
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {!hideHeader ? <div className="shrink-0"><SocialScreenHeader title={t("messages.headerTitle")} subtitle={t("messages.headerSubtitle")} /></div> : null}
 
-      <div className="w-full space-y-4 px-4 py-4 sm:px-5">
+      <div className="min-h-0 w-full flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
         <MessageTabs
           active={tab}
           requestCount={messages.requests.length}

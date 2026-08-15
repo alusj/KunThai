@@ -113,6 +113,7 @@ export default function AdvertComposerFields({
   const availableCredits = Number(credits.balance || 0);
   const hasEnoughCredits = availableCredits >= selectedCredits;
   const balanceAfterSpend = Math.max(0, availableCredits - selectedCredits);
+  const campaignDurationDays = getAdvertDurationDays(advert);
 
   useLayoutEffect(() => {
     rootRef.current?.closest("[data-explore-composer-scroll]")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -188,6 +189,15 @@ export default function AdvertComposerFields({
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
           <div className="h-full rounded-full bg-sky-600 transition-all" style={{ width: `${step * 20}%` }} />
         </div>
+
+        <CampaignBudgetStrip
+          availableCredits={availableCredits}
+          balanceAfterSpend={balanceAfterSpend}
+          creditLoading={credits.loading}
+          durationDays={campaignDurationDays}
+          hasEnoughCredits={hasEnoughCredits}
+          selectedCredits={selectedCredits}
+        />
 
         <div className="mt-5">
           {step === 1 ? (
@@ -289,13 +299,12 @@ export default function AdvertComposerFields({
             <VisibilityCreditSelector
               advert={advert}
               availableCredits={availableCredits}
-              balanceAfterSpend={balanceAfterSpend}
               creditFeedback={creditFeedback || credits.error}
-              creditLoading={credits.loading}
               hasEnoughCredits={hasEnoughCredits}
               onChange={onChange}
               onShare={handleShareCredits}
               selectedCredits={selectedCredits}
+              durationDays={campaignDurationDays}
             />
           ) : null}
         </div>
@@ -316,7 +325,12 @@ export default function AdvertComposerFields({
     <div ref={rootRef}>
     <CreativeFields
       advert={advert}
+      availableCredits={availableCredits}
+      balanceAfterSpend={balanceAfterSpend}
+      creditLoading={credits.loading}
+      durationDays={campaignDurationDays}
       hasImage={hasImage}
+      hasEnoughCredits={hasEnoughCredits}
       hasVideo={hasVideo}
       onChange={onChange}
       onEditCampaign={() => {
@@ -325,12 +339,27 @@ export default function AdvertComposerFields({
       }}
       onPickLocation={onPickLocation}
       onSelectMedia={onSelectMedia}
+      selectedCredits={selectedCredits}
     />
     </div>
   );
 }
 
-function CreativeFields({ advert, hasImage, hasVideo, onChange, onEditCampaign, onPickLocation, onSelectMedia }) {
+function CreativeFields({
+  advert,
+  availableCredits,
+  balanceAfterSpend,
+  creditLoading,
+  durationDays,
+  hasImage,
+  hasEnoughCredits,
+  hasVideo,
+  onChange,
+  onEditCampaign,
+  onPickLocation,
+  onSelectMedia,
+  selectedCredits,
+}) {
   const hasLocation = hasAdvertCoordinates(advert);
   const enteredAddress = String(advert.address || "").trim();
   const addressValidation = useAddressAreaValidation(enteredAddress, {
@@ -364,6 +393,32 @@ function CreativeFields({ advert, hasImage, hasVideo, onChange, onEditCampaign, 
           </span>
           <button type="button" onClick={onEditCampaign} className="rounded-full bg-white px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100">{i18nText("ui.literals.k72d2c5fecf4c")}</button>
         </div>
+      </div>
+
+      <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{uiText("Campaign review")}</p>
+            <p className="mt-1 text-sm font-black text-slate-950">{uiText("Ready for creative and final publishing")}</p>
+          </div>
+          <span className={`rounded-full px-3 py-1.5 text-[11px] font-black ${hasEnoughCredits ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
+            {hasEnoughCredits ? uiText("Funded") : uiText("Needs credits")}
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <CampaignDetail label={uiText("Placement")} value={formatPlacement(advert.placement)} />
+          <CampaignDetail label={uiText("Objective")} value={formatObjective(advert.objective)} />
+          <CampaignDetail label={uiText("Audience")} value={formatAudience(advert.audienceType)} />
+          <CampaignDetail label={uiText("Schedule")} value={formatDuration(advert)} />
+        </div>
+        <CampaignBudgetStrip
+          availableCredits={availableCredits}
+          balanceAfterSpend={balanceAfterSpend}
+          creditLoading={creditLoading}
+          durationDays={durationDays}
+          hasEnoughCredits={hasEnoughCredits}
+          selectedCredits={selectedCredits}
+        />
       </div>
 
       <label className="block">
@@ -443,13 +498,12 @@ function CreativeFields({ advert, hasImage, hasVideo, onChange, onEditCampaign, 
 function VisibilityCreditSelector({
   advert,
   availableCredits,
-  balanceAfterSpend,
   creditFeedback,
-  creditLoading,
   hasEnoughCredits,
   onChange,
   onShare,
   selectedCredits,
+  durationDays,
 }) {
   const selectedPackage = advert.creditPackage || (
     VISIBILITY_BOOST_PACKAGES.find((item) => item.id !== "custom" && item.credits === selectedCredits)?.id || "custom"
@@ -470,11 +524,11 @@ function VisibilityCreditSelector({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[22px] border border-sky-100 bg-white p-4">
+      <div className="rounded-[22px] border border-sky-100 bg-white p-4 shadow-sm shadow-sky-950/5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Visibility Credits</p>
-            <p className="mt-1 text-2xl font-black text-slate-950">{creditLoading ? "..." : availableCredits}</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">{uiText("Campaign funding")}</p>
+            <p className="mt-1 text-lg font-black text-slate-950">{uiText("Choose your delivery strength")}</p>
           </div>
           <button
             type="button"
@@ -541,13 +595,18 @@ function VisibilityCreditSelector({
       ) : null}
 
       <div className={`rounded-[22px] border p-3 ${hasEnoughCredits ? "border-emerald-100 bg-emerald-50/70" : "border-amber-200 bg-amber-50"}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-black">
-          <span className={hasEnoughCredits ? "text-emerald-800" : "text-amber-900"}>
-            {i18nText("ui.literals.k4302223c8ce6")} {selectedCredits} {i18nText("ui.literals.k66c22fad3a99")}
-          </span>
-          <span className={hasEnoughCredits ? "text-emerald-800" : "text-amber-900"}>
-            {i18nText("ui.literals.k255d39f8177d")} {hasEnoughCredits ? balanceAfterSpend : availableCredits}
-          </span>
+        <div className="flex items-start gap-3">
+          <ShieldCheck size={19} className={`mt-0.5 flex-none ${hasEnoughCredits ? "text-emerald-700" : "text-amber-800"}`} />
+          <div>
+            <p className={`text-sm font-black ${hasEnoughCredits ? "text-emerald-800" : "text-amber-900"}`}>
+              {hasEnoughCredits ? uiText("Protected launch budget") : uiText("More credits required")}
+            </p>
+            <p className={`mt-1 text-xs font-bold leading-5 ${hasEnoughCredits ? "text-emerald-800/80" : "text-amber-900"}`}>
+              {hasEnoughCredits
+                ? `${selectedCredits} ${uiText("credits will be deducted by the campaign service only when this advert launches. Estimated pace: ")}${formatCreditPace(selectedCredits, durationDays)}.`
+                : `${uiText("Available balance")}: ${availableCredits}. ${uiText("Required for this campaign")}: ${selectedCredits}.`}
+            </p>
+          </div>
         </div>
         {!hasEnoughCredits ? (
           <p className="mt-2 text-xs font-bold leading-5 text-amber-900">
@@ -557,6 +616,55 @@ function VisibilityCreditSelector({
       </div>
 
       {creditFeedback ? <p className="text-xs font-black text-sky-700">{creditFeedback}</p> : null}
+    </div>
+  );
+}
+
+function CampaignBudgetStrip({
+  availableCredits,
+  balanceAfterSpend,
+  creditLoading,
+  durationDays,
+  hasEnoughCredits,
+  selectedCredits,
+}) {
+  const metrics = [
+    { label: uiText("Available now"), value: creditLoading ? "…" : availableCredits, tone: "text-sky-700" },
+    { label: uiText("Campaign spend"), value: selectedCredits, tone: "text-slate-950" },
+    {
+      label: uiText("Remaining after launch"),
+      value: creditLoading ? "…" : hasEnoughCredits ? balanceAfterSpend : availableCredits,
+      tone: hasEnoughCredits ? "text-emerald-700" : "text-amber-700",
+    },
+  ];
+
+  return (
+    <div className="mt-4 rounded-[22px] border border-slate-200 bg-slate-50/90 p-3">
+      <div className="grid grid-cols-3 divide-x divide-slate-200">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="min-w-0 px-2 first:pl-0 last:pr-0">
+            <p className="text-[9px] font-black uppercase leading-4 tracking-[0.08em] text-slate-500 sm:text-[10px]">{metric.label}</p>
+            <p className={`mt-1 text-xl font-black ${metric.tone}`}>{metric.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3 text-[11px] font-black">
+        <span className="inline-flex items-center gap-1.5 text-slate-600">
+          <CalendarClock size={14} /> {durationDays} {durationDays === 1 ? uiText("day") : uiText("days")}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-sky-700">
+          <Target size={14} /> {formatCreditPace(selectedCredits, durationDays)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CampaignDetail({ label, value }) {
+  return (
+    <div className="min-w-0 rounded-2xl bg-slate-50 px-3 py-2.5">
+      <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-xs font-black text-slate-800">{value}</p>
     </div>
   );
 }
@@ -605,4 +713,25 @@ function formatObjective(value) {
 function formatDuration(advert) {
   if (advert.durationPreset === "custom") return "Custom dates";
   return `${Number(advert.durationDays) || 14} days`;
+}
+
+function formatAudience(value) {
+  return uiText(AUDIENCES.find((item) => item.value === value)?.label || "Recommended Reach");
+}
+
+function getAdvertDurationDays(advert = {}) {
+  if (advert.durationPreset === "custom" && advert.customStart && advert.customEnd) {
+    const start = new Date(`${advert.customStart}T00:00:00`).getTime();
+    const end = new Date(`${advert.customEnd}T23:59:59`).getTime();
+    if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+      return Math.max(1, Math.ceil((end - start) / 86_400_000));
+    }
+  }
+  return Math.max(1, Number(advert.durationDays) || Number(advert.durationPreset) || 14);
+}
+
+function formatCreditPace(credits, durationDays) {
+  const pace = Number(credits || 0) / Math.max(1, Number(durationDays) || 1);
+  const formatted = pace >= 10 ? Math.round(pace) : pace.toFixed(1).replace(/\.0$/, "");
+  return `${formatted} ${uiText("credits/day")}`;
 }

@@ -65,6 +65,8 @@ import {
   getElapsedTripSeconds,
 } from "./live/liveTripMetricUtils";
 import { useI18n, t } from "../../i18n";
+import { useNavigationStack } from "../../Backend/hooks/useNavigationStack";
+import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { t as i18nText } from "../../i18n/index";
 
 function formatOperatorMoney(value, account = null) {
@@ -126,7 +128,8 @@ export default function OperatorDashboardScreen({
 }) {
   useI18n();
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
-  const [activeView, setActiveView] = useState(initialView);
+  const operatorNavigation = useNavigationStack("dashboard");
+  const activeView = operatorNavigation.current.screen;
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
   const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
@@ -139,7 +142,40 @@ export default function OperatorDashboardScreen({
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [controlsSaving, setControlsSaving] = useState(false);
   const [, setSeenVersion] = useState(0);
-  const form = account?.form || {};
+  const initialViewAppliedRef = useRef(false);
+  const popDashboardView = operatorNavigation.pop;
+  const pushDashboardView = operatorNavigation.push;
+  const navigateBackDashboardView = useBrowserBack(
+    operatorNavigation.canPop,
+    popDashboardView,
+    `transport-operator-${operatorNavigation.entries.length}-${activeView}`,
+  );
+
+  useEffect(() => {
+    if (!initialViewAppliedRef.current && initialView && initialView !== "dashboard") {
+      initialViewAppliedRef.current = true;
+      pushDashboardView({ screen: initialView });
+    }
+  }, [initialView, pushDashboardView]);
+
+  function openDashboardView(view) {
+    if (!view || view === activeView) return;
+    operatorNavigation.push({ screen: view });
+  }
+
+  function resetDashboardView() {
+    operatorNavigation.reset("dashboard");
+  }
+
+  function goBackDashboardView() {
+    if (operatorNavigation.canPop) {
+      navigateBackDashboardView();
+      return;
+    }
+    onBack?.();
+  }
+
+  const form = useMemo(() => account?.form || {}, [account?.form]);
   const verificationStatus = account?.documentsSkipped
     ? "notVerified"
     : account?.verificationStatus || "pending";
@@ -458,16 +494,11 @@ export default function OperatorDashboardScreen({
   }
 
   function handleDashboardBack() {
-    if (activeView !== "dashboard") {
-      setActiveView("dashboard");
-      return;
-    }
-
-    onBack?.();
+    goBackDashboardView();
   }
 
   return (
-    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-gray-50">
+    <div className="kt-mobile-screen kt-safe-screen flex flex-col overflow-hidden bg-gray-50" data-back-swipe-scope>
       <header className="shrink-0 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4">
         <div className="flex w-full items-center gap-3">
           <AppBackTab
@@ -512,7 +543,7 @@ export default function OperatorDashboardScreen({
               type="button"
               aria-label={t("urride.opDash.waitingPassengersAria")}
               title={t("urride.opDash.waitingPassengersAria")}
-              onClick={() => setActiveView((view) => (view === "waiting" ? "dashboard" : "waiting"))}
+              onClick={() => activeView === "waiting" ? goBackDashboardView() : openDashboardView("waiting")}
               className={`relative h-10 w-10 rounded-full border flex items-center justify-center transition ${
                 activeView === "waiting"
                   ? "border-green-200 bg-green-100 text-green-700"
@@ -558,7 +589,7 @@ export default function OperatorDashboardScreen({
         </div>
       </header>
 
-      <main className="min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch]">
+      <main className="min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(var(--kt-safe-area-bottom)+1rem)] sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch]">
         {dashboardError && (
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
             {dashboardError}
@@ -579,7 +610,7 @@ export default function OperatorDashboardScreen({
             availabilityText={availabilityText}
             account={account}
             readOnly={dashboardReadOnly}
-            onBack={() => setActiveView("dashboard")}
+            onBack={goBackDashboardView}
             onUpdateTrip={handleTripStatusUpdate}
             onViewRoute={openPassengerTripRoute}
           />
@@ -587,7 +618,7 @@ export default function OperatorDashboardScreen({
           <TripHistoryScreen
             trips={tripHistory}
             fleetName={fleetName}
-            onBack={() => setActiveView("dashboard")}
+            onBack={goBackDashboardView}
           />
         ) : (
           <>
@@ -689,7 +720,7 @@ export default function OperatorDashboardScreen({
             isActive={isActive}
             loading={dashboardLoading}
             onRefresh={refreshDashboard}
-            onOpenWaiting={hasWaitingPassengers ? () => setActiveView("waiting") : undefined}
+            onOpenWaiting={hasWaitingPassengers ? () => openDashboardView("waiting") : undefined}
           />
           <OperationsContainer
             isActive={isActive}
@@ -721,8 +752,8 @@ export default function OperatorDashboardScreen({
           <OperatorToolsContainer
             hasWaitingPassengers={hasWaitingPassengers}
             readOnly={dashboardReadOnly}
-            onOpenWaiting={hasWaitingPassengers ? () => setActiveView("waiting") : undefined}
-            onOpenHistory={() => setActiveView("history")}
+            onOpenWaiting={hasWaitingPassengers ? () => openDashboardView("waiting") : undefined}
+            onOpenHistory={() => openDashboardView("history")}
           />
         </div>
           </>
@@ -752,11 +783,11 @@ export default function OperatorDashboardScreen({
           setSeenVersion((version) => version + 1);
         }}
         onOpenWaiting={hasWaitingPassengers ? () => {
-          setActiveView("waiting");
+          openDashboardView("waiting");
           setOperatorAlertsOpen(false);
         } : undefined}
         onOpenHistory={() => {
-          setActiveView("history");
+          openDashboardView("history");
           setOperatorAlertsOpen(false);
         }}
       />
@@ -780,15 +811,15 @@ export default function OperatorDashboardScreen({
         onClose={() => setOperatorMenuOpen(false)}
         onToggleAvailability={handleAvailabilityToggle}
         onOpenDashboard={() => {
-          setActiveView("dashboard");
+          resetDashboardView();
           setOperatorMenuOpen(false);
         }}
         onOpenWaiting={() => {
-          setActiveView("waiting");
+          openDashboardView("waiting");
           setOperatorMenuOpen(false);
         }}
         onOpenHistory={() => {
-          setActiveView("history");
+          openDashboardView("history");
           setOperatorMenuOpen(false);
         }}
         onShowVerification={() => {
@@ -1476,7 +1507,7 @@ function OperatorAlertsDrawer({
   if (!rendered) return null;
 
   return (
-    <div className={`fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <div className={`kt-mobile-screen fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label={t("urride.opDash.alertsCloseOverlay")}
@@ -1487,7 +1518,7 @@ function OperatorAlertsDrawer({
       />
 
       <section
-        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-dvh max-h-dvh w-full max-w-md flex-col overflow-hidden bg-white shadow-2xl ${
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex w-full max-w-md flex-col overflow-hidden bg-white shadow-2xl ${
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
@@ -1497,7 +1528,6 @@ function OperatorAlertsDrawer({
             label={t("urride.opDash.alertsBack")}
             historyKey="transport-operator-alerts"
             className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-            useHistoryLayer={false}
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-green-700">{t("urride.opDash.operatorAlerts")}</p>
@@ -1517,7 +1547,7 @@ function OperatorAlertsDrawer({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-gray-50 px-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-4 [-webkit-overflow-scrolling:touch]">
+        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-gray-50 px-4 pb-[calc(var(--kt-safe-area-bottom)+1rem)] pt-4 [-webkit-overflow-scrolling:touch]">
           <div className="space-y-3">
             {alerts.length ? alerts.map((alert) => (
               <article
@@ -2075,7 +2105,7 @@ function OperatorMenuDrawer({
   ].filter(Boolean);
 
   return (
-    <div className={`fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <div className={`kt-mobile-screen fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label={t("urride.opDash.menuCloseOverlay")}
@@ -2086,7 +2116,7 @@ function OperatorMenuDrawer({
       />
 
       <aside
-        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-dvh max-h-dvh w-full max-w-sm flex-col overflow-hidden bg-white shadow-2xl ${
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex w-full max-w-sm flex-col overflow-hidden bg-white shadow-2xl ${
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
@@ -2096,7 +2126,6 @@ function OperatorMenuDrawer({
             label={t("urride.opDash.menuBack")}
             historyKey="transport-operator-menu"
             className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-            useHistoryLayer={false}
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-green-700">{t("urride.opDash.menuEyebrow")}</p>
@@ -2107,7 +2136,7 @@ function OperatorMenuDrawer({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 touch-pan-y space-y-5 overflow-y-auto overscroll-contain px-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-5 [-webkit-overflow-scrolling:touch]">
+        <div className="min-h-0 flex-1 touch-pan-y space-y-5 overflow-y-auto overscroll-contain px-5 pb-[calc(var(--kt-safe-area-bottom)+1rem)] pt-5 [-webkit-overflow-scrolling:touch]">
           <section className="rounded-2xl border border-green-100 bg-green-50 p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
@@ -2215,7 +2244,7 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
   if (!rendered) return null;
 
   return (
-    <div className={`fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <div className={`kt-mobile-screen fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label={t("urride.opDash.deletionCloseOverlay")}
@@ -2226,7 +2255,7 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
       />
 
       <aside
-        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl ${
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex w-full max-w-md flex-col overflow-hidden bg-gray-50 shadow-2xl ${
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
@@ -2237,7 +2266,6 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
               label={t("urride.opDash.deletionBack")}
               historyKey="transport-operator-account-deletion"
               className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-              useHistoryLayer={false}
             />
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-rose-700">{t("urride.opDash.deletionEyebrow")}</p>
@@ -2249,7 +2277,7 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto px-5 pt-5">
           <RequestAccountDeletionPage />
         </div>
       </aside>
@@ -2278,7 +2306,7 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
   if (!rendered) return null;
 
   return (
-    <div className={`fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <div className={`kt-mobile-screen fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label={t("urride.opDash.safetyCloseOverlay")}
@@ -2289,7 +2317,7 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
       />
 
       <aside
-        className={`kt-urmall-screen-panel absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl ${
+        className={`kt-urmall-screen-panel absolute right-0 top-0 flex w-full max-w-md flex-col overflow-hidden bg-gray-50 shadow-2xl ${
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
@@ -2300,7 +2328,6 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
               label={t("urride.opDash.safetyBack")}
               historyKey="transport-operator-safety"
               className="shrink-0 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-              useHistoryLayer={false}
             />
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-red-700">{t("urride.opDash.safetyEyebrow")}</p>
@@ -2312,7 +2339,7 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto px-5 pt-5">
           <section className="rounded-3xl border border-red-100 bg-red-50 p-4">
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-red-700 shadow-sm">

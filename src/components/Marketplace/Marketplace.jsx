@@ -267,7 +267,7 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
 
   if (nav.sub === "business") {
     return (
-      <div className={`${businessClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} min-h-screen`}>
+      <div className={`${businessClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} kt-mobile-viewport`}>
         <Business
           onBack={closeMyBiz}
         />
@@ -388,7 +388,7 @@ function UtilityScreen({ children, hideHeader = false, open, onClose, subtitle, 
       <aside
         aria-hidden={!open}
         inert={open ? undefined : "true"}
-        className={`kt-urmall-screen-panel fixed inset-0 z-[1200] flex h-dvh w-screen transform flex-col overflow-hidden bg-gray-50 shadow-2xl ${
+        className={`kt-urmall-screen-panel fixed inset-0 z-[1200] flex w-screen transform flex-col overflow-hidden bg-gray-50 shadow-2xl ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >

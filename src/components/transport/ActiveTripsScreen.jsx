@@ -166,7 +166,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="kt-mobile-viewport kt-safe-screen bg-gray-50" data-back-swipe-scope>
       <ScreenHeader
         refreshing={refreshing}
         onRefresh={() => loadTrips({ quiet: true })}

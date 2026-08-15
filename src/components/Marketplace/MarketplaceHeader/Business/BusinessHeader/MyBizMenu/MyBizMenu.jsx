@@ -21,6 +21,7 @@ import SellerDrawerProfile from "./SellerDrawerProfile";
 import SellerDrawerSection from "./SellerDrawerSection";
 import AppPortal from "../../../../../shared/AppPortal";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
+import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 
 import BusinessAdmins from "./MyBizPages/BusinessAdmins/BusinessAdmins";
 import BusinessSettings from "./MyBizPages/BusinessSettings/BusinessSettings";
@@ -84,12 +85,6 @@ export default function MyBizMenu({
   const [requestingDeletion, setRequestingDeletion] = useState(false);
   const menuTimerRef = useRef(null);
   const screenTimerRef = useRef(null);
-  const activeScreen = visibleScreenKey
-    ? getDrawerScreen(visibleScreenKey, {
-        profileInitialView,
-        onBack: closeActiveScreen,
-      })
-    : null;
 
   function clearMenuTimer() {
     if (menuTimerRef.current) {
@@ -129,6 +124,14 @@ export default function MyBizMenu({
     }, SELLER_MENU_ANIMATION_MS);
   }
 
+  function closeDrawer() {
+    setActiveScreenKey(null);
+    setVisibleScreenKey(null);
+    setScreenAction("idle");
+    setPanelOpen(false);
+    onClose();
+  }
+
   useEffect(() => {
     clearMenuTimer();
     clearScreenTimer();
@@ -166,16 +169,33 @@ export default function MyBizMenu({
 
   useBodyScrollLock(rendered);
 
+  const goBackActiveScreen = useBrowserBack(
+    Boolean(rendered && activeScreenKey),
+    closeActiveScreen,
+    `marketplace-business-menu-${activeScreenKey || "screen"}`,
+  );
+  const goBackDrawer = useBrowserBack(
+    Boolean(rendered && !activeScreenKey),
+    closeDrawer,
+    "marketplace-business-menu-root",
+  );
+  const activeScreen = visibleScreenKey
+    ? getDrawerScreen(visibleScreenKey, {
+        profileInitialView,
+        onBack: goBackActiveScreen,
+      })
+    : null;
+
   useEffect(() => {
     if (!rendered) return undefined;
 
     function handleKeyDown(event) {
       if (event.key !== "Escape") return;
       if (activeScreenKey) {
-        closeActiveScreen();
+        goBackActiveScreen();
         return;
       }
-      closeDrawer();
+      goBackDrawer();
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -196,14 +216,6 @@ export default function MyBizMenu({
 
   if (!rendered) return null;
 
-  function closeDrawer() {
-    setActiveScreenKey(null);
-    setVisibleScreenKey(null);
-    setScreenAction("idle");
-    setPanelOpen(false);
-    onClose();
-  }
-
   const activePanelClass = screenAction === "push"
     ? "kt-explore-stack-enter"
     : screenAction === "pop"
@@ -212,23 +224,23 @@ export default function MyBizMenu({
 
   return (
     <AppPortal>
-    <div className="fixed inset-0 z-[1200] overflow-hidden">
+    <div className="kt-mobile-screen fixed inset-0 z-[1200] overflow-hidden">
       <aside
         aria-hidden={!isOpen}
         inert={isOpen && panelOpen ? undefined : "true"}
-        className={`kt-urmall-screen-panel fixed inset-0 flex h-dvh w-screen flex-col bg-gray-50 shadow-2xl ${
+        className={`kt-urmall-screen-panel fixed inset-0 flex w-screen flex-col bg-gray-50 shadow-2xl ${
           panelOpen ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right"
         }`}
       >
         <MenuHeader
           title={t("urmall.biz.menu.sellerMenu")}
-          onBack={closeDrawer}
+          onBack={goBackDrawer}
         />
 
         <div
           aria-hidden={Boolean(activeScreen)}
           inert={activeScreen ? "true" : undefined}
-          className="min-h-0 flex-1 overflow-y-auto pb-6"
+          className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto"
         >
               <SellerDrawerProfile
                 onOpenProfile={() => openActiveScreen("profile")}
@@ -332,8 +344,8 @@ export default function MyBizMenu({
       </aside>
 
       {activeScreen ? (
-        <section className={`absolute inset-0 z-10 flex h-dvh w-screen flex-col bg-white shadow-2xl ${activePanelClass}`}>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+        <section className={`kt-urmall-screen-panel absolute inset-0 z-10 flex w-screen flex-col bg-white shadow-2xl ${activePanelClass}`} data-back-swipe-scope>
+          <div className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto">
             {activeScreen.component}
           </div>
         </section>

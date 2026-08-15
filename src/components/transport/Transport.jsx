@@ -78,6 +78,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   const [activeTripsOpen, setActiveTripsOpen] = useState(false);
   const [activeTripsActionRequest, setActiveTripsActionRequest] = useState(null);
   const [nearbyAreaOpen, setNearbyAreaOpen] = useState(false);
+  const [nearbyAreaMounted, setNearbyAreaMounted] = useState(false);
   const [nearbyAreaRequest, setNearbyAreaRequest] = useState(null);
   const [savedOperatorsOpen, setSavedOperatorsOpen] = useState(false);
   const [verificationFleet, setVerificationFleet] = useState(null);
@@ -281,6 +282,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
           }
         : null,
     );
+    setNearbyAreaMounted(true);
     setNearbyAreaOpen(true);
   }
 
@@ -803,6 +805,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     setVerificationFleet(null);
     setBookingTarget(null);
     setNearbyAreaRequest(areaViewRequest);
+    setNearbyAreaMounted(true);
     setNearbyAreaOpen(true);
     onAreaViewRequestHandled?.(null);
   }, [areaViewRequest, onAreaViewRequestHandled]);
@@ -848,9 +851,87 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     verificationFleet,
   ]);
 
-  if (registrationAreaPreviewOpen) {
+  function closeNearbyAreaView() {
+    const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
+    const returnToExplore = String(nearbyAreaRequest?.returnTo || "").startsWith("explore-");
+    const returnToMarketplace = String(nearbyAreaRequest?.returnTo || "").startsWith("marketplace-");
+    const returnToActiveTrips = nearbyAreaRequest?.returnTo === "active-trips";
+    setRouteDirection("backward");
+    setNearbyAreaOpen(false);
+    if (returnToBooking) setBookingTarget(nearbyAreaRequest.bookingTarget);
+    if (returnToActiveTrips) {
+      setActiveTripsActionRequest(null);
+      setActiveTripsOpen(true);
+    }
+    setNearbyAreaRequest(null);
+    if (returnToExplore) {
+      window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
+    } else if (returnToMarketplace) {
+      window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
+    }
+  }
+
+  async function acceptNearbyAreaLocation(location) {
+    const request = nearbyAreaRequest;
+    const returnToExplore = String(request?.returnTo || "").startsWith("explore-");
+    const returnToMarketplace = String(request?.returnTo || "").startsWith("marketplace-");
+    try {
+      if (typeof request?.onLocationPicked === "function") {
+        await request.onLocationPicked(location);
+      }
+    } finally {
+      setRouteDirection("backward");
+      setNearbyAreaOpen(false);
+      setNearbyAreaRequest(null);
+      if (returnToExplore) {
+        window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
+      } else if (returnToMarketplace) {
+        window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
+      }
+    }
+  }
+
+  function getNearbyAreaBackLabel() {
+    if (nearbyAreaRequest?.returnTo === "booking") return t("urride.transport.back.bookingForm");
+    if (nearbyAreaRequest?.returnTo === "active-trips") return t("urride.transport.back.activeTrips");
+    if (nearbyAreaRequest?.returnTo === "explore-messages") return t("urride.transport.back.messages");
+    if (nearbyAreaRequest?.returnTo === "marketplace-seller") return t("urride.transport.back.sellerProfile");
+    if (nearbyAreaRequest?.returnTo === "marketplace-seller-orders") return t("urride.transport.back.sellerOrders");
+    return t("urride.transport.back.transport");
+  }
+
+  function renderWithAreaView(content) {
     return (
-      <div className={`${routePanelClass} min-h-dvh`}>
+      <>
+        {content}
+        {nearbyAreaMounted ? (
+          <div
+            key="persistent-area-view"
+            aria-hidden={!nearbyAreaOpen}
+            inert={nearbyAreaOpen ? undefined : "true"}
+            className={`fixed inset-0 z-[1400] overflow-hidden bg-slate-950 ${nearbyAreaOpen ? "block" : "hidden"}`}
+          >
+            <NearbyAreaScreen
+              active={Boolean(active && nearbyAreaOpen)}
+              onBack={closeNearbyAreaView}
+              initialDestination={nearbyAreaRequest?.destination}
+              autoRoute={Boolean(nearbyAreaRequest?.autoRoute)}
+              mode={nearbyAreaRequest?.mode || "standard"}
+              pickerStart={nearbyAreaRequest?.pickerStart || "current"}
+              pickerLabels={nearbyAreaRequest?.pickerLabels || null}
+              initialEmergencyRequest={nearbyAreaRequest?.emergency || null}
+              onLocationPicked={acceptNearbyAreaLocation}
+              backLabel={getNearbyAreaBackLabel()}
+            />
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  if (registrationAreaPreviewOpen) {
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
         <NearbyAreaScreen
           onBack={closeRegistrationOneKmPreview}
           onDone={closeRegistrationOneKmPreview}
@@ -862,8 +943,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }
 
   if (operatorInviteDocumentsInvite) {
-    return (
-      <div className={`${routePanelClass} min-h-dvh`}>
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
         <OperatorInviteDocumentsScreen
           invite={operatorInviteDocumentsInvite}
           onBack={() => {
@@ -879,8 +960,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
 
   if (registrationOpen) {
     if (!registrationType) {
-      return (
-        <div className={`${routePanelClass} min-h-dvh`}>
+      return renderWithAreaView(
+        <div className={`${routePanelClass} kt-mobile-viewport`}>
           <TransportRegistrationTypeScreen
             onBack={() => {
               setRouteDirection("backward");
@@ -902,8 +983,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     }
 
     if (registrationType === "company") {
-      return (
-        <div className={`${routePanelClass} min-h-dvh`}>
+      return renderWithAreaView(
+        <div className={`${routePanelClass} kt-mobile-viewport`}>
           <CompanyRegistrationScreen
             existingCompany={companyAccount}
             mode={companyRegistrationMode}
@@ -926,8 +1007,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
       );
     }
 
-    return (
-      <div className={`${routePanelClass} min-h-dvh`}>
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetRegistrationDrawer
           onClose={closeRegistrationFlow}
           onSaveExit={exitRegistrationFlow}
@@ -939,8 +1020,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }
 
   if (companyOperatorDashboardOpen && companyOperatorAccount) {
-    return (
-      <div className={`${routePanelClass} h-dvh overflow-hidden`}>
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-screen overflow-hidden`}>
         <OperatorDashboardScreen
           account={companyOperatorAccount}
           companyAccount={companyAccount}
@@ -973,9 +1054,9 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }
 
   if (companyWorkspaceOpen) {
-    return (
+    return renderWithAreaView(
       <div
-        className={`${registrationReveal?.target === "company" ? "" : routePanelClass} ${registrationRevealClass("company")} min-h-screen`}
+        className={`${registrationReveal?.target === "company" ? "" : routePanelClass} ${registrationRevealClass("company")} kt-mobile-viewport`}
         style={registrationRevealStyle("company")}
       >
         <CompanyWorkspaceScreen
@@ -1016,8 +1097,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }
 
   if (fleetEditOpen && operatorAccount) {
-    return (
-      <div className={`${routePanelClass} min-h-dvh`}>
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetEditDrawer
           account={operatorAccount}
           onSaved={setOperatorAccount}
@@ -1032,9 +1113,9 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }
 
   if (operatorDashboardOpen && operatorAccount) {
-    return (
+    return renderWithAreaView(
       <div
-        className={`${registrationReveal?.target === "operator" ? "" : operatorDashboardClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} ${registrationRevealClass("operator")} h-dvh overflow-hidden`}
+        className={`${registrationReveal?.target === "operator" ? "" : operatorDashboardClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} ${registrationRevealClass("operator")} kt-mobile-screen overflow-hidden`}
         style={registrationRevealStyle("operator")}
       >
         <OperatorDashboardScreen
@@ -1068,77 +1149,9 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     );
   }
 
-  if (nearbyAreaOpen) {
-    return (
-      <div className={`${routePanelClass} min-h-screen`}>
-        <NearbyAreaScreen
-          onBack={() => {
-            const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
-            const returnToExplore = String(nearbyAreaRequest?.returnTo || "").startsWith("explore-");
-            const returnToMarketplace = String(nearbyAreaRequest?.returnTo || "").startsWith("marketplace-");
-            const returnToActiveTrips = nearbyAreaRequest?.returnTo === "active-trips";
-            setRouteDirection("backward");
-            setNearbyAreaOpen(false);
-            if (returnToBooking) {
-              setBookingTarget(nearbyAreaRequest.bookingTarget);
-            }
-            if (returnToActiveTrips) {
-              setActiveTripsActionRequest(null);
-              setActiveTripsOpen(true);
-            }
-            setNearbyAreaRequest(null);
-            if (returnToExplore) {
-              window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
-            } else if (returnToMarketplace) {
-              window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
-            }
-          }}
-          initialDestination={nearbyAreaRequest?.destination}
-          autoRoute={Boolean(nearbyAreaRequest?.autoRoute)}
-          mode={nearbyAreaRequest?.mode || "standard"}
-          pickerStart={nearbyAreaRequest?.pickerStart || "current"}
-          pickerLabels={nearbyAreaRequest?.pickerLabels || null}
-          initialEmergencyRequest={nearbyAreaRequest?.emergency || null}
-          onLocationPicked={async (location) => {
-            const request = nearbyAreaRequest;
-            const returnToExplore = String(request?.returnTo || "").startsWith("explore-");
-            const returnToMarketplace = String(request?.returnTo || "").startsWith("marketplace-");
-            try {
-              if (typeof request?.onLocationPicked === "function") {
-                await request.onLocationPicked(location);
-              }
-            } finally {
-              setRouteDirection("backward");
-              setNearbyAreaOpen(false);
-              setNearbyAreaRequest(null);
-              if (returnToExplore) {
-                window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "explore" } }));
-              } else if (returnToMarketplace) {
-                window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
-              }
-            }
-          }}
-          backLabel={
-            nearbyAreaRequest?.returnTo === "booking"
-              ? t("urride.transport.back.bookingForm")
-              : nearbyAreaRequest?.returnTo === "active-trips"
-                ? t("urride.transport.back.activeTrips")
-              : nearbyAreaRequest?.returnTo === "explore-messages"
-                ? t("urride.transport.back.messages")
-                : nearbyAreaRequest?.returnTo === "marketplace-seller"
-                  ? t("urride.transport.back.sellerProfile")
-                : nearbyAreaRequest?.returnTo === "marketplace-seller-orders"
-                  ? t("urride.transport.back.sellerOrders")
-                : t("urride.transport.back.transport")
-          }
-        />
-      </div>
-    );
-  }
-
   if (activeFleetId) {
-    return (
-      <div className={`${routePanelClass} min-h-screen`}>
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetProfileScreen
           fleetId={activeFleetId}
           onBack={() => {
@@ -1165,8 +1178,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }
 
   if (activeTripsOpen) {
-    return (
-      <div className={`${routePanelClass} min-h-screen`}>
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
         <ActiveTripsScreen
           initialActionRequest={activeTripsActionRequest}
           onOpenEmergencyArea={(trip) => {
@@ -1207,8 +1220,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }
 
   if (savedOperatorsOpen) {
-    return (
-      <div className={`${routePanelClass} min-h-screen`}>
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
         <SavedOperatorsScreen
           onBack={() => {
             setRouteDirection("backward");
@@ -1237,8 +1250,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }
 
   if (fleetSelection) {
-    return (
-      <div className={`${routePanelClass} min-h-screen`}>
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetListScreen
           selection={fleetSelection}
           onBack={() => {
@@ -1267,8 +1280,8 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     );
   }
 
-  return (
-    <div className={`${routeDirection === "backward" ? "kt-explore-stack-enter-left" : ""} min-h-screen bg-gray-50 relative`}>
+  return renderWithAreaView(
+    <div className={`${routeDirection === "backward" ? "kt-explore-stack-enter-left" : ""} kt-mobile-viewport bg-gray-50 relative`}>
       <Header
         active={active}
         companyAccount={companyAccount}
@@ -1419,7 +1432,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
   }
 
   return (
-    <section className="min-h-dvh bg-slate-50">
+    <section className="kt-mobile-viewport kt-safe-screen bg-slate-50" data-back-swipe-scope>
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
         <div className="flex items-center gap-3">
           <AppBackTab

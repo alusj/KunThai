@@ -14,20 +14,32 @@ const tabs = [
 export default function BottomTabs({ badges = {}, page, setPage }) {
   const { t } = useI18n();
   const [hidden, setHidden] = useState(false);
-  const lastY = useRef(0);
+  const scrollPositions = useRef(new WeakMap());
   const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === page));
 
   useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY || 0;
-      if (y > lastY.current + 8) setHidden(true);
-      else if (y < lastY.current - 8) setHidden(false);
-      lastY.current = y;
+    const onScroll = (event) => {
+      const target = event.target === document ? document.scrollingElement : event.target;
+      const scrollTarget = target instanceof Element ? target : document.scrollingElement;
+      if (!scrollTarget) return;
+
+      const y = Number(scrollTarget.scrollTop || window.scrollY || 0);
+      const previous = Number(scrollPositions.current.get(scrollTarget) || 0);
+      if (y <= 8 || y < previous - 8) setHidden(false);
+      else if (y > previous + 8) setHidden(true);
+      scrollPositions.current.set(scrollTarget, y);
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    // Most KunThai screens scroll inside a bounded panel rather than `window`.
+    // Scroll does not bubble, so capture it at document level to keep the main
+    // navigation behaviour consistent across all three services.
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => document.removeEventListener("scroll", onScroll, true);
   }, []);
+
+  useEffect(() => {
+    setHidden(false);
+  }, [page]);
 
   const Btn = ({ id, label, icon }) => (
     <button
@@ -56,10 +68,18 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
 
   return (
     <nav
-      className={`fixed inset-x-6 bg-transparent transition-transform duration-300 sm:inset-x-10 ${
-        hidden ? "translate-y-[calc(100%+1.25rem)]" : "translate-y-0"
-      }`}
-      style={{ zIndex: 50, bottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      className="fixed inset-x-6 bg-transparent transition-[transform,opacity,visibility] duration-300 sm:inset-x-10"
+      style={{
+        zIndex: 50,
+        bottom: "max(0.75rem, var(--kt-safe-area-bottom))",
+        opacity: hidden ? 0 : 1,
+        pointerEvents: hidden ? "none" : "auto",
+        transform: hidden
+          ? "translate3d(0, calc(100% + var(--kt-safe-area-bottom) + 2rem), 0)"
+          : "translate3d(0, 0, 0)",
+        visibility: hidden ? "hidden" : "visible",
+      }}
+      aria-hidden={hidden}
       aria-label={t("nav.mainNavigation")}
     >
       <div className="relative mx-auto grid max-w-md grid-cols-3 gap-1 rounded-[26px] border border-white/80 bg-white/65 p-1 shadow-2xl shadow-slate-950/15 ring-1 ring-slate-950/10 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55 dark:border-slate-700/60 dark:bg-slate-900/85 dark:shadow-black/40 dark:ring-white/10 dark:supports-[backdrop-filter]:bg-slate-900/75">

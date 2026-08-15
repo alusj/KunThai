@@ -85,7 +85,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
       <>
         <TransportEntryAnimation show={showIntro} />
 
-        <ScreenSlideTransition screenKey="transport-registration-policy" className="flex h-dvh flex-col overflow-hidden bg-slate-50">
+        <ScreenSlideTransition screenKey="transport-registration-policy" className="kt-mobile-screen kt-safe-screen flex flex-col overflow-hidden bg-slate-50" data-back-swipe-scope>
           <header className="z-30 shrink-0 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
             <div className="flex items-center gap-3">
               <AppBackTab
@@ -156,7 +156,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
     <>
       <TransportEntryAnimation show={showIntro} />
 
-      <ScreenSlideTransition screenKey="transport-registration-type" className="min-h-dvh bg-slate-50">
+      <ScreenSlideTransition screenKey="transport-registration-type" className="kt-mobile-viewport kt-safe-screen bg-slate-50" data-back-swipe-scope>
         <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
           <div className="flex items-center gap-3">
             <AppBackTab

@@ -54,11 +54,11 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
     <>
       <button type="button" aria-label={t("explore.closeSearch")} onClick={close} className="fixed inset-0 z-40 cursor-default bg-slate-950/10" />
 
-      <div className="fixed inset-x-2 top-2 z-50 sm:inset-x-5">
+      <div className="fixed inset-x-2 top-[calc(var(--kt-safe-area-top)+0.5rem)] z-50 sm:inset-x-5">
         <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center gap-2 p-2">
             <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl bg-slate-100 px-3 text-slate-500">
-              <Search className="flex-none text-slate-400" size={18} strokeWidth={2.25} />
+              <Search className="h-[18px] w-[18px] flex-none text-slate-400" strokeWidth={2.25} />
               <input
                 ref={inputRef}
                 type="text"

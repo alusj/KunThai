@@ -65,7 +65,7 @@ export function useSlidePanel(activeKey, duration = SLIDE_TRANSITION_MS) {
 export function SlidePanel({ children, action, className = "", zIndex = 40 }) {
   return (
     <section
-      className={`absolute inset-0 flex min-h-full w-full flex-col overflow-y-auto bg-white shadow-2xl ${getSlidePanelClass(action)} ${className}`}
+      className={`absolute inset-0 flex h-full min-h-0 w-full flex-col overflow-hidden bg-white shadow-2xl ${getSlidePanelClass(action)} ${className}`}
       style={{ zIndex }}
     >
       {children}
