@@ -120,7 +120,14 @@ export default function Header({
         left={(
           <>
             {accountLoading ? (
-              <div className="h-11 w-28" aria-hidden="true" />
+              // Show a skeleton shaped exactly like the operator button (a
+              // pulsing rounded-square) instead of a blank gap, so the header
+              // reads as loading the same way the dashboard does rather than
+              // popping the icon in once the account resolves.
+              <div
+                className="kt-premium-icon-button kt-premium-icon-button-square animate-pulse border-slate-200 bg-slate-200/70"
+                aria-hidden="true"
+              />
             ) : (
               <OperatorButton
                 badge={operatorBadgeCount}

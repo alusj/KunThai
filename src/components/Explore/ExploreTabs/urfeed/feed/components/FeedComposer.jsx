@@ -33,7 +33,7 @@ import { startPendingVideoReviewJob } from "../../../../../../Backend/services/e
 import { fetchExploreTopics } from "../../../../../../Backend/services/explore/topicService";
 import Avatar from "../../../../shared/Avatar";
 import VideoTrimmerScreen from "../../../../../shared/VideoTrimmerScreen";
-import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
+import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
@@ -72,6 +72,7 @@ const MAX_EXPLORE_VIDEO_MB = Math.round(MAX_EXPLORE_VIDEO_BYTES / (1024 * 1024))
 const MAX_POST_TITLE_LENGTH = 30;
 const COMPOSER_SHEET_ANIMATION_MS = 300;
 const COMPOSER_AREA_RETURN_KEY = "kuntai.explore.composerAreaReturn";
+const COMPOSER_DISPLAY_RETURN_KEY = "kuntai.explore.composerDisplayReturn";
 const DEFAULT_ADVERT = {
   setupComplete: false,
   placement: "urfeed",
@@ -130,6 +131,36 @@ function consumeComposerAreaReturn() {
     return mode === "advert" || mode === "post" ? mode : "";
   } catch {
     return "";
+  }
+}
+
+// The composer's size (full-screen vs half-screen sheet) and dock position live
+// in component state, so they are lost when Explore unmounts during the Area
+// View round-trip for "Locate Me". Persist them alongside the return mode so a
+// full-screen composer comes back full-screen instead of collapsing to a sheet.
+function queueComposerDisplayReturn(display, dock) {
+  try {
+    sessionStorage.setItem(
+      COMPOSER_DISPLAY_RETURN_KEY,
+      JSON.stringify({ display: display === "full" ? "full" : "sheet", dock: dock === "top" ? "top" : "bottom" }),
+    );
+  } catch {
+    // Falls back to the default sheet size if session storage is unavailable.
+  }
+}
+
+function consumeComposerDisplayReturn() {
+  try {
+    const raw = sessionStorage.getItem(COMPOSER_DISPLAY_RETURN_KEY);
+    sessionStorage.removeItem(COMPOSER_DISPLAY_RETURN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return {
+      display: parsed?.display === "full" ? "full" : "sheet",
+      dock: parsed?.dock === "top" ? "top" : "bottom",
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -468,8 +499,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     : advertForm.placement === "both"
       ? hasVideoAttachment && Boolean(imagePreview)
       : !hasVideoAttachment || Boolean(imagePreview);
+  const advertObjectiveRequirement = getAdvertObjectiveRequirement(advertForm, { hasVideo: hasVideoAttachment });
   const canSubmit = isAdvertMode
-    ? Boolean(advertForm.setupComplete && hasAdvertContent && advertPlacementReady)
+    ? Boolean(advertForm.setupComplete && hasAdvertContent && advertPlacementReady && !advertObjectiveRequirement)
     : hasContent;
   const normalizedTagDraft = normalizeHashtag(tagDraft);
   const visibleHashtagSuggestions = hashtagSuggestions
@@ -482,8 +514,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   useEffect(() => {
     const returnMode = consumeComposerAreaReturn();
     if (!returnMode) return;
+    const displayReturn = consumeComposerDisplayReturn();
     setComposerClosing(false);
-    setComposerMotionClass("kt-composer-sheet-enter-bottom");
+    if (displayReturn) {
+      setComposerDisplay(displayReturn.display);
+      setComposerDock(displayReturn.dock);
+    }
+    setComposerMotionClass(`kt-composer-sheet-enter-${displayReturn?.dock || "bottom"}`);
     setComposerMode(returnMode);
     setOpen(true);
   }, []);
@@ -1297,8 +1334,43 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     }
   }
 
+  function clearImageAttachment() {
+    setImagePreview("");
+    originalImageFileRef.current = null;
+    setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
+  }
+
+  function clearVideoAttachment() {
+    trimRequestRef.current += 1;
+    trimmedVideoMetaRef.current = null;
+    originalVideoFileRef.current = null;
+    if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
+    setVideoPreview("");
+    setPendingVideoFile(null);
+
+    if (pendingVideoUrl) {
+      URL.revokeObjectURL(pendingVideoUrl);
+      setPendingVideoUrl("");
+    }
+
+    setVideoDuration(0);
+    setVideoTrimStart(0);
+    setVideoTrimEnd(MAX_VIDEO_SECONDS);
+    setTrimError("");
+    setMediaMeta((current) => ({ ...current, videoName: "", videoType: "", videoSize: 0 }));
+  }
+
   function updateAdvertForm(field, nextValue) {
     const value = field === "title" ? String(nextValue || "").slice(0, MAX_POST_TITLE_LENGTH) : nextValue;
+
+    // Placement decides which media types the advert may carry. Drop anything
+    // the new placement disallows so the creative can never publish a video in
+    // an image-only UrFeed slot (or an image in a video-only Swip slot).
+    if (field === "placement") {
+      if (value === "urfeed" && hasVideoAttachment) clearVideoAttachment();
+      if (value === "swip" && imagePreview) clearImageAttachment();
+    }
+
     setAdvertForm((current) => {
       if (field !== "type") return { ...current, [field]: value };
 
@@ -1315,6 +1387,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   function openAdvertLocationPicker() {
     queueComposerAreaReturn("advert");
+    queueComposerDisplayReturn(composerDisplay, composerDock);
     setOpen(false);
     window.dispatchEvent(
       new CustomEvent("kuntai-open-area-view", {
@@ -1376,6 +1449,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   function openPostLocationPicker() {
     queueComposerAreaReturn("post");
+    queueComposerDisplayReturn(composerDisplay, composerDock);
     setOpen(false);
     window.dispatchEvent(
       new CustomEvent("kuntai-open-area-view", {
@@ -1492,7 +1566,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (!canSubmit) {
       showComposer();
       if (!isAdvertMode) setAttachmentMode("text");
-      setFeedback(isAdvertMode ? i18nText("ui.literals.k72606edfa25b") : i18nText("ui.literals.kddd21eed526a"));
+      setFeedback(
+        isAdvertMode
+          ? advertObjectiveRequirement || i18nText("ui.literals.k72606edfa25b")
+          : i18nText("ui.literals.kddd21eed526a"),
+      );
       return;
     }
 
@@ -2289,29 +2367,8 @@ if (!isMobileVideoDevice) {
                   onTrimPreset={chooseTrimPreset}
                   onTrimVideo={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
                   onRetryTrim={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
-                  onRemoveImage={() => {
-                    setImagePreview("");
-                    originalImageFileRef.current = null;
-                    setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
-                  }}
-                  onRemoveVideo={() => {
-                    trimRequestRef.current += 1;
-                    trimmedVideoMetaRef.current = null;
-                    originalVideoFileRef.current = null;
-                    setVideoPreview("");
-                    setPendingVideoFile(null);
-
-                    if (pendingVideoUrl) {
-                      URL.revokeObjectURL(pendingVideoUrl);
-                      setPendingVideoUrl("");
-                    }
-
-                    setVideoDuration(0);
-                    setVideoTrimStart(0);
-                    setVideoTrimEnd(MAX_VIDEO_SECONDS);
-                    setTrimError("");
-                    setMediaMeta((current) => ({ ...current, videoName: "", videoType: "", videoSize: 0 }));
-                  }}
+                  onRemoveImage={clearImageAttachment}
+                  onRemoveVideo={clearVideoAttachment}
                   onRemoveAudio={() => {
                     setAudioPreview("");
                     setAudioDuration(null);

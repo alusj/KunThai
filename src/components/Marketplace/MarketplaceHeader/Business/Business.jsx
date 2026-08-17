@@ -692,7 +692,7 @@ export default function Business({ onBack }) {
             {permissions.canAccessDashboard ? (
               <MyBizDashboardHeader
                 onEditProfile={openProfileEditor}
-                onOpenSection={businessKind === "retail" ? openSellerScreen : undefined}
+                onOpenSection={openSellerScreen}
                 overview={sellerOverview}
               />
             ) : null}

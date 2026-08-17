@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { FaApple, FaFacebookF } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
-import { Eye, Globe2, ShieldAlert } from "lucide-react";
+import { Eye, EyeOff, Globe2, ShieldAlert } from "lucide-react";
 
 import supabase from "./Backend/lib/supabaseClient";
 import { consumeAuthIntent, enterGuestMode } from "./Backend/services/guestModeService";
@@ -45,6 +45,7 @@ import {
 } from "./Backend/services/nativeOAuthService";
 import FindAccountModal from "./components/auth/FindAccountModal";
 import { t as i18nText } from "./i18n/index";
+import { friendlyErrorMessage } from "./Backend/services/friendlyErrorService";
 
 function AuthMessage({ tone = "info", children }) {
   const tones = {
@@ -71,6 +72,42 @@ const AuthInput = forwardRef(function AuthInput({ label, ...props }, ref) {
         ref={ref}
         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
       />
+    </label>
+  );
+});
+
+// Password field with a tap-to-reveal eye icon. Users on phones can't see what
+// they type, so a hard-to-see password is a common signup blocker; the toggle
+// lets them confirm their entry. Defaults to hidden and never persists the
+// revealed state anywhere.
+const AuthPasswordInput = forwardRef(function AuthPasswordInput({ label, ...props }, ref) {
+  const { t } = useI18n();
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
+      </span>
+      <div className="relative">
+        <input
+          {...props}
+          ref={ref}
+          type={visible ? "text" : "password"}
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-12 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((current) => !current)}
+          aria-label={visible ? t("auth.hidePassword") : t("auth.showPassword")}
+          aria-pressed={visible}
+          title={visible ? t("auth.hidePassword") : t("auth.showPassword")}
+          className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-slate-500 transition hover:text-slate-700 focus:outline-none focus-visible:text-blue-600"
+          tabIndex={-1}
+        >
+          {visible ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+        </button>
+      </div>
     </label>
   );
 });
@@ -456,7 +493,7 @@ export default function Login() {
       // Web redirects the page to the provider; nothing else runs here.
     } catch (err) {
       clearOAuthFlow();
-      setError(err.message || t("auth.errContinueProvider", { provider }));
+      setError(friendlyErrorMessage(err, t("auth.errContinueProvider", { provider })));
       setProviderLoading("");
     }
   }
@@ -507,7 +544,7 @@ export default function Login() {
       setForgotAvailable(false);
       setMessage(t("auth.msgWelcomeBack"));
     } catch (err) {
-      setError(err.message || t("auth.errUnableSignIn"));
+      setError(friendlyErrorMessage(err, t("auth.errUnableSignIn")));
 
       // After more than one wrong password on a phone number that really has a
       // KunThai account, offer OTP-verified password recovery. The signup
@@ -576,7 +613,7 @@ export default function Login() {
       if (guard.isSecond) setLastOtpNoticeOpen(true);
       scrollAuthToTop();
     } catch (err) {
-      setError(err.message || t("auth.errUnableSendRecoveryOtp"));
+      setError(friendlyErrorMessage(err, t("auth.errUnableSendRecoveryOtp")));
     } finally {
       setLoading(false);
     }
@@ -601,7 +638,7 @@ export default function Login() {
 
       setMessage(t("auth.msgPasswordUpdated"));
     } catch (err) {
-      setError(err.message || t("auth.errUnableVerifyOtp"));
+      setError(friendlyErrorMessage(err, t("auth.errUnableVerifyOtp")));
     } finally {
       setLoading(false);
     }
@@ -619,7 +656,7 @@ export default function Login() {
       setMessage(t("auth.msgOtpResent"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
-      setError(err.message || t("auth.errUnableResendOtp"));
+      setError(friendlyErrorMessage(err, t("auth.errUnableResendOtp")));
     } finally {
       setLoading(false);
     }
@@ -668,7 +705,7 @@ export default function Login() {
         return;
       }
 
-      setError(err.message || t("auth.errUnableCreate"));
+      setError(friendlyErrorMessage(err, t("auth.errUnableCreate")));
     } finally {
       setLoading(false);
     }
@@ -690,7 +727,7 @@ export default function Login() {
       clearOtpRequests(pendingPhone);
       setMessage(t("auth.msgPhoneVerified"));
     } catch (err) {
-      setError(err.message || t("auth.errUnableVerifyOtp"));
+      setError(friendlyErrorMessage(err, t("auth.errUnableVerifyOtp")));
     } finally {
       setLoading(false);
     }
@@ -711,7 +748,7 @@ export default function Login() {
       setMessage(t("auth.msgOtpResent"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
-      setError(err.message || t("auth.errUnableResendOtp"));
+      setError(friendlyErrorMessage(err, t("auth.errUnableResendOtp")));
     } finally {
       setLoading(false);
     }
@@ -735,9 +772,8 @@ export default function Login() {
               onValueChange={setSignInAccount}
             />
 
-            <AuthInput
+            <AuthPasswordInput
               label={t("auth.password")}
-              type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder={t("auth.enterPassword")}
@@ -786,9 +822,8 @@ export default function Login() {
               label={t("auth.phoneAccount")}
             />
 
-            <AuthInput
+            <AuthPasswordInput
               label={t("auth.password")}
-              type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder={t("auth.enterPassword")}
@@ -796,9 +831,8 @@ export default function Login() {
               required
             />
 
-            <AuthInput
+            <AuthPasswordInput
               label={t("auth.confirmPassword")}
-              type="password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               placeholder={t("auth.confirmPasswordPlaceholder")}
@@ -891,9 +925,8 @@ export default function Login() {
               {t("auth.resetPasswordSubtitle", { phone: recoveryActivePhone })}
             </p>
 
-            <AuthInput
+            <AuthPasswordInput
               label={t("auth.newPassword")}
-              type="password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               placeholder={t("auth.enterNewPassword")}
@@ -901,9 +934,8 @@ export default function Login() {
               required
             />
 
-            <AuthInput
+            <AuthPasswordInput
               label={t("auth.confirmNewPassword")}
-              type="password"
               value={confirmNewPassword}
               onChange={(event) => setConfirmNewPassword(event.target.value)}
               placeholder={t("auth.confirmNewPasswordPlaceholder")}
@@ -1067,7 +1099,7 @@ export default function Login() {
                   try {
                     await enterGuestMode();
                   } catch (guestError) {
-                    setError(guestError.message || t("auth.errUnableGuest"));
+                    setError(friendlyErrorMessage(guestError, t("auth.errUnableGuest")));
                     setGuestPromptOpen(false);
                   } finally {
                     setGuestEntering(false);

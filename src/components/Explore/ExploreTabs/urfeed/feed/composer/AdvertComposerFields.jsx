@@ -27,7 +27,7 @@ import {
   normalizeVisibilityCreditSpend,
   VISIBILITY_BOOST_PACKAGES,
 } from "../../../../../../Backend/services/visibilityCreditService";
-import { hasAdvertCoordinates } from "../../../../shared/advertUtils";
+import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import { useAddressAreaValidation } from "../../../../../shared/AddressAreaValidation";
 import { t as i18nText, uiText } from "../../../../../../i18n/index";
 
@@ -56,6 +56,16 @@ const PLACEMENTS = [
   { value: "swip", label: "Swip", description: "Full-screen sponsored video between Swips.", icon: PlaySquare },
   { value: "both", label: "UrFeed & Swip", description: "Use an image in UrFeed and video in Swip.", icon: Layers3 },
 ];
+
+const OBJECTIVE_CTA = {
+  brand_awareness: "Learn more",
+  profile_visits: "View profile",
+  followers: "Connect",
+  website_clicks: "Visit website",
+  messages: "Call or message",
+  video_views: "Watch now",
+  event_promotion: "Learn more",
+};
 
 const OBJECTIVES = [
   { value: "brand_awareness", label: "Brand Awareness", description: "Introduce your name, offer, or work." },
@@ -130,17 +140,9 @@ export default function AdvertComposerFields({
 
   function selectObjective(value) {
     onChange("objective", value);
-    const suggestedActions = {
-      profile_visits: "View profile",
-      followers: "Connect",
-      website_clicks: "Visit website",
-      messages: "Call or message",
-      video_views: "Watch now",
-      event_promotion: "Learn more",
-    };
-    if (!advert.ctaLabel || advert.ctaLabel === "Learn more") {
-      onChange("ctaLabel", suggestedActions[value] || "Learn more");
-    }
+    // The objective drives the call to action, so switching objective sets its
+    // canonical CTA. The creative step still lets the advertiser change it.
+    onChange("ctaLabel", OBJECTIVE_CTA[value] || "Learn more");
   }
 
   function toggleInterest(interest) {
@@ -361,6 +363,7 @@ function CreativeFields({
   selectedCredits,
 }) {
   const hasLocation = hasAdvertCoordinates(advert);
+  const objectiveRequirement = getAdvertObjectiveRequirement(advert, { hasVideo });
   const enteredAddress = String(advert.address || "").trim();
   const addressValidation = useAddressAreaValidation(enteredAddress, {
     enabled: Boolean(enteredAddress),
@@ -477,14 +480,33 @@ function CreativeFields({
         <label className="block"><span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{i18nText("ui.literals.k6c82e6dd8680")}</span><input value={advert.time} onChange={(event) => onChange("time", event.target.value)} type="time" className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none" /></label>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <MediaButton active={hasImage} icon={Image} label={hasImage ? i18nText("ui.literals.k6ad38661b683") : i18nText("ui.literals.k5375634e24c9")} onClick={() => onSelectMedia("image")} />
-        <MediaButton active={hasVideo} icon={Video} label={hasVideo ? i18nText("ui.literals.k99cab3ced87c") : i18nText("ui.literals.k8f9f9ae1e5f2")} onClick={() => onSelectMedia("video")} accent="sky" />
-      </div>
+      {(() => {
+        const allowsImage = advert.placement === "urfeed" || advert.placement === "both";
+        const allowsVideo = advert.placement === "swip" || advert.placement === "both";
+        return (
+          <>
+            <div className={`grid gap-2 ${allowsImage && allowsVideo ? "grid-cols-2" : "grid-cols-1"}`}>
+              {allowsImage ? (
+                <MediaButton active={hasImage} icon={Image} label={hasImage ? i18nText("ui.literals.k6ad38661b683") : i18nText("ui.literals.k5375634e24c9")} onClick={() => onSelectMedia("image")} />
+              ) : null}
+              {allowsVideo ? (
+                <MediaButton active={hasVideo} icon={Video} label={hasVideo ? i18nText("ui.literals.k99cab3ced87c") : i18nText("ui.literals.k8f9f9ae1e5f2")} onClick={() => onSelectMedia("video")} accent="sky" />
+              ) : null}
+            </div>
 
-      {advert.placement === "swip" && !hasVideo ? <RequirementNote text="Swip placement requires a video before publishing." /> : null}
-      {advert.placement === "both" && (!hasVideo || !hasImage) ? <RequirementNote text="UrFeed & Swip placement requires both an image and a video." /> : null}
-      {advert.placement === "urfeed" && hasVideo && !hasImage ? <RequirementNote text="Add an image so this video campaign has an UrFeed creative." /> : null}
+            {advert.placement === "urfeed"
+              ? <MediaHint text={uiText("UrFeed adverts show a single image in the feed.")} />
+              : advert.placement === "swip"
+                ? <MediaHint text={uiText("Swip adverts play a full-screen video between Swips.")} />
+                : <MediaHint text={uiText("Use an image for the UrFeed card and a video for the Swip screen.")} />}
+
+            {advert.placement === "swip" && !hasVideo ? <RequirementNote text="Swip placement requires a video before publishing." /> : null}
+            {advert.placement === "both" && (!hasVideo || !hasImage) ? <RequirementNote text="UrFeed & Swip placement requires both an image and a video." /> : null}
+          </>
+        );
+      })()}
+
+      {objectiveRequirement ? <RequirementNote text={objectiveRequirement} /> : null}
 
       <div className="rounded-[22px] border border-white bg-white/80 p-3">
         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-400"><MousePointerClick size={14} /> {i18nText("ui.literals.k2bd77db1594c")}</div>
@@ -700,6 +722,10 @@ function PrivacyNote() {
 
 function RequirementNote({ text }) {
   return <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">{text}</p>;
+}
+
+function MediaHint({ text }) {
+  return <p className="rounded-2xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-bold leading-5 text-slate-500">{text}</p>;
 }
 
 function formatPlacement(value) {

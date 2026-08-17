@@ -409,6 +409,78 @@ export async function promoteVerticalListing(listingType, listing, options = {})
   return data;
 }
 
+// Records one organic view for a vertical listing (meal/property/room). Called
+// when a buyer opens the listing detail. Best-effort: a counting failure must
+// never disrupt browsing.
+export async function incrementVerticalListingView(listingType, listingId) {
+  const type = String(listingType || "").toLowerCase();
+  if (!["meal", "property", "room"].includes(type) || !listingId) return;
+  try {
+    await supabase.rpc("increment_marketplace_listing_view", {
+      p_listing_type: type,
+      p_listing_id: listingId,
+    });
+  } catch {
+    // Ignored on purpose.
+  }
+}
+
+const VERTICAL_PROMOTION_FK = { meal: "meal_id", property: "property_id" };
+
+// Seller-facing insights for a vertical listing, shaped to match the retail
+// fetchSellerProductInsights contract so the shared ProductInsightsScreen can
+// render it. Organic views come from the listing row; sales/revenue reflect
+// promotion-driven results (verticals have no per-listing organic sales table).
+export async function fetchVerticalListingInsights(listingType, listing) {
+  const type = String(listingType || "").toLowerCase();
+  if (!listing?.id || !["meal", "property", "room"].includes(type)) return null;
+
+  const table = type === "meal"
+    ? "marketplace_restaurant_menu_items"
+    : type === "property"
+      ? "marketplace_property_listings"
+      : "marketplace_hotel_rooms";
+
+  const promotionForeignKey = VERTICAL_PROMOTION_FK[type];
+  const [listingResult, promotionsResult] = await Promise.all([
+    supabase.from(table).select("*").eq("id", listing.id).maybeSingle(),
+    promotionForeignKey
+      ? supabase.from("marketplace_promotions").select("*").eq(promotionForeignKey, listing.id).order("created_at", { ascending: false }).limit(12)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const row = listingResult.data || listing;
+  const promotions = promotionsResult.error ? [] : (promotionsResult.data || []);
+  const now = Date.now();
+  const views = Number(row.views || listing.views || 0);
+  const promotionViews = promotions.reduce((sum, promotion) => sum + Number(promotion.views || 0), 0);
+  const promotionOrders = promotions.reduce((sum, promotion) => sum + Number(promotion.orders || 0), 0);
+  const promotionRevenue = promotions.reduce((sum, promotion) => sum + Number(promotion.revenue || 0), 0);
+  const activePromotion = promotions.find((promotion) => {
+    const endsAt = promotion.ends_at ? new Date(promotion.ends_at).getTime() : Infinity;
+    return promotion.status === "active" && endsAt > now;
+  }) || null;
+
+  return {
+    product: {
+      id: row.id || listing.id,
+      name: row.name || row.title || listing.name || listing.title || "",
+      mainImageUrl: row.image_url || row.image_urls?.[0] || listing.image_url || listing.image_urls?.[0] || "",
+    },
+    views,
+    sales: promotionOrders,
+    revenue: promotionRevenue,
+    stock: type === "room" ? Number(row.rooms_available || 0) : 0,
+    conversionRate: views ? Math.min(100, (promotionOrders / views) * 100) : 0,
+    promotionViews,
+    promotionOrders,
+    promotionRevenue,
+    promotionCount: promotions.length,
+    activePromotion,
+    latestPromotion: promotions[0] || null,
+  };
+}
+
 export async function createVerticalBooking(product, input = {}) {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const buyerId = authData?.user?.id;

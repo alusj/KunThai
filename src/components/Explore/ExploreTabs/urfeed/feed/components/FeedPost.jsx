@@ -495,7 +495,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
   const followAction = advert.ctaLabel === "Follow" || advert.ctaLabel === "Connect";
 
   return (
-    <section className="mx-4 mb-4 rounded-[24px] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white p-4 shadow-sm">
+    <section className="mx-4 mb-4 rounded-[24px] border border-amber-200 bg-amber-50/60 p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-amber-700 shadow-sm ring-1 ring-amber-100">

@@ -15,6 +15,7 @@ import {
 } from "../../../../Backend/services/exploreService";
 import { blockExploreIdentity, reportExploreProfile, reportExploreSpace } from "../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { friendlyErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../../i18n";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
@@ -198,7 +199,7 @@ export default function ProfileScreen({
       setFeedback(t("profile.inviteLinkReady"));
       showToast(t("profile.inviteLinkReady"), "success", { title: "Visibility Credits" });
     } catch (error) {
-      const message = error.message || t("profile.unableShareInvite");
+      const message = friendlyErrorMessage(error, t("profile.unableShareInvite"));
       setFeedback(message);
       showToast(message, "danger");
     }
@@ -213,7 +214,7 @@ export default function ProfileScreen({
       showToast(message, "success", { title: t("profile.creditsShared") });
       return result;
     } catch (error) {
-      const message = error.message || t("profile.unableShareCredits");
+      const message = friendlyErrorMessage(error, t("profile.unableShareCredits"));
       setFeedback(message);
       showToast(message, "danger");
       throw error;

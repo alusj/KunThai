@@ -681,7 +681,7 @@ export async function fetchExploreConnections(kind = "discover", profileUserId =
     if (kind === "discover") {
       const authenticatedUserId = await getCurrentUserId();
       if (authenticatedUserId === currentUserId) {
-        recommendedItems = await fetchRecommendedPeople(currentUserId, 20);
+        recommendedItems = await fetchRecommendedPeople(currentUserId, 200);
       }
     }
 
@@ -698,7 +698,7 @@ export async function fetchExploreConnections(kind = "discover", profileUserId =
           targetType: PROFILE_IDENTITY_TYPE,
           label: "A Profile",
         }));
-        return [...people, ...spaces].slice(0, 30);
+        return [...people, ...spaces].slice(0, 200);
       }
       return liveItems;
     }

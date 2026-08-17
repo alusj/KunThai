@@ -106,7 +106,7 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
         </div>
       ) : null}
 
-      <div className="relative flex min-w-0 items-center gap-2">
+      <div className="kt-comment-composer-row relative flex min-w-0 items-center gap-2">
         <MentionHashtagSuggestions
           trigger={autocomplete.trigger}
           results={autocomplete.results}

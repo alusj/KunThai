@@ -6,6 +6,7 @@ import AdminLogin from "./AdminLogin";
 import AdminMfaGate from "./AdminMfaGate";
 import { ADMIN_NAV_GROUPS, canAccess } from "./adminConfig";
 import { enableAdminPreview, getAdminAccess, getAdminCases, getCaseSearchText, getCountryOptions, getDashboardSummary, isAdminPreview, matchesCaseCountry } from "./adminService";
+import { friendlyErrorMessage } from "../Backend/services/friendlyErrorService";
 import AdminShell from "./components/AdminShell";
 import CaseDrawer from "./components/CaseDrawer";
 import ActionHistoryView from "./views/ActionHistoryView";
@@ -118,7 +119,7 @@ function AdminWorkspace({ access, user, preview }) {
       setCases(nextCases || []);
       setSelectedCase((current) => current ? nextCases.find((item) => item.id === current.id) || current : null);
     } catch (nextError) {
-      setError(nextError.message || "Unable to load the admin workspace.");
+      setError(friendlyErrorMessage(nextError, "Unable to load the admin workspace."));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -205,7 +206,7 @@ export default function AdminApp() {
     }
     let active = true;
     setAccessLoading(true);
-    getAdminAccess().then((value) => { if (active) setAccess(value); }).catch((error) => { if (active) setAccessError(error.message || "Admin access check failed."); }).finally(() => { if (active) setAccessLoading(false); });
+    getAdminAccess().then((value) => { if (active) setAccess(value); }).catch((error) => { if (active) setAccessError(friendlyErrorMessage(error, "Admin access check failed.")); }).finally(() => { if (active) setAccessLoading(false); });
     return () => { active = false; };
   }, [authLoading, preview, user]);
 

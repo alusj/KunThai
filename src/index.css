@@ -15,8 +15,8 @@
 
 @keyframes kt-message-composer-focus {
   from {
-    opacity: 0.86;
-    transform: translate3d(0, 7px, 0) scale(0.985);
+    opacity: 0.85;
+    transform: translate3d(0, 11px, 0) scale(0.98);
   }
   to {
     opacity: 1;
@@ -38,6 +38,10 @@
   }
 
   .kt-message-composer[data-focused="true"] .kt-message-composer-row {
+    animation: none;
+  }
+
+  .kt-comment-composer:focus-within .kt-comment-composer-row {
     animation: none;
   }
 }
@@ -624,6 +628,25 @@
 
   .kt-comment-composer {
     box-shadow: 0 -10px 26px rgb(15 23 42 / 0.045);
+    transition: padding-bottom 220ms var(--kt-ease-standard);
+  }
+
+  /* Above the keyboard there is no home-indicator gap to clear, so shed the
+     safe-area padding and bring the comment field up snug against the keyboard
+     instead of leaving it stranded low on the sheet. Mirrors the message
+     composers. */
+  html[data-kt-keyboard-open="true"] .kt-comment-composer.kuntai-safe-bottom {
+    padding-bottom: 0.5rem;
+  }
+
+  .kt-comment-composer-row {
+    transform-origin: center bottom;
+  }
+
+  /* Smooth slide-up the moment the field is tapped, matching the message
+     composers so every text field across KunThai feels the same. */
+  .kt-comment-composer:focus-within .kt-comment-composer-row {
+    animation: kt-message-composer-focus 240ms var(--kt-ease-emphasized) both;
   }
 
   .kt-comment-reply-chip {

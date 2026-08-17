@@ -169,7 +169,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
   useBrowserBack(Boolean(swipPreviewTarget && activeTab === "Swip"), returnFromRepostedSwip, "explore-reposted-swip");
-  const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, {
+  // While a message conversation is open, the conversation's own back-swipe must
+  // win (swipe returns to the conversation list, not the dashboard). Disabling
+  // the full-screen swipe here hands the gesture to the conversation; once back
+  // on the conversation list this re-enables so a swipe closes Messages to the
+  // dashboard.
+  const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen && !messageConversationActive, exploreNav.goBackMenuScreen, {
     edgeWidth: Math.min(280, Math.max(160, Math.round(window.innerWidth * 0.45))),
     minDistance: 58,
     minFlingDistance: 58,

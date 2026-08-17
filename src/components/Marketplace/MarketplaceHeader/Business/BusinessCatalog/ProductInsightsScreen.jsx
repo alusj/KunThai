@@ -103,7 +103,7 @@ function InsightsSkeleton() {
   return <div className="rounded-[28px] bg-slate-950 p-4"><div className="h-32 animate-pulse rounded-[24px] bg-white/[0.06]" /><div className="mt-3 grid grid-cols-2 gap-3">{[0, 1, 2, 3, 4, 5].map((item) => <div key={item} className="h-40 animate-pulse rounded-[24px] bg-white/[0.06]" />)}</div></div>;
 }
 
-export default function ProductInsightsScreen({ product }) {
+export default function ProductInsightsScreen({ product, fetchInsights = fetchSellerProductInsights }) {
   useI18n();
   const fallback = useMemo(() => ({
     product,
@@ -124,11 +124,11 @@ export default function ProductInsightsScreen({ product }) {
   useEffect(() => {
     let active = true;
     setInsights(null);
-    fetchSellerProductInsights(product)
+    fetchInsights(product)
       .then((next) => { if (active) setInsights(next || fallback); })
       .catch(() => { if (active) setInsights(fallback); });
     return () => { active = false; };
-  }, [fallback, product]);
+  }, [fallback, fetchInsights, product]);
 
   if (!insights) return <InsightsSkeleton />;
 

@@ -120,7 +120,7 @@ export async function fetchRecommendedPeople(userId, limit = 20) {
 
   let data = null;
   let error = null;
-  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 50));
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 200));
 
   for (const functionName of ["get_people_you_may_know_v2", "get_people_you_may_know"]) {
     const result = await supabase.rpc(functionName, {

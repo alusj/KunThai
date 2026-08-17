@@ -58,6 +58,31 @@ export function getAdvertWhatsAppUrl(value = "", message = "") {
   return `https://wa.me/${digits}${query}`;
 }
 
+// Each campaign objective promises a specific viewer action, so the creative
+// must carry the field that action depends on. Returns a human message when the
+// objective's required field is missing, or null when the objective is ready.
+// `hasVideo` reflects an attached Swip video, which lives in composer state.
+export function getAdvertObjectiveRequirement(advert = {}, { hasVideo = false } = {}) {
+  const objective = String(advert.objective || "").trim();
+  const link = String(advert.link || "").trim();
+  const phone = String(advert.phone || "").trim();
+  const whatsapp = String(advert.whatsapp || "").trim();
+  const date = String(advert.date || "").trim();
+
+  switch (objective) {
+    case "website_clicks":
+      return link ? null : "This objective sends people to a link — add a website or application URL.";
+    case "messages":
+      return phone || whatsapp ? null : "This objective drives enquiries — add a phone number or WhatsApp.";
+    case "video_views":
+      return hasVideo ? null : "This objective promotes a video — choose Swip (or UrFeed & Swip) placement and add one.";
+    case "event_promotion":
+      return date ? null : "This objective promotes an event — add the event date.";
+    default:
+      return null;
+  }
+}
+
 export function formatAdvertType(value = "") {
   const labels = {
     offer: "Offer",

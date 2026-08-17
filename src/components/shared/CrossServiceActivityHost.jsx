@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 
 import supabase from "../../Backend/lib/supabaseClient";
 import { haptics, sounds } from "../../Backend/services/feedbackService";
-import { showNotificationBanner } from "../../Backend/services/notificationBannerService";
+import { requestExploreScreen, showNotificationBanner } from "../../Backend/services/notificationBannerService";
+import { showToast } from "../../Backend/services/toastService";
 import {
   getUnseenNotificationCount,
   subscribeNotificationSeen,
@@ -85,6 +86,31 @@ function announceActivity({ body, item, page, source, title }) {
     tag: `${contextKey}:${itemId(item)}`,
     target: page === "marketplace" ? `urmall:${source}` : `urride:${source}`,
   }).catch(() => {});
+}
+
+// A recipient of shared Visibility Credits gets a live toast + slide-in banner
+// the moment the transfer lands, naming the sender (the persisted notification
+// row is written by the transfer_visibility_credits RPC). Fires only for the
+// recipient-side 'credit_transfer' type, so the sender — who already saw their
+// own confirmation toast — is never double-notified.
+function announceCreditTransfer(notification) {
+  if (!notification || notification.type !== "credit_transfer") return;
+  const message = String(notification.message || "").trim()
+    || i18nText("profile.creditsReceivedFallback");
+  const title = i18nText("profile.creditsShared");
+
+  haptics.light("explore");
+  sounds.notification("explore");
+  showToast(message, "success", { title });
+  showNotificationBanner({
+    title,
+    body: message,
+    avatarUrl: notification.actor_avatar_url || "",
+    tone: "message",
+    contextKey: "explore:credit_transfer",
+    openLabel: i18nText("common.open"),
+    onOpen: () => requestExploreScreen("notifications"),
+  });
 }
 
 function mapBuyerOrder(order) {
@@ -307,6 +333,11 @@ export default function CrossServiceActivityHost({
         .channel(`cross-service-activity-${userId}-${Date.now()}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "marketplace_orders" }, refreshMarketplace)
         .on("postgres_changes", { event: "*", schema: "public", table: "transport_operator_alerts" }, refreshTransport)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "explore_notifications", filter: `user_id=eq.${userId}` },
+          (payload) => { if (active) announceCreditTransfer(payload.new); },
+        )
         .subscribe();
     }).catch(() => {});
 

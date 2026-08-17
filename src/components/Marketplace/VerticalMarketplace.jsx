@@ -4,6 +4,7 @@ import { Bath, BedDouble, Clock3, MapPin, PackageSearch } from "lucide-react";
 import {
   createVerticalBooking,
   fetchMarketplaceVerticalDiscovery,
+  incrementVerticalListingView,
   subscribeMarketplaceVerticalDiscovery,
 } from "../../Backend/services/marketplace/marketplaceVerticalService";
 import { createBuyerProductOrder, sendBuyerMarketplaceMessage } from "../../Backend/services/marketplace/buyerMarketplaceService";
@@ -585,6 +586,14 @@ function PropertyCard({ item, onClick }) {
 
 function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, onOrder, onRelatedProductSelect, product, relatedProducts, type }) {
   const isRestaurant = type === "restaurant";
+
+  // Count one organic view whenever a buyer opens a vertical listing, so the
+  // seller's Insights reflect real reach (parity with retail product views).
+  useEffect(() => {
+    const listingType = type === "restaurant" ? "meal" : type === "hotel" ? "room" : "property";
+    incrementVerticalListingView(listingType, product?.id);
+  }, [product?.id, type]);
+
   const serviceValue = isRestaurant
     ? product.deliveryAvailable && product.pickupAvailable ? t("urmall.vertical.serviceDeliveryPickup") : product.deliveryAvailable ? t("urmall.vertical.serviceDelivery") : t("urmall.vertical.servicePickup")
     : type === "hotel" ? t("urmall.vertical.serviceHotelDates") : t("urmall.vertical.servicePropertyViewing");
