@@ -7,6 +7,7 @@ import {
   normalizeVisibilityCreditSpend,
 } from "../visibilityCreditService";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
+import { assertBusinessCapacity } from "../businessSubscriptionService";
 import { normalizeTierPricing } from "./tierPricingUtils";
 import { optimizeImageFile } from "./imageOptimization";
 
@@ -355,10 +356,15 @@ export async function submitSellerProduct(form, onProgress) {
   const [business, userId] = await Promise.all([readRegisteredBusiness(), getCurrentUserId()]);
   if (!business) throw new Error("Register a business before adding products.");
   const wantsPromotion = form.pricing.publishStatus === "promoted";
+  const willBeActive = wantsPromotion || form.pricing.publishStatus === "active";
   const promotionCredits = normalizeVisibilityCreditSpend(
     form.pricing.promotionCredits,
     MINIMUM_VISIBILITY_CREDITS,
   );
+
+  if (willBeActive) {
+    await assertBusinessCapacity("urmall", business.id, "products", 1);
+  }
 
   if (wantsPromotion) {
     await assertVisibilityCreditsAvailable(promotionCredits);
@@ -488,10 +494,15 @@ export async function updateSellerProductListing(product, form, onProgress) {
   if (!business) throw new Error("Register a business before editing products.");
   if (!product?.id) throw new Error("Choose a product listing to edit.");
   const wantsPromotion = form.pricing.publishStatus === "promoted";
+  const willBeActive = wantsPromotion || form.pricing.publishStatus === "active";
   const promotionCredits = normalizeVisibilityCreditSpend(
     form.pricing.promotionCredits,
     MINIMUM_VISIBILITY_CREDITS,
   );
+
+  if (willBeActive && product.status !== "active") {
+    await assertBusinessCapacity("urmall", business.id, "products", 1);
+  }
 
   if (wantsPromotion && !product.promoted) {
     await assertVisibilityCreditsAvailable(promotionCredits);
@@ -609,6 +620,18 @@ export async function updateSellerProductListing(product, form, onProgress) {
 export async function updateSellerProduct(productId, patch) {
   const business = await readRegisteredBusiness();
   if (!business) throw new Error("Register a business before managing products.");
+
+  if (patch.status === "active") {
+    const { data: currentProduct } = await supabase
+      .from("marketplace_products")
+      .select("status")
+      .eq("id", productId)
+      .eq("business_id", business.id)
+      .maybeSingle();
+    if (currentProduct?.status !== "active") {
+      await assertBusinessCapacity("urmall", business.id, "products", 1);
+    }
+  }
 
   const { data, error } = await supabase
     .from("marketplace_products")

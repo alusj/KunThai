@@ -8,7 +8,7 @@
 //   - dashboardAccess → see orders, sales, activity, and the Seller Board
 //
 // Store-level management (settings, payouts, admins, deletion, adding another
-// business) stays owner-only regardless of responsibilities.
+// business) stays owner-only. Owners may explicitly delegate plans/capacity.
 
 export function getBusinessPermissions(business) {
   const role = business?.role || "owner";
@@ -18,6 +18,7 @@ export function getBusinessPermissions(business) {
   const canAddProducts = !isAdmin || Boolean(responsibilities.addProducts);
   const canReplyMessages = !isAdmin || Boolean(responsibilities.messageReplies);
   const canAccessDashboard = !isAdmin || Boolean(responsibilities.dashboardAccess);
+  const canManagePlans = !isAdmin || Boolean(responsibilities.manageBilling);
 
   return {
     role,
@@ -28,8 +29,9 @@ export function getBusinessPermissions(business) {
     canAccessDashboard,
     // Owner-only store administration.
     canManageBusiness: !isAdmin,
+    canManagePlans,
     // Whether this admin has at least one responsibility to act on.
-    hasAnyAccess: !isAdmin || canAddProducts || canReplyMessages || canAccessDashboard,
+    hasAnyAccess: !isAdmin || canAddProducts || canReplyMessages || canAccessDashboard || canManagePlans,
   };
 }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  getAreaLocationMotionDuration,
   isImplausibleAreaLocationJump,
   shouldAcceptAreaLocationAccuracy,
 } from "./areaLocationTracking.js";
@@ -43,4 +44,14 @@ test("GPS uncertainty does not turn a legitimate accuracy refinement into a jump
     ),
     false,
   );
+});
+
+test("live movement fills most of the time between GPS fixes instead of teleporting early", () => {
+  assert.equal(getAreaLocationMotionDuration(1_000, 8), 900);
+  assert.equal(getAreaLocationMotionDuration(500, 18), 600);
+});
+
+test("live movement duration stays bounded after rapid or delayed GPS fixes", () => {
+  assert.equal(getAreaLocationMotionDuration(100, 0.5), 360);
+  assert.equal(getAreaLocationMotionDuration(12_000, 120), 1_400);
 });

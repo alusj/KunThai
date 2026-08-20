@@ -6,11 +6,13 @@
 import supabase from "../../lib/supabaseClient";
 import { createExploreNotification } from "../exploreService";
 import { resolvePublicCode } from "../publicCodeService";
+import { assertBusinessCapacity } from "../businessSubscriptionService";
 
 export const ADMIN_RESPONSIBILITIES = [
   { key: "addProducts", label: "Add & manage products", description: "Create and edit product listings for this business." },
   { key: "messageReplies", label: "Reply to messages", description: "Answer buyer messages on behalf of the store." },
   { key: "dashboardAccess", label: "Dashboard information", description: "See orders, activity, and seller board information." },
+  { key: "manageBilling", label: "Plans & billing", description: "View plans, renewals, capacity, and change the store subscription." },
 ];
 
 function mapAdminRow(row = {}) {
@@ -24,6 +26,7 @@ function mapAdminRow(row = {}) {
       addProducts: Boolean(row.responsibilities?.addProducts),
       messageReplies: Boolean(row.responsibilities?.messageReplies),
       dashboardAccess: row.responsibilities?.dashboardAccess !== false,
+      manageBilling: Boolean(row.responsibilities?.manageBilling),
     },
     adminName: row.admin_name || "KunThai member",
     adminCode: row.admin_code || "",
@@ -53,6 +56,7 @@ export async function fetchBusinessAdmins(businessId) {
 export async function inviteBusinessAdmin(business, kunthaiId) {
   const ownerId = await getCurrentUserId("Sign in before inviting an admin.");
   if (!business?.id) throw new Error("Open a business workspace before inviting an admin.");
+  await assertBusinessCapacity("urmall", business.id, "admins", 1);
 
   const resolved = await resolvePublicCode(kunthaiId);
   if (!resolved || resolved.kind !== "kunthai" || !resolved.userId) {
@@ -128,6 +132,7 @@ export async function updateAdminResponsibilities(adminRow, responsibilities) {
         addProducts: Boolean(responsibilities.addProducts),
         messageReplies: Boolean(responsibilities.messageReplies),
         dashboardAccess: Boolean(responsibilities.dashboardAccess),
+        manageBilling: Boolean(responsibilities.manageBilling),
       },
       updated_at: new Date().toISOString(),
     })

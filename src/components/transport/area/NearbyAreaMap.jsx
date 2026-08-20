@@ -12,6 +12,7 @@ import { showToast } from "../../../Backend/services/toastService";
 import { getNetworkStatus, subscribeToNetworkStatus } from "../../../Backend/services/networkService";
 import { cacheAreaViewPosition, readAreaViewCache } from "../../../Backend/services/areaViewCacheService";
 import {
+  getAreaLocationMotionDuration,
   isImplausibleAreaLocationJump,
   shouldAcceptAreaLocationAccuracy,
 } from "./areaLocationTracking";
@@ -740,6 +741,10 @@ function easeOutCubic(value) {
   return 1 - Math.pow(1 - value, 3);
 }
 
+function easeInOutSine(value) {
+  return -(Math.cos(Math.PI * value) - 1) / 2;
+}
+
 
 function normalizeBearing(value) {
   if (value == null || Number.isNaN(Number(value))) return null;
@@ -1129,13 +1134,6 @@ function getSmoothedPosition(previousPosition, nextPosition, elapsedMs = 1000) {
   };
 }
 
-function getMarkerAnimationDuration(fromPosition, toPosition, elapsedMs = 1000) {
-  const distance = distanceInMeters(fromPosition, toPosition);
-  if (!Number.isFinite(distance) || distance >= 35) return 240;
-  if (distance >= 12) return 300;
-  return Math.max(180, Math.min(420, elapsedMs * 0.42));
-}
-
 function requestHighAccuracyRescuePosition() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -1502,7 +1500,7 @@ function clearAlternativeRouteLayer(map) {
   if (map.getSource("route-alternative")) map.removeSource("route-alternative");
 }
 
-function animateMarkerTo(marker, fromPosition, toPosition, duration = 280, onFrame) {
+function animateMarkerTo(marker, fromPosition, toPosition, duration = 280, onFrame, easing = easeOutCubic) {
   if (!marker || !fromPosition || !toPosition) return null;
 
   const startedAt = performance.now();
@@ -1510,7 +1508,7 @@ function animateMarkerTo(marker, fromPosition, toPosition, duration = 280, onFra
 
   function step(now) {
     const progress = Math.min((now - startedAt) / duration, 1);
-    const easedProgress = easeOutCubic(progress);
+    const easedProgress = easing(progress);
 
     const nextLng = lerp(fromPosition.lng, toPosition.lng, easedProgress);
     const nextLat = lerp(fromPosition.lat, toPosition.lat, easedProgress);
@@ -1844,7 +1842,11 @@ export default function NearbyAreaMap({
     if (!options.force && isUserInteractingRef.current) return;
 
     const now = performance.now();
-    if (!options.force && now - lastCameraMoveRef.current < GPS_SETTINGS.cameraThrottleMs) return;
+    if (
+      !options.force &&
+      !options.syncWithMarker &&
+      now - lastCameraMoveRef.current < GPS_SETTINGS.cameraThrottleMs
+    ) return;
     lastCameraMoveRef.current = now;
 
     const hasDestination = Boolean(destination?.lat && destination?.lng);
@@ -1862,17 +1864,25 @@ export default function NearbyAreaMap({
       zoom: Math.max(map.getZoom(), hasDestination ? 16.2 : 15.2),
       pitch: hasDestination || canUseHeading ? 58 : 35,
       bearing,
+      // Route previews use asymmetric fitBounds padding. Reset it when live
+      // follow resumes so the coordinate is the actual viewport centre.
+      padding: 0,
       duration: options.duration ?? (options.force ? 420 : 480),
+      easing: options.easing || easeOutCubic,
       essential: true,
     });
   }
 
-  // Keeps the traveller centred while moving. A single throttled easeTo per GPS
-  // update slides the map centre (and eases bearing/zoom/pitch together) toward
-  // the marker's target - smooth, unlike a per-frame setCenter, which stutters.
-  function followTravellerCamera(target, routeSegmentIndex) {
+  // Keeps the traveller centred while moving. Camera and marker use the same
+  // target, duration, and easing curve on every accepted GPS fix, so the map
+  // slides underneath the icon without the two animations drifting apart.
+  function followTravellerCamera(target, routeSegmentIndex, duration) {
     if (!followLockRef.current || hasOperatorRoutePlan) return;
-    applySmartCamera(target, selectedLocation, routeSegmentIndex);
+    applySmartCamera(target, selectedLocation, routeSegmentIndex, {
+      duration,
+      easing: easeInOutSine,
+      syncWithMarker: true,
+    });
   }
 
   async function requestCompassPermissionIfNeeded() {
@@ -2922,38 +2932,61 @@ export default function NearbyAreaMap({
           (routeSnappedRef.current && effectiveRouteDistance <= NAV_SNAP_SETTINGS.snapReleaseMeters)
         );
         routeSnappedRef.current = shouldSnapToRoute;
+        // Raw GPS remains authoritative for off-route safety checks, but the
+        // visible marker projects the already-smoothed position onto the
+        // route. Projecting the raw fix here used to let the icon leap several
+        // metres ahead of its own motion smoothing at every GPS update.
+        const displayedNearestOnRoute = shouldSnapToRoute
+          ? getNearestPointOnRoute(
+              livePosition,
+              routeCoordinates,
+              nearestOnRoute?.segmentIndex ?? lastRouteSegmentIndexRef.current,
+            )
+          : null;
         const markerTarget = shouldSnapToRoute
-          ? { ...livePosition, lat: nearestOnRoute.point.lat, lng: nearestOnRoute.point.lng }
+          ? {
+              ...livePosition,
+              lat: displayedNearestOnRoute?.point.lat ?? nearestOnRoute.point.lat,
+              lng: displayedNearestOnRoute?.point.lng ?? nearestOnRoute.point.lng,
+            }
           : livePosition;
+        const navigationSegmentIndex = displayedNearestOnRoute?.segmentIndex
+          ?? nearestOnRoute?.segmentIndex;
 
         const markerStartPosition =
           markerRenderedPositionRef.current ||
           getMarkerPosition(userMarkerRef.current, previousSmoothedPosition) ||
           previousSmoothedPosition;
 
+        const motionDuration = getAreaLocationMotionDuration(
+          elapsedMs,
+          distanceInMeters(markerStartPosition, markerTarget),
+        );
+
         markerAnimationCancelRef.current?.();
         markerAnimationCancelRef.current = animateMarkerTo(
           userMarkerRef.current,
           markerStartPosition,
           markerTarget,
-          getMarkerAnimationDuration(markerStartPosition, markerTarget, elapsedMs),
+          motionDuration,
           (renderedPosition) => {
             markerRenderedPositionRef.current = renderedPosition;
           },
+          easeInOutSine,
         );
 
         smoothedPositionRef.current = livePosition;
 
-        // Smoothly re-centre the map on the marker's target (throttled easeTo),
-        // keeping the traveller centred while the map glides underneath.
+        // Smoothly re-centre the map on the marker's target using the exact
+        // same motion timeline, keeping the map gliding underneath the icon.
         if (!isUserInteractingRef.current) {
-          followTravellerCamera(markerTarget, nearestOnRoute?.segmentIndex);
+          followTravellerCamera(markerTarget, navigationSegmentIndex, motionDuration);
         }
 
         if (routeCoordinates.length) {
           const nearestRouteInfo = {
             distance: nearestOnRoute?.distance ?? Infinity,
-            segmentIndex: nearestOnRoute?.segmentIndex ?? 0,
+            segmentIndex: navigationSegmentIndex ?? 0,
           };
           const distanceToDestination = selectedLocation?.lat
             ? distanceInMeters(rawLivePosition, selectedLocation)

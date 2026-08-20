@@ -5,6 +5,12 @@ export const AREA_LOCATION_ACCURACY = {
   trackingMaxMeters: 500,
 };
 
+export const AREA_LOCATION_MOTION = {
+  minDurationMs: 360,
+  maxDurationMs: 1_400,
+  intervalCoverage: 0.9,
+};
+
 function toRadians(value) {
   return (Number(value) * Math.PI) / 180;
 }
@@ -36,6 +42,28 @@ export function shouldAcceptAreaLocationAccuracy(accuracy, { hasLiveFix = false 
       ? AREA_LOCATION_ACCURACY.trackingMaxMeters
       : AREA_LOCATION_ACCURACY.firstFixMaxMeters
   );
+}
+
+export function getAreaLocationMotionDuration(elapsedMs = 1_000, distanceMeters = 0) {
+  const safeElapsedMs = Number.isFinite(Number(elapsedMs))
+    ? Math.max(0, Number(elapsedMs))
+    : 1_000;
+  const safeDistanceMeters = Number.isFinite(Number(distanceMeters))
+    ? Math.max(0, Number(distanceMeters))
+    : 0;
+  const intervalDuration = safeElapsedMs * AREA_LOCATION_MOTION.intervalCoverage;
+  const distanceFloor = safeDistanceMeters >= 35
+    ? 700
+    : safeDistanceMeters >= 12
+      ? 600
+      : safeDistanceMeters >= 2
+        ? 480
+        : AREA_LOCATION_MOTION.minDurationMs;
+
+  return Math.round(Math.min(
+    AREA_LOCATION_MOTION.maxDurationMs,
+    Math.max(AREA_LOCATION_MOTION.minDurationMs, distanceFloor, intervalDuration),
+  ));
 }
 
 export function isImplausibleAreaLocationJump(

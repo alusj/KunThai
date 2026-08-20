@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, LoaderCircle, MoreVertical, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Crown, LoaderCircle, MoreVertical, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 
 import {
   ADMIN_RESPONSIBILITIES,
@@ -16,6 +16,7 @@ import { useI18n, t } from "../../../../../../../../i18n";
 import AppBackTab from "../../../../../../../shared/AppBackTab";
 import KunThaiIdHelpButton from "../../../../../../../shared/KunThaiIdHelpButton";
 import { t as i18nText } from "../../../../../../../../i18n/index";
+import { fetchBusinessSubscription, getCapacityStatus } from "../../../../../../../../Backend/services/businessSubscriptionService";
 
 const STATUS_STYLES = {
   pending: "bg-amber-50 text-amber-700 border-amber-100",
@@ -23,7 +24,7 @@ const STATUS_STYLES = {
   declined: "bg-rose-50 text-rose-700 border-rose-100",
 };
 
-export default function BusinessAdmins({ onBack }) {
+export default function BusinessAdmins({ onBack, onOpenPlans }) {
   useI18n();
   const [business, setBusiness] = useState(null);
   const [admins, setAdmins] = useState([]);
@@ -35,6 +36,7 @@ export default function BusinessAdmins({ onBack }) {
   const [responsibilityAdmin, setResponsibilityAdmin] = useState(null);
   const [responsibilityDraft, setResponsibilityDraft] = useState({});
   const [savingResponsibilities, setSavingResponsibilities] = useState(false);
+  const [planState, setPlanState] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -46,8 +48,14 @@ export default function BusinessAdmins({ onBack }) {
         if (!alive) return;
         setBusiness(activeBusiness);
         if (activeBusiness?.id) {
-          const rows = await fetchBusinessAdmins(activeBusiness.id);
-          if (alive) setAdmins(rows);
+          const [rows, subscription] = await Promise.all([
+            fetchBusinessAdmins(activeBusiness.id),
+            fetchBusinessSubscription("urmall", activeBusiness.id).catch(() => null),
+          ]);
+          if (alive) {
+            setAdmins(rows);
+            setPlanState(subscription);
+          }
         }
       } catch (error) {
         showToast(error.message || t("urmall.biz.admins.loadFailed"), "danger");
@@ -100,7 +108,12 @@ export default function BusinessAdmins({ onBack }) {
   async function reloadAdmins() {
     if (!business?.id) return;
     try {
-      setAdmins(await fetchBusinessAdmins(business.id));
+      const [rows, subscription] = await Promise.all([
+        fetchBusinessAdmins(business.id),
+        fetchBusinessSubscription("urmall", business.id).catch(() => null),
+      ]);
+      setAdmins(rows);
+      if (subscription) setPlanState(subscription);
     } catch {
       // The list keeps its last known state.
     }
@@ -185,6 +198,22 @@ export default function BusinessAdmins({ onBack }) {
             </div>
             <KunThaiIdHelpButton subject="business administrator" tone="emerald" />
           </div>
+          {planState?.available ? (() => {
+            const capacity = getCapacityStatus(planState, "admins", 1);
+            return (
+              <div className={`mt-4 flex items-center justify-between gap-3 rounded-2xl border p-3 ${capacity.allowed ? "border-emerald-100 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+                <div className="min-w-0">
+                  <p className={`text-xs font-black uppercase tracking-wide ${capacity.allowed ? "text-emerald-700" : "text-amber-800"}`}>{planState.entitlement.planName} capacity</p>
+                  <p className="mt-1 text-sm font-bold text-slate-700">{capacity.current} of {capacity.limit ?? "unlimited"} admin spaces in use</p>
+                </div>
+                {!capacity.allowed && onOpenPlans ? (
+                  <button type="button" onClick={onOpenPlans} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-black text-white">
+                    <Crown size={15} /> Upgrade
+                  </button>
+                ) : null}
+              </div>
+            );
+          })() : null}
           <form onSubmit={sendInvite} className="mt-4 flex gap-2">
             <input
               value={inviteCode}
@@ -306,8 +335,8 @@ export default function BusinessAdmins({ onBack }) {
                       <Check size={14} />
                     </span>
                     <span>
-                      <span className="block text-sm font-black text-gray-950">{t(`urmall.biz.admins.resp.${item.key}Label`)}</span>
-                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">{t(`urmall.biz.admins.resp.${item.key}Desc`)}</span>
+                      <span className="block text-sm font-black text-gray-950">{item.key === "manageBilling" ? item.label : t(`urmall.biz.admins.resp.${item.key}Label`)}</span>
+                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">{item.key === "manageBilling" ? item.description : t(`urmall.biz.admins.resp.${item.key}Desc`)}</span>
                     </span>
                   </button>
                 );

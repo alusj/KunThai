@@ -10,6 +10,10 @@ import {
   uploadTransportVerificationDocument,
 } from "./transportPublicMediaService";
 import { storeCountryContext } from "../../data/globalCountryProfiles";
+import {
+  BusinessPlanLimitError,
+  assertBusinessCapacity,
+} from "../../Backend/services/businessSubscriptionService";
 
 const COMPANY_DRAFT_PREFIX = "kuntai.transport.companyDraft.";
 const COMPANY_ACCOUNT_PREFIX = "kuntai.transport.companyAccount.";
@@ -53,6 +57,7 @@ export const COMPANY_OPERATOR_ROLES = {
       manage_fleets: true,
       dispatch_bookings: true,
       view_company_activity: true,
+      manage_billing: true,
     },
   },
 };
@@ -377,6 +382,7 @@ function buildCompanyAccess(company = {}, member = null, userId = "") {
     canManageFleets: isOwner || can("manage_fleets"),
     canDispatchBookings: isOwner || can("dispatch_bookings"),
     canViewCompanyActivity: isOwner || can("view_company_activity"),
+    canManagePlans: isOwner || can("manage_billing"),
   };
 }
 
@@ -1369,6 +1375,46 @@ export async function saveTransportCompanyAccount(account) {
     verificationStatus: "pending",
     savedAt: new Date().toISOString(),
   }, user.id);
+
+  const requestedOperatorKeys = uniqueValues(normalized.fleets.flatMap((fleet) =>
+    (fleet.operators || []).map((operator) => {
+      const invite = normalizeInvite(operator);
+      return invite.userId || invite.operatorId || compact(invite.publicId || invite.lookupValue);
+    }),
+  ));
+
+  if (normalized.id) {
+    const [{ data: existingFleets }, { data: existingInvites }] = await Promise.all([
+      supabase.from("transport_company_fleets").select("fleet_code").eq("company_id", normalized.id),
+      supabase
+        .from("transport_company_operator_invites")
+        .select("operator_user_id,operator_id,operator_public_id")
+        .eq("company_id", normalized.id)
+        .in("status", ["pending", "accepted"]),
+    ]);
+    const existingFleetCodes = new Set((existingFleets || []).map((fleet) => fleet.fleet_code));
+    const existingOperatorKeys = new Set((existingInvites || []).map((invite) =>
+      invite.operator_user_id || invite.operator_id || compact(invite.operator_public_id),
+    ));
+    const additionalFleets = normalized.fleets.filter((fleet) => !existingFleetCodes.has(fleet.fleetCode)).length;
+    const additionalOperators = requestedOperatorKeys.filter((key) => !existingOperatorKeys.has(key)).length;
+    if (additionalFleets > 0) {
+      await assertBusinessCapacity("urride", normalized.id, "vehicles", additionalFleets);
+    }
+    if (additionalOperators > 0) {
+      await assertBusinessCapacity("urride", normalized.id, "operators", additionalOperators);
+    }
+  } else if (!normalized.id) {
+    // A new company starts on Free. Reject an oversized first submission
+    // before any documents are uploaded or partial company rows are written.
+    if (normalized.fleets.length > 5) {
+      throw new BusinessPlanLimitError({ surface: "urride", resource: "vehicles", current: 0, limit: 5, planCode: "free" });
+    }
+    if (requestedOperatorKeys.length > 5) {
+      throw new BusinessPlanLimitError({ surface: "urride", resource: "operators", current: 0, limit: 5, planCode: "free" });
+    }
+  }
+
   normalized = {
     ...normalized,
     documents: await prepareCompanyDocuments(normalized.documents, user.id),
@@ -1809,6 +1855,11 @@ export async function manageTransportCompanyOperator(companyAccount, operator, a
   if (action === "responsibility") {
     const role = COMPANY_OPERATOR_ROLES[options.role] ? options.role : "operator";
     const preset = COMPANY_OPERATOR_ROLES[role];
+    const wasAdministrator = ["admin", "fleet_manager", "dispatcher"].includes(member.role);
+    const becomesAdministrator = ["admin", "fleet_manager", "dispatcher"].includes(role);
+    if (becomesAdministrator && !wasAdministrator) {
+      await assertBusinessCapacity("urride", company.id, "admins", 1);
+    }
     memberPatch = {
       role,
       permissions: preset.permissions,

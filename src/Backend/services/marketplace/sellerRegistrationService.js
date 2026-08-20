@@ -381,6 +381,7 @@ export async function readRegisteredBusinesses() {
           addProducts: Boolean(responsibilities?.addProducts),
           messageReplies: Boolean(responsibilities?.messageReplies),
           dashboardAccess: responsibilities?.dashboardAccess !== false,
+          manageBilling: Boolean(responsibilities?.manageBilling),
         }
       : null;
     return business;

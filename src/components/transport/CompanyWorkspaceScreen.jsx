@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Clock3,
   Copy,
+  Crown,
   Eye,
   FileCheck2,
   FileText,
@@ -71,6 +72,12 @@ import {
   syncOperatorLiveBookedState,
 } from "../services/operatorLiveLocationService";
 import { t as i18nText } from "../../i18n/index";
+import BusinessPlanScreen from "../shared/BusinessPlanScreen";
+import {
+  BUSINESS_PLAN_UPDATED_EVENT,
+  fetchBusinessSubscription,
+  getCapacityStatus,
+} from "../../Backend/services/businessSubscriptionService";
 
 const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -193,10 +200,12 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const canManageOperators = Boolean(access.canManageOperators);
   const canManageFleets = Boolean(access.canManageFleets);
   const canAddOperators = Boolean(access.isOwner);
+  const canManagePlans = Boolean(access.canManagePlans || access.isOwner);
   const canViewOperatorDashboard = Boolean(access.isOwner || access.canManageOperators);
   const canViewAllBookings = Boolean(access.canViewAllBookings);
   const canViewBookingQueue = Boolean(canViewAllBookings || access.operatorId);
   const canViewCompanyNotifications = Boolean(access.isOwner || access.canViewCompanyActivity);
+  const [planState, setPlanState] = useState(null);
   const companyNotifications = (company?.activities || []).filter((activity) => {
     const type = String(activity.activity_type || activity.activityType || "");
     const supported = type.startsWith("operator_invite_") || type === "trip_status_updated";
@@ -287,8 +296,15 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
         icon: Clock3,
         stat: `${company?.activities?.length || 0}`,
       },
+      ...(canManagePlans ? [{
+        id: "plans",
+        label: "Plans & capacity",
+        detail: "Operator, vehicle, admin, and renewal controls",
+        icon: Crown,
+        stat: planState?.entitlement?.planName || "Free",
+      }] : []),
     ],
-    [acceptedOperators.length, company?.activities?.length, company?.companyCode, company?.verificationStatus, fleets.length, pendingRequests.length],
+    [acceptedOperators.length, canManagePlans, company?.activities?.length, company?.companyCode, company?.verificationStatus, fleets.length, pendingRequests.length, planState?.entitlement?.planName],
   );
   const visibleMenuItem = menuItems.find((item) => item.id === visibleMenuScreen);
 
@@ -299,6 +315,26 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   }, []);
 
   useEffect(() => subscribeNotificationSeen(() => setSeenVersion((version) => version + 1)), []);
+
+  useEffect(() => {
+    if (!company?.id || !canManagePlans) {
+      setPlanState(null);
+      return undefined;
+    }
+    let active = true;
+    const refresh = () => fetchBusinessSubscription("urride", company.id, { sync: true })
+      .then((next) => { if (active) setPlanState(next); })
+      .catch(() => {});
+    refresh();
+    function handlePlanUpdate(event) {
+      if (event.detail?.surface === "urride" && event.detail?.entityId === company.id) refresh();
+    }
+    window.addEventListener(BUSINESS_PLAN_UPDATED_EVENT, handlePlanUpdate);
+    return () => {
+      active = false;
+      window.removeEventListener(BUSINESS_PLAN_UPDATED_EVENT, handlePlanUpdate);
+    };
+  }, [canManagePlans, company?.id]);
 
   useEffect(() => {
     let active = true;
@@ -621,6 +657,18 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     runAfterDrawerClose(() => (onEditCompany || onRegisterCompany)?.());
   }
 
+  function requestAddOperator() {
+    if (planState?.available) {
+      const capacity = getCapacityStatus(planState, "operators", 1);
+      if (!capacity.allowed) {
+        showToast(`Your ${planState.entitlement.planName} plan is using all ${capacity.limit} operator spaces. Open Plans & capacity to upgrade.`, "danger");
+        if (canManagePlans) openMenuScreen("plans");
+        return;
+      }
+    }
+    onRegisterCompany?.();
+  }
+
   function switchCompanyTab(tab) {
   if (!tab) return;
 
@@ -650,7 +698,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       return (
         <Colleagues
           canManageOperators={canManageOperators}
-          onAddOperator={canAddOperators ? onRegisterCompany : undefined}
+          onAddOperator={canAddOperators ? requestAddOperator : undefined}
           onManageOperator={setOperatorAction}
           operators={acceptedOperators}
           onOpenOperatorDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
@@ -856,7 +904,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               onEdit={access.isOwner ? openCompanyEditor : undefined}
               onOpenOperatorDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
               canManageOperators={canManageOperators}
-              onAddOperator={canAddOperators ? onRegisterCompany : undefined}
+              onAddOperator={canAddOperators ? requestAddOperator : undefined}
               onManageOperator={setOperatorAction}
               operators={acceptedOperators}
               pendingRequests={pendingRequests}
@@ -941,7 +989,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             busy={managementBusy}
             canManage={canManageOperators}
             company={company}
-            onAddOperator={canAddOperators ? onRegisterCompany : undefined}
+            onAddOperator={canAddOperators ? requestAddOperator : undefined}
             onClose={() => setOperatorAction(null)}
             onOpenDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
             onResponsibility={(operator) => {
@@ -1217,6 +1265,9 @@ function FleetHqMenuScreen({
             {screen === "requests" ? <RequestsPanel requests={requests} pendingRequests={pendingRequests} /> : null}
             {screen === "verification" ? <VerificationCenterPanel company={company} fleets={fleets} pendingRequests={pendingRequests} onEdit={onEdit} /> : null}
             {screen === "activity" ? <ActivityPanel company={company} /> : null}
+            {screen === "plans" ? (
+              <BusinessPlanScreen surface="urride" entityId={company?.id || ""} entityName={company?.companyName || "Your UrRide company"} />
+            ) : null}
           </main>
         </SlidePanel>
       </div>

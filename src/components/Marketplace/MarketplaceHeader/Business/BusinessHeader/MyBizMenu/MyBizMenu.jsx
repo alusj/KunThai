@@ -2,6 +2,7 @@ import {
   BadgeHelp,
   BriefcaseBusiness,
   CreditCard,
+  Crown,
   FileText,
   LayoutDashboard,
   Plus,
@@ -29,6 +30,7 @@ import Privacy from "./MyBizPages/HelpSupport/Legal/Privacy";
 import Payments from "./MyBizPages/PaymentsPayouts/Payments";
 import ProfileSettings from "./MyBizPages/ProfileSettings/ProfileSettings";
 import SellerBoard from "./MyBizPages/SellerBoard/SellerBoard";
+import SubscriptionPlans from "./MyBizPages/SubscriptionPlans/SubscriptionPlans";
 import { t as i18nText } from "../../../../../../i18n/index";
 
 const SELLER_MENU_ANIMATION_MS = 360;
@@ -54,7 +56,10 @@ function getDrawerScreen(key, props = {}) {
     component: <SellerBoard onBack={props.onBack} />,
   },
   admins: {
-    component: <BusinessAdmins onBack={props.onBack} />,
+    component: <BusinessAdmins onBack={props.onBack} onOpenPlans={props.onOpenPlans} />,
+  },
+  plans: {
+    component: <SubscriptionPlans onBack={props.onBack} />,
   },
   };
 
@@ -74,6 +79,7 @@ export default function MyBizMenu({
   useI18n();
   const canManageBusiness = permissions ? permissions.canManageBusiness : true;
   const canAccessDashboard = permissions ? permissions.canAccessDashboard : true;
+  const canManagePlans = permissions ? permissions.canManagePlans : true;
   const [activeScreenKey, setActiveScreenKey] = useState(initialScreenKey);
   const [visibleScreenKey, setVisibleScreenKey] = useState(initialScreenKey);
   const [screenAction, setScreenAction] = useState("idle");
@@ -182,6 +188,7 @@ export default function MyBizMenu({
     ? getDrawerScreen(visibleScreenKey, {
         profileInitialView,
         onBack: goBackActiveScreen,
+        onOpenPlans: () => openActiveScreen("plans"),
       })
     : null;
 
@@ -246,7 +253,7 @@ export default function MyBizMenu({
               />
 
               <div className="space-y-5 px-4 pt-5">
-                {canManageBusiness || canAccessDashboard ? (
+                {canManageBusiness || canAccessDashboard || canManagePlans ? (
                   <SellerDrawerSection title={t("urmall.biz.menu.sectionManageStore")}>
                     {canManageBusiness ? (
                       <SellerDrawerNavItem
@@ -265,6 +272,14 @@ export default function MyBizMenu({
                         title={t("urmall.biz.menu.boardTitle")}
                         description={t("urmall.biz.menu.boardDesc")}
                         onClick={() => openActiveScreen("board")}
+                      />
+                    ) : null}
+                    {canManagePlans ? (
+                      <SellerDrawerNavItem
+                        icon={Crown}
+                        title="Plans & capacity"
+                        description="Manage product limits, administrators, and Visibility Credit renewals."
+                        onClick={() => openActiveScreen("plans")}
                       />
                     ) : null}
                     {canManageBusiness ? (
